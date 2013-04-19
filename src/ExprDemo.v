@@ -18,13 +18,13 @@ Section Demo.
              plus :: 
           @F types' 1
              (tvArr (tvArr (tvVar 0) tvProp) tvProp) 
-             ex :: 
+             (fun x : Type => @ex x) ::
           @F types' 1
              (tvArr (tvArr (tvVar 0) tvProp) tvProp) 
-             all :: 
+             all ::
           @F types' 1
              (tvArr (tvVar 0) (tvArr (tvVar 0) tvProp))
-             (fun T : Type => @eq T) :: 
+             (fun T : Type => @eq T) ::
           nil).
   Defined.
 
