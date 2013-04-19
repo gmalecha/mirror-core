@@ -3,7 +3,9 @@ PROVERS := Assumption
 #  Transitivity
 MODULES    := Types ExprCore ExprT ExprFacts ExprProp ExprLift Expr \
 	      Repr \
-	      Prover provers/ProverTac
+	      Prover provers/ProverTac \
+	      Subst \
+	      ExprUnify ExprUnifySyntactic
 
 TESTS := ExprDemo
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
