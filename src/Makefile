@@ -1,7 +1,7 @@
 GENERIC := 
 PROVERS := Assumption
 #  Transitivity
-MODULES    := Types ExprCore Expr ExprT ExprFacts ExprProp \
+MODULES    := Types ExprCore ExprT ExprFacts ExprProp ExprLift Expr \
 	      Repr \
 	      Prover provers/ProverTac
 

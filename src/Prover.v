@@ -2,7 +2,7 @@ Require Import List Arith Bool.
 Require Import ExtLib.Core.EquivDec.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.HList.
-Require Import Expr ExprT Repr.
+Require Import ExprCore ExprProp ExprT Repr.
 
 Set Implicit Arguments.
 Set Strict Implicit.
