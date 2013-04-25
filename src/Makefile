@@ -11,7 +11,7 @@ TESTS := ExprDemo
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS :=-R . MirrorCore
+ARGS :=-R . MirrorCore -R ../coq-ext-lib ExtLib
 
 .PHONY: coq clean package
 

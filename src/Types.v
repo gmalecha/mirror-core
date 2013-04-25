@@ -1,7 +1,11 @@
+Require Import Morphisms.
+Require Import Relations.
+Require Import RelationClasses.
 Require Import List Bool.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.EqDep.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -125,6 +129,42 @@ Section env.
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
   Qed.
 
+  Theorem nat_eq_odec_None : forall a b, nat_eq_odec a b = None -> a <> b.
+  Proof.
+    clear; induction a; destruct b; simpl; try congruence.
+    specialize (IHa b). destruct (nat_eq_odec a b); try congruence.
+    auto.
+  Qed.
+
+  Theorem typ_eq_odec_None : forall t t', 
+    typ_eq_odec t t' = None -> t <> t'.
+  Proof.
+    induction t; destruct t'; simpl in *; try congruence; intros;
+      repeat match goal with
+               | [ H : match ?X with _ => _ end = _ |- _ ] =>
+                 consider X; intros; subst; try congruence
+             end.
+    eapply IHt2 in H0; congruence.
+    eapply IHt1 in H; congruence.
+    eapply nat_eq_odec_None in H. congruence.
+    eapply nat_eq_odec_None in H. congruence.
+  Qed.
+
+  Theorem typ_eq_odec_None_refl : forall t,
+    typ_eq_odec t t = None -> False.
+  Proof.
+    intros. apply typ_eq_odec_None in H. auto.
+  Qed.
+
+  Theorem typ_eq_odec_Some_refl : forall t,
+    typ_eq_odec t t = Some refl_equal.
+  Proof.
+    intros. consider (typ_eq_odec t t); intros; auto.
+    { f_equal. 
+      uip_all. reflexivity. }
+    { exfalso; eauto using typ_eq_odec_None_refl. }
+  Qed.
+
   Fixpoint typD (env : list Type) (x : typ) {struct x} : Type :=
     match x return Type with
       | tvProp => Prop
@@ -208,7 +248,7 @@ Section env.
     match t as t , t' as t' return typD ts' t -> typD ts' t' -> option bool with
       | tvProp , tvProp => fun _ _ => None
       | tvArr _ _ , tvArr _ _ => fun _ _ => None
-      | tvVar t , tvVar t' => fun _ _ => None (** TODO: this is bad? **)
+      | tvVar t , tvVar t' => fun _ _ => None (** TODO: is this too weak? **)
       | tvType x , tvType y =>
         match nat_eq_odec x y with
           | None => fun _ _ => Some false
@@ -238,12 +278,9 @@ Section env.
                 end
             end
         end
-      | _ , _ => fun _ _ => None (** TODO: this is bad? **)
+      | _ , _ => fun _ _ => None (** TODO: is this too weak? **)
     end).
   Defined.
-
-  Require Import Morphisms.
-  Require Import Relations.
 
   Fixpoint equiv (t : typ) : forall a b : typD nil t, Prop :=
     match t as t return typD nil t -> typD nil t -> Prop with
@@ -252,7 +289,7 @@ Section env.
       | tvVar i => fun x y => x = y
       | tvType i => fun x y => x = y
     end.
-  Require Import RelationClasses.
+
   Global Instance Reflexive_equiv t : Reflexive (equiv t).
   Proof.
     induction t; simpl; intuition.

@@ -1,5 +1,15 @@
 #!/usr/bin/python
 import os, sys
+import re
+
+EXCLUDE=[]
+
+def keep(x):
+    global EXCLUDE
+    for p in EXCLUDE:
+        if p.match(x):
+            return False
+    return True
 
 def get_name(n):
     n = n.strip()
@@ -11,7 +21,7 @@ def get_name(n):
 
 def get_ident(n):
     n = get_name(n)
-    return n.replace('/','_')
+    return n.replace('/','_').replace('.','').replace('-','_')
 
 def gather_deps(files):
     result = {}
@@ -22,7 +32,7 @@ def gather_deps(files):
         assert len(l) == 1
         (_, d) = l[0].split(':')
         deps = [ get_name(x) for x in d.split(' ')
-                 if x.strip().endswith('.vo') ]
+                 if x.strip().endswith('.vo') and keep(x.strip())]
 
         result[name] = deps
 
@@ -37,6 +47,15 @@ def print_dot(deps):
     print '}'
 
 if __name__ == '__main__':
+    args = sys.argv[1:]
+    EXCLUDE = []
+    try:
+        ex = args.index('--exclude')
+        EXCLUDE = EXCLUDE + [re.compile('^%s$' % args[ex+1])]
+        args = args[:ex] + args[ex+2:]
+    except ValueError, e:
+        pass
+
     deps = gather_deps(sys.argv[1:])
     print_dot(deps)
     

@@ -12,8 +12,9 @@ Section env.
   Variable ts : types.
 
   Definition func := nat.
-  Definition tfunction := typ.
-  Definition tfunctions := list typ.
+  Record tfunction : Type := 
+  { tfenv : nat ; tftype : typ }.
+  Definition tfunctions := list tfunction.
   Definition var := nat.
   Definition uvar := nat.
 
@@ -25,7 +26,9 @@ Section env.
   | Func : func -> list typ -> expr
   | App : expr -> list expr -> expr
   | Abs : typ -> expr -> expr
-  | UVar : uvar -> expr.
+  | UVar : uvar -> expr
+  | Equal : typ -> expr -> expr -> expr
+  | Not : expr -> expr.
 
   Definition exprs : Type := list expr.
 
@@ -39,6 +42,8 @@ Section env.
     Hypothesis HApp : forall f es, P f -> Forall P es -> P (App f es).
     Hypothesis HAbs : forall t e, P e -> P (Abs t e).
     Hypothesis HUVar : forall v : var, P (UVar v).
+    Hypothesis HEqual : forall t e1 e2, P e1 -> P e2 -> P (Equal t e1 e2).
+    Hypothesis HNot : forall e, P e -> P (Not e).
     
     Fixpoint expr_ind x : P x.
     Proof.
@@ -54,6 +59,8 @@ Section env.
             | nil => Forall_nil _
             | e :: es => Forall_cons _ (expr_ind e) (all es)
           end) _)
+        | Equal _ _ _ => HEqual _ (expr_ind _) (expr_ind _)
+        | Not _ => HNot (expr_ind _)
       end).
     Qed.
   End expr_ind.
@@ -110,7 +117,7 @@ Section env.
       | Func f ts =>
         match nth_error funcs f with
           | None => None
-          | Some r => Some (instantiate_typ ts (ftype r))
+          | Some r => Some (instantiate_typ (rev ts) (ftype r))
         end
       | App e es =>
         match typeof var_env e with
@@ -122,24 +129,11 @@ Section env.
           | None => None
           | Some t' => Some (tvArr t t')
         end
+      | Equal _ _ _ => Some tvProp
+      | Not _ => Some tvProp
     end.
   
-  Fixpoint hlist_nth (A : Type) (F : A -> Type) (ls : list A) (h : hlist F ls) (n : nat) :
-    match nth_error ls n with
-      | None => unit
-      | Some t => F t
-    end :=
-    match h in hlist _ ls , n as n 
-      return match nth_error ls n with
-               | None => unit
-               | Some t => F t
-             end
-      with
-      | Hnil , 0 => tt
-      | Hnil , S _ => tt
-      | Hcons _ _ x _ , 0 => x
-      | Hcons _ _ _ h , S n => hlist_nth h n
-    end.
+  
 
   (** 
    ** The denotation function with binders must be total because we
@@ -148,13 +142,6 @@ Section env.
    ** succeed until after we've taken the denotation of the body, 
    ** which we can't do until we have the binder.
    **
-   ** Thus, it will be necessary to write a [WellTyped] function that
-   ** can guarantee the successful denotation of a term in a /type environment/.
-   ** What is the right type for this?
-   ** * tenv -> expr -> type -> bool
-   ** * tenv -> expr -> type -> Prop
-   ** * tenv -> expr -> option type
-   ** * 
    **)
   Fixpoint exprD' (var_env : tenv) (e : expr) (t : typ) {struct e} : 
     option (hlist (typD ts nil) var_env -> typD ts nil t) :=
@@ -181,7 +168,7 @@ Section env.
                                                        end -> typD ts nil t' with
                                                 | eq_refl => fun x => x
                                               end (hlist_nth e x)
-                            end)
+                               end)
               | None => None
             end
         end eq_refl
@@ -248,6 +235,24 @@ Section env.
                   end) tf xs f
             end
         end
+      | Equal t' e1 e2 =>
+        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
+          | tvProp =>
+            match exprD' var_env e1 t' , exprD' var_env e2 t' with
+              | Some l , Some r => Some (fun g => equiv _ t' (l g) (r g))
+              | _ , _ => None
+            end
+          | _ => None
+        end            
+      | Not e =>
+        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
+          | tvProp =>
+            match exprD' var_env e tvProp with
+              | Some e => Some (fun g => ~(e g))
+              | None => None
+            end
+          | _ => None
+        end
     end.
 
   Fixpoint split_env (g : env) : { ls : tenv & hlist (typD ts nil) ls } :=
@@ -259,7 +264,7 @@ Section env.
             existT _ (t :: a) (Hcons v b)
         end
     end.
-  
+
   Definition exprD (var_env : env) (e : expr) (t : typ) : option (typD ts nil t) :=
     let (ts,vs) := split_env var_env in
     match exprD' ts e t with
@@ -287,6 +292,8 @@ Section env.
               | l :: ls => if mentionsU u l then true else anyb ls
             end) es
       | Abs _ e => mentionsU u e
+      | Equal _ e1 e2 => if mentionsU u e1 then true else mentionsU u e2
+      | Not e => mentionsU u e
     end.
 
   Fixpoint expr_seq_dec (e1 e2 : expr) : bool.
@@ -323,11 +330,17 @@ Section env.
       | Abs t1 e1 , Abs t2 e2 => 
         if typ_eqb t1 t2 then expr_seq_dec e1 e2
         else false
+      | Equal t1 e1 e2 , Equal t1' e1' e2' =>
+        if typ_eqb t1 t1' then 
+          if expr_seq_dec e1 e1' then 
+            if expr_seq_dec e2 e2' then true
+            else false
+          else false
+        else false
+      | Not e1 , Not e2 => expr_seq_dec e1 e2
       | _ , _ => false
     end).
   Defined.
-
-
 
   Theorem const_seqb_ok : forall ts ts' t1 t2 a b,
     match const_seqb ts ts' t1 t2 a b with
@@ -358,13 +371,7 @@ Section env.
         generalize dependent (nth_error ts0 n0). destruct e; intros.
         generalize (Eqb_correct t a b). rewrite H; auto.
         destruct b. } }
-    { Theorem nat_eq_odec_None : forall a b, nat_eq_odec a b = None -> a <> b.
-      Proof.
-        clear; induction a; destruct b; simpl; try congruence.
-        specialize (IHa b). destruct (nat_eq_odec a b); try congruence.
-        auto.
-      Qed.
-      apply nat_eq_odec_None in H. left. congruence. }
+    { apply nat_eq_odec_None in H. left. congruence. }
   Qed.
 
   Theorem expr_seq_dec_eq : forall e1 e2, 
@@ -392,6 +399,12 @@ Section env.
     { change typ_eqb with (@rel_dec _ _ _) in *. consider (t ?[ eq ] t0).
       intros; subst. f_equal; auto. }      
     { consider (EqNat.beq_nat v u); subst; auto. }
+    { change typ_eqb with (@rel_dec _ _ _) in *.
+      consider (t ?[ eq ] t0);
+      consider (expr_seq_dec e1_1 e2_1); 
+      consider (expr_seq_dec e1_2 e2_2); intros; subst.
+      f_equal; auto. }
+    { f_equal; auto. }
   Qed.
 
 End env.

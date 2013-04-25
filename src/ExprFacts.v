@@ -32,23 +32,63 @@ Section semantic.
     erewrite nth_error_weaken by eassumption. auto.
   Qed.
 
+  Require Import ExtLib.Tactics.EqDep.
+  Theorem uip_refl : forall (t : option typ) e, e = eq_refl t. 
+  Proof.
+    intros. uip_all. reflexivity.
+  Qed.
+
+  Theorem typeof_weaken : forall e venv t,
+    typeof (ts := ts) fs uenv venv e = Some t ->
+    forall ue ve,
+    typeof fs (uenv ++ ue) (venv ++ ve) e = Some t.
+  Proof.    
+    induction e; simpl; intros;
+      repeat match goal with
+               | [ H : Some _ = Some _ |- _ ] =>
+                 inversion H ; clear H ; subst
+               | [ H : match ?X with _ => _ end = _ |- _ ] =>
+                 (consider X; try congruence); [ intros ]
+               | [ |- _ ] =>
+                 erewrite nth_error_weaken by eassumption
+               | [ H : forall x, _ = _ -> _ |- _ ] =>
+                 specialize (H _ eq_refl)
+             end; auto.
+    { erewrite IHe by eauto. clear - H1 H.
+      generalize dependent t0.
+      induction H; simpl; intros; auto.
+      consider (typeof fs uenv venv x); intros; try congruence.
+      erewrite H by eauto. destruct t0; try congruence.
+      destruct (typ_eqb t0_1 t1); auto. }
+    { change (t :: venv ++ ve) with ((t :: venv) ++ ve).
+      erewrite IHe by eauto. reflexivity. }
+  Qed.
+ 
+  Theorem exprD_weaken_Some : forall ue ve e t venv x y, 
+    exprD' fs uenv venv e t = Some x ->
+    exprD' fs (uenv ++ ue) (venv ++ ve) e t = Some y ->
+    forall h he, equiv ts t (x h) (y (hlist_app h he)).
+  Proof.
+  Admitted.
+    
   Theorem exprD_weaken : forall venv e t ue ve x, 
     exprD fs uenv venv e t = Some x ->
     exists y, exprD fs (uenv ++ ue) (venv ++ ve) e t = Some y /\
       equiv ts t x y.
   Proof.
-(*
     unfold exprD; intros. rewrite split_env_app.
     destruct (split_env venv). destruct (split_env ve).
     consider (exprD' fs uenv x0 e t); 
     consider (exprD' fs (uenv ++ ue) (x0 ++ x1) e t); intros; try congruence.
     { inversion H1; clear H1; subst.
+      revert h0. revert h.
       generalize dependent x0; generalize dependent x1; generalize dependent t.
       clear ve venv. induction e; simpl; intros;
       repeat match goal with
                | |- context [ match ?X with _ => _ end ] =>
                  match type of X with
-                   | typ => fail 1
+                   | typ => 
+                     (destruct X; try congruence); [ ]
                    | _ => match X with
                             | match _ with _ => _ end => fail 1
                             | _ => consider X; intros; subst
@@ -56,7 +96,8 @@ Section semantic.
                  end
                | [ _ : context [ match ?X with _ => _ end ] |- _ ] =>
                  match type of X with
-                   | typ => fail 1
+                   | typ => 
+                     (destruct X; try congruence); [ ]
                    | _ => match X with
                             | match _ with _ => _ end => fail 1
                             | _ => consider X; intros; subst
@@ -78,148 +119,31 @@ Section semantic.
         consider (typ_eq_odec t2 t); intros; try congruence.
         inversion H1; clear H1; inversion H2; clear H2; subst.
         eexists; split; eauto.
-        Require Import ExtLib.Tactics.EqDep.
         uip_all. clear.
-        About hlist_nth.
-        SearchAbout nth_error.
-        Theorem nth_error_length_ge : forall T (ls : list T) n,
-          nth_error ls n = None -> length ls <= n.
-        Admitted.
-        Definition cast1 T (l l' : list T) n v := 
-          (fun pf : nth_error l n = Some v => eq_sym (nth_error_weaken l' l n pf)).
-        Definition cast2 T (l l' : list T) n :=
-          (fun pf : nth_error l n = None => eq_sym (@nth_error_app_R _ l l' _ (nth_error_length_ge _ _ _ pf))).
-
-        Theorem uip_refl : forall (t : option typ) e, e = eq_refl t. 
-        Admitted.
-
-        Theorem hlist_nth_hlist_app : forall T (F : T -> Type) l l' (h : hlist F l) (h' : hlist F l') n,
-          hlist_nth (hlist_app h h') n = 
-          match nth_error l n as k
-            return nth_error l n = k ->
-                   match nth_error (l ++ l') n with
-                     | None => unit
-                     | Some t => F t
-                   end
-            with
-            | Some _ => fun pf => 
-              match cast1 _ _ _ _ _ pf in _ = z ,
-                eq_sym pf in _ = w 
-                return match w with
-                         | None => unit
-                         | Some t => F t
-                       end ->
-                       match z with
-                         | None => unit
-                         | Some t => F t
-                       end
-                with
-                | eq_refl , eq_refl => fun x => x
-              end (hlist_nth h n)
-            | None => fun pf => 
-              match cast2 _ _ _ _ pf in _ = z 
-                return match z with
-                         | Some t => F t
-                         | None => unit
-                       end
-                with 
-                | eq_refl => hlist_nth h' (n - length l)
-              end
-          end eq_refl.
-        Proof.
-          induction h; simpl; intros.
-          { destruct n; simpl. simpl in *. uip_all.
-            simpl in *. admit. 
-            admit. }
-          { destruct n; simpl.
-            admit.
-            rewrite IHh. simpl. admit. } 
-        Qed.
-        rewrite hlist_nth_hlist_app.
-        generalize (cast1 typ x0 x1 v).
-        generalize (cast2 typ x0 x1 v).
+        
+        rewrite hlist_nth_hlist_app by eauto with typeclass_instances.
+        generalize (cast1 x0 x1 v).
+        generalize (cast2 x0 x1 v).
         uip_all.
         repeat match goal with
                  | |- context [ @eq_refl ?A ?B ] =>
                    generalize (@eq_refl A B)
                end.
-        intros. clear. simpl in *.
-        change ((fun z => Types.equiv ts t
-     (match
-        e2 in (_ = t'')
-        return
-          (match t'' with
-           | Some t0 => typD ts nil t0
-           | None => unit
-           end -> typD ts nil t)
-      with
-      | eq_refl => fun x : typD ts nil t => x
-      end z)
-     (match
-        e1 in (_ = t'')
-        return
-          (match t'' with
-           | Some t0 => typD ts nil t0
-           | None => unit
-           end -> typD ts nil t)
-      with
-      | eq_refl => fun x : typD ts nil t => x
-      end
-        (match
-           nth_error x0 v as k
-           return
-             (nth_error x0 v = k ->
-              match nth_error (x0 ++ x1) v with
-              | Some t0 => typD ts nil t0
-              | None => unit
-              end)
-         with
-         | Some t0 =>
-             fun pf : nth_error x0 v = Some t0 =>
-             match e0 t0 pf in (_ = z)
-               return
-                 (match nth_error x0 v with
-                  | Some t1 => typD ts nil t1
-                  | None => unit
-                  end ->
-                  match z with
-                  | Some t1 => typD ts nil t1
-                  | None => unit
-                  end)
-             with
-             | eq_refl =>
-                 match
-                   eq_sym pf in (_ = w)
-                   return
-                     (match w with
-                      | Some t1 => typD ts nil t1
-                      | None => unit
-                      end -> typD ts nil t0)
-                 with
-                 | eq_refl => fun x : typD ts nil t0 => x
-                 end
-             end z
-         | None =>
-             fun pf : nth_error x0 v = None =>
-             match e pf
-               in (_ = z)
-               return
-                 match z with
-                 | Some t0 => typD ts nil t0
-                 | None => unit
-                 end
-             with
-             | eq_refl => hlist_nth h0 (v - length x0)
-             end
-         end e3))) (hlist_nth h v)).
-        generalize (hlist_nth h v); clear.
-        revert e. revert e0. revert e3. generalize e2.
+        simpl in *.
+        match goal with
+          | |- forall x, equiv _ _ (_ ?X) (_ (match _ with
+                                                | Some i => fun x => _ ?Z
+                                                | None => _
+                                              end _)) =>
+          change X with Z; generalize Z
+        end.
+        clear.
+        revert e. revert e0. revert e1. generalize e2.
         rewrite <- e2.
         intros.
         rewrite (uip_refl _ e0).
-        rewrite (uip_refl _ e3).
+        rewrite (uip_refl _ e4).
         uip_all.
-        rewrite (uip_refl _ e5).
         clear.
         generalize dependent (nth_error (x0 ++ x1) v).
         intros; subst.
@@ -227,26 +151,83 @@ Section semantic.
         reflexivity. }
       { eexists; split; eauto. clear.
         generalize dependent (instantiate_typ (rev ts0) (ftype f0)). reflexivity. }
-      { specialize (@IHe _ _ _ _ _ _ H4 _ H2).
-
-admit. }
+      { admit. }
       { eexists; split; eauto.
-        destruct t0; try congruence.
-        consider (exprD' fs uenv (t0_1 :: x0) e t0_2); intros; try congruence.
-        consider (exprD' fs (uenv ++ ue) (t0_1 :: x0 ++ x1) e t0_2); intros; try congruence.
-        inversion H1; clear H1; subst.
-        inversion H2; clear H2; subst.
-        change (t0_1 :: x0 ++ x1) with ((t0_1 :: x0) ++ x1) in *.
-        simpl. intro.
-        specialize (IHe t0_2 x1 h0 (t0_1 :: x0) (Hcons a h) t3 H t0 H0).
-        inversion IHe. intuition. inversion H2; clear H2; subst.
-        destruct t0_2; auto. }
-      { consider (lookupAs uenv t v); intros; try congruence.
-        erewrite lookupAs_weaken in H by eassumption.
-        inversion H1; clear H1; inversion H; clear H; subst.
-        eexists; split; eauto. subst; reflexivity. } }
-    { exfalso.
-*)
-  Admitted.
+        simpl; intro.
+        eapply IHe with (h := Hcons a h) (h0 := h0) in H0; eauto. 
+        destruct H0. destruct H0. inversion H0; clear H0; subst. auto. }        
+      { eexists; split; eauto.
+        unfold lookupAs in *. 
+        consider (nth_error uenv v); try congruence; intros.
+        erewrite nth_error_weaken in H by eauto.
+        consider (typ_eq_odec (projT1 s) t); intros; try congruence.
+        subst. inversion H1; inversion H2; clear H1 H2; subst. reflexivity. }
+      { eexists; split; eauto.
+        destruct (IHe1 _ _ _ _ H _ H0 h h0).
+        destruct (IHe2 _ _ _ _ H3 _ H1 h h0).
+        destruct H2; destruct H4.
+        inversion H2; inversion H4; clear H2 H4; subst.
+        simpl. intuition.
+        { etransitivity. symmetry; eauto. etransitivity; eauto. }
+        { etransitivity. eauto. etransitivity; eauto. symmetry; eauto. } }
+      { eexists; split; eauto.
+        destruct (IHe _ _ _ _ H _ H0 h h0).
+        destruct H1. inversion H1; clear H1; subst. simpl.
+        intuition; eapply H1; eapply H2; auto. } }
+    { exfalso. inversion H1; clear H1; subst.
+      clear - H0 H. generalize dependent t.
+      revert x0; revert x1. induction e; simpl; intros;
+      repeat match goal with
+               | [ _ : context [ match ?X with _ => _ end ] |- _ ] =>
+                 match type of X with
+                   | typ => 
+                     (destruct X; try congruence); [ ]
+                   | _ => match X with
+                            | match _ with _ => _ end => fail 1
+                            | _ => consider X; intros; subst
+                          end
+                 end
+               | [ H : Some _ = Some _ |- _ ] => inversion H; clear H; subst
+             end; eauto; try congruence.
+      { repeat match goal with
+                 | [ H : context [ @refl_equal ?A ?B ] |- _ ] =>
+                   generalize dependent (@refl_equal A B)
+               end.
+        do 2 intro.
+        pattern (nth_error x0 v) at 2 3. destruct (nth_error x0 v); try congruence.
+        intros. 
+        generalize dependent e.
+        pattern (nth_error (x0 ++ x1) v) at 2 3.
+        erewrite nth_error_weaken by eassumption; intros.
+        destruct (typ_eq_odec t1 t); try congruence. }
+      { erewrite typeof_weaken in H0 by eauto.
+        inversion H0; clear H0; subst.
+        generalize (exprD_weaken_Some _ _ _ _ _ _ _ H2 H4).
+        clear - H5 H3 H.
+        generalize dependent t3.
+        induction H; simpl; intros.
+        { destruct (typ_eq_odec t3 t); subst; congruence. }
+        { destruct t3; try congruence.
+          consider (exprD' fs uenv x0 x t3_1); intros; try congruence.
+          consider (exprD' fs (uenv ++ ue) (x0 ++ x1) x t3_1); intros; try congruence.
+          { specialize (@IHForall _ _ H5 _ H3). clear H3 H5.
+            generalize (exprD_weaken_Some _ _ _ _ _ _ _ H2 H4); intros.
+            clear - H1 H3 IHForall. simpl in *.
+            eapply IHForall; intros; clear IHForall.
+            specialize (H3 h he). specialize (H1 h he).
+            etransitivity. eapply H1. clear H1. admit.
+            (* TODO: I have to know that the function respects the equivalence *) }
+          { eauto. } } }            
+      { erewrite typeof_weaken in H0 by eauto.
+        inversion H0; clear H0; subst.
+        eapply IHe. eassumption. eapply H2. }
+      { eapply typeof_weaken with (ue := ue) (ve := x1) in H1. rewrite H0 in H1.
+        congruence. }
+      { eapply IHe; eauto. simpl; eauto. }
+      { unfold lookupAs in *.
+        consider (nth_error uenv v); try congruence; intros.
+        erewrite nth_error_weaken in H by eassumption.
+        consider (typ_eq_odec (projT1 s) t); congruence. } }
+  Qed.
 
 End semantic.
