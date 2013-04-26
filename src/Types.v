@@ -304,3 +304,8 @@ Section env.
   Qed.
 
 End env.
+
+Global Instance EqDec_typ : EquivDec.EqDec _ (@eq typ).
+Proof.
+  red. intros. consider (x ?[ eq ] y); intuition.
+Qed.

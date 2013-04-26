@@ -28,6 +28,8 @@ Section subst.
             | None => e
             | Some e' => lift 0 l e'
           end
+        | Equal t e1 e2 => Equal t (exprInstantiate l e1) (exprInstantiate l e2)
+        | Not e => Not (exprInstantiate l e)
       end.
   End instantiate.
 

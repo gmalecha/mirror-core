@@ -39,9 +39,9 @@ Section env.
     Hypothesis HConst : forall (t : typ) (v : typD ts nil t), P (@Const t v).
     Hypothesis HVar : forall v : var, P (Var v).
     Hypothesis HFunc : forall f ts, P (Func f ts).
+    Hypothesis HUVar : forall v : var, P (UVar v).
     Hypothesis HApp : forall f es, P f -> Forall P es -> P (App f es).
     Hypothesis HAbs : forall t e, P e -> P (Abs t e).
-    Hypothesis HUVar : forall v : var, P (UVar v).
     Hypothesis HEqual : forall t e1 e2, P e1 -> P e2 -> P (Equal t e1 e2).
     Hypothesis HNot : forall e, P e -> P (Not e).
     
@@ -389,6 +389,7 @@ Section env.
       change typ_eqb with (@rel_dec _ _ _); intros.
       consider (a ?[ eq ] t); try congruence; intros; subst.
       f_equal. eapply IHts0; auto. }
+    { consider (EqNat.beq_nat v u); subst; auto. }
     { consider (expr_seq_dec e1 e2); intros.
       f_equal; eauto. clear - H1 H.
       generalize dependent l; induction H.
@@ -397,8 +398,7 @@ Section env.
         consider (expr_seq_dec x e); intros.
         f_equal; auto. } }
     { change typ_eqb with (@rel_dec _ _ _) in *. consider (t ?[ eq ] t0).
-      intros; subst. f_equal; auto. }      
-    { consider (EqNat.beq_nat v u); subst; auto. }
+      intros; subst. f_equal; auto. }
     { change typ_eqb with (@rel_dec _ _ _) in *.
       consider (t ?[ eq ] t0);
       consider (expr_seq_dec e1_1 e2_1); 
@@ -417,4 +417,3 @@ Arguments Abs {_} _ _.
 Arguments App {_} _ _.
 
 Export Types.
-

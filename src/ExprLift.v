@@ -19,6 +19,8 @@ Section typed.
       | App e es => App (lift' s l e) (map (lift' s l) es)
       | Abs t e => Abs t (lift' (S s) l e)
       | UVar u => e
+      | Equal t e1 e2 => Equal t (lift' s l e1) (lift' s l e2) 
+      | Not e => Not (lift' s l e)
     end.
 
   Definition lift (s l : nat) : expr ts -> expr ts :=
@@ -31,11 +33,13 @@ Section typed.
 
   Lemma lift'_0 : forall e s, lift' s 0 e = e.
   Proof.
-    induction e; simpl; intros; auto.
+    induction e; simpl; intros;
+      repeat match goal with
+               | [ H : _ |- _ ] => rewrite H
+             end; auto.
     { consider (NPeano.ltb v s); auto. }
     { f_equal; auto.
       clear - H. induction H; simpl; auto. f_equal; auto. }
-    { rewrite IHe. reflexivity. }
   Qed.
 
   Lemma lift_lift' : forall s l e, lift s l e = lift' s l e.
@@ -43,6 +47,7 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
+  Require Import ExtLib.Tactics.Injection ExtLib.Tactics.Cases.
 
   Theorem lift_welltyped : forall fs vs vs' us (e : expr ts) t, 
     WellTyped_expr fs us (vs ++ vs') e t ->
@@ -52,19 +57,17 @@ Section typed.
   Proof.
     intros. rewrite lift_lift'. subst. revert vs''.
     generalize dependent t. revert vs.
-    induction e; simpl; intros.
-    { unfold WellTyped_expr in *; simpl in *; auto. }
-    { unfold WellTyped_expr in *; simpl in *.
-      consider (NPeano.ltb v (length vs)); intros; simpl.
+    induction e; simpl; intros; unfold WellTyped_expr in *; simpl in *; forward; 
+      repeat match goal with 
+               | [ H : _ |- _ ] => erewrite H by eauto
+             end; auto.
+    { consider (NPeano.ltb v (length vs)); intros; simpl.
       rewrite nth_error_app_L in * by auto. auto.
       rewrite nth_error_app_R in * by auto.
       rewrite nth_error_app_R by omega.
       rewrite nth_error_app_R by omega.
       rewrite <- H. f_equal. omega. }
-    { unfold WellTyped_expr in *; simpl in *; auto. }
-    { unfold WellTyped_expr in *; simpl in *; auto.
-      consider (typeof_expr fs us (vs ++ vs') e); intros; try congruence.
-      eapply IHe in H0. rewrite H0. rewrite map_map.
+    { rewrite map_map.
       revert H1. clear - H. revert t; revert t0.
       induction H; simpl; intros; auto.
       intros. consider (typeof_expr fs us (vs ++ vs') x); intros; try congruence.
@@ -73,8 +76,8 @@ Section typed.
     { unfold WellTyped_expr in *; simpl in *; auto.
       consider (typeof_expr fs us (t :: vs ++ vs') e); intros; try congruence.
       inversion H0; clear H0; subst.
-      eapply IHe with (vs := t :: vs) in H. simpl in H. rewrite H. reflexivity. }
-    { unfold WellTyped_expr in *; simpl in *; auto. }
+      eapply IHe with (vs := t :: vs) in H. simpl in H. rewrite H.
+      inv_all; subst. reflexivity. }
   Qed.
 
 End typed.

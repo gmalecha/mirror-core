@@ -82,7 +82,7 @@ Section typed.
           | None => None
         end
       | Not e =>
- match typeof_expr var_env e with
+        match typeof_expr var_env e with
           | Some t' => if typ_eqb tvProp t' then Some tvProp else None
           | None => None
         end            
@@ -209,6 +209,8 @@ Proof.
   { destruct f0; simpl in *.  
     eapply type_apply_length_equal with (fd := fdenote) in H2. rewrite H1 in H2. 
     destruct H2; congruence. }
+  { unfold lookupAs in *. rewrite H in *.
+    rewrite typ_eq_odec_Some_refl in H0. congruence. }
   { revert H3. eapply typeof_typeof_expr in H0. rewrite H1 in H0.
     inversion H0; clear H0; subst. rewrite H4 in H2. inversion H2; clear H2; subst.
     clear - H. generalize dependent t2.
@@ -221,6 +223,4 @@ Proof.
       eapply H in H1. destruct H1. rewrite H1. eauto. } }
   { eapply typeof_typeof_expr in H0. rewrite H1 in H0.
     inversion H0; clear H0; subst. congruence. }
-  { unfold lookupAs in *. rewrite H in *.
-    rewrite typ_eq_odec_Some_refl in H0. congruence. }
 Qed.
