@@ -150,6 +150,11 @@ Section env.
     eapply nat_eq_odec_None in H. congruence.
   Qed.
 
+  Global Instance EqDec_typ : EquivDec.EqDec _ (@eq typ).
+  Proof.
+    red. intros. consider (x ?[ eq ] y); intuition.
+  Qed.
+
   Theorem typ_eq_odec_None_refl : forall t,
     typ_eq_odec t t = None -> False.
   Proof.
@@ -160,8 +165,7 @@ Section env.
     typ_eq_odec t t = Some refl_equal.
   Proof.
     intros. consider (typ_eq_odec t t); intros; auto.
-    { f_equal. 
-      uip_all. reflexivity. }
+    { f_equal. uip_all. reflexivity. }
     { exfalso; eauto using typ_eq_odec_None_refl. }
   Qed.
 
@@ -305,7 +309,3 @@ Section env.
 
 End env.
 
-Global Instance EqDec_typ : EquivDec.EqDec _ (@eq typ).
-Proof.
-  red. intros. consider (x ?[ eq ] y); intuition.
-Qed.

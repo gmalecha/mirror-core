@@ -13,7 +13,15 @@ Definition unifier  (ts : types) : Type :=
 Definition unifier_WellTyped (ts : types) (fs : tfunctions) (unify : unifier ts) : Prop :=
   forall  (S : Type) (Subst_S : Subst ts S) (P : ProverT ts) 
     (F : Facts P) (subst : S) (e1 e2 : expr ts) subst', 
-    unify _ _ P F subst e1 e2 = Some subst' -> True.
+    unify _ _ P F subst e1 e2 = Some subst' ->
+    forall (uenv venv : tenv) (t : typ),
+      WellTyped_expr fs uenv venv e1 t ->
+      WellTyped_expr fs uenv venv e2 t ->
+(*
+      WellTyped_Subst fs uenv venv subst ->
+      WellTyped_Subst fs uenv venv subst'.
+*)
+      True.
 
 Definition unifier_sound (ts : types) (fs : functions ts) (unify : unifier ts) : Prop :=
   forall (S : Type) (Subst_S : Subst ts S) (P : ProverT ts) (PC : ProverT_correct P fs) (F : Facts P) (subst : S) (e1 e2 : expr ts) subst', 

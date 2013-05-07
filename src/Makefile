@@ -11,7 +11,7 @@ TESTS := ExprDemo
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS :=-R . MirrorCore -R ../coq-ext-lib ExtLib
+ARGS :=-R . MirrorCore -R ../coq-ext-lib/theories ExtLib
 
 .PHONY: coq clean package
 
@@ -32,7 +32,7 @@ test: coq Makefile.test.coq
 
 clean:: Makefile.coq
 	$(MAKE) -f Makefile.coq clean
-	rm -f Makefile.coq .depend
+	rm -f Makefile.coq Makefile.test.coq .depend
 
 package:
 	hg archive -t tgz /tmp/mirror-core.tgz

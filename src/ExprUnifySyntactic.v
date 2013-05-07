@@ -60,11 +60,21 @@ Section typed.
                       end) s es1 es2
                 end
               | Abs t1 e1 , Abs t2 e2 =>
-                (* t1 = t2 since both terms have teh same type *)
+                (* t1 = t2 since both terms have the same type *)
+                (** TODO: I have to handle the change in binding structure.
+                 ** For example,
+                 ** (fun x => x) ~ (fun x => ?1) doesn't work
+                 ** because the ?1 isn't going to have x in scope
+                 **)
                 unify s e1 e2
               | _ , _ => None 
             end)
       end) 10).
   Defined.
+
+  Theorem 
+
+  
+
 
 End typed.
