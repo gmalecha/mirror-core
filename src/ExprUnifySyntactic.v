@@ -72,9 +72,4 @@ Section typed.
       end) 10).
   Defined.
 
-  Theorem 
-
-  
-
-
 End typed.

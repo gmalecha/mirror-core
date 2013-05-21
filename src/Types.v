@@ -34,6 +34,19 @@ Section env.
         | Some false => a <> b
       end
   }.
+
+  Definition default_type (T : Type) : type.
+  refine (
+    {| Impl := T
+     ; Eqb := fun _ _ => None
+    |}); abstract auto.
+  Defined.
+
+  Definition empty_type : type :=
+    {| Impl := Empty_set
+     ; Eqb := fun x _ => match x with end
+     ; Eqb_correct := fun x => match x with end
+    |}.
         
   Definition types := list type.
 (*

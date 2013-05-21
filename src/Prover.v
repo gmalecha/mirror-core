@@ -1,5 +1,5 @@
 Require Import List Arith Bool.
-Require Import ExtLib.Core.EquivDec.
+Require Import ExtLib.Structures.EqDep.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.HList.
 Require Import ExprCore ExprProp ExprT Repr.
@@ -53,7 +53,7 @@ Record ProverPackage : Type :=
 
 (** Generic lemmas/tactis to prove things about provers **)
 
-Hint Rewrite EquivDec_refl_left (*SemiDec_EquivDec_refl_left*) : provers.
+Hint Rewrite equiv_dec_refl_left (*SemiDec_EquivDec_refl_left*) : provers.
 
 (*
 (* Everything looks like a nail?  Try this hammer. *)

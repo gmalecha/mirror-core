@@ -7,7 +7,7 @@ MODULES    := Types ExprCore ExprT ExprFacts ExprProp ExprLift Expr \
 	      Subst \
 	      ExprUnify ExprUnifySyntactic
 
-TESTS := ExprDemo
+TESTS := 
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
