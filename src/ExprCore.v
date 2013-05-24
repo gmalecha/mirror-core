@@ -117,7 +117,13 @@ Section env.
       | Func f ts =>
         match nth_error funcs f with
           | None => None
-          | Some r => Some (instantiate_typ (rev ts) (ftype r))
+          | Some r => 
+(*            if EqNat.beq_nat (length ts) (fenv r) then  *)
+              Some (instantiate_typ (rev ts) (ftype r))
+(*
+            else
+              None
+*)
         end
       | App e es =>
         match typeof var_env e with
@@ -180,7 +186,7 @@ Section env.
       | Func f ts' =>  
         match nth_error funcs f with
           | None => None
-          | Some f => 
+          | Some f =>
             match type_apply _ _ ts' _ _ (fdenote f) with
               | None => None
               | Some t' => 
@@ -196,10 +202,13 @@ Section env.
       | Abs t' e =>
         match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
           | tvArr lt rt =>
-            match @exprD' (lt :: var_env) e rt with
-              | None => None
-              | Some a => Some (fun x y => a (Hcons y x))
-            end
+            if lt ?[ eq ] t' then 
+              match @exprD' (lt :: var_env) e rt with
+                | None => None
+                | Some a => Some (fun x y => a (Hcons y x))
+              end
+            else
+              None
           | _ => None
         end
       | App f xs => 

@@ -1,7 +1,8 @@
 GENERIC := 
 PROVERS := Assumption
 #  Transitivity
-MODULES    := Types ExprCore ExprT ExprFacts ExprProp ExprLift Expr \
+MODULES    := Types \
+	      ExprCore ExprT ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr \
 	      Repr \
 	      Prover provers/ProverTac \
 	      Subst \
@@ -22,7 +23,10 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(VS)
-	coq_makefile $(ARGS) $(VS) -o Makefile.coq
+	coq_makefile $(ARGS) $(VS) \
+	  | sed -re 's/-R ([^ ]+) ExtLib/-I \1 -as ExtLib/g' \
+          > Makefile.coq
+
 
 Makefile.test.coq: Makefile $(TVS)
 	coq_makefile $(ARGS) $(TVS) -o Makefile.test.coq

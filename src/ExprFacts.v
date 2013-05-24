@@ -195,7 +195,7 @@ Section semantic.
           eapply IHForall; intros; simpl in *; clear IHForall.
           etransitivity. eapply IHe; clear IHe.
           instantiate (1 := he0). clear - H. admit. } }
-      { simpl; intro. specialize (@IHe _ _ _ _ H H0 (Hcons a h) he); auto. }
+      { simpl; intro. specialize (@IHe _ _ _ _ H0 H1 (Hcons a h) he); auto. }
       { specialize (IHe1 _ _ _ _ H H0 h he).
         specialize (IHe2 _ _ _ _ H3 H1 h he).
         simpl. intuition.
