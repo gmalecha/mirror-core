@@ -1,12 +1,14 @@
 GENERIC := 
 PROVERS := Assumption
 #  Transitivity
-MODULES    := Types \
-	      ExprCore ExprT ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr \
-	      Repr \
-	      Prover provers/ProverTac \
-	      Subst \
-	      ExprUnify ExprUnifySyntactic
+MODULES    := Generic \
+	      TypesExt TypesExtDemo \
+	      ExprCore
+ #            ExprT ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr 
+ # 	      Repr 
+ # 	      Prover provers/ProverTac 
+ # 	      Subst 
+ # 	      ExprUnify ExprUnifySyntactic
 
 TESTS := 
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

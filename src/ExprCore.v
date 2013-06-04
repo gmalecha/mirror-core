@@ -2,14 +2,41 @@ Require Import List Bool.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
-Require Import MirrorCore.Types.
+Require Import ExtLib.Core.Type.
+Require Import ExtLib.Data.Fun.
+Require Import MirrorCore.Generic.
+Require Import MirrorCore.TypesExt.
+
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section env.
-  
-  Variable ts : types.
+
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
+  Context {RType_typ : RType typD}.
+  Context {RTypeOk_typ : RTypeOk RType_typ}.
+  Context {typ_arr : TypInstance2 typD Fun}.
+  Context {typ_prop : TypInstance0 typD Prop}.
+  Let tvArr := @ctor2 _ _ _ typ_arr.
+  Let arrow_match := @ctor2_match _ _ _ typ_arr.
+  Let arrow_in ts a b : (typD ts a -> typD ts b) -> typD ts (tvArr a b) :=
+    @into _ _ (@ctor2_iso _ _ _ typ_arr ts a b).
+  Let arrow_out ts a b : typD ts (tvArr a b) -> (typD ts a -> typD ts b) :=
+    @outof _ _ (@ctor2_iso _ _ _ typ_arr ts a b).
+  Let tvProp := @ctor0 _ _ _ typ_prop.
+  Let prop_match := @ctor0_match _ _ _ typ_prop.
+  Let prop_in ts : Prop -> typD ts tvProp := 
+    @into _ _ (@ctor0_iso _ _ _ typ_prop ts).
+  Let prop_out ts : typD ts tvProp -> Prop := 
+    @outof _ _ (@ctor0_iso _ _ _ typ_prop ts).
+
+  Definition typ_cast_val ts (a b : typ) (v : typD ts a) : option (typD ts b) :=
+    match typ_cast ts a b with
+      | None => None
+      | Some f => Some (f v)
+    end.
 
   Definition func := nat.
   Record tfunction : Type := 
@@ -21,7 +48,7 @@ Section env.
   Unset Elimination Schemes.
 
   Inductive expr : Type :=
-  | Const : forall t : typ, typD ts nil t -> expr
+  | Const : forall t : typ, typD nil t -> expr
   | Var : var -> expr
   | Func : func -> list typ -> expr
   | App : expr -> list expr -> expr
@@ -36,7 +63,7 @@ Section env.
 
   Section expr_ind.
     Variable P : expr -> Prop.
-    Hypothesis HConst : forall (t : typ) (v : typD ts nil t), P (@Const t v).
+    Hypothesis HConst : forall (t : typ) (v : typD nil t), P (@Const t v).
     Hypothesis HVar : forall v : var, P (Var v).
     Hypothesis HFunc : forall f ts, P (Func f ts).
     Hypothesis HUVar : forall v : var, P (UVar v).
@@ -49,7 +76,7 @@ Section env.
     Proof.
     refine (
       match x as x return P x with
-        | Const _ _ => HConst _ _
+        | Const _ _ => HConst _
         | Var _ => HVar _
         | UVar _ => HUVar _
         | Func _ _ => HFunc _ _
@@ -65,19 +92,13 @@ Section env.
     Qed.
   End expr_ind.
 
-  Definition env : Type := list (sigT (typD ts nil)).
+  Definition env : Type := list (sigT (typD nil)).
 
   Record function := F {
     fenv : nat ; 
     ftype : typ ;
-    fdenote : parametric fenv nil (fun env => typD ts env ftype)
+    fdenote : parametric fenv nil (fun env => typD env ftype)
   }.
-
-  Definition Default_signature : function :=
-  {| fenv := 0
-   ; ftype := tvProp
-   ; fdenote := True
-   |}.
 
   Definition functions := list function.
   Definition variables := list typ.
@@ -86,15 +107,12 @@ Section env.
   Variable meta_env : env.
   
   Definition lookupAs (ls : env) (t : typ) (i : nat)
-    : option (typD ts nil t) :=
+    : option (typD nil t) :=
     match nth_error ls i with 
       | None => None
       | Some tv => 
-        match typ_eq_odec (projT1 tv) t with
-          | Some pf =>
-            Some match pf in _ = t return typD ts nil t with
-                   | refl_equal => projT2 tv
-                 end
+        match typ_cast _ (projT1 tv) t with
+          | Some f => Some (f (projT2 tv))
           | None => None
         end
     end.
@@ -139,8 +157,6 @@ Section env.
       | Not _ => Some tvProp
     end.
   
-  
-
   (** 
    ** The denotation function with binders must be total because we
    ** can't introduce the binder until we know that we are going to get
@@ -150,31 +166,26 @@ Section env.
    **
    **)
   Fixpoint exprD' (var_env : tenv) (e : expr) (t : typ) {struct e} : 
-    option (hlist (typD ts nil) var_env -> typD ts nil t) :=
-    match e as e return option (hlist (typD ts nil) var_env -> typD ts nil t) with
+    option (hlist (typD nil) var_env -> typD nil t) :=
+    match e as e return option (hlist (typD nil) var_env -> typD nil t) with
       | Const t' c => 
-        match typ_eq_odec t' t with
-          | Some pf => 
-            Some (fun _ => match pf in _ = t return typD ts nil t with 
-                             | refl_equal => c
-                           end)
+        match @typ_cast_val _ t' t c with
+          | Some c => Some (fun _ => c)
           | None => None
         end
       | Var x => 
-        match nth_error var_env x as z return nth_error var_env x = z -> _ with
+        match nth_error var_env x as z return z = nth_error var_env x -> option (hlist (typD nil) var_env -> typD nil t) with
           | None => fun _ => None
           | Some t' => fun pf => 
-            match typ_eq_odec t' t with
-              | Some pf' => 
-                Some (fun e => match pf' in _ = t return typD ts nil t with 
-                                 | eq_refl => match eq_sym pf in _ = t''
-                                                return match t'' with 
-                                                         | Some t => typD ts nil t
-                                                         | None => unit
-                                                       end -> typD ts nil t' with
-                                                | eq_refl => fun x => x
-                                              end (hlist_nth e x)
-                               end)
+            match typ_cast _ t' t with
+              | Some f =>
+                Some (fun e => match pf in _ = t''
+                                     return match t'' with 
+                                              | Some t => typD nil t
+                                              | None => unit
+                                            end -> typD nil t with
+                                 | eq_refl => fun x => f x
+                               end (hlist_nth e x))
               | None => None
             end
         end eq_refl
@@ -187,30 +198,28 @@ Section env.
         match nth_error funcs f with
           | None => None
           | Some f =>
-            match type_apply _ _ ts' _ _ (fdenote f) with
+            match type_apply _ ts' _ _ (fdenote f) with
               | None => None
               | Some t' => 
-                match typ_eq_odec (instantiate_typ (rev ts') (ftype f)) t with
-                  | Some pf =>
-                    Some (fun _ => match pf in _ = t' return typD ts nil t' with
-                                     | eq_refl => t'
-                                   end)
+                match @typ_cast_val _ (instantiate_typ (rev ts') (ftype f)) t t' with
+                  | Some v => Some (fun _ => v)
                   | None => None
                 end
             end
         end
       | Abs t' e =>
-        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
-          | tvArr lt rt =>
-            if lt ?[ eq ] t' then 
-              match @exprD' (lt :: var_env) e rt with
+        @arrow_match nil (fun ty Ty => option (hlist (typD nil) var_env -> Ty))
+           (fun lt rt =>
+              match typ_cast nil lt t' with
                 | None => None
-                | Some a => Some (fun x y => a (Hcons y x))
-              end
-            else
-              None
-          | _ => None
-        end
+                | Some cast =>
+                  match @exprD' (lt :: var_env) e rt with
+                    | None => None
+                    | Some a => Some (fun x => arrow_in (fun y => a (Hcons y x)))
+                  end
+              end)
+           (fun _ => None)
+           t 
       | App f xs => 
         match typeof var_env f with
           | None => None
@@ -219,53 +228,51 @@ Section env.
               | None => None
               | Some f =>
                 (fix eval_args (t' : typ) (xs : list expr) {struct xs} : 
-                  (hlist (typD ts nil) var_env -> typD ts nil t') ->
-                  option (hlist (typD ts nil) var_env -> typD ts nil t) :=
+                  (hlist (typD nil) var_env -> typD nil t') ->
+                  option (hlist (typD nil) var_env -> typD nil t) :=
                   match xs with
-                    | nil => match typ_eq_odec t' t with
-                               | None => fun _ => None
-                               | Some pf => fun f =>
-                                 Some match pf in _ = t' return _ with
-                                        | eq_refl => f
-                                      end
-                             end
+                    | nil =>
+                      match typ_cast _ t' t with
+                        | None => fun _ => None
+                        | Some cast => fun f => Some (fun g => cast (f g))
+                      end
                     | x :: xs => 
-                      match t' as t' 
-                        return (hlist (typD ts nil) var_env -> typD ts nil t') ->
-                        option (hlist (typD ts nil) var_env -> typD ts nil t)
-                        with
-                        | tvArr tl tr => fun f =>
-                          match exprD' var_env x tl with
-                            | None => None
-                            | Some xv => eval_args tr xs (fun e => f e (xv e))
-                          end
-                        | _ => fun _ => None
-                      end                
+                      @arrow_match nil
+                         (fun ty Ty =>
+                                   (hlist (typD nil) var_env -> Ty) ->
+                            option (hlist (typD nil) var_env -> typD nil t))
+                         (fun tl tr f => 
+                            match exprD' var_env x tl with
+                              | None => None
+                              | Some xv => eval_args tr xs (fun e => (arrow_out _ (f e)) (xv e))
+                            end)
+                         (fun _ _ => None)
+                         t'
                   end) tf xs f
             end
         end
       | Equal t' e1 e2 =>
-        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
-          | tvProp =>
-            match exprD' var_env e1 t' , exprD' var_env e2 t' with
-              | Some l , Some r => Some (fun g => equiv _ t' (l g) (r g))
-              | _ , _ => None
-            end
-          | _ => None
-        end            
+        @prop_match nil (fun ty Ty => option (hlist (typD nil) var_env -> Ty))
+           (fun _ => 
+              match exprD' var_env e1 t' , exprD' var_env e2 t' with
+                | Some l , Some r => Some (fun g => equiv (l g) (r g))
+                | _ , _ => None
+              end)
+           (fun _ => None)
+           t
       | Not e =>
-        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
-          | tvProp =>
-            match exprD' var_env e tvProp with
-              | Some e => Some (fun g => ~(e g))
-              | None => None
-            end
-          | _ => None
-        end
+        @prop_match nil (fun ty Ty => option (hlist (typD nil) var_env -> Ty))
+           (fun _ => 
+              match exprD' var_env e tvProp with
+                | Some P => Some (fun g => not (prop_out (P g)))
+                | _ => None
+              end)
+           (fun _ => None)
+           t
     end.
 
-  Fixpoint split_env (g : env) : { ls : tenv & hlist (typD ts nil) ls } :=
-    match g as g return { ls : tenv & hlist (typD ts nil) ls } with
+  Fixpoint split_env (g : env) : { ls : tenv & hlist (typD nil) ls } :=
+    match g as g return { ls : tenv & hlist (typD nil) ls } with
       | nil => existT _ nil Hnil
       | existT t v :: gs =>
         match split_env gs with
@@ -274,7 +281,7 @@ Section env.
         end
     end.
 
-  Definition exprD (var_env : env) (e : expr) (t : typ) : option (typD ts nil t) :=
+  Definition exprD (var_env : env) (e : expr) (t : typ) : option (typD nil t) :=
     let (ts,vs) := split_env var_env in
     match exprD' ts e t with
       | None => None
@@ -305,11 +312,17 @@ Section env.
       | Not e => mentionsU u e
     end.
 
+  Definition const_seqb ts (a b : typ) (x : typD ts a) (y : typD ts b) : option bool :=
+    match @typ_cast_val ts a b x with
+      | None => None
+      | Some x' => eqb ts b x' y
+    end.
+
   Fixpoint expr_seq_dec (e1 e2 : expr) : bool.
   refine (
     match e1 , e2 with
       | Const t1 v1 , Const t2 v2 =>
-        match const_seqb _ _ _ _ v1 v2 with
+        match @const_seqb nil _ _ v1 v2 with
           | Some x => x
           | None => false
         end
@@ -321,7 +334,7 @@ Section env.
             match ts1 , ts2 with
               | nil , nil => true
               | t1 :: ts1 , t2 :: ts2 =>
-                if typ_eqb t1 t2 then check ts1 ts2 else false
+                if typ_cast nil t1 t2 then check ts1 ts2 else false
               | _ , _ => false
             end) ts1 ts2
         else false
@@ -337,10 +350,10 @@ Section env.
         else
           false
       | Abs t1 e1 , Abs t2 e2 => 
-        if typ_eqb t1 t2 then expr_seq_dec e1 e2
+        if typ_cast nil t1 t2 then expr_seq_dec e1 e2
         else false
       | Equal t1 e1 e2 , Equal t1' e1' e2' =>
-        if typ_eqb t1 t1' then 
+        if typ_cast nil t1 t1' then 
           if expr_seq_dec e1 e1' then 
             if expr_seq_dec e2 e2' then true
             else false
@@ -351,46 +364,40 @@ Section env.
     end).
   Defined.
 
-  Theorem const_seqb_ok : forall ts ts' t1 t2 a b,
-    match const_seqb ts ts' t1 t2 a b with
+  Theorem const_seqb_ok : forall ts t1 t2 a b,
+    match @const_seqb ts t1 t2 a b with
       | None => True
-      | Some true => exists pf : t2 = t1, a = match pf in _ = t return typD ts ts' t with
-                                                 | eq_refl => b
-                                               end
-      | Some false => t1 <> t2 \/ 
-        exists pf : t2 = t1, a <> match pf in _ = t return typD ts ts' t with
-                                    | eq_refl => b
-                                  end
+      | Some true => 
+        exists cast : typD ts t2 -> typD ts t1, equal (type := typeFor ts t1) a (cast b)
+      | Some false =>
+        exists cast : typD ts t2 -> typD ts t1, ~equal (type := typeFor ts t1) a (cast b)
     end.
   Proof.
-    destruct t1; destruct t2; simpl; auto; intros.
-    consider (nat_eq_odec n n0); intros; subst.
-    { clear H.
-      match goal with
-        | |- match ?X with _ => _ end =>
-          consider X
-      end; intros; auto.
-      destruct b0. 
-      cut (a = b). 
-      { clear. intros; subst. exists eq_refl. auto. }
-      { generalize dependent (nth_error ts0 n0). destruct e; intros.
-        generalize (Eqb_correct t a b). rewrite H; auto.
-        destruct b. }
-      { right. exists eq_refl.
-        generalize dependent (nth_error ts0 n0). destruct e; intros.
-        generalize (Eqb_correct t a b). rewrite H; auto.
-        destruct b. } }
-    { apply nat_eq_odec_None in H. left. congruence. }
+    intros.
+    unfold const_seqb, typ_cast_val. 
+    consider (typ_cast ts t1 t2); intros; auto.
+    consider (eqb ts t2 (t a) b); intros; auto.
+    specialize (@eqb_ok _ _ _ _ ts t2 (t a) b).
+    rewrite H0.
+    destruct (typ_cast_iso _ _ _ H) as [ ? [ ? ? ] ].
+    destruct b0; intros.
+    { exists x. subst.
+      destruct (typ_cast_iso _ _ _ H1) as [ ? [ ? ? ] ].
+      rewrite H in H4. inversion H4; clear H4; subst. 
+      admit. }
+    { exists x; subst.
+      intro. apply H3; clear H3; subst. admit. }
   Qed.
 
+(*
   Theorem expr_seq_dec_eq : forall e1 e2, 
     expr_seq_dec e1 e2 = true -> e1 = e2.
   Proof.
     induction e1; destruct e2; simpl; intros; try congruence.
-    { generalize (const_seqb_ok ts nil t t0 v t1). 
-      destruct (const_seqb ts nil t t0 v t1); subst; auto.
+    { generalize (const_seqb_ok t t0 v t1). 
+      destruct (const_seqb t t0 v t1); subst; auto.
       destruct 1; subst; auto.
-      congruence. }
+      admit. congruence. }
     { consider (EqNat.beq_nat v v0); subst; auto. }
     { consider (EqNat.beq_nat f f0); intros; subst.
       f_equal.
@@ -415,14 +422,15 @@ Section env.
       f_equal; auto. }
     { f_equal; auto. }
   Qed.
+*)
 
 End env.
 
-Arguments Func {_} _ _.
-Arguments Const {_} _ _.
-Arguments UVar {_} _.
-Arguments Var {_} _.
-Arguments Abs {_} _ _.
-Arguments App {_} _ _.
+Arguments Func {_ _} _ _.
+Arguments Const {_ _} _ _.
+Arguments UVar {_ _} _.
+Arguments Var {_ _} _.
+Arguments Abs {_ _} _ _.
+Arguments App {_ _} _ _.
 
-Export Types.
+Export TypesExt.
