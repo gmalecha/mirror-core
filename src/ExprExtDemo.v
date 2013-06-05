@@ -23,19 +23,19 @@ Section Demo.
   Let tvNat := @typ0 _ typD _ typ_nat.
   Let nat_match := @typ0_match _ typD _ typ_nat.
   Let nat_into (F : Type -> Type) ts : F nat -> F (typD ts tvNat) :=
-    into (Iso := @typ0_iso _ _ _ typ_nat F ts).
+    sinto (iso := @typ0_iso _ _ _ typ_nat ts) F.
   Let tvArr := @typ2 _ typD _ typ_arr.
   Let arr_match := @typ2_match _ typD _ typ_arr.
   Let arr_into (F : Type -> Type) ts a b : F (typD ts a -> typD ts b) -> F (typD ts (tvArr a b)) :=
-    into (Iso := @typ2_iso _ _ _ typ_arr F ts a b).
+    sinto (iso := @typ2_iso _ _ _ typ_arr ts a b) F.
   Let arr_outof (F : Type -> Type) ts a b : F (typD ts (tvArr a b)) -> F (typD ts a -> typD ts b) :=
-    outof (Iso := @typ2_iso _ _ _ typ_arr F ts a b).
+    soutof (iso := @typ2_iso _ _ _ typ_arr ts a b) F.
   Let tvM := @typ1 _ typD _ typ_m.
   Let m_match := @typ1_match _ typD _ typ_m.
   Let m_into (F : Type -> Type) ts a : F (m (typD ts a)) -> F (typD ts (tvM a)) :=
-    into (Iso := @typ1_iso _ _ _ typ_m F ts a).
+    sinto (iso := @typ1_iso _ _ _ typ_m ts a) F.
   Let m_outof (F : Type -> Type) ts a : F (typD ts (tvM a)) -> F (m (typD ts a)) :=
-    outof (Iso := @typ1_iso _ _ _ typ_m F ts a).
+    soutof (iso := @typ1_iso _ _ _ typ_m ts a) F.
 
   Inductive mexpr : Type :=
   | Bind : typ -> typ -> mexpr -> mexpr -> mexpr
@@ -150,8 +150,102 @@ Section Demo.
   ; expr_eq := mexpr_eq
   }.
 
+  Context {TypInstance0Ok_nat : TypInstance0_Ok typ_nat}.
+  Context {TypInstance1Ok_m : TypInstance1_Ok typ_m}.
+  Context {TypInstance2Ok_arr : TypInstance2_Ok typ_arr}.
+
   Instance FuncInstance0_plus : FuncInstance0 plus :=
   { typ0_witness := TypInstance0_app2 typ_arr _ (TypInstance0_app2 typ_arr _ _)
   ; ctor0 := Abs tvNat (Abs tvNat (Plus (Var 1) (Var 0)))
   }.
+  simpl; intros.
+  destruct (Generic.split vs).
+  Ltac unfold_all := 
+    subst tvNat nat_match nat_into  
+           tvArr  arr_match  arr_into  arr_outof 
+           tvM  m_match  m_into  m_outof; simpl in *.
+  unfold_all.
+  repeat match goal with
+           | |- _ => 
+             rewrite typ0_match_typ0 || 
+             rewrite typ1_match_typ1 ||
+             rewrite typ2_match_typ2
+           | |- context [ @typ_cast _ _ ?CLS ?F ?TS ?X ?X ] => 
+             let H := fresh in
+             let H' := fresh in
+             destruct (@typ_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ; 
+               eauto with typeclass_instances ;
+               rewrite H
+         end.
   simpl.
+  Axiom sinto_app : forall A B (SI : StrongIso A B) (T U : Type -> Type) f,
+                      sinto (iso := SI) (fun Ty => T Ty -> U Ty) f = 
+                      (fun x => (sinto (iso := SI) (fun Ty => U Ty) (f (soutof _ x)))). 
+  Axiom sinto_option : forall A B (SI : StrongIso A B) (T : Type -> Type) x,
+                      sinto (iso := SI) (fun Ty => option (T Ty)) x =
+                      match x with
+                        | None => None
+                        | Some x => Some (sinto (iso := SI) (fun Ty => T Ty) x)
+                      end.
+  Axiom soutof_option : forall A B (SI : StrongIso A B) (T : Type -> Type) x,
+                      soutof (iso := SI) (fun Ty => option (T Ty)) x =
+                      match x with
+                        | None => None
+                        | Some x => Some (soutof (iso := SI) (fun Ty => T Ty) x)
+                      end.
+  Axiom sinto_const : forall A B (SI : StrongIso A B) (T : Type) x,
+                        sinto (iso := SI) (fun _ => T) x = x.
+  Axiom soutof_const : forall A B (SI : StrongIso A B) (T : Type) x,
+                        soutof (iso := SI) (fun _ => T) x = x.
+  Axiom soutof_app' : forall A B (SI : StrongIso A B) T (U : Type -> Type) f,
+                         soutof (fun Ty => T -> U Ty) f =
+                         (fun x => (soutof U (f x))).
+  Axiom soutof_app'' : forall A B (SI : StrongIso A B) T (U : Type -> Type) f,
+                         soutof (fun Ty => U Ty -> T) f =
+                         (fun x => f (sinto U x)).
+
+  destruct RTypeOk_typ; simpl in *.
+  unfold Fun.
+  Ltac go :=
+  repeat (progress simpl || rewrite sinto_app || rewrite sinto_option || rewrite soutof_option || 
+  rewrite into_outof || rewrite outof_into || rewrite soutof_const || rewrite sinto_const
+         || rewrite soutof_app' || rewrite soutof_app'').
+  
+  go.
+  match goal with
+    | |- P ?X <-> P ?Y =>
+      assert (forall a b, X a b = Y a b)
+  end.
+  simpl. intros.
+  go. simpl.
+  match goal with
+    | |- _ = @soutof ?A ?B ?C ?D ?E =>
+      idtac A B C D E
+  end.
+
+  repeat (
+  rewrite sinto_app.
+  Arguments soutof {_ _ _ _} _ : rename.
+Arguments sinto {_ _ _ _} _ : rename.
+
+  rewrite sinto_const.
+  
+
+  rewrite sinto_app.
+  match goal with
+    | |- context [ soutof ?X (sinto (iso := ?Is) ?X ?Y) ] =>
+      rewrite (@outof_into _ _ Is _ X Y)
+  end.
+
+  match goal with
+
+  end.
+  Check @typ_cast_refl.
+;
+
+      
+  SearchAbout typ_cast.
+
+  rewrite typ2_match_typ1.
+  simpl in *.
+  unfold typ0.

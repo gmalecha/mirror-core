@@ -136,7 +136,7 @@ Section typed.
   }.
 
   Class TypInstance2_Ok F (ti : TypInstance2 F) : Type :=
-  { typ2_match_typ1 : forall ts R caseTyp caseElse t u,
+  { typ2_match_typ2 : forall ts R caseTyp caseElse t u,
       (typ2_match ts R caseTyp caseElse (typ2 t u)) = sinto (iso := typ2_iso ts t u) _ (caseTyp t u)
   ; typ2_isoOk : forall ts t u, StrongIsoOk (typ2_iso ts t u)
   }.
