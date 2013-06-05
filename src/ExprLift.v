@@ -29,6 +29,63 @@ Section typed.
       | _ => lift' s l
     end.
 
+  Fixpoint lower' (s l : nat) (e : expr ts) : option (expr ts) :=
+    match e with
+      | Const _ _ => Some e
+      | Var v => 
+        if NPeano.ltb v s then Some e
+        else if NPeano.ltb (v - s) l then None
+             else Some (Var (v - l))
+      | Func _ _ => Some e
+      | App e es => 
+        match lower' s l e with 
+          | None => None
+          | Some e => 
+            match (fix recur es {struct es} :=
+              match es with
+                | nil => Some (fun x => App e x)
+                | e :: es =>
+                  match lower' s l e with
+                    | None => None
+                    | Some e =>
+                      match recur es with
+                        | None => None
+                        | Some f => Some (fun x => f (e :: x))
+                      end
+                  end
+              end) es with
+              | Some f => Some (f nil)
+              | None => None
+            end
+        end
+      | Abs t e => 
+        match lower' (S s) l e with
+          | None => None
+          | Some e => Some (Abs t e)
+        end
+      | UVar u => Some e
+      | Equal t e1 e2 => 
+        match lower' s l e1 with
+          | Some e1 =>
+            match lower' s l e2 with 
+              | Some e2 => Some (Equal t e1 e2)
+              | None => None
+            end
+          | None => None
+        end
+      | Not e => 
+        match lower' s l e with
+          | Some e => Some (Not e)
+          | None => None
+        end
+    end.
+
+  Fixpoint lower s l : expr ts -> option (expr ts) :=
+    match l with
+      | 0 => @Some _
+      | _ => lower' s l
+    end.        
+
   Require Import ExtLib.Tactics.Consider.
 
   Lemma lift'_0 : forall e s, lift' s 0 e = e.
