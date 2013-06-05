@@ -38,6 +38,13 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
     exists g, 
       typ_cast ts b a = Some g /\
       (forall x, f (g x) = x)
+; typ_cast_refl : forall ts t, 
+                    exists f, typ_cast ts t t = Some f /\
+                              (forall x, f x = x)
+; type_of_apply_nil : forall t, type_of_apply t nil = Some t
+; type_of_apply_cons : forall t t' t'' ts, 
+  type_of_apply t (Some t' :: ts) = Some t'' <-> 
+  
 }.
 
 Section typed.
