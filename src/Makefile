@@ -3,8 +3,9 @@ PROVERS := Assumption
 #  Transitivity
 MODULES    := Generic \
 	      TypesExt TypesExtDemo \
-	      ExprCore \
-	      ExprT
+	      ExprExt ExprExtDemo 
+#	      ExprCore \
+#	      ExprT
  #            ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr 
  # 	      Repr 
  # 	      Prover provers/ProverTac 

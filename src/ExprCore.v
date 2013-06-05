@@ -19,21 +19,21 @@ Section env.
   Context {RTypeOk_typ : RTypeOk RType_typ}.
   Context {typ_arr : TypInstance2 typD Fun}.
   Context {typ_prop : TypInstance0 typD Prop}.
-  Let tvArr := @ctor2 _ _ _ typ_arr.
-  Let arrow_match := @ctor2_match _ _ _ typ_arr.
+  Let tvArr := @typ2 _ _ _ typ_arr.
+  Let arrow_match := @typ2_match _ _ _ typ_arr.
   Let arrow_in ts a b : (typD ts a -> typD ts b) -> typD ts (tvArr a b) :=
-    @into _ _ (@ctor2_iso _ _ _ typ_arr ts a b).
+    @into _ _ (@typ2_iso _ _ _ typ_arr (fun x => x) ts a b).
   Let arrow_out ts a b : typD ts (tvArr a b) -> (typD ts a -> typD ts b) :=
-    @outof _ _ (@ctor2_iso _ _ _ typ_arr ts a b).
-  Let tvProp := @ctor0 _ _ _ typ_prop.
-  Let prop_match := @ctor0_match _ _ _ typ_prop.
+    @outof _ _ (@typ2_iso _ _ _ typ_arr (fun x => x) ts a b).
+  Let tvProp := @typ0 _ _ _ typ_prop.
+  Let prop_match := @typ0_match _ _ _ typ_prop.
   Let prop_in ts : Prop -> typD ts tvProp := 
-    @into _ _ (@ctor0_iso _ _ _ typ_prop ts).
+    @into _ _ (@typ0_iso _ _ _ typ_prop (fun x => x) ts).
   Let prop_out ts : typD ts tvProp -> Prop := 
-    @outof _ _ (@ctor0_iso _ _ _ typ_prop ts).
+    @outof _ _ (@typ0_iso _ _ _ typ_prop (fun x => x) ts).
 
   Definition typ_cast_val ts (a b : typ) (v : typD ts a) : option (typD ts b) :=
-    match typ_cast ts a b with
+    match typ_cast (fun x => x) ts a b with
       | None => None
       | Some f => Some (f v)
     end.
@@ -111,7 +111,7 @@ Section env.
     match nth_error ls i with 
       | None => None
       | Some tv => 
-        match typ_cast _ (projT1 tv) t with
+        match typ_cast (fun x => x) _ (projT1 tv) t with
           | Some f => Some (f (projT2 tv))
           | None => None
         end
@@ -166,7 +166,8 @@ Section env.
    **
    **)
   Fixpoint exprD' (var_env : tenv) (e : expr) (t : typ) {struct e} : 
-    option (hlist (typD nil) var_env -> typD nil t) :=
+    option (hlist (typD nil) var_env -> typD nil t).
+  refine (
     match e as e return option (hlist (typD nil) var_env -> typD nil t) with
       | Const t' c => 
         match @typ_cast_val _ t' t c with
@@ -177,7 +178,7 @@ Section env.
         match nth_error var_env x as z return z = nth_error var_env x -> option (hlist (typD nil) var_env -> typD nil t) with
           | None => fun _ => None
           | Some t' => fun pf => 
-            match typ_cast _ t' t with
+            match typ_cast (fun x => x) _ t' t with
               | Some f =>
                 Some (fun e => match pf in _ = t''
                                      return match t'' with 
@@ -210,12 +211,12 @@ Section env.
       | Abs t' e =>
         @arrow_match nil (fun ty Ty => option (hlist (typD nil) var_env -> Ty))
            (fun lt rt =>
-              match typ_cast nil lt t' with
+              match typ_cast (fun x => x) nil lt t' with
                 | None => None
                 | Some cast =>
                   match @exprD' (lt :: var_env) e rt with
                     | None => None
-                    | Some a => Some (fun x => arrow_in (fun y => a (Hcons y x)))
+                    | Some a => Some (fun x y => a (Hcons y x))
                   end
               end)
            (fun _ => None)
@@ -232,7 +233,7 @@ Section env.
                   option (hlist (typD nil) var_env -> typD nil t) :=
                   match xs with
                     | nil =>
-                      match typ_cast _ t' t with
+                      match typ_cast (fun x => x) _ t' t with
                         | None => fun _ => None
                         | Some cast => fun f => Some (fun g => cast (f g))
                       end
@@ -244,7 +245,8 @@ Section env.
                          (fun tl tr f => 
                             match exprD' var_env x tl with
                               | None => None
-                              | Some xv => eval_args tr xs (fun e => (arrow_out _ (f e)) (xv e))
+                              | Some xv => 
+                                eval_args tr xs (fun e => f e (xv e))
                             end)
                          (fun _ _ => None)
                          t'
@@ -255,7 +257,8 @@ Section env.
         @prop_match nil (fun ty Ty => option (hlist (typD nil) var_env -> Ty))
            (fun _ => 
               match exprD' var_env e1 t' , exprD' var_env e2 t' with
-                | Some l , Some r => Some (fun g => equiv (l g) (r g))
+                | Some l , Some r => 
+                  Some (fun g => equal (type := typeFor (typD := typD) nil t') (l g) (r g))
                 | _ , _ => None
               end)
            (fun _ => None)
@@ -269,20 +272,12 @@ Section env.
               end)
            (fun _ => None)
            t
-    end.
+    end).
+  Defined.
 
-  Fixpoint split_env (g : env) : { ls : tenv & hlist (typD nil) ls } :=
-    match g as g return { ls : tenv & hlist (typD nil) ls } with
-      | nil => existT _ nil Hnil
-      | existT t v :: gs =>
-        match split_env gs with
-          | existT a b =>
-            existT _ (t :: a) (Hcons v b)
-        end
-    end.
 
   Definition exprD (var_env : env) (e : expr) (t : typ) : option (typD nil t) :=
-    let (ts,vs) := split_env var_env in
+    let (ts,vs) := split var_env in
     match exprD' ts e t with
       | None => None
       | Some f => Some (f vs)
@@ -334,7 +329,7 @@ Section env.
             match ts1 , ts2 with
               | nil , nil => true
               | t1 :: ts1 , t2 :: ts2 =>
-                if typ_cast nil t1 t2 then check ts1 ts2 else false
+                if typ_cast (fun x => x) nil t1 t2 then check ts1 ts2 else false
               | _ , _ => false
             end) ts1 ts2
         else false
@@ -350,10 +345,10 @@ Section env.
         else
           false
       | Abs t1 e1 , Abs t2 e2 => 
-        if typ_cast nil t1 t2 then expr_seq_dec e1 e2
+        if typ_cast (fun x => x) nil t1 t2 then expr_seq_dec e1 e2
         else false
       | Equal t1 e1 e2 , Equal t1' e1' e2' =>
-        if typ_cast nil t1 t1' then 
+        if typ_cast (fun x => x) nil t1 t1' then 
           if expr_seq_dec e1 e1' then 
             if expr_seq_dec e2 e2' then true
             else false
@@ -375,10 +370,11 @@ Section env.
   Proof.
     intros.
     unfold const_seqb, typ_cast_val. 
-    consider (typ_cast ts t1 t2); intros; auto.
-    consider (eqb ts t2 (t a) b); intros; auto.
-    specialize (@eqb_ok _ _ _ _ ts t2 (t a) b).
+    consider (typ_cast (fun x => x) ts t1 t2); intros; auto.
+    consider (eqb ts t2 (p a) b); intros; auto.
+    specialize (@eqb_ok _ _ _ _ ts t2 (p a) b).
     rewrite H0.
+(*
     destruct (typ_cast_iso _ _ _ H) as [ ? [ ? ? ] ].
     destruct b0; intros.
     { exists x. subst.
@@ -388,6 +384,8 @@ Section env.
     { exists x; subst.
       intro. apply H3; clear H3; subst. admit. }
   Qed.
+*) 
+  Admitted.
 
 (*
   Theorem expr_seq_dec_eq : forall e1 e2, 

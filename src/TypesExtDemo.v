@@ -3,7 +3,14 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.TypesExt.
 
+Set Implicit Arguments.
+Set Strict Implicit.
+
 Module example.
+
+  Require Import ExtLib.Data.Nat.
+  Require Import ExtLib.Data.List.
+  Require Import ExtLib.Data.Fun.
 
   Inductive my_type : Type :=
   | List : my_type -> my_type
@@ -46,10 +53,10 @@ Module example.
   rewrite (EqNat.beq_nat_eq _ _ pf). reflexivity.
   Defined.
   
-  Definition my_type_cast ts (a b : my_type) : option (my_typeD ts a -> my_typeD ts b) :=
+  Definition my_type_cast (F : Type -> Type) ts (a b : my_type) : option (F (my_typeD ts a) -> F (my_typeD ts b)) :=
     match my_type_eq a b with
       | None => None
-      | Some pf => Some match pf in _ = a' return (my_typeD ts a -> my_typeD ts a') with
+      | Some pf => Some match pf in _ = a' return (F (my_typeD ts a) -> F (my_typeD ts a')) with
                           | eq_refl => fun x => x
                         end
     end.
@@ -72,11 +79,11 @@ Module example.
     end.
 *)
 
-  Fixpoint my_type_eqb ts (a : my_type) : my_typeD ts a -> my_typeD ts a -> option bool :=
+  Fixpoint my_type_eq_valb ts (a : my_type) : my_typeD ts a -> my_typeD ts a -> option bool :=
     match a as a return my_typeD ts a -> my_typeD ts a -> option bool with 
       | Nat => fun x y => Some (x ?[ eq ] y)
       | List a =>
-        let C := my_type_eqb ts a in
+        let C := my_type_eq_valb ts a in
         fix cmp (x y : list (my_typeD ts a)) {struct x} : option bool :=
           match x , y with 
             | nil , nil => Some true
@@ -95,13 +102,13 @@ Module example.
         | Var _ => fun _ _ => None
     end.
 
-  Require Import ExtLib.Data.Nat.
-  Require Import ExtLib.Data.List.
-  Require Import ExtLib.Data.Fun.
-
   Instance RType_my_type : RType my_typeD :=
   { typ_cast := my_type_cast
-  ; eqb := my_type_eqb
+  ; typ_eqb := fun x y => match my_type_eq x y with
+                            | Some _ => true
+                            | None => false
+                          end
+  ; eqb := my_type_eq_valb
   ; typeFor := fun ts => fix typeFor t : type (my_typeD ts t) :=
                match t as t return type (my_typeD ts t) with
                  | Nat => type_nat
@@ -118,9 +125,9 @@ Module example.
   }.
 
   Instance TypInstance_nat : @TypInstance0 _ my_typeD nat :=
-  { ctor0 := Nat
-  ; ctor0_iso := fun _ => {| into := fun x => x ; outof := fun x => x |}
-  ; ctor0_match := fun ts R caseNat caseElse t =>
+  { typ0 := Nat
+  ; typ0_iso := fun _ => {| sinto := fun _ x => x ; soutof := fun _ x => x |}
+  ; typ0_match := fun ts R caseNat caseElse t =>
                     match t as t return R t (my_typeD ts t) with
                       | Nat => caseNat tt
                       | _ => caseElse _
@@ -128,9 +135,9 @@ Module example.
   }.
 
   Instance TypInstance1_list : @TypInstance1 _ my_typeD list :=
-  { ctor1 := List
-  ; ctor1_iso := fun _ _ => {| into := fun x => x ; outof := fun x => x |}
-  ; ctor1_match := fun ts R caseList caseElse t =>
+  { typ1 := List
+  ; typ1_iso := fun _ _ => {| sinto := fun _ x => x ; soutof := fun _ x => x |}
+  ; typ1_match := fun ts R caseList caseElse t =>
       match t as t return R t (my_typeD ts t) with
         | List t => caseList t
         | _ => caseElse _
@@ -139,9 +146,9 @@ Module example.
 
   Definition Fun D R : Type := D -> R.
   Instance TypInstance2_arr : @TypInstance2 _ my_typeD Fun :=
-  { ctor2 := Arr
-  ; ctor2_iso := fun _ _ _ => {| into := fun x => x ; outof := fun x => x |}
-  ; ctor2_match := fun ts R caseArr caseElse t =>
+  { typ2 := Arr
+  ; typ2_iso := fun _ _ _ => {| sinto := fun _ x => x ; soutof := fun _ x => x |}
+  ; typ2_match := fun ts R caseArr caseElse t =>
       match t as t return R t (my_typeD ts t) with
         | Arr t1 t2 => caseArr t1 t2
         | _ => caseElse _

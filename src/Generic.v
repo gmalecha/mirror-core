@@ -1,5 +1,6 @@
 Require Import List.
 Require Import ExtLib.Data.Vector.
+Require Import ExtLib.Data.HList.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -23,7 +24,7 @@ Section quant.
   Fixpoint qapply_v (n : nat) : vector T n -> quant n -> T :=
     match n as n return vector T n -> quant n -> T with
       | 0 => fun _ x => x
-      | S n => fun args x => qapply_v n (snd args) (x (fst args))
+      | S n => fun args x => qapply_v (vector_tl args) (x (vector_hd args))
     end.
 
   Fixpoint parametric (n : nat) (acc : list T) (k : list T -> Type) : Type :=
@@ -33,3 +34,18 @@ Section quant.
     end.
 
 End quant.
+
+Section split.
+  Variable T : Type.
+  Variable F : T -> Type.
+
+  Fixpoint split (g : list (sigT F)) : { ls : list T & hlist F ls } :=
+    match g with
+      | nil => existT _ nil Hnil
+      | existT t v :: gs =>
+        match split gs with
+          | existT a b =>
+            existT _ (t :: a) (Hcons v b)
+        end
+    end.
+End split.
