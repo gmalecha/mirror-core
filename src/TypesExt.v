@@ -6,29 +6,10 @@ Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.Generic.
+Require Import MirrorCore.Iso.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Class Iso (A B : Type) : Type :=
-{ into : A -> B
-; outof : B -> A
-}.
-
-Class StrongIso (A B : Type) : Type :=
-{ sinto : forall (P : Type -> Type), P A -> P B
-; soutof : forall (P : Type -> Type), P B -> P A
-}.
-
-Class StrongIsoOk A B (SIso : StrongIso A B) : Type :=
-{ into_outof : forall R x,
-  sinto R (soutof R x) = x
-; outof_into : forall R x,
-  soutof R (sinto R x) = x
-}.
-
-Arguments sinto {_ _} {iso} P _ : rename.
-Arguments soutof {_ _} {iso} P _ : rename.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { typ_cast : forall (F : Type -> Type) env (a b : typ), option (F (typD env a) -> F (typD env b))

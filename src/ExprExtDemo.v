@@ -178,36 +178,11 @@ Section Demo.
                rewrite H
          end.
   simpl.
-  Axiom sinto_app : forall A B (SI : StrongIso A B) (T U : Type -> Type) f,
-                      sinto (iso := SI) (fun Ty => T Ty -> U Ty) f = 
-                      (fun x => (sinto (iso := SI) (fun Ty => U Ty) (f (soutof _ x)))). 
-  Axiom sinto_option : forall A B (SI : StrongIso A B) (T : Type -> Type) x,
-                      sinto (iso := SI) (fun Ty => option (T Ty)) x =
-                      match x with
-                        | None => None
-                        | Some x => Some (sinto (iso := SI) (fun Ty => T Ty) x)
-                      end.
-  Axiom soutof_option : forall A B (SI : StrongIso A B) (T : Type -> Type) x,
-                      soutof (iso := SI) (fun Ty => option (T Ty)) x =
-                      match x with
-                        | None => None
-                        | Some x => Some (soutof (iso := SI) (fun Ty => T Ty) x)
-                      end.
-  Axiom sinto_const : forall A B (SI : StrongIso A B) (T : Type) x,
-                        sinto (iso := SI) (fun _ => T) x = x.
-  Axiom soutof_const : forall A B (SI : StrongIso A B) (T : Type) x,
-                        soutof (iso := SI) (fun _ => T) x = x.
-  Axiom soutof_app' : forall A B (SI : StrongIso A B) T (U : Type -> Type) f,
-                         soutof (fun Ty => T -> U Ty) f =
-                         (fun x => (soutof U (f x))).
-  Axiom soutof_app'' : forall A B (SI : StrongIso A B) T (U : Type -> Type) f,
-                         soutof (fun Ty => U Ty -> T) f =
-                         (fun x => f (sinto U x)).
 
   destruct RTypeOk_typ; simpl in *.
   unfold Fun.
   Ltac go :=
-  repeat (progress simpl || rewrite sinto_app || rewrite sinto_option || rewrite soutof_option || 
+  repeat (progress simpl || rewrite sinto_option || rewrite soutof_option || 
   rewrite into_outof || rewrite outof_into || rewrite soutof_const || rewrite sinto_const
          || rewrite soutof_app' || rewrite soutof_app'').
   

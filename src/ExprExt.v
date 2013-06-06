@@ -4,6 +4,7 @@ Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.Generic.
+Require Import MirrorCore.Iso.
 Require Import MirrorCore.TypesExt.
 
 Set Implicit Arguments.
