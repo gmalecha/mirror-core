@@ -6,3 +6,5 @@ Makefile.test.coq
 *~
 .dir-locals.el
 deps.*
+#*
+.#*
