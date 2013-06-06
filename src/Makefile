@@ -1,4 +1,4 @@
-GENERIC := 
+GENERIC := Iso
 PROVERS := Assumption
 #  Transitivity
 MODULES    := Generic \
