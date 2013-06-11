@@ -77,7 +77,7 @@ Section typed.
 
   Class TypInstance0 (F : Type) : Type :=
   { typ0     : typ
-  ; typ0_iso : forall ts, StrongIso F (typD ts typ0)
+  ; typ0_iso : forall ts, Equiv F (typD ts typ0)
   ; typ0_match : forall ts (R : typ -> Type -> Type)
       (caseTyp : unit -> R typ0 F)
       (caseElse : forall t : typ, R t (typD ts t))
@@ -85,15 +85,15 @@ Section typed.
   }.
 
   Class TypInstance0_Ok F (ti : TypInstance0 F) : Type :=
-  { typ0_match_typ0 : forall ts R caseTyp caseElse,
+  { typ0_match_typ0 : forall ts R caseTyp caseElse (f : IsoFunctor (R typ0)), IsoFunctorOk f ->
       (typ0_match ts R caseTyp caseElse typ0) = sinto (iso := typ0_iso ts) _ (caseTyp tt)
-  ; typ0_isoOk : forall ts, StrongIsoOk (typ0_iso ts)
+  ; typ0_isoOk : forall ts, EquivOk (typ0_iso ts)
   }.
 
   Class TypInstance1 (F : Type -> Type) : Type :=
   { typ1     : typ -> typ
   ; typ1_iso : forall ts t,
-                  StrongIso (F (typD ts t)) (typD ts (typ1 t))
+                  Equiv (F (typD ts t)) (typD ts (typ1 t))
   ; typ1_match : forall ts (R : typ -> Type -> Type)
       (caseTyp : forall t, R (typ1 t) (F (typD ts  t)))
       (caseElse : forall t : typ, R t (typD ts t))
@@ -101,15 +101,15 @@ Section typed.
   }.
 
   Class TypInstance1_Ok F (ti : TypInstance1 F) : Type :=
-  { typ0_match_typ1 : forall ts R caseTyp caseElse t,
+  { typ1_match_typ1 : forall ts R caseTyp caseElse t (f : IsoFunctor (R (typ1 t))), IsoFunctorOk f ->
       (typ1_match ts R caseTyp caseElse (typ1 t)) = sinto (iso := typ1_iso ts t) _ (caseTyp t)
-  ; typ1_isoOk : forall ts t, StrongIsoOk (typ1_iso ts t)
+  ; typ1_isoOk : forall ts t, EquivOk (typ1_iso ts t)
   }.
 
   Class TypInstance2 (F : Type -> Type -> Type) : Type :=
   { typ2     : typ -> typ -> typ
   ; typ2_iso : forall ts t1 t2, 
-                  StrongIso (F (typD ts t1) (typD ts t2)) (typD ts (typ2 t1 t2))
+                  Equiv (F (typD ts t1) (typD ts t2)) (typD ts (typ2 t1 t2))
   ; typ2_match : forall ts (R : typ -> Type -> Type)
       (caseTyp : forall t1 t2, R (typ2 t1 t2) (F (typD ts t1) (typD ts t2)))
       (caseElse : forall t : typ, R t (typD ts t))
@@ -119,31 +119,177 @@ Section typed.
   Class TypInstance2_Ok F (ti : TypInstance2 F) : Type :=
   { typ2_match_typ2 : forall ts R caseTyp caseElse t u,
       (typ2_match ts R caseTyp caseElse (typ2 t u)) = sinto (iso := typ2_iso ts t u) _ (caseTyp t u)
-  ; typ2_isoOk : forall ts t u, StrongIsoOk (typ2_iso ts t u)
+  ; typ2_isoOk : forall ts t u, EquivOk (typ2_iso ts t u)
   }.
+
+    Existing Instance Functor_const.
+    Existing Instance FunctorOk_const.
+    Existing Instance IsoFunctor_Functor.
+    Existing Instance IsoFunctorOk_Functor.
+    Existing Instance IsoFunctor_compose.
+    Existing Instance IsoFunctorOk_compose.
+    Definition IsoFunctor_eta F (f : IsoFunctor F) : IsoFunctor (fun x => F x) :=
+      {| isomap := fun _ _ f => isomap f |}.
+    Definition IsoFunctorOk_eta F (f : IsoFunctor F) (fok : IsoFunctorOk f) : IsoFunctorOk (IsoFunctor_eta f).
+    Proof.
+      constructor.
+      { intros; simpl. eapply isomap_id. }
+      { intros; simpl. eapply isomap_flip. }
+    Qed.
+    Hint Immediate Functor_eta FunctorOk_eta IsoFunctor_eta IsoFunctorOk_eta : typeclass_instances.
+
+
+  Section Equiv_compose.
+    Variables A B C : Type.
+    Variable F : Type -> Type.
+    Variable eAB : Equiv A B.
+    Variable eFT : Equiv (F B) C.
+    Definition Equiv_compose : Equiv (F A) C.
+    Proof.
+      constructor; intros.
+      constructor.
+      { eapply eFT. eapply eAB. refine (fun x => x). }
+      { eapply eFT. eapply eAB. refine (fun x => x). }
+    Defined.
+
+    Variable eokAB : EquivOk eAB.
+    Variable eokFT : EquivOk eFT.
+    Variable iF : IsoFunctor F.
+    Variable iokF : IsoFunctorOk iF.
+
+    Theorem EquivOk_compose : EquivOk Equiv_compose.
+    Proof.
+      Set Printing Implicit.
+      constructor.
+      { red; simpl; intros.
+        assert (@IsoFunctorOk (fun Ty : Type => F0 (F Ty))
+                              (@IsoFunctor_compose F0 func F iF)).
+        { simple eapply IsoFunctorOk_compose; eauto with typeclass_instances. }
+        assert (@IsoFunctorOk (fun _ : Type => F0 (F A))
+                              (@IsoFunctor_Functor (fun _ : Type => F0 (F A)) (Functor_const (F0 (F A))))).
+        { eapply IsoFunctorOk_Functor; eauto with typeclass_instances. }
+        assert (@IsoFunctorOk (fun _ : Type => F A)
+                              (@IsoFunctor_Functor (fun _ : Type => F A) (Functor_const (F A)))).
+        { eapply IsoFunctorOk_Functor; eauto with typeclass_instances. }
+        repeat  match goal with
+                 | |- appcontext [ @into _ _ (@siso _ _ ?E ?X) ?Y ] => 
+                   let x := constr:(@into _ _ (@siso _ _ E X) Y) in
+                   let y := constr:(sinto (iso := E) X Y) in
+                   change x with y
+               end;
+        repeat (   (erewrite sinto_app; eauto with typeclass_instances)
+                || (rewrite sinto_const; eauto with typeclass_instances)
+                || (rewrite soutof_const; eauto with typeclass_instances)
+                || (erewrite sinto_soutof; eauto with typeclass_instances)
+                || (erewrite soutof_sinto; eauto with typeclass_instances)).
+(*        assert (forall F1 : Type -> Type, Iso (F1 A) (F1 B)).
+        { intros. eapply siso. eassumption.
+
+eapply typ0_isoOk. *)
+        assert (forall F0 : Type -> Type,
+                                Iso (F0 (F A)) (F0 C)).
+        { intros. eapply eFT. eapply eAB. eapply Iso_ident. }
+        Show Proof.
+         generalize (@dist_over (F A) C _ _ F0 func _); intro.
+         
+         
+        
+        
+}
+
+        admit. }
+      { unfold Equiv_compose. constructor; intros; simpl;
+        repeat  match goal with
+                 | |- appcontext [ @into _ _ (@siso _ _ ?E ?X) ?Y ] => 
+                   let x := constr:(@into _ _ (@siso _ _ E X) Y) in
+                   let y := constr:(sinto (iso := E) X Y) in
+                   change x with y
+               end; 
+        repeat (   (erewrite sinto_app; eauto with typeclass_instances)
+                || (rewrite sinto_const; eauto)
+                || (rewrite soutof_const; eauto)
+                || (erewrite sinto_soutof; eauto with typeclass_instances)
+                || (erewrite soutof_sinto; eauto with typeclass_instances)). }
+    Qed.
+  End Equiv_compose.
+        
 
   Section instances.
     Global Instance TypInstance0_app F T 
            (f : TypInstance1 F) (t : TypInstance0 T)
     : TypInstance0 (F T) :=
     { typ0 := typ1 typ0
-    ; typ0_iso := fun ts => {| sinto := fun _ => _ ; soutof := fun _ => _ |}
+    ; typ0_iso := fun ts => _ (* {| siso := fun F => {| into := _ ; outof := _ |} |} *)
     ; typ0_match := fun ts R caseTyp caseElse t =>
         typ1_match ts R (fun t' => 
                            typ0_match ts (fun ty Ty => R (typ1 ty) (F Ty)) 
                                       caseTyp
                                       (fun _ => _) t') caseElse t 
     }.
+    { generalize (typ1_iso ts typ0). generalize (typ0_iso ts).
+      generalize dependent (typD ts).
+      generalize dependent (typ0). generalize dependent (typ1).
+      clear; intros.
+ 
     { apply typ1_iso. apply typ0_iso. refine (fun x => x). }
     { apply typ1_iso. apply typ0_iso. refine (fun x => x). }
     { apply typ1_iso. apply caseElse. }
     Defined.
 
+
+
+    Global Instance TypInstance0_Ok_app F T f t (func : IsoFunctor F) (funcOk : IsoFunctorOk func)
+           (fok : @TypInstance1_Ok F f) (tok : @TypInstance0_Ok T t)
+    : TypInstance0_Ok (TypInstance0_app f t).
+    Proof.
+      constructor.
+      { simpl; intros.
+        Typeclasses eauto := debug.
+        erewrite typ1_match_typ1; eauto.
+        erewrite typ0_match_typ0; eauto with typeclass_instances. 
+        generalize dependent (caseTyp tt).
+        clear caseElse caseTyp.
+        generalize dependent (R (typ1 typ0)).
+        Arguments into {_ _} _ _ : rename.
+        Arguments outof {_ _} _ _ : rename.
+        unfold sinto. simpl.
+        intros.
+        repeat match goal with
+                 | |- context [ into (@siso _ _ ?E ?X) ?Y ] => 
+                   change (into (@siso _ _ E X) Y) with (sinto (iso := E) X Y)
+               end.
+        
+        generalize (@sinto_app _ _ _ (typ1_isoOk ts typ0) (fun _ => T0 (F T)) T0 _ _ _ _); intro.
+        generalize (@sinto_app _ _ _ (typ0_isoOk ts) (fun _ => T0 (F T)) (fun x => T0 (F x)) _ (IsoFunctor_compose _ _) _ _); intro.
+        repeat match goal with
+                 | |- context [ into (@siso _ _ ?E ?X) ?Y ] => 
+                   change (into (@siso _ _ E X) Y) with (sinto (iso := E) X Y)
+               end.
+        unfold sinto in H0; rewrite H0.
+        repeat match goal with
+                 | |- context [ into (@siso _ _ ?E ?X) ?Y ] => 
+                   change (into (@siso _ _ E X) Y) with (sinto (iso := E) X Y)
+               end.
+        f_equal.
+        rewrite H1.
+        repeat rewrite soutof_const. reflexivity. }
+      { simpl; intros.
+        unfold TypInstance0_app.
+
+ constructor.
+        { admit. }
+        { 
+
+        
+        Print sinto.
+        
+
+
     Global Instance TypInstance0_app2 F T1 T2 
            (f : TypInstance2 F) (t1 : TypInstance0 T1) (t2 : TypInstance0 T2) 
     : TypInstance0 (F T1 T2) :=
     { typ0 := typ2 (typ0 (TypInstance0 := t1)) (typ0 (TypInstance0 := t2))
-    ; typ0_iso := fun ts => {| sinto := fun _ => _ ; soutof := fun _ => _ |}
+    ; typ0_iso := fun ts => {| siso := fun F => {| into := _ ; outof := _ |} |}
     ; typ0_match := fun ts R caseTyp caseElse t =>
         typ2_match ts R 
            (fun t1' t2' => 
