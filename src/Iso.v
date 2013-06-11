@@ -1,10 +1,11 @@
 Require Import ExtLib.Structures.Functor.
 
+Set Implicit Arguments.
+Set Strict Implicit.
+
 (** AXIOMS **)
 Require Import FunctionalExtensionality.
 
-Set Implicit Arguments.
-Set Strict Implicit.
 
 (** The idea for this file is to describe computational isomorphisms
  ** - A basic isomorphism is just [Iso A B = A <-> B]
@@ -234,290 +235,25 @@ End Equiv.
 Arguments sinto {_ _} {iso} F _ : rename.
 Arguments soutof {_ _} {iso} F _ : rename.
 
-Section iso_tac.
-  Variable A B : Type.
-  
-  Definition Functor_const T : Functor (fun x => T) :=
-  {| fmap := fun T' U' (f : T' -> U') (x : T) => x |}.
+Section flip.
+  Variables A B : Type.
+  Variable E : Equiv A B.
 
-  Instance FunctorOk_const T : FunctorOk (Functor_const T).
+  Definition Equiv_flip : Equiv B A :=
+  {| siso := fun F => Iso_flip (siso F) |}. 
+
+  Variable Eok : EquivOk E.
+
+  Definition EquivOk_flip : EquivOk Equiv_flip.
   Proof.
-    constructor; compute; reflexivity.
-  Qed.
-
-  Definition Functor_option : Functor option :=
-  {| fmap := fun _ _ f x => match x with
-                              | None => None
-                              | Some x => Some (f x)
-                            end |}.
-
-  Instance FunctorOk_option : FunctorOk Functor_option.
-  Proof.
-    constructor; compute;
-    intros; apply functional_extensionality; destruct x; reflexivity.
-  Qed.
-
-  Variable iso : forall F, Iso (F A) (F B).
-  Context {isoOk : forall F, IsoOk (iso F)}.
-  Context {DistFunc_f : DistIsoFunc iso}.
-
-  Local Instance Functor_Fun T : Functor (fun x => T -> x) :=
-  {| fmap := fun _ _ g f => fun x => g (f x) |}.
-
-  Local Instance CoFunctor_Fun T : CoFunctor (fun x => x -> T) :=
-  {| cofmap := fun _ _ g f => fun x => f (g x) |}.
-
-  Local Instance Functor_functor F G (fF : Functor F) (fG : Functor G) : Functor (fun x => F (G x)) :=
-  {| fmap := fun _ _ g => @fmap F _ _ _ (@fmap G _ _ _ g) |}.
-
-  Local Instance CoFunctor_functor F G (fF : Functor F) (fG : CoFunctor G) : CoFunctor (fun x => F (G x)) :=
-  {| cofmap := fun _ _ g => @fmap F _ _ _ (@cofmap G _ _ _ g) |}.
-
-  Local Instance Functor_cofunctor F G (fF : CoFunctor F) (fG : Functor G) : CoFunctor (fun x => F (G x)) :=
-  {| cofmap := fun _ _ g => @cofmap F _ _ _ (@fmap G _ _ _ g) |}.
-
-  Local Instance CoFunctor_cofunctor F G (fF : CoFunctor F) (fG : CoFunctor G) : Functor (fun x => F (G x)) :=
-  {| fmap := fun _ _ g => @cofmap F _ _ _ (@cofmap G _ _ _ g) |}.
-
-  Lemma f_const : forall T x, into (iso := iso (fun _ => T)) x = x.
-  Proof.
-    intro. 
-    specialize (@dist_over _ _ _ DistFunc_f _ (IsoFunctor_Functor (Functor_const T))); simpl; intros.
-    match goal with
-      | [ H : _ -> _ = ?X |- context [ ?Y ] ] =>
-        replace Y with X; [ rewrite <- H | ]; try reflexivity
-    end.
-    eapply IsoFunctorOk_Functor; eauto with typeclass_instances.
-  Qed.
-
-  Definition IsoFunctor_eta F (f : IsoFunctor F) : IsoFunctor (fun x => F x) :=
-  {| isomap := fun _ _ f => isomap f |}.
-
-  Definition IsoFunctorOk_eta F (f : IsoFunctor F) (fok : IsoFunctorOk f) : IsoFunctorOk (IsoFunctor_eta f).
-  Proof.
+    destruct Eok.
     constructor.
-    { intros; simpl. eapply isomap_id. }
-    { intros. simpl. eapply isomap_compose. }
-    { intros; simpl. eapply isomap_flip. }
+    { red; intros. 
+      specialize (siso_dist0 F _ _).
+      simpl in *. rewrite <- isomap_flip.
+      f_equal.
+      rewrite <- siso_dist0. reflexivity. }
+    { unfold Equiv_flip; simpl. intros.
+      eapply IsoOk_flip. eauto. }
   Qed.
-
-  Instance IsoFunctor_compose F (fF : IsoFunctor F) G (fG : IsoFunctor G) 
-  : IsoFunctor (fun x => F (G x)) :=
-  {| isomap := fun A B (i : Iso A B) => @isomap _ fF _ _ (@isomap _ fG _ _ i) |}.
-
-  Global Instance IsoFunctorOk_compose 
-         F fF (fokF : @IsoFunctorOk F fF) 
-         G fG (fokG : @IsoFunctorOk G fG) 
-  : IsoFunctorOk (IsoFunctor_compose fF fG).
-  Proof.
-    constructor.
-    { intros. simpl. repeat rewrite isomap_id. reflexivity. }
-    { simpl; intros. repeat rewrite isomap_compose. reflexivity. } 
-    { simpl. intros; repeat rewrite isomap_flip. reflexivity. }
-  Qed.
-
-  Lemma f_option : forall F (fF : IsoFunctor F) (fFok : IsoFunctorOk fF) x, 
-                     into (iso := iso (fun T => option (F T))) x = 
-                     match x with
-                       | None => None
-                       | Some x => Some (into (iso := iso (fun T => (F T))) x)
-                     end.
-  Proof.
-    intros.
-    assert (IsoFunctorOk (IsoFunctor_compose (IsoFunctor_Functor Functor_option) fF)).
-    { eapply IsoFunctorOk_compose; eauto.
-      eapply IsoFunctorOk_Functor. eauto with typeclass_instances. }
-    specialize (@dist_over _ _ _ DistFunc_f _ _ H); simpl; intros.
-    match goal with
-      | [ H : _ = ?X |- context [ ?Y ] ] =>
-        replace Y with X; [ rewrite <- H | ]; try reflexivity
-    end.
-    simpl. destruct x; auto.
-    f_equal. rewrite dist_over; auto.
-  Qed.
-
-  Lemma f_arrow : forall F G (fF : IsoFunctor F) (fG : IsoFunctor G),
-                  IsoFunctorOk fG -> IsoFunctorOk fF ->
-                  forall (x : F A -> G A),
-                  into (iso := iso (fun T => F T -> G T)) x = 
-                  compose (into (iso := iso G)) (compose x (outof (iso := iso F))).
-  Proof.
-    intros.
-    unfold compose.
-    assert (IsoFunctorOk (IsoFunctor_Fun fF fG)).
-    { apply IsoFunctorOk_Fun; auto. }
-    specialize (@dist_over _ _ _ _ _ _ H1); simpl; intros.
-    match goal with
-      | [ H : _ = ?X |- context [ ?Y ] ] =>
-        replace Y with X; [ rewrite <- H | ]; try reflexivity
-    end.
-    simpl. 
-    repeat rewrite dist_over by assumption. reflexivity.
-  Qed.
-
-End iso_tac.
-
-Create HintDb iso discriminated.
-
-Section with_iso.
-  Variable A B : Type.
-  Variable SI : Equiv A B.
-  Variable SIOk : EquivOk SI.
-
-(*
-  Theorem sinto_soutof : forall R x, sinto R (soutof R x) = x.
-  Proof.
-    intros. unfold sinto, soutof. 
-    destruct (sinto_soutof_Iso R); auto.    
-
-  Hint Rewrite sinto_soutof soutof_sinto : iso.
-*)
-
-  Let iso : forall F, Iso (F A) (F B) := @siso _ _ SI.
-  Lemma isoOk : forall F func, @IsoFunctorOk F func -> IsoOk (iso F).
-  Proof.
-    intros; eapply sinto_soutof_Iso; auto.
-  Qed.
-  Lemma DistFunc_f : DistIsoFunc iso.
-  Proof.
-    intros; apply siso_dist; auto.
-  Qed.
-
-  Let fiso : forall F, Iso (F B) (F A) :=
-    fun F => Iso_flip (iso F).
-  Lemma fisoOk : forall F func, @IsoFunctorOk F func -> IsoOk (fiso F).
-  Proof.
-    intros; eapply IsoOk_flip. eapply isoOk; eauto.
-  Qed.
-  Lemma fDistFunc_f : DistIsoFunc fiso.
-  Proof.
-    intros. unfold fiso. unfold Iso_flip.
-    red; intros.
-  Admitted.
-
-  Lemma sinto_soutof : forall F func, @IsoFunctorOk F func -> forall x, 
-                         sinto F (soutof F x) = x.
-  Proof.
-    unfold sinto, soutof; simpl; intros.
-    rewrite into_outof; auto. eapply isoOk; eauto.
-  Qed.
-
-  Lemma soutof_sinto : forall F func, @IsoFunctorOk F func -> forall x, 
-                         soutof F (sinto F x) = x.
-  Proof.
-    unfold sinto, soutof; simpl; intros.
-    rewrite outof_into; auto. eapply isoOk; eauto.
-  Qed.
-    
-
-
-  Lemma sinto_option : forall (T : Type -> Type) fT x, @IsoFunctorOk T fT ->
-                         sinto (iso := SI) (fun Ty => option (T Ty)) x =
-                         match x with
-                           | None => None
-                           | Some x => Some (sinto (iso := SI) (fun Ty => T Ty) x)
-                         end.
-  Proof.
-    intros. 
-    generalize (@f_option A B iso DistFunc_f _ _ H x).
-    simpl. auto.
-  Qed.
-
-  Lemma soutof_option : forall (T : Type -> Type) fT x, @IsoFunctorOk T fT ->
-                         soutof (iso := SI) (fun Ty => option (T Ty)) x =
-                         match x with
-                           | None => None
-                           | Some x => Some (soutof (iso := SI) (fun Ty => T Ty) x)
-                         end.
-  Proof.
-    intros. 
-    generalize (@f_option _ _ fiso fDistFunc_f _ _ H x).
-    simpl. auto.
-  Qed.
-  Hint Rewrite sinto_option soutof_option : iso.
-  Lemma sinto_const : forall (T : Type) x,
-                        sinto (iso := SI) (fun _ => T) x = x.
-  Proof.
-    intros. 
-    generalize (@f_const _ _ iso DistFunc_f _ x).
-    simpl. auto.
-  Qed.
-  Lemma soutof_const : forall (T : Type) x,
-                        soutof (iso := SI) (fun _ => T) x = x.
-  Proof.
-    intros. 
-    generalize (@f_const _ _ fiso fDistFunc_f _ x).
-    simpl. auto.
-  Qed.
-  Hint Rewrite sinto_const soutof_const : iso.
-
-  Lemma sinto_app : forall T U fT fU,
-                      @IsoFunctorOk T fT ->
-                      @IsoFunctorOk U fU ->
-                      forall (f : T A -> U A),
-                      sinto (iso := SI) (fun Ty => T Ty -> U Ty) f = 
-                      (fun x => (sinto (iso := SI) (fun Ty => U Ty) (f (soutof _ x)))). 
-  Proof.
-    intros.
-    generalize (@f_arrow _ _ iso DistFunc_f _ _ _ _ H0 H f).
-    simpl. auto.
-  Qed.
-  Lemma soutof_app : forall T U fT fU,
-                      @IsoFunctorOk T fT ->
-                      @IsoFunctorOk U fU ->
-                      forall (f : T B -> U B),
-                      soutof (iso := SI) (fun Ty => T Ty -> U Ty) f = 
-                      (fun x => (soutof (iso := SI) (fun Ty => U Ty) (f (sinto _ x)))). 
-  Proof.
-    intros.
-    generalize (@f_arrow _ _ fiso fDistFunc_f _ _ _ _ H0 H f).
-    simpl. auto.
-  Qed.
-  Hint Rewrite sinto_app soutof_app : iso.
-
-  Theorem soutof_app' : forall T U fU,
-                          @IsoFunctorOk U fU ->
-                          forall f,
-                         soutof (fun Ty => T -> U Ty) f =
-                         (fun x => (soutof U (f x))).
-  Proof.
-    intros.
-    rewrite (@soutof_app _ _ _ _ (IsoFunctorOk_Functor (FunctorOk_const T)) H f).
-    apply functional_extensionality; intros. rewrite sinto_const. reflexivity.
-  Qed.
-  Theorem sinto_app' : forall T U fU,
-                          @IsoFunctorOk U fU ->
-                          forall f,
-                         sinto (fun Ty => T -> U Ty) f =
-                         (fun x => (sinto U (f x))).
-  Proof.
-    intros.
-    rewrite (@sinto_app _ _ _ _ (IsoFunctorOk_Functor (FunctorOk_const T)) H f).
-    apply functional_extensionality; intros. rewrite soutof_const. reflexivity.
-  Qed.
-    
-  Theorem soutof_app'' : forall T U fU,
-                          @IsoFunctorOk U fU ->
-                           forall f,
-                         soutof (fun Ty => U Ty -> T) f =
-                         (fun x => f (sinto U x)).
-  Proof.
-    intros.
-    rewrite (@soutof_app _ _ _ _ H (IsoFunctorOk_Functor (FunctorOk_const T)) f).
-    apply functional_extensionality; intros. rewrite soutof_const. reflexivity.
-  Qed.
-
-  Theorem sinto_app'' : forall T U fU,
-                          @IsoFunctorOk U fU ->
-                           forall f,
-                         sinto (fun Ty => U Ty -> T) f =
-                         (fun x => f (soutof U x)).
-  Proof.
-    intros.
-    rewrite (@sinto_app _ _ _ _ H (IsoFunctorOk_Functor (FunctorOk_const T)) f).
-    apply functional_extensionality; intros. rewrite sinto_const. reflexivity.
-  Qed.
-
-  Hint Rewrite sinto_app sinto_app' sinto_app'' using eauto with typeclass_instances : iso.
-  Hint Rewrite soutof_app soutof_app' soutof_app'' using eauto with typeclass_instances : iso.
-End with_iso.
+End flip.

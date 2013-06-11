@@ -3,6 +3,7 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.Iso.
+Require Import MirrorCore.IsoTac.
 Require Import MirrorCore.TypesExt.
 Require Import MirrorCore.ExprExt.
 
@@ -130,7 +131,9 @@ Section Demo.
 
   Definition mexpr_dec (a b : mexpr) : {a = b} + {a <> b}.
     assert (forall a b : typ, {a = b} + {a <> b}).
-    { admit. }
+    { intros. generalize (typ_eqb_ok a0 b0). 
+      destruct (typ_eqb a0 b0). left. apply H. reflexivity.
+      right. intro. apply H in H0. congruence. }
     decide equality.
     decide equality.
     decide equality.
@@ -158,45 +161,6 @@ Section Demo.
   Context {TypInstance1Ok_m : TypInstance1_Ok typ_m}.
   Context {TypInstance2Ok_arr : TypInstance2_Ok typ_arr}.
 
-  Existing Instance IsoFunctor_Functor.
-  Existing Instance IsoFunctorOk_Functor.
-  Existing Instance IsoFunctor_Fun.
-  Existing Instance IsoFunctorOk_Fun.
-
-  Existing Instance Functor_id.
-  Existing Instance FunctorOk_id.
-  Existing Instance Functor_const.
-  Existing Instance FunctorOk_const.
-  Instance IsoFunctor_option F (iF : IsoFunctor F) : IsoFunctor (fun x => option (F x)) :=
-  { isomap := fun _ _ i => {| into := fun x => match x with
-                                                 | None => None
-                                                 | Some x => Some (into (iso := isomap i) x)
-                                               end
-                              ; outof := fun x => match x with
-                                                    | None => None
-                                                    | Some x => Some (outof (iso := isomap i) x)
-                                                  end |} }.
-  Instance IsoFunctorOk_option F iF (iokF : @IsoFunctorOk F iF) : IsoFunctorOk (IsoFunctor_option iF).
-  Admitted.
-
-    Ltac solve_isoFunctor X :=
-      match X with
-        | (fun _ => ?T) => eapply IsoFunctor_Functor; eapply Functor_const
-        | (fun x => x) => eapply IsoFunctor_Functor; eapply Functor_id
-        | (fun x => option (@?F x)) => eapply IsoFunctor_option; solve_isoFunctor F
-        | (fun x => (@?F x) -> (@?G x)) => eapply IsoFunctor_Fun; [ solve_isoFunctor F | solve_isoFunctor G ]
-      end.
-      Ltac solve_isoFunctorOk :=
-        repeat (   simple eapply IsoFunctorOk_Fun
-                || simple eapply IsoFunctorOk_option
-                || simple eapply IsoFunctorOk_Functor
-                || simple eapply FunctorOk_const
-                || simple eapply FunctorOk_id).
-      Hint Extern 1 (IsoFunctor ?X) => solve_isoFunctor X : typeclass_instances.
-      Hint Extern 1 (@IsoFunctorOk _ _) => solve_isoFunctorOk : typeclass_instances.
-
-
-  Remove Hints Fun.Functor_Fun : typeclass_instances.
   Ltac solver :=
         eauto with typeclass_instances ; 
         try eapply (@typ2_isoOk _ _ _ _ TypInstance2Ok_arr) ;
@@ -223,6 +187,17 @@ Section Demo.
         change (@outof A B (@siso C D E F))
           with (@soutof _ _ E F)
     end.
+
+  Theorem P_iff : forall T P (x y : T), x = y -> (P x <-> P y).
+  Proof.
+    clear; intros; subst; firstorder.
+  Qed.
+
+  Ltac unfold_all := 
+    subst tvNat nat_match nat_into  
+          tvArr  arr_match  arr_into  arr_outof 
+          tvM  m_match  m_into  m_outof; simpl in *.
+
     
   Ltac go :=
     repeat (   (rewrite soutof_red)
@@ -252,8 +227,7 @@ Section Demo.
                  eauto with typeclass_instances ;
                  rewrite H
                end
-            || using_s
-).
+            || using_s).
 
   Instance FuncInstance0_plus : FuncInstance0 plus :=
   { typ0_witness := TypInstance0_app2 typ_arr _ (TypInstance0_app2 typ_arr _ _)
@@ -275,18 +249,10 @@ Section Demo.
   }.
   { simpl; intros.
     destruct (Generic.split vs).
-    Ltac unfold_all := 
-      subst tvNat nat_match nat_into  
-            tvArr  arr_match  arr_into  arr_outof 
-            tvM  m_match  m_into  m_outof; simpl in *.
     unfold Fun.
     unfold_all.
     go.
 
-   Theorem P_iff : forall T P (x y : T), x = y -> (P x <-> P y).
-   Proof.
-     clear; intros; subst; firstorder.
-   Qed.
    eapply P_iff.
 
 
@@ -296,4 +262,5 @@ Section Demo.
    repeat rewrite H2.
    simpl. go. reflexivity. }
   Defined.
+
 End Demo.

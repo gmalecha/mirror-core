@@ -1,4 +1,4 @@
-GENERIC := Iso
+GENERIC := Iso IsoTac
 PROVERS := Assumption
 #  Transitivity
 MODULES    := Generic \
