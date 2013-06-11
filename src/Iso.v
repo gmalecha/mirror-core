@@ -27,11 +27,15 @@ Section functorOk.
   Class FunctorOk (Fun : Functor F) : Type :=
   { fmap_id : forall T,
                 fmap (fun x : T => x) = (fun x => x)
+  ; fmap_compose : forall T U V (f : T -> U) (g : U -> V),
+                     compose (fmap g) (fmap f) = fmap (compose g f)
   }.
 
   Class CoFunctorOk (CoFun : CoFunctor) : Type :=
   { cofmap_id : forall T,
                 cofmap (fun x : T => x) = (fun x => x)
+  ; cofmap_compose : forall T U V (f : T -> U) (g : U -> V),
+                       compose (cofmap f) (cofmap g) = cofmap (compose g f)
   }.
 
 End functorOk.
@@ -73,6 +77,24 @@ Proof.
   destruct isoOk; constructor; assumption.
 Qed.
 
+Section compose.
+  Variables A B C : Type. 
+  Variable iBC : Iso B C.
+  Variable iAB : Iso A B.
+
+  Definition Iso_compose : Iso A C :=
+  {| into := compose into into
+   ; outof := compose outof outof 
+   |}.
+
+  Variable iokBC : IsoOk iBC.
+  Variable iokAB : IsoOk iAB.
+
+  Definition IsoOk_compose : IsoOk Iso_compose.
+  Proof.
+    constructor; simpl; unfold compose; simpl; intros; repeat (rewrite outof_into || rewrite into_outof); auto.
+  Qed.
+End compose.
 
 Section IsoFunctor.
 
@@ -83,7 +105,9 @@ Section IsoFunctor.
   { isomap_id : forall T,
                    isomap {| into := fun x : T => x ; outof := fun x => x |} = 
                            {| into := fun x => x ; outof := fun x => x |} 
-  ; isomap_flip : forall T U (i : Iso T U), 
+  ; isomap_compose : forall T U V (iTU : Iso T U) (iUV : Iso U V),
+                       Iso_compose (isomap iUV) (isomap iTU) = isomap (Iso_compose iUV iTU)
+  ; isomap_flip : forall T U (i : Iso T U),
                     Iso_flip (isomap i) = isomap (Iso_flip i)
   }.
 
@@ -96,6 +120,7 @@ Section IsoFunctor.
   Proof.
     constructor.
     { unfold isomap; simpl. intros. rewrite fmap_id; auto. }
+    { unfold Iso_compose; simpl; intros. repeat rewrite fmap_compose; eauto. }
     { reflexivity. }
   Qed.
     
@@ -107,8 +132,9 @@ Section IsoFunctor.
   : IsoFunctorOk (IsoFunctor_CoFunctor F).
   Proof.
     constructor.
-    unfold isomap; simpl. intros. rewrite cofmap_id; auto.
-    reflexivity.
+    { unfold isomap; simpl. intros. rewrite cofmap_id; auto. }
+    { unfold Iso_compose; simpl; intros. repeat rewrite cofmap_compose; eauto. }
+    { reflexivity. }
   Qed.
 
   Instance IsoFunctor_Fun F G (iF : IsoFunctor F) (iG : IsoFunctor G)
@@ -128,20 +154,51 @@ Section IsoFunctor.
   Proof.
     constructor; intros. simpl.
     { repeat rewrite isomap_id. simpl. reflexivity. }
-    { unfold Iso_flip. simpl. admit. }
+    { unfold Iso_compose, compose; simpl. 
+      f_equal;
+      eapply functional_extensionality; intro;
+      eapply functional_extensionality; intro; 
+      repeat match goal with
+               | |- appcontext [ @into _ _ ?I (@into _ _ ?J ?X) ] =>
+                 change (@into _ _ I (@into _ _ J X)) with (@into _ _ (@Iso_compose _ _ _ I J) X)
+               | |- appcontext [ @outof _ _ ?I (@outof _ _ ?J ?X) ] =>
+                 change (@outof _ _ I (@outof _ _ J X)) with (@outof _ _ (@Iso_compose _ _ _ J I) X)
+             end;
+      repeat rewrite isomap_compose; reflexivity. }
+    { unfold Iso_flip. simpl.
+      f_equal;
+      eapply functional_extensionality; intro;
+      eapply functional_extensionality; intro;
+      repeat match goal with
+               | |- _ => progress f_equal
+               | |- appcontext [ @outof _ _ ?E ?X ] =>
+                 change (@outof _ _ E X) with (@into _ _ (@Iso_flip _ _ E) X) ; rewrite isomap_flip
+             end.
+      unfold Iso_flip. simpl. destruct i; simpl; reflexivity. 
+      unfold Iso_flip. simpl. destruct i; simpl; reflexivity. }
   Qed.   
 
   Class DistIsoFunc {A B} (f : forall F, Iso (F A) (F B)) : Prop :=
     dist_over : forall (F : Type -> Type) (func : IsoFunctor F) (fOk : IsoFunctorOk func),
                   isomap (@f (fun x => x)) = f _.
 
-  Instance Functor_eta F (f : Functor F) : Functor (fun x => F x) :=
+  Instance Functor_eta F (f : Functor F) : Functor (fun x => F x) := 
   { fmap := fun _ _ f => fmap f }.
 
   Instance FunctorOk_eta F (f : Functor F) (fok : FunctorOk f) : FunctorOk (Functor_eta f).
   Proof.
     constructor. intros. simpl.
-    eapply fmap_id. eauto.
+    { eapply fmap_id. eauto. }
+    { intros; compute.
+      eapply fmap_compose. eapply fok. }
+  Qed.
+
+  Instance Functor_id : Functor.Functor (fun x => x) :=
+  { fmap := fun _ _ f => f }.
+
+  Instance FunctorOk_id : FunctorOk Functor_id.
+  Proof.
+    constructor; reflexivity.
   Qed.
 
 End IsoFunctor.
@@ -185,7 +242,7 @@ Section iso_tac.
 
   Instance FunctorOk_const T : FunctorOk (Functor_const T).
   Proof.
-    constructor; compute. reflexivity.
+    constructor; compute; reflexivity.
   Qed.
 
   Definition Functor_option : Functor option :=
@@ -196,8 +253,8 @@ Section iso_tac.
 
   Instance FunctorOk_option : FunctorOk Functor_option.
   Proof.
-    constructor; compute.
-    intros. apply functional_extensionality. destruct x; reflexivity.
+    constructor; compute;
+    intros; apply functional_extensionality; destruct x; reflexivity.
   Qed.
 
   Variable iso : forall F, Iso (F A) (F B).
@@ -233,6 +290,17 @@ Section iso_tac.
     eapply IsoFunctorOk_Functor; eauto with typeclass_instances.
   Qed.
 
+  Definition IsoFunctor_eta F (f : IsoFunctor F) : IsoFunctor (fun x => F x) :=
+  {| isomap := fun _ _ f => isomap f |}.
+
+  Definition IsoFunctorOk_eta F (f : IsoFunctor F) (fok : IsoFunctorOk f) : IsoFunctorOk (IsoFunctor_eta f).
+  Proof.
+    constructor.
+    { intros; simpl. eapply isomap_id. }
+    { intros. simpl. eapply isomap_compose. }
+    { intros; simpl. eapply isomap_flip. }
+  Qed.
+
   Instance IsoFunctor_compose F (fF : IsoFunctor F) G (fG : IsoFunctor G) 
   : IsoFunctor (fun x => F (G x)) :=
   {| isomap := fun A B (i : Iso A B) => @isomap _ fF _ _ (@isomap _ fG _ _ i) |}.
@@ -244,6 +312,7 @@ Section iso_tac.
   Proof.
     constructor.
     { intros. simpl. repeat rewrite isomap_id. reflexivity. }
+    { simpl; intros. repeat rewrite isomap_compose. reflexivity. } 
     { simpl. intros; repeat rewrite isomap_flip. reflexivity. }
   Qed.
 
@@ -266,7 +335,6 @@ Section iso_tac.
     simpl. destruct x; auto.
     f_equal. rewrite dist_over; auto.
   Qed.
-
 
   Lemma f_arrow : forall F G (fF : IsoFunctor F) (fG : IsoFunctor G),
                   IsoFunctorOk fG -> IsoFunctorOk fF ->

@@ -1,6 +1,7 @@
 Require Import List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
+Require Import MirrorCore.Iso.
 Require Import MirrorCore.TypesExt.
 
 Set Implicit Arguments.
@@ -126,7 +127,7 @@ Module example.
 
   Instance TypInstance_nat : @TypInstance0 _ my_typeD nat :=
   { typ0 := Nat
-  ; typ0_iso := fun _ => {| sinto := fun _ x => x ; soutof := fun _ x => x |}
+  ; typ0_iso := fun _ => {| Iso.siso := fun F => {| into := fun x => x ; outof := fun x => x |} |}
   ; typ0_match := fun ts R caseNat caseElse t =>
                     match t as t return R t (my_typeD ts t) with
                       | Nat => caseNat tt
@@ -136,7 +137,7 @@ Module example.
 
   Instance TypInstance1_list : @TypInstance1 _ my_typeD list :=
   { typ1 := List
-  ; typ1_iso := fun _ _ => {| sinto := fun _ x => x ; soutof := fun _ x => x |}
+  ; typ1_iso := fun _ _ => {| Iso.siso := fun F => {| into := fun x => x ; outof := fun x => x |} |}
   ; typ1_match := fun ts R caseList caseElse t =>
       match t as t return R t (my_typeD ts t) with
         | List t => caseList t
@@ -147,7 +148,7 @@ Module example.
   Definition Fun D R : Type := D -> R.
   Instance TypInstance2_arr : @TypInstance2 _ my_typeD Fun :=
   { typ2 := Arr
-  ; typ2_iso := fun _ _ _ => {| sinto := fun _ x => x ; soutof := fun _ x => x |}
+  ; typ2_iso := fun _ _ _ => {| Iso.siso := fun F => {| into := fun x => x ; outof := fun x => x |} |}
   ; typ2_match := fun ts R caseArr caseElse t =>
       match t as t return R t (my_typeD ts t) with
         | Arr t1 t2 => caseArr t1 t2

@@ -2,11 +2,15 @@ Require Import List Bool.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Structures.Monad.
+Require Import MirrorCore.Iso.
 Require Import MirrorCore.TypesExt.
 Require Import MirrorCore.ExprExt.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+(** AXIOMS **)
+Require Import FunctionalExtensionality.
 
 Section Demo.
 
@@ -154,73 +158,142 @@ Section Demo.
   Context {TypInstance1Ok_m : TypInstance1_Ok typ_m}.
   Context {TypInstance2Ok_arr : TypInstance2_Ok typ_arr}.
 
+  Existing Instance IsoFunctor_Functor.
+  Existing Instance IsoFunctorOk_Functor.
+  Existing Instance IsoFunctor_Fun.
+  Existing Instance IsoFunctorOk_Fun.
+
+  Existing Instance Functor_id.
+  Existing Instance FunctorOk_id.
+  Existing Instance Functor_const.
+  Existing Instance FunctorOk_const.
+  Instance IsoFunctor_option F (iF : IsoFunctor F) : IsoFunctor (fun x => option (F x)) :=
+  { isomap := fun _ _ i => {| into := fun x => match x with
+                                                 | None => None
+                                                 | Some x => Some (into (iso := isomap i) x)
+                                               end
+                              ; outof := fun x => match x with
+                                                    | None => None
+                                                    | Some x => Some (outof (iso := isomap i) x)
+                                                  end |} }.
+  Instance IsoFunctorOk_option F iF (iokF : @IsoFunctorOk F iF) : IsoFunctorOk (IsoFunctor_option iF).
+  Admitted.
+
+    Ltac solve_isoFunctor X :=
+      match X with
+        | (fun _ => ?T) => eapply IsoFunctor_Functor; eapply Functor_const
+        | (fun x => x) => eapply IsoFunctor_Functor; eapply Functor_id
+        | (fun x => option (@?F x)) => eapply IsoFunctor_option; solve_isoFunctor F
+        | (fun x => (@?F x) -> (@?G x)) => eapply IsoFunctor_Fun; [ solve_isoFunctor F | solve_isoFunctor G ]
+      end.
+      Ltac solve_isoFunctorOk :=
+        repeat (   simple eapply IsoFunctorOk_Fun
+                || simple eapply IsoFunctorOk_option
+                || simple eapply IsoFunctorOk_Functor
+                || simple eapply FunctorOk_const
+                || simple eapply FunctorOk_id).
+      Hint Extern 1 (IsoFunctor ?X) => solve_isoFunctor X : typeclass_instances.
+      Hint Extern 1 (@IsoFunctorOk _ _) => solve_isoFunctorOk : typeclass_instances.
+
+
+  Remove Hints Fun.Functor_Fun : typeclass_instances.
+  Ltac solver :=
+        eauto with typeclass_instances ; 
+        try eapply (@typ2_isoOk _ _ _ _ TypInstance2Ok_arr) ;
+        try eapply (@typ1_isoOk _ _ _ _ TypInstance1Ok_m) ;
+        try eapply (@typ0_isoOk _ _ _ _ TypInstance0Ok_nat) ;
+        idtac.
+  Theorem soutof_red : forall A B i o F,
+                         @soutof A B {| siso := fun x => {| into := i x ; outof := o x |} |} F = 
+                         o F.
+    reflexivity.
+  Qed.
+  Theorem sinto_red : forall A B i o F,
+                         @sinto A B {| siso := fun x => {| into := i x ; outof := o x |} |} F = 
+                         i F.
+    reflexivity.
+  Qed.
+
+  Ltac using_s :=
+    match goal with
+      | |- appcontext [ @into ?A ?B (@siso ?C ?D ?E ?F) ] =>
+        change (@into A B (@siso C D E F))
+          with (@sinto _ _ E F)
+      | |- appcontext [ @outof ?A ?B (@siso ?C ?D ?E ?F) ] =>
+        change (@outof A B (@siso C D E F))
+          with (@soutof _ _ E F)
+    end.
+    
+  Ltac go :=
+    repeat (   (rewrite soutof_red)
+            || (rewrite sinto_red)
+            || (erewrite soutof_sinto by solver) 
+            || (erewrite sinto_soutof by solver) 
+            || (erewrite sinto_option by solver)
+            || (erewrite soutof_option by solver)
+            || (erewrite into_outof by solver)
+            || (erewrite outof_into by solver)
+            || (erewrite soutof_const by solver)
+            || (erewrite sinto_const by solver)
+            || (erewrite soutof_app' by solver)
+            || (erewrite sinto_app' by solver)
+            || (erewrite soutof_app'' by solver)
+            || (erewrite sinto_app'' by solver)
+            || (erewrite soutof_app by solver)
+            || (erewrite sinto_app by solver)
+            || (erewrite typ0_match_typ0 by solver)
+            || (erewrite typ1_match_typ1 by solver)
+            || (erewrite typ2_match_typ2 by solver)
+            || match goal with
+                 | |- context [ @typ_cast _ _ ?CLS ?F ?TS ?X ?X ] => 
+                   let H := fresh in
+                   let H' := fresh in
+                   destruct (@typ_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ; 
+                 eauto with typeclass_instances ;
+                 rewrite H
+               end
+            || using_s
+).
+
   Instance FuncInstance0_plus : FuncInstance0 plus :=
   { typ0_witness := TypInstance0_app2 typ_arr _ (TypInstance0_app2 typ_arr _ _)
   ; ctor0 := Abs tvNat (Abs tvNat (Plus (Var 1) (Var 0)))
+  ; ctor0_match := fun R caseCtor caseElse e =>
+                     match e as e return R e with
+                       | Abs t (Abs t' (Plus (Var 1) (Var 0))) =>
+                         nat_match nil 
+                                   (fun ty Ty => R (Abs ty (Abs t' (Plus (Var 1) (Var 0))))) 
+                                   (fun _ => nat_match nil 
+                                                       (fun ty Ty => R (Abs tvNat (Abs ty (Plus (Var 1) (Var 0))))) 
+                                                       caseCtor
+                                                       (fun _ => caseElse _)
+                                                       t')
+                                   (fun _ => caseElse _)
+                                   t
+                       | e => caseElse e
+                     end
   }.
-  simpl; intros.
-  destruct (Generic.split vs).
-  Ltac unfold_all := 
-    subst tvNat nat_match nat_into  
-           tvArr  arr_match  arr_into  arr_outof 
-           tvM  m_match  m_into  m_outof; simpl in *.
-  unfold_all.
-  repeat match goal with
-           | |- _ => 
-             rewrite typ0_match_typ0 || 
-             rewrite typ1_match_typ1 ||
-             rewrite typ2_match_typ2
-           | |- context [ @typ_cast _ _ ?CLS ?F ?TS ?X ?X ] => 
-             let H := fresh in
-             let H' := fresh in
-             destruct (@typ_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ; 
-               eauto with typeclass_instances ;
-               rewrite H
-         end.
-  simpl.
+  { simpl; intros.
+    destruct (Generic.split vs).
+    Ltac unfold_all := 
+      subst tvNat nat_match nat_into  
+            tvArr  arr_match  arr_into  arr_outof 
+            tvM  m_match  m_into  m_outof; simpl in *.
+    unfold Fun.
+    unfold_all.
+    go.
 
-  destruct RTypeOk_typ; simpl in *.
-  unfold Fun.
-  Ltac go :=
-  repeat (progress simpl || rewrite sinto_option || rewrite soutof_option || 
-  rewrite into_outof || rewrite outof_into || rewrite soutof_const || rewrite sinto_const
-         || rewrite soutof_app' || rewrite soutof_app'').
-  
-  go.
-  match goal with
-    | |- P ?X <-> P ?Y =>
-      assert (forall a b, X a b = Y a b)
-  end.
-  simpl. intros.
-  go. simpl.
-  match goal with
-    | |- _ = @soutof ?A ?B ?C ?D ?E =>
-      idtac A B C D E
-  end.
+   Theorem P_iff : forall T P (x y : T), x = y -> (P x <-> P y).
+   Proof.
+     clear; intros; subst; firstorder.
+   Qed.
+   eapply P_iff.
 
-  repeat (
-  rewrite sinto_app.
-  Arguments soutof {_ _ _ _} _ : rename.
-Arguments sinto {_ _ _ _} _ : rename.
 
-  rewrite sinto_const.
-  
-
-  rewrite sinto_app.
-  match goal with
-    | |- context [ soutof ?X (sinto (iso := ?Is) ?X ?Y) ] =>
-      rewrite (@outof_into _ _ Is _ X Y)
-  end.
-
-  match goal with
-
-  end.
-  Check @typ_cast_refl.
-;
-
-      
-  SearchAbout typ_cast.
-
-  rewrite typ2_match_typ1.
-  simpl in *.
-  unfold typ0.
+   apply functional_extensionality; intro; 
+   apply functional_extensionality; intro.
+   go.
+   repeat rewrite H2.
+   simpl. go. reflexivity. }
+  Defined.
+End Demo.
