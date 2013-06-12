@@ -1,6 +1,8 @@
 Require Import List Bool.
 Require Import Relations.Relation_Definitions.
 Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Data.Vector.
+Require Import ExtLib.Data.Fin.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.Generic.
@@ -55,16 +57,16 @@ Section Expr.
   (** I think something is missing for the iso **)
   Class FuncInstance1 (T : Type -> Type) (F : forall x, T x) : Type :=
   { typ1_witness : TypInstance1 typD T
-  ; ctor1 : expr
+  ; ctor1 : typ -> expr
   ; ctor1_match : forall (R : expr -> Type)
-      (caseCtor : typ -> R ctor1)
+      (caseCtor : forall t, R (ctor1 t))
       (caseElse : forall e, R e)
       (e : expr), R e
   }.
 
   Class FuncInstance1Ok T F (FI : @FuncInstance1 T F) : Type :=
   { ctor1_iso : forall us vs t P, 
-      match exprD us vs ctor1 (@typ1 _ _ _ typ1_witness t) with
+      match exprD us vs (ctor1 t) (@typ1 _ _ _ typ1_witness t) with
         | None => False
         | Some G => 
           P (F (typD nil t)) <-> P (soutof (iso := typ1_iso nil t) (fun x => x) G)
@@ -73,15 +75,15 @@ Section Expr.
 
   Class FuncInstance2 (T : Type -> Type -> Type) (F : forall x y, T x y) : Type :=
   { typ2_witness : TypInstance2 typD T
-  ; ctor2 : expr
+  ; ctor2 : typ -> typ -> expr
   ; ctor2_iso : forall us vs t u P, 
-      match exprD us vs ctor2 (typ2 t u) with
+      match exprD us vs (ctor2 t u) (typ2 t u) with
         | None => False
         | Some G => 
           P (F (typD nil t) (typD nil u)) <-> P (soutof (iso := typ2_iso nil t u) (fun x => x) G)
       end
   ; ctor2_match : forall (R : expr -> Type)
-      (caseCtor : typ -> R ctor2)
+      (caseCtor : forall t1 t2, R (ctor2 t1 t2))
       (caseElse : forall e, R e)
       (e : expr), R e
   }.
@@ -91,7 +93,7 @@ Section Expr.
   { fun_iso : forall ts, Iso (typD ts TF) (typD ts TD -> typD ts TR)
   ; sapp : forall ts, typD ts TF -> typD ts TD -> typD ts TR
   ; app1 : expr -> expr -> expr
-  ; app1_check : expr -> option (expr -> expr)
+  ; app1_check : expr -> option (expr * expr)
   }.
 
   Class AppInstanceOk d r f (AI : @AppInstance f d r) : Type :=
@@ -101,12 +103,13 @@ Section Expr.
                  exprD us vs (app1 a b) r = Some (sapp x y)
   }.
 
-  Require Import ExtLib.Data.Vector.
-
+  (** Generic application **)
   Record AppN (ft : typ) (dom : list typ) (ran : typ) : Type := mkAppN
-  { appn : expr -> vector expr (length dom) -> expr 
+  { appn : expr -> vector expr (length dom) -> expr
+  ; appn_check : expr -> option (expr * vector expr (length dom))
   }.
 
+(*
   Definition App0 A : AppN A nil A :=
     mkAppN A nil A (fun f _ => f).
 
@@ -115,11 +118,64 @@ Section Expr.
                  (fun f (args : vector expr (S (length AS))) => 
                     appn AI2 (app1 f (vector_hd args)) (vector_tl args))).
   Defined.
+*)
+
+  (** Application of a special symbol **)
+  Section exp.
+    Variable T : Type.
+    
+    Fixpoint exp (n : nat) : Type :=
+      match n with
+        | 0 => T 
+        | S n => T -> exp n
+      end.
+
+    Fixpoint app (n : nat) : exp n -> vector T n -> T :=
+      match n with
+        | 0 => fun x _ => x
+        | S n => fun x v => app (x (vector_hd v)) (vector_tl v)
+      end.
+
+  End exp.
 
 
+  Record SymAppN (n : nat) (dom : list (vector typ n -> typ)) (ran : exp typ n) : Type := mkSymAppN 
+  { sappn : vector typ n -> vector expr (length dom) -> expr
+  ; sappn_check : expr -> option (vector typ n * vector expr (length dom))
+  }.
+  
+  Definition SymApp0_0 T F `(FI : @FuncInstance0 T F) : @SymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI)).
+  refine (@mkSymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI))
+                    (fun _ _ => @ctor0 _ _ FI)
+                    (fun e => @ctor0_match _ _ FI _ (fun x => Some (Vnil _, Vnil _)) (fun e => None) e)).
+  Defined.
+
+  Definition SymApp1_0 T F `(FI : @FuncInstance1 T F) : @SymAppN 1 nil (@typ1 _ _ _ (@typ1_witness _ _ FI)).
+  refine (@mkSymAppN 1 nil (@typ1 _ _ _ (@typ1_witness _ _ FI))
+                    (fun vs _ => @ctor1 _ _ FI (vector_hd vs))
+                    (fun e => @ctor1_match _ _ FI _ (fun x => Some (Vcons x (Vnil _), Vnil _)) (fun e => None) e)).
+  Defined.
+
+
+  Definition SymAppS n A AS F R `(FI : forall ts, @AppInstance (app F ts) (A ts) (app R ts)) (Ap : @SymAppN n AS F) 
+  : @SymAppN n (A :: AS) R.
+  refine (@mkSymAppN n (A :: AS) R 
+                    (fun ts args => @app1 _ _ _ (FI ts) (sappn Ap ts (vector_tl args)) (vector_hd args))
+                    (fun e => 
+                       match sappn_check Ap e with
+                         | None => None
+                         | Some (ts, es) => match @app1_check _ _ _ (FI ts) e with
+                                              | None => None
+                                              | Some (e,e') => Some (ts, Vcons e' es)
+                                            end
+                       end)).
+  Defined.
+
+(*
   Definition App2 A B C D (AI : @AppInstance A B C) (AI2 : @AppInstance B D C) : AppN D (A :: B :: nil) C.
   refine (mkAppN D (A :: B :: nil) C
                  (fun f (args : vector expr 2) => app1 (app1 f (vector_hd args)) (vector_hd (vector_tl args)))).
   Defined.
+*)
 
 End Expr.

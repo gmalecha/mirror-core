@@ -1,6 +1,7 @@
 Require Import List Bool.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
@@ -229,7 +230,7 @@ Section Demo.
                end
             || using_s).
 
-  Instance FuncInstance0_plus : FuncInstance0 plus :=
+  Instance FuncInstance0_plus : FuncInstance0 typD mexpr plus :=
   { typ0_witness := TypInstance0_app2 typ_arr _ (TypInstance0_app2 typ_arr _ _)
   ; ctor0 := Abs tvNat (Abs tvNat (Plus (Var 1) (Var 0)))
   ; ctor0_match := fun R caseCtor caseElse e =>
@@ -247,20 +248,96 @@ Section Demo.
                        | e => caseElse e
                      end
   }.
-  { simpl; intros.
-    destruct (Generic.split vs).
-    unfold Fun.
-    unfold_all.
-    go.
+  
+  Instance FuncInstance0Ok_plus : FuncInstance0Ok FuncInstance0_plus.
+  Proof.
+    constructor.
+    { simpl; intros.
+      destruct (Generic.split vs).
+      unfold Fun.
+      unfold_all.
+      go.
+      eapply P_iff.
+      apply functional_extensionality; intro; 
+      apply functional_extensionality; intro.
+      go.
+      repeat rewrite H2.
+      simpl. go. reflexivity. }
+    { simpl; intros.
+      unfold_all. unfold Fun.
+      go. reflexivity. }
+  Qed.
 
-   eapply P_iff.
+  Require Import ExtLib.Data.Fin.
+
+  Definition SApp_plus : @SymAppN typ mexpr 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat :=
+    @mkSymAppN _ _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat
+              (fun _ a => Plus (vector_hd a) (vector_hd (vector_tl a)))
+              (fun e => 
+                 match e with
+                   | Plus l r => Some (Vnil _, Vcons l (Vcons r (Vnil _)))
+                   | _ => None
+                 end).
+
+  Definition SApp_ret1 : @SymAppN typ mexpr 1 (vector_hd :: nil) tvM.
+  refine (
+      @mkSymAppN _ _ 1 (vector_hd :: nil) tvM
+                (fun ts v => Ret (vector_hd ts) (vector_hd v))
+                (fun e => match e with
+                            | Ret t' v => 
+                              Some (Vcons t' (Vnil _), Vcons v (Vnil _))
+                            | _ => None
+                          end)).
+  Defined.
 
 
-   apply functional_extensionality; intro; 
-   apply functional_extensionality; intro.
-   go.
-   repeat rewrite H2.
-   simpl. go. reflexivity. }
+  Definition SApp_ret0 T (ti : TypInstance0 typD T) : @SymAppN typ mexpr 0 ((fun _ => @typ0 _ _ _ ti) :: nil) (tvM (@typ0 _ _ _ ti)).
+  refine (
+      let t := @typ0 _ _ _ ti in
+      @mkSymAppN _ _ 0 ((fun _ => t) :: nil) (tvM t)
+                (fun _ v => Ret t (vector_hd v))
+                (fun e => match e with
+                            | Ret t' v => 
+                              @typ0_match _ _ _ ti nil (fun _ _ => option (vector typ 0 * vector mexpr 1)) 
+                                          (fun _ => Some (Vnil _, Vcons v (Vnil _)))
+                                          (fun _ => None)
+                                          t'
+                            | _ => None
+                          end)).
+  Defined.
+
+  Definition SApp_bind2 
+  : @SymAppN typ mexpr 2 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) (fun _ => tvM).
+  refine (
+      @mkSymAppN typ mexpr 2 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) (fun _ => tvM)
+                 (fun ts v => Bind (vector_hd ts) (vector_hd (vector_tl ts)) (vector_hd v) (vector_hd (vector_tl v)))
+                 (fun e => match e with
+                            | Bind t1' t2' v v' => 
+                              Some (Vcons t1' (Vcons t2' (Vnil _)), Vcons v (Vcons v' (Vnil _)))
+                            | _ => None
+                          end)).
+  Defined.
+
+
+  Definition SApp_bind0 T1 T2 (ti1 : TypInstance0 typD T1) (ti2 : TypInstance0 typD T2) 
+  : @SymAppN typ mexpr 0 ((fun _ => tvM (@typ0 _ _ _ ti1)) :: (fun _ => tvArr (@typ0 _ _ _ ti1) (tvM (@typ0 _ _ _ ti2))) :: nil) (tvM (@typ0 _ _ _ ti2)).
+  refine (
+      let t1 := @typ0 _ _ _ ti1 in
+      let t2 := @typ0 _ _ _ ti2 in
+      @mkSymAppN _ _ 0 ((fun _ => tvM t1) :: (fun _ => tvArr t1 (tvM t2)) :: nil) (tvM t2)
+                (fun _ v => Bind t1 t2 (vector_hd v) (vector_hd (vector_tl v)))
+                (fun e => match e with
+                            | Bind t1' t2' v v' => 
+                              @typ0_match _ _ _ ti1 nil (fun _ _ => option (vector typ 0 * vector mexpr 2))
+                                          (fun _ =>
+                                             @typ0_match _ _ _ ti2 nil (fun _ _ => option (vector typ 0 * vector mexpr 2))
+                                                         (fun _ => Some (Vnil _, Vcons v (Vcons v' (Vnil _))))
+                                                         (fun _ => None)
+                                                         t2')
+                                          (fun _ => None)
+                                          t1'
+                            | _ => None
+                          end)).
   Defined.
 
 End Demo.
