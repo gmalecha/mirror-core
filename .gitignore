@@ -8,3 +8,4 @@ Makefile.test.coq
 deps.*
 #*
 .#*
+mirror-core.tgz

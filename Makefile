@@ -7,7 +7,7 @@ clean:
 	$(MAKE) -C src clean
 
 dist:
-	git archive --format=tgz mirror-shard.tgz
+	git archive --prefix=mirror-core/ -o mirror-core.tgz HEAD
 
 .dir-locals.el: tools/dir-locals.el Makefile
 	@ sed s,PWD,$(shell pwd -P),g tools/dir-locals.el | sed s,MOD,$(MODULE),g > .dir-locals.el
