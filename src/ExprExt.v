@@ -171,6 +171,13 @@ Section Expr.
                        end)).
   Defined.
 
+  (** Binder **)
+  Record Lambda : Type :=
+  { lambda : typ -> expr -> expr 
+  ; lambda_check : expr -> option (typ * expr)
+  ; subst0 : expr -> expr -> expr
+  }.
+
 (*
   Definition App2 A B C D (AI : @AppInstance A B C) (AI2 : @AppInstance B D C) : AppN D (A :: B :: nil) C.
   refine (mkAppN D (A :: B :: nil) C

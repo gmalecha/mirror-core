@@ -49,7 +49,36 @@ Section Demo.
   | Plus : mexpr -> mexpr -> mexpr
   | Const : nat -> mexpr
   | Var : nat -> mexpr
-  | Abs : typ -> mexpr -> mexpr.
+  | Abs : typ -> mexpr -> mexpr
+  | App : typ -> mexpr -> mexpr -> mexpr.
+
+  Fixpoint liftBy (skip : nat) (e : mexpr) (l : nat) : mexpr :=
+    match e with
+      | Bind t1 t2 m1 m2 => Bind t1 t2 (liftBy skip m1 l) (liftBy skip m2 l) 
+      | Ret t1 m1 => Ret t1 (liftBy skip m1 l)
+      | Plus lhs rhs => Plus (liftBy skip lhs l) (liftBy skip rhs l)
+      | Const v => Const v
+      | Var v => 
+        match Compare_dec.nat_compare v skip with
+          | Eq 
+          | Lt => Var v
+          | Gt => Var (v - l)
+        end
+      | Abs t m => Abs t (liftBy (S skip) m l)
+      | App t f x => App t (liftBy skip f l) (liftBy skip x l)
+    end.
+
+  Fixpoint subst (skip : nat) (e : mexpr) (w : mexpr) : mexpr :=
+    match e with
+      | Bind t1 t2 m1 m2 => Bind t1 t2 (subst skip m1 w) (subst skip m2 w)
+      | Ret t1 m1 => Ret t1 (subst skip m1 w)
+      | Plus l r => Plus (subst skip l w) (subst skip r w)
+      | Const n => Const n
+      | Var n => 
+        if EqNat.beq_nat n skip then liftBy 0 w skip else Var (n - 1)          
+      | Abs t m => Abs t (subst (S skip) m w)
+      | App t l r => App t (subst skip l w) (subst skip r w)
+    end.
 
   Fixpoint mexprD (g : list typ) (e : mexpr) (t : typ) {struct e} : option (hlist (typD nil) g -> typD nil t).
   refine (
@@ -81,6 +110,14 @@ Section Demo.
                 end)
              (fun _ => None)
              t
+        | App t' m m' =>
+          match mexprD g m (tvArr t' t) , mexprD g m' t' with
+            | Some v , Some v' => Some (fun g => 
+                                          let f := v g in
+                                          let x := v' g in
+                                          arr_outof (fun x => x) nil _ _ f x)
+            | _ , _ => None
+          end
         | Const n =>
           nat_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
              (fun _ => Some (fun _ => n))
@@ -338,6 +375,35 @@ Section Demo.
                                           t1'
                             | _ => None
                           end)).
+  Defined.
+
+  Definition gen_app (d r : typ) : AppInstance typD mexpr (tvArr d r) d r.
+  refine ( 
+    let iso ts := Iso_flip (@siso _ _ (@typ2_iso _ _ _ typ_arr ts d r) (fun x => x)) in
+    {| fun_iso := iso
+     ; sapp := fun ts l r => (into (iso := iso ts) l) r
+     ; app1 := fun f x => App d f x
+     ; app1_check := fun e => match e with
+                                | App _ f x => Some (f,x)
+                                | _ => None
+                              end
+    |}).
+  Defined.
+
+
+
+
+
+  Definition Lambda_abs : Lambda typ mexpr.
+  refine 
+    {| lambda := Abs
+     ; lambda_check := fun e =>
+                         match e with
+                           | Abs t e => Some (t,e)
+                           | _ => None
+                         end
+     ; subst0 := subst 0
+     |}.
   Defined.
 
 End Demo.

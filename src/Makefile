@@ -3,7 +3,8 @@ PROVERS := Assumption
 #  Transitivity
 MODULES    := Generic \
 	      TypesExt TypesExtDemo \
-	      ExprExt ExprExtDemo 
+	      ExprExt ExprExtDemo \
+	      MonadReduce MonadDemo
 #	      ExprCore \
 #	      ExprT
  #            ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr 
