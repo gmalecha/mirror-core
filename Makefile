@@ -1,7 +1,5 @@
 MODULE:=MirrorCore
 
-.PHONY: all clean dist
-
 all:
 	$(MAKE) -C src
 
@@ -16,3 +14,12 @@ dist:
 
 install: 
 	$(MAKE) -C src install
+
+init:
+	@ ./tools/setup.sh -b $(EXTBRANCH)
+	@ (cd coq-ext-lib; $(MAKE))
+
+
+.PHONY: all clean dist init
+
+include Makefile.config
