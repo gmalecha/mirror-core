@@ -52,6 +52,24 @@ Section Demo.
   | Abs : typ -> mexpr -> mexpr
   | App : typ -> mexpr -> mexpr -> mexpr.
 
+  Inductive acc_mexpr : mexpr -> mexpr -> Prop :=
+  | BindL_acc : forall t t' x y, acc_mexpr x (Bind t t' x y)
+  | BindR_acc : forall t t' x y, acc_mexpr y (Bind t t' x y)
+  | Ret_acc : forall t x, acc_mexpr x (Ret t x)
+  | PlusL_acc : forall x y, acc_mexpr x (Plus x y)
+  | PlusR_acc : forall x y, acc_mexpr y (Plus x y)
+  | Abs_acc : forall t x, acc_mexpr x (Abs t x)
+  | AppL_acc : forall t x y, acc_mexpr x (App t x y)
+  | AppR_acc : forall t x y, acc_mexpr y (App t x y).
+
+  Lemma well_founded_acc_mexpr : well_founded acc_mexpr.
+  Proof.
+    clear; red; induction a; constructor; intros; 
+    solve [ match goal with
+              | H : _ |- _ => inversion H; clear H; subst; eauto
+            end ].
+  Defined.
+
   Fixpoint liftBy (skip : nat) (e : mexpr) (l : nat) : mexpr :=
     match e with
       | Bind t1 t2 m1 m2 => Bind t1 t2 (liftBy skip m1 l) (liftBy skip m2 l) 
@@ -193,6 +211,8 @@ Section Demo.
                    end
                end
   ; expr_eq := mexpr_eq
+  ; acc := acc_mexpr
+  ; wf_acc := well_founded_acc_mexpr
   }.
 
   Context {TypInstance0Ok_nat : TypInstance0_Ok typ_nat}.
@@ -307,103 +327,118 @@ Section Demo.
 
   Require Import ExtLib.Data.Fin.
 
-  Definition SApp_plus : @SymAppN typ mexpr 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat :=
-    @mkSymAppN _ _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat
+  Definition SApp_plus : @SymAppN typ _ mexpr _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat.
+  refine (
+    @mkSymAppN _ _ _ _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat
               (fun _ a => Plus (vector_hd a) (vector_hd (vector_tl a)))
               (fun e => 
                  match e with
-                   | Plus l r => Some (Vnil _, Vcons l (Vcons r (Vnil _)))
+                   | Plus l r => Some (existT _ (Vnil _, Vcons l (Vcons r (Vnil _))) _)
                    | _ => None
-                 end).
+                 end)); simpl; repeat constructor.
+  Defined.
 
-  Definition SApp_ret1 : @SymAppN typ mexpr 1 (vector_hd :: nil) tvM.
+  Definition SApp_ret1 : @SymAppN typ _ mexpr _ 1 (vector_hd :: nil) tvM.
   refine (
-      @mkSymAppN _ _ 1 (vector_hd :: nil) tvM
+      @mkSymAppN _ _ _ _ 1 (vector_hd :: nil) tvM
                 (fun ts v => Ret (vector_hd ts) (vector_hd v))
                 (fun e => match e with
                             | Ret t' v => 
-                              Some (Vcons t' (Vnil _), Vcons v (Vnil _))
+                              Some (existT _ (Vcons t' (Vnil _), Vcons v (Vnil _)) _)
                             | _ => None
-                          end)).
+                          end)); simpl; repeat constructor.
   Defined.
 
 
-  Definition SApp_ret0 T (ti : TypInstance0 typD T) : @SymAppN typ mexpr 0 ((fun _ => @typ0 _ _ _ ti) :: nil) (tvM (@typ0 _ _ _ ti)).
+  Definition SApp_ret0 T (ti : TypInstance0 typD T)
+  : @SymAppN typ _ mexpr _ 0
+             ((fun _ => @typ0 _ _ _ ti) :: nil)
+             (tvM (@typ0 _ _ _ ti)).
   refine (
       let t := @typ0 _ _ _ ti in
-      @mkSymAppN _ _ 0 ((fun _ => t) :: nil) (tvM t)
-                (fun _ v => Ret t (vector_hd v))
-                (fun e => match e with
-                            | Ret t' v => 
-                              @typ0_match _ _ _ ti nil (fun _ _ => option (vector typ 0 * vector mexpr 1)) 
-                                          (fun _ => Some (Vnil _, Vcons v (Vnil _)))
-                                          (fun _ => None)
-                                          t'
-                            | _ => None
-                          end)).
+      @mkSymAppN _ _ _ _ 0
+                 ((fun _ => t) :: nil)
+                 (tvM t)
+                 (fun _ v => Ret t (vector_hd v))
+                 (fun e => match e with
+                             | Ret t' v => 
+                               @typ0_match _ _ _ ti nil 
+                                           (fun _ _ => option { x : vector typ 0 * vector mexpr 1 & ForallV (fun x => acc x (Ret t' v)) (snd x) }) 
+                                           (fun _ => Some (existT _ (Vnil _, Vcons v (Vnil _)) _))
+                                           (fun _ => None)
+                                           t'
+                             | _ => None
+                           end)); simpl; repeat constructor. 
   Defined.
 
   Definition SApp_bind2 
-  : @SymAppN typ mexpr 2 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) (fun _ => tvM).
+  : @SymAppN typ _ mexpr _ 2
+             ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil)
+             (fun _ => tvM).
   refine (
-      @mkSymAppN typ mexpr 2 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) (fun _ => tvM)
+      @mkSymAppN typ _ mexpr _ 2 
+                 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) 
+                 (fun _ => tvM)
                  (fun ts v => Bind (vector_hd ts) (vector_hd (vector_tl ts)) (vector_hd v) (vector_hd (vector_tl v)))
                  (fun e => match e with
                             | Bind t1' t2' v v' => 
-                              Some (Vcons t1' (Vcons t2' (Vnil _)), Vcons v (Vcons v' (Vnil _)))
+                              Some (existT _ (Vcons t1' (Vcons t2' (Vnil _)), Vcons v (Vcons v' (Vnil _))) _)
                             | _ => None
-                          end)).
+                          end)); simpl; repeat constructor.
   Defined.
 
-
   Definition SApp_bind0 T1 T2 (ti1 : TypInstance0 typD T1) (ti2 : TypInstance0 typD T2) 
-  : @SymAppN typ mexpr 0 ((fun _ => tvM (@typ0 _ _ _ ti1)) :: (fun _ => tvArr (@typ0 _ _ _ ti1) (tvM (@typ0 _ _ _ ti2))) :: nil) (tvM (@typ0 _ _ _ ti2)).
+  : @SymAppN typ _ mexpr _ 0 
+             ((fun _ => tvM (@typ0 _ _ _ ti1)) :: (fun _ => tvArr (@typ0 _ _ _ ti1) (tvM (@typ0 _ _ _ ti2))) :: nil)
+             (tvM (@typ0 _ _ _ ti2)).
   refine (
       let t1 := @typ0 _ _ _ ti1 in
       let t2 := @typ0 _ _ _ ti2 in
-      @mkSymAppN _ _ 0 ((fun _ => tvM t1) :: (fun _ => tvArr t1 (tvM t2)) :: nil) (tvM t2)
-                (fun _ v => Bind t1 t2 (vector_hd v) (vector_hd (vector_tl v)))
-                (fun e => match e with
-                            | Bind t1' t2' v v' => 
-                              @typ0_match _ _ _ ti1 nil (fun _ _ => option (vector typ 0 * vector mexpr 2))
-                                          (fun _ =>
-                                             @typ0_match _ _ _ ti2 nil (fun _ _ => option (vector typ 0 * vector mexpr 2))
-                                                         (fun _ => Some (Vnil _, Vcons v (Vcons v' (Vnil _))))
-                                                         (fun _ => None)
-                                                         t2')
-                                          (fun _ => None)
-                                          t1'
-                            | _ => None
-                          end)).
+      @mkSymAppN _ _ _ _ 0 
+                 ((fun _ => tvM t1) :: (fun _ => tvArr t1 (tvM t2)) :: nil)
+                 (tvM t2)
+                 (fun _ v => Bind t1 t2 (vector_hd v) (vector_hd (vector_tl v)))
+                 (fun e => match e with
+                             | Bind t1' t2' v v' => 
+                               @typ0_match _ _ _ ti1 nil
+                                           (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => acc x (Bind t t2' v v')) (snd x) })
+                                           (fun _ =>
+                                              @typ0_match _ _ _ ti2 nil 
+                                                          (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => acc x (Bind t1 t v v')) (snd x) })
+                                                          (fun _ => Some (existT _ (Vnil _, Vcons v (Vcons v' (Vnil _))) _))
+                                                          (fun _ => None)
+                                                          t2')
+                                           (fun _ => None)
+                                           t1'
+                             | _ => None
+                           end)); simpl; repeat constructor.
   Defined.
 
-  Definition gen_app (d r : typ) : AppInstance typD mexpr (tvArr d r) d r.
+  Check AppInstance.
+
+  Definition gen_app (d r : typ) : @AppInstance _ typD mexpr _ (tvArr d r) d r.
   refine ( 
     let iso ts := Iso_flip (@siso _ _ (@typ2_iso _ _ _ typ_arr ts d r) (fun x => x)) in
     {| fun_iso := iso
      ; sapp := fun ts l r => (into (iso := iso ts) l) r
      ; app1 := fun f x => App d f x
      ; app1_check := fun e => match e with
-                                | App _ f x => Some (f,x)
+                                | App _ f x => Some (existT _ (f,x) _)
                                 | _ => None
                               end
-    |}).
+    |}); simpl; repeat constructor.
   Defined.
 
-
-
-
-
-  Definition Lambda_abs : Lambda typ mexpr.
+  Definition Lambda_abs : @Lambda _ typD mexpr _.
   refine 
     {| lambda := Abs
      ; lambda_check := fun e =>
                          match e with
-                           | Abs t e => Some (t,e)
+                           | Abs t e => Some (existT _ (t,e) _)
                            | _ => None
                          end
      ; subst0 := subst 0
-     |}.
+     |}; simpl; repeat constructor.
   Defined.
 
 End Demo.

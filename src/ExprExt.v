@@ -1,5 +1,6 @@
 Require Import List Bool.
 Require Import Relations.Relation_Definitions.
+Require Import Classes.RelationClasses.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.Fin.
@@ -23,6 +24,8 @@ Section Expr.
   Class Expr : Type :=
   { exprD : env -> env -> expr -> forall t : typ, option (typD nil t)
   ; expr_eq : expr -> expr -> option bool
+  ; acc : relation expr
+  ; wf_acc : well_founded acc
   }.
 
   Class ExprOk (E : Expr) : Type :=
@@ -93,7 +96,7 @@ Section Expr.
   { fun_iso : forall ts, Iso (typD ts TF) (typD ts TD -> typD ts TR)
   ; sapp : forall ts, typD ts TF -> typD ts TD -> typD ts TR
   ; app1 : expr -> expr -> expr
-  ; app1_check : expr -> option (expr * expr)
+  ; app1_check : forall e : expr, option { x : expr * expr & acc (fst x) e /\ acc (snd x) e }
   }.
 
   Class AppInstanceOk d r f (AI : @AppInstance f d r) : Type :=
@@ -106,7 +109,8 @@ Section Expr.
   (** Generic application **)
   Record AppN (ft : typ) (dom : list typ) (ran : typ) : Type := mkAppN
   { appn : expr -> vector expr (length dom) -> expr
-  ; appn_check : expr -> option (expr * vector expr (length dom))
+  ; appn_check : forall e : expr, 
+                   option { x : expr * vector expr (length dom) & acc (fst x) e /\ ForallV (fun x => acc x e) (snd x) }
   }.
 
 (*
@@ -141,19 +145,21 @@ Section Expr.
 
   Record SymAppN (n : nat) (dom : list (vector typ n -> typ)) (ran : exp typ n) : Type := mkSymAppN 
   { sappn : vector typ n -> vector expr (length dom) -> expr
-  ; sappn_check : expr -> option (vector typ n * vector expr (length dom))
+  ; sappn_check : forall e : expr, option { x : vector typ n * vector expr (length dom) & ForallV (fun x => acc x e) (snd x) }
   }.
   
   Definition SymApp0_0 T F `(FI : @FuncInstance0 T F) : @SymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI)).
   refine (@mkSymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI))
                     (fun _ _ => @ctor0 _ _ FI)
-                    (fun e => @ctor0_match _ _ FI _ (fun x => Some (Vnil _, Vnil _)) (fun e => None) e)).
+                    (fun e => @ctor0_match _ _ FI _ (fun x => Some (existT _ (Vnil _, Vnil _) _)) (fun e => None) e));
+  constructor.
   Defined.
 
   Definition SymApp1_0 T F `(FI : @FuncInstance1 T F) : @SymAppN 1 nil (@typ1 _ _ _ (@typ1_witness _ _ FI)).
   refine (@mkSymAppN 1 nil (@typ1 _ _ _ (@typ1_witness _ _ FI))
                     (fun vs _ => @ctor1 _ _ FI (vector_hd vs))
-                    (fun e => @ctor1_match _ _ FI _ (fun x => Some (Vcons x (Vnil _), Vnil _)) (fun e => None) e)).
+                    (fun e => @ctor1_match _ _ FI _ (fun x => Some (existT _ (Vcons x (Vnil _), Vnil _) _)) (fun e => None) e));
+  constructor.
   Defined.
 
 
@@ -164,17 +170,20 @@ Section Expr.
                     (fun e => 
                        match sappn_check Ap e with
                          | None => None
-                         | Some (ts, es) => match @app1_check _ _ _ (FI ts) e with
-                                              | None => None
-                                              | Some (e,e') => Some (ts, Vcons e' es)
-                                            end
+                         | Some (existT (ts_es) pf) => 
+                           match @app1_check _ _ _ (FI (fst ts_es)) e with
+                             | None => None
+                             | Some (existT (e_e') pf') => 
+                               let npf := @ForallV_cons _ (fun x => acc x e) _ _ _ (proj2 pf') pf in
+                               Some (existT _ (fst ts_es, Vcons (snd e_e') (snd ts_es)) npf)
+                           end
                        end)).
   Defined.
 
   (** Binder **)
   Record Lambda : Type :=
   { lambda : typ -> expr -> expr 
-  ; lambda_check : expr -> option (typ * expr)
+  ; lambda_check : forall e : expr, option { x : typ * expr & acc (snd x) e }
   ; subst0 : expr -> expr -> expr
   }.
 

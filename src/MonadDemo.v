@@ -6,7 +6,7 @@ Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.TypesExt.
 Require Import MirrorCore.ExprExt.
 Require Import MirrorCore.ExprExtDemo.
-Require Import MirrorCore.MonadReduce.
+Require Import MirrorCore.MonadReduceApprox.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -21,14 +21,15 @@ Module demo.
   Context {RTypeOk_typ : RTypeOk RType_typ}.
   Context {typ_arr : TypInstance2 typD Fun}.
   Context {typ_m : TypInstance1 typD m}.
+  Context {typ_nat : TypInstance0 typD nat}.
 
   Definition mr : mexpr typ -> mexpr typ := 
-    @monad_run m typ typD (mexpr typ) typ_arr typ_m
-        (@SApp_bind2 m typ typD typ_arr typ_m)
-        (@SApp_ret1 m typ typD typ_m) 
-        (@gen_app _ typD typ_arr)
-        (@Lambda_abs _).
+    @monad_run m typ typD (mexpr typ) _ typ_arr typ_m
+        (@SApp_bind2 m _ typ typD _ _ typ_arr typ_m typ_nat)
+        (@SApp_ret1 m _ typ typD _ _ typ_arr typ_m typ_nat) 
+        (@gen_app m _ typ typD _ _ typ_arr typ_m typ_nat)
+        (@Lambda_abs m _ _ typD _ _ typ_arr typ_m typ_nat).
 
-  Eval compute in fun t => mr (Bind t t (Ret t (Const _ 3)) (Abs t (Ret t (Plus (Var _ 0) (Var _ 0))))).
+  Time Eval vm_compute in fun t => mr (Bind t t (Ret t (Const _ 3)) (Abs t (Ret t (Plus (Var _ 0) (Var _ 0))))).
 
 End demo.

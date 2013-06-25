@@ -1,10 +1,11 @@
-GENERIC := Iso IsoTac
+GENERIC := Iso IsoTac Approx
 PROVERS := Assumption
 #  Transitivity
 MODULES    := Generic \
 	      TypesExt TypesExtDemo \
 	      ExprExt ExprExtDemo \
-	      MonadReduce MonadDemo
+	      MonadReduceApprox MonadDemo
+#	      MonadReduce MonadReduceWf
 #	      ExprCore \
 #	      ExprT
  #            ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr 
