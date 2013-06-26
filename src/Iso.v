@@ -257,3 +257,43 @@ Section flip.
       eapply IsoOk_flip. eauto. }
   Qed.
 End flip.
+
+Section ident.
+  Variable A : Type.
+  
+  Definition Equiv_ident : Equiv A A :=
+  {| siso := fun F => {| into := fun x : F A => x ; outof := fun x : F A => x |} |}.
+
+  Global Instance EquivOk_ident : EquivOk Equiv_ident.
+  Proof.
+    constructor.
+    { red. simpl. destruct 1. eauto. }
+    { constructor; reflexivity. }
+  Qed.
+End ident.
+
+Section Equiv_compose.
+  Variables A B C : Type.
+  Variable Equiv_AB : Equiv A B.
+  Variable Equiv_BC : Equiv B C.
+
+  Definition Equiv_compose : Equiv A C :=
+  {| siso := fun F => Iso_compose (siso F) (siso F) |}.
+
+  Hypothesis EquivOk_AB : EquivOk Equiv_AB.
+  Hypothesis EquivOk_BC : EquivOk Equiv_BC.
+
+  Global Instance EquivOk_compose : EquivOk Equiv_compose.
+  Proof.
+    constructor.
+    { red. intros.
+      simpl.
+      rewrite <- (@siso_dist _ _ _ EquivOk_AB _ _ fOk).
+      rewrite <- (@siso_dist _ _ _ EquivOk_BC _ _ fOk).
+      generalize (@isomap_compose _ _ fOk _ _ _ (@siso A B Equiv_AB (fun x : Type => x)) (@siso _ _ Equiv_BC (fun x : Type => x))).
+      eauto. }
+    { simpl; intros. eapply IsoOk_compose; simpl;
+      eapply sinto_soutof_Iso; eauto. }
+  Qed.
+End Equiv_compose.
+
