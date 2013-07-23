@@ -1,6 +1,9 @@
 Require Import List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
+Require Import ExtLib.Data.Nat.
+Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.TypesExt.
 
 Module example.
@@ -95,9 +98,16 @@ Module example.
         | Var _ => fun _ _ => None
     end.
 
-  Require Import ExtLib.Data.Nat.
-  Require Import ExtLib.Data.List.
-  Require Import ExtLib.Data.Fun.
+  Fixpoint my_type_of_apply (y : my_type) (xs : list my_type) : option my_type :=
+    match xs , y with
+      | nil , _ => Some y
+      | x :: xs , Arr d r =>
+        match my_type_eq x d with
+          | None => None
+          | Some _ => my_type_of_apply r xs
+        end
+      | _ , _ => None
+    end.
 
   Instance RType_my_type : RType my_typeD :=
   { typ_cast := my_type_cast
@@ -110,10 +120,7 @@ Module example.
                  | Var v => type_libniz _
                end
   ; instantiate_typ := fun _ x => x
-  ; type_of_apply := fun y x => match x with
-                                  | nil => Some y
-                                  | _ => None
-                                end
+  ; type_of_apply := my_type_of_apply
   ; type_apply := fun _ _ _ _ _ => None
   }.
 
@@ -126,6 +133,7 @@ Module example.
                       | _ => caseElse _
                     end
   }.
+
 
   Instance TypInstance1_list : @TypInstance1 _ my_typeD list :=
   { ctor1 := List

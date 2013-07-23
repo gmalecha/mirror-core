@@ -3,13 +3,15 @@
  * and their meaning
  *)
 Require Import List Bool.
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Traversable.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
-Require Import ExtLib.Core.RelDec.
 Require Import MirrorCore.ExprCore.
 
 Set Implicit Arguments.
@@ -47,12 +49,16 @@ Section typed.
   Definition typeof_func (f : function typD) : tfunction typ :=
     {| tfenv := fenv f ; tftype := ftype f |}.
 
+  Definition typeof_funcs : functions typD -> tfunctions typ :=
+    map typeof_func.
+
+  Definition typeof_env : env typD -> tenv typ :=
+    map (@projT1 _ _).
+
+
 (*
   Definition well_typed_func (tf : tfunction typ) (f : function typD) : bool :=
     tf.(tfenv) ?[ eq ] f.(fenv) && typ_eqb tf.(tftype) f.(ftype).
-
-  Definition typeof_funcs : functions typD -> tfunctions typ :=
-    map typeof_func.
 
   Fixpoint well_typed_funcs (tfs : tfunctions typ) (fs : functions typD) : bool :=
     match tfs , fs with
@@ -61,9 +67,6 @@ Section typed.
         if well_typed_func tf f then well_typed_funcs tfs fs else false
       | _ , _ => false
     end.
-
-  Definition typeof_env : env typD -> tenv typ :=
-    map (@projT1 _ _).
 
   Theorem split_env_fst_typeof_env : forall g,
     projT1 (split_env g) = typeof_env g.
@@ -84,6 +87,11 @@ Section typed.
   Variable fs : tfunctions typ.
   Variable uvars : tenv typ.
 
+
+  Definition typeof_nx : (expr typD -> option typ) -> list (expr typD) -> option (list typ) :=
+    Eval unfold mapT, Traversable_list, Applicative.ap, Applicative.pure, Option.Applicative_option in
+    mapT.
+
   Fixpoint typeof_expr (var_env : tenv typ) (e : expr typD) : option typ :=
     match e with
       | Const t' _ => Some t'
@@ -101,7 +109,11 @@ Section typed.
       | App e es =>
         match typeof_expr var_env e with
           | None => None
-          | Some tf => type_of_apply tf (map (typeof_expr var_env) es)
+          | Some tf => 
+            match typeof_nx (typeof_expr var_env) es with
+              | None => None
+              | Some r => type_of_apply tf r
+            end
         end
       | Abs t e =>
         match typeof_expr (t :: var_env) e with
@@ -206,7 +218,7 @@ Section typed.
     (exists tf tas,
        WellTyped_expr g e tf /\
        Forall2 (WellTyped_expr g) es tas /\
-       type_of_apply tf (map Some tas) = Some t).
+       type_of_apply tf tas = Some t).
   Proof.
     unfold WellTyped_expr; simpl; intros.
     destruct (typeof_expr g e).
@@ -218,18 +230,18 @@ Section typed.
         cutrewrite (t = t0); subst.
         intuition; simpl.
         admit. }
-      { consider (typeof_expr g a); intros; try congruence.
+      { admit. (* consider (typeof_expr g a); intros; try congruence.
         destruct t0; try congruence.
         change typ_eqb with rel_dec in H0. consider (t0_1 ?[ eq ] t1); try congruence.
         intros; subst. specialize (IHes _ H1). destruct IHes. destruct H0.
         intuition. inversion H2; clear H2; subst. 
         do 2 eexists. split. reflexivity. 
         split; eauto. simpl. change typ_eqb with rel_dec. 
-        rewrite rel_dec_eq_true; auto with typeclass_instances. }
-      { destruct H. destruct H. intuition. inversion H0; clear H0; subst.
+        rewrite rel_dec_eq_true; auto with typeclass_instances. *) }
+      { admit. (* destruct H. destruct H. intuition. inversion H0; clear H0; subst.
         rewrite <- H2. clear H2.
         revert x. clear - H. induction H; simpl; intros; auto.
-        rewrite H. destruct x0; auto. destruct (typ_eqb x0_1 y); auto. } }
+        rewrite H. destruct x0; auto. destruct (typ_eqb x0_1 y); auto. *) } }
     { intuition; try congruence.
       destruct H. destruct H. intuition congruence. } 
   Qed.
@@ -242,32 +254,33 @@ Section typed.
     unfold WellTyped_expr. intros. rewrite H in H0. congruence.
   Qed.
 
+
+  Theorem nth_error_typeof_funcs : forall (fs : functions typD) n, 
+    nth_error (typeof_funcs fs) n = match nth_error fs n with
+                                      | None => None
+                                      | Some x => Some (typeof_func x)
+                                    end.
+  Proof.
+    unfold typeof_funcs; intros.
+    rewrite nth_error_map. reflexivity.
+  Qed.
+
+  Theorem nth_error_typeof_env : forall (g : env typD) n, 
+    nth_error (typeof_env g) n = match nth_error g n with
+                                   | None => None
+                                   | Some x => Some (projT1 x)
+                                 end.
+  Proof.
+    unfold typeof_env; intros.
+    rewrite nth_error_map. reflexivity.
+  Qed.
+
 End typed.
 
-
-Theorem nth_error_typeof_funcs : forall ts (fs : functions ts) n, 
-  nth_error (typeof_funcs fs) n = match nth_error fs n with
-                                    | None => None
-                                    | Some x => Some (typeof_func x)
-                                  end.
-Proof.
-  unfold typeof_funcs; intros.
-  rewrite nth_error_map. reflexivity.
-Qed.
-
-Theorem nth_error_typeof_env : forall ts (fs : env ts) n, 
-  nth_error (typeof_env fs) n = match nth_error fs n with
-                                  | None => None
-                                  | Some x => Some (projT1 x)
-                                end.
-Proof.
-  unfold typeof_env; intros.
-  rewrite nth_error_map. reflexivity.
-Qed.
-
-Theorem typeof_typeof_expr : forall ts fs uenv e venv t, 
-  typeof_expr (ts := ts) (typeof_funcs fs) (typeof_env uenv) venv e = Some t ->
-  typeof fs uenv venv e = Some t.
+(*
+  Theorem typeof_typeof_expr : forall ts fs uenv e venv t, 
+    typeof_expr fs uenv venv e = Some t ->
+    typeof fs uenv venv e = Some t.
 Proof.
   induction e; simpl; intros;
     repeat match goal with 
@@ -295,7 +308,9 @@ Proof.
     destruct t0; auto. destruct (typ_eqb t0_1 t1); auto. }
   { eapply IHe in H. rewrite H in *. reflexivity. }
 Qed.
+*)
 
+(*
 Theorem type_apply_length_equal : forall ts ft ts' n z fd,
   length ts' = n ->
   exists r, type_apply ts n ts' z ft fd = Some r.
@@ -458,3 +473,4 @@ Proof.
       inversion H0; clear H0; subst.
       erewrite IHe by eauto. reflexivity. } }
 Qed.
+*)

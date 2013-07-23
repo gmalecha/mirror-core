@@ -20,7 +20,7 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 ; eqb : forall ts (t : typ), (forall a b : typD ts t, option bool)
 ; typeFor : forall ts (t : typ), type (typD ts t)
 ; instantiate_typ : list typ -> typ -> typ
-; type_of_apply : forall (tv : typ) (es : list (option typ)), option typ
+; type_of_apply : forall (tv : typ) (es : list typ), option typ
 ; type_apply : forall (n : nat) (ls : list typ) (acc : list Type) (t : typ),
                  parametric n acc (fun env : list Type => typD env t) ->
                  option (typD acc (instantiate_typ (rev ls) t))
@@ -41,10 +41,11 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
 ; typ_cast_refl : forall ts t, 
                     exists f, typ_cast ts t t = Some f /\
                               (forall x, f x = x)
+(*
 ; type_of_apply_nil : forall t, type_of_apply t nil = Some t
 ; type_of_apply_cons : forall t t' t'' ts, 
   type_of_apply t (Some t' :: ts) = Some t'' <-> 
-  
+*)  
 }.
 
 Section typed.

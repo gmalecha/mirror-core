@@ -23,7 +23,7 @@ Section quant.
   Fixpoint qapply_v (n : nat) : vector T n -> quant n -> T :=
     match n as n return vector T n -> quant n -> T with
       | 0 => fun _ x => x
-      | S n => fun args x => qapply_v n (snd args) (x (fst args))
+      | S n => fun args x => qapply_v (vector_tl args) (x (vector_hd args))
     end.
 
   Fixpoint parametric (n : nat) (acc : list T) (k : list T -> Type) : Type :=

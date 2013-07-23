@@ -1,12 +1,14 @@
 Require Import List Bool.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
+Require Import ExtLib.Structures.Traversable.
+Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Fun.
+Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.Generic.
 Require Import MirrorCore.TypesExt.
-
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -119,7 +121,12 @@ Section env.
 
   Definition tenv := list typ.
 
-  Fixpoint typeof (var_env : tenv) (e : expr) : option typ :=
+  Definition typeof_nx : (expr -> option typ) -> list expr -> option (list typ) :=
+    Eval unfold mapT, Traversable_list, Applicative.ap, Applicative.pure, Option.Applicative_option in
+    mapT.
+
+
+  Fixpoint typeof (var_env : tenv) (e : expr) {struct e} : option typ :=
     match e with
       | Const t _ => Some t
       | Var x => 
@@ -146,7 +153,11 @@ Section env.
       | App e es =>
         match typeof var_env e with
           | None => None
-          | Some tf => type_of_apply tf (map (typeof var_env) es)
+          | Some tf => 
+            match typeof_nx (typeof var_env) es with
+              | None => None
+              | Some r => type_of_apply tf r
+            end
         end
       | Abs t e => 
         match typeof (t :: var_env) e with
@@ -174,7 +185,10 @@ Section env.
           | None => None
         end
       | Var x => 
-        match nth_error var_env x as z return z = nth_error var_env x -> option (hlist (typD nil) var_env -> typD nil t) with
+        match nth_error var_env x as z
+              return z = nth_error var_env x -> 
+                     option (hlist (typD nil) var_env -> typD nil t) 
+        with
           | None => fun _ => None
           | Some t' => fun pf => 
             match typ_cast _ t' t with
