@@ -1,5 +1,6 @@
 Require Import RelationClasses.
 Require Import ExtLib.Structures.Monads.
+Require Import ExtLib.Data.Positive.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -51,6 +52,3 @@ Section approx2.
     destruct (stop x0 (f x0)); simpl; auto.    
   Qed.
 End approx2.
-        
-          
-    

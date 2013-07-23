@@ -9,3 +9,4 @@ deps.*
 #*
 .#*
 mirror-core.tgz
+coq-ext-lib

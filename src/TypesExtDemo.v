@@ -105,10 +105,10 @@ Module example.
 
   Instance RType_my_type : RType my_typeD :=
   { typ_cast := my_type_cast
-  ; typ_eqb := fun x y => match my_type_eq x y with
+  ; typ_eqb := {| rel_dec := fun x y => match my_type_eq x y with
                             | Some _ => true
                             | None => false
-                          end
+                          end |}
   ; eqb := my_type_eq_valb
   ; typeFor := fun ts => fix typeFor t : type (my_typeD ts t) :=
                match t as t return type (my_typeD ts t) with

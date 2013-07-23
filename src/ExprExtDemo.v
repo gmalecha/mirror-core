@@ -1,8 +1,11 @@
 Require Import List Bool.
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Vector.
-Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Data.Fin.
+Require Import ExtLib.Tactics.Consider. 
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
 Require Import MirrorCore.TypesExt.
@@ -51,6 +54,7 @@ Section Demo.
   | Var : nat -> mexpr
   | Abs : typ -> mexpr -> mexpr
   | App : typ -> mexpr -> mexpr -> mexpr.
+
 
   Inductive acc_mexpr : mexpr -> mexpr -> Prop :=
   | BindL_acc : forall t t' x y, acc_mexpr x (Bind t t' x y)
@@ -185,21 +189,106 @@ Section Demo.
   eapply cast. eapply m_outof. eapply arr_outof. eapply kv. eapply g0.
   Defined.
 
-  Definition mexpr_dec (a b : mexpr) : {a = b} + {a <> b}.
-    assert (forall a b : typ, {a = b} + {a <> b}).
-    { intros. generalize (typ_eqb_ok a0 b0). 
-      destruct (typ_eqb a0 b0). left. apply H. reflexivity.
-      right. intro. apply H in H0. congruence. }
-    decide equality.
-    decide equality.
-    decide equality.
-  Defined.
+  Fixpoint mexpr_eq (a b : mexpr) : bool :=
+    match a , b with
+      | Ret ta ea , Ret tb eb =>
+        ta ?[ eq ] tb && mexpr_eq ea eb
+      | Bind ta ta' ea ea' , Bind tb tb' eb eb' =>
+        ta ?[ eq ] tb && ta' ?[ eq ] tb' && mexpr_eq ea eb && mexpr_eq ea' eb'
+      | Plus la ra , Plus lb rb =>
+        mexpr_eq la lb && mexpr_eq ra rb
+      | Const a , Const b =>
+        a ?[ eq ] b
+      | Var a , Var b =>
+        a ?[ eq ] b
+      | Abs ta ea , Abs tb eb =>
+        ta ?[ eq ] tb && mexpr_eq ea eb
+      | App ta ea ea' , App tb eb eb' =>
+        ta ?[ eq ] tb && mexpr_eq ea eb && mexpr_eq ea' eb'
+      | _ , _ => false
+    end.
 
-  Definition mexpr_eq (a b : mexpr) : option bool :=
-    match mexpr_dec a b with
-      | left _ => Some true
-      | right _ => Some false
-    end.    
+  Instance RelDec_eq_mexpr : RelDec (@eq mexpr) :=
+  { rel_dec := mexpr_eq }.
+
+
+  Global Instance RelDecOk_eq_mexpr : RelDec_Correct RelDec_eq_mexpr.
+  Proof.
+    clear - RTypeOk_typ.
+    constructor.
+    induction x; destruct y; simpl; try solve [ intuition; congruence ].
+    { split; intros;
+      repeat match goal with
+               | H : _ /\ _ |- _ =>
+                 destruct H; subst
+               | _ : ?X && _ = _ |- _ =>
+                 consider X; simpl; intros
+               | H : mexpr_eq _ _ = _ , H' : _ |- _ =>
+                 eapply H' in H; subst
+             end; try congruence.
+      inversion H; clear H; subst.
+      repeat rewrite rel_dec_eq_true; eauto with typeclass_instances.
+      destruct (IHx2 y2); destruct(IHx1 y1).
+      unfold rel_dec in *. simpl in *. 
+      rewrite H0; try reflexivity. rewrite H2; try reflexivity. }
+    { split; intros;
+      repeat match goal with
+               | H : _ /\ _ |- _ =>
+                 destruct H; subst
+               | _ : ?X && _ = _ |- _ =>
+                 consider X; simpl; intros
+               | H : mexpr_eq _ _ = _ , H' : _ |- _ =>
+                 eapply H' in H; subst
+             end; try congruence.
+      inversion H; clear H; subst.
+      repeat rewrite rel_dec_eq_true; eauto with typeclass_instances.
+      destruct (IHx y). 
+      unfold rel_dec in *. simpl in *. 
+      rewrite H0; try reflexivity. }
+    { destruct (IHx1 y1); destruct (IHx2 y2); clear IHx1 IHx2.
+      split; intros.
+      repeat match goal with
+               | H : _ /\ _ |- _ =>
+                 destruct H; subst
+               | _ : ?X && _ = _ |- _ =>
+                 consider X; simpl; intros
+               | H : mexpr_eq _ _ = _ , H' : _ |- _ =>
+                 eapply H' in H; subst
+             end; try congruence.
+      unfold rel_dec in *. simpl in *.
+      inversion H3; clear H3; subst.
+      rewrite H0; try reflexivity. rewrite H2; reflexivity. }
+    { consider (EqNat.beq_nat n n0); intuition; eauto.
+      inversion H0; clear H0; subst. auto. }
+    { consider (EqNat.beq_nat n n0); intuition; eauto.
+      inversion H0; clear H0; subst. auto. }
+    { destruct (IHx y); clear IHx.
+      split; intros.
+      repeat match goal with
+               | H : _ /\ _ |- _ =>
+                 destruct H; subst
+               | _ : ?X && _ = _ |- _ =>
+                 consider X; simpl; intros
+               | H : mexpr_eq _ _ = _ , H' : _ |- _ =>
+                 eapply H' in H; subst
+             end; try congruence.
+      inversion H1; clear H1; subst.
+      repeat rewrite rel_dec_eq_true; eauto with typeclass_instances. }
+    { destruct (IHx1 y1); destruct (IHx2 y2); clear IHx1 IHx2.
+      split; intros.
+      repeat match goal with
+               | H : _ /\ _ |- _ =>
+                 destruct H; subst
+               | _ : ?X && _ = _ |- _ =>
+                 consider X; simpl; intros
+               | H : mexpr_eq _ _ = _ , H' : _ |- _ =>
+                 eapply H' in H; subst
+             end; try congruence.
+      inversion H3; clear H3; subst.
+      repeat rewrite rel_dec_eq_true; eauto with typeclass_instances.
+      unfold rel_dec in *. simpl in *.
+      rewrite H0; try reflexivity. rewrite H2; reflexivity. }
+  Qed.
 
   Instance Expr_mexpr : Expr typD mexpr :=
   { exprD := fun _ g e t => 
@@ -210,7 +299,6 @@ Section Demo.
                      | Some f => Some (f env)
                    end
                end
-  ; expr_eq := mexpr_eq
   ; acc := acc_mexpr
   ; wf_acc := well_founded_acc_mexpr
   }.
@@ -325,8 +413,6 @@ Section Demo.
       go. reflexivity. }
   Qed.
 
-  Require Import ExtLib.Data.Fin.
-
   Definition SApp_plus : @SymAppN typ _ mexpr _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat.
   refine (
     @mkSymAppN _ _ _ _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat
@@ -413,8 +499,6 @@ Section Demo.
                              | _ => None
                            end)); simpl; repeat constructor.
   Defined.
-
-  Check AppInstance.
 
   Definition gen_app (d r : typ) : @AppInstance _ typD mexpr _ (tvArr d r) d r.
   refine ( 

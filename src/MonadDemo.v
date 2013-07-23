@@ -25,10 +25,10 @@ Module demo.
 
   Definition mr : mexpr typ -> mexpr typ := 
     @monad_run m typ typD (mexpr typ) _ typ_arr typ_m
-        (@SApp_bind2 m _ typ typD _ _ typ_arr typ_m typ_nat)
-        (@SApp_ret1 m _ typ typD _ _ typ_arr typ_m typ_nat) 
-        (@gen_app m _ typ typD _ _ typ_arr typ_m typ_nat)
-        (@Lambda_abs m _ _ typD _ _ typ_arr typ_m typ_nat).
+        (@SApp_bind2 m _ typ typD _ typ_arr typ_m typ_nat)
+        (@SApp_ret1 m _ typ typD _ typ_arr typ_m typ_nat) 
+        (@gen_app m _ typ typD _ typ_arr typ_m typ_nat)
+        (@Lambda_abs m _ _ typD _ typ_arr typ_m typ_nat).
 
   Time Eval vm_compute in fun t => mr (Bind t t (Ret t (Const _ 3)) (Abs t (Ret t (Plus (Var _ 0) (Var _ 0))))).
 

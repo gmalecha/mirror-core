@@ -23,18 +23,13 @@ Section Expr.
 
   Class Expr : Type :=
   { exprD : env -> env -> expr -> forall t : typ, option (typD nil t)
-  ; expr_eq : expr -> expr -> option bool
+(*  ; expr_eq : expr -> expr -> option bool *)
   ; acc : relation expr
   ; wf_acc : well_founded acc
   }.
 
   Class ExprOk (E : Expr) : Type :=
-  { expr_eqOk : forall a b, match expr_eq a b with
-                              | None => True
-                              | Some true => a = b
-                              | Some false => a <> b
-                            end
-  }.
+  { }.
 
   Context {Expr_expr : Expr}.
   

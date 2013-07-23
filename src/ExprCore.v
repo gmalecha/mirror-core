@@ -7,7 +7,6 @@ Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.Generic.
 Require Import MirrorCore.TypesExt.
 
-
 Set Implicit Arguments.
 Set Strict Implicit.
 

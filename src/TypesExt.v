@@ -16,8 +16,9 @@ Set Strict Implicit.
 Require Import FunctionalExtensionality.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
-{ typ_cast : forall (F : Type -> Type) env (a b : typ), option (F (typD env a) -> F (typD env b))
-; typ_eqb : typ -> typ -> bool
+{ typ_cast : forall (F : Type -> Type) env (a b : typ), 
+               option (F (typD env a) -> F (typD env b))
+; typ_eqb :> RelDec (@eq typ)
 ; eqb : forall ts (t : typ), (forall a b : typD ts t, option bool)
 ; typeFor : forall ts (t : typ), type (typD ts t)
 ; instantiate_typ : list typ -> typ -> typ
@@ -36,7 +37,7 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
                | Some false => ~equal (type := typeFor _ t) a b
              end
   (** typ_eqb **)
-; typ_eqb_ok : forall a b, typ_eqb a b = true <-> a = b
+; typ_eqb_ok :> RelDec_Correct typ_eqb
   (** typ_cast **)
 ; typ_cast_iso : forall F ts a b f, 
     typ_cast F ts a b = Some f ->
@@ -160,17 +161,6 @@ Section typed.
       Set Printing Implicit.
       constructor.
       { red; simpl; intros.
-(*
-        assert (@IsoFunctorOk (fun Ty : Type => F0 (F Ty))
-                              (@IsoFunctor_compose F0 func F iF)).
-        { solve_isoFunctorOk. }
-        assert (@IsoFunctorOk (fun _ : Type => F0 (F A))
-                              (@IsoFunctor_Functor (fun _ : Type => F0 (F A)) (Functor_const (F0 (F A))))).
-        { solve_isoFunctorOk. }
-        assert (@IsoFunctorOk (fun _ : Type => F A)
-                              (@IsoFunctor_Functor (fun _ : Type => F A) (Functor_const (F A)))).
-        { solve_isoFunctorOk. } 
-*)
         unfold sinto, soutof.
         repeat match goal with
                  | |- appcontext [ fun x => @into _ _ ?F (@into _ _ ?G x) ] =>
