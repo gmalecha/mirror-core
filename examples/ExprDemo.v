@@ -1,6 +1,6 @@
 Require Import List.
 Require Import ExtLib.Data.HList.
-Require Import MirrorCore.Expr.
+Require Import MirrorCore.Ext.Expr.
 
 (** Demo **)
 Section Demo.
@@ -12,27 +12,31 @@ Section Demo.
   Definition all (T : Type) (P : T -> Prop) : Prop :=
     forall x, P x.
 
-  Definition funcs' : functions types'.
-  refine (@F types' 0
+  Definition typD := typD types'. 
+
+  Definition funcs' : functions typD.
+  refine (F _ 0
              (tvArr (tvType 0) (tvArr (tvType 0) (tvType 0)))
              plus :: 
-          @F types' 1
+          F _ 1
              (tvArr (tvArr (tvVar 0) tvProp) tvProp) 
              (fun x : Type => @ex x) ::
-          @F types' 1
+          F _ 1
              (tvArr (tvArr (tvVar 0) tvProp) tvProp) 
              all ::
-          @F types' 1
+          F _ 1
              (tvArr (tvVar 0) (tvArr (tvVar 0) tvProp))
              (fun T : Type => @eq T) ::
           nil).
   Defined.
 
+  
+
   Goal
-    let e := @App _ (@Func _ 1 (tvType 0 :: nil))
-                    ((@Abs _ (tvType 0) (@App _ (@Func _ 3 (tvType 0 :: nil))
-                                                ((Var 0) :: @Const types' (tvType 0) 0 :: nil))) :: nil) in
-    match @exprD _ funcs' nil nil e tvProp with 
+    let e := @App _ _ (@Func _ _ 1 (tvType 0 :: nil))
+                    ((@Abs _ _ (tvType 0) (@App _ _ (@Func _ _ 3 (tvType 0 :: nil))
+                                                ((Var 0) :: @Const _ _ (tvType 0) 0 :: nil))) :: nil) in
+    match @exprD _ _ _ funcs' nil nil e tvProp with 
       | None => False
       | Some p => p
     end.

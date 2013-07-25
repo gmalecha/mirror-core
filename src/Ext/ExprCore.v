@@ -5,7 +5,10 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.Generic.
-Require Import MirrorCore.TypesExt.
+Require Import MirrorCore.Iso.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -21,15 +24,15 @@ Section env.
   Let tvArr := @typ2 _ _ _ typ_arr.
   Let arrow_match := @typ2_match _ _ _ typ_arr.
   Let arrow_in ts a b : (typD ts a -> typD ts b) -> typD ts (tvArr a b) :=
-    @into _ _ (@typ2_iso _ _ _ typ_arr (fun x => x) ts a b).
+    @sinto _ _ (@typ2_iso _ _ _ typ_arr ts a b) (fun x => x).
   Let arrow_out ts a b : typD ts (tvArr a b) -> (typD ts a -> typD ts b) :=
-    @outof _ _ (@typ2_iso _ _ _ typ_arr (fun x => x) ts a b).
+    @soutof _ _ (@typ2_iso _ _ _ typ_arr ts a b) (fun x => x).
   Let tvProp := @typ0 _ _ _ typ_prop.
   Let prop_match := @typ0_match _ _ _ typ_prop.
   Let prop_in ts : Prop -> typD ts tvProp := 
-    @into _ _ (@typ0_iso _ _ _ typ_prop (fun x => x) ts).
+    @sinto _ _ (@typ0_iso _ _ _ typ_prop ts) (fun x => x).
   Let prop_out ts : typD ts tvProp -> Prop := 
-    @outof _ _ (@typ0_iso _ _ _ typ_prop (fun x => x) ts).
+    @soutof _ _ (@typ0_iso _ _ _ typ_prop ts) (fun x => x).
 
   Definition typ_cast_val ts (a b : typ) (v : typD ts a) : option (typD ts b) :=
     match typ_cast (fun x => x) ts a b with
@@ -55,6 +58,14 @@ Section env.
   | UVar : uvar -> expr
   | Equal : typ -> expr -> expr -> expr
   | Not : expr -> expr.
+
+  Inductive expr_acc : expr -> expr -> Prop :=
+  | acc_App_l : forall f a, expr_acc f (App f a)
+  | acc_App_r : forall f a x, In a x -> expr_acc a (App f x)
+  | acc_Abs : forall t e, expr_acc e (Abs t e)
+  | acc_Equal_l : forall t l r, expr_acc l (Equal t l r)
+  | acc_Equal_r : forall t l r, expr_acc r (Equal t l r)
+  | acc_Not : forall e, expr_acc e (Not e).
 
   Definition exprs : Type := list expr.
 
@@ -91,7 +102,23 @@ Section env.
     Qed.
   End expr_ind.
 
-  Definition env : Type := list (sigT (typD nil)).
+  Theorem wf_expr_acc : well_founded expr_acc.
+  Proof.
+    clear. red. 
+    induction a; simpl; intros; constructor; intros.
+    inversion H.
+    inversion H.
+    inversion H. 
+    inversion H.
+    { inversion H0; clear H0; subst; auto.
+      induction es; simpl in *.
+      intuition.
+      destruct H3. subst. inversion H; clear H; subst. auto.
+      eapply IHes; eauto. inversion H; auto. }
+    { inversion H; clear H; subst; auto. }
+    { inversion H; clear H; subst; auto. }
+    { inversion H; clear H; subst; auto. }
+  Qed.
 
   Record function := F {
     fenv : nat ; 
@@ -103,22 +130,17 @@ Section env.
   Definition variables := list typ.
 
   Variable funcs : functions.
-  Variable meta_env : env.
+  Variable meta_env : env typD.
+
+  Require Import ExtLib.Structures.Traversable.
+  Require Import ExtLib.Data.List.
+  Require Import ExtLib.Data.Option.
+
+  Definition mapT_option {T U} (f : T -> option U) (ls : list T) : option (list U) :=
+    Eval cbv beta iota zeta delta [ Traversable_list ] in
+    mapT f ls.
   
-  Definition lookupAs (ls : env) (t : typ) (i : nat)
-    : option (typD nil t) :=
-    match nth_error ls i with 
-      | None => None
-      | Some tv => 
-        match typ_cast (fun x => x) _ (projT1 tv) t with
-          | Some f => Some (f (projT2 tv))
-          | None => None
-        end
-    end.
-
-  Definition tenv := list typ.
-
-  Fixpoint typeof (var_env : tenv) (e : expr) : option typ :=
+  Fixpoint typeof (var_env : tenv typ) (e : expr) {struct e} : option typ :=
     match e with
       | Const t _ => Some t
       | Var x => 
@@ -145,7 +167,11 @@ Section env.
       | App e es =>
         match typeof var_env e with
           | None => None
-          | Some tf => type_of_apply tf (map (typeof var_env) es)
+          | Some tf => 
+            match mapT_option (typeof var_env) es with
+              | None => None
+              | Some x => type_of_apply tf x
+            end
         end
       | Abs t e => 
         match typeof (t :: var_env) e with
@@ -164,7 +190,7 @@ Section env.
    ** which we can't do until we have the binder.
    **
    **)
-  Fixpoint exprD' (var_env : tenv) (e : expr) (t : typ) {struct e} : 
+  Fixpoint exprD' (var_env : tenv typ) (e : expr) (t : typ) {struct e} : 
     option (hlist (typD nil) var_env -> typD nil t).
   refine (
     match e as e return option (hlist (typD nil) var_env -> typD nil t) with
@@ -190,7 +216,7 @@ Section env.
             end
         end eq_refl
       | UVar x => 
-        match lookupAs meta_env t x with
+        match lookupAs meta_env x t with
           | None => None
           | Some v => Some (fun _ => v)
         end
@@ -274,9 +300,9 @@ Section env.
     end).
   Defined.
 
-
-  Definition exprD (var_env : env) (e : expr) (t : typ) : option (typD nil t) :=
-    let (ts,vs) := split var_env in
+  
+  Definition exprD (var_env : env typD) (e : expr) (t : typ) : option (typD nil t) :=
+    let (ts,vs) := split_env var_env in
     match exprD' ts e t with
       | None => None
       | Some f => Some (f vs)
@@ -419,7 +445,7 @@ Section env.
       f_equal; auto. }
     { f_equal; auto. }
   Qed.
-*)
+*)  
 
 End env.
 
@@ -430,4 +456,30 @@ Arguments Var {_ _} _.
 Arguments Abs {_ _} _ _.
 Arguments App {_ _} _ _.
 
-Export TypesExt.
+
+Section expr.
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
+  Context {RType_typ : RType typD}.
+  Context {RTypeOk_typ : RTypeOk RType_typ}.
+  Context {typ_arr : TypInstance2 typD Fun}.
+  Context {typ_prop : TypInstance0 typD Prop}.
+  Let tvArr := @typ2 _ _ _ typ_arr.
+  Let arrow_match := @typ2_match _ _ _ typ_arr.
+  Let arrow_in ts a b : (typD ts a -> typD ts b) -> typD ts (tvArr a b) :=
+    @sinto _ _ (@typ2_iso _ _ _ typ_arr ts a b) (fun x => x).
+  Let arrow_out ts a b : typD ts (tvArr a b) -> (typD ts a -> typD ts b) :=
+    @soutof _ _ (@typ2_iso _ _ _ typ_arr ts a b) (fun x => x).
+  Let tvProp := @typ0 _ _ _ typ_prop.
+  Let prop_match := @typ0_match _ _ _ typ_prop.
+  Let prop_in ts : Prop -> typD ts tvProp := 
+    @sinto _ _ (@typ0_iso _ _ _ typ_prop ts) (fun x => x).
+  Let prop_out ts : typD ts tvProp -> Prop := 
+    @soutof _ _ (@typ0_iso _ _ _ typ_prop ts) (fun x => x).
+
+  Instance Expr_expr (fs : functions typD) : Expr typD (expr typD) :=
+  { exprD := @exprD _ _ _ _ _ fs
+  ; acc := @expr_acc _ _
+  ; wf_acc := @wf_expr_acc _ _ 
+  }.
+End expr.

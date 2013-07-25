@@ -2,35 +2,23 @@ Require Import List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
-Require Import ExprCore.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.EnvI.
+Require Import MirrorCore.Ext.ExprCore.
+
+Set Implicit Arguments.
+Set Strict Implicit.
 
 Section semantic.
-  Variable ts : types.
-
-  Theorem split_env_app : forall (l l' : env ts), 
-    split_env (l ++ l') =
-    let (ts,vs) := split_env l in
-    let (ts',vs') := split_env l' in
-    existT _ (ts ++ ts') (hlist_app vs vs').
-  Proof.
-    induction l; simpl; intros.
-    { destruct (split_env l'); reflexivity. }
-    { destruct a. rewrite IHl.
-      destruct (split_env l).
-      destruct (split_env l'). reflexivity. }
-  Qed.
-
-  Variable fs : functions ts.
-  Variable uenv : env ts.
-
-  Theorem lookupAs_weaken : forall (a b : env ts) n t x, 
-    lookupAs a n t = Some x ->
-    lookupAs (a ++ b) n t = Some x.
-  Proof.
-    clear. unfold lookupAs. intros.
-    consider (nth_error a t); intros; try congruence.
-    erewrite nth_error_weaken by eassumption. auto.
-  Qed.
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
+  Context {RType_typ : RType typD}.
+  Context {RTypeOk_typ : RTypeOk RType_typ}.
+  Context {TI_Fun : TypInstance2 typD Fun}.
+  Context {TI_Prop : TypInstance0 typD Prop}.
+  
+  Variable fs : functions typD.
+  Variable uenv : env typD.
 
   Require Import ExtLib.Tactics.EqDep.
   Theorem uip_refl : forall (t : option typ) e, e = eq_refl t. 
@@ -39,7 +27,7 @@ Section semantic.
   Qed.
 
   Theorem typeof_weaken : forall e venv t,
-    typeof (ts := ts) fs uenv venv e = Some t ->
+    typeof fs uenv venv e = Some t ->
     forall ue ve,
     typeof fs (uenv ++ ue) (venv ++ ve) e = Some t.
   Proof.    
@@ -54,9 +42,44 @@ Section semantic.
                | [ H : forall x, _ = _ -> _ |- _ ] =>
                  specialize (H _ eq_refl)
              end; auto.
-    { erewrite IHe by eauto. clear - H1 H.
+    { erewrite IHe by eauto. 
+      clear - H1 H H2 RTypeOk_typ.
+      generalize dependent t0. generalize dependent l.
+      induction H; intros.
+      { simpl in *. inversion H1; clear H1; subst. auto. }
+      { unfold mapT_option in H1. simpl in H1.
+        consider (typeof fs uenv venv x); intros; try congruence.
+        unfold mapT_option. simpl.
+        erewrite H by eauto.
+        consider (fold_right
+           (fun (x : expr typD) (acc : option (list typ)) =>
+            match
+              match typeof fs uenv venv x with
+              | Some x0 => Some (cons x0)
+              | None => None
+              end
+            with
+            | Some f =>
+                match acc with
+                | Some x0 => Some (f x0)
+                | None => None
+                end
+            | None => None
+            end) (Some nil) l); intros.
+        inversion H4; clear H4; subst.
+        eapply type_of_apply_cons in H2.
+        destruct H2.
+        eapply IHForall in H3.
+        consider (mapT_option (typeof fs (uenv ++ ue) (venv ++ ve)) l); try congruence.
+        unfold mapT_option; simpl. intros.
+        rewrite H3. destruct H2.
+
+        
       generalize dependent t0.
       induction H; simpl; intros; auto.
+      unfold mapT_option in H1. simpl in H1. inversion H1; clear H1; subst.
+      eapply type_of_apply_nil.
+      SearchAbout type_of_apply.
       consider (typeof fs uenv venv x); intros; try congruence.
       erewrite H by eauto. destruct t0; try congruence.
       destruct (typ_eqb t0_1 t1); auto. }

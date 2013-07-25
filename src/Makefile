@@ -1,18 +1,10 @@
 GENERIC := Iso IsoTac Approx
 PROVERS := Assumption
+EXTENSIBLE := Types ExprCore ExprProp ExprT Expr
 #  Transitivity
 MODULES    := Generic \
-	      TypesExt TypesExtDemo \
-	      ExprExt ExprExtDemo \
-	      MonadReduceApprox MonadDemo
-#	      MonadReduce MonadReduceWf
-#	      ExprCore \
-#	      ExprT
- #            ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr 
- # 	      Repr 
- # 	      Prover provers/ProverTac 
- # 	      Subst 
- # 	      ExprUnify ExprUnifySyntactic
+	      TypesI EnvI ExprI \
+	      $(EXTENSIBLE:%=Ext/%)
 
 TESTS := 
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

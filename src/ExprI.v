@@ -8,7 +8,8 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.Generic.
 Require Import MirrorCore.Iso.
-Require Import MirrorCore.TypesExt.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.EnvI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -17,12 +18,10 @@ Section Expr.
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
 
-  Definition env : Type := list (sigT (typD nil)).
-
   Variable expr : Type.
 
   Class Expr : Type :=
-  { exprD : env -> env -> expr -> forall t : typ, option (typD nil t)
+  { exprD : env typD -> env typD -> expr -> forall t : typ, option (typD nil t)
 (*  ; expr_eq : expr -> expr -> option bool *)
   ; acc : relation expr
   ; wf_acc : well_founded acc

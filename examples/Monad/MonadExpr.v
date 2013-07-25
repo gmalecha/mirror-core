@@ -8,8 +8,8 @@ Require Import ExtLib.Data.Fin.
 Require Import ExtLib.Tactics.Consider. 
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
-Require Import MirrorCore.TypesExt.
-Require Import MirrorCore.ExprExt.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
 Set Strict Implicit.

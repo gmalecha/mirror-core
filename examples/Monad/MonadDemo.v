@@ -3,10 +3,10 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Structures.Monad.
-Require Import MirrorCore.TypesExt.
-Require Import MirrorCore.ExprExt.
-Require Import MirrorCore.ExprExtDemo.
-Require Import MirrorCore.MonadReduceApprox.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.ExprI.
+Require Import Monad.MonadExpr.
+Require Import Monad.MonadReduceApprox.
 
 Set Implicit Arguments.
 Set Strict Implicit.
