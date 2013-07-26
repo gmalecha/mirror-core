@@ -19,6 +19,8 @@ Section env.
   Variable typD : list Type -> typ -> Type.
   Context {RType_typ : RType typD}.
   Context {RTypeOk_typ : RTypeOk RType_typ}.
+  Context {RTypeEq_typ : RTypeEq typD}.
+  Context {RTypeEqOk_typ : RTypeEqOk RType_typ RTypeEq_typ}.
   Context {typ_arr : TypInstance2 typD Fun}.
   Context {typ_prop : TypInstance0 typD Prop}.
   Let tvArr := @typ2 _ _ _ typ_arr.
@@ -132,13 +134,11 @@ Section env.
   Variable funcs : functions.
   Variable meta_env : env typD.
 
-  Require Import ExtLib.Structures.Traversable.
   Require Import ExtLib.Data.List.
   Require Import ExtLib.Data.Option.
+  Require Import ExtLib.Data.Monads.OptionMonad.
 
-  Definition mapT_option {T U} (f : T -> option U) (ls : list T) : option (list U) :=
-    Eval cbv beta iota zeta delta [ Traversable_list ] in
-    mapT f ls.
+  Require Import ExtLib.Structures.Reducible.
   
   Fixpoint typeof (var_env : tenv typ) (e : expr) {struct e} : option typ :=
     match e with
@@ -167,11 +167,10 @@ Section env.
       | App e es =>
         match typeof var_env e with
           | None => None
-          | Some tf => 
-            match mapT_option (typeof var_env) es with
-              | None => None
-              | Some x => type_of_apply tf x
-            end
+          | Some tf =>
+            foldM (fun e tf =>
+                     Monad.bind (typeof var_env e) (type_of_apply tf))
+                  (Monad.ret tf) es
         end
       | Abs t e => 
         match typeof (t :: var_env) e with
@@ -220,7 +219,16 @@ Section env.
           | None => None
           | Some v => Some (fun _ => v)
         end
-      | Func f ts' =>  
+      | Func f nil =>  
+        match nth_error funcs f with
+          | None => None
+          | Some {| fenv := 0 ; ftype := ft ; fdenote := f |} =>
+            Monad.bind (m := option) (typ_cast (fun x => x) _ ft t)
+                       (fun cst => Monad.ret (fun _ => cst f))
+          | Some _ => None
+        end
+      | Func f ts' =>
+        None (*
         match nth_error funcs f with
           | None => None
           | Some f =>
@@ -232,7 +240,7 @@ Section env.
                   | None => None
                 end
             end
-        end
+        end *)
       | Abs t' e =>
         @arrow_match nil (fun ty Ty => option (hlist (typD nil) var_env -> Ty))
            (fun lt rt =>
@@ -397,20 +405,21 @@ Section env.
     unfold const_seqb, typ_cast_val. 
     consider (typ_cast (fun x => x) ts t1 t2); intros; auto.
     consider (eqb ts t2 (p a) b); intros; auto.
-    specialize (@eqb_ok _ _ _ _ ts t2 (p a) b).
+    specialize (@eqb_ok _ _ _ _ _ ts t2 (p a) b).
     rewrite H0.
-(*
-    destruct (typ_cast_iso _ _ _ H) as [ ? [ ? ? ] ].
+    destruct (typ_cast_iso (fun x => x) ts t1 t2 H) as [ ? [ ? ? ] ].
+    admit. (*
     destruct b0; intros.
-    { exists x. subst.
-      destruct (typ_cast_iso _ _ _ H1) as [ ? [ ? ? ] ].
+    {
+      Check typ_cast_iso.
+ destruct (typ_cast_iso (fun x => x) ts t2 t1 H1) as [ ? [ ? ? ] ].
+      specialize (H5 a). specialize (H2 b). 
+      rewrite <- H2 in H3.
       rewrite H in H4. inversion H4; clear H4; subst. 
       admit. }
     { exists x; subst.
-      intro. apply H3; clear H3; subst. admit. }
+      intro. apply H3; clear H3; subst. admit. } *)
   Qed.
-*) 
-  Admitted.
 
 (*
   Theorem expr_seq_dec_eq : forall e1 e2, 

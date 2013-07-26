@@ -6,6 +6,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -198,17 +199,11 @@ Section env.
         end
     end.
 
-  Fixpoint type_of_apply (tv : typ) (es : list (option typ)) {struct es} : option typ :=
-    match es with 
-      | nil => Some tv
-      | None :: _ => None
-      | Some t :: ts =>
-        match tv with 
-          | tvArr l r => 
-            if typ_eqb l t then type_of_apply r ts
-            else None
-          | _ => None
-        end
+  Definition type_of_apply (tv x : typ) : option typ :=
+    match tv with
+      | tvArr l r => 
+        if typ_eqb l x then Some r else None
+      | _ => None
     end.
 
   Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
@@ -320,5 +315,34 @@ Section env.
     induction t; red; simpl; intuition; etransitivity; eauto.
   Qed.
 
+  Definition typ_cast_typ (F : Type -> Type) (env : list Type) (a b : typ)
+  : option (F (typD env a) -> F (typD env b)) :=
+    match typ_eq_odec a b with
+      | None => None
+      | Some pf => Some match pf in _ = t return F (typD env a) -> F (typD env t) with
+                          | eq_refl => fun x => x
+                        end
+    end.
+
+  Require Import ExtLib.Data.Prop.
+  Require Import ExtLib.Data.Fun.
+  Require Import ExtLib.Core.Type.
+
+  Instance RType_typ : RType typD :=
+  { typ_cast := typ_cast_typ 
+  ; typ_eqb := _ 
+  ; typeFor := fix typeFor g t :=
+                 match t as t return _ (typD g t) with
+                   | tvProp => type_Prop
+                   | tvArr l r => type_Fun (typeFor g l) (typeFor g r)
+                     (** These don't work perfectly because when you make something
+                         a var, it potentially changes its type **)
+                   | tvType i => type_libniz _ (** TODO: This should be a lookup **)
+                   | tvVar v => type_libniz _ (** TODO: This should be a lookup **)
+                 end
+  ; instantiate_typ := instantiate_typ
+  ; type_of_apply := type_of_apply
+  }.
+  
 End env.
 

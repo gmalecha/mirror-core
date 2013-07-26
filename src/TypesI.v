@@ -19,7 +19,6 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { typ_cast : forall (F : Type -> Type) env (a b : typ), 
                option (F (typD env a) -> F (typD env b))
 ; typ_eqb :> RelDec (@eq typ)
-; eqb : forall ts (t : typ), (forall a b : typD ts t, option bool)
 ; typeFor : forall ts (t : typ), type (typD ts t)
 ; instantiate_typ : list typ -> typ -> typ
 ; type_of_apply : forall (tv : typ) (es : typ), option typ
@@ -31,15 +30,8 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 }.
 
 Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
-{ (** eqb **)
-  eqb_ok : forall ts t a b,
-             match eqb ts t a b with
-               | None => True
-               | Some true => equal (type := typeFor _ t) a b
-               | Some false => ~equal (type := typeFor _ t) a b
-             end
-  (** typ_eqb **)
-; typ_eqb_ok :> RelDec_Correct typ_eqb
+{ (** typ_eqb **)
+  typ_eqb_ok :> RelDec_Correct typ_eqb
   (** typ_cast **)
 ; typ_cast_iso : forall F ts a b f, 
     typ_cast F ts a b = Some f ->
@@ -50,6 +42,18 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
                     exists f, typ_cast F ts t t = Some f /\
                               (forall x, f x = x)
   (** instantiate_typ **)
+}.
+
+Class RTypeEq (typ : Type) (typD : list Type -> typ -> Type) : Type :=
+{ eqb : forall ts (t : typ), (forall a b : typD ts t, option bool) }.
+
+Class RTypeEqOk typ typD (RType_typ : @RType typ typD) (RTE : RTypeEq typD) : Type :=
+{ eqb_ok : forall ts t a b,
+             match eqb ts t a b with
+               | None => True
+               | Some true => equal (type := typeFor _ t) a b
+               | Some false => ~equal (type := typeFor _ t) a b
+             end
 }.
 
 Section typed.

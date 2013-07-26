@@ -57,7 +57,6 @@ Section typed.
   Definition well_typed_func (tf : tfunction typ) (f : function typD) : bool :=
     tf.(tfenv) ?[ eq ] f.(fenv) && typ_eqb tf.(tftype) f.(ftype).
 
-
   Fixpoint well_typed_funcs (tfs : tfunctions typ) (fs : functions typD) : bool :=
     match tfs , fs with
       | nil , nil => true
@@ -103,7 +102,11 @@ Section typed.
         | App e es =>
           match typeof_expr var_env e with
             | None => None
-            | Some tf => type_of_apply tf (map (typeof_expr var_env) es)
+            | Some tf => 
+              Reducible.foldM (fun e tf => 
+                                 Monad.bind (typeof_expr var_env e)
+                                            (fun x => type_of_apply tf x)) 
+                              (Monad.ret tf) es
           end
         | Abs t e =>
           match typeof_expr (t :: var_env) e with

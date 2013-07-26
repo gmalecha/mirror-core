@@ -1,22 +1,29 @@
 Require Import List.
-Require Import ExprCore.
-Require Import ExprFacts.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section semantic.
-  Variable ts : types. 
-  Variable fs : functions ts.
-  Variable uvars : env ts.
-  Variable vars : env ts.
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
+  Context {RType_typ : RType typD}.
+  Variable TI_prop : TypInstance0 typD Prop.
+  Variable expr : Type.
+  Context {Expr_expr : Expr typD expr}.
 
-  Definition Provable (e : expr ts) : Prop :=
-    exists p, exprD fs uvars vars e tvProp = Some p.
+  Let tvProp := @typ0 _ _ _ TI_prop.
+
+  Definition Provable uvars vars (e : expr) : Prop :=
+    exists p, exprD uvars vars e tvProp = Some p.
   
-  Definition AllProvable (es : exprs ts) := Forall Provable es.
+  Definition AllProvable uvars vars (es : list expr) := 
+    Forall (Provable uvars vars) es.
 End semantic.
 
+(*
 Theorem AllProvable_weaken : forall ts (fs : functions ts) u ue v ve es,
   AllProvable fs u v es -> AllProvable fs (u ++ ue) (v ++ ve) es.
 Proof.
@@ -39,3 +46,4 @@ Proof.
   { intuition. }
   { repeat rewrite Forall_cons. rewrite IHes. intuition. }
 Qed.
+*)

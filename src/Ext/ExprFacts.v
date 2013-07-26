@@ -42,57 +42,36 @@ Section semantic.
                | [ H : forall x, _ = _ -> _ |- _ ] =>
                  specialize (H _ eq_refl)
              end; auto.
-    { erewrite IHe by eauto. 
-      clear - H1 H H2 RTypeOk_typ.
-      generalize dependent t0. generalize dependent l.
+    { erewrite IHe by eauto; clear IHe.
+      clear - H1 H RTypeOk_typ.
+      generalize dependent t0. generalize dependent t.
       induction H; intros.
-      { simpl in *. inversion H1; clear H1; subst. auto. }
-      { unfold mapT_option in H1. simpl in H1.
-        consider (typeof fs uenv venv x); intros; try congruence.
-        unfold mapT_option. simpl.
-        erewrite H by eauto.
+      { unfold Reducible.foldM, Reducible.fold in *. simpl in *. exact H1. }
+      { unfold Reducible.foldM, Reducible.fold, List.Foldable_list in *. simpl in *. 
         consider (fold_right
-           (fun (x : expr typD) (acc : option (list typ)) =>
-            match
-              match typeof fs uenv venv x with
-              | Some x0 => Some (cons x0)
-              | None => None
-              end
-            with
-            | Some f =>
-                match acc with
-                | Some x0 => Some (f x0)
+           (fun (x : expr typD) (acc : option typ) =>
+            match acc with
+            | Some v =>
+                match typeof fs uenv venv x with
+                | Some v0 => type_of_apply v v0
                 | None => None
                 end
             | None => None
-            end) (Some nil) l); intros.
-        inversion H4; clear H4; subst.
-        eapply type_of_apply_cons in H2.
-        destruct H2.
-        eapply IHForall in H3.
-        consider (mapT_option (typeof fs (uenv ++ ue) (venv ++ ve)) l); try congruence.
-        unfold mapT_option; simpl. intros.
-        rewrite H3. destruct H2.
-
-        
-      generalize dependent t0.
-      induction H; simpl; intros; auto.
-      unfold mapT_option in H1. simpl in H1. inversion H1; clear H1; subst.
-      eapply type_of_apply_nil.
-      SearchAbout type_of_apply.
-      consider (typeof fs uenv venv x); intros; try congruence.
-      erewrite H by eauto. destruct t0; try congruence.
-      destruct (typ_eqb t0_1 t1); auto. }
+            end) (Some t0) l); try congruence; intros.
+        erewrite IHForall by eauto.
+        consider (typeof fs uenv venv x); try congruence; intros.
+        erewrite H by eauto. auto. } }
     { change (t :: venv ++ ve) with ((t :: venv) ++ ve).
       erewrite IHe by eauto. reflexivity. }
   Qed.
 
-  Fixpoint equiv_env (es1 es2 : env ts) : Prop :=
+(*
+  Fixpoint equiv_env (es1 es2 : env typD) : Prop :=
     match es1 , es2 with
       | nil , nil => True
       | existT t1 v1 :: es1 , existT t2 v2 :: es2 =>
         (exists pf : t2 = t1,
-          equiv ts t1 v1 match pf in _ = t return typD ts nil t with
+          equiv t1 v1 match pf in _ = t return typD nil t with
                            | eq_refl => v2 
                          end)
         /\ equiv_env es1 es2
@@ -121,11 +100,11 @@ Section semantic.
     red. induction x; intros; rewrite (hlist_eta y) in *; rewrite (hlist_eta z) in *; simpl; auto.
     simpl in *. destruct H; destruct H0. split; try etransitivity; eauto.
   Qed.
+*)
 
   Require Import Morphisms.
 
-  
-
+(*
   Theorem exprD'_weaken_Some : forall ue ve e t venv x y, 
     exprD' fs uenv venv e t = Some x ->
     exprD' fs (uenv ++ ue) (venv ++ ve) e t = Some y ->
@@ -295,5 +274,6 @@ Section semantic.
         congruence. }
       { eapply IHe; eauto. simpl; eauto. } }
   Qed.
+*)
 
 End semantic.
