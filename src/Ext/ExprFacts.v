@@ -2,7 +2,8 @@ Require Import List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
-Require Import MirrorCore.TypesI.
+Require Import ExtLib.Tactics.EqDep.
+Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.ExprCore.
 
@@ -10,27 +11,23 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section semantic.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Context {RType_typ : RType typD}.
-  Context {RTypeOk_typ : RTypeOk RType_typ}.
-  Context {TI_Fun : TypInstance2 typD Fun}.
-  Context {TI_Prop : TypInstance0 typD Prop}.
-  
-  Variable fs : functions typD.
-  Variable uenv : env typD.
+  Variable types : types.
 
-  Require Import ExtLib.Tactics.EqDep.
-  Theorem uip_refl : forall (t : option typ) e, e = eq_refl t. 
+  Variable fs : functions types.
+  Variable uenv : env (typD types).
+
+(*
+  Theorem uip_refl : forall (t : option typ) e, e = eq_refl t.
   Proof.
     intros. uip_all. reflexivity.
   Qed.
+*)
 
   Theorem typeof_weaken : forall e venv t,
     typeof fs uenv venv e = Some t ->
     forall ue ve,
     typeof fs (uenv ++ ue) (venv ++ ve) e = Some t.
-  Proof.    
+  Proof.
     induction e; simpl; intros;
       repeat match goal with
                | [ H : Some _ = Some _ |- _ ] =>
@@ -43,13 +40,14 @@ Section semantic.
                  specialize (H _ eq_refl)
              end; auto.
     { erewrite IHe by eauto; clear IHe.
-      clear - H1 H RTypeOk_typ.
+      clear - H1 H.
       generalize dependent t0. generalize dependent t.
       induction H; intros.
       { unfold Reducible.foldM, Reducible.fold in *. simpl in *. exact H1. }
-      { unfold Reducible.foldM, Reducible.fold, List.Foldable_list in *. simpl in *. 
+      { unfold Reducible.foldM, Reducible.fold, List.Foldable_list in *.
+        simpl in *.
         consider (fold_right
-           (fun (x : expr typD) (acc : option typ) =>
+           (fun (x : expr) (acc : option typ) =>
             match acc with
             | Some v =>
                 match typeof fs uenv venv x with
@@ -72,16 +70,17 @@ Section semantic.
       | existT t1 v1 :: es1 , existT t2 v2 :: es2 =>
         (exists pf : t2 = t1,
           equiv t1 v1 match pf in _ = t return typD nil t with
-                           | eq_refl => v2 
+                           | eq_refl => v2
                          end)
         /\ equiv_env es1 es2
       | _ , _ => False
     end.
 
-  Fixpoint equiv_hlist ls (h1 : hlist (typD ts (@nil Type)) ls) : hlist (typD ts (@nil Type)) ls -> Prop :=
+  Fixpoint equiv_hlist ls (h1 : hlist (typD ts (@nil Type)) ls)
+ : hlist (typD ts (@nil Type)) ls -> Prop :=
     match h1 in hlist _ ls return hlist (typD ts (@nil Type)) ls -> Prop with
       | Hnil => fun _ => True
-      | Hcons t _ h1 hs1 => fun h2 => 
+      | Hcons t _ h1 hs1 => fun h2 =>
         equiv ts t h1 (hlist_hd h2) /\ equiv_hlist _ hs1 (hlist_tl h2)
     end.
   Require Import RelationClasses.

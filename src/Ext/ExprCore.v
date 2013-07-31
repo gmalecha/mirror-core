@@ -378,30 +378,52 @@ Section env.
   Defined.
 
   Theorem expr_eq_dec_eq : forall e1 e2,
-    expr_eq_dec e1 e2 = true -> e1 = e2.
+    expr_eq_dec e1 e2 = true <-> e1 = e2.
   Proof.
-    induction e1; destruct e2; simpl; intros; try congruence.
-    { consider (EqNat.beq_nat v v0); subst; auto. }
+    induction e1; destruct e2; simpl; intros; try solve [ intuition congruence ].
+    { consider (EqNat.beq_nat v v0); intros; subst; intuition. inversion H0; subst; auto. }
     { consider (EqNat.beq_nat f f0); intros; subst.
-      revert H0.
-      change (ts ?[ eq ] l = true -> Func f0 ts = Func f0 l).
-      consider (ts ?[ eq ] l). intros; subst; reflexivity. }
-    { consider (EqNat.beq_nat v u); subst; auto. }
+      { change (ts ?[ eq ] l = true <-> Func f0 ts = Func f0 l).
+        consider (ts ?[ eq ] l). intros; subst. intuition.
+        intuition congruence. }
+      { intuition congruence. } }
+    { consider (EqNat.beq_nat v u); subst; intuition congruence. }
     { consider (expr_eq_dec e1 e2); intros.
-      f_equal; eauto. clear - H1 H.
-      generalize dependent l; induction H.
-      { destruct l; simpl; auto; try congruence. }
-      { destruct l0; simpl; auto; try congruence.
-        consider (expr_eq_dec x e); intros.
-        f_equal; auto. } }
+      { eapply IHe1 in H0. subst.
+        generalize dependent l. clear - H.
+        induction H; simpl; intros.
+        { destruct l; intuition congruence. }
+        { destruct l0; try intuition congruence.
+          consider (expr_eq_dec x e).
+          rewrite IHForall. intros. eapply H in H1. subst; f_equal.
+          intuition; inversion H1; subst; auto.
+          intros. intuition.
+          inversion H2; subst.
+          rewrite <- H1. eapply H. reflexivity. } }
+      { intuition. inversion H1; subst. rewrite <- H0. apply IHe1. reflexivity. } }
     { change typ_eqb with (@rel_dec _ _ _) in *. consider (t ?[ eq ] t0).
-      intros; subst. f_equal; auto. }
+      intros; subst. intuition try congruence.
+      eapply IHe1 in H; congruence.
+      inversion H; subst.
+      eapply IHe1. reflexivity.
+      intros. intuition congruence. }
     { change typ_eqb with (@rel_dec _ _ _) in *.
+      specialize (IHe1_1 e2_1). specialize (IHe1_2 e2_2).
       consider (t ?[ eq ] t0);
       consider (expr_eq_dec e1_1 e2_1);
-      consider (expr_eq_dec e1_2 e2_2); intros; subst.
-      f_equal; auto. }
-    { f_equal; auto. }
+      consider (expr_eq_dec e1_2 e2_2); intros; subst; intuition try congruence; subst.
+      inversion H5; subst; auto.
+      inversion H4; subst; auto.
+      inversion H2; subst; auto. }
+    { rewrite IHe1. intuition congruence. }
+  Qed.
+
+  Global Instance RelDec_eq_expr : RelDec (@eq expr) :=
+  { rel_dec := expr_eq_dec }.
+
+  Global Instance RelDecCorrect_eq_expr : RelDec_Correct RelDec_eq_expr.
+  Proof.
+    constructor. eapply expr_eq_dec_eq.
   Qed.
 
 End env.
