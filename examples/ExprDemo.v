@@ -1,5 +1,6 @@
 Require Import List.
 Require Import ExtLib.Data.HList.
+Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.Expr.
 
 (** Demo **)
@@ -36,7 +37,7 @@ Section Demo.
     let e := @App _ _ (@Func _ _ 1 (tvType 0 :: nil))
                     ((@Abs _ _ (tvType 0) (@App _ _ (@Func _ _ 3 (tvType 0 :: nil))
                                                 ((Var 0) :: @Const _ _ (tvType 0) 0 :: nil))) :: nil) in
-    match @exprD _ _ _ funcs' nil nil e tvProp with 
+    match @exprD typ typD _ _ _ funcs' nil nil e tvProp with 
       | None => False
       | Some p => p
     end.

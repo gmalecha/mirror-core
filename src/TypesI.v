@@ -1,8 +1,4 @@
 Require Import List Bool.
-Require Import Relations.Relation_Definitions.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.Generic.
@@ -20,7 +16,11 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
                option (F (typD env a) -> F (typD env b))
 ; typ_eqb :> RelDec (@eq typ)
 ; typeFor : forall ts (t : typ), type (typD ts t)
+  (** This is for syntactic polymorphism 
+   ** - really this is subst at the level of type
+   **)
 ; instantiate_typ : list typ -> typ -> typ
+  (** This is for functions **)
 ; type_of_apply : forall (tv : typ) (es : typ), option typ
 (*
 ; type_apply : forall (n : nat) (ls : typ) (acc : list Type) (t : typ),

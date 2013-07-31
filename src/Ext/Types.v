@@ -2,8 +2,11 @@ Require Import Morphisms.
 Require Import Relations.
 Require Import RelationClasses.
 Require Import List Bool.
-Require Import ExtLib.Data.HList.
+Require Import ExtLib.Core.Type.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Prop.
+Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.TypesI.
@@ -28,7 +31,7 @@ Section env.
   Record type : Type := Typ {
     Impl : Type ;
     Eqb : Impl -> Impl -> option bool ;
-    Eqb_correct : forall a b : Impl, 
+    Eqb_correct : forall a b : Impl,
       match Eqb a b with
         | None => True
         | Some true => a = b
@@ -48,19 +51,19 @@ Section env.
      ; Eqb := fun x _ => match x with end
      ; Eqb_correct := fun x => match x with end
     |}.
-        
+
   Definition types := list type.
 (*
   Inductive types : Type :=
   | TEnil : types
   | TEcons : type -> types -> types.
 *)
-  
+
   Variable ts : types.
 
   (** this type requires decidable equality **)
   Inductive typ : Type :=
-  | tvProp 
+  | tvProp
   | tvArr : typ -> typ -> typ
   | tvType : nat -> typ
   | tvVar : nat -> typ.
@@ -69,7 +72,7 @@ Section env.
   Fixpoint typ_eqb (a b : typ) {struct a} : bool :=
     match a , b with
       | tvProp , tvProp => true
-      | tvArr a b , tvArr c d => 
+      | tvArr a b , tvArr c d =>
         if typ_eqb a c then typ_eqb b d else false
       | tvType x , tvType y => EqNat.beq_nat x y
       | tvVar x , tvVar y => EqNat.beq_nat x y
@@ -77,7 +80,7 @@ Section env.
     end.
 
   Fixpoint nat_eq_odec (a b : nat) : option (a = b) :=
-    match a as a , b as b return option (a = b) with 
+    match a as a , b as b return option (a = b) with
       | 0 , 0 => Some (eq_refl _)
       | S a , S b => match nat_eq_odec a b with
                        | None => None
@@ -91,7 +94,7 @@ Section env.
   Fixpoint typ_eq_odec (a b : typ) : option (a = b) :=
     match a as a , b as b return option (a = b) with
       | tvProp , tvProp => Some (eq_refl _)
-      | tvArr a b , tvArr c d => 
+      | tvArr a b , tvArr c d =>
         match typ_eq_odec a c with
           | None => None
           | Some pf => match typ_eq_odec b d with
@@ -120,7 +123,7 @@ Section env.
       | _ , _ => None
     end.
 
-  Global Instance RelDec_eq_typ : RelDec (@eq typ) := 
+  Global Instance RelDec_eq_typ : RelDec (@eq typ) :=
   { rel_dec := typ_eqb }.
 
   Theorem typ_eqb_true : forall a b, typ_eqb a b = true -> a = b.
@@ -133,11 +136,11 @@ Section env.
   Global Instance RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ.
   Proof.
     constructor.
-    induction x; destruct y; simpl; intuition; 
+    induction x; destruct y; simpl; intuition;
       try solve [ congruence | f_equal; apply EqNat.beq_nat_true; assumption ].
     { consider (typ_eqb x1 y1); intros.
       rewrite IHx1 in H. rewrite IHx2 in H0. subst; reflexivity. }
-    { inversion H. apply IHx1 in H1. apply IHx2 in H2. 
+    { inversion H. apply IHx1 in H1. apply IHx2 in H2.
       simpl in *. inversion H; subst. rewrite H1. auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
@@ -150,7 +153,7 @@ Section env.
     auto.
   Qed.
 
-  Theorem typ_eq_odec_None : forall t t', 
+  Theorem typ_eq_odec_None : forall t t',
     typ_eq_odec t t' = None -> t <> t'.
   Proof.
     induction t; destruct t'; simpl in *; try congruence; intros;
@@ -191,9 +194,9 @@ Section env.
         match nth_error ts x return Type with
           | None => Empty_set
           | Some t => Impl t
-        end 
+        end
       | tvVar x =>
-        match nth_error env x return Type with 
+        match nth_error env x return Type with
           | None => Empty_set
           | Some t => t
         end
@@ -201,7 +204,7 @@ Section env.
 
   Definition type_of_apply (tv x : typ) : option typ :=
     match tv with
-      | tvArr l r => 
+      | tvArr l r =>
         if typ_eqb l x then Some r else None
       | _ => None
     end.
@@ -211,24 +214,28 @@ Section env.
       | tvArr l r => tvArr (subst0_typ t l) (subst0_typ t r)
       | tvVar 0 => t
       | tvVar (S n) => tvVar n
-      | tvProp 
+      | tvProp
       | tvType _ => tv
     end.
 
-  Definition instantiate_typ (ls : list typ) (tv : typ) : typ :=
-    List.fold_left (fun x y => subst0_typ y x) ls tv.
-  
-  Theorem typD_instantiate_typD_cons : forall c t a b,
-    typD (typD b a :: b) (instantiate_typ c t) = 
-    typD b (instantiate_typ (c ++ a :: nil) t).
+  Theorem typD_subst0_typ : forall acc t l,
+    typD (typD acc l :: acc) t = typD acc (subst0_typ l t).
   Proof.
-    induction c; simpl.
-    { induction t; simpl; intros; try reflexivity.
-      { rewrite IHt1; rewrite IHt2; reflexivity. }
-      { destruct n; simpl; try reflexivity. } }
-    { intros. rewrite IHc. reflexivity. } 
+    induction t; try reflexivity.
+    { intros. simpl. rewrite IHt1. rewrite IHt2. reflexivity. }
+    { intros. destruct n; simpl; reflexivity. }
   Defined.
-  
+
+  Definition instantiate_typ (ls : list typ) (tv : typ) : typ :=
+    List.fold_right subst0_typ tv ls.
+
+  Theorem typD_instantiate_typD_cons : forall c t a b,
+    typD (typD b a :: b) (instantiate_typ c t) =
+    typD b (instantiate_typ (a :: c) t).
+  Proof.
+    simpl; intros. rewrite typD_subst0_typ. reflexivity.
+  Defined.
+
   Fixpoint parametric (n : nat) (acc : list Type) (k : list Type -> Type) : Type :=
     match n with
       | 0 => k acc
@@ -237,17 +244,17 @@ Section env.
 
   Fixpoint type_apply n ls acc t {struct n} :
     parametric n acc (fun env => typD env t) ->
-    option (typD acc (instantiate_typ (rev ls) t)) :=
-    match n as n , ls as ls 
+    option (typD acc (instantiate_typ ls t)) :=
+    match n as n , ls as ls
       return parametric n acc (fun env => typD env t) ->
-             option (typD acc (instantiate_typ (rev ls) t))
+             option (typD acc (instantiate_typ ls t))
       with
       | 0 , nil => fun X => Some X
-      | S n , l :: ls => fun X => 
+      | S n , l :: ls => fun X =>
         match @type_apply n ls _ _ (X (typD acc l)) with
           | None => None
           | Some res =>
-            Some match @typD_instantiate_typD_cons _ _ _ _ in _ = t 
+            Some match @typD_instantiate_typD_cons _ _ _ _ in _ = t
                    return t with
                    | eq_refl => res
                  end
@@ -265,22 +272,22 @@ Section env.
         match nat_eq_odec x y with
           | None => fun _ _ => Some false
           | Some pf =>
-            match pf in _ = t 
-              return match nth_error ts x with 
+            match pf in _ = t
+              return match nth_error ts x with
                        | None => Empty_set
                        | Some t => Impl t
-                     end -> 
+                     end ->
                      match nth_error ts t with
                        | None => Empty_set
-                       | Some t => Impl t 
+                       | Some t => Impl t
                      end -> option bool with
               | refl_equal =>
                 match nth_error ts x as ty
                   return match ty with
                            | None => Empty_set
                            | Some t => Impl t
-                         end -> 
-                         match ty with 
+                         end ->
+                         match ty with
                            | None => Empty_set
                            | Some t => Impl t
                          end -> option bool
@@ -324,13 +331,10 @@ Section env.
                         end
     end.
 
-  Require Import ExtLib.Data.Prop.
-  Require Import ExtLib.Data.Fun.
-  Require Import ExtLib.Core.Type.
 
-  Instance RType_typ : RType typD :=
-  { typ_cast := typ_cast_typ 
-  ; typ_eqb := _ 
+  Global Instance RType_typ : RType typD :=
+  { typ_cast := typ_cast_typ
+  ; typ_eqb := _
   ; typeFor := fix typeFor g t :=
                  match t as t return _ (typD g t) with
                    | tvProp => type_Prop
@@ -343,6 +347,20 @@ Section env.
   ; instantiate_typ := instantiate_typ
   ; type_of_apply := type_of_apply
   }.
-  
+
+  Global Instance TypInstance0_tvProp : TypInstance0 typD Prop :=
+  { typ0 := tvProp
+  ; typ0_iso := fun ts => Iso.Equiv_ident _
+  }.
+  admit.
+  Defined.
+
+  Global Instance TypInstance2_tvArr : TypInstance2 typD Fun :=
+  { typ2 := tvArr
+  ; typ2_iso := fun ts t1 t2 => Iso.Equiv_ident _
+  }.
+  admit.
+  Defined.
+
 End env.
 
