@@ -5,7 +5,7 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.Fin.
-Require Import ExtLib.Tactics.Consider. 
+Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
 Require Import MirrorCore.TypesI.
@@ -68,7 +68,7 @@ Section Demo.
 
   Lemma well_founded_acc_mexpr : well_founded acc_mexpr.
   Proof.
-    clear; red; induction a; constructor; intros; 
+    clear; red; induction a; constructor; intros;
     solve [ match goal with
               | H : _ |- _ => inversion H; clear H; subst; eauto
             end ].
@@ -76,13 +76,13 @@ Section Demo.
 
   Fixpoint liftBy (skip : nat) (e : mexpr) (l : nat) : mexpr :=
     match e with
-      | Bind t1 t2 m1 m2 => Bind t1 t2 (liftBy skip m1 l) (liftBy skip m2 l) 
+      | Bind t1 t2 m1 m2 => Bind t1 t2 (liftBy skip m1 l) (liftBy skip m2 l)
       | Ret t1 m1 => Ret t1 (liftBy skip m1 l)
       | Plus lhs rhs => Plus (liftBy skip lhs l) (liftBy skip rhs l)
       | Const v => Const v
-      | Var v => 
+      | Var v =>
         match Compare_dec.nat_compare v skip with
-          | Eq 
+          | Eq
           | Lt => Var v
           | Gt => Var (v - l)
         end
@@ -96,17 +96,18 @@ Section Demo.
       | Ret t1 m1 => Ret t1 (subst skip m1 w)
       | Plus l r => Plus (subst skip l w) (subst skip r w)
       | Const n => Const n
-      | Var n => 
-        if EqNat.beq_nat n skip then liftBy 0 w skip else Var (n - 1)          
+      | Var n =>
+        if EqNat.beq_nat n skip then liftBy 0 w skip else Var (n - 1)
       | Abs t m => Abs t (subst (S skip) m w)
       | App t l r => App t (subst skip l w) (subst skip r w)
     end.
 
-  Fixpoint mexprD (g : list typ) (e : mexpr) (t : typ) {struct e} : option (hlist (typD nil) g -> typD nil t).
+  Fixpoint mexprD (g : list typ) (e : mexpr) (t : typ) {struct e}
+  : option (hlist (typD nil) g -> typD nil t).
   refine (
       match e with
         | Var v =>
-          match nth_error g v as nt 
+          match nth_error g v as nt
                 return (hlist (typD nil) g -> match nt with
                                                 | None => unit
                                                 | Some t => typD nil t
@@ -121,20 +122,20 @@ Section Demo.
           end (fun g => hlist_nth g v)
         | Abs t' body =>
           arr_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
-             (fun d r => 
-                match typ_cast (typD := typD) (fun x => x) nil t' d with 
+             (fun d r =>
+                match typ_cast (typD := typD) (fun x => x) nil t' d with
                   | None => None
-                  | Some cast_d => 
+                  | Some cast_d =>
                     match mexprD (d :: g) body r with
                       | None => None
                       | Some f => Some (fun g x => f (Hcons x g))
-                    end                        
+                    end
                 end)
              (fun _ => None)
              t
         | App t' m m' =>
           match mexprD g m (tvArr t' t) , mexprD g m' t' with
-            | Some v , Some v' => Some (fun g => 
+            | Some v , Some v' => Some (fun g =>
                                           let f := v g in
                                           let x := v' g in
                                           arr_outof (fun x => x) nil _ _ f x)
@@ -149,9 +150,9 @@ Section Demo.
           nat_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty) ->
                                       option (hlist (typD nil) g -> Ty) ->
                                       option (hlist (typD nil) g -> Ty))
-             (fun _ l r => 
+             (fun _ l r =>
                 match l , r with
-                  | Some l , Some r => 
+                  | Some l , Some r =>
                     Some (fun g => l g + r g)
                   | _ , _ => None
                 end)
@@ -159,18 +160,18 @@ Section Demo.
              t (mexprD g l t) (mexprD g r t)
         | Ret t' e =>
           m_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
-            (fun t'' => 
+            (fun t'' =>
                match typ_cast (fun x => x) nil t' t'' with
                  | None => None
-                 | Some cast => 
-                   match mexprD g e t' with 
+                 | Some cast =>
+                   match mexprD g e t' with
                      | None => None
                      | Some r => Some (fun g => ret (cast (r g)))
                    end
                end)
             (fun _ => None)
             t
-        | Bind t' t'' c k => 
+        | Bind t' t'' c k =>
           m_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
             (fun t''' =>
                match typ_cast (typD := typD) (fun x => typD nil t' -> m x) nil t'' t''' with
@@ -184,7 +185,7 @@ Section Demo.
             (fun _ => None)
             t
       end).
-  (** TODO: Coq doesn't type check when this is inline **)
+  (** NOTE: Coq doesn't type check when this is inline **)
   eapply m_outof. eapply cv. eapply g0.
   eapply cast. eapply m_outof. eapply arr_outof. eapply kv. eapply g0.
   Defined.
@@ -229,7 +230,7 @@ Section Demo.
       inversion H; clear H; subst.
       repeat rewrite rel_dec_eq_true; eauto with typeclass_instances.
       destruct (IHx2 y2); destruct(IHx1 y1).
-      unfold rel_dec in *. simpl in *. 
+      unfold rel_dec in *. simpl in *.
       rewrite H0; try reflexivity. rewrite H2; try reflexivity. }
     { split; intros;
       repeat match goal with
@@ -242,8 +243,8 @@ Section Demo.
              end; try congruence.
       inversion H; clear H; subst.
       repeat rewrite rel_dec_eq_true; eauto with typeclass_instances.
-      destruct (IHx y). 
-      unfold rel_dec in *. simpl in *. 
+      destruct (IHx y).
+      unfold rel_dec in *. simpl in *.
       rewrite H0; try reflexivity. }
     { destruct (IHx1 y1); destruct (IHx2 y2); clear IHx1 IHx2.
       split; intros.
@@ -290,8 +291,8 @@ Section Demo.
       rewrite H0; try reflexivity. rewrite H2; reflexivity. }
   Qed.
 
-  Instance Expr_mexpr : Expr typD mexpr :=
-  { exprD := fun _ g e t => 
+  Global Instance Expr_mexpr : Expr typD mexpr :=
+  { exprD := fun _ g e t =>
                match Generic.split g with
                  | existT te env =>
                    match mexprD te e t with
@@ -308,18 +309,18 @@ Section Demo.
   Context {TypInstance2Ok_arr : TypInstance2_Ok typ_arr}.
 
   Ltac solver :=
-        eauto with typeclass_instances ; 
+        eauto with typeclass_instances ;
         try eapply (@typ2_isoOk _ _ _ _ TypInstance2Ok_arr) ;
         try eapply (@typ1_isoOk _ _ _ _ TypInstance1Ok_m) ;
         try eapply (@typ0_isoOk _ _ _ _ TypInstance0Ok_nat) ;
         idtac.
   Theorem soutof_red : forall A B i o F,
-                         @soutof A B {| siso := fun x => {| into := i x ; outof := o x |} |} F = 
+                         @soutof A B {| siso := fun x => {| into := i x ; outof := o x |} |} F =
                          o F.
     reflexivity.
   Qed.
   Theorem sinto_red : forall A B i o F,
-                         @sinto A B {| siso := fun x => {| into := i x ; outof := o x |} |} F = 
+                         @sinto A B {| siso := fun x => {| into := i x ; outof := o x |} |} F =
                          i F.
     reflexivity.
   Qed.
@@ -339,17 +340,17 @@ Section Demo.
     clear; intros; subst; firstorder.
   Qed.
 
-  Ltac unfold_all := 
-    subst tvNat nat_match nat_into  
-          tvArr  arr_match  arr_into  arr_outof 
+  Ltac unfold_all :=
+    subst tvNat nat_match nat_into
+          tvArr  arr_match  arr_into  arr_outof
           tvM  m_match  m_into  m_outof; simpl in *.
 
-    
+
   Ltac go :=
     repeat (   (rewrite soutof_red)
             || (rewrite sinto_red)
-            || (erewrite soutof_sinto by solver) 
-            || (erewrite sinto_soutof by solver) 
+            || (erewrite soutof_sinto by solver)
+            || (erewrite sinto_soutof by solver)
             || (erewrite sinto_option by solver)
             || (erewrite soutof_option by solver)
             || (erewrite into_outof by solver)
@@ -366,10 +367,10 @@ Section Demo.
             || (erewrite typ1_match_typ1 by solver)
             || (erewrite typ2_match_typ2 by solver)
             || match goal with
-                 | |- context [ @typ_cast _ _ ?CLS ?F ?TS ?X ?X ] => 
+                 | |- context [ @typ_cast _ _ ?CLS ?F ?TS ?X ?X ] =>
                    let H := fresh in
                    let H' := fresh in
-                   destruct (@typ_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ; 
+                   destruct (@typ_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ;
                  eauto with typeclass_instances ;
                  rewrite H
                end
@@ -381,10 +382,10 @@ Section Demo.
   ; ctor0_match := fun R caseCtor caseElse e =>
                      match e as e return R e with
                        | Abs t (Abs t' (Plus (Var 1) (Var 0))) =>
-                         nat_match nil 
-                                   (fun ty Ty => R (Abs ty (Abs t' (Plus (Var 1) (Var 0))))) 
-                                   (fun _ => nat_match nil 
-                                                       (fun ty Ty => R (Abs tvNat (Abs ty (Plus (Var 1) (Var 0))))) 
+                         nat_match nil
+                                   (fun ty Ty => R (Abs ty (Abs t' (Plus (Var 1) (Var 0)))))
+                                   (fun _ => nat_match nil
+                                                       (fun ty Ty => R (Abs tvNat (Abs ty (Plus (Var 1) (Var 0)))))
                                                        caseCtor
                                                        (fun _ => caseElse _)
                                                        t')
@@ -393,7 +394,7 @@ Section Demo.
                        | e => caseElse e
                      end
   }.
-  
+
   Instance FuncInstance0Ok_plus : FuncInstance0Ok FuncInstance0_plus.
   Proof.
     constructor.
@@ -403,7 +404,7 @@ Section Demo.
       unfold_all.
       go.
       eapply P_iff.
-      apply functional_extensionality; intro; 
+      apply functional_extensionality; intro;
       apply functional_extensionality; intro.
       go.
       repeat rewrite H2.
@@ -417,7 +418,7 @@ Section Demo.
   refine (
     @mkSymAppN _ _ _ _ 0 ((fun _ => tvNat) :: (fun _ => tvNat) :: nil) tvNat
               (fun _ a => Plus (vector_hd a) (vector_hd (vector_tl a)))
-              (fun e => 
+              (fun e =>
                  match e with
                    | Plus l r => Some (existT _ (Vnil _, Vcons l (Vcons r (Vnil _))) _)
                    | _ => None
@@ -429,7 +430,7 @@ Section Demo.
       @mkSymAppN _ _ _ _ 1 (vector_hd :: nil) tvM
                 (fun ts v => Ret (vector_hd ts) (vector_hd v))
                 (fun e => match e with
-                            | Ret t' v => 
+                            | Ret t' v =>
                               Some (existT _ (Vcons t' (Vnil _), Vcons v (Vnil _)) _)
                             | _ => None
                           end)); simpl; repeat constructor.
@@ -447,49 +448,49 @@ Section Demo.
                  (tvM t)
                  (fun _ v => Ret t (vector_hd v))
                  (fun e => match e with
-                             | Ret t' v => 
-                               @typ0_match _ _ _ ti nil 
-                                           (fun _ _ => option { x : vector typ 0 * vector mexpr 1 & ForallV (fun x => acc x (Ret t' v)) (snd x) }) 
+                             | Ret t' v =>
+                               @typ0_match _ _ _ ti nil
+                                           (fun _ _ => option { x : vector typ 0 * vector mexpr 1 & ForallV (fun x => acc x (Ret t' v)) (snd x) })
                                            (fun _ => Some (existT _ (Vnil _, Vcons v (Vnil _)) _))
                                            (fun _ => None)
                                            t'
                              | _ => None
-                           end)); simpl; repeat constructor. 
+                           end)); simpl; repeat constructor.
   Defined.
 
-  Definition SApp_bind2 
+  Definition SApp_bind2
   : @SymAppN typ _ mexpr _ 2
              ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil)
              (fun _ => tvM).
   refine (
-      @mkSymAppN typ _ mexpr _ 2 
-                 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) 
+      @mkSymAppN typ _ mexpr _ 2
+                 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil)
                  (fun _ => tvM)
                  (fun ts v => Bind (vector_hd ts) (vector_hd (vector_tl ts)) (vector_hd v) (vector_hd (vector_tl v)))
                  (fun e => match e with
-                            | Bind t1' t2' v v' => 
+                            | Bind t1' t2' v v' =>
                               Some (existT _ (Vcons t1' (Vcons t2' (Vnil _)), Vcons v (Vcons v' (Vnil _))) _)
                             | _ => None
                           end)); simpl; repeat constructor.
   Defined.
 
-  Definition SApp_bind0 T1 T2 (ti1 : TypInstance0 typD T1) (ti2 : TypInstance0 typD T2) 
-  : @SymAppN typ _ mexpr _ 0 
+  Definition SApp_bind0 T1 T2 (ti1 : TypInstance0 typD T1) (ti2 : TypInstance0 typD T2)
+  : @SymAppN typ _ mexpr _ 0
              ((fun _ => tvM (@typ0 _ _ _ ti1)) :: (fun _ => tvArr (@typ0 _ _ _ ti1) (tvM (@typ0 _ _ _ ti2))) :: nil)
              (tvM (@typ0 _ _ _ ti2)).
   refine (
       let t1 := @typ0 _ _ _ ti1 in
       let t2 := @typ0 _ _ _ ti2 in
-      @mkSymAppN _ _ _ _ 0 
+      @mkSymAppN _ _ _ _ 0
                  ((fun _ => tvM t1) :: (fun _ => tvArr t1 (tvM t2)) :: nil)
                  (tvM t2)
                  (fun _ v => Bind t1 t2 (vector_hd v) (vector_hd (vector_tl v)))
                  (fun e => match e with
-                             | Bind t1' t2' v v' => 
+                             | Bind t1' t2' v v' =>
                                @typ0_match _ _ _ ti1 nil
                                            (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => acc x (Bind t t2' v v')) (snd x) })
                                            (fun _ =>
-                                              @typ0_match _ _ _ ti2 nil 
+                                              @typ0_match _ _ _ ti2 nil
                                                           (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => acc x (Bind t1 t v v')) (snd x) })
                                                           (fun _ => Some (existT _ (Vnil _, Vcons v (Vcons v' (Vnil _))) _))
                                                           (fun _ => None)
@@ -501,7 +502,7 @@ Section Demo.
   Defined.
 
   Definition gen_app (d r : typ) : @AppInstance _ typD mexpr _ (tvArr d r) d r.
-  refine ( 
+  refine (
     let iso ts := Iso_flip (@siso _ _ (@typ2_iso _ _ _ typ_arr ts d r) (fun x => x)) in
     {| fun_iso := iso
      ; sapp := fun ts l r => (into (iso := iso ts) l) r
@@ -514,7 +515,7 @@ Section Demo.
   Defined.
 
   Definition Lambda_abs : @Lambda _ typD mexpr _.
-  refine 
+  refine
     {| lambda := Abs
      ; lambda_check := fun e =>
                          match e with

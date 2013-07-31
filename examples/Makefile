@@ -2,11 +2,11 @@ MONAD := Expr Demo ReduceApprox Reduce ReduceWf
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%)
 
-TESTS := 
+TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS :=-R ../src MirrorCore -R ../coq-ext-lib/theories ExtLib
+ARGS :=-R . Examples -R ../src MirrorCore -R ../coq-ext-lib/theories ExtLib
 
 .PHONY: coq clean package
 

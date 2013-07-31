@@ -5,8 +5,8 @@ Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.Monads.FuelMonad.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
-Require Import MirrorCore.TypesExt.
-Require Import MirrorCore.ExprExt.
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -32,25 +32,25 @@ Section Demo.
   Variable app_i : forall d r, @AppInstance _ typD expr _ (tvArr d r) d r.
   Variable lam : @Lambda typ _ expr _.
 
-  Let Bind (t1 t2 : typ) (b1 b2 : expr) : expr := 
+  Let Bind (t1 t2 : typ) (b1 b2 : expr) : expr :=
     sappn bind_app (Vcons t1 (Vcons t2 (Vnil _)))
                    (Vcons b1 (Vcons b2 (Vnil _))).
-  Let Ret (t1 : typ) (b1 : expr) : expr := 
+  Let Ret (t1 : typ) (b1 : expr) : expr :=
     sappn ret_app (Vcons t1 (Vnil _))
                   (Vcons b1 (Vnil _)).
 
-  Definition monad_match (R : Type) (e : expr) 
+  Definition monad_match (R : Type) (e : expr)
              (caseRet : typ -> forall e' : expr, acc e' e -> R)
              (caseBind : typ -> typ -> forall e' e'' : expr, acc e' e -> acc e'' e -> R)
              (caseElse : unit -> R) : R.
   refine (
     match sappn_check bind_app e with
-      | Some (existT vs_es pf) => 
+      | Some (existT vs_es pf) =>
         caseBind (vector_hd (fst vs_es)) (vector_hd (vector_tl (fst vs_es)))
                  (vector_hd (snd vs_es)) (vector_hd (vector_tl (snd vs_es)))
                  _ _
       | None => match sappn_check ret_app e with
-                  | Some (existT vs_es _) => 
+                  | Some (existT vs_es _) =>
                     caseRet (vector_hd (fst vs_es)) (vector_hd (snd vs_es))
                             _
                   | None => caseElse tt
@@ -61,16 +61,16 @@ Section Demo.
   Require Import MirrorCore.Approx.
 
   Definition monad_run' : expr -> nat -> expr * bool :=
-    @approx _ 
-            (fun recur e => 
-               let do_lam e := 
+    @approx _
+            (fun recur e =>
+               let do_lam e :=
                    match lambda_check lam e with
                      | None => inl e
-                     | Some (existT (t,e) _) => 
+                     | Some (existT (t,e) _) =>
                        match recur e with
                          | (e',true) => inr (t,e')
                          | (e',false) => inl e
-                       end                       
+                       end
                    end
                in
                @monad_match (expr * bool) e
@@ -78,7 +78,7 @@ Section Demo.
                             (fun t1 t2 b1 b2 _ _ =>
                                let b1' := recur b1 in
                                match sappn_check ret_app (fst b1') with
-                                 | None => 
+                                 | None =>
                                    let b2' := do_lam b2 in
                                    match b2' with
                                      | inl b2' => (Bind t1 t2 (fst b1') b2, snd b1')
@@ -89,7 +89,7 @@ Section Demo.
                                    let v := vector_hd v in
                                    let b2' := do_lam b2 in
                                    match b2' with
-                                     | inl b2' => 
+                                     | inl b2' =>
                                        (@app1 _ typD expr _ _ _ _ (app_i t (tvM t2)) b2' v, true)
                                      | inr (_, b2') =>
                                        (subst0 lam b2' v, true)
@@ -99,7 +99,7 @@ Section Demo.
 
   Definition monad_run (e : expr) : expr :=
     fst (monad_run' e 100).
-    
+
 End Demo.
 
 (**
@@ -110,17 +110,17 @@ End Demo.
     match pf in rightTrans _ y x return forall z, tacc z y -> tacc z x with
       | RTFin _ _ pf => fun _ pf' => RTStep _ pf' pf
       | RTStep _ _ _ pf pf' => fun _ pf'' => RTStep _ (trans_rightTrans pf pf'') pf'
-    end.    
+    end.
 
   Definition monad_run' : expr -> expr.
   refine (
-          @Fix _ _ (wf_rightTrans (@wf_acc _ _ _ Expr_expr)) 
+          @Fix _ _ (wf_rightTrans (@wf_acc _ _ _ Expr_expr))
                (fun _ : expr => expr)
                (fun e recur =>
-                  let do_lam (e' : expr) (pf : tacc e' e) : expr + {x : typ * expr & tacc (snd x) e'} := 
+                  let do_lam (e' : expr) (pf : tacc e' e) : expr + {x : typ * expr & tacc (snd x) e'} :=
                       _
                   in e)).
-  refine (      
+  refine (
       match lambda_check lam e' with
         | None => inl e'
         | Some (existT t_e pf') =>
@@ -137,7 +137,7 @@ End Demo.
                                (fun t1 t2 b1 b2 pf1 pf2 =>
                                   let b1' := recur b1 pf1 in
                                   match sappn_check ret_app b1' with
-                                    | None => (* 
+                                    | None => (*
                                       let b2' := do_lam b2 _ in _
                                       match b2' with
                                         | inl b2' => Bind t1 t2 b1' b2
@@ -149,7 +149,7 @@ End Demo.
                                           let v := vector_hd v in
                                           b2' <- do_lam b2 ;;
                                               match b2' with
-                                                | inl b2' => 
+                                                | inl b2' =>
                                                   ret (@app1 _ typD expr _ _ _ (app_i t (tvM t2)) b2' v)
                                                 | inr (_, b2') =>
                                                   let b2' := subst0 lam b2' v in
@@ -161,12 +161,12 @@ End Demo.
   Defined.
 
 
- 
-    
+
+
 (*
   refine (
       mfix (fun recur e =>
-              let do_lam e := 
+              let do_lam e :=
                   match lambda_check lam e with
                     | None => ret (inl e)
                     | Some (t,e) => e' <- recur e ;;
@@ -178,7 +178,7 @@ End Demo.
         (fun t1 t2 b1 b2 =>
            b1' <- recur b1 ;;
            match sappn_check ret_app b1' with
-             | None => 
+             | None =>
                b2' <- do_lam b2 ;;
                match b2' with
                  | inl b2' => ret (Bind t1 t2 b1' b2)
@@ -189,7 +189,7 @@ End Demo.
                let v := vector_hd v in
                b2' <- do_lam b2 ;;
                match b2' with
-                 | inl b2' => 
+                 | inl b2' =>
                    ret (@app1 _ typD expr _ _ _ (app_i t (tvM t2)) b2' v)
                  | inr (_, b2') =>
                    let b2' := subst0 lam b2' v in
