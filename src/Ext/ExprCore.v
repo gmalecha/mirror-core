@@ -1,11 +1,9 @@
 Require Import List Bool.
-Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Fun.
-Require Import MirrorCore.Generic.
-Require Import MirrorCore.Iso.
+Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
@@ -132,21 +130,17 @@ Section env.
         match nth_error funcs f with
           | None => None
           | Some r =>
-(*            if EqNat.beq_nat (length ts) (fenv r) then  *)
+(*          if EqNat.beq_nat (length ts) (fenv r) then *)
               Some (instantiate_typ ts (ftype r))
-(*
-            else
+(*          else
               None
 *)
         end
       | App e es =>
-        match typeof var_env e with
-          | None => None
-          | Some tf =>
-            foldM (fun e tf =>
-                     Monad.bind (typeof var_env e) (type_of_apply tf))
-                  (Monad.ret tf) es
-        end
+        fold_left (fun a n => Monad.bind a (fun a =>
+                              Monad.bind n (fun n =>
+                              type_of_apply a n)))
+                    (map (typeof var_env) es) (typeof var_env e)
       | Abs t e =>
         match typeof (t :: var_env) e with
           | None => None
@@ -154,22 +148,6 @@ Section env.
         end
       | Equal _ _ _ => Some tvProp
       | Not _ => Some tvProp
-    end.
-
-  Fixpoint type_apply (n : nat) (ls : list typ) (acc : list Type) (t : typ) {struct n} :
-                 parametric n acc (fun env : list Type => typD types env t) ->
-                 option (typD types acc (instantiate_typ ls t)) :=
-    match n as n , ls as ls
-          return parametric n acc (fun env : list Type => typD types env t) ->
-                 option (typD types acc (instantiate_typ ls t))
-    with
-      | 0 , nil => fun f => Some f
-      | S n , l :: ls => fun f =>
-        match typD_subst0_typ _ _ _ _ in _ = t return option t with
-          | eq_refl =>
-            @type_apply n ls (typD types acc l :: acc) _ (f (typD types acc l))
-        end
-      | _ , _ => fun _ => None
     end.
 
   (**
@@ -222,7 +200,7 @@ Section env.
         match nth_error funcs f with
           | None => None
           | Some f =>
-            match type_apply _ ts' _ _ f.(fdenote) with
+            match type_apply _ _ ts' _ _ f.(fdenote) with
               | None => None
               | Some t' =>
                 match @typ_cast_val _ (instantiate_typ ts' (ftype f)) t t' with

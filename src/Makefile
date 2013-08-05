@@ -1,12 +1,12 @@
 GENERIC := Iso IsoTac Approx
 PROVERS := Assumption
-EXTENSIBLE := Types ExprCore ExprFacts Expr
+EXTENSIBLE := Types ExprCore ExprT ExprFacts Expr
 #  Transitivity
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
 	      $(EXTENSIBLE:%=Ext/%)
 
-TESTS := 
+TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 

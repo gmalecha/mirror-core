@@ -34,18 +34,3 @@ Section quant.
     end.
 
 End quant.
-
-Section split.
-  Variable T : Type.
-  Variable F : T -> Type.
-
-  Fixpoint split (g : list (sigT F)) : { ls : list T & hlist F ls } :=
-    match g with
-      | nil => existT _ nil Hnil
-      | existT t v :: gs =>
-        match split gs with
-          | existT a b =>
-            existT _ (t :: a) (Hcons v b)
-        end
-    end.
-End split.

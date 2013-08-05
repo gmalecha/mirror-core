@@ -15,7 +15,7 @@ Section Env.
   (** Environments **)
   Definition tenv : Type := list typ.
   Definition env : Type := list (sigT (typD nil)).
-  
+
   Definition typeof_env (e : env) : tenv :=
     map (@projT1 _ _) e.
 
@@ -29,15 +29,15 @@ Section Env.
         end
     end.
 
-  Theorem lookupAs_weaken : forall (a b : env) n t x, 
+  Theorem lookupAs_weaken : forall (a b : env) n t x,
     lookupAs a n t = Some x ->
     lookupAs (a ++ b) n t = Some x.
   Proof.
     clear. unfold lookupAs. intros.
-    consider (nth_error a n); intros; try congruence.    
+    consider (nth_error a n); intros; try congruence.
     erewrite nth_error_weaken by eassumption. auto.
   Qed.
-  
+
   Fixpoint split_env (gs : env) : sigT (hlist (typD nil)) :=
     match gs with
       | nil => existT _ nil Hnil
@@ -46,8 +46,8 @@ Section Env.
         existT _ (projT1 g :: projT1 res) (Hcons (projT2 g) (projT2 res))
     end.
 
-  Theorem split_env_app : forall gs gs', 
-    split_env (gs ++ gs') = 
+  Theorem split_env_app : forall gs gs',
+    split_env (gs ++ gs') =
     let (a,b) := split_env gs in
     let (c,d) := split_env gs' in
     existT _ (a ++ c) (hlist_app b d).
@@ -57,6 +57,12 @@ Section Env.
     { destruct a. rewrite IHgs.
       destruct (split_env gs).
       destruct (split_env gs'). reflexivity. }
+  Qed.
+
+  Theorem split_env_projT1 : forall x, projT1 (split_env x) = map (@projT1 _ _) x.
+  Proof.
+    induction x; simpl; intros; auto.
+    f_equal. auto.
   Qed.
 
 End Env.

@@ -3,32 +3,26 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
-Require Import MirrorCore.Ext.Types.
+Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
+Require Import MirrorCore.Ext.ExprT.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** This is a temporary thing **)
+Require Import FunctionalExtensionality.
+
 Section semantic.
-  Variable types : types.
 
-  Variable fs : functions types.
-  Variable uenv : env (typD types).
-
-(*
-  Theorem uip_refl : forall (t : option typ) e, e = eq_refl t.
-  Proof.
-    intros. uip_all. reflexivity.
-  Qed.
-*)
-
-  Theorem typeof_weaken : forall e venv t,
-    typeof fs uenv venv e = Some t ->
+  Theorem typeof_expr_weaken : forall tfs e uenv venv t,
+    typeof_expr tfs uenv venv e = Some t ->
     forall ue ve,
-    typeof fs (uenv ++ ue) (venv ++ ve) e = Some t.
+    typeof_expr tfs (uenv ++ ue) (venv ++ ve) e = Some t.
   Proof.
-    induction e; simpl; intros;
+    induction e; intros;
       repeat match goal with
                | [ H : Some _ = Some _ |- _ ] =>
                  inversion H ; clear H ; subst
@@ -39,81 +33,78 @@ Section semantic.
                | [ H : forall x, _ = _ -> _ |- _ ] =>
                  specialize (H _ eq_refl)
              end; auto.
-    { erewrite IHe by eauto; clear IHe.
-      clear - H1 H.
-      generalize dependent t0. generalize dependent t.
-      induction H; intros.
-      { unfold Reducible.foldM, Reducible.fold in *. simpl in *. exact H1. }
-      { unfold Reducible.foldM, Reducible.fold, List.Foldable_list in *.
-        simpl in *.
-        consider (fold_right
-           (fun (x : expr) (acc : option typ) =>
-            match acc with
-            | Some v =>
-                match typeof fs uenv venv x with
-                | Some v0 => type_of_apply v v0
-                | None => None
-                end
-            | None => None
-            end) (Some t0) l); try congruence; intros.
-        erewrite IHForall by eauto.
-        consider (typeof fs uenv venv x); try congruence; intros.
-        erewrite H by eauto. auto. } }
-    { change (t :: venv ++ ve) with ((t :: venv) ++ ve).
-      erewrite IHe by eauto. reflexivity. }
+    { simpl in *. erewrite nth_error_weaken by eassumption. reflexivity. }
+    { simpl in *. erewrite nth_error_weaken by eassumption. reflexivity. }
+    { eapply WellTyped_expr_App in H0. eapply WellTyped_expr_App.
+      destruct H0. exists x.
+      intuition.
+      { clear - H1 H. revert H.
+        induction H1; simpl; auto.
+        inversion 1; subst. constructor; eauto. eapply H4; eauto. }
+      eapply IHe. eapply H2. }
+    { eapply WellTyped_expr_Abs in H. eapply WellTyped_expr_Abs.
+      destruct H; intuition; subst.
+      eexists x. intuition.
+      change (t :: venv ++ ve) with ((t :: venv) ++ ve).
+      eapply IHe; eauto. }
+    { eapply WellTyped_expr_Equal in H. eapply WellTyped_expr_Equal.
+      intuition; subst; auto. eapply IHe1; eauto. eapply IHe2; eauto. }
+    { eapply WellTyped_expr_Not in H. eapply WellTyped_expr_Not.
+      intuition; eauto. eapply IHe; eauto. }
   Qed.
 
-(*
-  Fixpoint equiv_env (es1 es2 : env typD) : Prop :=
-    match es1 , es2 with
-      | nil , nil => True
-      | existT t1 v1 :: es1 , existT t2 v2 :: es2 =>
-        (exists pf : t2 = t1,
-          equiv t1 v1 match pf in _ = t return typD nil t with
-                           | eq_refl => v2
-                         end)
-        /\ equiv_env es1 es2
-      | _ , _ => False
-    end.
+  Variable types : types.
 
-  Fixpoint equiv_hlist ls (h1 : hlist (typD ts (@nil Type)) ls)
- : hlist (typD ts (@nil Type)) ls -> Prop :=
-    match h1 in hlist _ ls return hlist (typD ts (@nil Type)) ls -> Prop with
-      | Hnil => fun _ => True
-      | Hcons t _ h1 hs1 => fun h2 =>
-        equiv ts t h1 (hlist_hd h2) /\ equiv_hlist _ hs1 (hlist_tl h2)
-    end.
-  Require Import RelationClasses.
-  Global Instance Reflexive_equiv_hlist ls : Reflexive (@equiv_hlist ls).
+  Variable fs : functions types.
+  Variable uenv : env (typD types).
+
+  Lemma typeof_weaken : forall e venv t,
+    typeof fs uenv venv e = Some t ->
+    forall ue ve,
+    typeof fs (uenv ++ ue) (venv ++ ve) e = Some t.
   Proof.
-    red. induction x; simpl; auto.
-    split; auto. reflexivity.
+    induction e; intros;
+      repeat match goal with
+               | [ H : Some _ = Some _ |- _ ] =>
+                 inversion H ; clear H ; subst
+               | [ H : match ?X with _ => _ end = _ |- _ ] =>
+                 (consider X; try congruence); [ intros ]
+               | [ |- _ ] =>
+                 erewrite nth_error_weaken by eassumption
+               | [ H : forall x, _ = _ -> _ |- _ ] =>
+                 specialize (H _ eq_refl)
+             end; auto.
+    { simpl in *. consider (nth_error venv v); try congruence; intros.
+      erewrite nth_error_weaken by eassumption. auto. }
+    { simpl in *. consider (nth_error uenv v); try congruence; intros.
+      erewrite nth_error_weaken by eassumption. auto. }
+    { simpl in *. specialize (IHe venv).
+      consider (typeof fs uenv venv e); intros.
+      { specialize (IHe _ eq_refl ue ve). rewrite IHe.
+        clear - H1 H. generalize dependent t0.
+        induction H; simpl in *; intros; auto.
+        specialize (H venv). consider (typeof fs uenv venv x); intros.
+        specialize (H1 _ eq_refl ue ve). rewrite H1 in *.
+        destruct (type_of_apply t0 t1); eauto.
+        solve [ eapply fold_left_monadic_fail in H2; intuition ].
+        solve [ eapply fold_left_monadic_fail in H2; intuition ]. }
+      { solve [ eapply fold_left_monadic_fail in H2; intuition ]. } }
+    { simpl in *.
+      consider (typeof fs uenv (t :: venv) e); intros; try congruence.
+      change (t :: venv ++ ve) with ((t :: venv) ++ ve).
+      erewrite IHe by eauto. auto. }
   Qed.
-  Global Instance Symmetric_equiv_hlist ls : Symmetric (@equiv_hlist ls).
-  Proof.
-    red. induction x; intros; rewrite (hlist_eta y) in *; simpl; auto.
-    simpl in H. destruct H. split; auto. symmetry. auto.
-  Qed.
-  Global Instance Transitive_equiv_hlist ls : Transitive (@equiv_hlist ls).
-  Proof.
-    red. induction x; intros; rewrite (hlist_eta y) in *; rewrite (hlist_eta z) in *; simpl; auto.
-    simpl in *. destruct H; destruct H0. split; try etransitivity; eauto.
-  Qed.
-*)
 
-  Require Import Morphisms.
-
-(*
-  Theorem exprD'_weaken_Some : forall ue ve e t venv x y, 
+  Theorem exprD'_weaken_Some : forall ue ve e t venv x y,
     exprD' fs uenv venv e t = Some x ->
     exprD' fs (uenv ++ ue) (venv ++ ve) e t = Some y ->
-    forall h he, equiv ts t (x h) (y (hlist_app h he)).
+    forall h he, x h = y (hlist_app h he).
   Proof.
     induction e; simpl; intros;
       repeat match goal with
                | |- context [ match ?X with _ => _ end ] =>
                  match type of X with
-                   | typ => 
+                   | typ =>
                      (destruct X; try congruence); [ ]
                    | _ => match X with
                             | match _ with _ => _ end => fail 1
@@ -122,7 +113,7 @@ Section semantic.
                  end
                | [ _ : context [ match ?X with _ => _ end ] |- _ ] =>
                  match type of X with
-                   | typ => 
+                   | typ =>
                      (destruct X; try congruence); [ ]
                    | _ => match X with
                             | match _ with _ => _ end => fail 1
@@ -135,90 +126,76 @@ Section semantic.
                  | [ H : context [ @refl_equal ?A ?B ] |- _ ] =>
                    generalize dependent (@refl_equal A B)
                end.
-        pattern (nth_error venv v) at 2 3.
+        pattern (nth_error venv v) at 1 3.
         destruct (nth_error venv v); try congruence.
         intros. generalize dependent e0.
-        generalize (nth_error_weaken ve venv _ e); intro.
-        pattern (nth_error (venv ++ ve) v) at 2 3.
+        generalize (nth_error_weaken ve venv _ (sym_eq e)); intro.
+        pattern (nth_error (venv ++ ve) v) at 1 3.
         rewrite H0. intros.
-        consider (typ_eq_odec t0 t); intros; try congruence.
-        inversion H1; inversion H2; clear H1 H2; subst.
-        uip_all. clear.
-        
+        destruct (typ_cast_typ types (fun x => x) nil t0 t); try congruence.
+        inv_all; subst.
+        unfold tenv in *.
         rewrite hlist_nth_hlist_app by eauto with typeclass_instances.
         generalize (cast1 venv ve v).
         generalize (cast2 venv ve v).
-        uip_all.
         repeat match goal with
                  | |- context [ @eq_refl ?A ?B ] =>
                    generalize (@eq_refl A B)
                end.
-        simpl in *.
-        match goal with
-          | |- forall x, equiv _ _ (_ ?X) (_ (match _ with
-                                                | Some i => fun x => _ ?Z
-                                                | None => _
-                                              end _)) =>
-          change X with Z; generalize Z
-        end.
-        clear.
-        revert e. revert e0. revert e1. generalize e2.
-        rewrite <- e2.
-        intros.
-        rewrite (uip_refl _ e0).
-        rewrite (uip_refl _ e4).
-        uip_all.
-        clear.
-        generalize dependent (nth_error (venv ++ ve) v).
-        intros; subst.
-        rewrite (uip_refl _ e6).
+        remember (hlist_nth h v).
+        generalize y. clear.
+        generalize e. destruct (nth_error venv v).
+        inv_all. subst. uip_all.
+        repeat match goal with
+                 | |- context [ @eq_refl ?A ?B ] =>
+                   generalize (@eq_refl A B)
+               end.
+        generalize e0. destruct (nth_error (venv ++ ve) v); intros.
+        inv_all; subst. uip_all. reflexivity.
+        congruence. congruence. }
+      { eapply lookupAs_weaken in H. revert H. instantiate (1 := ue).
+        rewrite H0. intuition; inv_all; auto. }
+      { eapply typeof_weaken with (ue := ue) (ve := ve) in H0.
+        rewrite H0 in *. inv_all; subst.
+        specialize (IHe _ _ _ _ H4 H2).
+        clear - H H3 H5 IHe. generalize dependent t. generalize dependent t0.
+        induction H; intros.
+        { match goal with
+            | H : match ?X with _ => _ end _ = _ |- _ =>
+              destruct X; try congruence
+          end.
+          inv_all; subst. f_equal. auto. }
+        { destruct t0; try congruence.
+          repeat match goal with
+                   | H : match ?X with _ => _ end = _ |- _ =>
+                     consider X; intros; try congruence
+                 end.
+          specialize (H _ _ _ _ H1 H2).
+          eapply IHForall; [ | eassumption | eassumption ].
+          { intros. simpl. erewrite IHe. f_equal. eauto. } } }
+      { change (t0_1 :: venv ++ ve) with ((t0_1 :: venv) ++ ve) in *.
+        specialize (IHe _ _ _ _ H0 H1).
+        eapply functional_extensionality. intros.
+        erewrite IHe. reflexivity. }
+      { erewrite (IHe1 _ _ _ _ H H0).
+        erewrite (IHe2 _ _ _ _ H3 H1).
         reflexivity. }
-      { unfold lookupAs in *. 
-        consider (nth_error uenv v); try congruence; intros.
-        erewrite nth_error_weaken in H0 by eauto.
-        consider (typ_eq_odec (projT1 s) t); intros; try congruence.
-        subst. inversion H1; inversion H2; clear H1 H2; subst. reflexivity. }
-      { eapply typeof_weaken with (ve := ve) (ue := ue) in H0.
-        rewrite H1 in *.
-        inversion H0; clear H0; subst.
-        specialize (IHe _ _ _ _ H4 H2); clear H2 H4.
-        clear - IHe H5 H3 H.
-        revert H5 H3 IHe. generalize dependent t2. generalize dependent t.
-        induction H; simpl; intros.
-        { destruct (typ_eq_odec t2 t); intros; subst; try congruence.
-          inversion H5; inversion H3; clear H5 H3; subst.
-          eauto. }
-        { destruct t2; try congruence.
-          consider (exprD' fs uenv venv x t2_1); intros; try congruence.
-          consider (exprD' fs (uenv ++ ue) (venv ++ ve) x t2_1); intros; try congruence.
-          specialize (H _ _ _ _ H1 H2 h he); clear H1 H2.
-          specialize (IHForall _ _ _ _ _ _ H5 H3); clear H5 H3 H0.
-          eapply IHForall; intros; simpl in *; clear IHForall.
-          etransitivity. eapply IHe; clear IHe.
-          instantiate (1 := he0). clear - H. admit. } }
-      { simpl; intro. specialize (@IHe _ _ _ _ H0 H1 (Hcons a h) he); auto. }
-      { specialize (IHe1 _ _ _ _ H H0 h he).
-        specialize (IHe2 _ _ _ _ H3 H1 h he).
-        simpl. intuition.
-        { etransitivity. symmetry; eauto. etransitivity; eauto. }
-        { etransitivity. eauto. etransitivity; eauto. symmetry; eauto. } }
-      { specialize (IHe _ _ _ _ H H0 h he).
-        simpl in *. intuition. }
+      { erewrite (IHe _ _ _ _ H H0).
+        reflexivity. }
   Qed.
-    
-  Theorem exprD_weaken : forall venv e t ue ve x, 
+
+  Theorem exprD_weaken : forall venv e t ue ve x,
     exprD fs uenv venv e t = Some x ->
-    exists y, exprD fs (uenv ++ ue) (venv ++ ve) e t = Some y /\
-      equiv ts t x y.
+    exprD fs (uenv ++ ue) (venv ++ ve) e t = Some x.
   Proof.
     unfold exprD; intros. rewrite split_env_app.
     destruct (split_env venv). destruct (split_env ve).
-    consider (exprD' fs uenv x0 e t); 
+    consider (exprD' fs uenv x0 e t);
     consider (exprD' fs (uenv ++ ue) (x0 ++ x1) e t); intros; try congruence.
     { inversion H1; clear H1; subst.
-      generalize (exprD'_weaken_Some _ _ _ _ _ _ _ H0 H h h0); intros.
-      eexists; split; eauto. }
-    { exfalso. inversion H1; clear H1; subst.
+      generalize (exprD'_weaken_Some _ _ _ H0 H h h0); intros.
+      f_equal. eauto. }
+    { exfalso. inv_all; subst.
       clear - H0 H. generalize dependent t.
       revert x0; revert x1. induction e; simpl; intros;
       repeat match goal with
@@ -238,34 +215,38 @@ Section semantic.
                    generalize dependent (@refl_equal A B)
                end.
         do 2 intro.
-        pattern (nth_error x0 v) at 2 3. destruct (nth_error x0 v); try congruence.
-        intros. 
+        generalize (nth_error_weaken x1 x0 v).
+        pattern (nth_error x0 v) at 1 2 4.
+        destruct (nth_error x0 v); try congruence.
+        intros.
         generalize dependent e.
-        pattern (nth_error (x0 ++ x1) v) at 2 3.
-        erewrite nth_error_weaken by eassumption; intros.
-        destruct (typ_eq_odec t1 t); try congruence. }
-      { unfold lookupAs in *.
-        consider (nth_error uenv v); try congruence; intros.
-        erewrite nth_error_weaken in H by eassumption.
-        consider (typ_eq_odec (projT1 s) t); congruence. }
+        pattern (nth_error (x0 ++ x1) v) at 1 3.
+        erewrite nth_error_weaken; intros. 2: eauto.
+        match goal with
+          | _ : match ?X with _ => _ end = _ |- _ =>
+            destruct X; try congruence
+        end. }
+      { erewrite lookupAs_weaken in H by eassumption. congruence. }
       { erewrite typeof_weaken in H0 by eauto.
-        inversion H0; clear H0; subst.
-        generalize (exprD'_weaken_Some _ _ _ _ _ _ _ H2 H4).
+        inv_all; subst.
+        generalize (@exprD'_weaken_Some _ _ _ _ _ _ _ H2 H4).
         clear - H5 H3 H.
         generalize dependent t3.
         induction H; simpl; intros.
-        { destruct (typ_eq_odec t3 t); subst; congruence. }
+        { match goal with
+            | _ : match ?X with _ => _ end _ = _ |- _ =>
+              destruct X; congruence
+          end. }
         { destruct t3; try congruence.
           consider (exprD' fs uenv x0 x t3_1); intros; try congruence.
           consider (exprD' fs (uenv ++ ue) (x0 ++ x1) x t3_1); intros; try congruence.
           { specialize (@IHForall _ _ H5 _ H3). clear H3 H5.
-            generalize (exprD'_weaken_Some _ _ _ _ _ _ _ H2 H4); intros.
+            generalize (@exprD'_weaken_Some _ _ _ _ _ _ _ H2 H4); intros.
             clear - H1 H3 IHForall. simpl in *.
             eapply IHForall; intros; clear IHForall.
             specialize (H3 h he). specialize (H1 h he).
-            etransitivity. eapply H1. clear H1. admit.
-            (* TODO: I have to know that the function respects the equivalence *) }
-          { eauto. } } }            
+            rewrite H1. rewrite H3. reflexivity. }
+          { eauto. } } }
       { erewrite typeof_weaken in H0 by eauto.
         inversion H0; clear H0; subst.
         eapply IHe. eassumption. eapply H2. }
@@ -273,6 +254,5 @@ Section semantic.
         congruence. }
       { eapply IHe; eauto. simpl; eauto. } }
   Qed.
-*)
 
 End semantic.

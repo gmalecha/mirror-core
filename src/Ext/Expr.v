@@ -1,9 +1,9 @@
-Require Export Types.
-Require Export ExprCore.
+Require Export MirrorCore.Ext.Types.
+Require Export MirrorCore.Ext.ExprCore.
+Require Export MirrorCore.Ext.ExprT.
+Require Export MirrorCore.Ext.ExprFacts.
+Require Export MirrorCore.Ext.ExprLift.
 (*
-Require Export ExprT.
-Require Export ExprFacts.
-Require Export ExprLift.
-Require Export ExprSubst.
-Require Export ExprSimplify.
+Require Export MirrorCore.Ext.ExprSubst.
+Require Export Mirrorcore.Ext.ExprSimplify.
 *)

@@ -348,6 +348,20 @@ Section env.
   ; type_of_apply := type_of_apply
   }.
 
+  Global Instance RTypeOk_typ : RTypeOk RType_typ.
+  Proof.
+    constructor.
+    eauto with typeclass_instances.
+    { unfold typ_cast. simpl; intros.
+      unfold typ_cast_typ in *.
+      consider (typ_eq_odec a b); intros; subst.
+      Require Import ExtLib.Tactics.Injection.
+      inv_all; subst.
+      rewrite typ_eq_odec_Some_refl. eauto. congruence. }
+    { unfold typ_cast; simpl. unfold typ_cast_typ.
+      intros. rewrite typ_eq_odec_Some_refl. eauto. }
+  Qed.
+
   Global Instance TypInstance0_tvProp : TypInstance0 typD Prop :=
   { typ0 := tvProp
   ; typ0_iso := fun ts => Iso.Equiv_ident _
@@ -363,4 +377,3 @@ Section env.
   Defined.
 
 End env.
-

@@ -1,17 +1,20 @@
 Require Import List.
 Require Import ExtLib.Data.ListNth.
-Require Import ExprCore.
-Require Import ExprT.
+Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.Injection.
+Require Import ExtLib.Tactics.Cases.
+Require Import MirrorCore.Ext.Types.
+Require Import MirrorCore.Ext.ExprCore.
+Require Import MirrorCore.Ext.ExprT.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
   Variable ts : types.
-  
-  Fixpoint lift' (s l : nat) (e : expr ts) : expr ts :=
+
+  Fixpoint lift' (s l : nat) (e : expr) : expr :=
     match e with
-      | Const _ _ => e
       | Var v =>
         if NPeano.ltb v s then e
         else Var (v + l)
@@ -19,28 +22,27 @@ Section typed.
       | App e es => App (lift' s l e) (map (lift' s l) es)
       | Abs t e => Abs t (lift' (S s) l e)
       | UVar u => e
-      | Equal t e1 e2 => Equal t (lift' s l e1) (lift' s l e2) 
+      | Equal t e1 e2 => Equal t (lift' s l e1) (lift' s l e2)
       | Not e => Not (lift' s l e)
     end.
 
-  Definition lift (s l : nat) : expr ts -> expr ts :=
+  Definition lift (s l : nat) : expr -> expr :=
     match l with
       | 0 => fun x => x
       | _ => lift' s l
     end.
 
-  Fixpoint lower' (s l : nat) (e : expr ts) : option (expr ts) :=
+  Fixpoint lower' (s l : nat) (e : expr) : option expr :=
     match e with
-      | Const _ _ => Some e
-      | Var v => 
+      | Var v =>
         if NPeano.ltb v s then Some e
         else if NPeano.ltb (v - s) l then None
              else Some (Var (v - l))
       | Func _ _ => Some e
-      | App e es => 
-        match lower' s l e with 
+      | App e es =>
+        match lower' s l e with
           | None => None
-          | Some e => 
+          | Some e =>
             match (fix recur es {struct es} :=
               match es with
                 | nil => Some (fun x => App e x)
@@ -58,35 +60,33 @@ Section typed.
               | None => None
             end
         end
-      | Abs t e => 
+      | Abs t e =>
         match lower' (S s) l e with
           | None => None
           | Some e => Some (Abs t e)
         end
       | UVar u => Some e
-      | Equal t e1 e2 => 
+      | Equal t e1 e2 =>
         match lower' s l e1 with
           | Some e1 =>
-            match lower' s l e2 with 
+            match lower' s l e2 with
               | Some e2 => Some (Equal t e1 e2)
               | None => None
             end
           | None => None
         end
-      | Not e => 
+      | Not e =>
         match lower' s l e with
           | Some e => Some (Not e)
           | None => None
         end
     end.
 
-  Fixpoint lower s l : expr ts -> option (expr ts) :=
+  Fixpoint lower s l : expr -> option expr :=
     match l with
       | 0 => @Some _
       | _ => lower' s l
-    end.        
-
-  Require Import ExtLib.Tactics.Consider.
+    end.
 
   Lemma lift'_0 : forall e s, lift' s 0 e = e.
   Proof.
@@ -104,9 +104,7 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
-  Require Import ExtLib.Tactics.Injection ExtLib.Tactics.Cases.
-
-  Theorem lift_welltyped : forall fs vs vs' us (e : expr ts) t, 
+  Theorem lift_welltyped : forall fs vs vs' us (e : expr) t,
     WellTyped_expr fs us (vs ++ vs') e t ->
     forall vs'' s l,
       s = length vs -> l = length vs'' ->
@@ -114,8 +112,8 @@ Section typed.
   Proof.
     intros. rewrite lift_lift'. subst. revert vs''.
     generalize dependent t. revert vs.
-    induction e; simpl; intros; unfold WellTyped_expr in *; simpl in *; forward; 
-      repeat match goal with 
+    induction e; simpl; intros; unfold WellTyped_expr in *; simpl in *; forward;
+      repeat match goal with
                | [ H : _ |- _ ] => erewrite H by eauto
              end; auto.
     { consider (NPeano.ltb v (length vs)); intros; simpl.
@@ -124,12 +122,17 @@ Section typed.
       rewrite nth_error_app_R by omega.
       rewrite nth_error_app_R by omega.
       rewrite <- H. f_equal. omega. }
-    { rewrite map_map.
-      revert H1. clear - H. revert t; revert t0.
-      induction H; simpl; intros; auto.
-      intros. consider (typeof_expr fs us (vs ++ vs') x); intros; try congruence.
-      erewrite H by eauto. destruct t0; try congruence.
-      destruct (typ_eqb t0_1 t1); try congruence. eauto. }
+    { consider (typeof_expr fs us (vs ++ vs') e); intros.
+      { erewrite IHe by eassumption.
+        rewrite map_map.
+        revert H1. clear - H. revert t; revert t0.
+        induction H; simpl; intros; auto.
+        intros. consider (typeof_expr fs us (vs ++ vs') x); intros; try congruence.
+        erewrite H by eauto.
+        destruct (type_of_apply t0 t1); eauto.
+        solve [ eapply fold_left_monadic_fail in H2; intuition ].
+        solve [ eapply fold_left_monadic_fail in H2; intuition ]. }
+      { solve [ eapply fold_left_monadic_fail in H1; intuition ]. } }
     { unfold WellTyped_expr in *; simpl in *; auto.
       consider (typeof_expr fs us (t :: vs ++ vs') e); intros; try congruence.
       inversion H0; clear H0; subst.
