@@ -8,14 +8,14 @@ Section subst.
 
   Class Subst :=
   { set : uvar -> expr ts -> T -> option T
-  ; lookup : uvar -> T -> option (expr ts) 
+  ; lookup : uvar -> T -> option (expr ts)
   }.
 
   Section instantiate.
     Variable Subst_T : Subst.
 
     Variable subst : T.
-    
+
     Fixpoint exprInstantiate (l : nat) (e : expr ts) : expr ts :=
       match e with
         | Const _ _ => e
@@ -23,7 +23,7 @@ Section subst.
         | Func _ _ => e
         | App e es => App (exprInstantiate l e) (map (exprInstantiate l) es)
         | Abs t e => Abs t (exprInstantiate (S l) e)
-        | UVar u => 
+        | UVar u =>
           match lookup u subst with
             | None => e
             | Some e' => lift 0 l e'
@@ -35,7 +35,7 @@ Section subst.
 
 (*
 
-  Class SubstOk := 
+  Class SubstOk :=
   { Subst_WellTyped : tfunctions -> tenv -> tenv -> T -> Prop
   ; Subst_Extends : relation T
   ; PreOrder_Subst_Extends : PreOrder Subst_Extends
