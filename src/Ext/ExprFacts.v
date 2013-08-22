@@ -201,7 +201,7 @@ Section semantic.
       repeat match goal with
                | [ _ : context [ match ?X with _ => _ end ] |- _ ] =>
                  match type of X with
-                   | typ => 
+                   | typ =>
                      (destruct X; try congruence); [ ]
                    | _ => match X with
                             | match _ with _ => _ end => fail 1

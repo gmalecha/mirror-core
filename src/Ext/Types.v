@@ -331,19 +331,29 @@ Section env.
                         end
     end.
 
+  Theorem typ_cast_typ_refl : forall F env t,
+    typ_cast_typ F env t t = Some (fun x => x).
+  Proof.
+    unfold typ_cast_typ; simpl; intros.
+    rewrite typ_eq_odec_Some_refl. reflexivity.
+  Qed.
+
+  Require Import ExtLib.Core.Type.
+  Require Import ExtLib.Tactics.Injection.
+  Fixpoint typ_typeFor g t : type (typD g t) :=
+    match t as t return type (typD g t) with
+      | tvProp => type_Prop
+      | tvArr l r => type_Fun (typ_typeFor g l) (typ_typeFor g r)
+      (** These don't work perfectly because when you make something
+                         a var, it potentially changes its type **)
+      | tvType i => type_libniz _ (** TODO: This should be a lookup **)
+      | tvVar v => type_libniz _ (** TODO: This should be a lookup **)
+    end.
 
   Global Instance RType_typ : RType typD :=
   { typ_cast := typ_cast_typ
   ; typ_eqb := _
-  ; typeFor := fix typeFor g t :=
-                 match t as t return _ (typD g t) with
-                   | tvProp => type_Prop
-                   | tvArr l r => type_Fun (typeFor g l) (typeFor g r)
-                     (** These don't work perfectly because when you make something
-                         a var, it potentially changes its type **)
-                   | tvType i => type_libniz _ (** TODO: This should be a lookup **)
-                   | tvVar v => type_libniz _ (** TODO: This should be a lookup **)
-                 end
+  ; typeFor := typ_typeFor
   ; instantiate_typ := instantiate_typ
   ; type_of_apply := type_of_apply
   }.
@@ -355,11 +365,10 @@ Section env.
     { unfold typ_cast. simpl; intros.
       unfold typ_cast_typ in *.
       consider (typ_eq_odec a b); intros; subst.
-      Require Import ExtLib.Tactics.Injection.
       inv_all; subst.
       rewrite typ_eq_odec_Some_refl. eauto. congruence. }
-    { unfold typ_cast; simpl. unfold typ_cast_typ.
-      intros. rewrite typ_eq_odec_Some_refl. eauto. }
+    { intros. unfold typ_cast; simpl.
+      rewrite typ_cast_typ_refl. eauto. }
   Qed.
 
   Global Instance TypInstance0_tvProp : TypInstance0 typD Prop :=
