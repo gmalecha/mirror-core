@@ -68,7 +68,6 @@ Section env.
   | tvType : nat -> typ
   | tvVar : nat -> typ.
 
-
   Fixpoint typ_eqb (a b : typ) {struct a} : bool :=
     match a , b with
       | tvProp , tvProp => true
@@ -262,6 +261,42 @@ Section env.
       | _ , _ => fun _ => None
     end.
 
+  Theorem type_apply_length_equal : forall ft ts' n z fd,
+    length ts' = n ->
+    exists r, type_apply n ts' z ft fd = Some r.
+  Proof.
+    induction ts'; simpl in *; intros; subst; simpl; eauto.
+    match goal with
+      | [ |- exists x, match ?X with _ => _ end = _ ] =>
+        consider X
+    end; intros; eauto.
+    destruct (@IHts' (length ts') (typD z a :: z) (fd (typD z a))
+                     eq_refl).
+    simpl in *.
+    match goal with
+      | [ H : ?X = None , H' : ?Y = Some _ |- _ ] =>
+        let H'' := fresh in
+        assert (H'' : X = Y) by reflexivity; congruence
+    end.
+  Qed.
+
+  Theorem type_apply_length_equal' : forall ft ts' n z fd r,
+    type_apply n ts' z ft fd = Some r ->
+    length ts' = n.
+  Proof.
+    induction ts'; simpl in *; intros; subst; simpl; eauto.
+    { destruct n; simpl in *; auto; congruence. }
+    { destruct n; simpl in *; try congruence.
+      f_equal.
+      match goal with
+        | [ H : match ?X with _ => _ end = _ |- _ ] =>
+          consider X; intros; try congruence
+      end.
+      inversion H0; clear H0; subst. eauto. }
+  Qed.
+
+
+(*
   Definition const_seqb ts' t t' : typD ts' t -> typD ts' t' -> option bool.
   refine (
     match t as t , t' as t' return typD ts' t -> typD ts' t' -> option bool with
@@ -300,6 +335,7 @@ Section env.
       | _ , _ => fun _ _ => None (** TODO: is this too weak? **)
     end).
   Defined.
+*)
 
   Fixpoint equiv (t : typ) : forall a b : typD nil t, Prop :=
     match t as t return typD nil t -> typD nil t -> Prop with
@@ -331,6 +367,13 @@ Section env.
                         end
     end.
 
+  Theorem typ_cast_typ_eq : forall f ts t t' v,
+                              typ_cast_typ f ts t t' = Some v -> t = t'.
+  Proof.
+    clear. unfold typ_cast_typ; simpl; intros.
+    destruct (typ_eq_odec t t'); auto. congruence.
+  Qed.
+
   Theorem typ_cast_typ_refl : forall F env t,
     typ_cast_typ F env t t = Some (fun x => x).
   Proof.
@@ -338,8 +381,32 @@ Section env.
     rewrite typ_eq_odec_Some_refl. reflexivity.
   Qed.
 
+  Definition typ_cast_val ts (a b : typ) (v : typD ts a)
+  : option (typD ts b) :=
+    match typ_cast_typ (fun x => x) ts a b with
+      | None => None
+      | Some f => Some (f v)
+    end.
+
+  Lemma typ_cast_val_eq : forall ts a b v v',
+                            typ_cast_val ts a b v = Some v' ->
+                            a = b.
+  Proof.
+    clear. unfold typ_cast_val; simpl; intros.
+    unfold typ_cast_typ in *. generalize (@typ_eq_odec_None a b).
+    destruct (typ_eq_odec a b); auto. congruence.
+  Qed.
+
+  Lemma typ_cast_val_refl : forall ts t v,
+    typ_cast_val ts t t v = None -> False.
+  Proof.
+    unfold typ_cast_val, typ_cast_typ.
+    intros. rewrite typ_eq_odec_Some_refl in H. congruence.
+  Qed.
+
   Require Import ExtLib.Core.Type.
   Require Import ExtLib.Tactics.Injection.
+
   Fixpoint typ_typeFor g t : type (typD g t) :=
     match t as t return type (typD g t) with
       | tvProp => type_Prop

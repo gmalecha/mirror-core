@@ -54,11 +54,10 @@ Section typed.
               else
                 None
           end
-        | App e es =>
-          fold_left (fun a n => Monad.bind a (fun a =>
-                                Monad.bind n (fun n =>
-                                type_of_apply a n)))
-                    (map (typeof_expr var_env) es) (typeof_expr var_env e)
+        | App e e' =>
+          Monad.bind (typeof_expr var_env e) (fun tf =>
+          Monad.bind (typeof_expr var_env e') (fun tx =>
+          type_of_apply tf tx))
         | Abs t e =>
           match typeof_expr (t :: var_env) e with
             | None => None
@@ -159,45 +158,24 @@ Section typed.
       destruct H; intuition; congruence.
     Qed.
 
-    Theorem WellTyped_expr_App : forall g e es t,
-      WellTyped_expr g (App e es) t <->
-      (exists tas,
-         Forall2 (WellTyped_expr g) es tas /\
-         WellTyped_expr g e (fold_right tvArr t tas)).
+    Theorem WellTyped_expr_App : forall g e e' t,
+      WellTyped_expr g (App e e') t <->
+      (exists tf tx,
+         WellTyped_expr g e tf /\
+         WellTyped_expr g e' tx /\
+         type_of_apply tf tx = Some t).
     Proof.
       unfold WellTyped_expr; simpl; intros.
       destruct (typeof_expr g e).
-      { split; intros. clear - H.
-        generalize dependent t0.
-        induction es; simpl; intros.
-        { inversion H; clear H; subst.
-          exists nil. intuition. }
-        { consider (typeof_expr g a); intros.
-          { consider (type_of_apply t0 t1); intros.
-            { specialize (IHes _ H1).
-              destruct IHes; intuition.
-              inv_all. subst.
-              destruct t0; simpl in *; try congruence.
-              change (typ_eqb t0_1 t1) with (t0_1 ?[ eq ] t1) in H0.
-              consider (t0_1 ?[ eq ] t1); intros; try congruence.
-              inv_all; subst.
-              exists (t1 :: x); simpl.
-              split; auto. }
-            { exfalso. clear - H1.
-              induction es; simpl in *; intuition congruence. } }
-          { exfalso. clear - H0.
-              induction es; simpl in *; intuition congruence. } }
-        { destruct H. intuition.
-          inv_all; subst.
-          clear - H0. induction H0; simpl; auto.
-          rewrite H. change (typ_eqb y y) with (y ?[ eq ] y).
-          consider (y ?[ eq ] y); auto. congruence. } }
-      { clear. induction es; simpl.
-        { intuition. congruence. destruct H; intuition; congruence. }
-        { rewrite IHes. clear.
-          split; destruct 1; intuition; congruence. } }
+      { destruct (typeof_expr g e').
+        { intuition eauto.
+          do 2 destruct H; intuition. inv_all; subst; auto. }
+        { intuition try congruence. do 2 destruct H; intuition congruence. } }
+      { intuition; try congruence. do 2 destruct H. intuition congruence. }
     Qed.
 
+    (** NOTE: This is suboptimal **)
+(*
     Theorem WellTyped_expr_det : forall g e t1 t2,
       WellTyped_expr g e t1 ->
       WellTyped_expr g e t2 ->
@@ -205,6 +183,7 @@ Section typed.
     Proof.
       unfold WellTyped_expr. intros. rewrite H in H0. congruence.
     Qed.
+*)
   End typeof_expr.
 
   Theorem nth_error_typeof_funcs : forall (fs : functions types) n,
@@ -227,95 +206,49 @@ Section typed.
     rewrite nth_error_map. reflexivity.
   Qed.
 
-  Lemma fold_left_monadic_fail : forall T U (f : option U -> T -> option U) y z,
-    (forall x, f None x = None) ->
-    fold_left f y None = Some z -> False.
-  Proof.
-    induction y; simpl; intros; try congruence. eapply IHy. auto.
-    rewrite H in H0. eauto.
-  Qed.
+  (* Lemma fold_left_monadic_fail : forall T U (f : option U -> T -> option U) y z, *)
+  (*   (forall x, f None x = None) -> *)
+  (*   fold_left f y None = Some z -> False. *)
+  (* Proof. *)
+  (*   induction y; simpl; intros; try congruence. eapply IHy. auto. *)
+  (*   rewrite H in H0. eauto. *)
+  (* Qed. *)
 
-  Theorem typeof_typeof_expr : forall (fs : functions types)  uenv e venv t,
-    typeof_expr (typeof_funcs fs) (typeof_env uenv) venv e = Some t ->
-    typeof fs uenv venv e = Some t.
+  (* Theorem typeof_typeof_expr : forall (fs : functions types)  uenv e venv t, *)
+  (*   typeof_expr (typeof_funcs fs) (typeof_env uenv) venv e = Some t -> *)
+  (*   typeof fs uenv venv e = Some t. *)
+  (* Proof. *)
+  (*   induction e; simpl; intros; *)
+  (*   repeat match goal with *)
+  (*            | [ H : _ |- _ ] => rewrite H in * *)
+  (*            | [ H : Some _ = Some _ |- _ ] => *)
+  (*              inversion H; clear H; subst *)
+  (*            | _ => rewrite nth_error_typeof_funcs in * *)
+  (*            | _ => rewrite nth_error_typeof_env in * *)
+  (*            | [ H : match ?X with _ => _ end = _ |- _ ] => *)
+  (*              (consider X; intros; try congruence); [ ] *)
+  (*            | [ H : (if ?X then _ else _) = _ |- _ ] => *)
+  (*              (consider X; intros; try congruence); [ ] *)
+  (*            | [ H : (if ?X then _ else _) = _ |- _ ] => *)
+  (*              solve [ consider X; intros; try congruence ] *)
+  (*            | [ H : forall x, _ = _ -> _ |- _ ] => *)
+  (*              specialize (H _ eq_refl) *)
+  (*            | |- None = Some _ => exfalso *)
+  (*          end; simpl; try congruence; auto. *)
+  (*   { change (EqNat.beq_nat f0.(fenv) f0.(fenv)) with (f0.(fenv) ?[ eq ] f0.(fenv)). *)
+  (*     rewrite rel_dec_eq_true; eauto with typeclass_instances. } *)
+  (*   { erewrite IHe1 by eauto. *)
+  (*     erewrite IHe2 by eauto. eauto. } *)
+  (*   { erewrite IHe; eauto. } *)
+  (* Qed. *)
+
+(*
+  Lemma exprD_typof_expr_iff' : forall (fs : functions types) uenv e venv t,
+    typeof_expr (typeof_funcs fs) (typeof_env uenv) (typeof_env venv) e = Some t ->
+    exists v, exprD fs uenv venv e t = Some v.
   Proof.
     induction e; simpl; intros;
-    repeat match goal with
-             | [ H : _ |- _ ] => rewrite H in *
-             | [ H : Some _ = Some _ |- _ ] =>
-               inversion H; clear H; subst
-             | _ => rewrite nth_error_typeof_funcs in *
-             | _ => rewrite nth_error_typeof_env in *
-             | [ H : match ?X with _ => _ end = _ |- _ ] =>
-               (consider X; intros; try congruence); [ ]
-             | [ H : (if ?X then _ else _) = _ |- _ ] =>
-               (consider X; intros; try congruence); [ ]
-             | [ H : (if ?X then _ else _) = _ |- _ ] =>
-               solve [ consider X; intros; try congruence ]
-             | [ H : forall x, _ = _ -> _ |- _ ] =>
-               specialize (H _ eq_refl)
-             | |- None = Some _ => exfalso
-           end; simpl; try congruence; auto.
-    { consider (typeof_expr (typeof_funcs fs) (typeof_env uenv) venv e); intros.
-      { eapply IHe in H0. rewrite H0 in *.
-        clear - H H1. generalize dependent t0. generalize dependent t.
-        induction H; simpl; intros; inv_all; subst; auto.
-        { consider (typeof_expr (typeof_funcs fs) (typeof_env uenv) venv x); intros.
-          eapply H in H1. rewrite H1 in *.
-          { destruct (type_of_apply t0 t1); eauto.
-            clear - H2. exfalso. induction l; simpl in *; auto. congruence. }
-          { exfalso. eapply fold_left_monadic_fail in H2; eauto. } } }
-      { exfalso; eapply fold_left_monadic_fail in H1; eauto. } }
-    { eapply IHe in H. rewrite H in *. reflexivity. }
-  Qed.
-
-  Theorem type_apply_length_equal : forall ft ts' n z fd,
-    length ts' = n ->
-    exists r, type_apply types n ts' z ft fd = Some r.
-  Proof.
-    induction ts'; simpl in *; intros; subst; simpl; eauto.
-    match goal with
-      | [ |- exists x, match ?X with _ => _ end = _ ] =>
-        consider X
-    end; intros; eauto.
-    destruct (@IHts' (length ts') (typD types z a :: z) (fd (typD types z a))
-                     eq_refl).
-    simpl in *.
-    match goal with
-      | [ H : ?X = None , H' : ?Y = Some _ |- _ ] =>
-        let H'' := fresh in
-        assert (H'' : X = Y) by reflexivity; congruence
-    end.
-  Qed.
-
-  Theorem type_apply_length_equal' : forall ts ft ts' n z fd r,
-    type_apply ts n ts' z ft fd = Some r ->
-    length ts' = n.
-  Proof.
-    induction ts'; simpl in *; intros; subst; simpl; eauto.
-    { destruct n; simpl in *; auto; congruence. }
-    { destruct n; simpl in *; try congruence.
-      f_equal.
-      match goal with
-        | [ H : match ?X with _ => _ end = _ |- _ ] =>
-          consider X; intros; try congruence
-      end.
-      inversion H0; clear H0; subst. eauto. }
-  Qed.
-
-  Lemma typ_cast_val_refl : forall ts t v,
-    typ_cast_val types ts t t v = None -> False.
-  Proof.
-    unfold typ_cast_val, typ_cast_typ.
-    intros. rewrite typ_eq_odec_Some_refl in H. congruence.
-  Qed.
-
-  Lemma exprD_typof_expr_iff' : forall (fs : functions types) uenv e tvenv t,
-    typeof_expr (typeof_funcs fs) (typeof_env uenv) tvenv e = Some t ->
-    exists v, exprD' fs uenv tvenv e t = Some v.
-  Proof.
-    unfold WellTyped_expr.
-    induction e; simpl; intros;
+    autorewrite with exprD_rw ;
     repeat match goal with
              | [ H : Some _ = Some _ |- _ ] => inversion H; clear H; subst
              | _ => congruence
@@ -325,7 +258,7 @@ Section typed.
              | |- context [ match ?X with _ => _ end ] =>
                match X with
                  | match _ with _ => _ end => fail 1
-                 | _ => consider X; intros
+                 | _ => (consider X; try congruence); [ intros ]
                end
              | [ H : match ?X with _ => _ end = _ |- _ ] =>
                (consider X; intros; try congruence); [ ]
@@ -346,6 +279,19 @@ Section typed.
                specialize (H' _ _ H)
              | [ |- exists x, None = Some _ ] => exfalso
            end; try solve [ congruence | eauto | auto ].
+    { unfold lookupAs. rewrite H. destruct s. simpl.
+      rewrite typ_cast_typ_refl. eauto. }
+    { destruct f0; simpl in *. rewrite exprD_Func.
+    Focus 3.
+    change (map (@projT1 _ _) venv) with (typeof_env venv).
+    erewrite typeof_typeof_expr by eauto.
+    destruct t0; simpl in H1; try congruence.
+    rewrite H3. change (typ_eqb t0_1 t1) with (t0_1 ?[ eq ] t1) in H1.
+    consider (t0_1 ?[ eq ] t1); try congruence; intros. subst; inv_all; subst.
+    rewrite H2. rewrite typ_eq_odec_Some_refl. eauto.
+    rewrite H.
+    subst.
+    simpl in *.
     { match goal with
         | |- context [ @eq_refl ?Y ?X ] =>
           generalize (@eq_refl Y X)
@@ -499,8 +445,6 @@ Section typed.
       erewrite IHe by eauto. reflexivity. } }
      *) }
   Qed.
+*)
 
 End typed.
-  
-
-

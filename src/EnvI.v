@@ -59,10 +59,32 @@ Section Env.
       destruct (split_env gs'). reflexivity. }
   Qed.
 
-  Theorem split_env_projT1 : forall x, projT1 (split_env x) = map (@projT1 _ _) x.
+  Theorem split_env_projT1 : forall x,
+    projT1 (split_env x) = map (@projT1 _ _) x.
   Proof.
     induction x; simpl; intros; auto.
     f_equal. auto.
+  Qed.
+
+  Theorem split_env_nth_error : forall ve v tv,
+    nth_error ve v = Some tv <->
+    match nth_error (projT1 (split_env ve)) v as t
+          return match t with
+                   | Some v => typD nil v
+                   | None => unit
+                 end -> Prop
+    with
+      | None => fun _ => False
+      | Some v => fun res => tv = existT _ v res
+    end (hlist_nth (projT2 (split_env ve)) v).
+  Proof.
+    induction ve; simpl; intros.
+    { destruct v; simpl in *; intuition; inversion H. }
+    { destruct v; simpl in *.
+      { intuition.
+        { inversion H; subst. destruct tv; reflexivity. }
+        { subst. destruct a. reflexivity. } }
+      { eapply IHve. } }
   Qed.
 
 End Env.

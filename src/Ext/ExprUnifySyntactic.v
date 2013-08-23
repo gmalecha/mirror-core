@@ -1,7 +1,12 @@
 Require Import List.
+Require Import ExtLib.Core.RelDec.
 Require Import MirrorCore.Prover.
+Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Subst.
+Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
+Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprD.
 Require Import MirrorCore.Ext.ExprLift.
 
 Set Implicit Arguments.
@@ -15,17 +20,12 @@ Section typed.
   Variable SubstOk_subst : SubstOk (Expr_expr funcs) Subst_subst.
 
   Section nested.
-    (** n is the number of binders that we have gone under **)
-  Variable exprUnify : forall (under : nat) (s : subst) (l r : expr), option subst.
+    Variable tfs : tfunctions.
 
-  (** TODO: This algorithm is very weak, in particular it breaks down
-   ** because functions are first-class which means that there are multiple
-   ** representations of [f x y], e.g.
-   **   (((f nil) (a :: nil)) (b :: nil)),
-   **   (f (a :: b :: nil))
-   **   etc.
-   **)
-  Fixpoint exprUnify' (n : nat) (s : subst) (e1 e2 : expr) {struct e1}
+    (** n is the number of binders that we have gone under **)
+  Variable exprUnify : forall (us vs : tenv typ) (under : nat) (s : subst) (l r : expr), typ -> option subst.
+
+  Fixpoint exprUnify' (us vs : tenv typ) (n : nat) (s : subst) (e1 e2 : expr) (t : typ) {struct e1}
   : option subst.
   refine (
     match e1 , e2 with
@@ -43,72 +43,89 @@ Section typed.
               | None => None
               | Some e2 => Subst.set u1 e2 s
             end
-          | Some e1' => exprUnify n s e1' e2
+          | Some e1' => exprUnify us vs n s e1' e2 t
         end
       | _ , UVar u2 =>
-        match Subst.lookup  u2 s with
+        match Subst.lookup u2 s with
           | None =>
             match lower n n e1 with
               | None => None
               | Some e2 => Subst.set u2 e1 s
             end
-          | Some e2' => exprUnify n s e1 e2'
+          | Some e2' => exprUnify us vs n s e1 e2' t
         end
       | Var v1 , Var v2 =>
         if EqNat.beq_nat v1 v2 then Some s else None
       | Func f1 ts1 , Func f2 fs2 =>
         if EqNat.beq_nat f1 f2 then Some s else None
-      | App e1 es1 , App e2 es2 =>
-        (** TODO: This case is not correct, it is drastically simplified by
-         ** having a canonical representation of application for example:
-         **   [App e1 e2]  rather than [App e es]
+      | App e1 e1' , App e2 e2' =>
+        (** TODO: This isn't correct because the type of [e1] might be
+         ** different than the type of [e2].
+         ** - In order to call the type checker, I need the type environment.
          **)
-        match exprUnify' n s e1 e2 with
-          | None => None
-          | Some s' =>
-            (fix unifyArgs (s : subst) (es1 es2 : list expr) {struct es1}
-             : option subst :=
-              match es1 , es2 with
-                | nil , nil => Some s
-                | e1 :: es1 , e2 :: es2 =>
-                  match exprUnify' n s e1 e2 with
-                    | None => None
-                    | Some s' => unifyArgs s' es1 es2
-                  end
-                | _ , _ => None
-              end) s es1 es2
+        match typeof_expr tfs us vs e1 , typeof_expr tfs us vs e2 with
+          | Some (tvArr l r) , Some (tvArr l' r') =>
+            if l ?[ eq ] l' && r ?[ eq ] r' && t ?[ eq ] r then
+              match exprUnify' us vs n s e1 e2 (tvArr l t) with
+                | None => None
+                | Some s' =>
+                  exprUnify' us vs n s' e1' e2' l
+              end
+            else
+              None
+          | _ , _ => None
         end
       | Abs t1 e1 , Abs t2 e2 =>
         (* t1 = t2 since both terms have the same type *)
-        exprUnify' (S n) s e1 e2
+        match t with
+          | tvArr _ t =>
+            exprUnify' us (t1 :: vs) (S n) s e1 e2 t
+          | _ => None
+        end
+      | Not e1 , Not e2 =>
+        exprUnify' us vs n s e1 e2 tvProp
+      | Equal t' e1 e2 , Equal t'' e1' e2' =>
+        if t' ?[ eq ] t'' then
+          match exprUnify' us vs n s e1 e1' t' with
+            | None => None
+            | Some s' => exprUnify' us vs n s' e2 e2' t'
+          end
+        else None
       | _ , _ => None
-    end).
+    end)%bool.
   Defined.
   End nested.
 
-  Fixpoint exprUnify (fuel : nat) (under : nat) (s : subst) (e1 e2 : expr)
-  : option subst :=
-    match fuel with
-      | 0 => None
-      | S fuel =>
-        exprUnify' (exprUnify fuel) under s e1 e2
-    end.
+  Section exprUnify.
+    Variable tfs : tfunctions.
+
+    Fixpoint exprUnify (fuel : nat) (us vs : tenv typ) (under : nat) (s : subst) (e1 e2 : expr) (t : typ) 
+    : option subst :=
+      match fuel with
+        | 0 => None
+        | S fuel =>
+          exprUnify' tfs (exprUnify fuel) us vs under s e1 e2 t
+      end.
+  End exprUnify.
 
   Require Import ExtLib.Tactics.Consider.
   Require Import ExtLib.Tactics.Injection.
 
-  Definition unify_sound (unify : forall (under : nat) (s : subst) (l r : expr), option subst) : Prop := forall e1 e2 under s s' t u v,
+  Definition unify_sound
+             (unify : forall (us vs : tenv typ) (under : nat) (s : subst) (l r : expr) (t : typ), option subst) : Prop :=
+    forall e1 e2 under s s' t u v,
     exprD funcs u v e1 t <> None ->
     exprD funcs u v e2 t <> None ->
-    unify under s e1 e2 = Some s' ->
+    unify (typeof_env u) (typeof_env v) under s e1 e2 t = Some s' ->
     substD (SubstOk := SubstOk_subst) u v s' ->
        exprD funcs u v e1 t = exprD funcs u v e2 t
     /\ substD (SubstOk := SubstOk_subst) u v s.
 
   Lemma exprUnify'_sound : forall unify,
                              unify_sound unify ->
-                             unify_sound (exprUnify' unify).
+                             unify_sound (exprUnify' (typeof_funcs funcs) unify).
   Proof.
+    Opaque rel_dec.
     red. induction e1; simpl; intros.
     { destruct e2; try congruence.
       { consider (EqNat.beq_nat v v1); intros; try congruence. subst.
@@ -119,33 +136,74 @@ Section typed.
         inv_all; subst. split; auto.
         admit. }
       { admit. } }
+    { destruct e2; try congruence.
+      { autorewrite with exprD_rw in *.
+        repeat match goal with
+                 | H : match ?X with _ => _ end = _ |- _ =>
+                   (consider X; try congruence); [ intros ]
+                 | H : not (match ?X with _ => _ end = _) |- _ =>
+                   (consider X; try congruence); [ intros ]
+                 | H : _ /\ _ |- _ => destruct H
+                 | H : not (Some _ = None) |- _ => clear H
+               end.
+        subst.
+        eapply IHe1_2 in H9; try congruence; eauto.
+        destruct H9.
+        eapply IHe1_1 in H8; try congruence; eauto.
+        destruct H8.
+        intuition. f_equal. rewrite H6 in *.
+        rewrite H4 in H7.
+        rewrite typ_cast_typ_refl in *.
+        rewrite H10 in *. rewrite H0 in *.
+        inv_all; subst.
+        reflexivity. }
+      { admit. } }
+    { destruct e2; try congruence.
+      { destruct t0; try congruence.
+        assert (t = t0_1) by admit.
+        assert (t1 = t0_1) by admit.
+        subst.
+        consider (exprD funcs u v (Abs t0_1 e1) (tvArr t0_1 t0_2)); try congruence; intros.
+        consider (exprD funcs u v (Abs t0_1 e2) (tvArr t0_1 t0_2)); try congruence; intros.
+        admit. }
+      { admit. } }
     { admit. }
     { destruct e2; try congruence.
-      { consider (exprUnify' unify under s e1 e2); try congruence; intros.
-        { consider (typeof funcs u (map (@projT1 _ _) v) e1); intros.
-          specialize (IHe1 e2 under s s0 t0 u v).
-          repeat rewrite exprD_App in *.
-          repeat match goal with
-                   | |- _ => progress (inv_all; subst)
-                   | [ _ : not (match ?X with _ => _ end = None) |- _ ] =>
-                     (consider X; try congruence); [ intros ]
-                 end.
+      { admit. }
+      { autorewrite with exprD_rw in *.
+        repeat match goal with
+                 | H : match ?X with _ => _ end = _ |- _ =>
+                   (consider X; try congruence); [ intros ]
+                 | H : not (match ?X with _ => _ end = _) |- _ =>
+                   (consider X; try intuition congruence); [ intros ]
+                 | H : _ /\ _ |- _ => destruct H
+                 | H : not (Some _ = None) |- _ => clear H
+               end.
+        subst.
+        eapply IHe1_2 in H5; try congruence; eauto. destruct H5.
+        eapply IHe1_1 in H4; try congruence; eauto. destruct H4.
+        rewrite H1 in *. rewrite H9 in *. rewrite H7 in *. rewrite H6 in *.
+        inv_all. subst. intuition. } }
+    { destruct e2; try congruence.
+      { admit. }
+      { autorewrite with exprD_rw in *.
+        repeat match goal with
+                 | H : match ?X with _ => _ end = _ |- _ =>
+                   (consider X; try congruence); [ intros ]
+                 | H : not (match ?X with _ => _ end = _) |- _ =>
+                   (consider X; try intuition congruence); [ intros ]
+                 | H : _ /\ _ |- _ => destruct H
+                 | H : not (Some _ = None) |- _ => clear H
+               end.
+        subst. eapply IHe1 in H2; try congruence. intuition.
+        rewrite H4 in *. rewrite H1 in *. inv_all; subst. auto. } }
+  Qed.
 
-  Admitted.
-
-  Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify fuel).
+  Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify (typeof_funcs funcs) fuel).
   Proof.
     induction fuel; simpl; intros; try congruence.
     eapply exprUnify'_sound. eassumption.
   Qed.
-
-  Theorem exprUnify_var : forall fuel under s v e2,
-    exprUnify fuel under s (Var v) e2 =
-    match e2 with
-      | Var v' => None
-      | _ => None
-    end.
-  Abort.
 
 End typed.
 

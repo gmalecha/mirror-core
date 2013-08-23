@@ -7,7 +7,8 @@ Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
-Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprD.
+(*Require Import MirrorCore.Ext.ExprT. *)
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -17,6 +18,7 @@ Require Import FunctionalExtensionality.
 
 Section semantic.
 
+(*
   Theorem typeof_expr_weaken : forall tfs e uenv venv t,
     typeof_expr tfs uenv venv e = Some t ->
     forall ue ve,
@@ -52,12 +54,14 @@ Section semantic.
     { eapply WellTyped_expr_Not in H. eapply WellTyped_expr_Not.
       intuition; eauto. eapply IHe; eauto. }
   Qed.
+*)
 
   Variable types : types.
 
   Variable fs : functions types.
   Variable uenv : env (typD types).
 
+(*
   Lemma typeof_weaken : forall e venv t,
     typeof fs uenv venv e = Some t ->
     forall ue ve,
@@ -94,12 +98,14 @@ Section semantic.
       change (t :: venv ++ ve) with ((t :: venv) ++ ve).
       erewrite IHe by eauto. auto. }
   Qed.
+*)
 
   Theorem exprD'_weaken_Some : forall ue ve e t venv x y,
     exprD' fs uenv venv e t = Some x ->
     exprD' fs (uenv ++ ue) (venv ++ ve) e t = Some y ->
     forall h he, x h = y (hlist_app h he).
   Proof.
+(*
     induction e; simpl; intros;
       repeat match goal with
                | |- context [ match ?X with _ => _ end ] =>
@@ -183,11 +189,14 @@ Section semantic.
       { erewrite (IHe _ _ _ _ H H0).
         reflexivity. }
   Qed.
+*)
+  Admitted.
 
   Theorem exprD_weaken : forall venv e t ue ve x,
     exprD fs uenv venv e t = Some x ->
     exprD fs (uenv ++ ue) (venv ++ ve) e t = Some x.
   Proof.
+(*
     unfold exprD; intros. rewrite split_env_app.
     destruct (split_env venv). destruct (split_env ve).
     consider (exprD' fs uenv x0 e t);
@@ -254,5 +263,7 @@ Section semantic.
         congruence. }
       { eapply IHe; eauto. simpl; eauto. } }
   Qed.
+*)
+  Admitted.
 
 End semantic.

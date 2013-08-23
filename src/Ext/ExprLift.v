@@ -5,7 +5,7 @@ Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
-Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprD.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -19,7 +19,7 @@ Section typed.
         if NPeano.ltb v s then e
         else Var (v + l)
       | Func _ _ => e
-      | App e es => App (lift' s l e) (map (lift' s l) es)
+      | App e e' => App (lift' s l e) (lift' s l e')
       | Abs t e => Abs t (lift' (S s) l e)
       | UVar u => e
       | Equal t e1 e2 => Equal t (lift' s l e1) (lift' s l e2)
@@ -39,26 +39,10 @@ Section typed.
         else if NPeano.ltb (v - s) l then None
              else Some (Var (v - l))
       | Func _ _ => Some e
-      | App e es =>
-        match lower' s l e with
-          | None => None
-          | Some e =>
-            match (fix recur es {struct es} :=
-              match es with
-                | nil => Some (fun x => App e x)
-                | e :: es =>
-                  match lower' s l e with
-                    | None => None
-                    | Some e =>
-                      match recur es with
-                        | None => None
-                        | Some f => Some (fun x => f (e :: x))
-                      end
-                  end
-              end) es with
-              | Some f => Some (f nil)
-              | None => None
-            end
+      | App e e' =>
+        match lower' s l e , lower' s l e' with
+          | Some e , Some e' => Some (App e e')
+          | _ , _ => None
         end
       | Abs t e =>
         match lower' (S s) l e with
@@ -67,13 +51,10 @@ Section typed.
         end
       | UVar u => Some e
       | Equal t e1 e2 =>
-        match lower' s l e1 with
-          | Some e1 =>
-            match lower' s l e2 with
-              | Some e2 => Some (Equal t e1 e2)
-              | None => None
-            end
-          | None => None
+        match lower' s l e1 , lower' s l e2 with
+          | Some e1 , Some e2 =>
+            Some (Equal t e1 e2)
+          | _ , _ => None
         end
       | Not e =>
         match lower' s l e with
@@ -95,8 +76,6 @@ Section typed.
                | [ H : _ |- _ ] => rewrite H
              end; auto.
     { consider (NPeano.ltb v s); auto. }
-    { f_equal; auto.
-      clear - H. induction H; simpl; auto. f_equal; auto. }
   Qed.
 
   Lemma lift_lift' : forall s l e, lift s l e = lift' s l e.
@@ -104,6 +83,19 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
+  Fixpoint mentionsU (u : nat) (e : expr) {struct e} : bool :=
+    match e with
+      | Var _
+      | Func _ _ => false
+      | UVar u' => EqNat.beq_nat u u'
+      | App f e => if mentionsU u f then true else mentionsU u e
+      | Abs _ e => mentionsU u e
+      | Equal _ e1 e2 => if mentionsU u e1 then true else mentionsU u e2
+      | Not e => mentionsU u e
+    end.
+
+
+(*
   Theorem lift_welltyped : forall fs vs vs' us (e : expr) t,
     WellTyped_expr fs us (vs ++ vs') e t ->
     forall vs'' s l,
@@ -139,5 +131,6 @@ Section typed.
       eapply IHe with (vs := t :: vs) in H. simpl in H. rewrite H.
       inv_all; subst. reflexivity. }
   Qed.
+*)
 
 End typed.

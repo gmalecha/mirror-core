@@ -1,8 +1,10 @@
 GENERIC := Iso IsoTac Approx
 PROVERS := Assumption
 #  Transitivity
-EXTENSIBLE := Repr Types ExprCore ExprT \
-	      ExprFacts ExprLift ExprUnifySyntactic \
+EXTENSIBLE := Repr Types ExprCore \
+	      ExprT ExprDI ExprD \
+	      ExprFacts \
+	      ExprLift ExprUnifySyntactic \
 	      Expr
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
@@ -52,3 +54,6 @@ depgraph: Makefile.coq
 
 toplevel: coq
 	coqtop.opt $(ARGS)
+
+Ext/ExprD.v:
+	(cd Ext; ln -s ExprD3.v ExprD.v)
