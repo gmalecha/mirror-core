@@ -85,6 +85,9 @@ Section typed.
     Definition WellTyped_expr (var_env : tenv typ) (e : expr) (t : typ) : Prop :=
       typeof_expr var_env e = Some t.
 
+    Definition typecheck_expr (var_env : tenv typ) (e : expr) (t : typ) : bool :=
+      typeof_expr var_env e ?[ eq ] Some t.
+
     Theorem WellTyped_expr_Var : forall g v t',
       WellTyped_expr g (Var v) t' <-> nth_error g v = Some t'.
     Proof.

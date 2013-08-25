@@ -133,9 +133,9 @@ Module EXPR_DENOTE_3 <: ExprDenote.
             match typ_cast_typ ts (fun x => x) nil lt t' with
               | None => None
               | Some cast =>
-                match @exprD' (lt :: var_env) e rt with
+                match @exprD' (t' :: var_env) e rt with
                   | None => None
-                  | Some a => Some (fun x y => a (Hcons y x))
+                  | Some a => Some (fun x y => a (@Hcons _ (typD ts nil) _ _ (cast y) x))
                 end
             end
           | _ => None
@@ -401,53 +401,6 @@ Module EXPR_DENOTE_3 <: ExprDenote.
     destruct (exprD' x p tvProp); auto.
   Qed.
 
-(*
-   Theorem exprD_Abs_eq : forall ve t t' e val,
-      exprD ve (Abs t e) t' = Some val <->
-      match t' as t' return typD ts nil t' -> Prop with
-        | tvArr l r => fun val =>
-           match typ_cast_typ ts (fun x => x) nil l t with
-             | None => False
-             | Some cast =>
-               forall x, exprD (existT _ t (cast x) :: ve) e r = Some (val x)
-           end
-        | _ => fun _ => False
-      end val.
-   Proof.
-    unfold exprD. intros.
-    destruct t'; simpl; try (destruct (split_env ve); intuition congruence).
-    match goal with
-      | |- (let (_,_) := _ in
-            match match ?X with _ => _ end with _ => _ end) = _
-           <->
-           match ?Y with _ => _ end =>
-        change X with Y; consider Y; intros
-    end.
-    { generalize (typ_cast_typ_eq _ _ _ _ _ H).
-      destruct (split_env ve). intros. subst. simpl.
-      destruct (exprD' (t :: x) e t'2).
-      { admit. }
-      { intuition try congruence.
- }
-    { destruct (split_env ve). intuition congruence. }
-  Qed.
-*)
-
-  (** TODO: This definition is too weak **)
-   Theorem exprD_Abs : forall ve t u e val,
-      exprD ve (Abs t e) (tvArr t u) = Some val ->
-      forall x, exprD (existT _ t x :: ve) e u = Some (val x).
-   Proof.
-    unfold exprD. intros.
-    change (split_env (existT (typD ts nil) t x :: ve))
-      with (split_env ((existT (typD ts nil) t x :: nil) ++ ve)).
-    rewrite split_env_app.
-    destruct (split_env ve). simpl in *.
-    rewrite typ_cast_typ_refl in *.
-    destruct (exprD' (t :: x0) e u); intuition (try congruence).
-    inv_all; subst. reflexivity.
-  Qed.
-
    Lemma exprD'_exprD_simul' : forall e ve t val,
      exprD_simul' ve e = Some (@existT _ _ t val) ->
      exprD' ve e t = Some val.
@@ -583,6 +536,153 @@ Module EXPR_DENOTE_3 <: ExprDenote.
        admit. admit. }
    Admitted.
 
+  Lemma exprD_Abs_is_arr : forall vs e t t',
+                             exprD vs (Abs t' e) t =
+                             match t as t return option (typD ts nil t) with
+                               | tvArr l r =>
+                                 if t' ?[ eq ] l then
+                                   exprD vs (Abs l e) (tvArr l r)
+                                 else None
+                               | _ => None
+                             end.
+  Proof.
+    destruct t; simpl; unfold exprD; destruct (EnvI.split_env vs);
+    simpl; intros; auto.
+    change typ_eqb with (@rel_dec _ (@eq typ) _).
+    consider (t' ?[ eq ] t1); intros; subst.
+    reflexivity.
+    consider (exprD' x (Abs t' e) (tvArr t1 t2)); intros; auto.
+    exfalso.
+    eapply exprD'_typeof in H0. simpl in *.
+    consider (typeof_expr (typeof_funcs fs) (typeof_env us) (t' :: x) e); try congruence; intros.
+    simpl in H0.
+    destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t1 t'); auto.
+    destruct (exprD' (t' :: x) e t2); auto. congruence.
+  Qed.
+
+  Theorem typeof_expr_eq_exprD_False : forall l ve e t x,
+    typecheck_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e t = true ->
+    exprD (existT _ l x :: ve) e t = None ->
+    False.
+  Proof.
+    intros. unfold exprD in *. simpl in *.
+    consider (exprD' (l :: projT1 (split_env ve)) e t); try congruence; intros.
+    eapply exprD'_typeof_None in H0.
+    unfold typecheck_expr in *.
+    rewrite split_env_projT1 in H0. unfold typeof_env in *.
+    destruct (typeof_expr (typeof_funcs fs) (map (projT1 (P:=typD ts nil)) us)
+         (l :: map (projT1 (P:=typD ts nil)) ve) e).
+    consider (Some t0 ?[ eq ] Some t); try congruence.
+    simpl in *. congruence.
+  Qed.
+
+(*
+  Lemma typeof_expr_eq_exprD'_False : forall ve e t,
+    typecheck_expr (typeof_funcs fs) (typeof_env us) ve e t = true ->
+    exprD' ve e t = None ->
+    False.
+  Proof.
+    
+    consider (exprD' (l :: projT1 (split_env ve)) e t); try congruence; intros.
+    eapply exprD'_typeof_None in H0.
+    unfold typecheck_expr in *.
+    rewrite split_env_projT1 in H0. unfold typeof_env in *.
+    destruct (typeof_expr (typeof_funcs fs) (map (projT1 (P:=typD ts nil)) us)
+         (l :: map (projT1 (P:=typD ts nil)) ve) e).
+    consider (Some t0 ?[ eq ] Some t); try congruence.
+    simpl in *. congruence.
+  Qed.
+*)
+  (** NOTE; This requires functional extensionality! **)
+   Theorem exprD_Abs_eq : forall ve t t' e,
+      exprD ve (Abs t e) t' =
+      match t' as t' return option (typD ts nil t') with
+        | tvArr l r =>
+           match typecheck_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e r
+                 as res
+                 return typecheck_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e r = res -> _
+           with
+             | false => fun _ => None
+             | true => fun pf =>
+               Some (fun x =>
+                       match exprD (existT _ l x :: ve) e r as v
+                             return exprD (existT _ l x :: ve) e r = v ->
+                                    typD ts nil r
+                       with
+                         | None => fun pf' =>
+                           match typeof_expr_eq_exprD_False _ _ _ _ _ pf pf' in False with
+                           end
+                         | Some r => fun _ => r
+                       end eq_refl)
+           end eq_refl
+        | _ => None
+      end.
+   Proof.
+     unfold exprD. intros.
+     destruct t'; simpl; try (destruct (split_env ve); intuition congruence).
+     match goal with
+       | |- context [ @eq_refl ?X ?Y ] =>
+         generalize dependent (@eq_refl X Y)
+     end.
+     unfold typeof_env.
+     generalize (typeof_expr_eq_exprD_False t'1 ve e t'2).
+     match goal with
+       | |- forall x y, _ = (if ?X then _ else _) _ =>
+         consider X
+     end; intros.
+     { assert (t = t'1); subst.
+       { admit. }
+       rewrite typ_cast_typ_refl.
+       pattern (split_env ve) at 1.
+       Theorem existT_eta : forall T (F : T -> Type) x,
+                              x = @existT T F (projT1 x) (projT2 x).
+       Proof.
+         destruct x. reflexivity.
+       Qed.
+       rewrite existT_eta.
+       revert f.
+       unfold exprD in *. simpl in *.
+       consider (exprD' (t'1 :: projT1 (split_env ve)) e t'2); auto.
+       intros; exfalso. eapply exprD'_typeof_None; eauto.
+       rewrite split_env_projT1. auto. }
+     { clear H1. clear H0.
+       rewrite (existT_eta (split_env ve)).
+       match goal with
+         | |- match match ?X with _ => _ end with _ => _ end = _ =>
+           consider X; intros
+       end; auto.
+       rewrite <- (split_env_projT1 ve) in H.
+       consider (exprD' (t :: projT1 (split_env ve)) e t'2); intros; auto.
+       exfalso.
+       clear - H H1. admit. }
+   Qed.
+
+   Theorem exprD_Abs : forall ve t u e val,
+      exprD ve (Abs t e) (tvArr t u) = Some val ->
+      forall x, exprD (existT _ t x :: ve) e u = Some (val x).
+   Proof.
+     intros. rewrite exprD_Abs_eq in H.
+     repeat match goal with
+              | H : context [ @eq_refl ?X ?Y ] |- _ =>
+                generalize dependent (@eq_refl X Y)
+            end.
+     pattern (typecheck_expr (typeof_funcs fs) (typeof_env us)
+                             (t :: typeof_env ve) e u) at 2 3.
+     destruct (typecheck_expr (typeof_funcs fs) (typeof_env us)
+            (t :: typeof_env ve) e u); intros; try congruence.
+     inv_all; subst.
+     match goal with
+       | |- context [ @eq_refl ?X ?Y ] =>
+         generalize dependent (@eq_refl X Y)
+     end.
+     match goal with
+       | |- forall (e : ?X = _), _ =>
+         pattern X at 2 3 4
+     end.
+     destruct (exprD (existT (typD ts nil) t x :: ve) e u); auto.
+     intros. destruct (typeof_expr_eq_exprD_False t ve e u x e0 e1).
+   Qed.
+
   Theorem typeof_exprD : forall vs e t,
     typeof_expr (typeof_funcs fs) (typeof_env us) (typeof_env vs) e = Some t ->
     exists val, exprD vs e t = Some val.
@@ -649,4 +749,4 @@ Instance Expr_expr ts (fs : functions ts) : Expr (typD ts) expr :=
 }.
 
 Create HintDb exprD_rw discriminated.
-Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Equal exprD_Not exprD_Func : exprD_rw.
+Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Equal exprD_Not exprD_Func exprD_Abs_eq : exprD_rw.

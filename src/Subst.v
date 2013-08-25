@@ -24,6 +24,7 @@ Section subst.
 
   Class SubstOk (S : Subst) : Type :=
   { substD : EnvI.env typD -> EnvI.env typD -> T -> Prop
+  ; WellTyped_subst : EnvI.tenv typ -> EnvI.tenv typ -> T -> Prop
   ; substD_subst : forall u v s e t,
                      substD u v s ->
                      exprD u v e t = exprD u v (subst s e) t
