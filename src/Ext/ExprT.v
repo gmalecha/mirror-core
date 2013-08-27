@@ -25,10 +25,10 @@ Section typed.
   Definition WellTyped_func (tf : tfunction) (f : function types) : Prop :=
     tf.(tfenv) = f.(fenv) /\ tf.(tftype) = f.(ftype).
 
-  Fixpoint WellTyped_funcs (tfs : tfunctions) (fs : functions types) : Prop :=
+  Definition WellTyped_funcs (tfs : tfunctions) (fs : functions types) : Prop :=
     Forall2 WellTyped_func tfs fs.
 
-  Fixpoint WellTyped_env (tes : tenv typ) (es : env (typD types)) : Prop :=
+  Definition  WellTyped_env (tes : tenv typ) (es : env (typD types)) : Prop :=
     Forall2 (fun x y => x = projT1 y) tes es.
 
   Definition typeof_func (f : function types) : tfunction :=
@@ -36,6 +36,34 @@ Section typed.
 
   Definition typeof_funcs : functions types -> tfunctions :=
     map typeof_func.
+
+  Theorem WellTyped_func_typeof_func : forall tf f,
+    WellTyped_func tf f <-> tf = typeof_func f.
+  Proof.
+    compute; destruct f; destruct tf; intuition; subst; auto.
+    inversion H; clear H; subst; auto.
+    inversion H; clear H; subst; auto.
+  Qed.
+
+  Theorem WellTyped_funcs_typeof_funcs : forall tfs fs,
+    WellTyped_funcs tfs fs <-> tfs = typeof_funcs fs.
+  Proof.
+    induction tfs; simpl; intros; intuition; inversion H; clear H; subst; auto.
+    { destruct fs; simpl in *; subst; auto. constructor. congruence. }
+    eapply WellTyped_func_typeof_func in H2. subst. simpl. f_equal; eauto.
+    eapply IHtfs; auto.
+    destruct fs; simpl in *; try congruence. inversion H1; clear H1; subst.
+    constructor. eapply WellTyped_func_typeof_func; eauto. eapply IHtfs; auto.
+  Qed.
+
+  Theorem WellTyped_env_typeof_env : forall e te,
+    WellTyped_env te e <-> te = typeof_env e.
+  Proof.
+    induction e; simpl; intros.
+    { intuition; subst. inversion H; auto. constructor. }
+    { intuition; subst. inversion H; clear H; subst. f_equal; eauto.
+      eapply IHe; eauto. constructor; auto. eapply IHe. auto. }
+  Qed.
 
   Section typeof_expr.
     Variable fs : tfunctions.

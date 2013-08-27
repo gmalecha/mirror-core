@@ -205,6 +205,28 @@ Module EXPR_DENOTE_3 <: ExprDenote.
         { eapply IHve. } }
     Qed.
 
+    Theorem exprD'_Var : forall ve v t,
+      exprD' ve (Var v) t =
+      match nth_error ve v as z
+          return z = nth_error ve v ->
+                 option (hlist (typD ts nil) ve -> typD ts nil t)
+        with
+          | None => fun _ => None
+          | Some t' => fun pf =>
+            match typ_cast_typ ts (fun x => x) _ t' t with
+              | Some f =>
+                Some (fun e => match pf in _ = t''
+                                     return match t'' with
+                                              | Some t => typD ts nil t
+                                              | None => unit
+                                            end -> typD ts nil t with
+                                 | eq_refl => fun x => f x
+                               end (hlist_nth e v))
+              | None => None
+            end
+        end eq_refl.
+    Proof. reflexivity. Qed.
+
   Theorem exprD_Var : forall ve v t,
     exprD ve (Var v) t = lookupAs ve v t.
   Proof.
@@ -744,9 +766,10 @@ Export EXPR_DENOTE_3.
 
 Instance Expr_expr ts (fs : functions ts) : Expr (typD ts) expr :=
 { exprD := exprD fs
+; Safe_expr := WellTyped_expr (typeof_funcs fs)
 ; acc := expr_acc
 ; wf_acc := wf_expr_acc
 }.
 
 Create HintDb exprD_rw discriminated.
-Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Equal exprD_Not exprD_Func exprD_Abs_eq : exprD_rw.
+Hint Rewrite exprD_Var exprD_App exprD_Abs exprD_UVar exprD_Equal exprD_Not exprD_Func exprD_Abs_eq : exprD_rw.

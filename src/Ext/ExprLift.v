@@ -4,9 +4,13 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.Cases.
+Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
+
+(** TODO : Temporary **)
+Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -153,7 +157,7 @@ Section typed.
   Qed.
 
   Lemma typeof_expr_lift : forall tfs us vs vs' vs'' e,
-    ExprT.typeof_expr tfs us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) = 
+    ExprT.typeof_expr tfs us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) =
     ExprT.typeof_expr tfs us (vs ++ vs'') e.
   Proof.
     clear. intros. rewrite lift_lift'.
@@ -185,6 +189,97 @@ Section typed.
     rewrite map_length. reflexivity.
   Qed.
 
+  Theorem typeof_expr_lower : forall (fs : tfunctions) (us : EnvI.env (typD ts))
+                                     (e : expr)
+     (vs vs' vs'' : list typ)
+     (e1 : expr),
+   lower (length vs) (length vs') e = Some e1 ->
+   ExprT.typeof_expr fs (EnvI.typeof_env us) (vs ++ vs' ++ vs'') e =
+   ExprT.typeof_expr fs (EnvI.typeof_env us) (vs ++ vs'') e1.
+  Proof.
+    do 7 intro. rewrite lower_lower'.
+    revert e1 vs vs' vs''.
+    induction e; simpl in *; intros; inv_all; subst; simpl; 
+    repeat match goal with
+             | H : match ?X with _ => _ end = _ |- _ =>
+               (consider X; try congruence); [ intros ]
+             | H : _ |- _ => erewrite H by eauto
+             | |- _ => progress (inv_all; subst)
+           end; auto.
+    { consider (NPeano.ltb v (length vs)); intros.
+      inv_all; subst; simpl. repeat rewrite nth_error_app_L by auto. reflexivity.
+      consider (NPeano.ltb (v - length vs) (length vs')); intros; inv_all; subst;
+      try congruence. simpl.
+      repeat rewrite nth_error_app_R by omega. f_equal. omega. }
+    { consider (lower' (S (length vs)) (length vs') e); try congruence; intros.
+      inv_all; subst.
+      change (t :: vs ++ vs' ++ vs'') with ((t :: vs) ++ vs' ++ vs'').
+      erewrite IHe by eauto. reflexivity. }
+  Qed.
+
+  Theorem exprD_lower : forall (fs : functions ts) us vs vs' vs'' e e0 t,
+                         lower (length vs) (length vs') e = Some e0 ->
+                         exprD fs us (vs ++ vs' ++ vs'') e t =
+                         exprD fs us (vs ++ vs'') e0 t.
+  Proof.
+    intros. rewrite lower_lower' in *.
+    revert H; revert t; revert e0; revert vs; revert vs'.
+    induction e; simpl in *; intros; autorewrite with exprD_rw in *; 
+    repeat match goal with
+             | H : match ?X with _ => _ end = _ |- _ =>
+               (consider X; try congruence); [ intros ]
+             | H : _ |- _ => erewrite H by eauto
+             | |- _ => progress (inv_all; subst)
+             | |- _ => progress ( autorewrite with exprD_rw in * )
+           end; auto.
+    { consider (NPeano.ltb v (length vs)); intros; inv_all; subst; simpl.
+      { autorewrite with exprD_rw.
+        unfold EnvI.lookupAs. repeat rewrite nth_error_app_L by auto. reflexivity. }
+      { consider (NPeano.ltb (v - length vs) (length vs')); intros; try congruence.
+        inv_all; subst; simpl. autorewrite with exprD_rw.
+        unfold EnvI.lookupAs.
+        repeat rewrite nth_error_app_R by omega.
+        match goal with
+          | |- match ?x with _ => _ end = match ?y with _ => _ end =>
+            cutrewrite (x = y); auto
+        end. f_equal. omega. } }
+    { repeat rewrite typeof_env_app. erewrite typeof_expr_lower.
+      Focus 2. rewrite lower_lower'. repeat rewrite typeof_env_length.
+      eauto.
+      destruct (ExprT.typeof_expr (ExprT.typeof_funcs fs) (EnvI.typeof_env us)
+       (EnvI.typeof_env vs ++ EnvI.typeof_env vs'') e); auto. destruct t0; auto.
+      erewrite IHe1 by eauto. erewrite IHe2 by eauto. reflexivity. }
+    { destruct t0; auto.
+      generalize (typeof_expr_eq_exprD_False fs us t0_1 (vs ++ vs'') e1 t0_2).
+      generalize (typeof_expr_eq_exprD_False fs us t0_1 (vs ++ vs' ++ vs'') e t0_2).
+      gen_refl.
+      unfold ExprT.typecheck_expr.
+      repeat rewrite typeof_env_app.
+      change (t0_1 :: EnvI.typeof_env vs ++ EnvI.typeof_env vs' ++ EnvI.typeof_env vs'')
+        with ((t0_1 :: EnvI.typeof_env vs) ++ EnvI.typeof_env vs' ++ EnvI.typeof_env vs'').
+      change (t0_1 :: EnvI.typeof_env vs ++ EnvI.typeof_env vs'')
+        with ((t0_1 :: EnvI.typeof_env vs) ++ EnvI.typeof_env vs'').
+      erewrite typeof_expr_lower.
+      Focus 2.
+      simpl in *. repeat rewrite typeof_env_length. rewrite lower_lower'. eassumption. 
+      destruct (ExprT.typeof_expr (ExprT.typeof_funcs fs) (EnvI.typeof_env us)
+         ((t0_1 :: EnvI.typeof_env vs) ++ EnvI.typeof_env vs'') e1 ?[ eq ] Some t0_2); auto.
+      intros. f_equal.
+
+      eapply functional_extensionality; intros.
+      generalize (f0 x e0). generalize (f x e2). clear - IHe H.
+      gen_refl.
+      change (existT (typD ts nil) t0_1 x :: vs ++ vs' ++ vs'')
+        with ((existT (typD ts nil) t0_1 x :: vs) ++ vs' ++ vs'').
+      specialize (IHe vs' (existT _ t0_1 x :: vs) e1 t0_2).
+      match goal with
+        | _ : _ -> ?X = _ |- forall x y z w, match ?Y with _ => _ end _ = _ =>
+          change Y with X
+      end.
+      rewrite IHe.
+      simpl. destruct (exprD fs us (existT (typD ts nil) t0_1 x :: vs ++ vs'') e1 t0_2); auto.
+      intros. exfalso; auto. simpl. auto. }
+  Qed.
 
   Theorem exprD_lift : forall (fs : functions ts) us vs vs' vs'' e t,
                          exprD fs us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) t =
@@ -207,38 +302,35 @@ Section typed.
       destruct t0; auto. repeat rewrite typeof_env_length.
       rewrite IHe1. rewrite IHe2. reflexivity. }
     { destruct t0; auto.
-      Require Import ExtLib.Tactics.EqDep.
       gen_refl.
-      generalize (typeof_expr_eq_exprD_False fs us t0_1 
+      generalize (typeof_expr_eq_exprD_False fs us t0_1
                 (vs ++ vs' ++ vs'') (lift' (S (length vs)) (length vs') e)
                 t0_2).
-      generalize (typeof_expr_eq_exprD_False fs us t0_1 
+      generalize (typeof_expr_eq_exprD_False fs us t0_1
                 (vs ++ vs'') e t0_2).
       repeat rewrite typeof_env_app.
-      replace (ExprT.typecheck_expr (ExprT.typeof_funcs fs) 
+      replace (ExprT.typecheck_expr (ExprT.typeof_funcs fs)
              (EnvI.typeof_env us)
              (t0_1
               :: EnvI.typeof_env vs ++
                  EnvI.typeof_env vs' ++ EnvI.typeof_env vs'')
              (lift' (S (length vs)) (length vs') e) t0_2)
-        with (ExprT.typecheck_expr (ExprT.typeof_funcs fs) 
+        with (ExprT.typecheck_expr (ExprT.typeof_funcs fs)
              (EnvI.typeof_env us)
              ((t0_1
               :: EnvI.typeof_env vs) ++
                  EnvI.typeof_env vs' ++ EnvI.typeof_env vs'')
              (lift' (length (t0_1 :: EnvI.typeof_env vs)) (length (EnvI.typeof_env vs')) e) t0_2).
-      { Check typeof_expr_lift.
-        unfold ExprT.typecheck_expr.
+      { unfold ExprT.typecheck_expr.
         rewrite <- lift_lift'.
         rewrite (typeof_expr_lift (ExprT.typeof_funcs fs) (EnvI.typeof_env us) (t0_1 :: EnvI.typeof_env vs) (EnvI.typeof_env vs') (EnvI.typeof_env vs'') e).
         simpl in *.
         intros.
-        destruct (ExprT.typeof_expr (ExprT.typeof_funcs fs) 
+        destruct (ExprT.typeof_expr (ExprT.typeof_funcs fs)
            (EnvI.typeof_env us)
            (t0_1 :: EnvI.typeof_env vs ++ EnvI.typeof_env vs'') e); auto.
         consider (typ_eqb t0 t0_2); auto; intros.
         f_equal.
-        Require Import FunctionalExtensionality.
         eapply functional_extensionality; intros.
         generalize dependent (f0 x).
         generalize dependent (f x).

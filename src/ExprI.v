@@ -22,16 +22,19 @@ Section Expr.
 
   Class Expr : Type :=
   { exprD : env typD -> env typD -> expr -> forall t : typ, option (typD nil t)
-(*  ; expr_eq : expr -> expr -> option bool *)
+  ; Safe_expr : list typ -> list typ -> expr -> typ -> Prop
   ; acc : relation expr
   ; wf_acc : well_founded acc
   }.
 
   Class ExprOk (E : Expr) : Type :=
-  { }.
+  { Safe_expr_exprD : forall us vs e t,
+                        Safe_expr (typeof_env us) (typeof_env vs) e t ->
+                        exists val, exprD us vs e t = Some val
+  }.
 
   Context {Expr_expr : Expr}.
-  
+
   Class FuncInstance0 (T : Type) (F : T) : Type :=
   { typ0_witness : TypInstance0 typD T
   ; ctor0 : expr
@@ -42,12 +45,12 @@ Section Expr.
   }.
 
   Class FuncInstance0Ok (T : Type) (F : T) (FI : @FuncInstance0 T F) : Type :=
-  { ctor0_iso : forall us vs P, 
+  { ctor0_iso : forall us vs P,
       match exprD us vs ctor0 (@typ0 _ _ _ typ0_witness) with
         | None => False
         | Some G => P F <-> P (soutof (iso := typ0_iso nil) (fun x => x) G)
       end
-  ; ctor0_match_ctor0 : forall R caseCtor caseElse, 
+  ; ctor0_match_ctor0 : forall R caseCtor caseElse,
                           @ctor0_match _ _ FI R caseCtor caseElse ctor0 = caseCtor tt
   }.
 
@@ -62,10 +65,10 @@ Section Expr.
   }.
 
   Class FuncInstance1Ok T F (FI : @FuncInstance1 T F) : Type :=
-  { ctor1_iso : forall us vs t P, 
+  { ctor1_iso : forall us vs t P,
       match exprD us vs (ctor1 t) (@typ1 _ _ _ typ1_witness t) with
         | None => False
-        | Some G => 
+        | Some G =>
           P (F (typD nil t)) <-> P (soutof (iso := typ1_iso nil t) (fun x => x) G)
       end
   }.
@@ -73,10 +76,10 @@ Section Expr.
   Class FuncInstance2 (T : Type -> Type -> Type) (F : forall x y, T x y) : Type :=
   { typ2_witness : TypInstance2 typD T
   ; ctor2 : typ -> typ -> expr
-  ; ctor2_iso : forall us vs t u P, 
+  ; ctor2_iso : forall us vs t u P,
       match exprD us vs (ctor2 t u) (typ2 t u) with
         | None => False
-        | Some G => 
+        | Some G =>
           P (F (typD nil t) (typD nil u)) <-> P (soutof (iso := typ2_iso nil t u) (fun x => x) G)
       end
   ; ctor2_match : forall (R : expr -> Type)
@@ -94,7 +97,7 @@ Section Expr.
   }.
 
   Class AppInstanceOk d r f (AI : @AppInstance f d r) : Type :=
-  { app1_iso : forall us vs a b x y, 
+  { app1_iso : forall us vs a b x y,
                  exprD us vs a f = Some x ->
                  exprD us vs b d = Some y ->
                  exprD us vs (app1 a b) r = Some (sapp x y)
@@ -103,7 +106,7 @@ Section Expr.
   (** Generic application **)
   Record AppN (ft : typ) (dom : list typ) (ran : typ) : Type := mkAppN
   { appn : expr -> vector expr (length dom) -> expr
-  ; appn_check : forall e : expr, 
+  ; appn_check : forall e : expr,
                    option { x : expr * vector expr (length dom) & acc (fst x) e /\ ForallV (fun x => acc x e) (snd x) }
   }.
 
@@ -113,7 +116,7 @@ Section Expr.
 
   Definition AppS AS A R R' F (AI : @AppInstance F A R) (AI2 : @AppN R AS R') : AppN F (A :: AS) R'.
   refine (mkAppN F (A :: AS) R'
-                 (fun f (args : vector expr (S (length AS))) => 
+                 (fun f (args : vector expr (S (length AS))) =>
                     appn AI2 (app1 f (vector_hd args)) (vector_tl args))).
   Defined.
 *)
@@ -121,10 +124,10 @@ Section Expr.
   (** Application of a special symbol **)
   Section exp.
     Variable T : Type.
-    
+
     Fixpoint exp (n : nat) : Type :=
       match n with
-        | 0 => T 
+        | 0 => T
         | S n => T -> exp n
       end.
 
@@ -137,11 +140,11 @@ Section Expr.
   End exp.
 
 
-  Record SymAppN (n : nat) (dom : list (vector typ n -> typ)) (ran : exp typ n) : Type := mkSymAppN 
+  Record SymAppN (n : nat) (dom : list (vector typ n -> typ)) (ran : exp typ n) : Type := mkSymAppN
   { sappn : vector typ n -> vector expr (length dom) -> expr
   ; sappn_check : forall e : expr, option { x : vector typ n * vector expr (length dom) & ForallV (fun x => acc x e) (snd x) }
   }.
-  
+
   Definition SymApp0_0 T F `(FI : @FuncInstance0 T F) : @SymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI)).
   refine (@mkSymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI))
                     (fun _ _ => @ctor0 _ _ FI)
@@ -157,17 +160,17 @@ Section Expr.
   Defined.
 
 
-  Definition SymAppS n A AS F R `(FI : forall ts, @AppInstance (app F ts) (A ts) (app R ts)) (Ap : @SymAppN n AS F) 
+  Definition SymAppS n A AS F R `(FI : forall ts, @AppInstance (app F ts) (A ts) (app R ts)) (Ap : @SymAppN n AS F)
   : @SymAppN n (A :: AS) R.
-  refine (@mkSymAppN n (A :: AS) R 
+  refine (@mkSymAppN n (A :: AS) R
                     (fun ts args => @app1 _ _ _ (FI ts) (sappn Ap ts (vector_tl args)) (vector_hd args))
-                    (fun e => 
+                    (fun e =>
                        match sappn_check Ap e with
                          | None => None
-                         | Some (existT (ts_es) pf) => 
+                         | Some (existT (ts_es) pf) =>
                            match @app1_check _ _ _ (FI (fst ts_es)) e with
                              | None => None
-                             | Some (existT (e_e') pf') => 
+                             | Some (existT (e_e') pf') =>
                                let npf := @ForallV_cons _ (fun x => acc x e) _ _ _ (proj2 pf') pf in
                                Some (existT _ (fst ts_es, Vcons (snd e_e') (snd ts_es)) npf)
                            end
@@ -176,7 +179,7 @@ Section Expr.
 
   (** Binder **)
   Record Lambda : Type :=
-  { lambda : typ -> expr -> expr 
+  { lambda : typ -> expr -> expr
   ; lambda_check : forall e : expr, option { x : typ * expr & acc (snd x) e }
   ; subst0 : expr -> expr -> expr
   }.
