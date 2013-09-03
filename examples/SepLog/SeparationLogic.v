@@ -35,8 +35,9 @@ Section syntax.
   Variable SL : SeparationLogic L S.
   Variable QSL : Quant S.
 
-  Definition sl_types : Repr type := 
+  Definition sl_types : Repr type :=
     listToRepr (default_type L :: default_type S :: nil) (empty_type).
+
   Definition sl_repr ts : Repr (function (repr sl_types ts)) :=
     let ts := repr sl_types ts in
     let s := tvType 1 in
@@ -51,6 +52,6 @@ Section syntax.
     Variable R : Type.
     Hypothesis caseEmp : unit -> R.
     Hypothesis caseStar : expr (repr sl_types ts) -> expr (repr sl_types ts) -> R.
-    Hypothesis caseEx : typ -> 
+    Hypothesis caseEx : typ -> expr -> (repr sl_types ts) -> R.
 
   Definition matchSepLog ts (e : expr (repr sl_types)) : 

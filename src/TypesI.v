@@ -12,11 +12,11 @@ Set Strict Implicit.
 Require Import FunctionalExtensionality.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
-{ typ_cast : forall (F : Type -> Type) env (a b : typ), 
+{ typ_cast : forall (F : Type -> Type) env (a b : typ),
                option (F (typD env a) -> F (typD env b))
 ; typ_eqb :> RelDec (@eq typ)
 ; typeFor : forall ts (t : typ), type (typD ts t)
-  (** This is for syntactic polymorphism 
+  (** This is for syntactic polymorphism
    ** - really this is subst at the level of type
    **)
 ; instantiate_typ : list typ -> typ -> typ
@@ -33,12 +33,12 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
 { (** typ_eqb **)
   typ_eqb_ok :> RelDec_Correct typ_eqb
   (** typ_cast **)
-; typ_cast_iso : forall F ts a b f, 
+; typ_cast_iso : forall F ts a b f,
     typ_cast F ts a b = Some f ->
-    exists g, 
+    exists g,
       typ_cast F ts b a = Some g /\
       (forall x, f (g x) = x)
-; typ_cast_refl : forall ts t F, 
+; typ_cast_refl : forall ts t F,
                     exists f, typ_cast F ts t t = Some f /\
                               (forall x, f x = x)
   (** instantiate_typ **)
@@ -60,7 +60,7 @@ Section typed.
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
   Context {RType_typ : RType typD}.
-  
+
 (* You can't write the generic version of this
   Class TypInstance (n : nat) (F : quant Type n) : Type :=
   { ctor     : quant typ n
@@ -111,7 +111,7 @@ Section typed.
 
   Class TypInstance2 (F : Type -> Type -> Type) : Type :=
   { typ2     : typ -> typ -> typ
-  ; typ2_iso : forall ts t1 t2, 
+  ; typ2_iso : forall ts t1 t2,
                   Equiv (F (typD ts t1) (typD ts t2)) (typD ts (typ2 t1 t2))
   ; typ2_match : forall ts (R : typ -> Type -> Type)
       (caseTyp : forall t1 t2, R (typ2 t1 t2) (F (typD ts t1) (typD ts t2)))
@@ -144,9 +144,9 @@ Section typed.
     Variable eAB : Equiv A B.
     Variable eFT : Equiv (F B) C.
     Definition Equiv_compose : Equiv (F A) C :=
-    {| siso := fun F' => {| into := fun x => 
+    {| siso := fun F' => {| into := fun x =>
                                       sinto (iso := eFT) F' (sinto (iso := eAB) (fun x => F' (F x)) x)
-                          ; outof := fun x => 
+                          ; outof := fun x =>
                                        soutof (iso := eAB) (fun x => F' (F x)) (soutof (iso := eFT) F' x) |} |}.
 
     Variable eokAB : EquivOk eAB.
@@ -168,13 +168,13 @@ Section typed.
                end.
         repeat rewrite compose_into_into_Iso_compose.
         repeat rewrite compose_outof_outof_Iso_compose.
-        repeat rewrite Iso_ext. 
+        repeat rewrite Iso_ext.
         rewrite <- isomap_compose.
         f_equal.
         { eapply dist_over; eauto with typeclass_instances. }
         { eapply (fun y => @dist_over (F A) (F B) (fun F' => @siso A B eAB (fun x : Type => F' (F x))) y F0 _ _).
           destruct eokAB. red. red in siso_dist.
-          intros. 
+          intros.
           assert (@IsoFunctorOk (fun x : Type => F1 (F x)) (@IsoFunctor_compose F1 F func0 iF)).
           eauto with typeclass_instances.
           specialize (siso_dist (fun x => F1 (F x)) _ H).
@@ -183,11 +183,11 @@ Section typed.
           symmetry. eapply dist_over. eauto. } }
       { unfold Equiv_compose. constructor; intros; simpl;
         repeat  match goal with
-                 | |- appcontext [ @into _ _ (@siso _ _ ?E ?X) ?Y ] => 
+                 | |- appcontext [ @into _ _ (@siso _ _ ?E ?X) ?Y ] =>
                    let x := constr:(@into _ _ (@siso _ _ E X) Y) in
                    let y := constr:(sinto (iso := E) X Y) in
                    change x with y
-               end; 
+               end;
         repeat (   (erewrite sinto_app; eauto with typeclass_instances)
                 || (rewrite sinto_const; eauto)
                 || (rewrite soutof_const; eauto)
@@ -195,19 +195,19 @@ Section typed.
                 || (erewrite soutof_sinto; eauto with typeclass_instances)). }
     Qed.
   End Equiv_compose.
-        
+
 
   Section instances.
-    Global Instance TypInstance0_app F T 
+    Global Instance TypInstance0_app F T
            (f : TypInstance1 F) (t : TypInstance0 T)
     : TypInstance0 (F T) :=
     { typ0 := typ1 typ0
     ; typ0_iso := fun ts => _ (* {| siso := fun F => {| into := _ ; outof := _ |} |} *)
     ; typ0_match := fun ts R caseTyp caseElse t =>
-        typ1_match ts R (fun t' => 
-                           typ0_match ts (fun ty Ty => R (typ1 ty) (F Ty)) 
+        typ1_match ts R (fun t' =>
+                           typ0_match ts (fun ty Ty => R (typ1 ty) (F Ty))
                                       caseTyp
-                                      (fun _ => _) t') caseElse t 
+                                      (fun _ => _) t') caseElse t
     }.
     { eapply Equiv_compose. eapply typ0_iso. eapply typ1_iso. }
     { apply typ1_iso. apply caseElse. }
@@ -226,15 +226,15 @@ Section typed.
         eapply typ1_isoOk. }
     Qed.
 
-    Global Instance TypInstance0_app2 F T1 T2 
-           (f : TypInstance2 F) (t1 : TypInstance0 T1) (t2 : TypInstance0 T2) 
+    Global Instance TypInstance0_app2 F T1 T2
+           (f : TypInstance2 F) (t1 : TypInstance0 T1) (t2 : TypInstance0 T2)
     : TypInstance0 (F T1 T2) :=
     { typ0 := typ2 (typ0 (TypInstance0 := t1)) (typ0 (TypInstance0 := t2))
     ; typ0_iso := fun ts => {| siso := fun F => {| into := _ ; outof := _ |} |}
     ; typ0_match := fun ts R caseTyp caseElse t =>
-        typ2_match ts R 
-           (fun t1' t2' => 
-              typ0_match (TypInstance0 := t1) ts 
+        typ2_match ts R
+           (fun t1' t2' =>
+              typ0_match (TypInstance0 := t1) ts
                  (fun ty Ty => R (typ2 ty t2') (F Ty (typD ts t2')))
                  (fun _ =>
                     typ0_match (TypInstance0 := t2) ts
@@ -249,13 +249,13 @@ Section typed.
     }.
     { apply typ2_iso. apply typ0_iso. apply typ0_iso. refine (fun x => x). }
     { apply typ2_iso. apply typ0_iso. apply typ0_iso. refine (fun x => x). }
-    { eapply (soutof (iso := typ0_iso ts) (fun x => R (typ2 typ0 t0) (F x (typD ts t0)))). 
+    { eapply (soutof (iso := typ0_iso ts) (fun x => R (typ2 typ0 t0) (F x (typD ts t0)))).
       eapply (soutof (iso := typ2_iso ts _ _) _).
       apply caseElse. }
-    { eapply (soutof (iso := typ2_iso ts _ _) _). 
+    { eapply (soutof (iso := typ2_iso ts _ _) _).
       apply caseElse. }
     Defined.
 
   End instances.
 
-End typed.  
+End typed.
