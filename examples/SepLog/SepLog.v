@@ -1,4 +1,4 @@
-Require Import ExtLib.Structures.Logic.
+Require Import ExtLib.Logic.NatDed.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -19,12 +19,27 @@ Section sl.
   Variable LL_L : LogicLaws Logic_L.
   Variable Quant_L : Quant L.
 
+  Delimit Scope logic_scope with logic.
+
+  Notation "'ALL' x .. y => P" :=
+    (All (fun x => .. (All (fun y => P)) .. ))
+      (x closed binder, y closed binder, at level 100, P at next level) : logic_scope.
+
+  Notation "'EX' x .. y => P" :=
+    (Ex (fun x => .. (Ex (fun y => P)) .. ))
+      (x closed binder, y closed binder, at level 100, P at next level) : logic_scope.
+
+  Open Local Scope logic_scope.
+
   Class SeparationLogic_Laws : Type :=
-  { star_emp_p : Entails nil (All (fun p => himp (star p emp) p))
-  ; star_emp_c : Entails nil (All (fun p => himp p (star p emp)))
-  ; star_comm : Entails nil (All (fun p => All (fun q => himp (star p q) (star q p))))
-  ; star_assoc : Entails nil (All (fun p => All (fun q => All (fun r =>
-       himp (star (star p q) r) (star p (star q r))))))
+  { himp_trans : Entails (Logic := Logic_L) (@Tr L _)
+                         (ALL p q r =>
+                          Impl (himp p q) (Impl (himp q r) (himp p r)))
+  ; star_emp_p : Entails (Logic := Logic_L) (@Tr L _) (ALL p => himp (star p emp) p)
+  ; star_emp_c : Entails (Logic := Logic_L) (@Tr L _) (ALL p => himp p (star p emp))
+  ; star_comm : Entails (Logic := Logic_L) (@Tr L _) (ALL p q => himp (star p q) (star q p))
+  ; star_assoc : Entails (Logic := Logic_L) (@Tr L _) (ALL p q r =>
+       himp (star (star p q) r) (star p (star q r)))
   }.
 
 End sl.
@@ -96,4 +111,30 @@ Section syntax.
         ).
     Defined.
   End cases.
+
+  Section fold.
+    Variable R : Type.
+    Variable caseEmp : R.
+    Variable caseInj : expr -> R.
+    Variable caseStar : R -> R -> R.
+    Variable caseEx : typ -> R -> R.
+    Variable caseElse : expr -> R.
+
+    Definition foldSepLog (e : expr) : R.
+      refine (
+          @Fix_F expr (@acc _ _ _ Expr_expr) (fun _ => R)
+                 (fun e recur =>
+                    matchSepLog e
+                                (fun _ => caseEmp)
+                                (fun P _ => caseInj P)
+                                (fun l r lacc racc =>
+                                   let lr := recur l lacc in
+                                   let rr := recur r racc in
+                                   caseStar lr rr)
+                                (fun t b bacc =>
+                                   caseEx t (recur b bacc))
+                                (fun _ => caseElse e))
+                 e (wf_acc e)).
+    Defined.
+  End fold.
 End syntax.

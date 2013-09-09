@@ -1,6 +1,6 @@
 Require Import MirrorCore.ExprI.
-Require Import Subst.
-Require Import Prover.
+Require Import MirrorCore.Subst.
+Require Import MirrorCore.Prover.
 
 Set Implicit Arguments.
 Set Strict Implicit.

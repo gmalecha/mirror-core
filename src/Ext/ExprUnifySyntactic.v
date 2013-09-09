@@ -115,9 +115,6 @@ Section typed.
       end.
   End exprUnify.
 
-  Definition Safe (u v : env (typD types)) e t : Prop :=
-    WellTyped_expr (typeof_funcs funcs) (typeof_env u) (typeof_env v) e t.
-
   Definition unify_sound_ind
     (unify : forall (us vs : tenv typ) (under : nat) (s : subst) (l r : expr)
                     (t : typ), option subst) : Prop :=
@@ -230,8 +227,7 @@ Section typed.
         eapply substD_lookup in H3; eauto.
         destruct H3. destruct x. destruct H3. simpl in *. rewrite H3.
         assert (x = t).
-        { unfold Safe in *.
-          rewrite WellTyped_expr_UVar in H0.
+        { rewrite WellTyped_expr_UVar in H0.
           eapply WellTyped_env_typeof_env in H6. subst.
           unfold typeof_env in H0.
           rewrite nth_error_map in H0. rewrite H3 in *. inv_all.
@@ -301,8 +297,7 @@ Section typed.
         eapply substD_lookup in H3; eauto.
         destruct H3. destruct x. destruct H3. simpl in *. rewrite H3.
         assert (x = t).
-        { unfold Safe in *.
-          rewrite WellTyped_expr_UVar in H0.
+        { rewrite WellTyped_expr_UVar in H0.
           eapply WellTyped_env_typeof_env in H6. subst.
           unfold typeof_env in H0.
           rewrite nth_error_map in H0. rewrite H3 in *. inv_all.

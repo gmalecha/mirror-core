@@ -1,6 +1,8 @@
 MONAD := Expr Demo ReduceApprox Reduce ReduceWf
+SEPLOG := SepLog SepHeap
 MODULES    := ExprDemo \
-	      $(MONAD:%=Monad/Monad%)
+	      $(MONAD:%=Monad/Monad%) \
+	      $(SEPLOG:%=SepLog/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

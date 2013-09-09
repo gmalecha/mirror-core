@@ -102,6 +102,28 @@ Section Demo.
       | App t l r => App t (subst skip l w) (subst skip r w)
     end.
 
+  Fixpoint Safe_mexpr (us vs : list typ) (e : mexpr) (t : typ) : Prop :=
+    match e with
+      | Ret t' e =>
+        m_match nil (fun _ _ => Prop)
+                (fun t'' =>
+                   typ_cast (fun x => x) nil t' t'' <> None /\
+                   Safe_mexpr us vs e t')
+                (fun _ => False)
+                t
+      | Var v =>
+        exists t', nth_error vs v = Some t' /\
+                   typ_cast (fun x => x) nil t' t <> None
+      | Abs t' body =>
+        arr_match nil (fun _ _ => Prop)
+                  (fun d r =>
+                     typ_cast (typD := typD) (fun x => x) nil t' d <> None /\
+                     Safe_mexpr us (d :: vs) body r)
+                  (fun _ => False)
+                  t
+      | _ => False
+    end.
+
   Fixpoint mexprD (g : list typ) (e : mexpr) (t : typ) {struct e}
   : option (hlist (typD nil) g -> typD nil t).
   refine (
@@ -293,13 +315,14 @@ Section Demo.
 
   Global Instance Expr_mexpr : Expr typD mexpr :=
   { exprD := fun _ g e t =>
-               match Generic.split g with
+               match EnvI.split_env g with
                  | existT te env =>
                    match mexprD te e t with
                      | None => None
                      | Some f => Some (f env)
                    end
                end
+  ; Safe_expr := Safe_mexpr
   ; acc := acc_mexpr
   ; wf_acc := well_founded_acc_mexpr
   }.
@@ -399,7 +422,7 @@ Section Demo.
   Proof.
     constructor.
     { simpl; intros.
-      destruct (Generic.split vs).
+      destruct (EnvI.split_env vs).
       unfold Fun.
       unfold_all.
       go.
@@ -435,7 +458,6 @@ Section Demo.
                             | _ => None
                           end)); simpl; repeat constructor.
   Defined.
-
 
   Definition SApp_ret0 T (ti : TypInstance0 typD T)
   : @SymAppN typ _ mexpr _ 0
