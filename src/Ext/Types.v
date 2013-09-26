@@ -441,15 +441,21 @@ Section env.
   Global Instance TypInstance0_tvProp : TypInstance0 typD Prop :=
   { typ0 := tvProp
   ; typ0_iso := fun ts => Iso.Equiv_ident _
+  ; typ0_match := fun _ _ caseType caseElse t =>
+                    match t with
+                      | tvProp => caseType tt
+                      | x => caseElse x
+                    end
   }.
-  admit.
-  Defined.
 
   Global Instance TypInstance2_tvArr : TypInstance2 typD Fun :=
   { typ2 := tvArr
   ; typ2_iso := fun ts t1 t2 => Iso.Equiv_ident _
+  ; typ2_match := fun _ _ caseType caseElse t =>
+                    match t with
+                      | tvArr l r => caseType l r
+                      | x => caseElse x
+                    end
   }.
-  admit.
-  Defined.
 
 End env.

@@ -22,10 +22,10 @@ Section Demo.
              (tvArr tvNat (tvArr tvNat tvNat))
              plus ::
           F _ 1
-             (tvArr (tvArr (tvVar 0) tvProp) tvProp) 
+             (tvArr (tvArr (tvVar 0) tvProp) tvProp)
              (fun x : Type => @ex x) ::
           F _ 1
-             (tvArr (tvArr (tvVar 0) tvProp) tvProp) 
+             (tvArr (tvArr (tvVar 0) tvProp) tvProp)
              all ::
           F _ 1
              (tvArr (tvVar 0) (tvArr (tvVar 0) tvProp))
@@ -34,11 +34,14 @@ Section Demo.
           nil).
   Defined.
 
+  Definition App_list (f : expr) (args : list expr) : expr :=
+    List.fold_left App args f.
+
   Goal
-    let e := @App (@Func 1 (tvType 0 :: nil))
-                    ((@Abs tvNat (@App (@Func 3 (tvType 0 :: nil))
+    let e := @App_list (@Func 1 (tvType 0 :: nil))
+                    ((@Abs tvNat (@App_list (@Func 3 (tvType 0 :: nil))
                                                 ((Var 0) :: @Func 4 nil :: nil))) :: nil) in
-    match @exprD _ funcs' nil nil e tvProp with
+    match @ExprD.EXPR_DENOTE_3.exprD _ funcs' nil nil e tvProp with
       | None => False
       | Some p => p
     end.

@@ -105,6 +105,7 @@ Section semantic.
     exprD' fs (uenv ++ ue) (venv ++ ve) e t = Some y ->
     forall h he, x h = y (hlist_app h he).
   Proof.
+(*
     induction e; simpl; intros;
       repeat match goal with
                | |- context [ match ?X with _ => _ end ] =>
