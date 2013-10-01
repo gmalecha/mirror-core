@@ -6,3 +6,8 @@ Makefile.test.coq
 *~
 .dir-locals.el
 deps.*
+#*
+.#*
+mirror-core.tgz
+coq-ext-lib
+src/Ext/ExprD.v

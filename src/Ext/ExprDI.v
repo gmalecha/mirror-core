@@ -1,0 +1,585 @@
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Monads.OptionMonad.
+Require Import ExtLib.Tactics.EqDep.
+Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
+Require Import MirrorCore.Ext.Types.
+Require Import MirrorCore.Ext.ExprCore.
+Require Import MirrorCore.Ext.ExprT.
+
+Set Implicit Arguments.
+Set Strict Implicit.
+
+Module Type ExprDenote_core.
+
+  Parameter exprD' : forall (ts : types) (fs : functions ts),
+    env (typD ts) -> forall g : list typ, expr -> forall t : typ,
+    option (hlist (typD ts nil) g -> typD ts nil t).
+
+  Section with_envs.
+    Variable ts : types.
+    Variable fs : functions ts.
+    Variable us : env (typD ts).
+
+    Axiom exprD'_Abs : forall ve t e u,
+       exprD' fs us ve (Abs t e) u =
+       match u as u return option (hlist (typD ts nil) ve -> typD ts nil u) with
+         | tvArr l r =>
+           match typ_cast_typ _ (fun x => x) _ l t
+               , exprD' fs us (t :: ve) e r
+           with
+             | Some cast , Some f =>
+               Some (fun g => fun x => f (Hcons (F := typD ts nil) (cast x) g))
+             | _ , _ => None
+           end
+         | _ => None
+       end.
+
+    Axiom exprD'_Var : forall ve v t,
+      exprD' fs us ve (Var v) t =
+      match nth_error ve v as z
+            return z = nth_error ve v ->
+                   option (hlist (typD ts nil) ve -> typD ts nil t)
+      with
+        | Some z => fun pf =>
+          match typ_cast_typ _ (fun x => x) _ z t with
+            | Some cast =>
+              Some (fun e => match pf in _ = t''
+                                   return match t'' with
+                                            | Some t => typD ts nil t
+                                            | None => unit
+                                          end -> typD ts nil t with
+                               | eq_refl => fun x => cast x
+                             end (hlist_nth e v))
+            | None => None
+          end
+        | None => fun _ => None
+      end eq_refl.
+
+    Axiom exprD'_UVar : forall ve u t,
+      exprD' fs us ve (UVar u) t =
+      match lookupAs us u t with
+        | Some z => Some (fun _ => z)
+        | None => None
+      end.
+
+    Axiom exprD'_Func : forall ve f ts t,
+      exprD' fs us ve (Func f ts) t =
+      match nth_error fs f with
+        | None => None
+        | Some f =>
+          match type_apply _ _ ts _ _ f.(fdenote) with
+            | None => None
+            | Some t' =>
+              match @typ_cast_typ _ (fun x => x) _ (instantiate_typ ts (ftype f)) t with
+                | None => None
+                | Some cast => Some (fun _ => cast t')
+              end
+          end
+      end.
+
+    Axiom exprD'_Equal : forall ve t l r t',
+      exprD' fs us ve (Equal t l r) t' =
+      match t' as t' return option (hlist (typD ts nil) ve -> typD ts nil t') with
+        | tvProp =>
+          match exprD' fs us ve l t , exprD' fs us ve r t with
+            | Some l , Some r => Some (fun g => l g = r g)
+            | _ , _ => None
+          end
+        | _ => None
+      end.
+
+    Axiom exprD'_Not : forall ve p t',
+      exprD' fs us ve (Not p) t' =
+      match t' as t' return option (hlist (typD ts nil) ve -> typD ts nil t') with
+        | tvProp =>
+          match exprD' fs us ve p tvProp with
+            | Some p => Some (fun g => not (p g))
+            | _ => None
+          end
+        | _ => None
+      end.
+
+    Axiom exprD'_App : forall ve t e arg,
+      exprD' fs us ve (App e arg) t =
+      match typeof_expr (typeof_funcs fs) (typeof_env us) ve e with
+        | Some (tvArr l r) =>
+          match exprD' fs us ve e (tvArr l r)
+              , exprD' fs us ve arg l
+              , typ_cast_typ _ (fun x => x) _ r t
+          with
+            | Some f , Some x , Some cast =>
+              Some (fun g => cast ((f g) (x g)))
+            | _ , _ , _ => None
+          end
+        | _ => None
+      end.
+  End with_envs.
+
+End ExprDenote_core.
+
+Module Type ExprDenote.
+  Include ExprDenote_core.
+
+  (**
+   ** The denotation function with binders must be total because we
+   ** can't introduce the binder until we know that we are going to get
+   ** the right type out, but, at the same time, we don't know we will
+   ** succeed until after we've taken the denotation of the body,
+   ** which we can't do until we have the binder.
+   **
+   ** To solve this, we make precise the phase separation by returning
+   ** [option (env -> typD t)] effectively allowing us to determine if
+   ** there is an error before needing to get the variables.
+   **
+   **)
+  Definition exprD ts fs us vs e t : option (typD ts nil t) :=
+    let (tvs,gvs) := split_env vs in
+    match @exprD' ts fs us tvs e t with
+      | None => None
+      | Some f => Some (f gvs)
+    end.
+
+  Section with_envs.
+    Variable ts : types.
+    Variable fs : functions ts.
+    Variable us : env (typD ts).
+
+    Axiom typeof_exprD : forall vs e t,
+      typeof_expr (typeof_funcs fs) (typeof_env us) vs e = Some t ->
+      exists val, exprD' fs us vs e t = Some val.
+
+    Axiom exprD_Var : forall ve v t,
+      exprD fs us ve (Var v) t = lookupAs ve v t.
+
+    Axiom exprD_UVar : forall ve u t,
+      exprD fs us ve (UVar u) t = lookupAs us u t.
+
+    Axiom exprD_Func : forall ve f ts t,
+      exprD fs us ve (Func f ts) t =
+      match nth_error fs f with
+        | None => None
+        | Some f =>
+          match type_apply _ _ ts _ _ f.(fdenote) with
+            | None => None
+            | Some t' =>
+              @typ_cast_val _ _ (instantiate_typ ts (ftype f)) t t'
+          end
+      end.
+
+    Axiom exprD_Equal : forall ve t l r t',
+      exprD fs us ve (Equal t l r) t' =
+      match t' as t' return option (typD ts nil t') with
+        | tvProp =>
+          match exprD fs us ve l t , exprD fs us ve r t with
+            | Some l , Some r => Some (l = r)
+            | _ , _ => None
+          end
+        | _ => None
+      end.
+
+    Axiom exprD_Not : forall ve p t',
+      exprD fs us ve (Not p) t' =
+      match t' as t' return option (typD ts nil t') with
+        | tvProp =>
+          match exprD fs us ve p tvProp with
+            | Some p => Some (~p)
+            | _ => None
+          end
+        | _ => None
+      end.
+
+    Axiom exprD_Abs_is_arr : forall vs e t t',
+      exprD fs us vs (Abs t' e) t =
+      match t as t return option (typD ts nil t) with
+        | tvArr l r =>
+          if t' ?[ eq ] l then
+            exprD fs us vs (Abs l e) (tvArr l r)
+          else None
+        | _ => None
+      end.
+
+    Axiom typeof_expr_eq_exprD_False : forall l ve e t,
+      WellTyped_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e t ->
+      forall x, exprD fs us (existT _ l x :: ve) e t = None ->
+                False.
+(*
+    Axiom exprD_Abs : forall ve t u e val,
+      exprD fs us ve (Abs t e) (tvArr t u) = Some val ->
+      forall x, exprD fs us (existT _ t x :: ve) e u = Some (val x).
+*)
+
+    Axiom exprD_App : forall ve t e arg,
+      exprD fs us ve (App e arg) t =
+      match typeof_expr (typeof_funcs fs) (typeof_env us) (typeof_env ve) e with
+        | Some (tvArr l r) =>
+          match exprD fs us ve e (tvArr l r)
+              , exprD fs us ve arg l
+              , typ_cast_typ _ (fun x => x) _ r t
+          with
+            | Some f , Some x , Some cast =>
+              Some (cast (f x))
+            | _ , _ , _ => None
+          end
+        | _ => None
+      end.
+
+  End with_envs.
+
+End ExprDenote.
+
+
+
+Module Build_ExprDenote (EDc : ExprDenote_core) <:
+       ExprDenote with Definition exprD' := EDc.exprD'.
+  Require Import ExtLib.Tactics.Consider.
+  Require Import ExtLib.Tactics.Injection.
+  Require Import ExtLib.Data.ListNth.
+
+  Include EDc.
+
+  Definition exprD ts fs us vs e t : option (typD ts nil t) :=
+    let (tvs,gvs) := split_env vs in
+    match @exprD' ts fs us tvs e t with
+      | None => None
+      | Some f => Some (f gvs)
+    end.
+
+  Section with_envs.
+    Variable ts : types.
+    Variable fs : functions ts.
+    Variable us : env (typD ts).
+
+    Theorem typeof_exprD : forall vs e t,
+      typeof_expr (typeof_funcs fs) (typeof_env us) vs e = Some t ->
+      exists val, exprD' fs us vs e t = Some val.
+    Proof.
+      intros vs e; revert vs.
+      induction e; simpl; intros.
+      { rewrite exprD'_Var.
+        match goal with
+          | |- context [ @eq_refl ?A ?B ] =>
+            generalize (@eq_refl A B)
+        end.
+        revert H.
+        generalize (nth_error vs v) at 1 2 4.
+        intros. subst.
+        rewrite typ_cast_typ_refl. eauto. }
+      { rewrite exprD'_Func.
+        unfold typeof_funcs in *.
+        rewrite nth_error_map in H.
+        destruct (nth_error fs f); try congruence.
+        change EqNat.beq_nat with (@rel_dec _ (@eq nat) _) in H.
+        consider (length l ?[ eq ] tfenv (typeof_func f0)); intros; try congruence.
+        eapply type_apply_length_equal in H. destruct H. rewrite H.
+        inv_all; subst.
+        destruct f0; simpl in *.
+        rewrite typ_cast_typ_refl. eauto. }
+      { rewrite exprD'_App.
+        specialize (IHe1 vs). specialize (IHe2 vs).
+        repeat match goal with
+                 | _ : match ?X with _ => _ end = _ |- _ =>
+                   destruct X; try congruence
+               end.
+        specialize (IHe1 _ eq_refl). destruct IHe1.
+        destruct t0; simpl in *; try congruence.
+        change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
+        consider (t0_1 ?[ eq ] t1); intros; subst; try congruence.
+        rewrite H0.
+        destruct (IHe2 _ eq_refl). rewrite H.
+        inv_all; subst. rewrite typ_cast_typ_refl.
+        eauto. }
+      { rewrite exprD'_Abs.
+        specialize (IHe (t :: vs)).
+        destruct (typeof_expr (typeof_funcs fs) (typeof_env us) (t :: vs) e); try congruence.
+        inv_all; subst.
+        specialize (IHe _ eq_refl).
+        destruct IHe.
+        rewrite typ_cast_typ_refl. rewrite H. eauto. }
+      { rewrite exprD'_UVar.
+        unfold lookupAs.
+        rewrite nth_error_typeof_env in *.
+        destruct (nth_error us u); try congruence.
+        inv_all; subst. destruct s; simpl.
+        rewrite typ_cast_typ_refl. eauto. }
+      { rewrite exprD'_Equal.
+        specialize (IHe1 vs). specialize (IHe2 vs).
+        change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
+        repeat match goal with
+                 | _ : match ?X with _ => _ end = _ |- _ =>
+                   consider X; intros; try congruence
+               end.
+        destruct (IHe1 _ eq_refl); destruct (IHe2 _ eq_refl).
+        inv_all; subst. subst.
+        rewrite H5. rewrite H4. eauto. }
+      { specialize (IHe vs).
+        rewrite exprD'_Not.
+        destruct (typeof_expr (typeof_funcs fs) (typeof_env us) vs e); try congruence.
+        destruct t0; try congruence.
+        inv_all; subst.
+        destruct (IHe _ eq_refl). rewrite H.
+        eauto. }
+    Qed.
+
+    Theorem exprD_Var : forall ve u t,
+      exprD fs us ve (Var u) t = lookupAs ve u t.
+    Proof.
+      unfold exprD; intros.
+      consider (split_env ve); intros.
+      unfold lookupAs.
+      consider (nth_error ve u); intros.
+      { eapply split_env_nth_error in H0.
+        rewrite exprD'_Var.
+        rewrite H in *. simpl in *.
+        destruct s.
+        match goal with
+          | |- context [ @eq_refl ?X ?Y ] =>
+            generalize (@eq_refl X Y)
+        end.
+        revert H0.
+        change (
+            let zzz e := hlist_nth e u in
+            match
+              nth_error x u as t1
+              return
+              (match t1 with
+                 | Some v => typD ts nil v
+                 | None => unit
+               end -> Prop)
+            with
+              | Some v =>
+                fun res : typD ts nil v =>
+                  existT (typD ts nil) x0 t0 = existT (typD ts nil) v res
+              | None => fun _ : unit => False
+            end (zzz h) ->
+            forall e : nth_error x u = nth_error x u,
+              match
+                match
+                  nth_error x u as z
+                  return
+                  (z = nth_error x u ->
+                   option (hlist (typD ts nil) x -> typD ts nil t))
+                with
+                  | Some z =>
+                    fun pf : Some z = nth_error x u =>
+                      match typ_cast_typ ts (fun x1 : Type => x1) nil z t with
+                        | Some cast =>
+                          Some
+                            (fun e0 : hlist (typD ts nil) x =>
+                               match
+                                 pf in (_ = t'')
+                                 return
+                                 (match t'' with
+                                    | Some t1 => typD ts nil t1
+                                    | None => unit
+                                  end -> typD ts nil t)
+                               with
+                                 | eq_refl => fun x1 : typD ts nil z => cast x1
+                               end (zzz e0))
+                        | None => None
+                      end
+                  | None => fun _ : None = nth_error x u => None
+                end e
+              with
+                | Some f => Some (f h)
+                | None => None
+              end =
+              match typ_cast_typ ts (fun x1 : Type => x1) nil x0 t with
+                | Some f => Some (f t0)
+                | None => None
+              end).
+        intro. clearbody zzz. revert zzz.
+        destruct (nth_error x u); intuition.
+        inv_all. destruct H0. subst.
+        destruct (typ_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto.
+        f_equal. clear.
+        uip_all. reflexivity. }
+      { rewrite exprD'_Var.
+        match goal with
+          | |- context [ @eq_refl ?X ?Y ] =>
+            generalize (@eq_refl X Y)
+        end.
+        match goal with
+          | H : ?X = ?Y |- _ =>
+            assert (projT1 X = projT1 Y) by (f_equal; auto)
+        end.
+        change (
+            let zzz e := hlist_nth e u in
+            forall e : nth_error x u = nth_error x u,
+              match
+                match
+                  nth_error x u as z
+                  return
+                  (z = nth_error x u ->
+                   option (hlist (typD ts nil) x -> typD ts nil t))
+                with
+                  | Some z =>
+                    fun pf : Some z = nth_error x u =>
+                      match typ_cast_typ ts (fun x0 : Type => x0) nil z t with
+                        | Some cast =>
+                          Some
+                            (fun e0 : hlist (typD ts nil) x =>
+                               match
+                                 pf in (_ = t'')
+                                 return
+                                 (match t'' with
+                                    | Some t0 => typD ts nil t0
+                                    | None => unit
+                                  end -> typD ts nil t)
+                               with
+                                 | eq_refl => fun x0 : typD ts nil z => cast x0
+                               end (zzz e0))
+                        | None => None
+                      end
+                  | None => fun _ : None = nth_error x u => None
+                end e
+              with
+                | Some f => Some (f h)
+                | None => None
+              end = None).
+        intro; clearbody zzz.
+        remember (nth_error x u).
+        destruct e; auto.
+        exfalso.
+        rewrite split_env_projT1 in H1. simpl in *. subst.
+        clear - Heqe H0.
+        rewrite nth_error_map in Heqe. rewrite H0 in *. congruence. }
+    Qed.
+
+    Theorem exprD_UVar : forall ve u t,
+      exprD fs us ve (UVar u) t = lookupAs us u t.
+    Proof.
+      unfold exprD; intros.
+      destruct (split_env ve).
+      rewrite exprD'_UVar.
+      unfold lookupAs.
+      consider (nth_error us u); intros; auto.
+      destruct s.
+      destruct (TypesI.typ_cast (fun x1 : Type => x1) nil x0 t); auto.
+    Qed.
+
+    Theorem exprD_Func : forall ve f ts t,
+      exprD fs us ve (Func f ts) t =
+      match nth_error fs f with
+        | None => None
+        | Some f =>
+          match type_apply _ _ ts _ _ f.(fdenote) with
+            | None => None
+            | Some t' =>
+              @typ_cast_val _ _ (instantiate_typ ts (ftype f)) t t'
+          end
+      end.
+    Proof.
+      unfold exprD. intros.
+      destruct (split_env ve).
+      rewrite exprD'_Func.
+      destruct (nth_error fs f); auto.
+      destruct (type_apply ts (fenv f0) ts0 nil (ftype f0) (fdenote f0)); auto.
+      unfold typ_cast_val.
+      destruct (typ_cast_typ ts (fun x0 : Type => x0) nil
+       (instantiate_typ ts0 (ftype f0)) t); auto.
+    Qed.
+
+    Theorem exprD_Equal : forall ve t l r t',
+      exprD fs us ve (Equal t l r) t' =
+      match t' as t' return option (typD ts nil t') with
+        | tvProp =>
+          match exprD fs us ve l t , exprD fs us ve r t with
+            | Some l , Some r => Some (l = r)
+            | _ , _ => None
+          end
+        | _ => None
+      end.
+    Proof.
+      unfold exprD. intros.
+      destruct (split_env ve).
+      rewrite exprD'_Equal.
+      destruct t'; auto.
+      destruct (exprD' fs us x l t); auto.
+      destruct (exprD' fs us x r t); auto.
+    Qed.
+
+    Theorem exprD_Not : forall ve p t',
+      exprD fs us ve (Not p) t' =
+      match t' as t' return option (typD ts nil t') with
+        | tvProp =>
+          match exprD fs us ve p tvProp with
+            | Some p => Some (~p)
+            | _ => None
+          end
+        | _ => None
+      end.
+    Proof.
+      unfold exprD; intros.
+      destruct (split_env ve).
+      rewrite exprD'_Not.
+      destruct t'; auto.
+      destruct (exprD' fs us x p tvProp); auto.
+    Qed.
+
+    Theorem exprD_App : forall ve t e arg,
+      exprD fs us ve (App e arg) t =
+      match typeof_expr (typeof_funcs fs) (typeof_env us) (typeof_env ve) e with
+        | Some (tvArr l r) =>
+          match exprD fs us ve e (tvArr l r)
+              , exprD fs us ve arg l
+              , typ_cast_typ _ (fun x => x) _ r t
+          with
+            | Some f , Some x , Some cast =>
+              Some (cast (f x))
+            | _ , _ , _ => None
+          end
+        | _ => None
+      end.
+    Proof.
+      unfold exprD; intros.
+      unfold typeof_env. rewrite <- (split_env_projT1 ve).
+      destruct (split_env ve).
+      rewrite exprD'_App.
+      simpl in *. unfold typeof_env.
+      destruct (typeof_expr (typeof_funcs fs) (map (projT1 (P:=typD ts nil)) us) x e); auto.
+      destruct t0; auto.
+      destruct (exprD' fs us x e (tvArr t0_1 t0_2)); auto.
+      destruct (exprD' fs us x arg t0_1); auto.
+      destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0_2 t); auto.
+    Qed.
+
+    Theorem exprD_Abs_is_arr : forall vs e t t',
+      exprD fs us vs (Abs t' e) t =
+      match t as t return option (typD ts nil t) with
+        | tvArr l r =>
+          if t' ?[ eq ] l then
+            exprD fs us vs (Abs l e) (tvArr l r)
+          else None
+        | _ => None
+      end.
+    Proof.
+      unfold exprD. intros; destruct (split_env vs).
+      rewrite exprD'_Abs.
+      destruct t; auto.
+      rewrite exprD'_Abs.
+      consider (t' ?[ eq ] t1); intros; subst; try reflexivity.
+      match goal with
+        | |- match match ?x with _ => _ end with _ => _ end = _ =>
+          consider x; intros; auto
+      end.
+      generalize (@typ_cast_typ_eq _ _ _ _ _ _ H0).
+      congruence.
+    Qed.
+
+    Theorem typeof_expr_eq_exprD_False : forall l ve e t,
+      WellTyped_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e t ->
+      forall x, exprD fs us (existT _ l x :: ve) e t = None ->
+                False.
+    Proof.
+      intros. unfold exprD in *. simpl in *.
+      consider (exprD' fs us (l :: projT1 (split_env ve)) e t); try congruence; intros.
+      unfold WellTyped_expr in *.
+      eapply typeof_exprD in H. destruct H.
+      rewrite split_env_projT1 in H0. unfold typeof_env in *.
+      congruence.
+    Qed.
+
+  End with_envs.
+End Build_ExprDenote.

@@ -1,17 +1,17 @@
-GENERIC := 
+GENERIC := Iso IsoTac Approx
 PROVERS := Assumption
 #  Transitivity
+EXTENSIBLE := Repr Types ExprCore \
+	      ExprT ExprDI ExprD1 ExprD \
+	      ExprFacts \
+	      ExprLift ExprUnifySyntactic \
+	      Expr
 MODULES    := Generic \
-	      TypesExt TypesExtDemo \
-	      ExprCore \
-	      ExprT
- #            ExprFacts ExprProp ExprLift ExprSubst ExprSimplify Expr 
- # 	      Repr 
- # 	      Prover provers/ProverTac 
- # 	      Subst 
- # 	      ExprUnify ExprUnifySyntactic
+	      TypesI EnvI ExprI ExprProp \
+	      Prover Subst \
+	      $(EXTENSIBLE:%=Ext/%)
 
-TESTS := 
+TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
@@ -54,3 +54,6 @@ depgraph: Makefile.coq
 
 toplevel: coq
 	coqtop.opt $(ARGS)
+
+Ext/ExprD.v:
+	(cd Ext; ln -s ExprD3.v ExprD.v)

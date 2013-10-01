@@ -1,5 +1,6 @@
 Require Import List.
 Require Import ExtLib.Data.Vector.
+Require Import ExtLib.Data.HList.
 
 Set Implicit Arguments.
 Set Strict Implicit.
