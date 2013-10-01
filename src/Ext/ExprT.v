@@ -421,7 +421,6 @@ Section typed.
       consider (exprD' fs uenv t0 e t); intros; try congruence.
       inv_all; subst.
       clear - H. generalize dependent t. generalize dependent t0.
-      admit.
     (*
     induction e; simpl; intros.
     { destruct (nth_error t0 v).

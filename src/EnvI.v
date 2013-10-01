@@ -78,6 +78,7 @@ Section Env.
       | Some v => fun res => tv = existT _ v res
     end (hlist_nth (projT2 (split_env ve)) v).
   Proof.
+    clear.
     induction ve; simpl; intros.
     { destruct v; simpl in *; intuition; inversion H. }
     { destruct v; simpl in *.
@@ -85,6 +86,12 @@ Section Env.
         { inversion H; subst. destruct tv; reflexivity. }
         { subst. destruct a. reflexivity. } }
       { eapply IHve. } }
+  Qed.
+
+  Lemma split_env_length : forall (a : env),
+    length a = length (projT1 (split_env a)).
+  Proof.
+    induction a; simpl; auto.
   Qed.
 
 End Env.

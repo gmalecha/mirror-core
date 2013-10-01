@@ -190,7 +190,7 @@ Section semantic.
         reflexivity. }
   Qed.
 *)
-  Admitted.
+  Abort.
 
   Theorem exprD_weaken : forall venv e t ue ve x,
     exprD fs uenv venv e t = Some x ->
@@ -264,6 +264,6 @@ Section semantic.
       { eapply IHe; eauto. simpl; eauto. } }
   Qed.
 *)
-  Admitted.
+  Abort.
 
 End semantic.

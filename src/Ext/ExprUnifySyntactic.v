@@ -66,10 +66,6 @@ Section typed.
       | Func f1 ts1 , Func f2 ts2 =>
         if EqNat.beq_nat f1 f2 && ts1 ?[ eq ] ts2 then Some s else None
       | App e1 e1' , App e2 e2' =>
-        (** TODO: This isn't correct because the type of [e1] might be
-         ** different than the type of [e2].
-         ** - In order to call the type checker, I need the type environment.
-         **)
         match typeof_expr tfs us vs e1 , typeof_expr tfs us vs e2 with
           | Some (tvArr l r) , Some (tvArr l' r') =>
             if l ?[ eq ] l' && r ?[ eq ] r' && t ?[ eq ] r then
@@ -397,22 +393,38 @@ Section typed.
         autorewrite with exprD_rw.
         assert (tv' = typeof_env v') by (eapply WellTyped_env_typeof_env; assumption); subst.
         gen_refl.
-        generalize (typeof_expr_eq_exprD_False funcs u t1 (v' ++ v) e1 x).
-        generalize (typeof_expr_eq_exprD_False funcs u t1 (v' ++ v) e2 x).
+        generalize (@typeof_expr_eq_exprD_False types funcs u t1 (v' ++ v) e1 x).
+        generalize (@typeof_expr_eq_exprD_False types funcs u t1 (v' ++ v) e2 x).
         unfold typecheck_expr, WellTyped_expr in *.
         erewrite typeof_env_app. simpl in *.
         rewrite H5. rewrite H4.
         repeat rewrite rel_dec_eq_true by eauto with typeclass_instances.
-        intros. f_equal.
-
+        intros. unfold exprD in *. simpl in *. remember (split_env (v' ++ v)).
+        destruct s0.
+        simpl in *.
+        repeat rewrite exprD'_Abs.
+        rewrite typ_cast_typ_refl.
+        specialize (H9 eq_refl). specialize (H10 eq_refl).
+        destruct (@typeof_exprD _ _ _ _ _ _ H4).
+        destruct (@typeof_exprD _ _ _ _ _ _ H5).
+        assert (typeof_env v' ++ typeof_env v = x0).
+        { rewrite <- typeof_env_app.
+          generalize (@split_env_projT1 _ _ (v' ++ v)).
+          rewrite <- Heqs0. simpl. intro. symmetry. exact H15. }
+        subst.
+        eapply typeof_exprD in H4. destruct H4.
+        eapply typeof_exprD in H5; destruct H5.
+        rewrite H4 in *. rewrite H5 in *.
+        f_equal.
         eapply functional_extensionality; intros.
-        gen_refl.
-        specialize (H12 (existT _ t1 x0 :: v')). simpl in H12.
-        generalize dependent (f0 x0). rewrite H12. intros.
-        generalize dependent (f x0). intro.
-        destruct (exprD funcs u (existT (typD types nil) t1 x0 :: v' ++ v) e2 x); auto.
-        exfalso; auto. constructor; auto. } }
-    { destruct e2; eauto using handle_uvar2. 
+        inv_all; subst.
+        specialize (H12 (existT _ t1 x4 :: v')). simpl in H12.
+        rewrite <- Heqs0 in *. simpl in *.
+        rewrite H5 in *. rewrite H4 in *.
+        assert (WellTyped_env (t1 :: typeof_env v') (existT (typD types nil) t1 x4 :: v')).
+        { constructor; auto. }
+        apply H12 in H13. inv_all. auto. } }
+    { destruct e2; eauto using handle_uvar2.
       { consider (EqNat.beq_nat u u0); intros; inv_all; subst.
         { intuition. }
         { consider (set u (UVar u0) s); intros; inv_all; subst.
