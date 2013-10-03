@@ -54,6 +54,3 @@ depgraph: Makefile.coq
 
 toplevel: coq
 	coqtop.opt $(ARGS)
-
-Ext/ExprD.v:
-	(cd Ext; ln -s ExprD3.v ExprD.v)

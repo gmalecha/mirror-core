@@ -10,4 +10,3 @@ deps.*
 .#*
 mirror-core.tgz
 coq-ext-lib
-src/Ext/ExprD.v
