@@ -1,5 +1,5 @@
 MONAD := Expr Demo ReduceApprox Reduce ReduceWf
-SEPLOG := SepLog SepHeap
+SEPLOG := NatDed SepLog SepHeap
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
 	      $(SEPLOG:%=SepLog/%)

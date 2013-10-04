@@ -1,4 +1,4 @@
-Require Import ExtLib.Logic.NatDed.
+Require Import Examples.SepLog.NatDed.
 
 Set Implicit Arguments.
 Set Strict Implicit.
