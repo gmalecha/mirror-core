@@ -1,9 +1,10 @@
 MONAD := Expr Demo ReduceApprox Reduce ReduceWf
 SEPLOG := NatDed SepLog SepHeap
+MTAC := McMtac
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
-	      $(SEPLOG:%=SepLog/%)
-
+	      $(SEPLOG:%=SepLog/%) \
+	      $(MTAC:%=mtac/%)
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)

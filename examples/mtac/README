@@ -1,0 +1,3 @@
+This directory gives an example of implementing the "mtac" monad reflectively
+using mirror-core. It can be used as a lightweight mechanism for building
+reflective procedures.
