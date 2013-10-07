@@ -60,45 +60,4 @@ Section subst.
 
   (** the [expr] type requires a notion of unification variable **)
 
-(*
-  Class SubstOk :=
-  { Subst_WellTyped : tfunctions -> tenv -> tenv -> T -> Prop
-  ; Subst_Extends : relation T
-  ; PreOrder_Subst_Extends : PreOrder Subst_Extends
-  }.
-*)
-
-(*
-  Section instantiate.
-    Variable Subst_T : Subst.
-
-    Variable subst : T.
-
-    Fixpoint exprInstantiate (l : nat) (e : expr ts) : expr ts :=
-      match e with
-        | Const _ _ => e
-        | Var _ => e
-        | Func _ _ => e
-        | App e es => App (exprInstantiate l e) (map (exprInstantiate l) es)
-        | Abs t e => Abs t (exprInstantiate (S l) e)
-        | UVar u =>
-          match lookup u subst with
-            | None => e
-            | Some e' => lift 0 l e'
-          end
-        | Equal t e1 e2 => Equal t (exprInstantiate l e1) (exprInstantiate l e2)
-        | Not e => Not (exprInstantiate l e)
-      end.
-  End instantiate.
-*)
-
-(*
-
-
-Section map_subst.
-  Variable m : Type -> Type.
-  Require Import ExtLib.Structures.Maps.
-  Variable ts : types.
-
-  *)
 End subst.

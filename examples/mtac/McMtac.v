@@ -1,4 +1,14 @@
-(** The core definitions of the "mtac" monad **)
+(** The core definitions of the "mtac" monad.
+ **
+ ** Here, we only provide the [mmatch] feature, other features
+ ** of the monad can be achieved using monad transformers, e.g.
+ ** - non-termination
+ ** - exceptions
+ ** - backtracking
+ **
+ ** It may also be desireable to add a hook to resolve, e.g.
+ ** type-class instances through a hint database.
+ **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.Monads.ReaderMonad.
@@ -89,7 +99,7 @@ Parameter empty_subst : subst.
 Fixpoint get_args_from sub from cnt : option (vector expr cnt) :=
   match cnt with
     | 0 => Some (Vnil _)
-    | S n => 
+    | S n =>
       match Subst.lookup from sub with
         | None => None
         | Some a => match get_args_from sub (S from) n with
@@ -125,7 +135,6 @@ Definition mmatch {T}
                            | Some sub =>
                              match
                                get_args_from sub (length tus) var_count
-                               return McMtac T
                              with
                                | Some args =>
                                  @exp_app_vector _ (McMtac T) var_count args case
