@@ -8,7 +8,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      Expr
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
-	      Prover Subst \
+	      Prover Subst SealedSubst \
 	      $(EXTENSIBLE:%=Ext/%)
 
 TESTS :=
