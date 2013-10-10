@@ -204,6 +204,10 @@ Module Type ExprDenote.
       WellTyped_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e t ->
       forall x, exprD fs us (existT _ l x :: ve) e t = None ->
                 False.
+
+    Axiom typeof_expr_exprD' : forall vs e t,
+      WellTyped_expr (typeof_funcs fs) (typeof_env us) vs e t <->
+      exists v, exprD' fs us vs e t = Some v.
 (*
     Axiom exprD_Abs : forall ve t u e val,
       exprD fs us ve (Abs t e) (tvArr t u) = Some val ->
@@ -579,6 +583,220 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       eapply typeof_exprD in H. destruct H.
       rewrite split_env_projT1 in H0. unfold typeof_env in *.
       congruence.
+    Qed.
+
+    Lemma lem_typeof_expr_exprD' : forall vs e t,
+      WellTyped_expr (typeof_funcs fs) (typeof_env us) vs e t <->
+      exprD' fs us vs e t <> None.
+    Proof.
+      intros vs e. revert vs. induction e; simpl; intros.
+      { rewrite WellTyped_expr_Var.
+        rewrite exprD'_Var.
+        split; intros.
+        { gen_refl.
+          change (
+              let zzz z (pf : Some z = nth_error vs v) cast :=
+                  (fun e0 : hlist (typD ts nil) vs =>
+                               match
+                                 pf in (_ = t'')
+                                 return
+                                 (match t'' with
+                                    | Some t0 => typD ts nil t0
+                                    | None => unit
+                                  end -> typD ts nil t)
+                               with
+                                 | eq_refl => fun x : typD ts nil z => cast x
+                               end (hlist_nth e0 v))
+              in
+              forall e : nth_error vs v = nth_error vs v,
+                match
+                  nth_error vs v as z
+                  return
+                  (z = nth_error vs v ->
+                   option (hlist (typD ts nil) vs -> typD ts nil t))
+                with
+                  | Some z =>
+                    fun pf : Some z = nth_error vs v =>
+                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                        | Some cast =>
+                          Some (zzz z pf cast)
+                        | None => None
+                      end
+                  | None => fun _ : None = nth_error vs v => None
+                end e <> None
+            ).
+          intro zzz; clearbody zzz.
+          destruct (nth_error vs v); try congruence.
+          inv_all; subst. intros.
+          rewrite typ_cast_typ_refl. congruence. }
+        { revert H.
+          gen_refl.
+          change (
+              let zzz z (pf : Some z = nth_error vs v) cast :=
+                  (fun e0 : hlist (typD ts nil) vs =>
+                               match
+                                 pf in (_ = t'')
+                                 return
+                                 (match t'' with
+                                    | Some t0 => typD ts nil t0
+                                    | None => unit
+                                  end -> typD ts nil t)
+                               with
+                                 | eq_refl => fun x : typD ts nil z => cast x
+                               end (hlist_nth e0 v)) in
+              forall e : nth_error vs v = nth_error vs v,
+                match
+                  nth_error vs v as z
+                  return
+                  (z = nth_error vs v ->
+                   option (hlist (typD ts nil) vs -> typD ts nil t))
+                with
+                  | Some z =>
+                    fun pf : Some z = nth_error vs v =>
+                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                        | Some cast =>
+                          Some (zzz z pf cast)
+                        | None => None
+                      end
+                  | None => fun _ : None = nth_error vs v => None
+                end e <> None -> nth_error vs v = Some t).
+          intro zzz; clearbody zzz.
+          destruct (nth_error vs v); try congruence.
+          intros. f_equal.
+          revert H.
+          match goal with
+            | |- context [ match ?X with _ => _ end = _ ] =>
+              consider X
+          end; try congruence; intros.
+          apply (typ_cast_typ_eq _ _ _ _ _ H). } }
+      { rewrite WellTyped_expr_Func.
+        rewrite exprD'_Func.
+        rewrite nth_error_typeof_funcs.
+        destruct (nth_error fs f).
+        { split; intro.
+          { destruct H; intuition try congruence.
+            inv_all. subst.
+            destruct f0; simpl in *.
+            destruct (type_apply_length_equal _ _ _ _ fdenote H).
+            rewrite H1 in *.
+            rewrite typ_cast_typ_refl in H0. congruence. }
+          { eexists. split; eauto.
+            repeat match goal with
+                     | _ : not (match ?X with _ => _ end = _) |- _ =>
+                       consider X; intros
+                   end; try congruence.
+            eapply type_apply_length_equal' in H.
+            destruct f0; simpl in *; split; auto.
+            generalize (typ_cast_typ_eq _ _ _ _ _ H0); auto. } }
+        { split; intros.
+          { destruct H; intuition; congruence. }
+          { congruence. } } }
+      { rewrite WellTyped_expr_App.
+        rewrite exprD'_App.
+        split; intros.
+        { destruct H. destruct H.
+          rewrite IHe1 in *. rewrite IHe2 in *.
+          destruct H. destruct H0.
+          consider (typeof_expr (typeof_funcs fs) (typeof_env us) vs e1); intros.
+          { generalize H. generalize H0.
+            eapply IHe1 in H. eapply IHe2 in H0.
+            red in H; red in H0. rewrite H in H2. inv_all; subst.
+            destruct t0; simpl in *; try congruence.
+            change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
+            consider (t0_1 ?[ eq ] x0); try congruence; intros; inv_all; subst.
+            destruct (exprD' fs us vs e1 (tvArr x0 t)); intuition.
+            destruct (exprD' fs us vs e2 x0); intuition.
+            rewrite typ_cast_typ_refl in H1; congruence. }
+          { exfalso.
+            eapply IHe1 in H. red in H. congruence. } }
+        { consider (typeof_expr (typeof_funcs fs) (typeof_env us) vs e1);
+          try congruence; intros.
+          destruct t0; try congruence.
+          repeat match goal with
+                   | _ : not (match ?X with _ => _ end = _) |- _ =>
+                     consider X; intros
+                 end; try congruence.
+          generalize (typ_cast_typ_eq _ _ _ _ _ H2); intros.
+          consider (exprD' fs us vs e1 (tvArr t0_1 t0_2)); intros; try congruence.
+          inv_all. rewrite H5 in *.
+          exists (tvArr t0_1 t0_2). exists t0_1.
+          simpl.
+          change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
+          consider (t0_1 ?[ eq ] t0_1); try congruence; intros.
+          rewrite IHe1. rewrite IHe2.
+          rewrite H4 in *. eapply typeof_exprD in H.
+          destruct H. rewrite H. rewrite H1. intuition congruence. } }
+      { rewrite WellTyped_expr_Abs.
+        rewrite exprD'_Abs.
+        { split; intros.
+          { destruct H. destruct H; subst.
+            rewrite typ_cast_typ_refl.
+            consider (exprD' fs us (t :: vs) e x); try congruence.
+            intros. intro. eapply IHe; eauto. }
+          { destruct t0; intuition try congruence.
+            repeat match goal with
+                     | _ : match ?x with _ => _ end = _ -> False |- _ =>
+                       consider x; intuition
+                   end.
+            generalize (typ_cast_typ_eq _ _ _ _ _ H); intro; subst.
+            exists t0_2. intuition.
+            eapply IHe. rewrite H0. congruence. } } }
+      { rewrite WellTyped_expr_UVar.
+        rewrite exprD'_UVar.
+        rewrite nth_error_typeof_env.
+        unfold lookupAs in *.
+        destruct (nth_error us u).
+        { split; intro.
+          { destruct s. inv_all; subst. simpl in *.
+            rewrite typ_cast_typ_refl. congruence. }
+          { destruct s. simpl in *.
+            match goal with
+              | _ : not (match ?x with _ => _ end = _) |- _ =>
+                consider x; intuition
+            end.
+            match goal with
+              | _ : match ?X with _ => _ end = _ |- _ =>
+                consider X; intros; try congruence
+            end.
+            inv_all; subst.
+            f_equal; eapply (typ_cast_typ_eq _ _ _ _ _ H). } }
+        { intuition congruence. } }
+      { rewrite WellTyped_expr_Equal.
+        rewrite exprD'_Equal.
+        split; intros.
+        { destruct H; subst.
+          rewrite IHe1 in H0. rewrite IHe2 in H0.
+          destruct H0.
+          repeat match goal with
+                   | |- not (match ?X with _ => _ end = _) =>
+                     destruct X; try congruence
+                 end. }
+        { destruct t0; try solve [ intuition ].
+          split; auto.
+          rewrite IHe1. rewrite IHe2.
+          repeat match goal with
+                   | _ : not (match ?X with _ => _ end = _) |- _ =>
+                     destruct X
+                 end; intuition congruence. } }
+      { rewrite WellTyped_expr_Not.
+        rewrite exprD'_Not.
+        split.
+        { destruct t; intuition try congruence.
+          eapply IHe; eauto.
+          destruct (exprD' fs us vs e tvProp); congruence. }
+        { destruct t; intuition.
+          eapply IHe. intros. rewrite H0 in *. intuition. } }
+    Qed.
+
+    Theorem typeof_expr_exprD' : forall vs e t,
+      WellTyped_expr (typeof_funcs fs) (typeof_env us) vs e t <->
+      exists v, exprD' fs us vs e t = Some v.
+    Proof.
+      intros.
+      rewrite lem_typeof_expr_exprD'.
+      intuition.
+      destruct (exprD' fs us vs e t); intuition. eauto.
+      destruct H. congruence.
     Qed.
 
   End with_envs.
