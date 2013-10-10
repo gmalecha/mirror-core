@@ -40,8 +40,10 @@ Section subst.
       nth_error u uv = Some t ->
       lookup uv s = Some e ->
       Safe_expr u v e t
-  ; WellTyped_subst_set : forall uv e s s' (u v : tenv typ),
+  ; WellTyped_subst_set : forall uv e s s' (u v : tenv typ) t,
       WellTyped_subst u v s ->
+      nth_error u uv = Some t ->
+      Safe_expr u v e t ->
       set uv e s = Some s' ->
       WellTyped_subst u v s'
   ; substD_set : forall uv e s s' u v,

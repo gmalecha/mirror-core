@@ -159,22 +159,26 @@ Section typed.
               @exprD types funcs u0 (v' ++ v) e t)).
   Proof.
     intros.
-    split; eauto using WellTyped_subst_set. intros.
-    generalize H3. intro. eapply substD_set in H7; eauto.
-    destruct H7; split; auto. intros.
-    rewrite WellTyped_expr_UVar in H0.
-    eapply WellTyped_env_typeof_env in H5. subst.
-    unfold typeof_env in H0. rewrite nth_error_map in H0.
-    autorewrite with exprD_rw. unfold lookupAs.
-    destruct (nth_error u0 u); try congruence.
-    specialize (H9 _ eq_refl).
-    inv_all; subst.
-    generalize (exprD_lower funcs u0 nil v' v e). simpl.
-    cutrewrite (length v' = length tv'). intro X; eapply X in H8.
-    etransitivity. 2: symmetry; eassumption. destruct s0; simpl.
-    rewrite typ_cast_typ_refl. eauto.
-    eapply WellTyped_env_typeof_env in H10. subst.
-    rewrite typeof_env_length. auto.
+    split.
+    { eapply WellTyped_subst_set; eauto.
+      simpl. red. generalize (typeof_expr_lower (typeof_funcs funcs) tu e nil tv' tv).
+      simpl. intro. rewrite <- H5; eauto. }
+    { intros.
+      generalize H3. intro. eapply substD_set in H7; eauto.
+      destruct H7; split; auto. intros.
+      rewrite WellTyped_expr_UVar in H0.
+      eapply WellTyped_env_typeof_env in H5. subst.
+      unfold typeof_env in H0. rewrite nth_error_map in H0.
+      autorewrite with exprD_rw. unfold lookupAs.
+      destruct (nth_error u0 u); try congruence.
+      specialize (H9 _ eq_refl).
+      inv_all; subst.
+      generalize (exprD_lower funcs u0 nil v' v e). simpl.
+      cutrewrite (length v' = length tv'). intro X; eapply X in H8.
+      etransitivity. 2: symmetry; eassumption. destruct s0; simpl.
+      rewrite typ_cast_typ_refl. eauto.
+      eapply WellTyped_env_typeof_env in H10. subst.
+      rewrite typeof_env_length. auto. }
   Qed.
 
   Lemma handle_uvar : forall
