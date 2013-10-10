@@ -1,5 +1,6 @@
 Require Import List.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
@@ -189,17 +190,18 @@ Section typed.
     rewrite map_length. reflexivity.
   Qed.
 
-  Theorem typeof_expr_lower : forall (fs : tfunctions) (us : EnvI.env (typD ts))
+  Theorem typeof_expr_lower : forall (fs : tfunctions) (us : EnvI.tenv typ)
                                      (e : expr)
      (vs vs' vs'' : list typ)
      (e1 : expr),
    lower (length vs) (length vs') e = Some e1 ->
-   ExprT.typeof_expr fs (EnvI.typeof_env us) (vs ++ vs' ++ vs'') e =
-   ExprT.typeof_expr fs (EnvI.typeof_env us) (vs ++ vs'') e1.
+   ExprT.typeof_expr fs us (vs ++ vs' ++ vs'') e =
+   ExprT.typeof_expr fs us (vs ++ vs'') e1.
   Proof.
+    clear.
     do 7 intro. rewrite lower_lower'.
     revert e1 vs vs' vs''.
-    induction e; simpl in *; intros; inv_all; subst; simpl; 
+    induction e; simpl in *; intros; inv_all; subst; simpl;
     repeat match goal with
              | H : match ?X with _ => _ end = _ |- _ =>
                (consider X; try congruence); [ intros ]
@@ -217,7 +219,7 @@ Section typed.
       erewrite IHe by eauto. reflexivity. }
   Qed.
 
-  Require Import ExtLib.Data.HList.
+
 
   Lemma exprD'_lower : forall (fs : functions ts) us vs vs' vs'' e e0 t,
                          lower (length vs) (length vs') e = Some e0 ->
@@ -462,7 +464,7 @@ Section typed.
                 uip_all. auto. } } } }
         { do 2 match goal with
                  | |- match ?X with _ => _ end =>
-                   let z := fresh in 
+                   let z := fresh in
                    remember X as z; destruct z
                end; auto.
           { intros.
@@ -1154,7 +1156,7 @@ Section typed.
             { congruence. } } }
         { revert HeqH0 HeqH1.
           change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs')) cast := 
+              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs')) cast :=
                   (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -1219,7 +1221,7 @@ Section typed.
           repeat rewrite nth_error_app_R by omega. f_equal. omega. }
         { revert HeqH0 HeqH1.
           change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs')) cast := 
+              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs')) cast :=
                   (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                      match
                        pf in (_ = t'')
