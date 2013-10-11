@@ -39,9 +39,19 @@ Section typed.
       | UVar u1 , UVar u2 =>
         if EqNat.beq_nat u1 u2 then Some s
         else
-          match Subst.set u1 (UVar u2) s with
-            | None => Subst.set u2 (UVar u1) s
-            | x => x
+          match Subst.lookup u1 s , Subst.lookup u2 s with
+            | None , None =>
+              match Subst.set u1 (UVar u2) s with
+                | None =>
+                  Subst.set u2 (UVar u1) s
+                | Some s => Some s
+              end
+            | Some e1' , None =>
+              Subst.set u2 e1' s
+            | None , Some e2' =>
+              Subst.set u1 e2' s
+            | Some e1' , Some e2' =>
+              exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
           end
       | UVar u1 , _ =>
         match Subst.lookup u1 s with
@@ -143,6 +153,7 @@ Section typed.
       forall e e' : expr,
         WellTyped_expr (@typeof_funcs types funcs) tu (tv' ++ tv) e t ->
         lower 0 (length tv') e = Some e' ->
+        @lookup subst expr Subst_subst u s = None ->
         @set subst expr Subst_subst u e' s = @Some subst s' ->
         @WellTyped_subst subst expr typ (typD types) (@Expr_expr types funcs)
                          Subst_subst SubstOk_subst tu tv s' /\
@@ -162,22 +173,22 @@ Section typed.
     split.
     { eapply WellTyped_subst_set; eauto.
       simpl. red. generalize (typeof_expr_lower (typeof_funcs funcs) tu e nil tv' tv).
-      simpl. intro. rewrite <- H5; eauto. }
+      simpl. intro. rewrite <- H6; eauto. }
     { intros.
-      generalize H3. intro. eapply substD_set in H7; eauto.
-      destruct H7; split; auto. intros.
+      generalize H3. intro. eapply substD_set in H8; eauto.
+      destruct H8; split; auto. intros.
       rewrite WellTyped_expr_UVar in H0.
-      eapply WellTyped_env_typeof_env in H5. subst.
+      eapply WellTyped_env_typeof_env in H6. subst.
       unfold typeof_env in H0. rewrite nth_error_map in H0.
       autorewrite with exprD_rw. unfold lookupAs.
       destruct (nth_error u0 u); try congruence.
-      specialize (H9 _ eq_refl).
+      specialize (H10 _ eq_refl).
       inv_all; subst.
       generalize (exprD_lower funcs u0 nil v' v e). simpl.
-      cutrewrite (length v' = length tv'). intro X; eapply X in H8.
+      cutrewrite (length v' = length tv'). intro X; eapply X in H9.
       etransitivity. 2: symmetry; eassumption. destruct s0; simpl.
       rewrite typ_cast_typ_refl. eauto.
-      eapply WellTyped_env_typeof_env in H10. subst.
+      eapply WellTyped_env_typeof_env in H11. subst.
       rewrite typeof_env_length. auto. }
   Qed.
 
@@ -318,6 +329,52 @@ Section typed.
       eapply handle_set in H5; eauto. }
   Qed.
 
+  Lemma WellTyped_from_subst : forall tu tv tv' s e t u,
+    @WellTyped_subst _ _ _ _ (@Expr_expr types funcs) _ _ tu tv s ->
+    WellTyped_expr (typeof_funcs funcs) tu (tv' ++ tv) (UVar u) t ->
+    Subst.lookup u s = Some e ->
+    WellTyped_expr (typeof_funcs funcs) tu (tv' ++ tv) (lift 0 (length tv') e) t.
+  Proof.
+    intros.
+    rewrite WellTyped_expr_UVar in H0.
+    eapply WellTyped_subst_lookup in H1. 2: eauto. 2: eauto.
+    red in H1. simpl in H1.
+    red.
+    etransitivity.
+    eapply (typeof_expr_lift (typeof_funcs funcs) tu nil tv' tv e).
+    eapply H1.
+  Qed.
+
+  Lemma exprD_from_subst : forall us vs vs' s e u t,
+    @substD _ _ _ _ (@Expr_expr types funcs) _ _ us vs s ->
+    Subst.lookup u s = Some e ->
+    nth_error (typeof_env us) u = Some t ->
+    exprD funcs us (vs' ++ vs) (UVar u) t =
+    exprD funcs us (vs' ++ vs) (lift 0 (length vs') e) t.
+  Proof.
+    intros.
+    rewrite exprD_UVar.
+    unfold lookupAs.
+    generalize H0.
+    eapply substD_lookup in H0; eauto.
+    destruct H0. intuition.
+    rewrite nth_error_typeof_env in *.
+    rewrite H3 in *. destruct x; inv_all; subst. simpl in *.
+    rewrite typ_cast_typ_refl.
+    symmetry. etransitivity. eapply (exprD_lift funcs us nil vs' vs).
+    eapply H4. 
+  Qed.
+
+  Lemma nth_error_from_WellTyped_UVar : forall tu tv u us t,
+    WellTyped_expr (typeof_funcs funcs) tu tv (UVar u) t ->
+    WellTyped_env (types := types) tu us ->
+    nth_error (typeof_env us) u = Some t.
+  Proof.
+    intros.
+    rewrite WellTyped_expr_UVar in *.
+    rewrite WellTyped_env_typeof_env in *. subst. auto.
+  Qed.
+
   Lemma exprUnify'_sound : forall unify,
                              unify_sound_ind unify ->
                              unify_sound_ind (exprUnify' (typeof_funcs funcs) unify).
@@ -431,16 +488,65 @@ Section typed.
     { destruct e2; eauto using handle_uvar2.
       { consider (EqNat.beq_nat u u0); intros; inv_all; subst.
         { intuition. }
-        { consider (set u (UVar u0) s); intros; inv_all; subst.
-          { eapply handle_set. 6: eassumption. eauto.
-            eauto. eauto. eauto. rewrite lower_lower'. simpl. reflexivity. }
-          { eapply handle_set in H5. 2: eassumption.
-            2: eassumption. 3: eapply H0. 2: eauto.
-            2: rewrite lower_lower'; reflexivity.
-            split. intuition.
-            intros. destruct H5.
-            specialize (H9 _ _ H6 H7 H8). intuition.
-            rewrite H11; eauto. } } } }
+        { consider (lookup u s); consider (lookup u0 s); intros.
+          { eapply H in H6; eauto using WellTyped_from_subst.
+            destruct H6; split; auto.
+            intros. specialize (H7 u1 v H8 H9 H10).
+            intuition. specialize (H12 _ H7).
+            rewrite WellTyped_env_typeof_env in H7. subst.
+            rewrite typeof_env_length in *.
+            etransitivity. etransitivity. 2: eapply H12.
+            cut (nth_error (typeof_env u1) u = Some t);
+              eauto using exprD_from_subst, nth_error_from_WellTyped_UVar.
+            symmetry.
+            cut (nth_error (typeof_env u1) u0 = Some t);
+              eauto using exprD_from_subst, nth_error_from_WellTyped_UVar. }
+          { generalize H5. eapply WellTyped_subst_lookup in H5; eauto.
+            red in H5. simpl in H5.
+            generalize H6. eapply WellTyped_subst_set in H6; eauto.
+            intros. split; auto.
+            intros.
+            eapply substD_set in H7; eauto.
+            intuition.
+            erewrite exprD_from_subst; eauto using nth_error_from_WellTyped_UVar.
+            rewrite exprD_UVar.
+            rewrite WellTyped_expr_UVar in *.
+            unfold lookupAs.
+            eapply WellTyped_env_typeof_env in H9. subst.
+            rewrite nth_error_typeof_env in H1.
+            destruct (nth_error u1 u0); try congruence.
+            specialize (H13 _ eq_refl).
+            destruct s0; simpl in *; inv_all; subst.
+            rewrite typ_cast_typ_refl.
+            etransitivity.
+            eapply (exprD_lift funcs u1 nil v' v e t). auto. }
+          { generalize H4. eapply WellTyped_subst_lookup in H4; eauto.
+            red in H4. simpl in H4.
+            generalize H6. eapply WellTyped_subst_set in H6; eauto.
+            intros. split; auto.
+            intros.
+            eapply substD_set in H7; eauto.
+            intuition.
+            symmetry.
+            erewrite exprD_from_subst; eauto using nth_error_from_WellTyped_UVar.
+            symmetry.
+            rewrite exprD_UVar.
+            rewrite WellTyped_expr_UVar in *.
+            unfold lookupAs.
+            eapply WellTyped_env_typeof_env in H9. subst.
+            rewrite nth_error_typeof_env in *.
+            destruct (nth_error u1 u); try congruence.
+            specialize (H13 _ eq_refl).
+            destruct s0; simpl in *; inv_all; subst.
+            rewrite typ_cast_typ_refl.
+            symmetry.
+            etransitivity.
+            eapply (exprD_lift funcs u1 nil v' v e t). auto. }
+          { consider (set u (UVar u0) s); intros; inv_all; subst.
+            { eapply handle_uvar2; eauto.
+              rewrite H5. rewrite lower_lower'. simpl. auto. }
+            { eapply handle_uvar; eauto.
+              rewrite H4. rewrite lower_lower'. simpl. auto. } } } } }
     { destruct e2; try congruence; eauto using handle_uvar.
       { consider (t ?[ eq ] t1); try congruence; intros; subst.
         consider (exprUnify' (typeof_funcs funcs) unify tu (tv' ++ tv)

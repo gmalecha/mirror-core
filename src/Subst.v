@@ -29,17 +29,17 @@ Section subst.
   ; substD_subst : forall u v s e t,
       substD u v s ->
       exprD u v e t = exprD u v (subst s e) t
+  ; WellTyped_subst_lookup : forall u v s uv e t,
+      WellTyped_subst u v s ->
+      nth_error u uv = Some t ->
+      lookup uv s = Some e ->
+      Safe_expr u v e t
   ; substD_lookup : forall u v s uv e,
       lookup uv s = Some e ->
       substD u v s ->
       exists val,
         nth_error u uv = Some val /\
         exprD u v e (projT1 val) = Some (projT2 val)
-  ; WellTyped_subst_lookup : forall u v s uv e t,
-      WellTyped_subst u v s ->
-      nth_error u uv = Some t ->
-      lookup uv s = Some e ->
-      Safe_expr u v e t
   ; WellTyped_subst_set : forall uv e s s' (u v : tenv typ) t,
       WellTyped_subst u v s ->
       nth_error u uv = Some t ->
@@ -48,6 +48,7 @@ Section subst.
       WellTyped_subst u v s'
   ; substD_set : forall uv e s s' u v,
       substD u v s' ->
+      lookup uv s = None ->
       set uv e s = Some s' ->
       substD u v s /\
       (forall tv, nth_error u uv = Some tv ->

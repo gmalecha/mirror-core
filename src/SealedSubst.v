@@ -57,8 +57,8 @@ Section sealed.
   }.
   Proof.
     destruct s; simpl; eauto using substD_subst.
-    destruct s; simpl; eauto using substD_subst, substD_lookup.
     destruct s; simpl; eauto using substD_subst, substD_lookup, WellTyped_subst_lookup, WellTyped_subst_set, substD_set.
+    destruct s; simpl; eauto using substD_subst, substD_lookup.
     { destruct s; destruct s'; simpl; eauto using substD_subst, substD_lookup, WellTyped_subst_lookup, WellTyped_subst_set, substD_set.
       intros. destruct (allowed0 uv); try congruence.
       consider (set uv e subst0); intros; inv_all; subst; try congruence;
