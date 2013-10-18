@@ -446,10 +446,21 @@ Module Make (FM : S with Definition E.t := uvar
     Definition subst_WellTyped (fs : tfunctions) tus tvs (sub : subst) : Prop :=
       raw_WellTyped fs tus tvs sub.(env).
 
+    Lemma wf_empty : WellFormed (FM.empty expr).
+    Proof.
+      red. red. intros.
+      intro.
+      apply FACTS.empty_in_iff in H1. auto.
+    Qed.
+
+    Definition subst_empty : subst :=
+      {| env := FM.empty _ ; wf := wf_empty |}.
+
     Instance Subst_subst : Subst subst expr :=
     { lookup := subst_lookup
     ; set := subst_set
     ; subst := fun s e => subst_subst s 0 e
+    ; empty := subst_empty
     }.
 
     Section semantic.
@@ -1247,7 +1258,7 @@ Module Make (FM : S with Definition E.t := uvar
               | |- context [ typ_cast_typ ?A ?B ?C ?D ?E ] =>
                 consider (typ_cast_typ A B C D E)
             end; intros.
-            { inv_all; subst. destruct H4; subst. 
+            { inv_all; subst. destruct H4; subst.
               repeat match goal with
                        | _ : context [ match ?X with _ => _ end ] |- _ =>
                          (consider X; intros; try solve [ intuition | congruence ]); [ ]
@@ -1391,11 +1402,28 @@ Module Make (FM : S with Definition E.t := uvar
             rewrite raw_subst_idem in * by eauto. auto. } }
       Qed.
 
+      Theorem substD_empty : forall u v,
+        subst_substD fs u v subst_empty.
+      Proof.
+        red. red. simpl. intros. rewrite FM.fold_1.
+        rewrite PROPS.elements_empty. simpl. exact I.
+      Qed.
+
+      Theorem WellTyped_empty : forall fs u v,
+        subst_WellTyped fs u v subst_empty.
+      Proof.
+        red. red. simpl; intros.
+        exfalso.
+        eapply FACTS.empty_mapsto_iff in H. assumption.
+      Qed.
+
       Instance SubstOk_subst : @SubstOk _ _ _ _ (@ExprD.Expr_expr ts fs)  Subst_subst :=
       { substD := subst_substD fs
       ; WellTyped_subst := subst_WellTyped (typeof_funcs fs)
       }.
       Proof.
+        { eapply substD_empty. }
+        { eapply WellTyped_empty. }
         { eapply substD_subst. }
         { eauto using WellTyped_lookup. }
         { eapply substD_lookup. }
@@ -1406,3 +1434,46 @@ Module Make (FM : S with Definition E.t := uvar
     End semantic.
   End hide_hints.
 End Make.
+
+Require FSets.FMapList.
+
+Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
+                                           with Definition eq := @eq uvar.
+  Definition t := uvar.
+  Definition eq := @eq uvar.
+  Definition lt := @lt.
+
+  Theorem eq_refl : forall x, eq x x.
+  Proof. reflexivity. Qed.
+
+  Theorem eq_sym : forall a b, eq a b -> eq b a.
+  Proof. intros; symmetry; auto. Qed.
+
+  Theorem eq_trans : forall a b c, eq a b -> eq b c -> eq a c.
+  Proof. intros; etransitivity; eauto. Qed.
+
+  Theorem lt_trans : forall a b c, lt a b -> lt b c -> lt a c.
+  Proof. eapply Lt.lt_trans. Qed.
+
+  Theorem lt_not_eq : forall a b, lt a b -> ~(eq a b).
+  Proof. eapply NPeano.Nat.lt_neq. Qed.
+
+  Definition compare (x y : t) : OrderedType.Compare lt eq x y :=
+    match Compare_dec.nat_compare x y as r return
+      Compare_dec.nat_compare x y = r -> OrderedType.Compare lt eq x y
+      with
+      | Lt => fun pf => OrderedType.LT (lt:=lt) (Compare_dec.nat_compare_Lt_lt _ _ pf)
+      | Eq => fun pf => OrderedType.EQ (lt:=lt) (Compare_dec.nat_compare_eq _ _ pf)
+      | Gt => fun pf => OrderedType.GT (lt:=lt) (Compare_dec.nat_compare_Gt_gt _ _ pf)
+    end (refl_equal _).
+
+  Definition eq_dec (x y : nat) : {x = y} + {x <> y} :=
+    match EqNat.beq_nat x y as r return
+      EqNat.beq_nat x y = r -> {x = y} + {x <> y} with
+      | true => fun pf => left (EqNat.beq_nat_true _ _ pf)
+      | false => fun pf => right (EqNat.beq_nat_false _ _ pf)
+    end (refl_equal _).
+End UVar_ord.
+
+Module MAP := FMapList.Make UVar_ord.
+Module SUBST := Make MAP.

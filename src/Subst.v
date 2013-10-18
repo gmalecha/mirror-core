@@ -17,6 +17,8 @@ Section subst.
   { set : uvar -> expr -> T -> option T
   ; lookup : uvar -> T -> option expr
   ; subst : T -> expr -> expr
+  ; empty : T
+(*  ; dropRange : uvar -> nat -> T -> option (T * list expr) *)
   }.
 
   Variable typ : Type.
@@ -26,6 +28,8 @@ Section subst.
   Class SubstOk (S : Subst) : Type :=
   { substD : EnvI.env typD -> EnvI.env typD -> T -> Prop
   ; WellTyped_subst : EnvI.tenv typ -> EnvI.tenv typ -> T -> Prop
+  ; substD_empty : forall u v, substD u v empty
+  ; WellTyped_empty : forall u v, WellTyped_subst u v empty
   ; substD_subst : forall u v s e t,
       substD u v s ->
       exprD u v e t = exprD u v (subst s e) t
@@ -53,6 +57,17 @@ Section subst.
       substD u v s /\
       (forall tv, nth_error u uv = Some tv ->
                   exprD u v e (projT1 tv) = Some (projT2 tv))
+(*
+  ; extractRange_ok : forall u u' v rvs uv cnt s s' r,
+      dropRange uv cnt s = Some (s', r) ->
+      substD (u ++ rvs ++ u') v s ->
+      length r = cnt /\
+      substD (u ++ u') v s' /\
+      forall n x e,
+        nth_error rvs n = Some x ->
+        nth_error r n = Some e ->
+        exprD (u ++ u') v e (projT1 x) = Some (projT2 x)
+*)
   }.
 
   Variable Subst_subst : Subst.

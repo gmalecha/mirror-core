@@ -28,6 +28,13 @@ Record McEnv : Type :=
 
 Definition McMtac := reader McEnv.
 
+Definition runMcMtac {T} (fs : tfunctions) (tus tvs : EnvI.tenv typ)
+           (fuel : nat) (cmd : McMtac T) : T :=
+  runReader cmd {| mtac_tfuncs := fs
+                 ; mtac_tus := tus
+                 ; mtac_tvs := tvs
+                 ; mtac_fuel := fuel |}.
+
 Global Instance Monad_McMtac : Monad McMtac := _.
 Instance MonadReader_McMtac : MonadReader McEnv McMtac := _.
 
@@ -35,14 +42,21 @@ Definition mc_expr (t : Type) : Type := expr.
 
 Definition mpattern := expr.
 
-Fixpoint vars_of_mpattern (p : mpattern) : nat :=
+Definition omax (l r : option nat) : option nat :=
+  match l , r with
+    | Some l , Some r => Some (max l r)
+    | None , r => r
+    | l , None => l
+  end.
+
+Fixpoint vars_of_mpattern (p : mpattern) : option nat :=
   match p with
     | Var _
-    | Func _ _ => 0
-    | App l r => max (vars_of_mpattern l) (vars_of_mpattern r)
+    | Func _ _ => None
+    | App l r => omax (vars_of_mpattern l) (vars_of_mpattern r)
     | Abs _ e => vars_of_mpattern e
-    | UVar u => u
-    | Equal _ l r => max (vars_of_mpattern l) (vars_of_mpattern r)
+    | UVar u => Some u
+    | Equal _ l r => omax (vars_of_mpattern l) (vars_of_mpattern r)
     | Not e => vars_of_mpattern e
   end.
 
@@ -92,11 +106,17 @@ Definition lift_uvars (us uadd : nat) (e : expr) : expr :=
     | _ => lift_uvars' us uadd e
   end.
 
-Parameter subst : Type.
-Parameter Subst_subst : Subst.Subst subst expr.
-Parameter empty_subst : subst.
+Require MirrorCore.SealedSubst.
+Require MirrorCore.Ext.FMapSubst.
 
-Fixpoint get_args_from sub from cnt : option (vector expr cnt) :=
+Definition subst := SealedSubst.seal_subst FMapSubst.SUBST.subst.
+Local Instance Subst_subst : Subst.Subst subst expr :=
+  @SealedSubst.Subst_seal_subst _ _ FMapSubst.SUBST.Subst_subst.
+Definition empty_above (above : uvar) : subst :=
+  SealedSubst.seal (fun x => above ?[ le ] x)
+                   (@Subst.empty _ _ FMapSubst.SUBST.Subst_subst).
+
+Fixpoint get_args_from (sub : subst) from cnt : option (vector expr cnt) :=
   match cnt with
     | 0 => Some (Vnil _)
     | S n =>
@@ -109,11 +129,17 @@ Fixpoint get_args_from sub from cnt : option (vector expr cnt) :=
       end
   end.
 
-Definition mmatch {T}
+Inductive Branch (T : Type) : Type :=
+| Case (p : mpattern) (d : match vars_of_mpattern p with
+                             | None => McMtac T
+                             | Some p => exp expr (McMtac T) (S p)
+                           end).
+
+Definition _mmatch {T}
            (t : expr)
-           (ls : list { p : mpattern & exp expr (McMtac T) (vars_of_mpattern p) })
+           (ls : list (Branch T))
            (default : McMtac T) : McMtac T :=
-  bind ask (fun env =>
+  bind (Monad := Monad_McMtac) ask (fun env =>
               let tf := env.(mtac_tfuncs) in
               let tus := env.(mtac_tus) in
               let tvs := env.(mtac_tvs) in
@@ -121,25 +147,67 @@ Definition mmatch {T}
               match typeof_expr tf tus tvs t with
                 | None => default
                 | Some ty =>
-                  (fix find_pattern (pats : list { p : mpattern & exp expr (McMtac T) (vars_of_mpattern p) })  : McMtac T :=
+                  (fix find_pattern (pats : list (Branch T))  : McMtac T :=
                      match pats with
                        | nil => default
-                       | (existT p case) :: ps =>
-                         let var_count := vars_of_mpattern p in
-                         let p := lift_uvars (length tus) (length tus) p in
+                       | Case p case :: ps =>
+                         let p' := lift_uvars (length tus) (length tus) p in
                          match
-                           @exprUnify subst _ tf fuel tus tvs (length tvs) empty_subst
-                                      t p ty
+                           @exprUnify subst _ tf fuel tus tvs 0
+                                      (empty_above (length tus))
+                                      t p' ty
                          with
                            | None => find_pattern ps
                            | Some sub =>
-                             match
-                               get_args_from sub (length tus) var_count
+                             match vars_of_mpattern p as vs
+                                   return match vs with
+                                            | None => McMtac T
+                                            | Some p => exp expr (McMtac T) (S p)
+                                          end -> McMtac T
                              with
-                               | Some args =>
-                                 @exp_app_vector _ (McMtac T) var_count args case
-                               | None => find_pattern ps
-                             end
+                               | None => fun x => x
+                               | Some var_count => fun case =>
+                                 match
+                                   get_args_from sub (length tus) (S var_count)
+                                 with
+                                   | Some args =>
+                                     @exp_app_vector _ (McMtac T) (S var_count) args case
+                                   | None => find_pattern ps
+                                 end
+                             end case
                          end
                      end) ls
               end).
+
+Module McMtacNotation.
+  Delimit Scope mcmtac_scope with mcmtac.
+  Delimit Scope mcpattern_scope with mcmtac_pattern.
+  Notation "[  x  ]  '=>>' e" :=
+    (@Case _ x e%mcmtac)
+      (at level 50) : mcpattern_scope.
+  Delimit Scope mcpatterns_scope with mcmtac_patterns.
+  Notation "| p1 | .. | p2" :=
+    (@cons (@Branch _) p1%mcmtac_pattern ..
+           (@cons (@Branch _) p2%mcmtac_pattern nil) ..)
+      (at level 50) : mcpatterns_scope.
+  Notation "'mmatch' t 'with' ps \ e 'end'" :=
+    (@_mmatch _ t ps%mcmtac_patterns e%mcmtac) (at level 50) : mcmtac_scope.
+
+  (** Morally, this is just [e] **)
+  Notation "'mmatch' t 'with' \ e 'end'" :=
+    (@_mmatch _ t nil e%mcmtac) (at level 50) : mcmtac_scope.
+
+(*
+  Eval cbv iota in ([ Var 0 ] =>> ret true)%mcmtac_pattern.
+  Eval cbv iota in ([ UVar 0 ] =>> ret)%mcmtac_pattern.
+
+  Eval cbv iota in (fun x => mmatch x with
+                               | [ UVar 0 ] =>> fun x => ret true
+                               \ ret false
+                             end)%mcmtac.
+
+  Eval cbv iota in (fun x => mmatch x with
+                               \ ret false
+                             end)%mcmtac.
+*)
+End McMtacNotation.

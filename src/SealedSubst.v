@@ -44,6 +44,7 @@ Section sealed.
              end
   ; lookup := fun u s => lookup u s.(subst)
   ; subst := fun s e => Subst.subst s.(subst) e
+  ; empty := {| allowed := fun _ => true ; subst := @Subst.empty _ _ _ |}
   }.
 
   Variable typ : Type.
@@ -56,6 +57,8 @@ Section sealed.
   ; WellTyped_subst := fun tus tvs s => WellTyped_subst tus tvs s.(subst)
   }.
   Proof.
+    { simpl; apply substD_empty. }
+    { simpl; apply WellTyped_empty. }
     destruct s; simpl; eauto using substD_subst.
     destruct s; simpl; eauto using substD_subst, substD_lookup, WellTyped_subst_lookup, WellTyped_subst_set, substD_set.
     destruct s; simpl; eauto using substD_subst, substD_lookup.
