@@ -111,8 +111,8 @@ Section env.
              | |- context [ typ_eqb ?X ?Y ] =>
                change (typ_eqb X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
-             | |- context [ RelDec.list_eq RelDec_eq_typ ?X ?Y ] =>
-               change (RelDec.list_eq RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
+             | |- context [ List.list_eqb RelDec_eq_typ ?X ?Y ] =>
+               change (List.list_eqb RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
              | |- _ => rewrite andb_true_iff
              | H : forall x, (_ = true) <-> _ |- _ => rewrite H
@@ -128,15 +128,3 @@ Section env.
   Qed.
 
 End env.
-
-(*
-Section expr.
-  Variable types : types.
-
-  Instance Expr_expr (fs : functions types) : Expr (typD types) expr :=
-  { exprD := exprD fs
-  ; acc := expr_acc
-  ; wf_acc := wf_expr_acc
-  }.
-End expr.
-*)

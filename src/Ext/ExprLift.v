@@ -219,8 +219,6 @@ Section typed.
       erewrite IHe by eauto. reflexivity. }
   Qed.
 
-
-
   Lemma exprD'_lower : forall (fs : functions ts) us vs vs' vs'' e e0 t,
                          lower (length vs) (length vs') e = Some e0 ->
                          match exprD' fs us (vs ++ vs' ++ vs'') e t
@@ -440,7 +438,7 @@ Section typed.
           remember (nth_error vs v). destruct e5.
           { exfalso.
             clear - Heqe5 H. rewrite nth_error_past_end in Heqe5.
-            congruence.  auto. }
+            congruence. omega. }
           { intros. generalize (e4 e6).
             clear - H H0. generalize H1. rewrite <- H1.
             uip_all. gen_refl. revert y0.
@@ -1118,7 +1116,7 @@ Section typed.
             { exfalso.
               rewrite <- (app_nil_r vs) in Heqe.
               rewrite nth_error_app_R in Heqe. rewrite nth_error_nil in Heqe.
-              congruence.  auto. }
+              congruence.  omega. }
             { uip_all. generalize (e4 eq_refl). intros.
               clear - H. revert y y0 y2.
               generalize e8 e3 e2. rewrite e8.
@@ -1377,43 +1375,5 @@ Section typed.
     rewrite EnvI.split_env_length. rewrite H0. reflexivity.
     rewrite EnvI.split_env_length. rewrite H. reflexivity.
   Qed.
-
-(*
-  Theorem lift_welltyped : forall fs vs vs' us (e : expr) t,
-    WellTyped_expr fs us (vs ++ vs') e t ->
-    forall vs'' s l,
-      s = length vs -> l = length vs'' ->
-      WellTyped_expr fs us (vs ++ vs'' ++ vs') (lift s l e) t.
-  Proof.
-    intros. rewrite lift_lift'. subst. revert vs''.
-    generalize dependent t. revert vs.
-    induction e; simpl; intros; unfold WellTyped_expr in *; simpl in *; forward;
-      repeat match goal with
-               | [ H : _ |- _ ] => erewrite H by eauto
-             end; auto.
-    { consider (NPeano.ltb v (length vs)); intros; simpl.
-      rewrite nth_error_app_L in * by auto. auto.
-      rewrite nth_error_app_R in * by auto.
-      rewrite nth_error_app_R by omega.
-      rewrite nth_error_app_R by omega.
-      rewrite <- H. f_equal. omega. }
-    { consider (typeof_expr fs us (vs ++ vs') e); intros.
-      { erewrite IHe by eassumption.
-        rewrite map_map.
-        revert H1. clear - H. revert t; revert t0.
-        induction H; simpl; intros; auto.
-        intros. consider (typeof_expr fs us (vs ++ vs') x); intros; try congruence.
-        erewrite H by eauto.
-        destruct (type_of_apply t0 t1); eauto.
-        solve [ eapply fold_left_monadic_fail in H2; intuition ].
-        solve [ eapply fold_left_monadic_fail in H2; intuition ]. }
-      { solve [ eapply fold_left_monadic_fail in H1; intuition ]. } }
-    { unfold WellTyped_expr in *; simpl in *; auto.
-      consider (typeof_expr fs us (t :: vs ++ vs') e); intros; try congruence.
-      inversion H0; clear H0; subst.
-      eapply IHe with (vs := t :: vs) in H. simpl in H. rewrite H.
-      inv_all; subst. reflexivity. }
-  Qed.
-*)
 
 End typed.
