@@ -2,7 +2,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprT.
-Require Import MirrorCore.Ext.ExprD1.
+Require Import MirrorCore.Ext.ExprD3.
 
 Set Implicit Arguments.
 Set Strict Implicit.

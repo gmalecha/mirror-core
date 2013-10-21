@@ -1,8 +1,8 @@
 GENERIC := Iso IsoTac Approx
-PROVERS := Assumption
+PROVERS := ProverTac AssumptionProver
 #  Transitivity
 EXTENSIBLE := Repr Types ExprCore \
-	      ExprT ExprDI ExprD1 ExprD \
+	      ExprT ExprDI ExprD1 ExprD3 ExprD \
 	      ExprFacts \
 	      ExprLift ExprUnifySyntactic \
 	      Expr FMapSubst
