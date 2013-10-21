@@ -29,8 +29,11 @@ Section Expr.
 
   Class ExprOk (E : Expr) : Type :=
   { Safe_expr_exprD : forall us vs e t,
-                        Safe_expr (typeof_env us) (typeof_env vs) e t ->
+                        Safe_expr (typeof_env us) (typeof_env vs) e t <->
                         exists val, exprD us vs e t = Some val
+  ; exprD_weaken : forall us us' vs vs' e t val,
+                     exprD us vs e t = Some val ->
+                     exprD (us ++ us') (vs ++ vs') e t = Some val
   }.
 
   Context {Expr_expr : Expr}.
