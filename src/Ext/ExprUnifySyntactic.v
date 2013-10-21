@@ -4,7 +4,6 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
-Require Import MirrorCore.Prover.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.Ext.Types.
