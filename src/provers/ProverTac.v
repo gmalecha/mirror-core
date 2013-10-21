@@ -2,7 +2,7 @@ Require Import List.
 Require Import ExtLib.Tactics.Consider.
 Require Import Expr.
 
-Ltac t1 := 
+Ltac t1 :=
   match goal with
     | _ => discriminate
     | _ => progress (hnf in *; simpl in *; intuition; subst)
@@ -18,8 +18,11 @@ Ltac t1 :=
       end
     | [ H : Forall _ (_ :: _) |- _ ] =>
       rewrite Forall_cons in H
+(*
     | [ H : context [ expr_seq_dec ?A ?B ] |- _ ] =>
-      generalize (expr_seq_dec_eq A B); destruct (expr_seq_dec A B); try congruence
+      generalize (expr_seq_dec_eq A B); destruct (expr_seq_dec A B);
+      try congruence
+*)
   end.
 
 Ltac t := repeat t1.

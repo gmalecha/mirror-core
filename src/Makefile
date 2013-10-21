@@ -9,7 +9,9 @@ EXTENSIBLE := Repr Types ExprCore \
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
 	      Prover Subst SealedSubst \
-	      $(EXTENSIBLE:%=Ext/%)
+	      $(EXTENSIBLE:%=Ext/%) \
+	      $(PROVERS:%=provers/%) \
+
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

@@ -18,8 +18,8 @@ Section semantic.
 
   Definition Provable uvars vars (e : expr) : Prop :=
     exists p, exprD uvars vars e tvProp = Some p.
-  
-  Definition AllProvable uvars vars (es : list expr) := 
+
+  Definition AllProvable uvars vars (es : list expr) :=
     Forall (Provable uvars vars) es.
 End semantic.
 
@@ -32,10 +32,10 @@ Proof.
     eapply exprD_weaken in H. destruct H. intuition. eauto. }
 Qed.
 
-Theorem Forall_cons : forall T (P : T -> Prop) x xs, 
+Theorem Forall_cons : forall T (P : T -> Prop) x xs,
   Forall P (x :: xs) <-> P x /\ Forall P xs.
 Proof.
-  intuition; inversion H; auto. 
+  intuition; inversion H; auto.
 Qed.
 
 Theorem AllProvable_app : forall ts (fs : functions ts) u v es es',

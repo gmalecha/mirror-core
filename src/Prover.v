@@ -40,14 +40,15 @@ Section proverI.
       valid uvars vars sum ->
       forall goal,
         prover sum (typeof_env uvars) (typeof_env vars) goal = true ->
+(* 
         match exprD uvars vars goal (@typ0 _ _ _ typ0_prop) return Prop with
           | None => True
           | Some P => soutof (iso := @typ0_iso _ _ _ typ0_prop nil) (fun x => x) P
         end.
-(*
-        WellTyped_expr (typeof_env uvars) (typeof_env vars) goal tvProp ->
-        Provable uvars vars goal.
 *)
+        Safe_expr (typeof_env uvars) (typeof_env vars) goal (@typ0 _ _ _ typ0_prop) ->
+        Provable typ0_prop uvars vars goal.
+
 
   Record ProverT_correct (P : ProverT) : Type :=
   { Valid : env typD -> env typD -> Facts P -> Prop
