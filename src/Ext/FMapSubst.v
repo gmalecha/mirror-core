@@ -602,16 +602,15 @@ Module Make (FM : S with Definition E.t := uvar
         simpl. intros; rewrite substD_sem in *.
         unfold ExprD.exprD in *.
         destruct (EnvI.split_env v').
-        revert t v. induction e; simpl; intros; auto.
+        revert t v. induction e; simpl; intros; auto; autorewrite with exprD_rw.
         { match goal with
             | |- match ?X with _ => _ end =>
               destruct X; intros; auto
           end. }
         { destruct (nth_error fs f); auto.
           destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-          destruct (typ_cast_val ts nil (instantiate_typ l (ftype f0)) t t0); auto. }
-        { repeat rewrite <- ExprD1.EXPR_DENOTE_core.typeof_typeof_expr.
-          rewrite subst_subst_typeof.
+          destruct (typ_cast_typ ts (fun x => x) nil (instantiate_typ l (ftype f0)) t); auto. }
+        { rewrite subst_subst_typeof.
           { destruct (typeof_expr (typeof_funcs fs) (EnvI.typeof_env u) (v ++ x) e1); auto.
             destruct t0; auto.
             specialize (IHe1 (tvArr t0_1 t0_2) v).
@@ -634,19 +633,19 @@ Module Make (FM : S with Definition E.t := uvar
             exists x0.
             rewrite nth_error_typeof_env. rewrite H2. simpl.
             split; auto.
-            eapply ExprD1.EXPR_DENOTE.typeof_expr_exprD'.
+            eapply ExprD.typeof_expr_exprD'.
             eauto. } }
         { destruct t0; auto.
           destruct (typ_cast_typ ts (fun x => x) nil t0_1 t); auto.
-          specialize (IHe t0_2 (t0_1 :: v)).
+          specialize (IHe t0_2 (t :: v)).
           simpl in *.
-          change (S (length v)) with (length (t0_1 :: v)) in *.
+          change (S (length v)) with (length (t :: v)) in *.
           repeat match goal with
                    | |- context [ @ExprD.exprD' ?A ?B ?C ?D ?E ?F ] =>
                      consider (@ExprD.exprD' A B C D E F); intros
                  end; try congruence; eauto.
           eapply functional_extensionality. intros.
-          specialize (IHe (Hcons x0 vs)). simpl in *. auto. }
+          specialize (IHe (Hcons (p x0) vs)). simpl in *. auto. }
         { simpl in *.
           unfold raw_lookup, EnvI.lookupAs, subst_lookup, raw_lookup in *.
           specialize (H u0).
@@ -670,13 +669,14 @@ Module Make (FM : S with Definition E.t := uvar
             consider (ExprD.exprD' fs u (v ++ x) (lift 0 (length v) e) t); auto; intros.
             assert (WellTyped_expr (typeof_funcs fs) (typeof_env u)
                                    (v ++ x) (lift 0 (length v) e) t).
-            { rewrite ExprD1.EXPR_DENOTE.typeof_expr_exprD'. eauto. }
+            { rewrite ExprD.typeof_expr_exprD'. eauto. }
             assert (WellTyped_expr (typeof_funcs fs) (typeof_env u)
                                    (v ++ x) (lift 0 (length v) e) x0).
-            { rewrite ExprD1.EXPR_DENOTE.typeof_expr_exprD'. eauto. }
+            { rewrite ExprD.typeof_expr_exprD'. eauto. }
             red in H6; red in H7. rewrite H6 in H7. inv_all; subst.
             rewrite typ_cast_typ_refl in H4. congruence. }
-          { simpl; intros. unfold EnvI.lookupAs.
+          { autorewrite with exprD_rw.
+            simpl; intros. unfold EnvI.lookupAs.
             destruct (nth_error u u0); auto.
             destruct s0.
             simpl in *.
@@ -881,6 +881,29 @@ Module Make (FM : S with Definition E.t := uvar
             simpl; intuition. } }
       Qed.
 
+      Lemma raw_substD_raw_WellTyped : forall u v s,
+        raw_substD fs u v s ->
+        raw_WellTyped (typeof_funcs fs) (typeof_env u) (typeof_env v) s.
+      Proof.
+        intros. rewrite raw_substD_sem in H.
+        red. intros.
+        apply FM.find_1 in H0.
+        specialize (H _ _ H0).
+        destruct H. intuition.
+        rewrite nth_error_typeof_env. rewrite H1.
+        eexists; split; eauto.
+        eapply ExprD.typeof_expr_exprD'.
+        unfold ExprD.exprD in *.
+        unfold typeof_env. generalize (@split_env_projT1 typ (typD ts) v).
+        destruct (split_env v); simpl in *.
+        intros; subst.
+        match goal with
+          | _ : match ?X with _ => _ end = _ |- _ =>
+            consider X; try congruence
+        end; intros.
+        eauto.
+      Qed.
+
       Lemma raw_substD_exprD' : forall u v s,
         raw_substD fs u v s ->
         forall e tv' t,
@@ -894,9 +917,9 @@ Module Make (FM : S with Definition E.t := uvar
             | _ , _ => False
           end.
       Proof.
-        induction e; simpl; intros; autorewrite with exprD_rw.
-        { destruct (split_env v).
-          change (
+        induction e; simpl; intros; consider (split_env v);
+        intros; autorewrite with exprD_rw.
+        { change (
               let zzz t' (pf : Some t' = nth_error (tv' ++ x) v0) f :=
                   (fun e : hlist (typD ts nil) (tv' ++ x) =>
                                match
@@ -981,36 +1004,11 @@ Module Make (FM : S with Definition E.t := uvar
               change Y with X ;
               consider X; try congruence
           end; auto. }
-        { destruct (split_env v).
-          repeat match goal with
+        { repeat match goal with
                    | |- context [ match ?X with _ => _ end ] =>
                      (destruct X; try congruence); [ ]
                  end; auto. }
-        { Lemma raw_substD_raw_WellTyped : forall u v s,
-            raw_substD fs u v s ->
-            raw_WellTyped (typeof_funcs fs) (typeof_env u) (typeof_env v) s.
-          Proof.
-            intros. rewrite raw_substD_sem in H.
-            red. intros.
-            apply FM.find_1 in H0.
-            specialize (H _ _ H0).
-            destruct H. intuition.
-            rewrite nth_error_typeof_env. rewrite H1.
-            eexists; split; eauto.
-            eapply ExprD.typeof_expr_exprD'.
-            unfold ExprD.exprD in *.
-            unfold typeof_env. generalize (@split_env_projT1 typ (typD ts) v).
-            destruct (split_env v); simpl in *.
-            intros; subst.
-            match goal with
-              | _ : match ?X with _ => _ end = _ |- _ =>
-                consider X; try congruence
-            end; intros.
-            eauto.
-          Qed.
-          consider (split_env v); intros.
-          repeat rewrite <- ExprD1.EXPR_DENOTE_core.typeof_typeof_expr.
-          specialize (raw_substD_raw_WellTyped H); intro.
+        { specialize (raw_substD_raw_WellTyped H); intro.
           generalize (@raw_subst_typeof (typeof_funcs fs) (typeof_env u) e1 x tv' s).
           cutrewrite (typeof_env v = x) in H1.
           intro. rewrite H2 by eauto.
@@ -1027,9 +1025,8 @@ Module Make (FM : S with Definition E.t := uvar
           { inv_all; subst. f_equal. rewrite IHe1. f_equal. eauto. }
           unfold typeof_env.
           rewrite <- (split_env_projT1 v). rewrite H0. reflexivity. }
-        { destruct (split_env v).
-          destruct t0; auto.
-          specialize (IHe (t0_1 :: tv') t0_2). simpl in *.
+        { destruct t0; auto.
+          specialize (IHe (t :: tv') t0_2). simpl in *.
           repeat match goal with
                    | _ : context [ match ?X with _ => _ end ] |- _ =>
                      consider X; intros; try congruence
@@ -1038,16 +1035,16 @@ Module Make (FM : S with Definition E.t := uvar
                  end; auto.
           clear H2. inv_all; subst.
           eapply functional_extensionality. intros.
-          specialize (IHe (Hcons x0 vs')). simpl in *; auto. }
+          specialize (IHe (Hcons (p x0) vs')). simpl in *; auto. }
         { rewrite raw_substD_sem in H.
           unfold ExprD.exprD in *.
-          destruct (split_env v).
           specialize (H u0).
           destruct (raw_lookup u0 s).
           { specialize (H _ eq_refl).
             destruct H. intuition.
             unfold lookupAs in *.
-            rewrite H0. destruct x0; simpl in *.
+            rewrite H1. destruct x0; simpl in *.
+            rewrite H0 in *.
             consider (ExprD.exprD' fs u x e x0); try congruence; intros.
             inv_all; subst.
             match goal with
@@ -1057,24 +1054,24 @@ Module Make (FM : S with Definition E.t := uvar
                              | _ => _ end =>
                 consider X; intros
             end.
-            { inv_all. destruct H1. subst.
+            { inv_all. destruct H2. subst.
               generalize (exprD'_lift fs u nil tv' x e t); simpl.
               rewrite H.
               destruct (ExprD.exprD' fs u (tv' ++ x) (lift 0 (length tv') e) t); auto.
-              intros. specialize (H1 Hnil vs' h). simpl in *; auto. }
+              intros. specialize (H2 Hnil vs' h). simpl in *; auto. }
             { generalize (exprD'_lift fs u nil tv' x e t); simpl.
               consider (ExprD.exprD' fs u (tv' ++ x) (lift 0 (length tv') e) t); intuition.
               consider (ExprD.exprD' fs u x e t); intuition.
-              clear H4.
+              clear H5.
               assert (WellTyped_expr (typeof_funcs fs) (typeof_env u) x e t).
               { eapply ExprD.typeof_expr_exprD'; eauto. }
               assert (WellTyped_expr (typeof_funcs fs) (typeof_env u) x e x0).
               { eapply ExprD.typeof_expr_exprD'; eauto. }
-              red in H4; red in H5. rewrite H4 in H5. inv_all; subst.
+              red in H6; red in H5. rewrite H6 in H5. inv_all; subst.
               rewrite typ_cast_typ_refl in *. congruence. } }
           { autorewrite with exprD_rw.
             destruct (lookupAs u u0 t); auto. } }
-        { destruct t0; try solve [ destruct (split_env v); auto ].
+        { destruct t0; auto.
           specialize (IHe1 tv' t).
           specialize (IHe2 tv' t).
           destruct (split_env v).
@@ -1082,7 +1079,7 @@ Module Make (FM : S with Definition E.t := uvar
                    | _ : match ?X with _ => _ end |- _ =>
                      consider X; intros; try congruence
                  end; auto. }
-        { destruct t; try solve [ destruct (split_env v); auto ].
+        { destruct t; auto.
           specialize (IHe tv' tvProp).
           destruct (split_env v).
           repeat match goal with
@@ -1209,7 +1206,7 @@ Module Make (FM : S with Definition E.t := uvar
                      destruct X; intros
                  end; auto. }
         { consider (split_env v); intros.
-          repeat rewrite <- ExprD1.EXPR_DENOTE_core.typeof_typeof_expr.
+          autorewrite with exprD_rw.
           erewrite WellTyped_raw_subst_add_new.
           2: eassumption.
           2: instantiate (1 := projT1 x); rewrite nth_error_typeof_env;
@@ -1229,16 +1226,17 @@ Module Make (FM : S with Definition E.t := uvar
           eapply ExprD.lem_typeof_expr_exprD'.
           unfold ExprD.exprD in *. rewrite H2 in *.
           destruct (ExprD.exprD' fs u x0 e' (projT1 x)); try congruence. }
-        { destruct t0; try solve [ destruct (split_env v); exact I ].
-          specialize (IHe (t0_1 :: tv') t0_2).
-          destruct (split_env v).
+        { destruct (split_env v).
+          autorewrite with exprD_rw.
+          destruct t0; auto.
+          specialize (IHe (t :: tv') t0_2).
           simpl in *.
           repeat match goal with
                    | |- match match ?X with _ => _ end with _ => _ end =>
                      consider X; auto; intros; try congruence
                  end.
           eapply functional_extensionality. intros.
-          specialize (IHe (Hcons x1 vs')). simpl in *. auto. }
+          specialize (IHe (Hcons (p x1) vs')). simpl in *. auto. }
         { unfold ExprD.exprD in *.
           destruct (split_env v).
           unfold raw_lookup in *.
@@ -1254,10 +1252,10 @@ Module Make (FM : S with Definition E.t := uvar
                        | _ : context [ match ?X with _ => _ end ] |- _ =>
                          (consider X; intros; try solve [ intuition | congruence ]); [ ]
                      end.
-            match goal with
-              | |- context [ typ_cast_typ ?A ?B ?C ?D ?E ] =>
-                consider (typ_cast_typ A B C D E)
-            end; intros.
+              match goal with
+                | |- context [ typ_cast_typ ?A ?B ?C ?D ?E ] =>
+                  consider (typ_cast_typ A B C D E)
+              end; intros.
             { inv_all; subst. destruct H4; subst.
               repeat match goal with
                        | _ : context [ match ?X with _ => _ end ] |- _ =>
@@ -1280,16 +1278,19 @@ Module Make (FM : S with Definition E.t := uvar
               | |- match ?x with _ => _ end =>
                 destruct x
             end; auto. } }
-        { destruct t0; try solve [ destruct (split_env v); auto ].
+        { destruct (split_env v).
+          autorewrite with exprD_rw in *.
+          destruct t0; auto.
           specialize (IHe1 tv' t).
           specialize (IHe2 tv' t).
-          destruct (split_env v).
           repeat match goal with
                    | _ : context [ match ?X with _ => _ end ] |- _ =>
                      destruct X; intros
                  end; auto.
           rewrite IHe1. rewrite IHe2. reflexivity. }
-        { destruct t; try solve [ destruct (split_env v); auto ].
+        { destruct (split_env v).
+          autorewrite with exprD_rw in *.
+          destruct t; auto.
           specialize (IHe tv' tvProp).
           destruct (split_env v).
           repeat match goal with
