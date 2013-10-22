@@ -1,6 +1,6 @@
 Require Import List.
 Require Import ExtLib.Tactics.Consider.
-Require Import Expr.
+Require Import MirrorCore.ExprI.
 
 Ltac t1 :=
   match goal with
@@ -8,7 +8,6 @@ Ltac t1 :=
     | _ => progress (hnf in *; simpl in *; intuition; subst)
     | [ x := _ : _ |- _ ] => subst x || (progress (unfold x in * ))
     | [ H : ex _ |- _ ] => destruct H
-    | [ s : function _ |- _ ] => destruct s
     | [ H : Some _ = Some _ |- _ ] => injection H; clear H
     | [ H : _ = Some _ |- _ ] => rewrite H in *
     | [ H : context [ match ?X with _ => _ end ] |- _ ] =>

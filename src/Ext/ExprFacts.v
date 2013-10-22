@@ -58,7 +58,7 @@ Section semantic.
 
   Variable types : types.
 
-  Variable fs : functions types.
+(*  Variable fs : functions types. *)
   Variable uenv : env (typD types).
 
 (*
@@ -100,11 +100,13 @@ Section semantic.
   Qed.
 *)
 
+(*
   Theorem exprD'_weaken_Some : forall ue ve e t venv x y,
     exprD' fs uenv venv e t = Some x ->
     exprD' fs (uenv ++ ue) (venv ++ ve) e t = Some y ->
     forall h he, x h = y (hlist_app h he).
   Proof.
+*)
 (*
     induction e; simpl; intros;
       repeat match goal with
@@ -190,12 +192,16 @@ Section semantic.
         reflexivity. }
   Qed.
 *)
+(*
   Abort.
+*)
 
+(*
   Theorem exprD_weaken : forall venv e t ue ve x,
     exprD fs uenv venv e t = Some x ->
     exprD fs (uenv ++ ue) (venv ++ ve) e t = Some x.
   Proof.
+*)
 (*
     unfold exprD; intros. rewrite split_env_app.
     destruct (split_env venv). destruct (split_env ve).
@@ -264,6 +270,8 @@ Section semantic.
       { eapply IHe; eauto. simpl; eauto. } }
   Qed.
 *)
+(*
   Abort.
+*)
 
 End semantic.

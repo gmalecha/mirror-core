@@ -1,11 +1,21 @@
 Require Import List.
-Require Import Relations.
-Require Import ExprCore.
-Require Import ExprLift.
+Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Section with_expr.
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
+  Variable expr : Type.
+  Variable Expr_expr : Expr typD expr.
+
+  Class ExprOps : Type :=
+  { mentionsV : nat -> expr -> bool
+  ; mentionsU : nat -> expr -> bool
+  ; replace : (nat -> expr) -> (nat -> expr) -> expr -> expr
+  }.
+(*
 Section substitute.
   Context {ts : types}.
     
@@ -27,3 +37,4 @@ Section substitute.
     end.
 
 End substitute.
+*)

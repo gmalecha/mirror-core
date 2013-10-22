@@ -18,33 +18,32 @@ Set Strict Implicit.
 
 Section typed.
   Variable ts : types.
+  Variable func : Type.
 
-  Fixpoint lift' (s l : nat) (e : expr) : expr :=
+  Fixpoint lift' (s l : nat) (e : expr func) : expr func :=
     match e with
       | Var v =>
         if NPeano.ltb v s then e
         else Var (v + l)
-      | Func _ _ => e
+      | Inj _ => e
       | App e e' => App (lift' s l e) (lift' s l e')
       | Abs t e => Abs t (lift' (S s) l e)
       | UVar u => e
-      | Equal t e1 e2 => Equal t (lift' s l e1) (lift' s l e2)
-      | Not e => Not (lift' s l e)
     end.
 
-  Definition lift (s l : nat) : expr -> expr :=
+  Definition lift (s l : nat) : expr func -> expr func :=
     match l with
       | 0 => fun x => x
       | _ => lift' s l
     end.
 
-  Fixpoint lower' (s l : nat) (e : expr) : option expr :=
+  Fixpoint lower' (s l : nat) (e : expr func) : option (expr func) :=
     match e with
       | Var v =>
         if NPeano.ltb v s then Some e
         else if NPeano.ltb (v - s) l then None
              else Some (Var (v - l))
-      | Func _ _ => Some e
+      | Inj _ => Some e
       | App e e' =>
         match lower' s l e , lower' s l e' with
           | Some e , Some e' => Some (App e e')
@@ -56,20 +55,9 @@ Section typed.
           | Some e => Some (Abs t e)
         end
       | UVar u => Some e
-      | Equal t e1 e2 =>
-        match lower' s l e1 , lower' s l e2 with
-          | Some e1 , Some e2 =>
-            Some (Equal t e1 e2)
-          | _ , _ => None
-        end
-      | Not e =>
-        match lower' s l e with
-          | Some e => Some (Not e)
-          | None => None
-        end
     end.
 
-  Definition lower s l : expr -> option expr :=
+  Definition lower s l : expr func -> option (expr func) :=
     match l with
       | 0 => @Some _
       | _ => lower' s l
@@ -101,15 +89,13 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
-  Fixpoint mentionsU (u : nat) (e : expr) {struct e} : bool :=
+  Fixpoint mentionsU (u : nat) (e : expr func) {struct e} : bool :=
     match e with
       | Var _
-      | Func _ _ => false
+      | Inj _ => false
       | UVar u' => EqNat.beq_nat u u'
       | App f e => if mentionsU u f then true else mentionsU u e
       | Abs _ e => mentionsU u e
-      | Equal _ e1 e2 => if mentionsU u e1 then true else mentionsU u e2
-      | Not e => mentionsU u e
     end.
 
   Theorem lift_lower : forall e s l,
@@ -157,9 +143,11 @@ Section typed.
       exfalso. omega. f_equal. rewrite NPeano.Nat.sub_add. auto. omega. }
   Qed.
 
-  Lemma typeof_expr_lift : forall tfs us vs vs' vs'' e,
-    ExprT.typeof_expr tfs us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) =
-    ExprT.typeof_expr tfs us (vs ++ vs'') e.
+  Variable RFunc_func : RFunc (typD ts) func.
+
+  Lemma typeof_expr_lift : forall us vs vs' vs'' e,
+    ExprT.typeof_expr us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) =
+    ExprT.typeof_expr us (vs ++ vs'') e.
   Proof.
     clear. intros. rewrite lift_lift'.
     revert vs.
@@ -190,16 +178,16 @@ Section typed.
     rewrite map_length. reflexivity.
   Qed.
 
-  Theorem typeof_expr_lower : forall (fs : tfunctions) (us : EnvI.tenv typ)
-                                     (e : expr)
+  Theorem typeof_expr_lower : forall (us : EnvI.tenv typ)
+                                     (e : expr func)
      (vs vs' vs'' : list typ)
-     (e1 : expr),
+     (e1 : expr func),
    lower (length vs) (length vs') e = Some e1 ->
-   ExprT.typeof_expr fs us (vs ++ vs' ++ vs'') e =
-   ExprT.typeof_expr fs us (vs ++ vs'') e1.
+   ExprT.typeof_expr us (vs ++ vs' ++ vs'') e =
+   ExprT.typeof_expr us (vs ++ vs'') e1.
   Proof.
     clear.
-    do 7 intro. rewrite lower_lower'.
+    do 6 intro. rewrite lower_lower'.
     revert e1 vs vs' vs''.
     induction e; simpl in *; intros; inv_all; subst; simpl;
     repeat match goal with
@@ -219,10 +207,10 @@ Section typed.
       erewrite IHe by eauto. reflexivity. }
   Qed.
 
-  Lemma exprD'_lower : forall (fs : functions ts) us vs vs' vs'' e e0 t,
+  Lemma exprD'_lower : forall us vs vs' vs'' e e0 t,
                          lower (length vs) (length vs') e = Some e0 ->
-                         match exprD' fs us (vs ++ vs' ++ vs'') e t
-                             , exprD' fs us (vs ++ vs'') e0 t
+                         match exprD' us (vs ++ vs' ++ vs'') e t
+                             , exprD' us (vs ++ vs'') e0 t
                          with
                            | None , None => True
                            | Some l , Some r =>
@@ -233,7 +221,7 @@ Section typed.
                          end.
   Proof.
     Opaque exprD exprD'.
-    intros fs us vs vs' vs'' e e0 t H.
+    intros us vs vs' vs'' e e0 t H.
     rewrite lower_lower' in H.
     revert H; revert t; revert e0; revert vs; revert vs'.
     induction e; simpl; intros; autorewrite with exprD_rw in *;
@@ -678,10 +666,7 @@ Section typed.
             rewrite H1.
             destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
             destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. } } } }
-    { destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-      unfold typ_cast_val.
-      destruct (typ_cast_typ ts (fun x : Type => x) nil (instantiate_typ l (ftype f0)) t); auto. }
+    { destruct (funcAs f t); auto. }
     { erewrite typeof_expr_lower by (rewrite lower_lower'; eassumption).
       repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
@@ -714,32 +699,13 @@ Section typed.
         | |- match match ?x with _ => _ end with _ => _ end =>
           destruct x; auto
       end. }
-    { repeat match goal with
-               | |- match match ?x with _ => _ end with _ => _ end =>
-                 (destruct x; auto); [ ]
-             end.
-      specialize (IHe1 _ _ _ t H).
-      specialize (IHe2 _ _ _ t H0).
-      repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X
-             end; eauto.
-      intros. rewrite IHe1; rewrite IHe2. auto. }
-    { destruct t; auto.
-      specialize (IHe _ _ _ tvProp H).
-      repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X
-             end; eauto.
-      intuition.
-      rewrite IHe. auto. }
     Transparent exprD exprD'.
   Qed.
 
-  Theorem exprD_lower : forall (fs : functions ts) us vs vs' vs'' e e0 t,
+  Theorem exprD_lower : forall us vs vs' vs'' e e0 t,
                          lower (length vs) (length vs') e = Some e0 ->
-                         exprD fs us (vs ++ vs' ++ vs'') e t =
-                         exprD fs us (vs ++ vs'') e0 t.
+                         exprD us (vs ++ vs' ++ vs'') e t =
+                         exprD us (vs ++ vs'') e0 t.
   Proof.
     unfold exprD. intros.
     repeat rewrite EnvI.split_env_app.
@@ -749,7 +715,7 @@ Section typed.
            end.
     cutrewrite (length vs = length x) in H.
     cutrewrite (length vs' = length x0) in H.
-    specialize (@exprD'_lower fs us x x0 x1 e e0 t H).
+    specialize (@exprD'_lower us x x0 x1 e e0 t H).
     intros.
     repeat match goal with
              | _ : match ?X with _ => _ end |- _ =>
@@ -760,9 +726,9 @@ Section typed.
     rewrite EnvI.split_env_length. rewrite H0. reflexivity.
   Qed.
 
-  Lemma exprD'_lift : forall (fs : functions ts) us vs vs' vs'' e t,
-    match exprD' fs us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) t
-        , exprD' fs us (vs ++ vs'') e t
+  Lemma exprD'_lift : forall us vs vs' vs'' e t,
+    match exprD' us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) t
+        , exprD' us (vs ++ vs'') e t
     with
       | None , None => True
       | Some l , Some r =>
@@ -773,7 +739,7 @@ Section typed.
     end.
   Proof.
     Opaque exprD exprD'.
-    intros fs us vs vs' vs'' e t.
+    intros us vs vs' vs'' e t.
     rewrite lift_lift'.
     revert t; revert vs; revert vs'.
     induction e; simpl; intros; autorewrite with exprD_rw in *;
@@ -1325,37 +1291,12 @@ Section typed.
                | |- match match ?x with _ => _ end with _ => _ end =>
                  solve [ destruct x; auto ]
              end. }
-    { repeat match goal with
-               | |- match match ?x with _ => _ end with _ => _ end =>
-                 (destruct x; auto); [ ]
-               | |- match match ?x with _ => _ end with _ => _ end =>
-                 solve [ destruct x; auto ]
-             end.
-      specialize (IHe1 vs' vs t).
-      specialize (IHe2 vs' vs t).
-      repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X; intuition
-             end; eauto.
-      rewrite IHe1. rewrite IHe2. reflexivity. }
-    { repeat match goal with
-               | |- match match ?x with _ => _ end with _ => _ end =>
-                 (destruct x; auto); [ ]
-               | |- match match ?x with _ => _ end with _ => _ end =>
-                 solve [ destruct x; auto ]
-             end.
-      specialize (IHe vs' vs tvProp).
-      repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X; intuition
-             end; eauto.
-      rewrite IHe. reflexivity. }
     Transparent exprD exprD'.
   Qed.
 
-  Theorem exprD_lift : forall (fs : functions ts) us vs vs' vs'' e t,
-    exprD fs us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) t =
-    exprD fs us (vs ++ vs'') e t.
+  Theorem exprD_lift : forall us vs vs' vs'' e t,
+    exprD us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) t =
+    exprD us (vs ++ vs'') e t.
   Proof.
     unfold exprD. intros.
     repeat rewrite EnvI.split_env_app.
@@ -1365,7 +1306,7 @@ Section typed.
            end.
     cutrewrite (length vs = length x).
     cutrewrite (length vs' = length x0).
-    specialize (@exprD'_lift fs us x x0 x1 e t).
+    specialize (@exprD'_lift us x x0 x1 e t).
     intros.
     repeat match goal with
              | _ : match ?X with _ => _ end |- _ =>

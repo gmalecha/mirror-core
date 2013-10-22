@@ -28,10 +28,13 @@ Module Make (FM : S with Definition E.t := uvar
   Module PROPS := FMapFacts.WProperties FM.
 
   Section hide_hints.
+    Variable ts : types.
+    Variable func : Type.
+    Variable RFunc_func : RFunc (typD ts) func.
 
-    Definition raw : Type := FM.t expr.
+    Definition raw : Type := FM.t (expr func).
 
-    Definition normalized (this : raw) (e : expr) : Prop :=
+    Definition normalized (this : raw) (e : expr func) : Prop :=
       forall u, mentionsU u e = true -> ~FM.In u this.
 
     Definition WellFormed (this : raw) : Prop :=
@@ -39,16 +42,16 @@ Module Make (FM : S with Definition E.t := uvar
         FM.MapsTo k e this ->
         normalized this e.
 
-    Definition raw_lookup : uvar -> raw -> option expr :=
+    Definition raw_lookup : uvar -> raw -> option (expr func) :=
        @FM.find _.
 
     Section raw_subst.
       Variable s : raw.
 
-      Fixpoint raw_subst (under : nat) (e : expr) : expr :=
+      Fixpoint raw_subst (under : nat) (e : expr func) : expr func :=
         match e with
           | Var _
-          | Func _ _ => e
+          | Inj _ => e
           | App l r => App (raw_subst under l) (raw_subst under r)
           | Abs t e => Abs t (raw_subst (S under) e)
           | UVar u =>
@@ -58,23 +61,20 @@ Module Make (FM : S with Definition E.t := uvar
             (** 0 should be the number of binders to skip
              **)
             end
-          | Equal t l r => Equal t (raw_subst under l) (raw_subst under r)
-          | Not e => Not (raw_subst under e)
         end.
     End raw_subst.
 
-    Fixpoint subst_one (u : uvar) (e' : expr) (under : nat) (e : expr) : expr :=
+    Fixpoint subst_one (u : uvar) (e' : expr func) (under : nat) (e : expr func)
+    : expr func :=
       match e with
         | Var _
-        | Func _ _ => e
+        | Inj _ => e
         | App l r => App (subst_one u e' under l) (subst_one u e' under r)
         | Abs t e => Abs t (subst_one u e' (S under) e)
         | UVar u' => if u ?[ eq ] u' then lift 0 under e' else e
-        | Equal t l r => Equal t (subst_one u e' under l) (subst_one u e' under r)
-        | Not e => Not (subst_one u e' under e)
       end.
 
-    Definition raw_set (u : uvar) (e : expr) (s : raw) : option raw :=
+    Definition raw_set (u : uvar) (e : expr func) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
       if mentionsU u v'
       then None
@@ -82,9 +82,9 @@ Module Make (FM : S with Definition E.t := uvar
            let s := FM.map (raw_subst s 0) s in
            Some s.
 
-    Definition raw_WellTyped (funcs : tfunctions) (U G : EnvI.tenv _) (s : raw) : Prop :=
+    Definition raw_WellTyped (U G : EnvI.tenv _) (s : raw) : Prop :=
       forall k v, FM.MapsTo k v s ->
-        exists t, nth_error U k = Some t /\ WellTyped_expr funcs U G v t.
+        exists t, nth_error U k = Some t /\ WellTyped_expr U G v t.
 
     Lemma raw_lookup_MapsTo : forall u s e,
                                 raw_lookup u s = Some e <-> FM.MapsTo u e s.
@@ -102,13 +102,12 @@ Module Make (FM : S with Definition E.t := uvar
     Hint Resolve -> raw_lookup_MapsTo.
     Hint Resolve -> raw_lookup_In.
 
-    Lemma mentionsU_lift : forall u e a b,
+    Lemma mentionsU_lift : forall u (e : expr func) a b,
                              mentionsU u (lift a b e) = mentionsU u e.
     Proof.
       induction e; simpl; intros; rewrite lift_lift'; simpl; intuition;
       repeat rewrite <- lift_lift' in *; intuition.
       { destruct (NPeano.ltb v a); auto. }
-      { rewrite IHe1. rewrite IHe2. auto. }
       { rewrite IHe1. rewrite IHe2. auto. }
     Qed.
     Lemma normalized_lift : forall s n e,
@@ -126,7 +125,6 @@ Module Make (FM : S with Definition E.t := uvar
       { rewrite (IHe1 n n'). rewrite (IHe2 n n'). auto. }
       { destruct (raw_lookup u0 s); auto.
         repeat rewrite mentionsU_lift. auto. }
-      { rewrite (IHe1 n n'). rewrite (IHe2 n n'). auto. }
     Qed.
 
     Lemma wf_instantiate_normalized : forall s e n,
@@ -149,9 +147,6 @@ Module Make (FM : S with Definition E.t := uvar
           eapply H0 in H2. auto. }
         { simpl in *. consider (EqNat.beq_nat u0 u); intros.
           subst. eapply raw_lookup_In in H0. auto. } }
-      { consider (mentionsU u (raw_subst s n e1)); intros.
-        eapply IHe1; eauto.
-        eapply IHe2; eauto. }
     Qed.
 
     Local Ltac think :=
@@ -195,11 +190,11 @@ Module Make (FM : S with Definition E.t := uvar
         reducer. auto. }
     Qed.
 
-    Definition raw_substD ts (fs : functions ts) us vs (sub : raw) : Prop :=
+    Definition raw_substD us vs (sub : raw) : Prop :=
       FM.fold (fun k v P =>
                  match nth_error us k with
                    | None => False
-                   | Some (existT T val) => match ExprD.exprD fs us vs v T with
+                   | Some (existT T val) => match ExprD.exprD us vs v T with
                                               | Some val' => val = val' /\ P
                                               | None => False
                                             end
@@ -210,10 +205,10 @@ Module Make (FM : S with Definition E.t := uvar
     ; wf : WellFormed env
     }.
 
-    Definition subst_lookup (uv : uvar) (s : subst) : option expr :=
+    Definition subst_lookup (uv : uvar) (s : subst) : option (expr func) :=
       raw_lookup uv s.(env).
 
-    Definition subst_subst (s : subst) : nat -> expr -> expr :=
+    Definition subst_subst (s : subst) : nat -> expr func -> expr func :=
       raw_subst s.(env).
 
     Theorem MapsTo_map_add : forall T U k (v : T) f k' (v' : U) m,
@@ -234,20 +229,6 @@ Module Make (FM : S with Definition E.t := uvar
 
     Lemma normalized_App : forall s l r,
       normalized s (App l r) <-> (normalized s l /\ normalized s r).
-    Proof.
-      intuition.
-      { red; intros. specialize (H u); simpl in *.
-        rewrite H0 in *. eauto. }
-      { red; intros. specialize (H u); simpl in *.
-        rewrite H0 in *. destruct (mentionsU u l); auto. }
-      { red; simpl; intros.
-        consider (mentionsU u l).
-        { intro X; specialize (H0 _ X); auto. }
-        { intros ? X; specialize (H1 _ X); auto. } }
-    Qed.
-
-    Lemma normalized_Equal : forall s l r t,
-      normalized s (Equal t l r) <-> (normalized s l /\ normalized s r).
     Proof.
       intuition.
       { red; intros. specialize (H u); simpl in *.
@@ -304,9 +285,8 @@ Module Make (FM : S with Definition E.t := uvar
         instantiate (1 := u0). simpl.
         consider (EqNat.beq_nat u0 u0); try congruence.
         exists e0. eauto. }
-      { apply normalized_Equal in H; intuition. }
-      { apply normalized_Equal in H; intuition. }
     Qed.
+
     Lemma mentionsU_subst : forall s u x n,
       mentionsU u (raw_subst s n x) = true <->
       (mentionsU u x = true /\ ~FM.In u s \/
@@ -360,29 +340,6 @@ Module Make (FM : S with Definition E.t := uvar
           { destruct H2. destruct H1. intuition.
             consider (EqNat.beq_nat x u0); intros; subst.
             exfalso. apply H. exists x0; eauto. } } }
-      { specialize (IHx1 n); specialize (IHx2 n).
-        consider (mentionsU u (raw_subst s n x1)); intros.
-        { rewrite H0.
-          intuition; go; intuition repeat match goal with
-                                            | H : _ |- _ =>
-                                              rewrite H by eauto
-                                          end; eauto.
-          right. exists x3. eexists; split; eauto. rewrite H0. auto. }
-        { consider (mentionsU u (raw_subst s n x2)); intros.
-          { intuition; go; intuition repeat match goal with
-                                              | H : _ |- _ =>
-                                                rewrite H by eauto
-                                            end; eauto.
-            { destruct (mentionsU u x1); intros; left; split; auto. }
-            { right. exists x. rewrite H0. eexists; intuition eauto.
-              destruct (mentionsU x x1); auto. } }
-          { intuition.
-            { consider (mentionsU u x1); intros; eauto. }
-            { go. intuition.
-              consider (mentionsU x x1); intros.
-              { eapply H6. do 2 eexists; eauto. }
-              { eapply H7. do 2 eexists; eauto. } } } } }
-      { rewrite IHx. intuition. }
     Qed.
 
     Theorem raw_set_WellFormed : forall u e s s',
@@ -416,7 +373,7 @@ Module Make (FM : S with Definition E.t := uvar
         { apply H4. eexists. eapply FM.add_1. reflexivity. }
         { intuition. eapply FACTS.add_mapsto_iff in H3. intuition.
           { subst. congruence. }
-          { generalize (@FM.empty_1 expr).
+          { generalize (@FM.empty_1 (expr func)).
             intro. red in H4. eapply H4. eauto. } } }
       { rewrite FACTS.map_mapsto_iff in H5.
         rewrite FACTS.map_mapsto_iff in H6.
@@ -433,20 +390,20 @@ Module Make (FM : S with Definition E.t := uvar
           { apply FACTS.empty_mapsto_iff in H9. auto. } } }
     Qed.
 
-    Definition subst_set (u : uvar) (e : expr) (s : subst) : option subst :=
+    Definition subst_set (u : uvar) (e : expr func) (s : subst) : option subst :=
       match raw_set u e s.(env) as v return raw_set u e s.(env) = v -> option subst with
         | None => fun _ => None
         | Some s' => fun pf => Some {| env := s'
                                      ; wf := @raw_set_WellFormed _ _ _ _ pf s.(wf) |}
       end eq_refl.
 
-    Definition subst_substD ts (fs : functions ts) us vs (sub : subst) : Prop :=
-      @raw_substD ts fs us vs sub.(env).
+    Definition subst_substD us vs (sub : subst) : Prop :=
+      raw_substD us vs sub.(env).
 
-    Definition subst_WellTyped (fs : tfunctions) tus tvs (sub : subst) : Prop :=
-      raw_WellTyped fs tus tvs sub.(env).
+    Definition subst_WellTyped tus tvs (sub : subst) : Prop :=
+      raw_WellTyped tus tvs sub.(env).
 
-    Lemma wf_empty : WellFormed (FM.empty expr).
+    Lemma wf_empty : WellFormed (FM.empty (expr func)).
     Proof.
       red. red. intros.
       intro.
@@ -456,7 +413,7 @@ Module Make (FM : S with Definition E.t := uvar
     Definition subst_empty : subst :=
       {| env := FM.empty _ ; wf := wf_empty |}.
 
-    Instance Subst_subst : Subst subst expr :=
+    Instance Subst_subst : Subst subst (expr func) :=
     { lookup := subst_lookup
     ; set := subst_set
     ; subst := fun s e => subst_subst s 0 e
@@ -464,16 +421,14 @@ Module Make (FM : S with Definition E.t := uvar
     }.
 
     Section semantic.
-      Variable ts : types.
-      Variable fs : functions ts.
 
       Lemma raw_substD_sem : forall (us vs : EnvI.env (typD ts)) s,
-        raw_substD fs us vs s <->
+        raw_substD us vs s <->
         (forall uv e,
            raw_lookup uv s = Some e ->
            exists v,
              nth_error us uv = Some v /\
-             ExprD.exprD fs us vs e (projT1 v) = Some (projT2 v)).
+             ExprD.exprD us vs e (projT1 v) = Some (projT2 v)).
       Proof.
         simpl.
         unfold raw_substD, raw_lookup.
@@ -527,22 +482,22 @@ Module Make (FM : S with Definition E.t := uvar
       Qed.
 
       Theorem substD_sem : forall (us vs : EnvI.env (typD ts)) (s : subst),
-        subst_substD fs us vs s <->
+        subst_substD us vs s <->
         (forall uv e,
            lookup uv s = Some e ->
            exists v,
              nth_error us uv = Some v /\
-             ExprD.exprD fs us vs e (projT1 v) = Some (projT2 v)).
+             ExprD.exprD us vs e (projT1 v) = Some (projT2 v)).
       Proof.
         destruct s; simpl.
         unfold subst_substD, subst_lookup.
         simpl in *. eauto using raw_substD_sem.
       Qed.
 
-      Lemma raw_subst_typeof : forall fs u e v v' s,
-        raw_WellTyped fs u v s ->
-        typeof_expr fs u (v' ++ v) (raw_subst s (length v') e) =
-        typeof_expr fs u (v' ++ v) e.
+      Lemma raw_subst_typeof : forall u e v v' s,
+        raw_WellTyped u v s ->
+        typeof_expr u (v' ++ v) (raw_subst s (length v') e) =
+        typeof_expr u (v' ++ v) e.
       Proof.
         induction e; simpl; intros;
         repeat match goal with
@@ -555,15 +510,15 @@ Module Make (FM : S with Definition E.t := uvar
         { consider (raw_lookup u0 s); intros.
           red in H. edestruct H; eauto with typeclass_instances.
           intuition. unfold WellTyped_expr in *.
-          rewrite (@typeof_expr_lift fs0 u nil v' v).
+          rewrite (typeof_expr_lift _ u nil v' v).
           simpl; auto. etransitivity; eauto.
           reflexivity. }
       Qed.
 
-      Lemma subst_subst_typeof : forall fs u e v v' s,
-        subst_WellTyped fs u v s ->
-        typeof_expr fs u (v' ++ v) (subst_subst s (length v') e) =
-        typeof_expr fs u (v' ++ v) e.
+      Lemma subst_subst_typeof : forall u e v v' s,
+        subst_WellTyped u v s ->
+        typeof_expr u (v' ++ v) (subst_subst s (length v') e) =
+        typeof_expr u (v' ++ v) e.
       Proof.
         unfold subst_WellTyped, subst_subst. destruct s; simpl.
         auto using raw_subst_typeof.
@@ -587,11 +542,11 @@ Module Make (FM : S with Definition E.t := uvar
       exact (@Injective_typ_cast_typ_hetero_Some ts F env a b c) : typeclass_instances.
 
       Lemma substD_subst_lem : forall u v' s e t,
-        subst_substD fs u v' s ->
+        subst_substD u v' s ->
         forall v,
           let (tv',vs') := EnvI.split_env v' in
-          match ExprD.exprD' fs u (v ++ tv') e t ,
-                ExprD.exprD' fs u (v ++ tv') (subst_subst s (length v) e) t
+          match ExprD.exprD' u (v ++ tv') e t ,
+                ExprD.exprD' u (v ++ tv') (subst_subst s (length v) e) t
           with
             | Some l , Some r => forall vs,
                                    l (hlist_app vs vs') = r (hlist_app vs vs')
@@ -607,18 +562,16 @@ Module Make (FM : S with Definition E.t := uvar
             | |- match ?X with _ => _ end =>
               destruct X; intros; auto
           end. }
-        { destruct (nth_error fs f); auto.
-          destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-          destruct (typ_cast_typ ts (fun x => x) nil (instantiate_typ l (ftype f0)) t); auto. }
+        { destruct (funcAs f t); auto. }
         { rewrite subst_subst_typeof.
-          { destruct (typeof_expr (typeof_funcs fs) (EnvI.typeof_env u) (v ++ x) e1); auto.
+          { destruct (typeof_expr (EnvI.typeof_env u) (v ++ x) e1); auto.
             destruct t0; auto.
             specialize (IHe1 (tvArr t0_1 t0_2) v).
             specialize (IHe2 t0_1 v).
             simpl in *.
             repeat match goal with
-                     | |- context [ @ExprD.exprD' ?A ?B ?C ?D ?E ?F ] =>
-                       consider (@ExprD.exprD' A B C D E F); intros
+                     | |- context [ @ExprD.exprD' ?A ?B ?C ?D ?E ?F ?G ] =>
+                       consider (@ExprD.exprD' A B C D E F G); intros
                    end; intuition try congruence; auto.
             destruct (typ_cast_typ ts (fun x => x) nil t0_2 t); auto.
             intros. rewrite IHe2. rewrite IHe1. auto. }
@@ -627,7 +580,7 @@ Module Make (FM : S with Definition E.t := uvar
             simpl in *. unfold subst_lookup, raw_lookup in *.
             destruct (H k v0). eapply FM.find_1. auto.
             intuition.
-            consider (ExprD.exprD' fs u x v0 (projT1 x0)); intros; try congruence.
+            consider (ExprD.exprD' u x v0 (projT1 x0)); intros; try congruence.
             inv_all; subst.
             destruct x0. simpl in *. subst.
             exists x0.
@@ -641,8 +594,8 @@ Module Make (FM : S with Definition E.t := uvar
           simpl in *.
           change (S (length v)) with (length (t :: v)) in *.
           repeat match goal with
-                   | |- context [ @ExprD.exprD' ?A ?B ?C ?D ?E ?F ] =>
-                     consider (@ExprD.exprD' A B C D E F); intros
+                   | |- context [ @ExprD.exprD' ?A ?B ?C ?D ?E ?F ?G ] =>
+                     consider (@ExprD.exprD' A B C D E F G); intros
                  end; try congruence; eauto.
           eapply functional_extensionality. intros.
           specialize (IHe (Hcons (p x0) vs)). simpl in *. auto. }
@@ -653,11 +606,11 @@ Module Make (FM : S with Definition E.t := uvar
           { intros. specialize (H0 _ eq_refl).
             destruct H0. destruct H0. rewrite H0 in *.
             destruct x0. simpl in *.
-            consider (ExprD.exprD' fs u x e x0); intros; try congruence.
+            consider (ExprD.exprD' u x e x0); intros; try congruence.
             inv_all; subst.
-            generalize (@exprD'_lift ts fs u nil v x e x0); simpl.
+            generalize (@exprD'_lift ts _ _ u nil v x e x0); simpl.
             rewrite H1 in *.
-            consider (ExprD.exprD' fs u (v ++ x) (lift 0 (length v) e) x0);
+            consider (ExprD.exprD' u (v ++ x) (lift 0 (length v) e) x0);
               intuition.
             match goal with
               | |- match match match ?X with _ => _ end with _ => _ end with _ => _ end =>

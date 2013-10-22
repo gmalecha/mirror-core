@@ -1,50 +1,89 @@
-Require Import List Bool.
+Require Import Bool.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Core.Type.
-Require Import ExtLib.Structures.Reducible.
+Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Ext.Types.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Section foo.
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
+  Variable func : Type.
+
+  Class RFunc : Type :=
+  { typeof_func : func -> option typ
+  ; funcD : forall f : func, match typeof_func f with
+                               | None => unit
+                               | Some t => typD nil t
+                             end
+  }.
+
+  Context {RType_typ : RType typD}.
+  Context {RFunc_func : RFunc}.
+
+  Definition funcAs (f : func) (t : typ) : option (typD nil t) :=
+    match typeof_func f as ft
+          return match ft with
+                   | None => unit
+                   | Some t => typD nil t
+                 end -> option (typD nil t)
+    with
+      | None => fun _ => None
+      | Some ft => fun val =>
+        match typ_cast (fun x => x) nil ft t with
+          | None => None
+          | Some cast => Some (cast val)
+        end
+    end (funcD f).
+
+  Context {RTypeOk_typ : RTypeOk RType_typ}.
+
+  Theorem funcAs_Some : forall f t (pf : typeof_func f = Some t),
+    funcAs f t =
+    Some match pf in _ = z return match z with
+                                    | None => unit
+                                    | Some z => typD nil z
+                                  end with
+           | eq_refl => funcD f
+         end.
+  Proof.
+    intros. unfold funcAs.
+    generalize (funcD f).
+    rewrite pf. intros.
+    destruct (typ_cast_refl nil t (fun x => x)).
+    intuition.
+    match goal with
+      | H : ?Y = _ |- match ?X with _ => _ end = _ =>
+        change X with Y ; rewrite H
+    end; intros.
+    f_equal. eauto.
+  Qed.
+
+End foo.
+
 Section env.
-
-  Variable types : types.
-
-  Definition func := nat.
-  Record tfunction : Type :=
-  { tfenv : nat ; tftype : typ }.
-  Definition tfunctions := list tfunction.
+  Variable func : Type.
   Definition var := nat.
   Definition uvar := nat.
 
   Inductive expr : Type :=
   | Var : var -> expr
-  | Func : func -> list typ -> expr
+  | Inj : func -> expr
   | App : expr -> expr -> expr
   | Abs : typ -> expr -> expr
-  | UVar : uvar -> expr
-  | Equal : typ -> expr -> expr -> expr
-  | Not : expr -> expr.
+  | UVar : uvar -> expr.
 
   Inductive expr_acc : expr -> expr -> Prop :=
   | acc_App_l : forall f a, expr_acc f (App f a)
   | acc_App_r : forall f a, expr_acc a (App f a)
-  | acc_Abs : forall t e, expr_acc e (Abs t e)
-  | acc_Equal_l : forall t l r, expr_acc l (Equal t l r)
-  | acc_Equal_r : forall t l r, expr_acc r (Equal t l r)
-  | acc_Not : forall e, expr_acc e (Not e).
+  | acc_Abs : forall t e, expr_acc e (Abs t e).
 
   Definition exprs : Type := list expr.
 
@@ -55,30 +94,18 @@ Section env.
     try solve [ inversion H ].
     { inversion H; clear H; subst; auto. }
     { inversion H; clear H; subst; auto. }
-    { inversion H; clear H; subst; auto. }
-    { inversion H; clear H; subst; auto. }
   Qed.
 
-  Record function := F {
-    fenv : nat ;
-    ftype : typ ;
-    fdenote : parametric fenv nil (fun env => typD types env ftype)
-  }.
+  Variable RelDec_func : RelDec (@eq func).
 
-  Definition functions := list function.
   Definition variables := list typ.
-
-  Variable funcs : functions.
-  Variable meta_env : env (typD types).
 
   Fixpoint expr_eq_dec (e1 e2 : expr) : bool :=
     match e1 , e2 with
       | Var v1 , Var v2 => EqNat.beq_nat v1 v2
       | UVar v1 , UVar v2 => EqNat.beq_nat v1 v2
-      | Func f1 ts1 , Func f2 ts2 =>
-        if EqNat.beq_nat f1 f2 then
-          ts1 ?[ eq ] ts2
-        else false
+      | Inj f1 , Inj f2 =>
+        f1 ?[ eq ] f2
       | App f1 e1 , App f2 e2 =>
         if expr_eq_dec f1 f2 then
           expr_eq_dec e1 e2
@@ -87,16 +114,10 @@ Section env.
       | Abs t1 e1 , Abs t2 e2 =>
         if t1 ?[ eq ] t2 then expr_eq_dec e1 e2
         else false
-      | Equal t1 e1 e2 , Equal t1' e1' e2' =>
-        if t1 ?[ eq ] t1' then
-          if expr_eq_dec e1 e1' then
-            if expr_eq_dec e2 e2' then true
-            else false
-          else false
-        else false
-      | Not e1 , Not e2 => expr_eq_dec e1 e2
       | _ , _ => false
     end.
+
+  Variable RelDec_Correct_func : RelDec_Correct RelDec_func.
 
   Theorem expr_eq_dec_eq : forall e1 e2,
     expr_eq_dec e1 e2 = true <-> e1 = e2.
@@ -108,11 +129,13 @@ Section env.
              | |- context [ EqNat.beq_nat ?X ?Y ] =>
                change (EqNat.beq_nat X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
+             | |- context [ ?X ?[ ?Z ] ?Y ] =>
+               rewrite rel_dec_correct
              | |- context [ typ_eqb ?X ?Y ] =>
                change (typ_eqb X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
-             | |- context [ List.list_eqb RelDec_eq_typ ?X ?Y ] =>
-               change (List.list_eqb RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
+             | |- context [ List.list_eq RelDec_eq_typ ?X ?Y ] =>
+               change (List.list_eq RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
              | |- _ => rewrite andb_true_iff
              | H : forall x, (_ = true) <-> _ |- _ => rewrite H
@@ -128,3 +151,9 @@ Section env.
   Qed.
 
 End env.
+
+Arguments Var {func} _.
+Arguments Inj {func} _.
+Arguments UVar {func} _.
+Arguments App {func} _ _.
+Arguments Abs {func} _ _.

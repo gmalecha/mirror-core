@@ -21,10 +21,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
 
   Section with_envs.
     Variable ts : types.
-    Variable fs : functions ts.
+    Variable func : Type.
+    Variable RFunc_func : RFunc (typD ts) func.
     Variable us : env (typD ts).
 
-  Fixpoint exprD_simul' (var_env : tenv typ) (e : expr) {struct e} :
+  Fixpoint exprD_simul' (var_env : tenv typ) (e : expr func) {struct e} :
     option { t : typ & hlist (typD ts nil) var_env -> typD ts nil t } :=
     let Z t := hlist (typD ts nil) var_env -> typD ts nil t in
     match e return option { t : typ & hlist (typD ts nil) var_env -> typD ts nil t } with
@@ -48,16 +49,16 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | None => None
           | Some (existT t v) => Some (existT Z t (fun _ => v))
         end
-      | Func f ts' =>
-        match nth_error fs f with
-          | None => None
-          | Some f =>
-            match type_apply _ _ ts' _ _ f.(fdenote) with
-              | None => None
-              | Some v =>
-                Some (existT Z (instantiate_typ ts' (ftype f)) (fun _ => v))
-            end
-        end
+      | Inj f =>
+        match typeof_func f as z
+              return match z with
+                       | None => unit
+                       | Some ft => typD ts nil ft
+                     end -> _
+        with
+          | None => fun _ => None
+          | Some ft => fun val => Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t) ft (fun _ => val))
+        end (funcD f)
       | Abs t' e =>
         match exprD_simul' (t' :: var_env) e with
           | None => None
@@ -74,19 +75,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
             end
           | _ => None
         end
-      | Equal t e1 e2 =>
-        match exprD' var_env e1 t , exprD' var_env e2 t with
-          | Some v1, Some v2 =>
-            Some (existT Z tvProp (fun v => @eq _ (v1 v) (v2 v)))
-          | _ , _ => None
-        end
-      | Not e =>
-        match exprD' var_env e tvProp with
-          | None => None
-          | Some P => Some (existT Z tvProp (fun v => not (P v)))
-        end
     end
-  with exprD' (var_env : tenv typ) (e : expr) (t : typ) {struct e} :
+  with exprD' (var_env : tenv typ) (e : expr func) (t : typ) {struct e} :
     option (hlist (typD ts nil) var_env -> typD ts nil t) :=
     match e with
       | Var x =>
@@ -113,18 +103,10 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | None => None
           | Some v => Some (fun _ => v)
         end
-      | Func f ts' =>
-        match nth_error fs f with
+      | Inj f =>
+        match funcAs f t with
           | None => None
-          | Some f =>
-            match type_apply _ _ ts' _ _ f.(fdenote) with
-              | None => None
-              | Some t' =>
-                match @typ_cast_val _ _ (instantiate_typ ts' (ftype f)) t t' with
-                  | Some v => Some (fun _ => v)
-                  | None => None
-                end
-            end
+          | Some val => Some (fun _ => val)
         end
       | Abs t' e =>
         match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t)
@@ -153,30 +135,9 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
             end
           | _ => None
         end
-      | Not e =>
-        match t as t
-              return option (hlist (typD ts nil) var_env -> typD ts nil t)
-        with
-          | tvProp => match exprD' var_env e tvProp with
-                        | None => None
-                        | Some P => Some (fun v => not (P v))
-                      end
-          | _ => None
-        end
-      | Equal t' e1 e2 =>
-        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
-          | tvProp =>
-            match exprD' var_env e1 t' , exprD' var_env e2 t' with
-              | Some l , Some r =>
-                Some (fun g => (l g) = (r g))
-              (* equal (type := typeFor (typD := typD ts) nil t') *)
-              | _ , _ => None
-            end
-          | _ => None
-        end
     end.
 
-  Definition exprD (var_env : env (typD ts)) (e : expr) (t : typ)
+  Definition exprD (var_env : env (typD ts)) (e : expr func) (t : typ)
   : option (typD ts nil t) :=
     let (ts,vs) := split_env var_env in
     match exprD' ts e t with
@@ -250,49 +211,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       end.
     Proof. reflexivity. Qed.
 
-    Theorem exprD'_Func : forall ve f ts t,
-      exprD' ve (Func f ts) t =
-      match nth_error fs f with
+    Theorem exprD'_Func : forall ve f t,
+      exprD' ve (@Inj func f) t =
+      match funcAs f t with
         | None => None
-        | Some f =>
-          match type_apply _ _ ts _ _ f.(fdenote) with
-            | None => None
-            | Some t' =>
-              match @typ_cast_typ _ (fun x => x) _ (instantiate_typ ts (ftype f)) t with
-                | None => None
-                | Some cast => Some (fun _ => cast t')
-              end
-          end
-      end.
-    Proof.
-      simpl; intros.
-      destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) ts0 nil (ftype f0) (fdenote f0)); auto.
-      unfold typ_cast_val.
-      destruct (typ_cast_typ ts (fun x => x) nil (instantiate_typ ts0 (ftype f0))); auto.
-    Qed.
-
-    Theorem exprD'_Equal : forall ve t l r t',
-      exprD' ve (Equal t l r) t' =
-      match t' as t' return option (hlist (typD ts nil) ve -> typD ts nil t') with
-        | tvProp =>
-          match exprD' ve l t , exprD' ve r t with
-            | Some l , Some r => Some (fun g => l g = r g)
-            | _ , _ => None
-          end
-        | _ => None
-      end.
-    Proof. reflexivity. Qed.
-
-    Theorem exprD'_Not : forall ve p t',
-      exprD' ve (Not p) t' =
-      match t' as t' return option (hlist (typD ts nil) ve -> typD ts nil t') with
-        | tvProp =>
-          match exprD' ve p tvProp with
-            | Some p => Some (fun g => not (p g))
-            | _ => None
-          end
-        | _ => None
+        | Some val => Some (fun _ => val)
       end.
     Proof. reflexivity. Qed.
 
@@ -309,11 +232,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error ve v); try congruence.
        intros. inv_all. destruct H. subst. subst.
        rewrite typ_cast_typ_refl. reflexivity. }
-     { destruct (nth_error fs f); try intuition congruence.
-       destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0));
-         try congruence.
-       inv_all. destruct H; subst. subst.
-       unfold typ_cast_val. rewrite typ_cast_typ_refl. reflexivity. }
+     { unfold funcAs.
+       generalize dependent (funcD f).
+       destruct (typeof_func f); try congruence; intros.
+       inv_all; subst. destruct H; subst. subst.
+       simpl. rewrite typ_cast_typ_refl. reflexivity. }
      { specialize (IHe1 ve).
        destruct (exprD_simul' ve e1); try intuition congruence.
        destruct s. specialize (IHe1 x t0 eq_refl).
@@ -329,17 +252,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      { unfold lookupAs. destruct (nth_error us u); try congruence.
        destruct s. inv_all. destruct H. subst. subst.
        simpl. rewrite typ_cast_typ_refl. reflexivity. }
-     { specialize (IHe1 ve). specialize (IHe2 ve).
-       destruct (exprD' ve e1 t); try congruence.
-       destruct (exprD' ve e2 t); try congruence.
-       inv_all. destruct H. subst. subst. reflexivity. }
-     { specialize (IHe ve). destruct (exprD' ve e tvProp); try congruence.
-       inv_all. destruct H; subst. f_equal. auto. }
    Qed.
 
    Lemma exprD'_typeof : forall e ve t val,
      exprD' ve e t = Some val ->
-     typeof_expr (typeof_funcs fs) (typeof_env us) ve e = Some t.
+     typeof_expr (typeof_env us) ve e = Some t.
    Proof.
      induction e; simpl; intros.
      { revert H.
@@ -379,17 +296,16 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            consider X; try congruence; intros
        end.
        generalize (typ_cast_typ_eq _ _ _ _ _ H); intros. subst; auto. }
-     { rewrite nth_error_typeof_funcs.
-       destruct (nth_error fs f); try congruence.
-       destruct f0; simpl in *. unfold typ_cast_val in *.
+     { unfold funcAs in *.
+       generalize dependent (funcD f).
+       destruct (typeof_func f); try congruence; intros.
+       simpl in *. 
        repeat match goal with
                 | _ : match ?X with _ => _ end = _ |- _ =>
                   consider X; try congruence; intros
               end.
-       generalize (typ_cast_typ_eq _ _ _ _ _ H0); intros; subst.
-       inv_all; subst.
-       rewrite (type_apply_length_equal' _ _ _ _ _ _ H).
-       consider (EqNat.beq_nat fenv fenv); congruence. }
+       generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
+       congruence. }
      { specialize (IHe1 ve).
        consider (exprD_simul' ve e1); try congruence; intros.
        destruct s. destruct x; try congruence.
@@ -423,31 +339,16 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
                   consider X; intros; try congruence
               end.
        specialize (typ_cast_typ_eq _ _ _ _  _ H). congruence. }
-     { destruct t0; try congruence.
-       specialize (IHe1 ve t). specialize (IHe2 ve t).
-       destruct (exprD' ve e1 t); try congruence.
-       destruct (exprD' ve e2 t); try congruence.
-       erewrite IHe1 by eauto.
-       erewrite IHe2 by eauto.
-       change typ_eqb with (@rel_dec _ (@eq typ) _).
-       rewrite rel_dec_eq_true by eauto with typeclass_instances.
-       reflexivity. }
-     { destruct t; try congruence.
-       specialize (IHe ve tvProp).
-       destruct (exprD' ve e tvProp); try congruence.
-       erewrite IHe by eauto. reflexivity. }
    Qed.
 
    Lemma exprD_simul'_None : forall e ve,
      match exprD_simul' ve e with
-       | None => typeof_expr (typeof_funcs fs) (typeof_env us) ve e = None
-       | Some t => typeof_expr (typeof_funcs fs) (typeof_env us) ve e = Some (projT1 t)
+       | None => typeof_expr (typeof_env us) ve e = None
+       | Some t => typeof_expr (typeof_env us) ve e = Some (projT1 t)
      end.
    Proof.
      induction e; simpl; intros.
-     {
-
-       change (
+     { change (
            let zzz t (pf : Some t = nth_error ve v) :=
                (fun e : hlist (typD ts nil) ve =>
                   match
@@ -482,27 +383,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            end).
        intro zzz; clearbody zzz; revert zzz.
        destruct (nth_error ve v); auto. }
-     { rewrite nth_error_typeof_funcs.
-       destruct (nth_error fs f); try congruence.
-       destruct f0; simpl in *.
-       match goal with
-         | |- match match ?X with _ => _ end with _ => _ end =>
-           consider X; intros
-       end.
-       { simpl. consider (EqNat.beq_nat (length l) fenv); auto.
-         generalize (type_apply_length_equal' _ _ _ _ _ _ H).
-         congruence. }
-       { consider (EqNat.beq_nat (length l) fenv); auto.
-         intros; subst.
-         exfalso.
-         destruct (@type_apply_length_equal ts ftype l (length l) nil fdenote eq_refl).
-         match type of H with
-           | ?X = _ =>
-             match type of H0 with
-               | ?Y = _ =>
-                 change X with Y in * ; rewrite H in H0 ; congruence
-             end
-         end. } }
+     { generalize (funcD f).
+       destruct (typeof_func f); auto. }
      { specialize (IHe1 ve). specialize (IHe2 ve).
        destruct (exprD_simul' ve e1).
        { destruct s; simpl in *.
@@ -531,48 +413,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      { rewrite nth_error_typeof_env.
        destruct (nth_error us u); auto.
        destruct s. reflexivity. }
-     { specialize (IHe1 ve); specialize (IHe2 ve).
-       repeat match goal with
-                | _ : match ?X with _ => _ end |- _ =>
-                  consider X; intros
-                | H : sigT _ |- _ => destruct H
-                | H : _ |- _ =>
-                  rewrite H || rewrite (exprD'_exprD_simul' _ H)
-              end; simpl in *.
-       { consider (typ_eqb t x); intros; subst.
-         { generalize (exprD'_exprD_simul' _ H).
-           generalize (exprD'_exprD_simul' _ H0).
-           intros. rewrite H1.
-           consider (typ_eqb x x0); intros; subst.
-           { rewrite H2. auto. }
-           { consider (exprD' ve e2 x); auto; intros.
-             generalize (exprD'_typeof _ _ H2).
-             generalize (exprD'_typeof _ _ H4).
-             congruence. } }
-         { consider (exprD' ve e1 t); intros; auto.
-           exfalso.
-           eapply exprD'_typeof in H2. congruence. } }
-       { consider (exprD' ve e1 t); auto; intros.
-         eapply exprD'_typeof in H2. congruence. }
-       { consider (exprD' ve e2 t); intros.
-         { eapply exprD'_typeof in H2; congruence. }
-         { destruct (typ_eqb t x); destruct (exprD' ve e1 t); auto. } }
-       { consider (exprD' ve e1 t); auto; intros.
-         eapply exprD'_typeof in H3. congruence. } }
-     { specialize (IHe ve).
-       consider (exprD_simul' ve e); intros.
-       { rewrite IHe. destruct s; simpl in *.
-         destruct x; try rewrite (exprD'_exprD_simul' _ H); auto;
-         consider (exprD' ve e tvProp); auto; intros;
-         eapply exprD'_typeof in H0; try congruence. }
-       { rewrite H0.
-         consider (exprD' ve e tvProp); auto; intros.
-         eapply exprD'_typeof in H1. congruence. } }
    Qed.
 
    Lemma exprD'_typeof_None : forall e ve t,
      exprD' ve e t = None ->
-     typeof_expr (typeof_funcs fs) (typeof_env us) ve e <> Some t.
+     typeof_expr (typeof_env us) ve e <> Some t.
    Proof.
      induction e; simpl; intros.
      { revert H.
@@ -610,31 +455,12 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error ve v); try congruence; intros.
        intro. inv_all; subst.
        rewrite typ_cast_typ_refl in *. congruence. }
-     { unfold typeof_funcs. rewrite nth_error_map.
-       destruct (nth_error fs f); try congruence.
-       destruct f0; simpl in *.
-       match goal with
-         | H : match ?X with _ => _ end = _ |- _ =>
-           consider X; intros
-       end.
-       rewrite (type_apply_length_equal' _ _ _ _ _ _ H).
-       consider (EqNat.beq_nat fenv fenv); try congruence.
-       match goal with
-         | H : match ?X with _ => _ end = _ |- _ =>
-           consider X; try congruence; intros
-       end.
-       intro. inv_all. subst. eapply typ_cast_val_refl; eauto.
-       consider (EqNat.beq_nat (length l) fenv); try congruence; intros.
-       destruct (@type_apply_length_equal ts ftype l fenv nil fdenote H1).
-       clear - H H2.
-       match type of H with
-         | ?T = _ =>
-           match type of H2 with
-             | ?T' = _ =>
-               change T with T in *
-           end
-       end.
-       rewrite H in H2. congruence. }
+     { unfold funcAs in *.
+       generalize dependent (funcD f).
+       destruct (typeof_func f); try congruence.
+       intros. intro. inv_all; subst.
+       simpl in *.
+       rewrite typ_cast_typ_refl in *. congruence. }
      { consider (exprD_simul' ve e1); intros.
        { destruct s. eapply exprD'_exprD_simul' in H.
          rewrite (exprD'_typeof _ _ H).
@@ -648,11 +474,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            intro. consider (typ_eqb x1 x1); try congruence; intros; inv_all.
            subst. rewrite typ_cast_typ_refl in *. congruence. }
          { specialize (IHe2 _ _ H0).
-           destruct (typeof_expr (typeof_funcs fs) (typeof_env us) ve e2); try congruence.
+           destruct (typeof_expr (typeof_env us) ve e2); try congruence.
            consider (typ_eqb x1 t1); congruence. } }
        { generalize (exprD_simul'_None e1 ve).
          rewrite H. intro. rewrite H1. intuition congruence. } }
-     { consider (typeof_expr (typeof_funcs fs) (typeof_env us) (t :: ve) e); intros.
+     { consider (typeof_expr (typeof_env us) (t :: ve) e); intros.
        2: intuition congruence.
        intro. inv_all; subst.
        rewrite typ_cast_typ_refl in *.
@@ -664,28 +490,10 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error us u); intuition; try congruence.
        destruct s. simpl in *; inv_all; subst.
        rewrite typ_cast_typ_refl in *. congruence. }
-     { intro.
-       repeat match goal with
-                | _ : match ?X with _ => _ end = _ |- _ =>
-                  (consider X; try congruence); [ subst; intros ]
-              end.
-       subst.
-       consider (exprD' ve e1 t); intros.
-       consider (exprD' ve e2 t); intros.
-       congruence.
-       eapply IHe2; eauto.
-       eapply IHe1; eauto. }
-     { intro.
-       repeat match goal with
-                | _ : match ?X with _ => _ end = _ |- _ =>
-                  (consider X; try congruence); [ subst; intros ]
-              end.
-       subst.
-       eapply IHe; eauto. }
    Qed.
 
   Theorem typeof_expr_eq_exprD_False : forall l ve e t x,
-    typecheck_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e t = true ->
+    typecheck_expr (typeof_env us) (l :: typeof_env ve) e t = true ->
     exprD (existT _ l x :: ve) e t = None ->
     False.
   Proof.
@@ -694,7 +502,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
     eapply exprD'_typeof_None in H0.
     unfold typecheck_expr in *.
     rewrite split_env_projT1 in H0. unfold typeof_env in *.
-    destruct (typeof_expr (typeof_funcs fs) (map (projT1 (P:=typD ts nil)) us)
+    destruct (typeof_expr (map (projT1 (P:=typD ts nil)) us)
          (l :: map (projT1 (P:=typD ts nil)) ve) e).
     consider (Some t0 ?[ eq ] Some t); try congruence.
     simpl in *. congruence.
@@ -702,7 +510,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
 
   Theorem exprD'_App : forall ve t e arg,
       exprD' ve (App e arg) t =
-      match typeof_expr (typeof_funcs fs) (typeof_env us) ve e with
+      match typeof_expr (typeof_env us) ve e with
         | Some (tvArr l r) =>
           match exprD' ve e (tvArr l r)
               , exprD' ve arg l
