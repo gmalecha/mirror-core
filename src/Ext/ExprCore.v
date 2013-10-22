@@ -1,18 +1,9 @@
 Require Import List Bool.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Core.Type.
-Require Import ExtLib.Structures.Reducible.
-Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
 
 Set Implicit Arguments.

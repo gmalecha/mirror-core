@@ -9,6 +9,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Option.
+Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Injection.
