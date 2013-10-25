@@ -101,17 +101,6 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
-  Fixpoint mentionsU (u : nat) (e : expr) {struct e} : bool :=
-    match e with
-      | Var _
-      | Func _ _ => false
-      | UVar u' => EqNat.beq_nat u u'
-      | App f e => if mentionsU u f then true else mentionsU u e
-      | Abs _ e => mentionsU u e
-      | Equal _ e1 e2 => if mentionsU u e1 then true else mentionsU u e2
-      | Not e => mentionsU u e
-    end.
-
   Theorem lift_lower : forall e s l,
                          lower s l (lift s l e) = Some e.
   Proof.

@@ -147,9 +147,13 @@ Module Type ExprDenote.
     Variable fs : functions ts.
     Variable us : env (typD ts).
 
-    Axiom typeof_exprD : forall vs e t,
-      typeof_expr (typeof_funcs fs) (typeof_env us) vs e = Some t ->
+    Axiom typeof_expr_exprD' : forall vs e t,
+      typeof_expr (typeof_funcs fs) (typeof_env us) vs e = Some t <->
       exists val, exprD' fs us vs e t = Some val.
+
+    Axiom typeof_expr_exprD : forall vs e t,
+      typeof_expr (typeof_funcs fs) (typeof_env us) (typeof_env vs) e = Some t <->
+      exists val, exprD fs us vs e t = Some val.
 
     Axiom exprD_Var : forall ve v t,
       exprD fs us ve (Var v) t = lookupAs ve v t.
@@ -205,10 +209,6 @@ Module Type ExprDenote.
       WellTyped_expr (typeof_funcs fs) (typeof_env us) (l :: typeof_env ve) e t ->
       forall x, exprD fs us (existT _ l x :: ve) e t = None ->
                 False.
-
-    Axiom typeof_expr_exprD' : forall vs e t,
-      WellTyped_expr (typeof_funcs fs) (typeof_env us) vs e t <->
-      exists v, exprD' fs us vs e t = Some v.
 (*
     Axiom exprD_Abs : forall ve t u e val,
       exprD fs us ve (Abs t e) (tvArr t u) = Some val ->
@@ -246,7 +246,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
 
   Definition exprD ts fs us vs e t : option (typD ts nil t) :=
     let (tvs,gvs) := split_env vs in
-    match @exprD' ts fs us tvs e t with
+    match exprD' fs us tvs e t with
       | None => None
       | Some f => Some (f gvs)
     end.
@@ -256,7 +256,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Variable fs : functions ts.
     Variable us : env (typD ts).
 
-    Theorem typeof_exprD : forall vs e t,
+    Lemma typeof_exprD : forall vs e t,
       typeof_expr (typeof_funcs fs) (typeof_env us) vs e = Some t ->
       exists val, exprD' fs us vs e t = Some val.
     Proof.
@@ -501,8 +501,11 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       destruct (split_env ve).
       rewrite exprD'_Equal.
       destruct t'; auto.
-      destruct (exprD' fs us x l t); auto.
-      destruct (exprD' fs us x r t); auto.
+      repeat match goal with
+               | |- match match ?X with _ => _ end with _ => _ end =
+                    match match ?Y with _ => _ end with _ => _ end =>
+                 change Y with X; destruct X; auto
+             end.
     Qed.
 
     Theorem exprD_Not : forall ve p t',
@@ -520,7 +523,11 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       destruct (split_env ve).
       rewrite exprD'_Not.
       destruct t'; auto.
-      destruct (exprD' fs us x p tvProp); auto.
+      repeat match goal with
+               | |- match match ?X with _ => _ end with _ => _ end =
+                    match match ?Y with _ => _ end with _ => _ end =>
+                 change Y with X; destruct X; auto
+             end.
     Qed.
 
     Theorem exprD_App : forall ve t e arg,
@@ -545,8 +552,11 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       simpl in *. unfold typeof_env.
       destruct (typeof_expr (typeof_funcs fs) (map (projT1 (P:=typD ts nil)) us) x e); auto.
       destruct t0; auto.
-      destruct (exprD' fs us x e (tvArr t0_1 t0_2)); auto.
-      destruct (exprD' fs us x arg t0_1); auto.
+      repeat match goal with
+               | |- match match ?X with _ => _ end with _ => _ end =
+                    match match ?Y with _ => _ end with _ => _ end =>
+                 change Y with X; destruct X; auto
+             end.
       destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0_2 t); auto.
     Qed.
 
@@ -579,6 +589,10 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 False.
     Proof.
       intros. unfold exprD in *. simpl in *.
+      match goal with
+        | _ : match ?X with _ => _ end = _ |- _ =>
+          change X with (exprD' fs us (l :: projT1 (split_env ve)) e t) in *
+      end.
       consider (exprD' fs us (l :: projT1 (split_env ve)) e t); try congruence; intros.
       unfold WellTyped_expr in *.
       eapply typeof_exprD in H. destruct H.
@@ -798,6 +812,30 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       intuition.
       destruct (exprD' fs us vs e t); intuition. eauto.
       destruct H. congruence.
+    Qed.
+
+    Theorem typeof_expr_exprD : forall vs e t,
+      WellTyped_expr (typeof_funcs fs) (typeof_env us) (typeof_env vs) e t <->
+      exists v, exprD fs us vs e t = Some v.
+    Proof.
+      intros. rewrite typeof_expr_exprD'.
+      unfold exprD.
+      consider (split_env vs); intros.
+      assert (x = typeof_env vs).
+      { clear - H. unfold typeof_env.
+        rewrite <- split_env_projT1. rewrite H. reflexivity. }
+      subst. intuition.
+      { destruct H0.
+        eexists.
+        match goal with
+          | H : ?X = _ |- match ?Y with _ => _ end = _ =>
+            change Y with X ; rewrite H; auto
+        end. }
+      { destruct H0.
+        match goal with
+          | H : match ?X with _ => _ end = _ |- exists v, ?Y = _ =>
+            change Y with X ; destruct X ; try congruence
+        end. eauto. }
     Qed.
 
   End with_envs.

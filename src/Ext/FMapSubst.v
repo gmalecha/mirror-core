@@ -9,6 +9,7 @@ Require Import MirrorCore.Subst.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
+Require Import MirrorCore.Ext.ExprSubst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -63,17 +64,6 @@ Module Make (FM : S with Definition E.t := uvar
         end.
     End raw_subst.
 
-    Fixpoint subst_one (u : uvar) (e' : expr) (under : nat) (e : expr) : expr :=
-      match e with
-        | Var _
-        | Func _ _ => e
-        | App l r => App (subst_one u e' under l) (subst_one u e' under r)
-        | Abs t e => Abs t (subst_one u e' (S under) e)
-        | UVar u' => if u ?[ eq ] u' then lift 0 under e' else e
-        | Equal t l r => Equal t (subst_one u e' under l) (subst_one u e' under r)
-        | Not e => Not (subst_one u e' under e)
-      end.
-
     Definition raw_set (u : uvar) (e : expr) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
       if mentionsU u v'
@@ -102,15 +92,6 @@ Module Make (FM : S with Definition E.t := uvar
     Hint Resolve -> raw_lookup_MapsTo.
     Hint Resolve -> raw_lookup_In.
 
-    Lemma mentionsU_lift : forall u e a b,
-                             mentionsU u (lift a b e) = mentionsU u e.
-    Proof.
-      induction e; simpl; intros; rewrite lift_lift'; simpl; intuition;
-      repeat rewrite <- lift_lift' in *; intuition.
-      { destruct (NPeano.ltb v a); auto. }
-      { rewrite IHe1. rewrite IHe2. auto. }
-      { rewrite IHe1. rewrite IHe2. auto. }
-    Qed.
     Lemma normalized_lift : forall s n e,
                               normalized s e <-> normalized s (lift 0 n e).
     Proof.
