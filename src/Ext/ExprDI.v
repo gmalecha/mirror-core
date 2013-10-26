@@ -321,7 +321,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       { specialize (IHe vs).
         rewrite exprD'_Not.
         destruct (typeof_expr (typeof_funcs fs) (typeof_env us) vs e); try congruence.
-        destruct t0; try congruence.
+        destruct t0; simpl in *; try congruence.
         inv_all; subst.
         destruct (IHe _ eq_refl). rewrite H.
         eauto. }

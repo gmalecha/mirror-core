@@ -139,8 +139,10 @@ Section env.
       try solve [ congruence | f_equal; apply EqNat.beq_nat_true; assumption ].
     { consider (typ_eqb x1 y1); intros.
       rewrite IHx1 in H. rewrite IHx2 in H0. subst; reflexivity. }
-    { inversion H. apply IHx1 in H1. apply IHx2 in H2.
-      simpl in *. inversion H; subst. rewrite H1. auto. }
+    { unfold rel_dec in *; simpl in *.
+      inversion H.
+      specialize (IHx1 y1). specialize (IHx2 y2).
+      intuition. subst. rewrite H3. rewrite H6. reflexivity. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
   Qed.

@@ -102,6 +102,9 @@ Section env.
              | |- context [ typ_eqb ?X ?Y ] =>
                change (typ_eqb X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
+             | |- context [ ?X ?[ @eq ?T ]?Y ] =>
+               change (X ?[ @eq T ] Y) with (X ?[ eq ] Y) ;
+                 rewrite rel_dec_correct
              | |- context [ List.list_eqb RelDec_eq_typ ?X ?Y ] =>
                change (List.list_eqb RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct

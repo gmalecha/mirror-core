@@ -543,7 +543,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
          { generalize (exprD'_exprD_simul' _ H).
            generalize (exprD'_exprD_simul' _ H0).
            intros. rewrite H1.
-           consider (typ_eqb x x0); intros; subst.
+           rewrite rel_dec_eq_true; eauto with typeclass_instances.
+           consider (x ?[ eq ] x0); intros; subst.
            { rewrite H2. auto. }
            { consider (exprD' ve e2 x); auto; intros.
              generalize (exprD'_typeof _ _ H2).
@@ -551,12 +552,13 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
              congruence. } }
          { consider (exprD' ve e1 t); intros; auto.
            exfalso.
-           eapply exprD'_typeof in H2. congruence. } }
+           eapply exprD'_typeof in H2. congruence.
+           rewrite rel_dec_neq_false; eauto with typeclass_instances. } }
        { consider (exprD' ve e1 t); auto; intros.
          eapply exprD'_typeof in H2. congruence. }
        { consider (exprD' ve e2 t); intros.
          { eapply exprD'_typeof in H2; congruence. }
-         { destruct (typ_eqb t x); destruct (exprD' ve e1 t); auto. } }
+         { destruct (t ?[ eq ] x); destruct (exprD' ve e1 t); auto. } }
        { consider (exprD' ve e1 t); auto; intros.
          eapply exprD'_typeof in H3. congruence. } }
      { specialize (IHe ve).

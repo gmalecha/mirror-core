@@ -39,32 +39,31 @@ Section substU.
 End substU.
 
 Section instantiate.
-  Variable T : Type.
-  Variable lookup : uvar -> T -> option expr.
+  Variable lookup : uvar -> option expr.
 
-  Fixpoint instantiate (under : nat) (e : expr) (s : T) : expr :=
+  Fixpoint instantiate (under : nat) (e : expr) : expr :=
     match e with
       | Var _
       | Func _ _ => e
-      | Not e => Not (instantiate under e s)
-      | Equal t l r => Equal t (instantiate under l s) (instantiate under r s)
-      | App l r => App (instantiate under l s) (instantiate under r s)
-      | Abs t e => Abs t (instantiate (S under) e s)
+      | Not e => Not (instantiate under e)
+      | Equal t l r => Equal t (instantiate under l) (instantiate under r)
+      | App l r => App (instantiate under l) (instantiate under r)
+      | Abs t e => Abs t (instantiate (S under) e)
       | UVar u =>
-        match lookup u s with
+        match lookup u with
           | None => UVar u
           | Some e => lift 0 under e
         end
     end.
 
-  Theorem typeof_expr_instantiate : forall tfs tu tg s,
+  Theorem typeof_expr_instantiate : forall tfs tu tg,
     (forall u e',
-       lookup u s = Some e' ->
+       lookup u = Some e' ->
        exists t',
          nth_error tu u = Some t' /\
          typeof_expr tfs tu tg e' = Some t') ->
     forall e tg',
-      typeof_expr tfs tu (tg' ++ tg) (instantiate (length tg') e s) =
+      typeof_expr tfs tu (tg' ++ tg) (instantiate (length tg') e) =
       typeof_expr tfs tu (tg' ++ tg) e.
   Proof.
     induction e; simpl; intros;
@@ -74,23 +73,23 @@ Section instantiate.
            end; auto.
     { specialize (IHe (t :: tg')). simpl in *.
       rewrite IHe. reflexivity. }
-    { consider (lookup u s); intros; simpl; auto.
+    { consider (lookup u); intros; simpl; auto.
       specialize (H _ _ H0). destruct H.
       intuition.
       generalize (typeof_expr_lift tfs tu nil tg' tg e); simpl.
       congruence. }
   Qed.
 
-  Theorem exprD'_instantiate : forall ts (fs : functions ts) us gs' s,
+  Theorem exprD'_instantiate : forall ts (fs : functions ts) us gs',
     (forall u e',
-       lookup u s = Some e' ->
+       lookup u = Some e' ->
        exists tval,
          nth_error us u = Some tval /\
          ExprD.exprD fs us gs' e' (projT1 tval) = Some (projT2 tval)) ->
     forall e t v,
       let (tv',vs') := EnvI.split_env gs' in
       match ExprD.exprD' fs us (v ++ tv') e t ,
-            ExprD.exprD' fs us (v ++ tv') (instantiate (length v) e s) t
+            ExprD.exprD' fs us (v ++ tv') (instantiate (length v) e) t
       with
         | Some l , Some r => forall vs,
                                l (hlist_app vs vs') = r (hlist_app vs vs')
@@ -99,11 +98,9 @@ Section instantiate.
       end.
   Proof.
     unfold ExprD.exprD. intros ts fs us gs'.
-    destruct (split_env gs'). intros s Hlookup.
+    destruct (split_env gs'). intros Hlookup.
     induction e; simpl; intros; autorewrite with exprD_rw; auto.
-    { 
-      
-      change (
+    { change (
           let zzz z (pf : Some z = nth_error (v0 ++ x) v) cast :=
               fun e : hlist (typD ts nil) (v0 ++ x) =>
                            match
@@ -217,7 +214,7 @@ Section instantiate.
       eapply functional_extensionality. intros.
       specialize (IHe (Hcons (p x0) vs)). simpl in *; auto. }
     { specialize (Hlookup u).
-      destruct (lookup u s).
+      destruct (lookup u).
       { unfold lookupAs.
         destruct (Hlookup _ eq_refl); clear Hlookup.
         intuition.
@@ -463,3 +460,4 @@ Section mentionsU.
   Qed.
 
 End mentionsU.
+
