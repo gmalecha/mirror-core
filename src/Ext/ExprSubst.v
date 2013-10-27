@@ -312,6 +312,30 @@ Section mentionsU.
     { rewrite nth_error_app_L by auto. auto. }
   Qed.
 
+  Lemma typeof_expr_mentionsU_strengthen_multi_lem : forall tfs tu tu' e tg,
+    (forall n, length tu <= n -> mentionsU n e = false) ->
+    typeof_expr tfs (tu ++ rev tu') tg e =
+    typeof_expr tfs tu tg e.
+  Proof.
+    intros. induction tu'; simpl.
+    { rewrite app_nil_r. reflexivity. }
+    { rewrite <- app_ass.
+      rewrite typeof_expr_mentionsU_strengthen.
+      eapply IHtu'.
+      rewrite app_length. rewrite H; auto.
+      omega. }
+  Qed.
+
+  Theorem typeof_expr_mentionsU_strengthen_multi : forall tfs tu tu' e tg,
+    (forall n, length tu <= n -> mentionsU n e = false) ->
+    typeof_expr tfs (tu ++ tu') tg e =
+    typeof_expr tfs tu tg e.
+  Proof.
+    intros.
+    rewrite <- (rev_involutive tu').
+    eapply typeof_expr_mentionsU_strengthen_multi_lem. auto.
+  Qed.
+
   Lemma exprD'_mentionsU_strengthen : forall ts (fs : functions ts) tu u e,
     mentionsU (length tu) e = false ->
     forall tg t,
@@ -459,5 +483,63 @@ Section mentionsU.
               end; inv_all; subst; auto. }
   Qed.
 
-End mentionsU.
+  Lemma exprD'_mentionsU_strengthen_multi_lem : forall ts (fs : functions ts) tu e,
+    (forall n, length tu <= n -> mentionsU n e = false) ->
+    forall tg t tu',
+      match ExprD.exprD' fs (tu ++ rev tu') tg e t
+          , ExprD.exprD' fs tu tg e t
+      with
+        | None , None => True
+        | Some l , Some r => forall vs,
+                               l vs = r vs
+        | _ , _ => False
+      end.
+  Proof.
+    induction tu'; intros; simpl.
+    { rewrite app_nil_r. destruct (ExprD.exprD' fs tu tg e t); auto. }
+    { rewrite <- app_ass.
+      assert (mentionsU (length (tu ++ rev tu')) e = false).
+      { rewrite H; auto. rewrite app_length; omega. }
+      generalize (exprD'_mentionsU_strengthen fs (tu ++ rev tu') a e H0 tg t).
+      intros.
+      repeat match goal with
+               | _ : match ?X with _ => _ end |- _ =>
+                 destruct X; intuition
+             end.
+      etransitivity. eapply H1. eapply IHtu'. }
+  Qed.
 
+  Theorem exprD'_mentionsU_strengthen_multi : forall ts (fs : functions ts) tu e,
+    (forall n, length tu <= n -> mentionsU n e = false) ->
+    forall tg t tu',
+      match ExprD.exprD' fs (tu ++ tu') tg e t
+          , ExprD.exprD' fs tu tg e t
+      with
+        | None , None => True
+        | Some l , Some r => forall vs,
+                               l vs = r vs
+        | _ , _ => False
+      end.
+  Proof.
+    intros.
+    rewrite <- (rev_involutive tu').
+    eapply exprD'_mentionsU_strengthen_multi_lem. auto.
+  Qed.
+
+  Theorem exprD_mentionsU_strength_multi : forall ts (fs : functions ts) tu e,
+    (forall n, length tu <= n -> mentionsU n e = false) ->
+    forall tg t tu',
+      ExprD.exprD fs (tu ++ tu') tg e t = ExprD.exprD fs tu tg e t.
+  Proof.
+    intros; unfold ExprD.exprD.
+    destruct (split_env tg).
+    generalize (exprD'_mentionsU_strengthen_multi fs tu e H x t tu').
+    intros;
+    repeat match goal with
+               | _ : match ?X with _ => _ end |- _ =>
+                 destruct X; intuition
+             end.
+    f_equal. eapply H0.
+  Qed.
+
+End mentionsU.
