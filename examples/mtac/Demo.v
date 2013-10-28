@@ -1,4 +1,5 @@
 Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Data.Monads.IdentityMonad.
 Require Import MirrorCore.Ext.Expr.
 Require Import mtac.McMtac.
 
@@ -8,9 +9,9 @@ Set Strict Implicit.
 Import MonadNotation.
 Import McMtacNotation.
 
-Definition test (t : expr) : McMtac (option expr) :=
+Definition test (t : expr) : McMtacT ident (option expr) :=
   mmatch t with
-    | [ App (Func 0 nil) (UVar 0) ] =>> fun x => ret (Some x)
+    | [ PApp (PFunc 0 nil) (PGet 0 (tvType 0)) ] =>> fun x => ret (Some x)
     \ ret None
   end%mcmtac.
 
@@ -20,4 +21,4 @@ Let tus : list typ := nil.
 Let tvs := (tvType 0 :: nil).
 Let exp := (App (Func 0 nil) (Var 0)).
 
-Eval compute in runMcMtac tfs tus tvs 10 (test exp).
+Eval compute in unIdent (runMcMtac tfs tus tvs 10 (test exp)).
