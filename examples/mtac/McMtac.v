@@ -11,6 +11,7 @@
  **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.ReaderMonad.
 Require Import ExtLib.Data.Vector.
 Require Import MirrorCore.Ext.Expr.
@@ -135,6 +136,54 @@ Inductive Branch (T : Type) : Type :=
                              | Some p => exp expr (McMtac T) (S p)
                            end).
 
+Definition typeof (t : expr) : McMtac (option typ) :=
+  bind (Monad := Monad_McMtac) ask (fun env =>
+              let tf := env.(mtac_tfuncs) in
+              let tus := env.(mtac_tus) in
+              let tvs := env.(mtac_tvs) in
+              let fuel := env.(mtac_fuel) in
+              ret (typeof_expr tf tus tvs t)).
+
+Definition _mmatchAt {T}
+           (e: expr) (ty : typ)
+           (ls : list (Branch T))
+           (default : McMtac T) : McMtac T :=
+  bind (Monad := Monad_McMtac) ask (fun env =>
+              let tf := env.(mtac_tfuncs) in
+              let tus := env.(mtac_tus) in
+              let tvs := env.(mtac_tvs) in
+              let fuel := env.(mtac_fuel) in
+              (fix find_pattern (pats : list (Branch T))  : McMtac T :=
+                 match pats with
+                   | nil => default
+                   | Case p case :: ps =>
+                     let p' := lift_uvars (length tus) (length tus) p in
+                     match
+                       @exprUnify subst _ tf fuel tus tvs 0
+                                  (empty_above (length tus))
+                                  e p' ty
+                     with
+                       | None => find_pattern ps
+                       | Some sub =>
+                         match vars_of_mpattern p as vs
+                           return match vs with
+                                    | None => McMtac T
+                                    | Some p => exp expr (McMtac T) (S p)
+                                  end -> McMtac T
+                         with
+                           | None => fun x => x
+                           | Some var_count => fun case =>
+                             match
+                               get_args_from sub (length tus) (S var_count)
+                             with
+                               | Some args =>
+                                 @exp_app_vector _ (McMtac T) (S var_count) args case
+                               | None => find_pattern ps
+                             end
+                         end case
+                     end
+                 end) ls).
+
 Definition _mmatch {T}
            (t : expr)
            (ls : list (Branch T))
@@ -192,6 +241,9 @@ Module McMtacNotation.
       (at level 50) : mcpatterns_scope.
   Notation "'mmatch' t 'with' ps \ e 'end'" :=
     (@_mmatch _ t ps%mcmtac_patterns e%mcmtac) (at level 50) : mcmtac_scope.
+
+  Notation "'mmatch' t '@' ty 'with' ps \ e 'end'" :=
+    (@_mmatchAt _ t ty ps%mcmtac_patterns e%mcmtac) (at level 50) : mcmtac_scope.
 
   (** Morally, this is just [e] **)
   Notation "'mmatch' t 'with' \ e 'end'" :=
