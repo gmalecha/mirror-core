@@ -12,6 +12,7 @@ Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
+Require Import MirrorCore.Subst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -292,6 +293,53 @@ Section mentionsU.
     { rewrite IHe1. rewrite IHe2. auto. }
   Qed.
 
+  Theorem mentionsU_substU : forall u u' e' e under,
+    mentionsU u (substU u' e under e') =
+    if u ?[ eq ] u' then
+      if mentionsU u e' then mentionsU u e else false
+    else
+      if mentionsU u e' then true else if mentionsU u' e' then mentionsU u e else false.
+  Proof.
+    induction e'; simpl; try congruence; intros;
+    repeat match goal with
+             | H : _ |- _ => rewrite H
+             | |- context [ ?X ?[ eq ] ?Y ] =>
+               consider (X ?[ eq ] Y); try congruence; intros; auto
+             | |- context [ EqNat.beq_nat ?X ?Y ] =>
+               consider (EqNat.beq_nat X Y); try congruence; intros; subst; auto
+             | |- context [ mentionsU ?X ?Y ] =>
+               consider (mentionsU X Y); try congruence; intros; subst; auto
+             | |- _ =>
+               rewrite mentionsU_lift in *
+           end; simpl in *; eauto.
+    consider (EqNat.beq_nat u' u0); congruence.
+    consider (EqNat.beq_nat u0 u0); congruence.
+    consider (EqNat.beq_nat u u0); congruence.
+  Qed.
+
+  Lemma mentionsU_WellTyped : forall tfs tu e tv t,
+    WellTyped_expr tfs tu tv e t ->
+    forall n : uvar, length tu <= n -> mentionsU n e = false.
+  Proof.
+    induction e; simpl; intros; auto.
+    { rewrite WellTyped_expr_App in H.
+      do 2 destruct H. intuition.
+      erewrite IHe1; eauto. }
+    { rewrite WellTyped_expr_Abs in H.
+      destruct H; intuition; subst.
+      eapply IHe; eauto. }
+    { rewrite WellTyped_expr_UVar in *.
+      consider (EqNat.beq_nat n u); intros; auto.
+      subst. exfalso.
+      rewrite <- (app_nil_r tu) in H.
+      rewrite nth_error_app_R in *; auto.
+      destruct (u - length tu); inversion H. }
+    { rewrite WellTyped_expr_Equal in H.
+      intuition; subst.
+      erewrite IHe1; eauto. }
+    { rewrite WellTyped_expr_Not in H; intuition subst; eauto. }
+  Qed.
+
   Theorem typeof_expr_mentionsU_strengthen : forall tfs tu e tg t',
     mentionsU (length tu) e = false ->
     typeof_expr tfs (tu ++ t' :: nil) tg e =
@@ -543,3 +591,113 @@ Section mentionsU.
   Qed.
 
 End mentionsU.
+
+Section getInstantiation.
+  Require Import MirrorCore.ExprI.
+  Require Import MirrorCore.Ext.ExprD.
+
+  Variable T : Type.
+  Variable Subst_T : Subst T expr.
+
+  Definition getInstantiation (s : T) : uvar -> nat -> option (list expr) :=
+    (fix recurse f l : option (list expr) :=
+       match l with
+         | 0 => Some nil
+         | S n =>
+           match lookup f s with
+             | None => None
+             | Some z =>
+               match recurse (S f) n with
+                 | None => None
+                 | Some zs' => Some (z :: zs')
+               end
+           end
+       end).
+
+  Variable ts : types.
+  Variable fs : functions ts.
+  Variable SubstOk : SubstOk (Expr_expr fs) Subst_T.
+  Variable NormalizedSubstOk : NormalizedSubstOk Subst_T mentionsU.
+
+  Lemma getInstantiation_S : forall s b a,
+    getInstantiation s a (S b) =
+    match lookup a s with
+      | None => None
+      | Some e => match getInstantiation s (S a) b with
+                    | None => None
+                    | Some es => Some (e :: es)
+                  end
+    end.
+  Proof. reflexivity. Qed.
+
+  Lemma getInstantiation_0 : forall s a,
+    getInstantiation s a 0 = Some nil.
+  Proof. reflexivity. Qed.
+
+  Lemma getInstantiation_contains_each : forall s b a i,
+    getInstantiation s a b = Some i ->
+    forall n,
+      n < b ->
+      exists e,
+        lookup (a + n) s = Some e /\
+        nth_error i n = Some e.
+  Proof.
+    induction b; intros.
+    { exfalso. omega. }
+    { rewrite getInstantiation_S in *.
+      consider (lookup a s); try congruence; intros.
+      consider (getInstantiation s (S a) b); try congruence; intros.
+      inv_all; subst.
+      specialize (IHb _ _ H1).
+      destruct n.
+      { rewrite Plus.plus_0_r. rewrite H. simpl; eauto. }
+      { rewrite <- plus_n_Sm. eapply IHb. omega. } }
+  Qed.
+
+  Lemma nth_error_Some_len : forall T (ls : list T) n v,
+    nth_error ls n = Some v ->
+    n < length ls.
+  Proof.
+    induction ls; destruct n; simpl; unfold error, value; intros; try congruence.
+    omega. eapply IHls in H. omega.
+  Qed.
+
+  Lemma WellTyped_getInstantiation : forall s us vs us' i,
+    WellTyped_subst (SubstOk := SubstOk) (us ++ us') vs s ->
+    getInstantiation s (length us) (length us') = Some i ->
+    forall n,
+      match nth_error us' n with
+        | None => True
+        | Some t =>
+          exists e,
+               nth_error i n = Some e
+            /\ Safe_expr (Expr := Expr_expr fs) us vs e t
+      end.
+  Proof.
+    intros.
+    specialize (getInstantiation_contains_each _ _ H0); intro.
+    consider (nth_error us' n); auto; intros.
+    generalize (nth_error_Some_len _ _ H2); intro.
+    destruct (H1 _ H3).
+    exists x.
+    intuition.
+    destruct (WellTyped_lookup _ _ _ _ H H5).
+    rewrite nth_error_app_R in H4. 2: omega.
+    cutrewrite (length us + n - length us = n) in H4; try omega.
+    rewrite H2 in *. intuition; inv_all; subst.
+    unfold Safe_expr in *; simpl in *.
+    red in H8.
+    rewrite typeof_expr_mentionsU_strengthen_multi in H8.
+    eapply H8.
+    intros.
+    consider (length (us ++ us') ?[ le ] n0).
+    { intros; eapply mentionsU_WellTyped with (n := n0); eauto. }
+    { intros.
+      destruct NormalizedSubstOk.
+      destruct (H1 (n0 - length us)).
+      { rewrite app_length in H7; omega. }
+      { eapply lookup_normalized; try eassumption.
+        replace (length us + (n0 - length us)) with n0 in H9 by omega.
+        intuition eauto. } }
+  Qed.
+End getInstantiation.
