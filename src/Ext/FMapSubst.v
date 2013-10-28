@@ -43,26 +43,8 @@ Module Make (FM : S with Definition E.t := uvar
     Definition raw_lookup : uvar -> raw -> option expr :=
        @FM.find _.
 
-    Section raw_subst.
-      Variable s : raw.
-
-      Fixpoint raw_subst (under : nat) (e : expr) : expr :=
-        match e with
-          | Var _
-          | Func _ _ => e
-          | App l r => App (raw_subst under l) (raw_subst under r)
-          | Abs t e => Abs t (raw_subst (S under) e)
-          | UVar u =>
-            match raw_lookup u s with
-              | None => e
-              | Some e => lift 0 under e
-            (** 0 should be the number of binders to skip
-             **)
-            end
-          | Equal t l r => Equal t (raw_subst under l) (raw_subst under r)
-          | Not e => Not (raw_subst under e)
-        end.
-    End raw_subst.
+    Definition raw_subst (s : raw) : nat -> expr -> expr :=
+      instantiate (fun u => raw_lookup u s).
 
     Definition raw_set (u : uvar) (e : expr) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
@@ -435,12 +417,11 @@ Module Make (FM : S with Definition E.t := uvar
     Qed.
 
     Definition subst_empty : subst :=
-      {| env := FM.empty _ ; wf := wf_empty |}.
+    {| env := FM.empty _ ; wf := wf_empty |}.
 
     Instance Subst_subst : Subst subst expr :=
     { lookup := subst_lookup
     ; set := subst_set
-    ; subst := fun s e => subst_subst s 0 e
     ; empty := subst_empty
     }.
 
@@ -678,6 +659,7 @@ Module Make (FM : S with Definition E.t := uvar
                  end; eauto; try congruence. }
       Qed.
 
+(*
       Theorem substD_subst : forall (u v : EnvI.env (typD ts)) s e t,
         subst_substD fs u v s ->
         ExprD.exprD fs u v e t = ExprD.exprD fs u v (Subst.subst s e) t.
@@ -690,7 +672,7 @@ Module Make (FM : S with Definition E.t := uvar
           destruct (ExprD.exprD' fs u x (subst_subst s 0 e) t); intuition.
         specialize (H Hnil). f_equal; auto.
       Qed.
-
+*)
       Theorem substD_lookup : forall (u v : EnvI.env (typD ts)) s uv e,
         lookup uv s = Some e ->
         subst_substD fs u v s ->
@@ -1406,7 +1388,6 @@ Module Make (FM : S with Definition E.t := uvar
       Proof.
         { eapply substD_empty. }
         { eapply WellTyped_empty. }
-        { eapply substD_subst. }
         { eauto using WellTyped_lookup. }
         { eapply substD_lookup. }
         { intros. eapply WellTyped_set; eauto. eapply H1. }
