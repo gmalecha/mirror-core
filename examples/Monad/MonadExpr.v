@@ -281,9 +281,9 @@ Section Demo.
       unfold rel_dec in *. simpl in *.
       inversion H3; clear H3; subst.
       rewrite H0; try reflexivity. rewrite H2; reflexivity. }
-    { consider (EqNat.beq_nat n n0); intuition; eauto.
+    { consider (n ?[ eq ] n0); intuition; eauto.
       inversion H0; clear H0; subst. auto. }
-    { consider (EqNat.beq_nat n n0); intuition; eauto.
+    { consider (n ?[ eq ] n0); intuition; eauto.
       inversion H0; clear H0; subst. auto. }
     { destruct (IHx y); clear IHx.
       split; intros.
