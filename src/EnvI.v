@@ -38,6 +38,12 @@ Section Env.
     erewrite nth_error_weaken by eassumption. auto.
   Qed.
 
+  Fixpoint join_env (gs : list typ) (hgs : hlist (typD nil) gs) : env :=
+    match hgs with
+      | Hnil => nil
+      | Hcons a b c d => existT _ _ c :: join_env d
+    end.
+
   Fixpoint split_env (gs : env) : sigT (hlist (typD nil)) :=
     match gs with
       | nil => existT _ nil Hnil
