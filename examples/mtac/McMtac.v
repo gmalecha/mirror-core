@@ -177,6 +177,9 @@ Section over_monad.
                 end).
 End over_monad.
 
+Arguments Case {_ _} _ _.
+Arguments _mmatchAt {_ _ _} _ _ _ _.
+
 Module McMtacNotation.
   Delimit Scope mcmtac_scope with mcmtac.
   Delimit Scope mcpattern_scope with mcmtac_pattern.
