@@ -85,17 +85,6 @@ Definition expr_of_mpattern (Ubase : uvar) : mpattern -> expr :=
       | PNot e => Not (recur e)
     end.
 
-Fixpoint list_join T (x y : list (option T)) : list (option T) :=
-  match x , y with
-    | nil , _ => y
-    | _ , nil => x
-    | x :: xs , y :: ys =>
-      match x , y with
-        | _ , None => x
-        | _ , y => y
-      end :: list_join xs ys
-  end.
-
 Fixpoint satisfies {T} (c : list (option T)) (ls : list T) : Prop :=
   match c with
     | nil => True
@@ -119,7 +108,8 @@ Fixpoint list_set (n : nat) (t : typ) (ls : list (option typ))
              end
   end.
 
-Fixpoint getEnv' (p : mpattern) (ls : list (option typ)) : option (list (option typ)) :=
+Fixpoint getEnv' (p : mpattern) (ls : list (option typ))
+: option (list (option typ)) :=
   match p with
     | PGet u t =>
       match nth_error ls u with
@@ -138,15 +128,6 @@ Fixpoint getEnv' (p : mpattern) (ls : list (option typ)) : option (list (option 
       bind (getEnv' l ls) (getEnv' r)
     | PNot e => getEnv' e ls
   end.
-
-Lemma satisfies_both : forall T p1 p2 tgs,
-                         satisfies p1 tgs ->
-                         satisfies p2 tgs ->
-                         satisfies (list_join (T := T) p1 p2) tgs.
-Proof.
-  induction p1; simpl; intros; auto.
-  forward_unsafe; intuition; subst; simpl in *; intuition.
-Qed.
 
 Lemma satisfies_nth_error : forall i tgs t,
   nth_error tgs i ?[ eq ] Some t = true <->
@@ -234,3 +215,25 @@ Definition binders_of_mpattern (ptrn : mpattern) : option (list typ) :=
     | None => None
     | Some r => mapT (fun x => x) r
   end.
+
+Lemma satisfies_mapT : forall T l tus',
+  mapT (fun x => x) l = Some tus' ->
+  satisfies (T := T) l tus'.
+Proof.
+  induction l; simpl; intros; auto.
+  forward. inv_all. subst.
+  inversion H3; clear H3; subst.
+  intuition.
+Qed.
+
+Theorem WellTyped_expr_binders_of_mpattern
+: forall ptrn tfs tus tvs ty tus',
+    binders_of_mpattern ptrn = Some tus' ->
+    typeof_mpattern tfs tus tvs ptrn = Some ty ->
+    WellTyped_expr tfs (tus ++ tus') tvs (expr_of_mpattern (length tus) ptrn) ty.
+Proof.
+  intros.
+  unfold binders_of_mpattern in *.
+  consider (getEnv' ptrn nil); intros; try congruence.
+  eapply WellTyped_expr_expr_of_mpattern; eauto using satisfies_mapT.
+Qed.
