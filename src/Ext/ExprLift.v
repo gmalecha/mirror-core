@@ -166,18 +166,6 @@ Section typed.
       rewrite IHe. auto. }
   Qed.
 
-  Lemma typeof_env_app : forall (a b : EnvI.env (typD ts)),
-    EnvI.typeof_env (a ++ b) = EnvI.typeof_env a ++ EnvI.typeof_env b.
-  Proof.
-    unfold EnvI.typeof_env; intros.
-    rewrite map_app. reflexivity.
-  Qed.
-  Lemma typeof_env_length : forall (a : EnvI.env (typD ts)),
-    length (EnvI.typeof_env a) = length a.
-  Proof.
-    unfold EnvI.typeof_env; intros.
-    rewrite map_length. reflexivity.
-  Qed.
 
   Theorem typeof_expr_lower : forall (fs : tfunctions) (us : EnvI.tenv typ)
                                      (e : expr)
