@@ -1,6 +1,7 @@
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.Monads.IdentityMonad.
 Require Import MirrorCore.Ext.Expr.
+Require Import mtac.Patterns.
 Require Import mtac.McMtac.
 
 Set Implicit Arguments.

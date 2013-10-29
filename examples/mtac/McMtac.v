@@ -18,6 +18,7 @@ Require Import ExtLib.Data.Vector.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require MirrorCore.SealedSubst.
+Require Import mtac.Patterns.
 
 (** This is just a default. Most users won't want/want
  ** to chnage this, but if there is a better substitution
@@ -28,6 +29,9 @@ Require MirrorCore.Ext.FMapSubst.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** The basic McMtac monad just keeps data about the
+ ** current context and a fuel parameter that we'll use for unification.
+ **)
 Record McEnv : Type :=
 { mtac_tfuncs : tfunctions
 ; mtac_tus  : EnvI.tenv typ
@@ -37,97 +41,26 @@ Record McEnv : Type :=
 
 Definition McMtacT := readerT McEnv.
 
-Definition runMcMtac {T} {m : Type -> Type} (fs : tfunctions) (tus tvs : EnvI.tenv typ)
+Definition runMcMtac {T} {m : Type -> Type} (fs : tfunctions)
+           (tus tvs : EnvI.tenv typ)
            (fuel : nat) (cmd : McMtacT m T) : m T :=
   runReaderT cmd {| mtac_tfuncs := fs
                   ; mtac_tus := tus
                   ; mtac_tvs := tvs
                   ; mtac_fuel := fuel |}.
 
+(** Monad Instances **)
 Global Instance Monad_McMtac m (M : Monad m) : Monad (McMtacT m) := _.
-Instance MonadReader_McMtac m (M : Monad m) : MonadReader McEnv (McMtacT m) := _.
 Global Instance MonadT_McMtac m (M : Monad m) : MonadT (McMtacT m) m := _.
+(** Do not expose the reader instance **)
+Instance MonadReader_McMtac m (M : Monad m) : MonadReader McEnv (McMtacT m) := _.
 
+
+(** Use phantom types for **)
 Definition mc_expr (t : typ) : Type := expr.
 
-Inductive mpattern :=
-| PGet (i : nat) (t : typ)
-| PVar (v : nat)
-| PUVar (u : uvar)
-| PFunc (f : func) (ls : list typ)
-| PApp (l r : mpattern)
-| PAbs (t : typ) (e : mpattern)
-| PEqual (t : typ) (l r : mpattern)
-| PNot (e : mpattern).
 
-Fixpoint typeof_mpattern (tfs : tfunctions) (tus tvs : list typ) (p : mpattern)
-: option typ :=
-  match p with
-    | PGet _ t => Some t
-    | PVar v => nth_error tvs v
-    | PUVar u => nth_error tus u
-    | PFunc f ts =>
-      match nth_error tfs f with
-        | Some r =>
-          if EqNat.beq_nat (length ts) (tfenv r)
-          then Some (instantiate_typ ts (tftype r))
-          else None
-        | None => None
-      end
-    | PApp l r =>
-      bind (typeof_mpattern tfs tus tvs l)
-           (fun tf =>
-              bind (typeof_mpattern tfs tus tvs r) (type_of_apply tf))
-    | PAbs t e =>
-      bind (typeof_mpattern tfs tus (t :: tvs) e)
-           (fun t' => ret (tvArr t t'))
-    | PEqual t l r =>
-      bind (typeof_mpattern tfs tus tvs l)
-           (fun tl => bind (typeof_mpattern tfs tus tvs r)
-                           (fun tr => if andb (t ?[ eq ] tl) (t ?[ eq ] tr)
-                                      then Some tvProp else None))
-    | PNot e =>
-      bind (typeof_mpattern tfs tus tvs e)
-           (fun tl => if tl ?[ eq ] tvProp then Some tvProp else None)
-  end.
 
-Definition expr_of_mpattern (Ubase : uvar) : mpattern -> expr :=
-  fix recur (p : mpattern) : expr :=
-  match p with
-    | PGet u _ => UVar (Ubase + u)
-    | PVar v => Var v
-    | PUVar v => UVar v
-    | PFunc f ts => Func f ts
-    | PApp l r => App (recur l) (recur r)
-    | PAbs t e => Abs t (recur e)
-    | PEqual t l r => Equal t (recur l) (recur r)
-    | PNot e => Not (recur e)
-  end.
-
-Fixpoint list_set (n : nat) (t : typ) (ls : list (option typ))
-: list (option typ) :=
-  match n with
-    | 0 => Some t :: tl ls
-    | S n => match ls with
-               | nil => None :: list_set n t nil
-               | t' :: ts => t' :: list_set n t ts
-             end
-  end.
-
-Fixpoint getEnv (p : mpattern) (ls : list (option typ)) : list (option typ) :=
-  match p with
-    | PGet u t => list_set u t ls
-    | PVar _ => ls
-    | PFunc _ _ => ls
-    | PApp l r => getEnv l (getEnv r ls)
-    | PAbs _ e => getEnv e ls
-    | PUVar _ => ls
-    | PEqual _ l r => getEnv l (getEnv r ls)
-    | PNot e => getEnv e ls
-  end.
-
-Definition binders_of_mpattern (ptrn : mpattern) : option (list typ) :=
-  mapT (fun x => x) (getEnv ptrn nil).
 
 Section exp_app.
   Variables D R : Type.
