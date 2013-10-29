@@ -11,10 +11,8 @@
  **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
-Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.ReaderMonad.
-Require Import ExtLib.Data.Vector.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require MirrorCore.SealedSubst.
@@ -59,73 +57,12 @@ Instance MonadReader_McMtac m (M : Monad m) : MonadReader McEnv (McMtacT m) := _
 (** Use phantom types for **)
 Definition mc_expr (t : typ) : Type := expr.
 
-
-
-
-Section exp_app.
-  Variables D R : Type.
-
-  Fixpoint exp n : Type :=
-    match n with
-      | 0 => R
-      | S n => D -> exp n
-    end.
-
-  Variable M : Type -> Type.
-  Variable Monad_M : Monad M.
-  Variable arg : nat -> M D.
-
-  Fixpoint exp_app {n} : exp n -> M R :=
-    match n as n return exp n -> M R with
-      | 0 => ret
-      | S n' => fun f =>
-                 bind (arg n) (fun a => exp_app (f a))
-    end.
-
-  Fixpoint exp_app_vector {n} (vs : vector D n) : exp n -> R :=
-    match vs in vector _ n return exp n -> R with
-      | Vnil => fun x => x
-      | Vcons _ v vs => fun f => exp_app_vector vs (f v)
-    end.
-End exp_app.
-
-Fixpoint lift_uvars' (us uadd : nat) (e : expr) : expr :=
-  match e with
-    | Var _
-    | Func _ _ => e
-    | App l r => App (lift_uvars' us uadd l) (lift_uvars' us uadd l)
-    | Abs t e => Abs t (lift_uvars' us uadd e)
-    | UVar u => UVar (if u ?[ lt ] us then u
-                      else u + uadd)
-    | Equal t l r => Equal t (lift_uvars' us uadd l) (lift_uvars' us uadd r)
-    | Not e => Not (lift_uvars' us uadd e)
-  end.
-
-Definition lift_uvars (us uadd : nat) (e : expr) : expr :=
-  match uadd with
-    | 0 => e
-    | _ => lift_uvars' us uadd e
-  end.
-
 Definition subst := SealedSubst.seal_subst FMapSubst.SUBST.subst.
 Local Instance Subst_subst : Subst.Subst subst expr :=
   @SealedSubst.Subst_seal_subst _ _ FMapSubst.SUBST.Subst_subst.
 Definition empty_above (above : uvar) : subst :=
   SealedSubst.seal (fun x => above ?[ le ] x)
                    (@Subst.empty _ _ FMapSubst.SUBST.Subst_subst).
-
-Fixpoint get_args_from (sub : subst) from cnt : option (vector expr cnt) :=
-  match cnt with
-    | 0 => Some (Vnil _)
-    | S n =>
-      match Subst.lookup from sub with
-        | None => None
-        | Some a => match get_args_from sub (S from) n with
-                      | None => None
-                      | Some x => Some (Vcons a x)
-                    end
-      end
-  end.
 
 Section over_monad.
   Variable m : Type -> Type.

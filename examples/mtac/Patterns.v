@@ -1,12 +1,10 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Monads.ReaderMonad.
-Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Tactics.Cases.
 Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.Ext.Expr.
 
 Set Implicit Arguments.
@@ -110,23 +108,6 @@ Fixpoint satisfies {T} (c : list (option T)) (ls : list T) : Prop :=
                         | l :: ls => l = c /\ satisfies cs ls
                       end
   end.
-
-Require Import ExtLib.Tactics.Injection.
-
-(*
-Lemma satisfies_join : forall T a b c,
-  satisfies (list_join (T := T) a b) c ->
-  satisfies b c.
-Proof.
-  induction a; destruct b; destruct c; simpl; forward_unsafe; inv_all; subst; auto.
-  {  destruct H0; subst.
-     eapply IHa in H0.
-
-Proof.
-  induction a; destruct b; destruct c; destruct d; simpl;
-  forward_unsafe; inv_all; subst; intuition; subst; intuition.
-  { 
-*)
 
 Fixpoint list_set (n : nat) (t : typ) (ls : list (option typ))
 : list (option typ) :=
