@@ -101,3 +101,5 @@ Section Env.
   Qed.
 
 End Env.
+
+Arguments join_env {_ _ _} _.
