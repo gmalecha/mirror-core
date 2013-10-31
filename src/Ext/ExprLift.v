@@ -101,6 +101,29 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
+  Lemma lift'_lift' : forall e a b d,
+    lift' a b (lift' a d e) = lift' a (b + d) e.
+  Proof.
+    induction e; simpl; intros; Cases.rewrite_all; eauto.
+    { remember (NPeano.ltb v a). destruct b0.
+      { simpl. rewrite <- Heqb0. reflexivity. }
+      { simpl.
+        consider (NPeano.ltb v a); try congruence; intros.
+        consider (NPeano.ltb (v + d) a); intros.
+        { exfalso. omega. }
+        { f_equal; omega. } } }
+  Qed.
+
+  Theorem lift_lift : forall e a b d,
+    lift a b (lift a d e) = lift a (b + d) e.
+  Proof.
+    clear. unfold lift.
+    destruct b; destruct d; simpl in *; auto.
+    f_equal. omega.
+    rewrite lift'_lift'.
+    f_equal.
+  Qed.
+
   Theorem lift_lower : forall e s l,
                          lower s l (lift s l e) = Some e.
   Proof.

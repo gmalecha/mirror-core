@@ -100,6 +100,20 @@ Section Env.
     induction a; simpl; auto.
   Qed.
 
+  Theorem split_env_join_env : forall a b,
+    split_env (@join_env a b) = existT _ a b.
+  Proof.
+    induction b; simpl; auto.
+    rewrite IHb. eauto.
+  Qed.
+
+  Theorem join_env_split_env : forall x,
+    join_env (projT2 (split_env x)) = x.
+  Proof.
+    induction x; simpl; auto.
+    f_equal; eauto. destruct a; reflexivity. 
+  Qed.
+
 End Env.
 
 Arguments join_env {_ _ _} _.
