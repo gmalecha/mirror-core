@@ -1,8 +1,10 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Maps.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
@@ -67,7 +69,7 @@ Module Type ExprDenote_core.
 
     Axiom exprD'_Func : forall ve f ts t,
       exprD' fs us ve (Func f ts) t =
-      match nth_error fs f with
+      match func_lookup fs f with
         | None => None
         | Some f =>
           match type_apply _ _ ts _ _ f.(fdenote) with
@@ -163,7 +165,7 @@ Module Type ExprDenote.
 
     Axiom exprD_Func : forall ve f ts t,
       exprD fs us ve (Func f ts) t =
-      match nth_error fs f with
+      match func_lookup fs f with
         | None => None
         | Some f =>
           match type_apply _ _ ts _ _ f.(fdenote) with
@@ -260,6 +262,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       typeof_expr (typeof_funcs fs) (typeof_env us) vs e = Some t ->
       exists val, exprD' fs us vs e t = Some val.
     Proof.
+      Opaque lookup.
       intros vs e; revert vs.
       induction e; simpl; intros.
       { rewrite exprD'_Var.
@@ -272,13 +275,9 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         intros. subst.
         rewrite typ_cast_typ_refl. eauto. }
       { rewrite exprD'_Func.
-        unfold typeof_funcs in *.
-        rewrite nth_error_map in H.
-        destruct (nth_error fs f); try congruence.
-        change EqNat.beq_nat with (@rel_dec _ (@eq nat) _) in H.
-        consider (length l ?[ eq ] tfenv (typeof_func f0)); intros; try congruence.
-        eapply type_apply_length_equal in H. destruct H. rewrite H.
-        inv_all; subst.
+        rewrite lookup_typeof_funcs in H.
+        forward; inv_all; subst.
+        eapply type_apply_length_equal in H0. destruct H0. rewrite H0.
         destruct f0; simpl in *.
         rewrite typ_cast_typ_refl. eauto. }
       { rewrite exprD'_App.
@@ -466,7 +465,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
 
     Theorem exprD_Func : forall ve f ts t,
       exprD fs us ve (Func f ts) t =
-      match nth_error fs f with
+      match func_lookup fs f with
         | None => None
         | Some f =>
           match type_apply _ _ ts _ _ f.(fdenote) with
@@ -479,8 +478,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       unfold exprD. intros.
       destruct (split_env ve).
       rewrite exprD'_Func.
-      destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) ts0 nil (ftype f0) (fdenote f0)); auto.
+      forward.
       unfold typ_cast_val.
       destruct (typ_cast_typ ts (fun x0 : Type => x0) nil
        (instantiate_typ ts0 (ftype f0)) t); auto.
@@ -686,8 +684,9 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
           apply (typ_cast_typ_eq _ _ _ _ _ H). } }
       { rewrite WellTyped_expr_Func.
         rewrite exprD'_Func.
-        rewrite nth_error_typeof_funcs.
-        destruct (nth_error fs f).
+        rewrite lookup_typeof_funcs.
+        change positive with func.
+        destruct (func_lookup fs f).
         { split; intro.
           { destruct H; intuition try congruence.
             inv_all. subst.

@@ -4,6 +4,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.Ext.Types.
@@ -73,7 +74,7 @@ Section typed.
       | Var v1 , Var v2 =>
         if EqNat.beq_nat v1 v2 then Some s else None
       | Func f1 ts1 , Func f2 ts2 =>
-        if EqNat.beq_nat f1 f2 && ts1 ?[ eq ] ts2 then Some s else None
+        if f1 ?[ eq ] f2 && ts1 ?[ eq ] ts2 then Some s else None
       | App e1 e1' , App e2 e2' =>
         match typeof_expr tfs us vs e1 , typeof_expr tfs us vs e2 with
           | Some (tvArr l r) , Some (tvArr l' r') =>
@@ -388,10 +389,8 @@ Section typed.
     { destruct e2; try congruence; eauto using handle_uvar.
       { consider (EqNat.beq_nat v v0); intros; try congruence.
         inv_all; subst. intuition. } }
-    { destruct e2; try congruence; eauto using handle_uvar.
-      { consider (EqNat.beq_nat f f0 && l ?[ eq ] l0)%bool; try congruence; intros; subst.
-        destruct H3; inv_all; subst.
-        intuition. } }
+    {  destruct e2; try congruence; eauto using handle_uvar.
+       forward. }
     { destruct e2; try congruence; eauto using handle_uvar.
       { repeat match goal with
                  | H : match ?X with _ => _ end = _ |- _ =>

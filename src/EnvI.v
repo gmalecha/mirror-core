@@ -111,7 +111,7 @@ Section Env.
     join_env (projT2 (split_env x)) = x.
   Proof.
     induction x; simpl; auto.
-    f_equal; eauto. destruct a; reflexivity. 
+    f_equal; eauto. destruct a; reflexivity.
   Qed.
 
 End Env.

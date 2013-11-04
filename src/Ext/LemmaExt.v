@@ -69,8 +69,8 @@ Section with_expr.
 End with_expr.
 
 Section demo.
-  Notation funcForall := 0.
-  Notation funcImpl := 1.
+  Notation funcForall := 1%positive.
+  Notation funcImpl := 2%positive.
 
   Local Notation "'FORALL' t , x" :=
     (App (Func funcForall (t :: nil)) (Abs t x)) (at level 60).
@@ -84,7 +84,7 @@ Section demo.
    ; concl := Var 0
   |}.
 
-  Let Plus x y := App (App (Func 0 nil) x) y.
+  Let Plus x y := App (App (Func 1%positive nil) x) y.
 
   Let lem_plus_comm : @lemma expr :=
   {| vars := tvType 0 :: tvType 0 :: nil
@@ -112,7 +112,7 @@ Section demo.
     @F ts 0 (tvArr (tvType 0) (tvArr (tvType 0) (tvType 0)))
        plus.
 
-  Let fs : functions ts := f_plus :: nil.
+  Let fs : functions ts := from_list (f_plus :: nil).
 
   Goal @lemmaD ts fs expr
        (fun us vs e =>

@@ -5,6 +5,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Expr.
@@ -569,9 +570,7 @@ Module Make (FM : S with Definition E.t := uvar
             | |- match ?X with _ => _ end =>
               destruct X; intros; auto
           end. }
-        { destruct (nth_error fs f); auto.
-          destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-          destruct (typ_cast_typ ts (fun x => x) nil (instantiate_typ l (ftype f0)) t); auto. }
+        { forward. }
         { rewrite subst_subst_typeof.
           { destruct (typeof_expr (typeof_funcs fs) (EnvI.typeof_env u) (v ++ x) e1); auto.
             destruct t0; auto.

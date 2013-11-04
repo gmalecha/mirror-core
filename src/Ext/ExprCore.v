@@ -1,5 +1,7 @@
 Require Import List Bool.
+Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Consider.
@@ -13,10 +15,11 @@ Section env.
 
   Variable types : types.
 
-  Definition func := nat.
+  (** Treat this type opaquely as much as possible **)
+  Definition func := positive.
   Record tfunction : Type :=
   { tfenv : nat ; tftype : typ }.
-  Definition tfunctions := list tfunction.
+  Definition tfunctions := PositiveMap.t tfunction.
   Definition var := nat.
   Definition uvar := nat.
 
@@ -56,7 +59,7 @@ Section env.
     fdenote : parametric fenv nil (fun env => typD types env ftype)
   }.
 
-  Definition functions := list function.
+  Definition functions := PositiveMap.t function.
   Definition variables := list typ.
 
   Variable funcs : functions.
@@ -67,7 +70,7 @@ Section env.
       | Var v1 , Var v2 => EqNat.beq_nat v1 v2
       | UVar v1 , UVar v2 => EqNat.beq_nat v1 v2
       | Func f1 ts1 , Func f2 ts2 =>
-        if EqNat.beq_nat f1 f2 then
+        if f1 ?[ eq ] f2 then
           ts1 ?[ eq ] ts2
         else false
       | App f1 e1 , App f2 e2 =>
@@ -121,4 +124,27 @@ Section env.
     constructor. eapply expr_eq_dec_eq.
   Qed.
 
+  Definition from_list {T} (ls : list T) : PositiveMap.t T :=
+    (fix from_list ls : positive -> PositiveMap.t T :=
+       match ls with
+         | nil => fun _ => PositiveMap.empty _
+         | l :: ls => fun p =>
+                        PositiveMap.add p l (from_list ls (Pos.succ p))
+       end) ls 1%positive.
+    
+
+  Definition from_func_list : list function -> functions :=
+    from_list.
+
+  Definition func_lookup (fs : functions) (f : func) : option function :=
+    PositiveMap.find f fs.
+
+  Definition from_tlist : list tfunction -> tfunctions :=
+    from_list.
+
+  Definition tfunc_lookup (fs : tfunctions) (f : func) : option tfunction :=
+    PositiveMap.find f fs.
+
 End env.
+
+Arguments Func f%positive ts.

@@ -9,6 +9,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
@@ -180,10 +181,7 @@ Section instantiate.
       intro zzz; clearbody zzz; revert zzz; gen_refl.
       destruct (nth_error (v0 ++ x) v); auto.
       destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0 t); auto. }
-    { destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-      destruct (typ_cast_typ ts (fun x0 : Type => x0) nil
-         (instantiate_typ l (ftype f0)) t); auto. }
+    { forward. }
     { rewrite typeof_expr_instantiate.
       { consider (typeof_expr (typeof_funcs fs) (typeof_env us) (v ++ x) e1); auto.
         destruct t0; auto.
@@ -478,9 +476,7 @@ Section mentionsU.
       intro zzz; clearbody zzz; revert zzz.
       gen_refl. destruct (nth_error tg v); auto.
       destruct (typ_cast_typ ts (fun x : Type => x) nil t0 t); auto. }
-    { destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-      destruct (typ_cast_typ ts (fun x : Type => x) nil (instantiate_typ l (ftype f0)) t); auto. }
+    { forward. }
     { rewrite typeof_env_app. simpl in *.
       rewrite typeof_expr_mentionsU_strengthen by (rewrite typeof_env_length; auto).
       consider (typeof_expr (typeof_funcs fs) (typeof_env tu) tg e1); auto; intros.

@@ -3,7 +3,10 @@
  * and their meaning
  *)
 Require Import List Bool.
+Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Maps.
+Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Nat.
@@ -21,23 +24,28 @@ Require Import MirrorCore.Ext.ExprCore.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Require FMapFacts.
+
+Module PMAP_FACTS := FMapFacts.Facts PositiveMap.
+Module PMAP_PROPS := FMapFacts.Properties PositiveMap.
+
 Section typed.
   Variable types : types.
 
   Definition WellTyped_func (tf : tfunction) (f : function types) : Prop :=
     tf.(tfenv) = f.(fenv) /\ tf.(tftype) = f.(ftype).
 
+  Definition typeof_func (f : function types) : tfunction :=
+  {| tfenv := fenv f ; tftype := ftype f |}.
+
   Definition WellTyped_funcs (tfs : tfunctions) (fs : functions types) : Prop :=
-    Forall2 WellTyped_func tfs fs.
+    PositiveMap.map typeof_func fs = tfs.
 
   Definition  WellTyped_env (tes : tenv typ) (es : env (typD types)) : Prop :=
     Forall2 (fun x y => x = projT1 y) tes es.
 
-  Definition typeof_func (f : function types) : tfunction :=
-    {| tfenv := fenv f ; tftype := ftype f |}.
-
   Definition typeof_funcs : functions types -> tfunctions :=
-    map typeof_func.
+    PositiveMap.map typeof_func.
 
   Theorem WellTyped_func_typeof_func : forall tf f,
     WellTyped_func tf f <-> tf = typeof_func f.
@@ -50,12 +58,7 @@ Section typed.
   Theorem WellTyped_funcs_typeof_funcs : forall tfs fs,
     WellTyped_funcs tfs fs <-> tfs = typeof_funcs fs.
   Proof.
-    induction tfs; simpl; intros; intuition; inversion H; clear H; subst; auto.
-    { destruct fs; simpl in *; subst; auto. constructor. congruence. }
-    eapply WellTyped_func_typeof_func in H2. subst. simpl. f_equal; eauto.
-    eapply IHtfs; auto.
-    destruct fs; simpl in *; try congruence. inversion H1; clear H1; subst.
-    constructor. eapply WellTyped_func_typeof_func; eauto. eapply IHtfs; auto.
+    intuition. red. symmetry; auto.
   Qed.
 
   Theorem WellTyped_env_typeof_env : forall e te,
@@ -90,7 +93,7 @@ Section typed.
         | Var x  => nth_error var_env x
         | UVar x => nth_error uvars x
         | Func f ts =>
-          match nth_error fs f with
+          match tfunc_lookup fs f with
             | None => None
             | Some r =>
               if EqNat.beq_nat (length ts) (tfenv r) then
@@ -140,12 +143,14 @@ Section typed.
 
     Theorem WellTyped_expr_Func : forall g f t' aps,
       WellTyped_expr g (Func f aps) t' <->
-      (exists ft, nth_error fs f = Some ft /\
+      (exists ft,
+         tfunc_lookup fs f = Some ft /\
          length aps = tfenv ft /\
          instantiate_typ aps (tftype ft) = t').
     Proof.
+      Opaque lookup.
       unfold WellTyped_expr; simpl; intros.
-      destruct (nth_error fs f).
+      destruct (tfunc_lookup fs f).
       { consider (EqNat.beq_nat (length aps) (tfenv t));
         try congruence; intuition.
         { inversion H0; clear H0; subst. eexists; eauto. }
@@ -233,14 +238,16 @@ Section typed.
 *)
   End typeof_expr.
 
-  Theorem nth_error_typeof_funcs : forall (fs : functions types) n,
-    nth_error (typeof_funcs fs) n = match nth_error fs n with
-                                      | None => None
-                                      | Some x => Some (typeof_func x)
-                                    end.
+  Theorem lookup_typeof_funcs : forall (fs : functions types) (n : func),
+    tfunc_lookup (typeof_funcs fs) n =
+    match func_lookup fs n with
+      | None => None
+      | Some x => Some (typeof_func x)
+    end.
   Proof.
-    unfold typeof_funcs; intros.
-    rewrite nth_error_map. reflexivity.
+    unfold tfunc_lookup, func_lookup, typeof_funcs; intros.
+    rewrite PMAP_FACTS.map_o.
+    reflexivity.
   Qed.
 
   Theorem nth_error_typeof_env : forall (fs : env (typD types)) n,

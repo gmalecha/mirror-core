@@ -15,11 +15,13 @@ Inductive mpattern :=
 | PGet (i : nat) (t : typ)
 | PVar (v : nat)
 | PUVar (u : uvar)
-| PFunc (f : func) (ls : list typ)
+| PFunc (f : func) (ts : list typ)
 | PApp (l r : mpattern)
 | PAbs (t : typ) (e : mpattern)
 | PEqual (t : typ) (l r : mpattern)
 | PNot (e : mpattern).
+
+Arguments PFunc f%positive ts.
 
 (** The type of an [mpattern] **)
 Fixpoint typeof_mpattern (tfs : tfunctions) (tus tvs : list typ) (p : mpattern)
@@ -29,7 +31,7 @@ Fixpoint typeof_mpattern (tfs : tfunctions) (tus tvs : list typ) (p : mpattern)
     | PVar v => nth_error tvs v
     | PUVar u => nth_error tus u
     | PFunc f ts =>
-      match nth_error tfs f with
+      match tfunc_lookup tfs f with
         | Some r =>
           if EqNat.beq_nat (length ts) (tfenv r)
           then Some (instantiate_typ ts (tftype r))

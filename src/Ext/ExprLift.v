@@ -678,10 +678,7 @@ Section typed.
             rewrite H1.
             destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
             destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. } } } }
-    { destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0)); auto.
-      unfold typ_cast_val.
-      destruct (typ_cast_typ ts (fun x : Type => x) nil (instantiate_typ l (ftype f0)) t); auto. }
+    { forward. }
     { erewrite typeof_expr_lower by (rewrite lower_lower'; eassumption).
       repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>

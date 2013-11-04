@@ -1,6 +1,8 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.Cases.
+Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
@@ -36,7 +38,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some tv => Some (projT1 tv)
         end
       | Func f ts =>
-        match nth_error fs f with
+        match func_lookup fs f with
           | None => None
           | Some r =>
           if EqNat.beq_nat (length ts) (fenv r) then
@@ -79,8 +81,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
     repeat match goal with
              | H : _ |- _ => rewrite H
            end; auto.
-    { rewrite nth_error_typeof_funcs.
-      destruct (nth_error fs f); auto. }
+    { rewrite lookup_typeof_funcs.
+      forward. }
     { rewrite nth_error_typeof_env. auto. }
     { change typ_eqb with (@rel_dec _ (@eq typ) _).
       destruct (typeof ve e1); auto.
@@ -118,7 +120,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some v => Some (fun _ => v)
         end
       | Func f ts' =>
-        match nth_error fs f with
+        match func_lookup fs f with
           | None => None
           | Some f =>
             match type_apply _ _ ts' _ _ f.(fdenote) with
@@ -200,7 +202,6 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       symmetry in Heqo.
       generalize (typ_cast_typ_eq ts (fun x => x) nil u1 t Heqo); intros; subst.
       rewrite typ_cast_typ_refl in Heqo.
-      Require Import ExtLib.Tactics.Injection.
       inv_all; subst. reflexivity.
     Qed.
 
@@ -301,7 +302,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
 
     Theorem exprD'_Func : forall ve f ts t,
       exprD' ve (Func f ts) t =
-      match nth_error fs f with
+      match func_lookup fs f with
         | None => None
         | Some f =>
           match type_apply _ _ ts _ _ f.(fdenote) with
@@ -315,7 +316,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       end.
     Proof.
       simpl; intros.
-      destruct (nth_error fs f); auto.
+      destruct (func_lookup fs f); auto.
       destruct (type_apply ts (fenv f0) ts0 nil (ftype f0) (fdenote f0)); auto.
       unfold typ_cast_val.
       destruct (typ_cast_typ ts (fun x : Type => x) nil

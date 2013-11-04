@@ -2,7 +2,7 @@ GENERIC := Iso IsoTac Approx
 PROVERS := ProverTac AssumptionProver
 #  Transitivity
 EXTENSIBLE := Repr Types ExprCore \
-	      ExprT ExprDI ExprD1 ExprD3 ExprD \
+	      ExprT ExprDI ExprD3 ExprD \
 	      ExprFacts \
 	      ExprLift ExprUnifySyntactic \
 	      ExprSubst LemmaExt \

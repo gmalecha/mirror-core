@@ -1,10 +1,12 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Maps.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
@@ -16,6 +18,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Module EXPR_DENOTE_core <: ExprDenote_core.
+
+  Opaque lookup func.
 
   Create HintDb exprD_rw discriminated.
 
@@ -49,7 +53,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some (existT t v) => Some (existT Z t (fun _ => v))
         end
       | Func f ts' =>
-        match nth_error fs f with
+        match func_lookup fs f with
           | None => None
           | Some f =>
             match type_apply _ _ ts' _ _ f.(fdenote) with
@@ -114,7 +118,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some v => Some (fun _ => v)
         end
       | Func f ts' =>
-        match nth_error fs f with
+        match func_lookup fs f with
           | None => None
           | Some f =>
             match type_apply _ _ ts' _ _ f.(fdenote) with
@@ -252,7 +256,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
 
     Theorem exprD'_Func : forall ve f ts t,
       exprD' ve (Func f ts) t =
-      match nth_error fs f with
+      match func_lookup fs f with
         | None => None
         | Some f =>
           match type_apply _ _ ts _ _ f.(fdenote) with
@@ -266,10 +270,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       end.
     Proof.
       simpl; intros.
-      destruct (nth_error fs f); auto.
-      destruct (type_apply ts (fenv f0) ts0 nil (ftype f0) (fdenote f0)); auto.
       unfold typ_cast_val.
-      destruct (typ_cast_typ ts (fun x => x) nil (instantiate_typ ts0 (ftype f0))); auto.
+      forward.
     Qed.
 
     Theorem exprD'_Equal : forall ve t l r t',
@@ -309,11 +311,9 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error ve v); try congruence.
        intros. inv_all. destruct H. subst. subst.
        rewrite typ_cast_typ_refl. reflexivity. }
-     { destruct (nth_error fs f); try intuition congruence.
-       destruct (type_apply ts (fenv f0) l nil (ftype f0) (fdenote f0));
-         try congruence.
-       inv_all. destruct H; subst. subst.
-       unfold typ_cast_val. rewrite typ_cast_typ_refl. reflexivity. }
+     { unfold typ_cast_val. forward. inv_all.
+       destruct H1. subst. subst.
+       rewrite typ_cast_typ_refl. reflexivity. }
      { specialize (IHe1 ve).
        destruct (exprD_simul' ve e1); try intuition congruence.
        destruct s. specialize (IHe1 x t0 eq_refl).
@@ -379,16 +379,13 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            consider X; try congruence; intros
        end.
        generalize (typ_cast_typ_eq _ _ _ _ _ H); intros. subst; auto. }
-     { rewrite nth_error_typeof_funcs.
-       destruct (nth_error fs f); try congruence.
+     { rewrite lookup_typeof_funcs.
+       change positive with func.
+       forward.
        destruct f0; simpl in *. unfold typ_cast_val in *.
-       repeat match goal with
-                | _ : match ?X with _ => _ end = _ |- _ =>
-                  consider X; try congruence; intros
-              end.
-       generalize (typ_cast_typ_eq _ _ _ _ _ H0); intros; subst.
-       inv_all; subst.
-       rewrite (type_apply_length_equal' _ _ _ _ _ _ H).
+       forward; inv_all; subst.
+       generalize (typ_cast_typ_eq _ _ _ _ _ H1); intros; subst.
+       rewrite (type_apply_length_equal' _ _ _ _ _ _ H0).
        consider (EqNat.beq_nat fenv fenv); congruence. }
      { specialize (IHe1 ve).
        consider (exprD_simul' ve e1); try congruence; intros.
@@ -445,9 +442,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      end.
    Proof.
      induction e; simpl; intros.
-     {
-
-       change (
+     { change (
            let zzz t (pf : Some t = nth_error ve v) :=
                (fun e : hlist (typD ts nil) ve =>
                   match
@@ -482,25 +477,25 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            end).
        intro zzz; clearbody zzz; revert zzz.
        destruct (nth_error ve v); auto. }
-     { rewrite nth_error_typeof_funcs.
-       destruct (nth_error fs f); try congruence.
+     { rewrite lookup_typeof_funcs.
+       forward.
        destruct f0; simpl in *.
        match goal with
          | |- match match ?X with _ => _ end with _ => _ end =>
            consider X; intros
        end.
        { simpl. consider (EqNat.beq_nat (length l) fenv); auto.
-         generalize (type_apply_length_equal' _ _ _ _ _ _ H).
+         generalize (type_apply_length_equal' _ _ _ _ _ _ H0).
          congruence. }
        { consider (EqNat.beq_nat (length l) fenv); auto.
          intros; subst.
          exfalso.
          destruct (@type_apply_length_equal ts ftype l (length l) nil fdenote eq_refl).
-         match type of H with
+         match type of H1 with
            | ?X = _ =>
              match type of H0 with
                | ?Y = _ =>
-                 change X with Y in * ; rewrite H in H0 ; congruence
+                 change X with Y in * ; rewrite H1 in H0 ; congruence
              end
          end. } }
      { specialize (IHe1 ve). specialize (IHe2 ve).
@@ -612,31 +607,26 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error ve v); try congruence; intros.
        intro. inv_all; subst.
        rewrite typ_cast_typ_refl in *. congruence. }
-     { unfold typeof_funcs. rewrite nth_error_map.
-       destruct (nth_error fs f); try congruence.
+     { rewrite lookup_typeof_funcs.
+       forward.
        destruct f0; simpl in *.
+       intro; inv_all; subst.
+       unfold typ_cast_val in *.
        match goal with
          | H : match ?X with _ => _ end = _ |- _ =>
            consider X; intros
        end.
-       rewrite (type_apply_length_equal' _ _ _ _ _ _ H).
-       consider (EqNat.beq_nat fenv fenv); try congruence.
-       match goal with
-         | H : match ?X with _ => _ end = _ |- _ =>
-           consider X; try congruence; intros
-       end.
-       intro. inv_all. subst. eapply typ_cast_val_refl; eauto.
-       consider (EqNat.beq_nat (length l) fenv); try congruence; intros.
-       destruct (@type_apply_length_equal ts ftype l fenv nil fdenote H1).
-       clear - H H2.
-       match type of H with
-         | ?T = _ =>
-           match type of H2 with
-             | ?T' = _ =>
-               change T with T in *
-           end
-       end.
-       rewrite H in H2. congruence. }
+       { forward.
+         rewrite typ_cast_typ_refl in H1. congruence. }
+       { destruct (@type_apply_length_equal ts ftype l _ nil fdenote eq_refl).
+         match type of H0 with
+           | ?T = _ =>
+             match type of H2 with
+               | ?T' = _ =>
+                 change T with T in *
+             end
+         end.
+         congruence. } }
      { consider (exprD_simul' ve e1); intros.
        { destruct s. eapply exprD'_exprD_simul' in H.
          rewrite (exprD'_typeof _ _ H).

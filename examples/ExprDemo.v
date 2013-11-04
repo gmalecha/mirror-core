@@ -18,7 +18,8 @@ Section Demo.
   Let tvNat := tvType 0.
 
   Definition funcs' : functions types'.
-  refine (F types' 0
+  refine (from_list (
+          F types' 0
              (tvArr tvNat (tvArr tvNat tvNat))
              plus ::
           F _ 1
@@ -31,16 +32,16 @@ Section Demo.
              (tvArr (tvVar 0) (tvArr (tvVar 0) tvProp))
              (fun T : Type => @eq T) ::
           F types' 0 (tvType 0) 0 ::
-          nil).
+          nil)).
   Defined.
 
   Definition App_list (f : expr) (args : list expr) : expr :=
     List.fold_left App args f.
 
   Goal
-    let e := @App_list (@Func 1 (tvType 0 :: nil))
-                    ((@Abs tvNat (@App_list (@Func 3 (tvType 0 :: nil))
-                                                ((Var 0) :: @Func 4 nil :: nil))) :: nil) in
+    let e := @App_list (@Func 2%positive (tvType 0 :: nil))
+                    ((@Abs tvNat (@App_list (@Func 4%positive (tvType 0 :: nil))
+                                                ((Var 0) :: @Func 5%positive nil :: nil))) :: nil) in
     match ExprD.exprD funcs' nil nil e tvProp with
       | None => False
       | Some p => p
