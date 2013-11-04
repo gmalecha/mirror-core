@@ -21,7 +21,8 @@ Section RFunc.
   ; fdenote : parametric fenv nil (fun env => typD ts env ftype)
   }.
 
-  Variable fs : PositiveMap.t function.
+  Definition functions := PositiveMap.t function.
+  Variable fs : functions.
 
   Definition func_typeof_func (f : func) : option typ :=
     match f with
@@ -38,7 +39,14 @@ Section RFunc.
         end
     end.
 
-  (** TODO: This is pretty ugly **)
+  (** TODO: This is pretty ugly, it is because it doesn't
+   ** match up well with [func_typeof_func].
+   ** - One option is to make the return value of the denotation
+   **   function be an option which allows us to encode the
+   **   same information.
+   **   - The annoying piece about this is that it doesn't
+   **     ensure that [func] is sensible (at least definitionally)
+   **)
   Global Instance RFunc_func : RFunc (typD ts) func :=
   { typeof_func := func_typeof_func
   ; funcD := fun f =>

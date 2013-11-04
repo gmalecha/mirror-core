@@ -2,6 +2,7 @@ Require Import List.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.Expr.
+Require Import MirrorCore.Ext.EnvFunc.
 
 (** Demo **)
 Section Demo.
