@@ -140,7 +140,7 @@ Section env.
     { consider (typ_eqb x1 y1); intros.
       rewrite IHx1 in H. rewrite IHx2 in H0. subst; reflexivity. }
     { inversion H. apply IHx1 in H1. apply IHx2 in H2.
-      simpl in *. inversion H; subst. rewrite H1. auto. }
+      simpl in *. inversion H; subst. unfold rel_dec in *; simpl in *. rewrite H1. auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
   Qed.
