@@ -2,19 +2,12 @@
  * This achieves a phase split between the 'well-formedness' of expressions
  * and their meaning
  *)
-Require Import List Bool.
+Require Import List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Maps.
-Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Data.Nat.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
@@ -148,7 +141,6 @@ Section typed.
          length aps = tfenv ft /\
          instantiate_typ aps (tftype ft) = t').
     Proof.
-      Opaque lookup.
       unfold WellTyped_expr; simpl; intros.
       destruct (tfunc_lookup fs f).
       { consider (EqNat.beq_nat (length aps) (tfenv t));
