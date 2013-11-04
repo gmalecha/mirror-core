@@ -206,8 +206,8 @@ Module PMapRepr <: ReprType with Definition Env := pmap
     | compat_some : forall v, compat_opt (Some v) (Some v).
 
     Inductive compat : pmap T -> pmap T -> Prop :=
-    | compat_Lnil : forall r, compat (Empty _) r
-    | compat_Rnil : forall l, compat l (Empty _)
+    | compat_Lnil : forall r, compat Empty r
+    | compat_Rnil : forall l, compat l Empty
     | compat_cons : forall l ls ls' r rs rs',
       compat_opt l r ->
       compat ls rs ->
