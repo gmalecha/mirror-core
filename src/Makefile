@@ -6,7 +6,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      ExprFacts \
 	      ExprLift ExprUnifySyntactic \
 	      ExprSubst LemmaExt \
-	      Expr FMapSubst EnvFunc
+	      Expr FMapSubst EnvFunc ExprTactics
 LAMBDA := ExprCore ExprT ExprDI
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
