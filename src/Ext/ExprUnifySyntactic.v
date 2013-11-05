@@ -4,6 +4,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.Ext.Types.
@@ -30,10 +31,12 @@ Section typed.
 
   Section nested.
 
-    (** n is the number of binders that we have gone under **)
-  Variable exprUnify : forall (us vs : tenv typ) (under : nat) (s : subst) (l r : expr func), typ -> option subst.
+  (** n is the number of binders that we have gone under **)
+  Variable exprUnify : forall (us vs : tenv typ) (under : nat) (s : subst)
+                              (l r : expr func), typ -> option subst.
 
-  Fixpoint exprUnify' (us vs : tenv typ) (n : nat) (s : subst) (e1 e2 : expr func) (t : typ) {struct e1}
+  Fixpoint exprUnify' (us vs : tenv typ) (n : nat) (s : subst)
+           (e1 e2 : expr func) (t : typ) {struct e1}
   : option subst.
   refine (
     match e1 , e2 with
@@ -158,7 +161,7 @@ Section typed.
   Proof.
     intros.
     split.
-    { eapply WellTyped_subst_set; eauto.
+    { eapply WellTyped_set; eauto.
       simpl. red. generalize (typeof_expr_lower _ tu e nil tv' tv).
       simpl. intro. rewrite <- H6; eauto. }
     { intros.
@@ -212,7 +215,7 @@ Section typed.
   Proof.
     intros.
     consider (lookup u s); intros.
-    { eapply H in H4; eauto using WellTyped_subst_lookup.
+    { eapply H in H4; eauto using WellTyped_lookup.
       { destruct H4; split; auto.
         intros. specialize (H5 _ _ H6 H7 H8). destruct H5; split; auto.
         intros. specialize (H9 _ H10).
@@ -230,11 +233,14 @@ Section typed.
         generalize (exprD_lift _ u0 nil v' v e0 t). simpl.
         cutrewrite (length v' = length tv').
         { intro X. etransitivity. eapply X. auto. }
-        { eapply WellTyped_env_typeof_env in H10. subst. rewrite typeof_env_length. auto. } }
-      { eapply WellTyped_subst_lookup in H3. 2: eauto. 2: eauto.
-        unfold WellTyped_expr.
+        { eapply WellTyped_env_typeof_env in H10. subst.
+          rewrite typeof_env_length. auto. } }
+      { eapply WellTyped_lookup in H3. 2: eauto.
+        unfold WellTyped_expr in *.
+        simpl in *. rewrite H0 in *.
+        destruct H3. intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. etransitivity; eassumption. } }
+        intros. etransitivity; eauto. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -278,7 +284,7 @@ Section typed.
   Proof.
     intros.
     consider (lookup u s); intros.
-    { eapply H in H4; eauto using WellTyped_subst_lookup.
+    { eapply H in H4; eauto using WellTyped_lookup.
       { destruct H4; split; auto.
         intros. specialize (H5 _ _ H6 H7 H8). destruct H5; split; auto.
         intros. specialize (H9 _ H10).
@@ -292,13 +298,17 @@ Section typed.
           unfold typeof_env in H0.
           rewrite nth_error_map in H0. rewrite H3 in *. inv_all.
           simpl in *. auto. }
-        subst. rewrite typ_cast_typ_refl. symmetry.  etransitivity. symmetry. eapply H9.
+        subst. rewrite typ_cast_typ_refl. symmetry.  etransitivity. symmetry.
+        eapply H9.
         generalize (exprD_lift _ u0 nil v' v e0 t). simpl.
         cutrewrite (length v' = length tv').
         { intro X. etransitivity. eapply X. auto. }
-        { eapply WellTyped_env_typeof_env in H10. subst. rewrite typeof_env_length. auto. } }
-      { eapply WellTyped_subst_lookup in H3. 2: eauto. 2: eauto.
-        unfold WellTyped_expr.
+        { eapply WellTyped_env_typeof_env in H10. subst.
+          rewrite typeof_env_length. auto. } }
+      { eapply WellTyped_lookup in H3. 2: eauto.
+        unfold WellTyped_expr in *.
+        simpl in *. rewrite H0 in *.
+        destruct H3; intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
         intros. etransitivity; eassumption. } }
     { match goal with
@@ -316,12 +326,13 @@ Section typed.
   Proof.
     intros.
     rewrite WellTyped_expr_UVar in H0.
-    eapply WellTyped_subst_lookup in H1. 2: eauto. 2: eauto.
-    red in H1. simpl in H1.
+    eapply WellTyped_lookup in H1. 2: eauto.
+    rewrite H0 in *. destruct H1; intuition; inv_all; subst.
+    red in H3. simpl in H3.
     red.
     etransitivity.
     eapply (typeof_expr_lift _ tu nil tv' tv e).
-    eapply H1.
+    eapply H3.
   Qed.
 
   Lemma exprD_from_subst : forall us vs vs' s e u t,
@@ -341,7 +352,7 @@ Section typed.
     rewrite H3 in *. destruct x; inv_all; subst. simpl in *.
     rewrite typ_cast_typ_refl.
     symmetry. etransitivity. eapply (exprD_lift _ us nil vs' vs).
-    eapply H4. 
+    eapply H4.
   Qed.
 
   Lemma nth_error_from_WellTyped_UVar : forall tu tv u us t,
@@ -363,9 +374,8 @@ Section typed.
     { destruct e2; try congruence; eauto using handle_uvar.
       { consider (EqNat.beq_nat v v0); intros; try congruence.
         inv_all; subst. intuition. } }
-    { destruct e2; try congruence; eauto using handle_uvar.
-      consider (f ?[ eq ] f0); try congruence; intros.
-      inv_all; subst. intuition. }
+    {  destruct e2; try congruence; eauto using handle_uvar.
+       forward. }
     { destruct e2; try congruence; eauto using handle_uvar.
       { repeat match goal with
                  | H : match ?X with _ => _ end = _ |- _ =>
@@ -444,23 +454,22 @@ Section typed.
         repeat rewrite exprD'_Abs.
         rewrite typ_cast_typ_refl.
         specialize (H9 eq_refl). specialize (H10 eq_refl).
-        destruct (@typeof_exprD _ _ _ _ _ _ _ H4).
-        destruct (@typeof_exprD _ _ _ _ _ _ _ H5).
+        generalize typeof_expr_exprD'. unfold WellTyped_expr.
+        intro XXX. rewrite XXX in H4. rewrite XXX in H5.
         assert (typeof_env v' ++ typeof_env v = x0).
         { rewrite <- typeof_env_app.
           generalize (@split_env_projT1 _ _ (v' ++ v)).
-          rewrite <- Heqs0. simpl. intro. symmetry. exact H15. }
+          rewrite <- Heqs0. simpl. intro. symmetry. exact H13. }
         subst.
-        eapply typeof_exprD in H4. destruct H4.
-        eapply typeof_exprD in H5; destruct H5.
+        destruct H4; destruct H5; intuition.
         rewrite H4 in *. rewrite H5 in *.
         f_equal.
         eapply functional_extensionality; intros.
         inv_all; subst.
-        specialize (H12 (existT _ t1 x4 :: v')). simpl in H12.
+        specialize (H12 (existT _ t1 x2 :: v')). simpl in H12.
         rewrite <- Heqs0 in *. simpl in *.
         rewrite H5 in *. rewrite H4 in *.
-        assert (WellTyped_env (t1 :: typeof_env v') (existT (typD types nil) t1 x4 :: v')).
+        assert (WellTyped_env (t1 :: typeof_env v') (existT (typD types nil) t1 x2 :: v')).
         { constructor; auto. }
         apply H12 in H13. inv_all. auto. } }
     { destruct e2; eauto using handle_uvar2.
@@ -479,47 +488,57 @@ Section typed.
             symmetry.
             cut (nth_error (typeof_env u1) u0 = Some t);
               eauto using exprD_from_subst, nth_error_from_WellTyped_UVar. }
-          { generalize H5. eapply WellTyped_subst_lookup in H5; eauto.
-            red in H5. simpl in H5.
-            generalize H6. eapply WellTyped_subst_set in H6; eauto.
-            intros. split; auto.
-            intros.
-            eapply substD_set in H7; eauto.
-            intuition.
-            erewrite exprD_from_subst; eauto using nth_error_from_WellTyped_UVar.
-            rewrite exprD_UVar.
-            rewrite WellTyped_expr_UVar in *.
-            unfold lookupAs.
-            eapply WellTyped_env_typeof_env in H9. subst.
-            rewrite nth_error_typeof_env in H1.
-            destruct (nth_error u1 u0); try congruence.
-            specialize (H13 _ eq_refl).
-            destruct s0; simpl in *; inv_all; subst.
-            rewrite typ_cast_typ_refl.
-            etransitivity.
-            eapply (exprD_lift _ u1 nil v' v e t). auto. }
-          { generalize H4. eapply WellTyped_subst_lookup in H4; eauto.
-            red in H4. simpl in H4.
-            generalize H6. eapply WellTyped_subst_set in H6; eauto.
-            intros. split; auto.
-            intros.
-            eapply substD_set in H7; eauto.
-            intuition.
-            symmetry.
-            erewrite exprD_from_subst; eauto using nth_error_from_WellTyped_UVar.
-            symmetry.
-            rewrite exprD_UVar.
-            rewrite WellTyped_expr_UVar in *.
-            unfold lookupAs.
-            eapply WellTyped_env_typeof_env in H9. subst.
-            rewrite nth_error_typeof_env in *.
-            destruct (nth_error u1 u); try congruence.
-            specialize (H13 _ eq_refl).
-            destruct s0; simpl in *; inv_all; subst.
-            rewrite typ_cast_typ_refl.
-            symmetry.
-            etransitivity.
-            eapply (exprD_lift _ u1 nil v' v e t). auto. }
+          { generalize H5. eapply WellTyped_lookup in H5; eauto.
+            destruct H5. destruct H5.
+            generalize H6.
+            eapply WellTyped_set in H6; eauto.
+            { intros. split; auto.
+              intros.
+              eapply substD_set in H8; eauto.
+              intuition.
+              erewrite exprD_from_subst; eauto using nth_error_from_WellTyped_UVar.
+              rewrite exprD_UVar.
+              rewrite WellTyped_expr_UVar in *.
+              unfold lookupAs.
+              eapply WellTyped_env_typeof_env in H10. subst.
+              rewrite nth_error_typeof_env in H1.
+              destruct (nth_error u1 u0); try congruence.
+              specialize (H14 _ eq_refl).
+              destruct s0; simpl in *; inv_all; subst.
+              rewrite typ_cast_typ_refl.
+              etransitivity.
+              eapply (exprD_lift _ u1 nil v' v e t). auto. }
+            { red in H0; simpl in *.
+              rewrite H0 in H5; inv_all; subst; auto. } }
+          { generalize H4. eapply WellTyped_lookup in H4; eauto.
+            destruct H4.
+            assert (x = t); subst.
+            { red in H1. simpl in *. rewrite H1 in *.
+              intuition; inv_all; auto. }
+            { destruct H4.
+              red in H7. simpl in H7.
+              generalize H6. eapply WellTyped_set in H6; eauto.
+              intros. split; auto.
+              intros.
+              eapply substD_set in H8; eauto.
+              intuition.
+              symmetry.
+              erewrite exprD_from_subst. 2: eassumption. 2: eassumption.
+              2: eapply nth_error_from_WellTyped_UVar.
+              2: eapply H1. 2: eassumption.
+              symmetry.
+              rewrite exprD_UVar.
+              rewrite WellTyped_expr_UVar in *.
+              unfold lookupAs.
+              eapply WellTyped_env_typeof_env in H10. subst.
+              rewrite nth_error_typeof_env in *.
+              destruct (nth_error u1 u); try congruence.
+              specialize (H14 _ eq_refl).
+              destruct s0; simpl in *; inv_all; subst.
+              rewrite typ_cast_typ_refl.
+              symmetry.
+              etransitivity.
+              eapply (exprD_lift _ u1 nil v' v e t). auto. } }
           { consider (set u (UVar u0) s); intros; inv_all; subst.
             { eapply handle_uvar2; eauto.
               rewrite H5. rewrite lower_lower'. simpl. auto. }

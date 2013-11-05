@@ -89,14 +89,28 @@ Section typed.
     destruct l; simpl; intros; auto using lift'_0.
   Qed.
 
-  Fixpoint mentionsU (u : nat) (e : expr func) {struct e} : bool :=
-    match e with
-      | Var _
-      | Inj _ => false
-      | UVar u' => EqNat.beq_nat u u'
-      | App f e => if mentionsU u f then true else mentionsU u e
-      | Abs _ e => mentionsU u e
-    end.
+  Lemma lift'_lift' : forall e a b d,
+    lift' a b (lift' a d e) = lift' a (b + d) e.
+  Proof.
+    induction e; simpl; intros; Cases.rewrite_all; eauto.
+    { remember (NPeano.ltb v a). destruct b0.
+      { simpl. rewrite <- Heqb0. reflexivity. }
+      { simpl.
+        consider (NPeano.ltb v a); try congruence; intros.
+        consider (NPeano.ltb (v + d) a); intros.
+        { exfalso. omega. }
+        { f_equal; omega. } } }
+  Qed.
+
+  Theorem lift_lift : forall e a b d,
+    lift a b (lift a d e) = lift a (b + d) e.
+  Proof.
+    clear. unfold lift.
+    destruct b; destruct d; simpl in *; auto.
+    f_equal. omega.
+    rewrite lift'_lift'.
+    f_equal.
+  Qed.
 
   Theorem lift_lower : forall e s l,
                          lower s l (lift s l e) = Some e.
@@ -165,18 +179,6 @@ Section typed.
       rewrite IHe. auto. }
   Qed.
 
-  Lemma typeof_env_app : forall (a b : EnvI.env (typD ts)),
-    EnvI.typeof_env (a ++ b) = EnvI.typeof_env a ++ EnvI.typeof_env b.
-  Proof.
-    unfold EnvI.typeof_env; intros.
-    rewrite map_app. reflexivity.
-  Qed.
-  Lemma typeof_env_length : forall (a : EnvI.env (typD ts)),
-    length (EnvI.typeof_env a) = length a.
-  Proof.
-    unfold EnvI.typeof_env; intros.
-    rewrite map_length. reflexivity.
-  Qed.
 
   Theorem typeof_expr_lower : forall (us : EnvI.tenv typ)
                                      (e : expr func)
@@ -666,7 +668,7 @@ Section typed.
             rewrite H1.
             destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
             destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. } } } }
-    { destruct (funcAs f t); auto. }
+    { forward. }
     { erewrite typeof_expr_lower by (rewrite lower_lower'; eassumption).
       repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>

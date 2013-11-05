@@ -5,10 +5,12 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
+Require Import MirrorCore.Ext.ExprSubst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -102,14 +104,6 @@ Module Make (FM : S with Definition E.t := uvar
     Hint Resolve -> raw_lookup_MapsTo.
     Hint Resolve -> raw_lookup_In.
 
-    Lemma mentionsU_lift : forall u (e : expr func) a b,
-                             mentionsU u (lift a b e) = mentionsU u e.
-    Proof.
-      induction e; simpl; intros; rewrite lift_lift'; simpl; intuition;
-      repeat rewrite <- lift_lift' in *; intuition.
-      { destruct (NPeano.ltb v a); auto. }
-      { rewrite IHe1. rewrite IHe2. auto. }
-    Qed.
     Lemma normalized_lift : forall s n e,
                               normalized s e <-> normalized s (lift 0 n e).
     Proof.
@@ -411,12 +405,11 @@ Module Make (FM : S with Definition E.t := uvar
     Qed.
 
     Definition subst_empty : subst :=
-      {| env := FM.empty _ ; wf := wf_empty |}.
+    {| env := FM.empty _ ; wf := wf_empty |}.
 
     Instance Subst_subst : Subst subst (expr func) :=
     { lookup := subst_lookup
     ; set := subst_set
-    ; subst := fun s e => subst_subst s 0 e
     ; empty := subst_empty
     }.
 
@@ -562,7 +555,7 @@ Module Make (FM : S with Definition E.t := uvar
             | |- match ?X with _ => _ end =>
               destruct X; intros; auto
           end. }
-        { destruct (funcAs f t); auto. }
+        { forward. }
         { rewrite subst_subst_typeof.
           { destruct (typeof_expr (EnvI.typeof_env u) (v ++ x) e1); auto.
             destruct t0; auto.
@@ -636,6 +629,7 @@ Module Make (FM : S with Definition E.t := uvar
             destruct (typ_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto. } }
       Qed.
 
+(*
       Theorem substD_subst : forall (u v : EnvI.env (typD ts)) s e t,
         subst_substD u v s ->
         ExprD.exprD u v e t = ExprD.exprD u v (Subst.subst s e) t.
@@ -648,7 +642,7 @@ Module Make (FM : S with Definition E.t := uvar
           destruct (ExprD.exprD' u x (subst_subst s 0 e) t); intuition.
         specialize (H Hnil). f_equal; auto.
       Qed.
-
+*)
       Theorem substD_lookup : forall (u v : EnvI.env (typD ts)) s uv e,
         lookup uv s = Some e ->
         subst_substD u v s ->
@@ -1324,7 +1318,6 @@ Module Make (FM : S with Definition E.t := uvar
       Proof.
         { eapply substD_empty. }
         { eapply WellTyped_empty. }
-        { eapply substD_subst. }
         { eauto using WellTyped_lookup. }
         { eapply substD_lookup. }
         { intros. eapply WellTyped_set; eauto. eapply H1. }

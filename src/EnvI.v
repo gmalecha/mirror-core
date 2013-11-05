@@ -38,6 +38,12 @@ Section Env.
     erewrite nth_error_weaken by eassumption. auto.
   Qed.
 
+  Fixpoint join_env (gs : list typ) (hgs : hlist (typD nil) gs) : env :=
+    match hgs with
+      | Hnil => nil
+      | Hcons a b c d => existT _ _ c :: join_env d
+    end.
+
   Fixpoint split_env (gs : env) : sigT (hlist (typD nil)) :=
     match gs with
       | nil => existT _ nil Hnil
@@ -94,4 +100,20 @@ Section Env.
     induction a; simpl; auto.
   Qed.
 
+  Theorem split_env_join_env : forall a b,
+    split_env (@join_env a b) = existT _ a b.
+  Proof.
+    induction b; simpl; auto.
+    rewrite IHb. eauto.
+  Qed.
+
+  Theorem join_env_split_env : forall x,
+    join_env (projT2 (split_env x)) = x.
+  Proof.
+    induction x; simpl; auto.
+    f_equal; eauto. destruct a; reflexivity.
+  Qed.
+
 End Env.
+
+Arguments join_env {_ _ _} _.

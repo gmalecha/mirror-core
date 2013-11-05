@@ -43,13 +43,13 @@ Section sealed.
                    None
              end
   ; lookup := fun u s => lookup u s.(subst)
-  ; subst := fun s e => Subst.subst s.(subst) e
   ; empty := {| allowed := fun _ => true ; subst := @Subst.empty _ _ _ |}
   }.
 
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
   Context {Expr_expr : Expr typD expr}.
+  Context {mentionsU : uvar -> expr -> bool}.
   Context {SubstOk_lsubst : @SubstOk _ _ _ _ Expr_expr Subst_lsubst}.
 
   Instance SubstOk : SubstOk Expr_expr Subst_seal_subst :=
@@ -59,18 +59,25 @@ Section sealed.
   Proof.
     { simpl; apply substD_empty. }
     { simpl; apply WellTyped_empty. }
-    destruct s; simpl; eauto using substD_subst.
-    destruct s; simpl; eauto using substD_subst, substD_lookup, WellTyped_subst_lookup, WellTyped_subst_set, substD_set.
-    destruct s; simpl; eauto using substD_subst, substD_lookup.
-    { destruct s; destruct s'; simpl; eauto using substD_subst, substD_lookup, WellTyped_subst_lookup, WellTyped_subst_set, substD_set.
+
+    destruct s; simpl; eauto using substD_lookup, WellTyped_lookup, WellTyped_set, substD_set.
+    destruct s; simpl; eauto using substD_lookup.
+    { destruct s; destruct s'; simpl; eauto using substD_lookup, WellTyped_lookup, WellTyped_set, substD_set.
       intros. destruct (allowed0 uv); try congruence.
       consider (set uv e subst0); intros; inv_all; subst; try congruence;
-      eauto using WellTyped_subst_set. }
+      eauto using WellTyped_set. }
     { destruct s; destruct s'; simpl; intros.
       destruct (allowed0 uv); try congruence; inv_all; subst.
       consider (set uv e subst0); try congruence; intros; inv_all; subst;
       eauto using substD_set. }
   Defined.
+
+  Instance NormalizedSubstOk (N : NormalizedSubstOk Subst_lsubst mentionsU)
+  : NormalizedSubstOk Subst_seal_subst mentionsU.
+  Proof.
+    constructor.
+    { destruct s; simpl. eapply lookup_normalized; eauto. }
+  Qed.
 
   Definition seal : (uvar -> bool) -> lsubst -> seal_subst := SealedSubst.
 

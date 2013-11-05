@@ -20,6 +20,13 @@ Section Expr.
 
   Variable expr : Type.
 
+  (** TODO:
+   ** - Right now this is intensionally weak, but it should probably include
+   **   a few more operations given that it is already specialized for both
+   **   [UVar] and [Var].
+   ** - An alternative is to generalize it monadically and eliminate the
+   **   specialized variable environments.
+   **)
   Class Expr : Type :=
   { exprD : env typD -> env typD -> expr -> forall t : typ, option (typD nil t)
   ; Safe_expr : list typ -> list typ -> expr -> typ -> Prop

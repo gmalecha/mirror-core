@@ -1,10 +1,12 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Maps.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
@@ -57,13 +59,16 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
                      end -> _
         with
           | None => fun _ => None
-          | Some ft => fun val => Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t) ft (fun _ => val))
+          | Some ft => fun val =>
+            Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t)
+                         ft (fun _ => val))
         end (funcD f)
       | Abs t' e =>
         match exprD_simul' (t' :: var_env) e with
           | None => None
           | Some (existT t v) =>
-            Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t) (tvArr t' t) (fun g x => v (Hcons x g)))
+            Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t)
+                         (tvArr t' t) (fun g x => v (Hcons x g)))
         end
       | App f x =>
         match exprD_simul' var_env f with
@@ -237,13 +242,9 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (typeof_func f); try congruence; intros.
        inv_all; subst. destruct H; subst. subst.
        simpl. rewrite typ_cast_typ_refl. reflexivity. }
-     { specialize (IHe1 ve).
-       destruct (exprD_simul' ve e1); try intuition congruence.
-       destruct s. specialize (IHe1 x t0 eq_refl).
-       destruct x; try congruence.
-       destruct (exprD' ve e2 x1); try congruence.
-       inv_all. destruct H; subst. subst.
-       rewrite typ_cast_typ_refl. reflexivity. }
+     { unfold typ_cast_val. forward. inv_all.
+       destruct H1. subst. destruct H3. subst.
+       rewrite typ_cast_typ_refl. f_equal. assumption. }
      { specialize (IHe (t :: ve)).
        destruct (exprD_simul' (t :: ve) e); try congruence. destruct s.
        inv_all. destruct H; subst. subst.
@@ -299,11 +300,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      { unfold funcAs in *.
        generalize dependent (funcD f).
        destruct (typeof_func f); try congruence; intros.
-       simpl in *. 
-       repeat match goal with
-                | _ : match ?X with _ => _ end = _ |- _ =>
-                  consider X; try congruence; intros
-              end.
+       simpl in *.
+       forward.
        generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
        congruence. }
      { specialize (IHe1 ve).
@@ -383,8 +381,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            end).
        intro zzz; clearbody zzz; revert zzz.
        destruct (nth_error ve v); auto. }
-     { generalize (funcD f).
-       destruct (typeof_func f); auto. }
+     { generalize (funcD f). forward. }
      { specialize (IHe1 ve). specialize (IHe2 ve).
        destruct (exprD_simul' ve e1).
        { destruct s; simpl in *.

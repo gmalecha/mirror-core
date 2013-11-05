@@ -134,8 +134,13 @@ Section env.
              | |- context [ typ_eqb ?X ?Y ] =>
                change (typ_eqb X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
-             | |- context [ List.list_eq RelDec_eq_typ ?X ?Y ] =>
-               change (List.list_eq RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
+(*             | |- context [ List.list_eq RelDec_eq_typ ?X ?Y ] =>
+               change (List.list_eq RelDec_eq_typ X Y) with (X ?[ eq ] Y) ; *)
+             | |- context [ ?X ?[ @eq ?T ]?Y ] =>
+               change (X ?[ @eq T ] Y) with (X ?[ eq ] Y) ;
+                 rewrite rel_dec_correct
+             | |- context [ List.list_eqb RelDec_eq_typ ?X ?Y ] =>
+               change (List.list_eqb RelDec_eq_typ X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
              | |- _ => rewrite andb_true_iff
              | H : forall x, (_ = true) <-> _ |- _ => rewrite H
@@ -149,6 +154,28 @@ Section env.
   Proof.
     constructor. eapply expr_eq_dec_eq.
   Qed.
+
+(*
+  Definition from_list {T} (ls : list T) : PositiveMap.t T :=
+    (fix from_list ls : positive -> PositiveMap.t T :=
+       match ls with
+         | nil => fun _ => PositiveMap.empty _
+         | l :: ls => fun p =>
+                        PositiveMap.add p l (from_list ls (Pos.succ p))
+       end) ls 1%positive.
+
+  Definition from_func_list : list function -> functions :=
+    from_list.
+
+  Definition func_lookup (fs : functions) (f : func) : option function :=
+    PositiveMap.find f fs.
+
+  Definition from_tlist : list tfunction -> tfunctions :=
+    from_list.
+
+  Definition tfunc_lookup (fs : tfunctions) (f : func) : option tfunction :=
+    PositiveMap.find f fs.
+*)
 
 End env.
 

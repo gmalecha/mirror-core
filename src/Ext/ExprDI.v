@@ -1,7 +1,10 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Maps.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
@@ -119,9 +122,11 @@ Module Type ExprDenote.
     Variable RFunc_func : RFunc (typD ts) func.
     Variable us : env (typD ts).
 
-    Axiom typeof_exprD : forall vs e t,
+(*
+    Axiom typeof_expr_exprD : forall vs e t,
       typeof_expr (typeof_env us) vs e = Some t ->
       exists val, exprD' us vs e t = Some val.
+*)
 
     Axiom exprD_Var : forall ve v t,
       exprD us ve (Var v) t = lookupAs ve v t.
@@ -192,10 +197,11 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Variable RFunc_func : RFunc (typD ts) func.
     Variable us : env (typD ts).
 
-    Theorem typeof_exprD : forall vs e t,
+    Theorem typeof_expr_exprD'_impl : forall vs e t,
       typeof_expr (typeof_env us) vs e = Some t ->
       exists val, exprD' us vs e t = Some val.
     Proof.
+      Opaque lookup.
       intros vs e; revert vs.
       induction e; simpl; intros.
       { rewrite exprD'_Var.
@@ -384,7 +390,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       unfold exprD. intros.
       destruct (split_env ve).
       rewrite exprD'_Func.
-      destruct (funcAs f t); auto.
+      forward.
     Qed.
 
     Theorem exprD_App : forall ve t e arg,
@@ -447,7 +453,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Proof.
       intros. unfold exprD in *. simpl in *.
       unfold WellTyped_expr in *.
-      eapply typeof_exprD in H. destruct H.
+      eapply typeof_expr_exprD'_impl in H. destruct H.
       revert H0 H.
       generalize (projT2 (split_env ve)).
       rewrite split_env_projT1.
@@ -549,7 +555,10 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         destruct (typeof_func f); intuition; try congruence.
         { inv_all; subst. simpl in *.
           rewrite typ_cast_typ_refl in *. congruence. }
-        { simpl in *. admit. } }
+        { simpl in *. forward.
+          inv_all; subst.
+          generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
+          f_equal; auto. } }
       { rewrite WellTyped_expr_App.
         rewrite exprD'_App.
         split; intros.
@@ -583,7 +592,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
           change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
           consider (t0_1 ?[ eq ] t0_1); try congruence; intros.
           rewrite IHe1. rewrite IHe2.
-          rewrite H4 in *. eapply typeof_exprD in H.
+          rewrite H4 in *. eapply typeof_expr_exprD'_impl in H.
           destruct H. rewrite H. rewrite H1. intuition congruence. } }
       { rewrite WellTyped_expr_Abs.
         rewrite exprD'_Abs.
@@ -631,6 +640,30 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       intuition.
       destruct (exprD' us vs e t); intuition. eauto.
       destruct H. congruence.
+    Qed.
+
+    Theorem typeof_expr_exprD : forall vs e t,
+      WellTyped_expr (typeof_env us) (typeof_env vs) e t <->
+      exists v, exprD us vs e t = Some v.
+    Proof.
+      intros. rewrite typeof_expr_exprD'.
+      unfold exprD.
+      consider (split_env vs); intros.
+      assert (x = typeof_env vs).
+      { clear - H. unfold typeof_env.
+        rewrite <- split_env_projT1. rewrite H. reflexivity. }
+      subst. intuition.
+      { destruct H0.
+        eexists.
+        match goal with
+          | H : ?X = _ |- match ?Y with _ => _ end = _ =>
+            change Y with X ; rewrite H; auto
+        end. }
+      { destruct H0.
+        match goal with
+          | H : match ?X with _ => _ end = _ |- exists v, ?Y = _ =>
+            change Y with X ; destruct X ; try congruence
+        end. eauto. }
     Qed.
 
   End with_envs.

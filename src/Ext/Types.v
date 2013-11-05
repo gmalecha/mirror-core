@@ -141,7 +141,9 @@ Section env.
       rewrite IHx1 in H. rewrite IHx2 in H0. subst; reflexivity. }
     { inversion H. apply IHx1 in H1. apply IHx2 in H2.
       simpl in *. inversion H; subst. unfold rel_dec in *; simpl in *. rewrite H1. auto. }
-    { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
+    { unfold rel_dec in *; simpl in *.
+      inversion H.
+      consider (EqNat.beq_nat n0 n0); auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
   Qed.
 
