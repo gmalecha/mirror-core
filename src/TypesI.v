@@ -8,25 +8,33 @@ Require Import MirrorCore.IsoTac.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** AXIOMS **)
-Require Import FunctionalExtensionality.
-
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { typ_cast : forall (F : Type -> Type) env (a b : typ),
                option (F (typD env a) -> F (typD env b))
+  (** It would be a little bit more modular to avoid
+   ** syntactic equality in favor of semantic equality
+   ** which is supported by [typ_cast]
+   **)
 ; typ_eqb :> RelDec (@eq typ)
+  (** This function gives the appropriate equivalence
+   ** relation defined on this type.
+   ** ----- Currently Unused -------
+   **)
 ; typeFor : forall ts (t : typ), type (typD ts t)
-  (** This is for syntactic polymorphism
-   ** - really this is subst at the level of type
+  (** These two pieces are specialized to functions
+   ** - It is possible that they should be broken into a separate typeclass.
+   **)
+
+  (** This supports syntactic polymorphism. It implements
+   ** [subst] at the type level.
    **)
 ; instantiate_typ : list typ -> typ -> typ
-  (** This is for functions **)
-; type_of_apply : forall (tv : typ) (es : typ), option typ
-(*
-; type_apply : forall (n : nat) (ls : typ) (acc : list Type) (t : typ),
-                 parametric n acc (fun env : list Type => typD env t) ->
-                 option (typD acc (instantiate_typ (rev ls) t))
-*)
+  (** This determines the type of the result of applying
+   ** a function of type [ft] to a value of type [argt].
+   ** The result should be [None] if [ft] is not a function
+   ** that expects (semantically) values of type [argt].
+   **)
+; type_of_apply : forall (ft : typ) (argt : typ), option typ
 }.
 
 Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
@@ -56,21 +64,23 @@ Class RTypeEqOk typ typD (RType_typ : @RType typ typD) (RTE : RTypeEq typD) : Ty
              end
 }.
 
+(** TODO: The big question here is whether it is easier to reason about
+ ** [match] or something that produces an option (with the appropriate cast?)
+ **)
 Section typed.
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
   Context {RType_typ : RType typD}.
 
-(* You can't write the generic version of this
+(* You can't write the generic version of this due to universe issues
   Class TypInstance (n : nat) (F : quant Type n) : Type :=
   { ctor     : quant typ n
-(*  ; ctor_iso : @parametric typ n nil (fun ls => let ls := rev ls in
-                                                match qapply n ls ctor , qapply n (map typD ls) F with
-                                                  | None , None => unit
-                                                  | Some t , Some t' => Iso t' (typD t)
-                                                  | _ , _ => Empty_set
-                                                end)
-*)
+  ; ctor_iso : @parametric typ n nil (fun ls => let ls := rev ls in
+        match qapply n ls ctor , qapply n (map typD ls) F with
+          | None , None => unit
+          | Some t , Some t' => Iso t' (typD t)
+          | _ , _ => Empty_set
+        end)
   ; ctor_match : forall (R : typ -> Type -> Type)
       (caseCtor : forall args : vector typ n, R (qapply_v _ n args ctor) (typD (qapply_v _ n args ctor)))
       (caseElse : forall t : typ, R t (typD t))
@@ -129,6 +139,7 @@ Section typed.
                                             compose (@into _ _ iBC) (@into _ _ iAB) =
                                             @into _ _ (Iso_compose iBC iAB).
   Proof. reflexivity. Qed.
+
   Theorem compose_outof_outof_Iso_compose : forall A B C (iAB : Iso A B) (iBC : Iso B C),
                                               compose (@outof _ _ iAB) (@outof _ _ iBC) =
                                               @outof _ _ (Iso_compose iBC iAB).
