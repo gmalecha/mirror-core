@@ -32,9 +32,31 @@ Proof.
 Defined.
 
 (** TODO: solve expr_acc trans as a type class *)
+Ltac solve_expr_acc_trans :=
+  match goal with
+    | |- TransitiveClosure.rightTrans _ _ _ =>
+      solve [ eapply TransitiveClosure.RTFin; econstructor
+            | eapply TransitiveClosure.RTStep ; [ | eapply acc_App_l ] ; solve_expr_acc_trans
+            | eapply TransitiveClosure.RTStep ; [ | eapply acc_App_r ] ; solve_expr_acc_trans
+            | eapply TransitiveClosure.RTStep ; [ | eapply acc_Abs ] ; solve_expr_acc_trans ]
+  end.
+
+Class SolveTypeClass (T : Type) := result : T.
+
+Hint Extern 0 (SolveTypeClass (TransitiveClosure.rightTrans _ _ _)) =>
+  red; solve_expr_acc_trans : typeclass_instances.
+
+Lemma expr_strong_ind (f : Type) (P : expr f -> Prop) : forall
+  (IHe : forall e : expr f, (forall y {_ : SolveTypeClass (TransitiveClosure.rightTrans (@expr_acc f) y e)}, P y) -> P e),
+  forall e, P e.
+Proof.
+  intros. revert e.
+  refine (@Fix _ _ (wf_rightTrans (@wf_expr_acc f)) _ _).
+  intros. eapply IHe. intros; eapply H. eapply result.
+Qed.
 
 Ltac wf_expr_ind :=
-  refine (@Fix _ _ (wf_rightTrans wf_expr_acc) _ _).
+  eapply expr_strong_ind.
 
 Ltac red_exprD :=
   repeat match goal with
