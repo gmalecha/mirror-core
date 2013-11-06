@@ -75,8 +75,8 @@ Section env.
                  rewrite rel_dec_correct
              | |- context [ ?X ?[ ?Z ] ?Y ] =>
                rewrite rel_dec_correct
-             | |- context [ typ_eqb ?X ?Y ] =>
-               change (typ_eqb X Y) with (X ?[ eq ] Y) ;
+             | |- context [ type_eqb ?X ?Y ] =>
+               change (type_eqb X Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct
 (*             | |- context [ List.list_eq RelDec_eq_typ ?X ?Y ] =>
                change (List.list_eq RelDec_eq_typ X Y) with (X ?[ eq ] Y) ; *)

@@ -88,7 +88,7 @@ Section typed.
       WellTyped_expr g (Var v) t' <-> nth_error g v = Some t'.
     Proof. reflexivity. Qed.
 
-    Theorem WellTyped_expr_Func : forall g f t',
+    Theorem WellTyped_expr_Sym : forall g f t',
       WellTyped_expr g (Inj f) t' <->
       typeof_sym f = Some t'.
     Proof. reflexivity. Qed.

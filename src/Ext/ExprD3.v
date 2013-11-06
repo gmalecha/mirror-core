@@ -110,7 +110,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some v => Some (fun _ => v)
         end
       | Inj f =>
-        match funcAs f t with
+        match symAs f t with
           | None => None
           | Some val => Some (fun _ => val)
         end
@@ -217,9 +217,9 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       end.
     Proof. reflexivity. Qed.
 
-    Theorem exprD'_Func : forall ve f t,
+    Theorem exprD'_Sym : forall ve f t,
       exprD' ve (@Inj func f) t =
-      match funcAs f t with
+      match symAs f t with
         | None => None
         | Some val => Some (fun _ => val)
       end.
@@ -238,7 +238,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error ve v); try congruence.
        intros. inv_all. destruct H. subst. subst.
        rewrite typ_cast_typ_refl. reflexivity. }
-     { unfold funcAs.
+     { unfold symAs.
        generalize dependent (symD f).
        destruct (typeof_sym f); try congruence; intros.
        inv_all; subst. destruct H; subst. subst.
@@ -298,7 +298,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            consider X; try congruence; intros
        end.
        generalize (typ_cast_typ_eq _ _ _ _ _ H); intros. subst; auto. }
-     { unfold funcAs in *.
+     { unfold symAs in *.
        generalize dependent (symD f).
        destruct (typeof_sym f); try congruence; intros.
        simpl in *.
@@ -453,7 +453,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        destruct (nth_error ve v); try congruence; intros.
        intro. inv_all; subst.
        rewrite typ_cast_typ_refl in *. congruence. }
-     { unfold funcAs in *.
+     { unfold symAs in *.
        generalize dependent (symD f).
        destruct (typeof_sym f); try congruence.
        intros. intro. inv_all; subst.

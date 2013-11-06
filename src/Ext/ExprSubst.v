@@ -491,7 +491,7 @@ Section mentionsU.
       { rewrite nth_error_app_L by omega.
         destruct (nth_error tu u0); auto.
         destruct s.
-        destruct (TypesI.typ_cast (fun x0 : Type => x0) nil x t); auto. } }
+        destruct (TypesI.type_cast (fun x0 : Type => x0) nil x t); auto. } }
   Qed.
 
   Lemma exprD'_mentionsU_strengthen_multi_lem : forall tu e,

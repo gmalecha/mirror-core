@@ -9,18 +9,19 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
-{ typ_cast : forall (F : Type -> Type) env (a b : typ),
+{ type_cast : forall (F : Type -> Type) env (a b : typ),
                option (F (typD env a) -> F (typD env b))
   (** It would be a little bit more modular to avoid
    ** syntactic equality in favor of semantic equality
    ** which is supported by [typ_cast]
    **)
-; typ_eqb :> RelDec (@eq typ)
+; type_eqb :> RelDec (@eq typ)
   (** This function gives the appropriate equivalence
    ** relation defined on this type.
    ** ----- Currently Unused -------
    **)
 ; typeFor : forall ts (t : typ), type (typD ts t)
+(**
   (** These two pieces are specialized to functions
    ** - It is possible that they should be broken into a separate typeclass.
    **)
@@ -35,19 +36,20 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
    ** that expects (semantically) values of type [argt].
    **)
 ; type_of_apply : forall (ft : typ) (argt : typ), option typ
+**)
 }.
 
 Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
 { (** typ_eqb **)
-  typ_eqb_ok :> RelDec_Correct typ_eqb
+  typ_eqb_ok :> RelDec_Correct type_eqb
   (** typ_cast **)
 ; typ_cast_iso : forall F ts a b f,
-    typ_cast F ts a b = Some f ->
+    type_cast F ts a b = Some f ->
     exists g,
-      typ_cast F ts b a = Some g /\
+      type_cast F ts b a = Some g /\
       (forall x, f (g x) = x)
 ; typ_cast_refl : forall ts t F,
-                    exists f, typ_cast F ts t t = Some f /\
+                    exists f, type_cast F ts t t = Some f /\
                               (forall x, f x = x)
   (** instantiate_typ **)
 }.

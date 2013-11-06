@@ -64,4 +64,8 @@ Ltac red_exprD :=
              repeat progress (autorewrite with exprD_rw in H ; simpl in H)
            | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
              repeat progress (autorewrite with exprD_rw; simpl)
+           | |- context [ SymI.symAs _ _ ] =>
+             unfold SymI.symAs
+           | H : context [ SymI.symAs _ _ ] |- _ =>
+             unfold SymI.symAs
          end.

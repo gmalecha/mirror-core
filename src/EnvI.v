@@ -23,7 +23,7 @@ Section Env.
     match nth_error e n with
       | None => None
       | Some (existT t v) =>
-        match typ_cast (fun x => x) nil t ty with
+        match type_cast (fun x => x) nil t ty with
           | Some f => Some (f v)
           | None => None
         end

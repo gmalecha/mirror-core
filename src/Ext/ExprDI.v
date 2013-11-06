@@ -69,9 +69,9 @@ Module Type ExprDenote_core.
         | None => None
       end.
 
-    Axiom exprD'_Func : forall ve f t,
+    Axiom exprD'_Sym : forall ve f t,
       exprD' us ve (Inj f) t =
-      match funcAs f t with
+      match symAs f t with
         | None => None
         | Some val => Some (fun _ => val)
       end.
@@ -135,8 +135,8 @@ Module Type ExprDenote.
     Axiom exprD_UVar : forall ve u t,
       exprD us ve (UVar u) t = lookupAs us u t.
 
-    Axiom exprD_Func : forall ve f t,
-      exprD us ve (Inj f) t = funcAs f t.
+    Axiom exprD_Sym : forall ve f t,
+      exprD us ve (Inj f) t = symAs f t.
 
     Axiom exprD_Abs_is_arr : forall vs e t t',
       exprD us vs (Abs t' e) t =
@@ -214,8 +214,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         generalize (nth_error vs v) at 1 2 4.
         intros. subst.
         rewrite typ_cast_typ_refl. eauto. }
-      { rewrite exprD'_Func.
-        unfold funcAs.
+      { rewrite exprD'_Sym.
+        unfold symAs.
         generalize (symD f). rewrite H. intros.
         simpl.
         rewrite typ_cast_typ_refl. eauto. }
@@ -382,15 +382,15 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       unfold lookupAs.
       consider (nth_error us u); intros; auto.
       destruct s.
-      destruct (TypesI.typ_cast (fun x1 : Type => x1) nil x0 t); auto.
+      destruct (TypesI.type_cast (fun x1 : Type => x1) nil x0 t); auto.
     Qed.
 
-    Theorem exprD_Func : forall ve f t,
-      exprD us ve (Inj f) t = funcAs f t.
+    Theorem exprD_Sym : forall ve f t,
+      exprD us ve (Inj f) t = symAs f t.
     Proof.
       unfold exprD. intros.
       destruct (split_env ve).
-      rewrite exprD'_Func.
+      rewrite exprD'_Sym.
       forward.
     Qed.
 
@@ -549,9 +549,9 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
               consider X
           end; try congruence; intros.
           apply (typ_cast_typ_eq _ _ _ _ _ H). } }
-      { rewrite WellTyped_expr_Func.
-        rewrite exprD'_Func.
-        unfold funcAs.
+      { rewrite WellTyped_expr_Sym.
+        rewrite exprD'_Sym.
+        unfold symAs.
         generalize (symD f).
         destruct (typeof_sym f); intuition; try congruence.
         { inv_all; subst. simpl in *.

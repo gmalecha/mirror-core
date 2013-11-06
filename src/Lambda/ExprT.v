@@ -25,6 +25,7 @@ Set Strict Implicit.
 Section typed.
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
+  Context {RType_typ : RType typD}.
   Context {typ_arr : TypInstance2 typD Fun}.
   Let tyArr := @typ2 _ typD _ typ_arr.
   Variable func : Type.
@@ -57,7 +58,16 @@ Section typed.
     rewrite map_length. reflexivity.
   Qed.
 
-  Variable type_of_apply : typ -> typ -> option typ.
+  Definition type_of_apply (ft xt : typ) : option typ :=
+    @typ2_match _ _ _ typ_arr nil
+                (fun _ _ => option typ)
+                (fun l r =>
+                   match type_cast (typD := typD) (fun x => x) nil l xt with
+                     | None => None
+                     | Some cast => Some r
+                   end)
+                (fun _ => None)
+                ft.
 
   Section typeof_expr.
     Variable uvars : tenv typ.
@@ -105,9 +115,9 @@ Section typed.
     Proof.
       unfold WellTyped_expr; simpl; intros.
       destruct (typeof_expr (t :: g) e); intuition; inv_all; subst; eauto.
-      destruct H; intuition; inv_all; subst; auto.
+      destruct H0; intuition; inv_all; subst; auto.
       congruence.
-      destruct H; intuition; congruence.
+      destruct H0; intuition; congruence.
     Qed.
 
     Theorem WellTyped_expr_App : forall g e e' t,

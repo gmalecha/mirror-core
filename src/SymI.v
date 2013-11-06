@@ -20,7 +20,7 @@ Section symbols.
   Context {RType_typ : RType typD}.
   Context {RSym_func : RSym}.
 
-  Definition funcAs (f : func) (t : typ) : option (typD nil t) :=
+  Definition symAs (f : func) (t : typ) : option (typD nil t) :=
     match typeof_sym f as ft
           return match ft with
                    | None => unit
@@ -29,7 +29,7 @@ Section symbols.
     with
       | None => fun _ => None
       | Some ft => fun val =>
-        match typ_cast (fun x => x) nil ft t with
+        match type_cast (fun x => x) nil ft t with
           | None => None
           | Some cast => Some (cast val)
         end
@@ -37,8 +37,8 @@ Section symbols.
 
   Context {RTypeOk_typ : RTypeOk RType_typ}.
 
-  Theorem funcAs_Some : forall f t (pf : typeof_sym f = Some t),
-    funcAs f t =
+  Theorem symAs_Some : forall f t (pf : typeof_sym f = Some t),
+    symAs f t =
     Some match pf in _ = z return match z with
                                     | None => unit
                                     | Some z => typD nil z
@@ -46,7 +46,7 @@ Section symbols.
            | eq_refl => symD f
          end.
   Proof.
-    intros. unfold funcAs.
+    intros. unfold symAs.
     generalize (symD f).
     rewrite pf. intros.
     destruct (typ_cast_refl nil t (fun x => x)).

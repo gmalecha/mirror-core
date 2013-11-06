@@ -19,5 +19,5 @@ Instance Expr_expr ts func (RSym_func : RSym (typD ts) func) : Expr (typD ts) (e
 
 Create HintDb exprD_rw discriminated.
 
-Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Func : exprD_rw.
-Hint Rewrite exprD'_Abs exprD'_Var exprD'_App exprD'_UVar exprD'_Func : exprD_rw.
+Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Sym : exprD_rw.
+Hint Rewrite exprD'_Abs exprD'_Var exprD'_App exprD'_UVar exprD'_Sym : exprD_rw.

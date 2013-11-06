@@ -420,23 +420,25 @@ Section env.
     end.
 
   Global Instance RType_typ : RType typD :=
-  { typ_cast := typ_cast_typ
-  ; typ_eqb := _
+  { type_cast := typ_cast_typ
+  ; type_eqb := _
   ; typeFor := typ_typeFor
+(*
   ; instantiate_typ := instantiate_typ
   ; type_of_apply := type_of_apply
+*)
   }.
 
   Global Instance RTypeOk_typ : RTypeOk RType_typ.
   Proof.
     constructor.
     eauto with typeclass_instances.
-    { unfold typ_cast. simpl; intros.
+    { unfold type_cast. simpl; intros.
       unfold typ_cast_typ in *.
       consider (typ_eq_odec a b); intros; subst.
       inv_all; subst.
       rewrite typ_eq_odec_Some_refl. eauto. congruence. }
-    { intros. unfold typ_cast; simpl.
+    { intros. unfold type_cast; simpl.
       rewrite typ_cast_typ_refl. eauto. }
   Qed.
 

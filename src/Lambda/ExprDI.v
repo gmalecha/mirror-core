@@ -37,7 +37,7 @@ Module Type ExprDenote_core.
           exprD' us ve (Abs t e) u =
           @typ2_match _ _ _ TI_Fun nil (fun t T => option (hlist (typD nil) ve -> T))
                       (fun l r =>
-                         match typ_cast (fun T => T) nil l t
+                         match type_cast (fun T => T) nil l t
                              , exprD' us (t :: ve) e r
                          with
                            | Some cast , Some f =>
@@ -55,7 +55,7 @@ Module Type ExprDenote_core.
                    option (hlist (typD nil) ve -> typD nil t)
       with
         | Some z => fun pf =>
-          match typ_cast (fun x => x) _ z t with
+          match type_cast (fun x => x) _ z t with
             | Some cast =>
               Some (fun e => match pf in _ = t''
                                    return match t'' with
@@ -76,9 +76,9 @@ Module Type ExprDenote_core.
         | None => None
       end.
 
-    Axiom exprD'_Func : forall ve f t,
+    Axiom exprD'_Sym : forall ve f t,
       exprD' us ve (Inj f) t =
-      match funcAs f t with
+      match symAs f t with
         | None => None
         | Some val => Some (fun _ => val)
       end.
@@ -88,14 +88,14 @@ Module Type ExprDenote_core.
 
     Axiom exprD'_App : forall ve t e arg,
       exprD' us ve (App e arg) t =
-      bind (typeof_expr type_of_apply (typeof_env us) ve e)
+      bind (typeof_expr (typeof_env us) ve e)
            (fun t' =>
               @typ2_match _ _ _ TI_Fun nil
                           (fun _ T => option (hlist (typD nil) ve -> typD nil t))
                           (fun l r =>
                              match exprD' us ve e (typ2 l r)
                                  , exprD' us ve arg l
-                                 , typ_cast (fun x => x) nil r t
+                                 , type_cast (fun x => x) nil r t
                              with
                                | Some f , Some x , Some cast =>
                                  Some (fun g => cast ((@tyArr_outof _ _ _ (f g)) (x g)))
@@ -109,7 +109,6 @@ Module Type ExprDenote_core.
 
 End ExprDenote_core.
 
-(*
 Module Type ExprDenote.
   Include ExprDenote_core.
 
@@ -149,8 +148,8 @@ Module Type ExprDenote.
     Axiom exprD_UVar : forall ve u t,
       exprD us ve (UVar u) t = lookupAs us u t.
 
-    Axiom exprD_Func : forall ve f t,
-      exprD us ve (Inj f) t = funcAs f t.
+    Axiom exprD_Sym : forall ve f t,
+      exprD us ve (Inj f) t = symAs f t.
 
     Let tyArr_outof : forall ts l r, typD ts (typ2 l r) -> typD ts l -> typD ts r :=
       fun ts l r => @Iso.soutof _ _ (typ2_iso ts l r) (fun x => x).
@@ -162,7 +161,7 @@ Module Type ExprDenote.
       @typ2_match _ _ _ TI_Fun nil
                   (fun t'' _ => option (typD nil t''))
                   (fun l r =>
-                     bind (typ_cast (fun x => x -> typD nil r) nil t' l)
+                     bind (type_cast (fun x => x -> typD nil r) nil t' l)
                           (fun cast =>
                              bind (exprD us vs (Abs t' e) (typ2 t' r))
                                   (fun x =>
@@ -171,33 +170,35 @@ Module Type ExprDenote.
                   t.
 
     Axiom typeof_expr_eq_exprD_False : forall l ve e t,
-      WellTyped_expr type_of_apply (typeof_env us) (l :: typeof_env ve) e t ->
+      WellTyped_expr (typeof_env us) (l :: typeof_env ve) e t ->
       forall x, exprD us (existT _ l x :: ve) e t = None ->
                 False.
 
     Axiom typeof_expr_exprD' : forall vs e t,
-      WellTyped_expr type_of_apply (typeof_env us) vs e t <->
+      WellTyped_expr (typeof_env us) vs e t <->
       exists v, exprD' us vs e t = Some v.
 
     Axiom exprD_App : forall ve t e arg,
       exprD us ve (App e arg) t =
-      match typeof_expr (typeof_env us) (typeof_env ve) e with
-        | Some (tvArr l r) =>
-          match exprD us ve e (tvArr l r)
-              , exprD us ve arg l
-              , typ_cast_typ _ (fun x => x) _ r t
-          with
-            | Some f , Some x , Some cast =>
-              Some (cast (f x))
-            | _ , _ , _ => None
-          end
-        | _ => None
-      end.
+      @typ2_match _ _ _ TI_Fun nil
+                  (fun t'' _ => option (typD nil t))
+                  (fun l r =>
+                     match exprD us ve e (typ2 l r)
+                         , exprD us ve arg l
+                         , type_cast (fun x => x) nil r t
+                     with
+                       | Some f , Some x , Some cast =>
+                         Some (cast ((@tyArr_outof _ _ _ f) x))
+                       | _ , _ , _ => None
+                     end)
+                  (fun _ => None)
+                  t.
 
-  End with_envs.
+  End with_types.
 
 End ExprDenote.
 
+(*
 Module Build_ExprDenote (EDc : ExprDenote_core) <:
        ExprDenote with Definition exprD' := @EDc.exprD'.
   Require Import ExtLib.Tactics.Consider.
@@ -206,25 +207,36 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
 
   Include EDc.
 
-  Definition exprD {ts} {func} {fs : RSym (typD ts) func} us vs e t
-  : option (typD ts nil t) :=
-    let (tvs,gvs) := split_env vs in
-    match @exprD' ts _ fs us tvs e t with
-      | None => None
-      | Some f => Some (f gvs)
-    end.
+  Section with_types.
+    Context {typ : Type}.
+    Context {typD : list Type -> typ -> Type}.
+    Context {func : Type}.
+    Context {RType_typ : RType typD}.
+    Context {RTypeOk_typ : RTypeOk RType_typ}.
+    Context {TI_Fun : TypInstance2 typD Fun}.
+    Context {RSym_func : RSym typD func}.
+    Variable us : env typD.
 
-  Section with_envs.
-    Variable ts : types.
-    Variable func : Type.
-    Variable RSym_func : RSym (typD ts) func.
-    Variable us : env (typD ts).
+    Definition exprD us vs e t
+    : option (typD nil t) :=
+      let (tvs,gvs) := split_env vs in
+      match @exprD' _ _ _ _ _ us tvs e t with
+        | None => None
+        | Some f => Some (f gvs)
+      end.
+
+    Ltac think :=
+      repeat match goal with
+               | |- context [ type_cast ?A ?B ?C ?C ] =>
+                 let H := fresh in
+                 destruct (type_cast_refl B C A) as [ ? [ H ? ] ] ;
+                 rewrite H
+             end.
 
     Theorem typeof_expr_exprD'_impl : forall vs e t,
-      typeof_expr (typeof_env us) vs e = Some t ->
+      typeof_expr type_of_apply (typeof_env us) vs e = Some t ->
       exists val, exprD' us vs e t = Some val.
     Proof.
-      Opaque lookup.
       intros vs e; revert vs.
       induction e; simpl; intros.
       { rewrite exprD'_Var.
@@ -235,25 +247,27 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         revert H.
         generalize (nth_error vs v) at 1 2 4.
         intros. subst.
-        rewrite typ_cast_typ_refl. eauto. }
-      { rewrite exprD'_Func.
+        think. eauto. }
+      { rewrite exprD'_Sym.
         unfold funcAs.
         generalize (symD f). rewrite H. intros.
-        simpl.
-        rewrite typ_cast_typ_refl. eauto. }
-      { rewrite exprD'_App.
+        think. eauto. }
+      { rewrite (@exprD'_App _ _ _ RType_typ TI_Fun RSym_func).
         specialize (IHe1 vs). specialize (IHe2 vs).
-        repeat match goal with
-                 | _ : match ?X with _ => _ end = _ |- _ =>
-                   destruct X; try congruence
-               end.
-        specialize (IHe1 _ eq_refl). destruct IHe1.
+        forward.
+        simpl.
+        (** TODO: This proof doesn't work because I am using [type_of_apply]
+         **       but requiring [tvArr].
+         **       - This means that [tyArr] completely determines [type_of_apply]!
+         **)
+        destruct (IHe1 _ eq_refl); clear IHe1.
+        destruct (IHe2 _ eq_refl); clear IHe2.
         destruct t0; simpl in *; try congruence.
         change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
         consider (t0_1 ?[ eq ] t1); intros; subst; try congruence.
         rewrite H0.
         destruct (IHe2 _ eq_refl). rewrite H.
-        inv_all; subst. rewrite typ_cast_typ_refl.
+        inv_all; subst. rewrite type_cast_typ_refl.
         eauto. }
       { rewrite exprD'_Abs.
         specialize (IHe (t :: vs)).
@@ -261,13 +275,13 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         inv_all; subst.
         specialize (IHe _ eq_refl).
         destruct IHe.
-        rewrite typ_cast_typ_refl. rewrite H. eauto. }
+        rewrite type_cast_typ_refl. rewrite H. eauto. }
       { rewrite exprD'_UVar.
         unfold lookupAs.
         rewrite nth_error_typeof_env in *.
         destruct (nth_error us u); try congruence.
         inv_all; subst. destruct s; simpl.
-        rewrite typ_cast_typ_refl. eauto. }
+        rewrite type_cast_typ_refl. eauto. }
     Qed.
 
     Theorem exprD_Var : forall ve u t,
@@ -311,7 +325,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error x u =>
-                      match typ_cast_typ ts (fun x1 : Type => x1) nil z t with
+                      match type_cast_typ ts (fun x1 : Type => x1) nil z t with
                         | Some cast =>
                           Some
                             (fun e0 : hlist (typD ts nil) x =>
@@ -333,14 +347,14 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 | Some f => Some (f h)
                 | None => None
               end =
-              match typ_cast_typ ts (fun x1 : Type => x1) nil x0 t with
+              match type_cast_typ ts (fun x1 : Type => x1) nil x0 t with
                 | Some f => Some (f t0)
                 | None => None
               end).
         intro. clearbody zzz. revert zzz.
         destruct (nth_error x u); intuition.
         inv_all. destruct H0. subst.
-        destruct (typ_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto.
+        destruct (type_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto.
         f_equal. clear.
         uip_all. reflexivity. }
       { rewrite exprD'_Var.
@@ -364,7 +378,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error x u =>
-                      match typ_cast_typ ts (fun x0 : Type => x0) nil z t with
+                      match type_cast_typ ts (fun x0 : Type => x0) nil z t with
                         | Some cast =>
                           Some
                             (fun e0 : hlist (typD ts nil) x =>
@@ -404,15 +418,15 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       unfold lookupAs.
       consider (nth_error us u); intros; auto.
       destruct s.
-      destruct (TypesI.typ_cast (fun x1 : Type => x1) nil x0 t); auto.
+      destruct (TypesI.type_cast (fun x1 : Type => x1) nil x0 t); auto.
     Qed.
 
-    Theorem exprD_Func : forall ve f t,
+    Theorem exprD_Sym : forall ve f t,
       exprD us ve (Inj f) t = funcAs f t.
     Proof.
       unfold exprD. intros.
       destruct (split_env ve).
-      rewrite exprD'_Func.
+      rewrite exprD'_Sym.
       forward.
     Qed.
 
@@ -422,7 +436,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         | Some (tvArr l r) =>
           match exprD us ve e (tvArr l r)
               , exprD us ve arg l
-              , typ_cast_typ _ (fun x => x) _ r t
+              , type_cast_typ _ (fun x => x) _ r t
           with
             | Some f , Some x , Some cast =>
               Some (cast (f x))
@@ -443,7 +457,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                     match match ?Y with _ => _ end with _ => _ end =>
                  change X with Y; destruct Y; auto
              end.
-      destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0_2 t); auto.
+      destruct (type_cast_typ ts (fun x0 : Type => x0) nil t0_2 t); auto.
     Qed.
 
     Theorem exprD_Abs_is_arr : forall vs e t t',
@@ -465,7 +479,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         | |- match match ?x with _ => _ end with _ => _ end = _ =>
           consider x; intros; auto
       end.
-      generalize (@typ_cast_typ_eq _ _ _ _ _ _ H0).
+      generalize (@type_cast_typ_eq _ _ _ _ _ _ H0).
       congruence.
     Qed.
 
@@ -519,7 +533,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error vs v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match type_cast_typ ts (fun x : Type => x) nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -530,7 +544,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
           intro zzz; clearbody zzz.
           destruct (nth_error vs v); try congruence.
           inv_all; subst. intros.
-          rewrite typ_cast_typ_refl. congruence. }
+          rewrite type_cast_typ_refl. congruence. }
         { revert H.
           gen_refl.
           change (
@@ -555,7 +569,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error vs v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match type_cast_typ ts (fun x : Type => x) nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -570,17 +584,17 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
             | |- context [ match ?X with _ => _ end = _ ] =>
               consider X
           end; try congruence; intros.
-          apply (typ_cast_typ_eq _ _ _ _ _ H). } }
+          apply (type_cast_typ_eq _ _ _ _ _ H). } }
       { rewrite WellTyped_expr_Func.
-        rewrite exprD'_Func.
+        rewrite exprD'_Sym.
         unfold funcAs.
         generalize (symD f).
         destruct (typeof_sym f); intuition; try congruence.
         { inv_all; subst. simpl in *.
-          rewrite typ_cast_typ_refl in *. congruence. }
+          rewrite type_cast_typ_refl in *. congruence. }
         { simpl in *. forward.
           inv_all; subst.
-          generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
+          generalize (type_cast_typ_eq _ _ _ _ _ H); intros.
           f_equal; auto. } }
       { rewrite WellTyped_expr_App.
         rewrite exprD'_App.
@@ -597,7 +611,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
             consider (t0_1 ?[ eq ] x0); try congruence; intros; inv_all; subst.
             destruct (exprD' us vs e1 (tvArr x0 t)); intuition.
             destruct (exprD' us vs e2 x0); intuition.
-            rewrite typ_cast_typ_refl in H1; congruence. }
+            rewrite type_cast_typ_refl in H1; congruence. }
           { exfalso.
             eapply IHe1 in H. red in H. congruence. } }
         { consider (typeof_expr (typeof_env us) vs e1);
@@ -607,7 +621,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                    | _ : not (match ?X with _ => _ end = _) |- _ =>
                      consider X; intros
                  end; try congruence.
-          generalize (typ_cast_typ_eq _ _ _ _ _ H2); intros.
+          generalize (type_cast_typ_eq _ _ _ _ _ H2); intros.
           consider (exprD' us vs e1 (tvArr t0_1 t0_2)); intros; try congruence.
           inv_all. rewrite H5 in *.
           exists (tvArr t0_1 t0_2). exists t0_1.
@@ -621,7 +635,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         rewrite exprD'_Abs.
         { split; intros.
           { destruct H. destruct H; subst.
-            rewrite typ_cast_typ_refl.
+            rewrite type_cast_typ_refl.
             consider (exprD'  us (t :: vs) e x); try congruence.
             intros. intro. eapply IHe; eauto. }
           { destruct t0; intuition try congruence.
@@ -629,7 +643,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                      | _ : match ?x with _ => _ end = _ -> False |- _ =>
                        consider x; intuition
                    end.
-            generalize (typ_cast_typ_eq _ _ _ _ _ H); intro; subst.
+            generalize (type_cast_typ_eq _ _ _ _ _ H); intro; subst.
             exists t0_2. intuition.
             eapply IHe. rewrite H0. congruence. } } }
       { rewrite WellTyped_expr_UVar.
@@ -639,7 +653,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         destruct (nth_error us u).
         { split; intro.
           { destruct s. inv_all; subst. simpl in *.
-            rewrite typ_cast_typ_refl. congruence. }
+            rewrite type_cast_typ_refl. congruence. }
           { destruct s. simpl in *.
             match goal with
               | _ : not (match ?x with _ => _ end = _) |- _ =>
@@ -650,7 +664,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 consider X; intros; try congruence
             end.
             inv_all; subst.
-            f_equal; eapply (typ_cast_typ_eq _ _ _ _ _ H). } }
+            f_equal; eapply (type_cast_typ_eq _ _ _ _ _ H). } }
         { intuition congruence. } }
     Qed.
 
