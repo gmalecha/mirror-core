@@ -63,18 +63,18 @@ Section env.
 
   (** this type requires decidable equality **)
   Inductive typ : Type :=
-  | tvProp
-  | tvArr : typ -> typ -> typ
-  | tvType : nat -> typ
-  | tvVar : nat -> typ.
+  | tyProp
+  | tyArr : typ -> typ -> typ
+  | tyType : nat -> typ
+  | tyVar : nat -> typ.
 
   Fixpoint typ_eqb (a b : typ) {struct a} : bool :=
     match a , b with
-      | tvProp , tvProp => true
-      | tvArr a b , tvArr c d =>
+      | tyProp , tyProp => true
+      | tyArr a b , tyArr c d =>
         if typ_eqb a c then typ_eqb b d else false
-      | tvType x , tvType y => EqNat.beq_nat x y
-      | tvVar x , tvVar y => EqNat.beq_nat x y
+      | tyType x , tyType y => EqNat.beq_nat x y
+      | tyVar x , tyVar y => EqNat.beq_nat x y
       | _ , _ => false
     end.
 
@@ -92,30 +92,30 @@ Section env.
 
   Fixpoint typ_eq_odec (a b : typ) : option (a = b) :=
     match a as a , b as b return option (a = b) with
-      | tvProp , tvProp => Some (eq_refl _)
-      | tvArr a b , tvArr c d =>
+      | tyProp , tyProp => Some (eq_refl _)
+      | tyArr a b , tyArr c d =>
         match typ_eq_odec a c with
           | None => None
           | Some pf => match typ_eq_odec b d with
                          | None => None
                          | Some pf' =>
                            Some match pf in _ = a' , pf' in _ = b'
-                                  return tvArr a b = tvArr a' b' with
+                                  return tyArr a b = tyArr a' b' with
                                   | eq_refl , eq_refl => eq_refl _
                                 end
                        end
         end
-      | tvType x , tvType y =>
+      | tyType x , tyType y =>
         match nat_eq_odec x y with
           | None => None
-          | Some pf => Some (match pf in _ = y' return tvType x = tvType y' with
+          | Some pf => Some (match pf in _ = y' return tyType x = tyType y' with
                                | eq_refl => eq_refl
                              end)
         end
-      | tvVar x , tvVar y =>
+      | tyVar x , tyVar y =>
         match nat_eq_odec x y with
           | None => None
-          | Some pf => Some (match pf in _ = y' return tvVar x = tvVar y' with
+          | Some pf => Some (match pf in _ = y' return tyVar x = tyVar y' with
                                | eq_refl => eq_refl
                              end)
         end
@@ -189,14 +189,14 @@ Section env.
 
   Fixpoint typD (env : list Type) (x : typ) {struct x} : Type :=
     match x return Type with
-      | tvProp => Prop
-      | tvArr l r => typD env l -> typD env r
-      | tvType x =>
+      | tyProp => Prop
+      | tyArr l r => typD env l -> typD env r
+      | tyType x =>
         match nth_error ts x return Type with
           | None => Empty_set
           | Some t => Impl t
         end
-      | tvVar x =>
+      | tyVar x =>
         match nth_error env x return Type with
           | None => Empty_set
           | Some t => t
@@ -205,18 +205,18 @@ Section env.
 
   Definition type_of_apply (tv x : typ) : option typ :=
     match tv with
-      | tvArr l r =>
+      | tyArr l r =>
         if typ_eqb l x then Some r else None
       | _ => None
     end.
 
   Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
     match tv with
-      | tvArr l r => tvArr (subst0_typ t l) (subst0_typ t r)
-      | tvVar 0 => t
-      | tvVar (S n) => tvVar n
-      | tvProp
-      | tvType _ => tv
+      | tyArr l r => tyArr (subst0_typ t l) (subst0_typ t r)
+      | tyVar 0 => t
+      | tyVar (S n) => tyVar n
+      | tyProp
+      | tyType _ => tv
     end.
 
   Theorem typD_subst0_typ : forall acc t l,
@@ -302,10 +302,10 @@ Section env.
   Definition const_seqb ts' t t' : typD ts' t -> typD ts' t' -> option bool.
   refine (
     match t as t , t' as t' return typD ts' t -> typD ts' t' -> option bool with
-      | tvProp , tvProp => fun _ _ => None
-      | tvArr _ _ , tvArr _ _ => fun _ _ => None
-      | tvVar t , tvVar t' => fun _ _ => None (** TODO: is this too weak? **)
-      | tvType x , tvType y =>
+      | tyProp , tyProp => fun _ _ => None
+      | tyArr _ _ , tyArr _ _ => fun _ _ => None
+      | tyVar t , tyVar t' => fun _ _ => None (** TODO: is this too weak? **)
+      | tyType x , tyType y =>
         match nat_eq_odec x y with
           | None => fun _ _ => Some false
           | Some pf =>
@@ -341,10 +341,10 @@ Section env.
 
   Fixpoint equiv (t : typ) : forall a b : typD nil t, Prop :=
     match t as t return typD nil t -> typD nil t -> Prop with
-      | tvArr a b => fun x y => forall a, equiv b (x a) (y a)
-      | tvProp => fun x y => x <-> y
-      | tvVar i => fun x y => x = y
-      | tvType i => fun x y => x = y
+      | tyArr a b => fun x y => forall a, equiv b (x a) (y a)
+      | tyProp => fun x y => x <-> y
+      | tyVar i => fun x y => x = y
+      | tyType i => fun x y => x = y
     end.
 
   Global Instance Reflexive_equiv t : Reflexive (equiv t).
@@ -411,12 +411,12 @@ Section env.
 
   Fixpoint typ_typeFor g t : type (typD g t) :=
     match t as t return type (typD g t) with
-      | tvProp => type_Prop
-      | tvArr l r => type_Fun (typ_typeFor g l) (typ_typeFor g r)
+      | tyProp => type_Prop
+      | tyArr l r => type_Fun (typ_typeFor g l) (typ_typeFor g r)
       (** These don't work perfectly because when you make something
                          a var, it potentially changes its type **)
-      | tvType i => type_libniz _ (** TODO: This should be a lookup **)
-      | tvVar v => type_libniz _ (** TODO: This should be a lookup **)
+      | tyType i => type_libniz _ (** TODO: This should be a lookup **)
+      | tyVar v => type_libniz _ (** TODO: This should be a lookup **)
     end.
 
   Global Instance RType_typ : RType typD :=
@@ -440,22 +440,22 @@ Section env.
       rewrite typ_cast_typ_refl. eauto. }
   Qed.
 
-  Global Instance TypInstance0_tvProp : TypInstance0 typD Prop :=
-  { typ0 := tvProp
+  Global Instance TypInstance0_tyProp : TypInstance0 typD Prop :=
+  { typ0 := tyProp
   ; typ0_iso := fun ts => Iso.Equiv_ident _
   ; typ0_match := fun _ _ caseType caseElse t =>
                     match t with
-                      | tvProp => caseType tt
+                      | tyProp => caseType tt
                       | x => caseElse x
                     end
   }.
 
-  Global Instance TypInstance2_tvArr : TypInstance2 typD Fun :=
-  { typ2 := tvArr
+  Global Instance TypInstance2_tyArr : TypInstance2 typD Fun :=
+  { typ2 := tyArr
   ; typ2_iso := fun ts t1 t2 => Iso.Equiv_ident _
   ; typ2_match := fun _ _ caseType caseElse t =>
                     match t with
-                      | tvArr l r => caseType l r
+                      | tyArr l r => caseType l r
                       | x => caseElse x
                     end
   }.

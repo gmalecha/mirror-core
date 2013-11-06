@@ -9,11 +9,11 @@ Require Import MirrorCore.Ext.ExprD.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Global Instance Injective_tvArr a b c d : Injective (tvArr a b = tvArr c d) :=
+Global Instance Injective_tyArr a b c d : Injective (tyArr a b = tyArr c d) :=
 { result := a = c /\ b = d }.
 Proof. abstract (inversion 1; intuition). Defined.
 
-Global Instance Injective_tvType a b : Injective (tvType a = tvType b) :=
+Global Instance Injective_tyType a b : Injective (tyType a = tyType b) :=
 { result := a = b }.
 Proof. abstract (inversion 1; intuition). Defined.
 

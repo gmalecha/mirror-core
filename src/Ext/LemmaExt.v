@@ -10,6 +10,7 @@ Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Expr.
 
 Set Implicit Arguments.
@@ -78,12 +79,12 @@ Section with_expr.
     { eapply IHps. intros. eapply H. constructor; auto. }
   Qed.
 
-  Variable RFunc_func : RFunc (typD ts) func.
+  Variable RSym_func : RSym (typD ts) func.
 
   Definition lemmaD (us vs : env (typD ts)) (l : lemma) : Prop :=
     let (tvs,vs) := split_env vs in
     match mapT (fun e =>
-                  ExprD.exprD' us (l.(vars) ++ tvs) e tvProp) l.(premises)
+                  ExprD.exprD' us (l.(vars) ++ tvs) e tyProp) l.(premises)
         , conclusionD us (l.(vars) ++ tvs) l.(concl)
     with
       | Some prems , Some concl =>
@@ -151,7 +152,7 @@ Section with_expr.
       { forward. inv_all; subst.
         eapply IHpremises0 in H1; clear IHpremises0; eauto. clear H.
         destruct H1; intuition.
-        generalize (exprD'_weaken _ us x0 us' a tvProp (vars0 ++ x)).
+        generalize (exprD'_weaken _ us x0 us' a tyProp (vars0 ++ x)).
         forward. inv_all. subst.
         generalize dependent vars0. intro vars0.
         generalize (app_assoc_reverse vars0 x x0).

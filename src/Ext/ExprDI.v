@@ -6,6 +6,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
@@ -16,20 +17,20 @@ Set Strict Implicit.
 
 Module Type ExprDenote_core.
 
-  Parameter exprD' : forall {ts : types} {func : Type} {_ : RFunc (typD ts) func},
+  Parameter exprD' : forall {ts : types} {func : Type} {_ : RSym (typD ts) func},
     env (typD ts) -> forall g : list typ, expr func -> forall t : typ,
     option (hlist (typD ts nil) g -> typD ts nil t).
 
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
+    Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
     Axiom exprD'_Abs : forall ve t e u,
        exprD' us ve (Abs t e) u =
        match u as u return option (hlist (typD ts nil) ve -> typD ts nil u) with
-         | tvArr l r =>
+         | tyArr l r =>
            match typ_cast_typ _ (fun x => x) _ l t
                , exprD' us (t :: ve) e r
            with
@@ -78,8 +79,8 @@ Module Type ExprDenote_core.
     Axiom exprD'_App : forall ve t e arg,
       exprD' us ve (App e arg) t =
       match typeof_expr (typeof_env us) ve e with
-        | Some (tvArr l r) =>
-          match exprD' us ve e (tvArr l r)
+        | Some (tyArr l r) =>
+          match exprD' us ve e (tyArr l r)
               , exprD' us ve arg l
               , typ_cast_typ _ (fun x => x) _ r t
           with
@@ -108,7 +109,7 @@ Module Type ExprDenote.
    ** there is an error before needing to get the variables.
    **
    **)
-  Definition exprD {ts} {func : Type} {fs : RFunc (typD ts) func} us vs e t
+  Definition exprD {ts} {func : Type} {fs : RSym (typD ts) func} us vs e t
   : option (typD ts nil t) :=
     let (tvs,gvs) := split_env vs in
     match @exprD' ts func fs us tvs e t with
@@ -119,7 +120,7 @@ Module Type ExprDenote.
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
+    Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
 (*
@@ -140,9 +141,9 @@ Module Type ExprDenote.
     Axiom exprD_Abs_is_arr : forall vs e t t',
       exprD us vs (Abs t' e) t =
       match t as t return option (typD ts nil t) with
-        | tvArr l r =>
+        | tyArr l r =>
           if t' ?[ eq ] l then
-            exprD us vs (Abs l e) (tvArr l r)
+            exprD us vs (Abs l e) (tyArr l r)
           else None
         | _ => None
       end.
@@ -159,8 +160,8 @@ Module Type ExprDenote.
     Axiom exprD_App : forall ve t e arg,
       exprD us ve (App e arg) t =
       match typeof_expr (typeof_env us) (typeof_env ve) e with
-        | Some (tvArr l r) =>
-          match exprD us ve e (tvArr l r)
+        | Some (tyArr l r) =>
+          match exprD us ve e (tyArr l r)
               , exprD us ve arg l
               , typ_cast_typ _ (fun x => x) _ r t
           with
@@ -183,7 +184,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
 
   Include EDc.
 
-  Definition exprD {ts} {func} {fs : RFunc (typD ts) func} us vs e t
+  Definition exprD {ts} {func} {fs : RSym (typD ts) func} us vs e t
   : option (typD ts nil t) :=
     let (tvs,gvs) := split_env vs in
     match @exprD' ts _ fs us tvs e t with
@@ -194,7 +195,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
+    Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
     Theorem typeof_expr_exprD'_impl : forall vs e t,
@@ -215,7 +216,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         rewrite typ_cast_typ_refl. eauto. }
       { rewrite exprD'_Func.
         unfold funcAs.
-        generalize (funcD f). rewrite H. intros.
+        generalize (symD f). rewrite H. intros.
         simpl.
         rewrite typ_cast_typ_refl. eauto. }
       { rewrite exprD'_App.
@@ -396,8 +397,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Theorem exprD_App : forall ve t e arg,
       exprD us ve (App e arg) t =
       match typeof_expr (typeof_env us) (typeof_env ve) e with
-        | Some (tvArr l r) =>
-          match exprD us ve e (tvArr l r)
+        | Some (tyArr l r) =>
+          match exprD us ve e (tyArr l r)
               , exprD us ve arg l
               , typ_cast_typ _ (fun x => x) _ r t
           with
@@ -426,9 +427,9 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Theorem exprD_Abs_is_arr : forall vs e t t',
       exprD us vs (Abs t' e) t =
       match t as t return option (typD ts nil t) with
-        | tvArr l r =>
+        | tyArr l r =>
           if t' ?[ eq ] l then
-            exprD us vs (Abs l e) (tvArr l r)
+            exprD us vs (Abs l e) (tyArr l r)
           else None
         | _ => None
       end.
@@ -551,8 +552,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       { rewrite WellTyped_expr_Func.
         rewrite exprD'_Func.
         unfold funcAs.
-        generalize (funcD f).
-        destruct (typeof_func f); intuition; try congruence.
+        generalize (symD f).
+        destruct (typeof_sym f); intuition; try congruence.
         { inv_all; subst. simpl in *.
           rewrite typ_cast_typ_refl in *. congruence. }
         { simpl in *. forward.
@@ -572,7 +573,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
             destruct t0; simpl in *; try congruence.
             change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
             consider (t0_1 ?[ eq ] x0); try congruence; intros; inv_all; subst.
-            destruct (exprD' us vs e1 (tvArr x0 t)); intuition.
+            destruct (exprD' us vs e1 (tyArr x0 t)); intuition.
             destruct (exprD' us vs e2 x0); intuition.
             rewrite typ_cast_typ_refl in H1; congruence. }
           { exfalso.
@@ -585,9 +586,9 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                      consider X; intros
                  end; try congruence.
           generalize (typ_cast_typ_eq _ _ _ _ _ H2); intros.
-          consider (exprD' us vs e1 (tvArr t0_1 t0_2)); intros; try congruence.
+          consider (exprD' us vs e1 (tyArr t0_1 t0_2)); intros; try congruence.
           inv_all. rewrite H5 in *.
-          exists (tvArr t0_1 t0_2). exists t0_1.
+          exists (tyArr t0_1 t0_2). exists t0_1.
           simpl.
           change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
           consider (t0_1 ?[ eq ] t0_1); try congruence; intros.

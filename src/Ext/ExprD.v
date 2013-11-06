@@ -1,3 +1,4 @@
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.Types.
@@ -9,9 +10,9 @@ Set Strict Implicit.
 
 Include EXPR_DENOTE.
 
-Instance Expr_expr ts func (RFunc_func : RFunc (typD ts) func) : Expr (typD ts) (expr func) :=
+Instance Expr_expr ts func (RSym_func : RSym (typD ts) func) : Expr (typD ts) (expr func) :=
 { exprD := exprD
-; Safe_expr := @WellTyped_expr _ _ RFunc_func
+; Safe_expr := @WellTyped_expr _ _ RSym_func
 ; acc := @expr_acc _
 ; wf_acc := @wf_expr_acc _
 }.

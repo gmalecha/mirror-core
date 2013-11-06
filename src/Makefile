@@ -9,7 +9,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      Expr FMapSubst EnvFunc ExprTactics
 LAMBDA := ExprCore ExprT ExprDI
 MODULES    := Generic \
-	      TypesI EnvI ExprI ExprProp \
+	      TypesI EnvI ExprI ExprProp SymI \
 	      Prover Subst SealedSubst \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \

@@ -8,6 +8,7 @@ Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 Require Import MirrorCore.Ext.ExprSubst.
@@ -32,7 +33,7 @@ Module Make (FM : S with Definition E.t := uvar
   Section hide_hints.
     Variable ts : types.
     Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
+    Variable RSym_func : RSym (typD ts) func.
 
     Definition raw : Type := FM.t (expr func).
 
@@ -559,7 +560,7 @@ Module Make (FM : S with Definition E.t := uvar
         { rewrite subst_subst_typeof.
           { destruct (typeof_expr (EnvI.typeof_env u) (v ++ x) e1); auto.
             destruct t0; auto.
-            specialize (IHe1 (tvArr t0_1 t0_2) v).
+            specialize (IHe1 (tyArr t0_1 t0_2) v).
             specialize (IHe2 t0_1 v).
             simpl in *.
             repeat match goal with
@@ -942,7 +943,7 @@ Module Make (FM : S with Definition E.t := uvar
           intro. rewrite H2 by eauto.
           destruct (typeof_expr (typeof_env u) (tv' ++ x) e1); auto.
           destruct t0; auto.
-          specialize (IHe1 tv' (tvArr t0_1 t0_2)).
+          specialize (IHe1 tv' (tyArr t0_1 t0_2)).
           specialize (IHe2 tv' t0_1).
           repeat match goal with
                    | _ : context [ match ?X with _ => _ end ] |- _ =>
@@ -1128,7 +1129,7 @@ Module Make (FM : S with Definition E.t := uvar
              (tv' ++ x0) (raw_subst s (length tv') e1)); intros; auto.
           destruct t0; auto.
           specialize (IHe2 tv' t0_1).
-          specialize (IHe1 tv' (tvArr t0_1 t0_2)).
+          specialize (IHe1 tv' (tyArr t0_1 t0_2)).
           repeat match goal with
                    | _ : context [ match ?X with _ => _ end ] |- _ =>
                      consider X; intros

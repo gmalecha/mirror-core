@@ -15,6 +15,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Lambda.ExprCore.
 
@@ -40,7 +41,7 @@ Section typed.
       eapply IHe; eauto. constructor; auto. eapply IHe. auto. }
   Qed.
 
-  Context {RFunc_func : RFunc typD func}.
+  Context {RSym_func : RSym typD func}.
 
   Lemma typeof_env_app : forall (a b : EnvI.env typD),
     EnvI.typeof_env (a ++ b) = EnvI.typeof_env a ++ EnvI.typeof_env b.
@@ -65,7 +66,7 @@ Section typed.
       match e with
         | Var x  => nth_error var_env x
         | UVar x => nth_error uvars x
-        | Inj f => typeof_func f
+        | Inj f => typeof_sym f
         | App e e' =>
           Monad.bind (typeof_expr var_env e) (fun tf =>
           Monad.bind (typeof_expr var_env e') (fun tx =>
@@ -91,7 +92,7 @@ Section typed.
 
     Theorem WellTyped_expr_Func : forall g f t',
       WellTyped_expr g (Inj f) t' <->
-      typeof_func f = Some t'.
+      typeof_sym f = Some t'.
     Proof. reflexivity. Qed.
 
     Theorem WellTyped_expr_UVar : forall g v t',

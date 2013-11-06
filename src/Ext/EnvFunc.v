@@ -1,7 +1,7 @@
 Require Import BinPos.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
-Require Import MirrorCore.Ext.ExprCore.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 
 Set Implicit Arguments.
@@ -24,10 +24,10 @@ Section RFunc.
   Definition functions := PositiveMap.t function.
   Variable fs : functions.
 
-  Definition func_typeof_func (f : func) : option typ :=
+  Definition func_typeof_sym (f : func) : option typ :=
     match f with
-      | Equal t => Some (tvArr t (tvArr t tvProp))
-      | Not => Some (tvArr tvProp tvProp)
+      | Equal t => Some (tyArr t (tyArr t tyProp))
+      | Not => Some (tyArr tyProp tyProp)
       | FRef i ts =>
         match PositiveMap.find i fs with
           | None => None
@@ -47,11 +47,11 @@ Section RFunc.
    **   - The annoying piece about this is that it doesn't
    **     ensure that [func] is sensible (at least definitionally)
    **)
-  Global Instance RFunc_func : RFunc (typD ts) func :=
-  { typeof_func := func_typeof_func
-  ; funcD := fun f =>
+  Global Instance RSym_func : RSym (typD ts) func :=
+  { typeof_sym := func_typeof_sym
+  ; symD := fun f =>
                match f as f
-                     return match func_typeof_func f with
+                     return match func_typeof_sym f with
                               | None => unit
                               | Some t => typD ts nil t
                             end

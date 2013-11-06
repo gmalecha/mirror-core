@@ -6,6 +6,7 @@ Require Import ExtLib.Tactics.Cases.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
@@ -21,7 +22,7 @@ Require Import FunctionalExtensionality.
 Section weaken_types.
   Variable ts : types.
   Variable func : Type.
-  Variable RFunc_func : RFunc (typD ts) func.
+  Variable RSym_func : RSym (typD ts) func.
 
   Theorem typeof_expr_weaken : forall (e : expr func) uenv venv t,
     typeof_expr uenv venv e = Some t ->
@@ -110,7 +111,7 @@ End weaken_types.
 Section weaken_denote.
   Variable types : types.
   Variable func : Type.
-  Variable RFunc_func : RFunc (typD types) func.
+  Variable RSym_func : RSym (typD types) func.
   Variable uenv : env (typD types).
 
   Lemma exprD'_weaken : forall ve ue e t venv,
@@ -231,7 +232,7 @@ Section weaken_denote.
           eauto. } } }
      { repeat rewrite typeof_env_app.
       erewrite typeof_expr_weaken by eauto. simpl.
-      specialize (IHe1 (tvArr t2 t3) venv).
+      specialize (IHe1 (tyArr t2 t3) venv).
       specialize (IHe2 t2 venv).
       forward. }
     { specialize (IHe t2 (t :: venv)).

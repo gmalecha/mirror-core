@@ -7,66 +7,11 @@ Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Section foo.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Variable func : Type.
-
-  Class RFunc : Type :=
-  { typeof_func : func -> option typ
-  ; funcD : forall f : func, match typeof_func f with
-                               | None => unit
-                               | Some t => typD nil t
-                             end
-  }.
-
-  Context {RType_typ : RType typD}.
-  Context {RFunc_func : RFunc}.
-
-  Definition funcAs (f : func) (t : typ) : option (typD nil t) :=
-    match typeof_func f as ft
-          return match ft with
-                   | None => unit
-                   | Some t => typD nil t
-                 end -> option (typD nil t)
-    with
-      | None => fun _ => None
-      | Some ft => fun val =>
-        match typ_cast (fun x => x) nil ft t with
-          | None => None
-          | Some cast => Some (cast val)
-        end
-    end (funcD f).
-
-  Context {RTypeOk_typ : RTypeOk RType_typ}.
-
-  Theorem funcAs_Some : forall f t (pf : typeof_func f = Some t),
-    funcAs f t =
-    Some match pf in _ = z return match z with
-                                    | None => unit
-                                    | Some z => typD nil z
-                                  end with
-           | eq_refl => funcD f
-         end.
-  Proof.
-    intros. unfold funcAs.
-    generalize (funcD f).
-    rewrite pf. intros.
-    destruct (typ_cast_refl nil t (fun x => x)).
-    intuition.
-    match goal with
-      | H : ?Y = _ |- match ?X with _ => _ end = _ =>
-        change X with Y ; rewrite H
-    end; intros.
-    f_equal. eauto.
-  Qed.
-
-End foo.
 
 Section env.
   Variable func : Type.
@@ -155,7 +100,7 @@ Section env.
     constructor. eapply expr_eq_dec_eq.
   Qed.
 
-(*
+(* TODO: this should go elsewhere...
   Definition from_list {T} (ls : list T) : PositiveMap.t T :=
     (fix from_list ls : positive -> PositiveMap.t T :=
        match ls with

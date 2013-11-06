@@ -11,6 +11,7 @@ Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 Require Import MirrorCore.Subst.
@@ -42,10 +43,10 @@ End substU.
 Section instantiate.
   Variable ts : types.
   Variable func : Type.
-  Variable RFunc_func : RFunc (typD ts) func.
+  Variable RSym_func : RSym (typD ts) func.
   Variable lookup : uvar -> option (expr func).
 
-  Local Hint Immediate RFunc_func : typeclass_instances.
+  Local Hint Immediate RSym_func : typeclass_instances.
 
   Fixpoint instantiate (under : nat) (e : expr func) : expr func :=
     match e with
@@ -187,7 +188,7 @@ Section instantiate.
     { rewrite typeof_expr_instantiate.
       { consider (typeof_expr (typeof_env us) (v ++ x) e1); auto.
         destruct t0; auto.
-        specialize (IHe1 (tvArr t0_1 t0_2) v).
+        specialize (IHe1 (tyArr t0_1 t0_2) v).
         specialize (IHe2 t0_1 v).
         repeat match goal with
                  | _ : context [ match ?X with _ => _ end ] |- _ =>
@@ -253,7 +254,7 @@ End instantiate.
 Section mentionsU.
   Variable ts : types.
   Variable func : Type.
-  Variable RFunc_func : RFunc (typD ts) func.
+  Variable RSym_func : RSym (typD ts) func.
 
   Section param.
     Variable u : uvar.
@@ -463,7 +464,7 @@ Section mentionsU.
       rewrite typeof_expr_mentionsU_strengthen by (rewrite typeof_env_length; auto).
       consider (typeof_expr (typeof_env tu) tg e1); auto; intros.
       destruct t0; auto.
-      specialize (H0 eq_refl tg (tvArr t0_1 t0_2)).
+      specialize (H0 eq_refl tg (tyArr t0_1 t0_2)).
       specialize (IHe2 H1 tg t0_1).
       repeat match goal with
                | _ : context [ match ?X with _ => _ end ] |- _ =>
@@ -580,7 +581,7 @@ Section getInstantiation.
        end).
 
   Variable ts : types.
-  Variable RFunc_func : RFunc (typD ts) func.
+  Variable RSym_func : RSym (typD ts) func.
   Variable SubstOk : SubstOk (Expr_expr _) Subst_T.
   Variable NormalizedSubstOk : NormalizedSubstOk Subst_T (@mentionsU func).
 

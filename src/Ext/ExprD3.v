@@ -8,6 +8,7 @@ Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
@@ -24,7 +25,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
+    Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
   Fixpoint exprD_simul' (var_env : tenv typ) (e : expr func) {struct e} :
@@ -52,7 +53,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some (existT t v) => Some (existT Z t (fun _ => v))
         end
       | Inj f =>
-        match typeof_func f as z
+        match typeof_sym f as z
               return match z with
                        | None => unit
                        | Some ft => typD ts nil ft
@@ -62,18 +63,18 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | Some ft => fun val =>
             Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t)
                          ft (fun _ => val))
-        end (funcD f)
+        end (symD f)
       | Abs t' e =>
         match exprD_simul' (t' :: var_env) e with
           | None => None
           | Some (existT t v) =>
             Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t)
-                         (tvArr t' t) (fun g x => v (Hcons x g)))
+                         (tyArr t' t) (fun g x => v (Hcons x g)))
         end
       | App f x =>
         match exprD_simul' var_env f with
           | None => None
-          | Some (existT (tvArr l r) f) =>
+          | Some (existT (tyArr l r) f) =>
             match exprD' var_env x l with
               | None => None
               | Some x => Some (existT (fun t => hlist (typD ts nil) var_env -> typD ts nil t) r (fun v => (f v) (x v)))
@@ -116,7 +117,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       | Abs t' e =>
         match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t)
         with
-          | tvArr lt rt =>
+          | tyArr lt rt =>
             match typ_cast_typ ts (fun x => x) nil lt t' with
               | None => None
               | Some cast =>
@@ -129,7 +130,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         end
       | App f x =>
         match exprD_simul' var_env f with
-          | Some (existT (tvArr l r) f) =>
+          | Some (existT (tyArr l r) f) =>
             match exprD' var_env x l with
               | None => None
               | Some x =>
@@ -196,7 +197,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
     Theorem exprD'_Abs : forall ve t e u,
        exprD' ve (Abs t e) u =
        match u as u return option (hlist (typD ts nil) ve -> typD ts nil u) with
-         | tvArr l r =>
+         | tyArr l r =>
            match typ_cast_typ _ (fun x => x) _ l t
                , exprD' (t :: ve) e r
            with
@@ -238,8 +239,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        intros. inv_all. destruct H. subst. subst.
        rewrite typ_cast_typ_refl. reflexivity. }
      { unfold funcAs.
-       generalize dependent (funcD f).
-       destruct (typeof_func f); try congruence; intros.
+       generalize dependent (symD f).
+       destruct (typeof_sym f); try congruence; intros.
        inv_all; subst. destruct H; subst. subst.
        simpl. rewrite typ_cast_typ_refl. reflexivity. }
      { unfold typ_cast_val. forward. inv_all.
@@ -298,8 +299,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        end.
        generalize (typ_cast_typ_eq _ _ _ _ _ H); intros. subst; auto. }
      { unfold funcAs in *.
-       generalize dependent (funcD f).
-       destruct (typeof_func f); try congruence; intros.
+       generalize dependent (symD f).
+       destruct (typeof_sym f); try congruence; intros.
        simpl in *.
        forward.
        generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
@@ -381,7 +382,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            end).
        intro zzz; clearbody zzz; revert zzz.
        destruct (nth_error ve v); auto. }
-     { generalize (funcD f). forward. }
+     { generalize (symD f). forward. }
      { specialize (IHe1 ve). specialize (IHe2 ve).
        destruct (exprD_simul' ve e1).
        { destruct s; simpl in *.
@@ -453,8 +454,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        intro. inv_all; subst.
        rewrite typ_cast_typ_refl in *. congruence. }
      { unfold funcAs in *.
-       generalize dependent (funcD f).
-       destruct (typeof_func f); try congruence.
+       generalize dependent (symD f).
+       destruct (typeof_sym f); try congruence.
        intros. intro. inv_all; subst.
        simpl in *.
        rewrite typ_cast_typ_refl in *. congruence. }
@@ -508,8 +509,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
   Theorem exprD'_App : forall ve t e arg,
       exprD' ve (App e arg) t =
       match typeof_expr (typeof_env us) ve e with
-        | Some (tvArr l r) =>
-          match exprD' ve e (tvArr l r)
+        | Some (tyArr l r) =>
+          match exprD' ve e (tyArr l r)
               , exprD' ve arg l
               , typ_cast_typ _ (fun x => x) _ r t
           with

@@ -10,6 +10,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
@@ -38,7 +39,7 @@ Section typed.
       eapply IHe; eauto. constructor; auto. eapply IHe. auto. }
   Qed.
 
-  Context {RFunc_func : RFunc (typD types) func}.
+  Context {RSym_func : RSym (typD types) func}.
 
   Lemma typeof_env_app : forall ts (a b : EnvI.env (typD ts)),
     EnvI.typeof_env (a ++ b) = EnvI.typeof_env a ++ EnvI.typeof_env b.
@@ -61,15 +62,19 @@ Section typed.
       match e with
         | Var x  => nth_error var_env x
         | UVar x => nth_error uvars x
-        | Inj f => typeof_func f
+        | Inj f => typeof_sym f
         | App e e' =>
-          Monad.bind (typeof_expr var_env e) (fun tf =>
-          Monad.bind (typeof_expr var_env e') (fun tx =>
-          type_of_apply tf tx))
+          match typeof_expr var_env e
+              , typeof_expr var_env e'
+          with
+            | Some tf , Some tx =>
+              type_of_apply tf tx
+            | _ , _ => None
+          end
         | Abs t e =>
           match typeof_expr (t :: var_env) e with
             | None => None
-            | Some t' => Some (tvArr t t')
+            | Some t' => Some (tyArr t t')
           end
       end.
 
@@ -85,7 +90,7 @@ Section typed.
 
     Theorem WellTyped_expr_Func : forall g f t',
       WellTyped_expr g (Inj f) t' <->
-      typeof_func f = Some t'.
+      typeof_sym f = Some t'.
     Proof. reflexivity. Qed.
 
     Theorem WellTyped_expr_UVar : forall g v t',
@@ -94,7 +99,7 @@ Section typed.
 
     Theorem WellTyped_expr_Abs : forall g e t t',
       WellTyped_expr g (Abs t e) t' <->
-      exists t'', t' = tvArr t t'' /\ WellTyped_expr (t :: g) e t''.
+      exists t'', t' = tyArr t t'' /\ WellTyped_expr (t :: g) e t''.
     Proof.
       unfold WellTyped_expr; simpl; intros.
       destruct (typeof_expr (t :: g) e); intuition; inv_all; subst; eauto.

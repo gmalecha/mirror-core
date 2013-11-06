@@ -6,6 +6,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -21,14 +22,14 @@ Module Type ExprDenote_core.
     Context {typD : list Type -> typ -> Type}.
     Context {func : Type}.
 
-    Parameter exprD' : forall {_ : RType typD} {_ : RFunc typD func},
+    Parameter exprD' : forall {_ : RType typD} {_ : RSym typD func},
       env typD -> forall g : list typ, expr typ func -> forall t : typ,
       option (hlist (typD nil) g -> typD nil t).
 
     Section with_envs.
       Variable RType_typ : RType typD.
       Variable TI_Fun : TypInstance2 typD Fun.
-      Variable RFunc_func : RFunc typD func.
+      Variable RSym_func : RSym typD func.
       Variable us : env typD.
 
       Axiom exprD'_Abs
@@ -108,41 +109,39 @@ Module Type ExprDenote_core.
 
 End ExprDenote_core.
 
-(**
+(*
 Module Type ExprDenote.
   Include ExprDenote_core.
 
-  (**
-   ** The denotation function with binders must be total because we
-   ** can't introduce the binder until we know that we are going to get
-   ** the right type out, but, at the same time, we don't know we will
-   ** succeed until after we've taken the denotation of the body,
-   ** which we can't do until we have the binder.
-   **
-   ** To solve this, we make precise the phase separation by returning
-   ** [option (env -> typD t)] effectively allowing us to determine if
-   ** there is an error before needing to get the variables.
-   **
-   **)
-  Definition exprD {ts} {func : Type} {fs : RFunc (typD ts) func} us vs e t
-  : option (typD ts nil t) :=
-    let (tvs,gvs) := split_env vs in
-    match @exprD' ts func fs us tvs e t with
-      | None => None
-      | Some f => Some (f gvs)
-    end.
+  Section with_types.
+    Context {typ : Type}.
+    Context {typD : list Type -> typ -> Type}.
+    Context {func : Type}.
+    Variable RType_typ : RType typD.
+    Variable TI_Fun : TypInstance2 typD Fun.
+    Variable RSym_func : RSym typD func.
+    Variable us : env typD.
 
-  Section with_envs.
-    Variable ts : types.
-    Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
-    Variable us : env (typD ts).
 
-(*
-    Axiom typeof_expr_exprD : forall vs e t,
-      typeof_expr (typeof_env us) vs e = Some t ->
-      exists val, exprD' us vs e t = Some val.
-*)
+    (**
+     ** The denotation function with binders must be total because we
+     ** can't introduce the binder until we know that we are going to get
+     ** the right type out, but, at the same time, we don't know we will
+     ** succeed until after we've taken the denotation of the body,
+     ** which we can't do until we have the binder.
+     **
+     ** To solve this, we make precise the phase separation by returning
+     ** [option (env -> typD t)] effectively allowing us to determine if
+     ** there is an error before needing to get the variables.
+     **
+     **)
+    Definition exprD us vs e t
+    : option (typD nil t) :=
+      let (tvs,gvs) := split_env vs in
+      match @exprD' typ typD func _ _ us tvs e t with
+        | None => None
+        | Some f => Some (f gvs)
+      end.
 
     Axiom exprD_Var : forall ve v t,
       exprD us ve (Var v) t = lookupAs ve v t.
@@ -153,23 +152,31 @@ Module Type ExprDenote.
     Axiom exprD_Func : forall ve f t,
       exprD us ve (Inj f) t = funcAs f t.
 
+    Let tyArr_outof : forall ts l r, typD ts (typ2 l r) -> typD ts l -> typD ts r :=
+      fun ts l r => @Iso.soutof _ _ (typ2_iso ts l r) (fun x => x).
+    Let tyArr_into : forall ts l r, (typD ts l -> typD ts r) -> typD ts (typ2 l r) :=
+      fun ts l r => @Iso.sinto _ _ (typ2_iso ts l r) (fun x => x).
+
     Axiom exprD_Abs_is_arr : forall vs e t t',
       exprD us vs (Abs t' e) t =
-      match t as t return option (typD ts nil t) with
-        | tvArr l r =>
-          if t' ?[ eq ] l then
-            exprD us vs (Abs l e) (tvArr l r)
-          else None
-        | _ => None
-      end.
+      @typ2_match _ _ _ TI_Fun nil
+                  (fun t'' _ => option (typD nil t''))
+                  (fun l r =>
+                     bind (typ_cast (fun x => x -> typD nil r) nil t' l)
+                          (fun cast =>
+                             bind (exprD us vs (Abs t' e) (typ2 t' r))
+                                  (fun x =>
+                                     Some (tyArr_into (cast (tyArr_outof _ x))))))
+                  (fun _ => None)
+                  t.
 
     Axiom typeof_expr_eq_exprD_False : forall l ve e t,
-      WellTyped_expr (typeof_env us) (l :: typeof_env ve) e t ->
+      WellTyped_expr type_of_apply (typeof_env us) (l :: typeof_env ve) e t ->
       forall x, exprD us (existT _ l x :: ve) e t = None ->
                 False.
 
     Axiom typeof_expr_exprD' : forall vs e t,
-      WellTyped_expr (typeof_env us) vs e t <->
+      WellTyped_expr type_of_apply (typeof_env us) vs e t <->
       exists v, exprD' us vs e t = Some v.
 
     Axiom exprD_App : forall ve t e arg,
@@ -199,7 +206,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
 
   Include EDc.
 
-  Definition exprD {ts} {func} {fs : RFunc (typD ts) func} us vs e t
+  Definition exprD {ts} {func} {fs : RSym (typD ts) func} us vs e t
   : option (typD ts nil t) :=
     let (tvs,gvs) := split_env vs in
     match @exprD' ts _ fs us tvs e t with
@@ -210,7 +217,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RFunc_func : RFunc (typD ts) func.
+    Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
     Theorem typeof_expr_exprD'_impl : forall vs e t,
@@ -231,7 +238,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         rewrite typ_cast_typ_refl. eauto. }
       { rewrite exprD'_Func.
         unfold funcAs.
-        generalize (funcD f). rewrite H. intros.
+        generalize (symD f). rewrite H. intros.
         simpl.
         rewrite typ_cast_typ_refl. eauto. }
       { rewrite exprD'_App.
@@ -567,8 +574,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       { rewrite WellTyped_expr_Func.
         rewrite exprD'_Func.
         unfold funcAs.
-        generalize (funcD f).
-        destruct (typeof_func f); intuition; try congruence.
+        generalize (symD f).
+        destruct (typeof_sym f); intuition; try congruence.
         { inv_all; subst. simpl in *.
           rewrite typ_cast_typ_refl in *. congruence. }
         { simpl in *. forward.

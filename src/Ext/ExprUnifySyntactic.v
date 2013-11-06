@@ -6,6 +6,7 @@ Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
@@ -23,10 +24,10 @@ Section typed.
   Variable subst : Type.
   Variable types : Types.types.
   Variable func : Type.
-  Variable RFunc_func : RFunc (typD types) func.
+  Variable RSym_func : RSym (typD types) func.
   Variable RelDec_eq_func : RelDec (@eq func).
   Variable Subst_subst : Subst subst (expr func).
-  Variable SubstOk_subst : SubstOk (Expr_expr RFunc_func) Subst_subst.
+  Variable SubstOk_subst : SubstOk (Expr_expr RSym_func) Subst_subst.
   Variable RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func.
 
   Section nested.
@@ -81,9 +82,9 @@ Section typed.
         if f1 ?[ eq ] f2 then Some s else None
       | App e1 e1' , App e2 e2' =>
         match typeof_expr us vs e1 , typeof_expr us vs e2 with
-          | Some (tvArr l r) , Some (tvArr l' r') =>
+          | Some (tyArr l r) , Some (tyArr l' r') =>
             if l ?[ eq ] l' && r ?[ eq ] r' && t ?[ eq ] r then
-              match exprUnify' us vs n s e1 e2 (tvArr l t) with
+              match exprUnify' us vs n s e1 e2 (tyArr l t) with
                 | None => None
                 | Some s' =>
                   exprUnify' us vs n s' e1' e2' l
@@ -95,7 +96,7 @@ Section typed.
       | Abs t1 e1 , Abs t2 e2 =>
         (* t1 = t2 since both terms have the same type *)
         match t with
-          | tvArr _ t =>
+          | tyArr _ t =>
             exprUnify' us (t1 :: vs) (S n) s e1 e2 t
           | _ => None
         end

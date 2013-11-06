@@ -6,6 +6,7 @@ Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.Cases.
 Require Import ExtLib.Tactics.EqDep.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
@@ -157,7 +158,7 @@ Section typed.
       exfalso. omega. f_equal. rewrite NPeano.Nat.sub_add. auto. omega. }
   Qed.
 
-  Variable RFunc_func : RFunc (typD ts) func.
+  Variable RSym_func : RSym (typD ts) func.
 
   Lemma typeof_expr_lift : forall us vs vs' vs'' e,
     ExprT.typeof_expr us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) =
@@ -674,7 +675,7 @@ Section typed.
                | |- match match ?x with _ => _ end with _ => _ end =>
                  (destruct x; auto); [ ]
              end.
-      specialize (IHe1 _ _ _ (tvArr t0_1 t0_2) H).
+      specialize (IHe1 _ _ _ (tyArr t0_1 t0_2) H).
       specialize (IHe2 _ _ _ t0_1 H0).
       repeat match goal with
                | _ : match ?X with _ => _ end |- _ =>
@@ -1264,7 +1265,7 @@ Section typed.
                | |- match match ?x with _ => _ end with _ => _ end =>
                  solve [ destruct x; auto ]
              end.
-      specialize (IHe1 vs' vs (tvArr t0_1 t0_2)).
+      specialize (IHe1 vs' vs (tyArr t0_1 t0_2)).
       specialize (IHe2 vs' vs t0_1).
       simpl in *. rewrite lift_lift' in *.
       repeat match goal with
