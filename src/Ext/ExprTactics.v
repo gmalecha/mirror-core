@@ -47,7 +47,10 @@ Hint Extern 0 (SolveTypeClass (TransitiveClosure.rightTrans _ _ _)) =>
   red; solve_expr_acc_trans : typeclass_instances.
 
 Lemma expr_strong_ind (f : Type) (P : expr f -> Prop) : forall
-  (IHe : forall e : expr f, (forall y {_ : SolveTypeClass (TransitiveClosure.rightTrans (@expr_acc f) y e)}, P y) -> P e),
+  (IHe : forall e : expr f,
+           (forall y {_ : SolveTypeClass (TransitiveClosure.rightTrans (@expr_acc f) y e)},
+              P y) ->
+           P e),
   forall e, P e.
 Proof.
   intros. revert e.
@@ -61,9 +64,9 @@ Ltac wf_expr_ind :=
 Ltac red_exprD :=
   repeat match goal with
            | H : context [ @ExprD.exprD _ _ _ _ _ _ _ ] |- _ =>
-             repeat progress (autorewrite with exprD_rw in H ; simpl in H)
+             progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
            | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
-             repeat progress (autorewrite with exprD_rw; simpl)
+             progress (repeat (autorewrite with exprD_rw; simpl))
            | |- context [ SymI.symAs _ _ ] =>
              unfold SymI.symAs
            | H : context [ SymI.symAs _ _ ] |- _ =>
