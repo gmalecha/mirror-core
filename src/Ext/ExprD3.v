@@ -236,23 +236,23 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        end.
        pattern (nth_error ve v) at 1 3 7.
        destruct (nth_error ve v); try congruence.
-       intros. inv_all. destruct H. subst. subst.
+       intros. inv_all. subst. subst.
        rewrite typ_cast_typ_refl. reflexivity. }
      { unfold symAs.
        generalize dependent (symD f).
        destruct (typeof_sym f); try congruence; intros.
-       inv_all; subst. destruct H; subst. subst.
+       inv_all; subst. subst. subst.
        simpl. rewrite typ_cast_typ_refl. reflexivity. }
      { unfold typ_cast_val. forward. inv_all.
-       destruct H1. subst. destruct H3. subst.
-       rewrite typ_cast_typ_refl. f_equal. assumption. }
+       destruct H1. subst. subst.
+       rewrite typ_cast_typ_refl. f_equal. }
      { specialize (IHe (t :: ve)).
        destruct (exprD_simul' (t :: ve) e); try congruence. destruct s.
-       inv_all. destruct H; subst. subst.
+       inv_all. subst. subst.
        rewrite typ_cast_typ_refl.
        rewrite (IHe _ _ eq_refl). reflexivity. }
      { unfold lookupAs. destruct (nth_error us u); try congruence.
-       destruct s. inv_all. destruct H. subst. subst.
+       destruct s. inv_all. subst. subst.
        simpl. rewrite typ_cast_typ_refl. reflexivity. }
    Qed.
 

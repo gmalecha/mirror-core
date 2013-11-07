@@ -610,7 +610,7 @@ Module Make (FM : S with Definition E.t := uvar
               | |- match match match ?X with _ => _ end with _ => _ end with _ => _ end =>
                 consider X; intros
             end.
-            inv_all. destruct H4; subst.
+            inv_all. subst.
             rewrite H2. intros; eauto.
             specialize (H3 Hnil vs h). simpl in *. eauto.
             consider (ExprD.exprD' u (v ++ x) (lift 0 (length v) e) t); auto; intros.
@@ -951,7 +951,7 @@ Module Make (FM : S with Definition E.t := uvar
                    | |- context [ match ?X with _ => _ end ] =>
                      consider X; intros; try congruence
                  end; auto.
-          { inv_all; subst. f_equal. rewrite IHe1. f_equal. eauto. }
+          { inv_all; subst. rewrite IHe1. f_equal. eauto. }
           unfold typeof_env.
           rewrite <- (split_env_projT1 v). rewrite H0. reflexivity. }
         { destruct t0; auto.
@@ -964,7 +964,7 @@ Module Make (FM : S with Definition E.t := uvar
                  end; auto.
           clear H2. inv_all; subst.
           eapply functional_extensionality. intros.
-          specialize (IHe (Hcons (p x0) vs')). simpl in *; auto. }
+          specialize (IHe (Hcons x0 vs')). simpl in *; auto. }
         { rewrite raw_substD_sem in H.
           unfold ExprD.exprD in *.
           specialize (H u0).
@@ -983,7 +983,7 @@ Module Make (FM : S with Definition E.t := uvar
                              | _ => _ end =>
                 consider X; intros
             end.
-            { inv_all. destruct H2. subst.
+            { inv_all. subst.
               generalize (exprD'_lift _ u nil tv' x e t); simpl.
               rewrite H.
               destruct (ExprD.exprD' u (tv' ++ x) (lift 0 (length tv') e) t); auto.
@@ -1170,7 +1170,7 @@ Module Make (FM : S with Definition E.t := uvar
                 | |- context [ typ_cast_typ ?A ?B ?C ?D ?E ] =>
                   consider (typ_cast_typ A B C D E)
               end; intros.
-            { inv_all; subst. destruct H4; subst.
+            { inv_all; subst. subst.
               repeat match goal with
                        | _ : context [ match ?X with _ => _ end ] |- _ =>
                          (consider X; intros; try solve [ intuition | congruence ]); [ ]

@@ -61,11 +61,17 @@ Ltac wf_expr_ind :=
 Ltac red_exprD :=
   repeat match goal with
            | H : context [ @ExprD.exprD _ _ _ _ _ _ _ ] |- _ =>
-             repeat progress (autorewrite with exprD_rw in H ; simpl in H)
+             progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
            | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
-             repeat progress (autorewrite with exprD_rw; simpl)
+             progress (repeat (autorewrite with exprD_rw; simpl))
+            | H : @exprD ?ts ?f ?r ?us ?vs (Abs ?t' ?e) ?t = Some ?v |- _ =>
+              eapply (@exprD_Abs ts f r us vs e t t' v) in H ;
+              destruct H as [ ? [ ? [ ? ? ] ] ];
+              try subst
+           | H : @ExprD.exprD _ _ _ _ _ _ _ = Some ?V |- _ =>
+             eapply exprD_Abs in H; destruct H as [ ? [ ? [ ? ? ] ] ]
            | |- context [ SymI.symAs _ _ ] =>
              unfold SymI.symAs
            | H : context [ SymI.symAs _ _ ] |- _ =>
-             unfold SymI.symAs
+             unfold SymI.symAs in H
          end.
