@@ -1,6 +1,8 @@
-Require Import BinPos.
+Require Import BinPos List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Positive.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 
@@ -12,7 +14,31 @@ Inductive func : Type :=
 | Not
 | FRef (fi : positive) (ts : list typ).
 
-Section RFunc.
+Global Instance RelDec_eq_func : RelDec (@eq func) :=
+{ rel_dec := fun l r =>
+               match l , r with
+                 | Equal a , Equal b => a ?[ eq ] b
+                 | Not , Not => true
+                 | FRef l ls , FRef r rs =>
+                   if l ?[ eq ] r then ls ?[ eq ] rs else false
+                 | _ , _ => false
+               end
+}.
+
+Global Instance RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func.
+Proof.
+  constructor.
+  destruct x; destruct y; simpl; try rewrite rel_dec_correct;
+  intuition; subst; auto; try congruence.
+Require Import ExtLib.Tactics.Consider.
+  consider (fi ?[ eq ] fi0); intros.
+  consider (ts ?[ eq ] ts0); intros. subst; auto.
+  inversion H; clear H; subst.
+  consider (fi0 ?[ eq ] fi0); try congruence.
+  consider (ts0 ?[ eq ] ts0); try congruence.
+Qed.
+
+Section RSym.
   Variable ts : types.
 
   Record function := F
@@ -48,7 +74,8 @@ Section RFunc.
    **     ensure that [func] is sensible (at least definitionally)
    **)
   Global Instance RSym_func : RSym (typD ts) func :=
-  { typeof_sym := func_typeof_sym
+  { sym_eqb := fun l r => Some (l ?[ eq ] r)
+  ; typeof_sym := func_typeof_sym
   ; symD := fun f =>
                match f as f
                      return match func_typeof_sym f with
@@ -111,4 +138,13 @@ Section RFunc.
                 end
             end).
   Defined.
-End RFunc.
+
+  Definition from_list {T} (ls : list T) : PositiveMap.t T :=
+    (fix from_list ls : positive -> PositiveMap.t T :=
+       match ls with
+         | nil => fun _ => PositiveMap.empty _
+         | l :: ls => fun p =>
+                        PositiveMap.add p l (from_list ls (Pos.succ p))
+       end) ls 1%positive.
+
+End RSym.

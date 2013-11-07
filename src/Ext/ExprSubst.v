@@ -287,15 +287,20 @@ Section mentionsU.
   Proof.
     induction e'; simpl; try congruence; intros;
     repeat match goal with
-             | H : _ |- _ => rewrite H
-             | |- context [ ?X ?[ eq ] ?Y ] =>
-               consider (X ?[ eq ] Y); try congruence; intros; auto
-             | |- context [ EqNat.beq_nat ?X ?Y ] =>
-               consider (EqNat.beq_nat X Y); try congruence; intros; subst; auto
-             | |- context [ mentionsU ?X ?Y ] =>
-               consider (mentionsU X Y); try congruence; intros; subst; auto
+             | H : _ |- _ =>
+               match type of H with
+                 | not (eq _ _) => fail 1
+                 | _ -> False => fail 1
+                 | ?T => rewrite H by eauto
+               end
+             | |- context [ if @rel_dec ?A ?B ?C ?X ?Y then _ else _ ] =>
+               consider (@rel_dec A B C X Y); try congruence; intros; auto; subst
+             | |- context [ if EqNat.beq_nat ?X ?Y then _ else _ ] =>
+               consider (EqNat.beq_nat X Y); try congruence; intros; subst; auto; subst
              | |- _ =>
-               rewrite mentionsU_lift in *
+               progress ( rewrite mentionsU_lift in * )
+             | |- context [ if mentionsU ?X ?Y then _ else _ ] =>
+               consider (mentionsU X Y); try congruence; intros; subst; auto
            end; simpl in *; eauto.
     consider (EqNat.beq_nat u' u0); congruence.
     consider (EqNat.beq_nat u0 u0); congruence.

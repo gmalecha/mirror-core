@@ -101,14 +101,6 @@ Section env.
   Qed.
 
 (* TODO: this should go elsewhere...
-  Definition from_list {T} (ls : list T) : PositiveMap.t T :=
-    (fix from_list ls : positive -> PositiveMap.t T :=
-       match ls with
-         | nil => fun _ => PositiveMap.empty _
-         | l :: ls => fun p =>
-                        PositiveMap.add p l (from_list ls (Pos.succ p))
-       end) ls 1%positive.
-
   Definition from_func_list : list function -> functions :=
     from_list.
 

@@ -41,14 +41,14 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 
 Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
 { (** typ_eqb **)
-  typ_eqb_ok :> RelDec_Correct type_eqb
+  type_eqb_ok :> RelDec_Correct type_eqb
   (** typ_cast **)
-; typ_cast_iso : forall F ts a b f,
+; type_cast_iso : forall F ts a b f,
     type_cast F ts a b = Some f ->
     exists g,
       type_cast F ts b a = Some g /\
       (forall x, f (g x) = x)
-; typ_cast_refl : forall ts t F,
+; type_cast_refl : forall ts t F,
                     exists f, type_cast F ts t t = Some f /\
                               (forall x, f x = x)
   (** instantiate_typ **)

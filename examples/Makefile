@@ -1,6 +1,6 @@
 MONAD := Expr Demo ReduceApprox Reduce ReduceWf
 SEPLOG := NatDed SepLog SepHeap
-MTAC := Patterns McMtac Demo
+MTAC := Patterns McMatch
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
 	      $(SEPLOG:%=SepLog/%) \

@@ -1,3 +1,4 @@
+Require Import BinPos.
 Require Import List.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Ext.Types.
@@ -16,34 +17,34 @@ Section Demo.
 
   Definition typD := typD types'.
 
-  Let tvNat := tvType 0.
+  Let tyNat := tyType 0.
 
   Definition funcs' : functions types'.
   refine (from_list (
           F types' 0
-             (tvArr tvNat (tvArr tvNat tvNat))
+             (tyArr tyNat (tyArr tyNat tyNat))
              plus ::
           F _ 1
-             (tvArr (tvArr (tvVar 0) tvProp) tvProp)
+             (tyArr (tyArr (tyVar 0) tyProp) tyProp)
              (fun x : Type => @ex x) ::
           F _ 1
-             (tvArr (tvArr (tvVar 0) tvProp) tvProp)
+             (tyArr (tyArr (tyVar 0) tyProp) tyProp)
              all ::
           F _ 1
-             (tvArr (tvVar 0) (tvArr (tvVar 0) tvProp))
+             (tyArr (tyVar 0) (tyArr (tyVar 0) tyProp))
              (fun T : Type => @eq T) ::
-          F types' 0 (tvType 0) 0 ::
+          F types' 0 (tyType 0) 0 ::
           nil)).
   Defined.
 
-  Definition App_list (f : expr) (args : list expr) : expr :=
+  Definition App_list (f : expr func) (args : list (expr func)) : expr func :=
     List.fold_left App args f.
 
   Goal
-    let e := @App_list (@Func 2%positive (tvType 0 :: nil))
-                    ((@Abs tvNat (@App_list (@Func 4%positive (tvType 0 :: nil))
-                                                ((Var 0) :: @Func 5%positive nil :: nil))) :: nil) in
-    match ExprD.exprD funcs' nil nil e tvProp with
+    let e := @App_list (Inj (FRef 2%positive (tyType 0 :: nil)))
+                    ((Abs tyNat (@App_list (Inj (FRef 4%positive (tyType 0 :: nil)))
+                                                ((Var 0) :: Inj (FRef 5%positive nil) :: nil))) :: nil) in
+    match ExprD.exprD (fs := RSym_func funcs') nil nil e tyProp with
       | None => False
       | Some p => p
     end.

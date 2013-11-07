@@ -25,10 +25,9 @@ Section typed.
   Variable types : Types.types.
   Variable func : Type.
   Variable RSym_func : RSym (typD types) func.
-  Variable RelDec_eq_func : RelDec (@eq func).
+  Variable RSymOk_func : RSymOk RSym_func.
   Variable Subst_subst : Subst subst (expr func).
   Variable SubstOk_subst : SubstOk (Expr_expr RSym_func) Subst_subst.
-  Variable RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func.
 
   Section nested.
 
@@ -79,7 +78,10 @@ Section typed.
       | Var v1 , Var v2 =>
         if EqNat.beq_nat v1 v2 then Some s else None
       | Inj f1 , Inj f2 =>
-        if f1 ?[ eq ] f2 then Some s else None
+        match sym_eqb f1 f2 with
+          | Some true => Some s
+          | _ => None
+        end
       | App e1 e1' , App e2 e2' =>
         match typeof_expr us vs e1 , typeof_expr us vs e2 with
           | Some (tyArr l r) , Some (tyArr l' r') =>
@@ -376,7 +378,10 @@ Section typed.
       { consider (EqNat.beq_nat v v0); intros; try congruence.
         inv_all; subst. intuition. } }
     {  destruct e2; try congruence; eauto using handle_uvar.
-       forward. }
+       consider (sym_eqb f f0); try congruence; intros.
+       destruct b; try congruence. inv_all; subst.
+       generalize (@sym_eqbOk _ _ _ _ RSymOk_func f f0).
+       rewrite H3. intros; subst. intuition. }
     { destruct e2; try congruence; eauto using handle_uvar.
       { repeat match goal with
                  | H : match ?X with _ => _ end = _ |- _ =>

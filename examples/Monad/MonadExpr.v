@@ -107,17 +107,17 @@ Section Demo.
       | Ret t' e =>
         m_match nil (fun _ _ => Prop)
                 (fun t'' =>
-                   typ_cast (fun x => x) nil t' t'' <> None /\
+                   type_cast (fun x => x) nil t' t'' <> None /\
                    Safe_mexpr us vs e t')
                 (fun _ => False)
                 t
       | Var v =>
         exists t', nth_error vs v = Some t' /\
-                   typ_cast (fun x => x) nil t' t <> None
+                   type_cast (fun x => x) nil t' t <> None
       | Abs t' body =>
         arr_match nil (fun _ _ => Prop)
                   (fun d r =>
-                     typ_cast (typD := typD) (fun x => x) nil t' d <> None /\
+                     type_cast (typD := typD) (fun x => x) nil t' d <> None /\
                      Safe_mexpr us (d :: vs) body r)
                   (fun _ => False)
                   t
@@ -137,7 +137,7 @@ Section Demo.
                     -> option (hlist (typD nil) g -> typD nil t)
           with
             | None => fun _ => None
-            | Some t' => match typ_cast (fun x => x) nil t' t with
+            | Some t' => match type_cast (fun x => x) nil t' t with
                            | None => fun _ => None
                            | Some cast => fun get => Some (fun g => cast (get g))
                          end
@@ -145,7 +145,7 @@ Section Demo.
         | Abs t' body =>
           arr_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
              (fun d r =>
-                match typ_cast (typD := typD) (fun x => x) nil t' d with
+                match type_cast (typD := typD) (fun x => x) nil t' d with
                   | None => None
                   | Some cast_d =>
                     match mexprD (d :: g) body r with
@@ -183,7 +183,7 @@ Section Demo.
         | Ret t' e =>
           m_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
             (fun t'' =>
-               match typ_cast (fun x => x) nil t' t'' with
+               match type_cast (fun x => x) nil t' t'' with
                  | None => None
                  | Some cast =>
                    match mexprD g e t' with
@@ -196,7 +196,7 @@ Section Demo.
         | Bind t' t'' c k =>
           m_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
             (fun t''' =>
-               match typ_cast (typD := typD) (fun x => typD nil t' -> m x) nil t'' t''' with
+               match type_cast (typD := typD) (fun x => typD nil t' -> m x) nil t'' t''' with
                  | None => None
                  | Some cast =>
                    match mexprD g c (tvM t') , mexprD g k (tvArr t' (tvM t'')) with
@@ -390,10 +390,10 @@ Section Demo.
             || (erewrite typ1_match_typ1 by solver)
             || (erewrite typ2_match_typ2 by solver)
             || match goal with
-                 | |- context [ @typ_cast _ _ ?CLS ?F ?TS ?X ?X ] =>
+                 | |- context [ @type_cast _ _ ?CLS ?F ?TS ?X ?X ] =>
                    let H := fresh in
                    let H' := fresh in
-                   destruct (@typ_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ;
+                   destruct (@type_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ;
                  eauto with typeclass_instances ;
                  rewrite H
                end

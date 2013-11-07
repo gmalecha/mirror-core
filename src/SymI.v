@@ -11,10 +11,21 @@ Section symbols.
 
   Class RSym : Type :=
   { typeof_sym : func -> option typ
-  ; symD : forall f : func, match typeof_sym f with
-                               | None => unit
-                               | Some t => typD nil t
-                             end
+  ; symD : forall f : func,
+             match typeof_sym f with
+               | None => unit
+               | Some t => typD nil t
+             end
+  ; sym_eqb : func -> func -> option bool
+  }.
+
+  Class RSymOk (R : RSym) : Type :=
+  { sym_eqbOk : forall a b, match sym_eqb a b with
+                              | None => True
+                                (** TODO: These could be more semantic **)
+                              | Some true => a = b
+                              | Some false => a <> b
+                            end
   }.
 
   Context {RType_typ : RType typD}.
@@ -49,7 +60,7 @@ Section symbols.
     intros. unfold symAs.
     generalize (symD f).
     rewrite pf. intros.
-    destruct (typ_cast_refl nil t (fun x => x)).
+    destruct (type_cast_refl nil t (fun x => x)).
     intuition.
     match goal with
       | H : ?Y = _ |- match ?X with _ => _ end = _ =>
@@ -63,7 +74,9 @@ Section symbols.
    ** efficient in some instances in some cases where type checking can
    ** be done independently of determining the denotation function.
    **)
-  Definition RSym_from (fd : func -> option {t : typ & typD nil t}) : RSym :=
+  Definition RSym_from
+             (fd : func -> option {t : typ & typD nil t})
+             (eqb : func -> func -> option bool) : RSym :=
   {| typeof_sym := fun f =>
                     match fd f with
                       | None => None
@@ -82,6 +95,7 @@ Section symbols.
                  | None => tt
                  | Some (existT t d) => d
                end
+   ; sym_eqb := eqb
    |}.
 
 End symbols.
