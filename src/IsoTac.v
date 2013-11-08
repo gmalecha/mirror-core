@@ -252,7 +252,7 @@ Section with_iso.
     generalize (@f_option _ _ fiso fDistFunc_f _ _ H x).
     simpl. auto.
   Qed.
-  Hint Rewrite sinto_option soutof_option : iso.
+  Hint Rewrite sinto_option soutof_option using eauto with typeclass_instances : iso.
   Lemma sinto_const : forall (T : Type) x,
                         sinto (iso := SI) (fun _ => T) x = x.
   Proof.
@@ -267,7 +267,7 @@ Section with_iso.
     generalize (@f_const _ _ fiso fDistFunc_f _ x).
     simpl. auto.
   Qed.
-  Hint Rewrite sinto_const soutof_const : iso.
+  Hint Rewrite sinto_const soutof_const using eauto with typeclass_instances : iso.
 
   Lemma sinto_app : forall T U fT fU,
                       @IsoFunctorOk T fT ->
@@ -340,3 +340,11 @@ Section with_iso.
   Hint Rewrite soutof_app soutof_app' soutof_app'' using eauto with typeclass_instances : iso.
 End with_iso.
 
+Hint Rewrite sinto_option soutof_option using eauto with typeclass_instances : iso.
+Hint Rewrite sinto_const soutof_const using eauto with typeclass_instances : iso.
+Hint Rewrite sinto_app soutof_app using eauto with typeclass_instances : iso.
+Hint Rewrite sinto_app sinto_app' sinto_app'' using eauto with typeclass_instances : iso.
+Hint Rewrite soutof_app soutof_app' soutof_app'' using eauto with typeclass_instances : iso.
+
+Ltac iso_norm :=
+  autorewrite with iso in *.

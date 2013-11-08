@@ -455,11 +455,16 @@ Section env.
   Global Instance TypInstance2_tyArr : TypInstance2 typD Fun :=
   { typ2 := tyArr
   ; typ2_iso := fun ts t1 t2 => Iso.Equiv_ident _
-  ; typ2_match := fun _ _ caseType caseElse t =>
+  ; typ2_match := fun _ t _ caseType caseElse =>
                     match t with
                       | tyArr l r => caseType l r
                       | x => caseElse x
                     end
+  ; typ2_matchW := fun ts t R caseType caseElse =>
+                    match t as t' return (unit -> R (typD ts t')) -> R (typD ts t') with
+                      | tyArr l r => fun _ => caseType l r
+                      | x => fun caseElse => caseElse tt
+                    end caseElse
   }.
 
 End env.

@@ -3,8 +3,7 @@ Require Import ExtLib.Structures.Maps.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import ExtLib.Tactics.EqDep.
-Require Import ExtLib.Tactics.Cases.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
@@ -147,6 +146,20 @@ Module Type ExprDenote.
           else None
         | _ => None
       end.
+
+    Axiom exprD_Abs : forall vs e t t' v,
+      exprD us vs (Abs t' e) t = Some v ->
+      exists tr (pf : t = tyArr t' tr)
+             (pf' : forall a : typD ts nil t', exprD us (existT (typD ts nil) _ a :: vs) e tr = None ->
+                              False),
+        match pf in _ = t return typD ts nil t with
+          | eq_refl => v
+        end = fun x => match exprD us (existT _ t' x :: vs) e tr as z
+                             return (z = None -> False) -> typD ts nil tr
+                       with
+                         | Some x => fun _ => x
+                         | None => fun pf => match pf eq_refl with end
+                       end (pf' x).
 
     Axiom typeof_expr_eq_exprD_False : forall l ve e t,
       WellTyped_expr (typeof_env us) (l :: typeof_env ve) e t ->
@@ -317,7 +330,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
               end).
         intro. clearbody zzz. revert zzz.
         destruct (nth_error x u); intuition.
-        inv_all. destruct H0. subst.
+        inv_all. subst.
         destruct (typ_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto.
         f_equal. clear.
         uip_all. reflexivity. }
@@ -445,6 +458,35 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       end.
       generalize (@typ_cast_typ_eq _ _ _ _ _ _ H0).
       congruence.
+    Qed.
+
+    Theorem exprD_Abs : forall vs e t t' v,
+      exprD us vs (Abs t' e) t = Some v ->
+      exists tr (pf : t = tyArr t' tr)
+             (pf' : forall a : typD ts nil t', exprD us (existT (typD ts nil) _ a :: vs) e tr = None ->
+                              False),
+        match pf in _ = t return typD ts nil t with
+          | eq_refl => v
+        end = fun x => match exprD us (existT _ t' x :: vs) e tr as z
+                             return (z = None -> False) -> typD ts nil tr
+                       with
+                         | Some x => fun _ => x
+                         | None => fun pf => match pf eq_refl with end
+                       end (pf' x).
+    Proof.
+      unfold exprD. simpl; intros.
+      consider (split_env vs); intros.
+      forward. inv_all. subst.
+      rewrite exprD'_Abs in H0.
+      forward. inv_all; subst.
+      exists t1.
+      pose proof (typ_cast_typ_eq _ _ _ _ _ H1); subst.
+      rewrite typ_cast_typ_refl in H1. inv_all; subst.
+      exists eq_refl. simpl.
+      rewrite H2.
+      assert (forall a : typD ts nil t', Some (t3 (Hcons a h)) = None -> False).
+      congruence.
+      exists H0. reflexivity.
     Qed.
 
     Theorem typeof_expr_eq_exprD_False : forall l ve e t,

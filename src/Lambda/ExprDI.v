@@ -35,7 +35,8 @@ Module Type ExprDenote_core.
       Axiom exprD'_Abs
       : forall ve t e u,
           exprD' us ve (Abs t e) u =
-          @typ2_match _ _ _ TI_Fun nil (fun t T => option (hlist (typD nil) ve -> T))
+          @typ2_match _ _ _ TI_Fun nil u
+                      (fun t T => option (hlist (typD nil) ve -> T))
                       (fun l r =>
                          match type_cast (fun T => T) nil l t
                              , exprD' us (t :: ve) e r
@@ -45,8 +46,7 @@ Module Type ExprDenote_core.
                                               f (Hcons (F := typD nil) (cast x) g))
                            | _ , _ => None
                          end)
-                      (fun _ => None)
-                      u.
+                      (fun _ => None).
 
     Axiom exprD'_Var : forall ve v t,
       exprD' us ve (Var v) t =
@@ -90,20 +90,24 @@ Module Type ExprDenote_core.
       exprD' us ve (App e arg) t =
       bind (typeof_expr (typeof_env us) ve e)
            (fun t' =>
-              @typ2_match _ _ _ TI_Fun nil
-                          (fun _ T => option (hlist (typD nil) ve -> typD nil t))
-                          (fun l r =>
-                             match exprD' us ve e (typ2 l r)
+              @typ2_matchW _ _ _ TI_Fun nil t'
+                          (fun T =>
+                             option (hlist (typD nil) ve -> T) ->
+                             option (hlist (typD nil) ve -> typD nil t))
+                          (fun l r => fun f' =>
+                             match f'
                                  , exprD' us ve arg l
                                  , type_cast (fun x => x) nil r t
                              with
                                | Some f , Some x , Some cast =>
-                                 Some (fun g => cast ((@tyArr_outof _ _ _ (f g)) (x g)))
+                                 Some (fun g : hlist (typD nil) ve =>
+                                         cast ((f g) (x g)))
                                | _ , _ , _ =>
                                  None
                              end)
-                          (fun _ => None)
-                          t').
+                          (fun _ => fun _ => None)
+                          (exprD' us ve e t')
+).
   End with_envs.
   End with_types.
 
@@ -158,7 +162,7 @@ Module Type ExprDenote.
 
     Axiom exprD_Abs_is_arr : forall vs e t t',
       exprD us vs (Abs t' e) t =
-      @typ2_match _ _ _ TI_Fun nil
+      @typ2_match _ _ _ TI_Fun nil t
                   (fun t'' _ => option (typD nil t''))
                   (fun l r =>
                      bind (type_cast (fun x => x -> typD nil r) nil t' l)
@@ -166,8 +170,7 @@ Module Type ExprDenote.
                              bind (exprD us vs (Abs t' e) (typ2 t' r))
                                   (fun x =>
                                      Some (tyArr_into (cast (tyArr_outof _ x))))))
-                  (fun _ => None)
-                  t.
+                  (fun _ => None).
 
     Axiom typeof_expr_eq_exprD_False : forall l ve e t,
       WellTyped_expr (typeof_env us) (l :: typeof_env ve) e t ->
@@ -180,25 +183,24 @@ Module Type ExprDenote.
 
     Axiom exprD_App : forall ve t e arg,
       exprD us ve (App e arg) t =
-      @typ2_match _ _ _ TI_Fun nil
-                  (fun t'' _ => option (typD nil t))
-                  (fun l r =>
-                     match exprD us ve e (typ2 l r)
+      @typ2_matchW _ _ _ TI_Fun nil t
+                  (fun T => option T -> option (typD nil t))
+                  (fun l r => fun f' =>
+                     match f'
                          , exprD us ve arg l
                          , type_cast (fun x => x) nil r t
                      with
                        | Some f , Some x , Some cast =>
-                         Some (cast ((@tyArr_outof _ _ _ f) x))
+                         Some (cast (f x))
                        | _ , _ , _ => None
                      end)
-                  (fun _ => None)
-                  t.
-
+                  (fun _ => fun _ => None)
+                  (exprD us ve e t).
   End with_types.
 
 End ExprDenote.
 
-(*
+(**
 Module Build_ExprDenote (EDc : ExprDenote_core) <:
        ExprDenote with Definition exprD' := @EDc.exprD'.
   Require Import ExtLib.Tactics.Consider.
@@ -214,6 +216,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Context {RType_typ : RType typD}.
     Context {RTypeOk_typ : RTypeOk RType_typ}.
     Context {TI_Fun : TypInstance2 typD Fun}.
+    Context {TIOK_Fun : TypInstance2_Ok TI_Fun}.
     Context {RSym_func : RSym typD func}.
     Variable us : env typD.
 
@@ -234,7 +237,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
              end.
 
     Theorem typeof_expr_exprD'_impl : forall vs e t,
-      typeof_expr type_of_apply (typeof_env us) vs e = Some t ->
+      typeof_expr (typeof_env us) vs e = Some t ->
       exists val, exprD' us vs e t = Some val.
     Proof.
       intros vs e; revert vs.
@@ -249,19 +252,50 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         intros. subst.
         think. eauto. }
       { rewrite exprD'_Sym.
-        unfold funcAs.
+        unfold symAs.
         generalize (symD f). rewrite H. intros.
         think. eauto. }
       { rewrite (@exprD'_App _ _ _ RType_typ TI_Fun RSym_func).
         specialize (IHe1 vs). specialize (IHe2 vs).
         forward.
         simpl.
-        (** TODO: This proof doesn't work because I am using [type_of_apply]
-         **       but requiring [tvArr].
-         **       - This means that [tyArr] completely determines [type_of_apply]!
-         **)
         destruct (IHe1 _ eq_refl); clear IHe1.
         destruct (IHe2 _ eq_refl); clear IHe2.
+        unfold type_of_apply in *.
+        destruct (@typ2_matchW_case _ _ _ TI_Fun _ nil t0).
+        { destruct H4. destruct H4. destruct H4. destruct H4.
+          rewrite H5 in *.
+          Require Import MirrorCore.IsoTac.
+          iso_norm.
+          forward. inv_all. subst.
+          exists (fun g : hlist (typD nil) vs =>
+                    ((@Iso.sinto _ _ x3 (fun x => x) (x g)) (p (x0 g)))).
+          rewrite H2.
+          erewrite IsoTac.soutof_app''; eauto with typeclass_instances.
+          erewrite sinto_option by  eauto with typeclass_instances.
+          destruct (type_cast_refl nil t (fun x => x)). destruct H6.
+          match goal with
+            | H : ?Y = Some _ |- context [ ?X ] =>
+              change X with Y; rewrite H
+          end.
+          (** TODO: this proof can not work. The problem comes from
+           ** the structure of the denotation.
+           ** - In exprD, I use the type inferred from the function to
+           **   evaluate the argument.
+           ** - In typeof_expr, I determine both types and check that
+           **   they are compatible.
+           ** This is equivalent if type_cast checks definitional equality
+           ** otherwise, we would need a lemma that would say something
+           ** about consistent casts. We would use this to prove that equivalent
+           ** types have consistent denotations through the isomorphism.
+           ** This property has to talk about everything and is therefore
+           ** very hairy...
+           **
+           ** It should be noted that this isn't a complete deal-breaker, but
+           ** it does force us to us bi-directional typing in both typeof_expr
+           ** and exprD (or not use it in either).
+           **)
+          {
         destruct t0; simpl in *; try congruence.
         change typ_eqb with (@rel_dec _ (@eq typ) _) in *.
         consider (t0_1 ?[ eq ] t1); intros; subst; try congruence.
@@ -411,7 +445,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
 
     Theorem exprD_UVar : forall ve u t,
       exprD us ve (UVar u) t = lookupAs us u t.
-    Proof.
+I    Proof.
       unfold exprD; intros.
       destruct (split_env ve).
       rewrite exprD'_UVar.
