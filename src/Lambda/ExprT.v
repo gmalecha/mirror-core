@@ -59,15 +59,14 @@ Section typed.
   Qed.
 
   Definition type_of_apply (ft xt : typ) : option typ :=
-    @typ2_match _ _ _ typ_arr nil
-                (fun _ _ => option typ)
+    @typ2_matchW _ _ _ typ_arr nil ft
+                (fun _ => option typ)
                 (fun l r =>
-                   match type_cast (typD := typD) (fun x => x) nil l xt with
+                   match type_cast (typD := typD) (fun x => x) nil xt l with
                      | None => None
                      | Some cast => Some r
                    end)
-                (fun _ => None)
-                ft.
+                (fun _ => None).
 
   Section typeof_expr.
     Variable uvars : tenv typ.

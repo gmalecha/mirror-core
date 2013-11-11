@@ -125,15 +125,27 @@ Section typed.
   { typ2     : typ -> typ -> typ
   ; typ2_iso : forall ts t1 t2,
                   Equiv (F (typD ts t1) (typD ts t2)) (typD ts (typ2 t1 t2))
-  ; typ2_match : forall ts (R : typ -> Type -> Type)
+  ; typ2_match : forall ts (t : typ) (R : typ -> Type -> Type)
       (caseTyp : forall t1 t2, R (typ2 t1 t2) (F (typD ts t1) (typD ts t2)))
-      (caseElse : forall t : typ, R t (typD ts t))
-      (t : typ), R t (typD ts t)
+      (caseElse : forall t : typ, R t (typD ts t)),
+      R t (typD ts t)
+  ; typ2_matchW : forall ts (t : typ) (R : Type -> Type)
+      (caseTyp : forall t1 t2, R (F (typD ts t1) (typD ts t2)))
+      (caseElse : unit -> R (typD ts t)),
+      R (typD ts t)
   }.
 
   Class TypInstance2_Ok F (ti : TypInstance2 F) : Type :=
   { typ2_match_typ2 : forall ts R caseTyp caseElse t u,
-      (typ2_match ts R caseTyp caseElse (typ2 t u)) = sinto (iso := typ2_iso ts t u) _ (caseTyp t u)
+      (typ2_match ts (typ2 t u) R caseTyp caseElse) = sinto (iso := typ2_iso ts t u) _ (caseTyp t u)
+  ; typ2_matchW_case : forall ts t,
+      (exists l r (pf : Equiv (typD ts t) (F (typD ts l) (typD ts r))),
+         EquivOk pf /\
+         forall R caseType caseElse,
+           typ2_matchW ts t R caseType caseElse =
+           soutof (iso := pf) (fun X => R X) (caseType l r)) \/
+      (forall R caseType caseElse,
+         typ2_matchW ts t R caseType caseElse = caseElse tt)
   ; typ2_isoOk : forall ts t u, EquivOk (typ2_iso ts t u)
   }.
 
@@ -245,7 +257,7 @@ Section typed.
     { typ0 := typ2 (typ0 (TypInstance0 := t1)) (typ0 (TypInstance0 := t2))
     ; typ0_iso := fun ts => {| siso := fun F => {| into := _ ; outof := _ |} |}
     ; typ0_match := fun ts R caseTyp caseElse t =>
-        typ2_match ts R
+        typ2_match ts t R
            (fun t1' t2' =>
               typ0_match (TypInstance0 := t1) ts
                  (fun ty Ty => R (typ2 ty t2') (F Ty (typD ts t2')))
@@ -257,7 +269,7 @@ Section typed.
                         (fun _ => _)
                         t2')
                  (fun _ => _)
-                 t1') caseElse t
+                 t1') caseElse
 
     }.
     { apply typ2_iso. apply typ0_iso. apply typ0_iso. refine (fun x => x). }

@@ -47,7 +47,10 @@ Hint Extern 0 (SolveTypeClass (TransitiveClosure.rightTrans _ _ _)) =>
   red; solve_expr_acc_trans : typeclass_instances.
 
 Lemma expr_strong_ind (f : Type) (P : expr f -> Prop) : forall
-  (IHe : forall e : expr f, (forall y {_ : SolveTypeClass (TransitiveClosure.rightTrans (@expr_acc f) y e)}, P y) -> P e),
+  (IHe : forall e : expr f,
+           (forall y {_ : SolveTypeClass (TransitiveClosure.rightTrans (@expr_acc f) y e)},
+              P y) ->
+           P e),
   forall e, P e.
 Proof.
   intros. revert e.
@@ -64,12 +67,10 @@ Ltac red_exprD :=
              progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
            | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
              progress (repeat (autorewrite with exprD_rw; simpl))
-            | H : @exprD ?ts ?f ?r ?us ?vs (Abs ?t' ?e) ?t = Some ?v |- _ =>
-              eapply (@exprD_Abs ts f r us vs e t t' v) in H ;
-              destruct H as [ ? [ ? [ ? ? ] ] ];
-              try subst
-           | H : @ExprD.exprD _ _ _ _ _ _ _ = Some ?V |- _ =>
-             eapply exprD_Abs in H; destruct H as [ ? [ ? [ ? ? ] ] ]
+           | H : @exprD ?ts ?f ?r ?us ?vs (Abs ?t' ?e) ?t = Some ?v |- _ =>
+             eapply (@exprD_Abs ts f r us vs e t t' v) in H ;
+               destruct H as [ ? [ ? [ ? ? ] ] ];
+               try subst
            | |- context [ SymI.symAs _ _ ] =>
              unfold SymI.symAs
            | H : context [ SymI.symAs _ _ ] |- _ =>
