@@ -106,7 +106,8 @@ Section instantiate.
     destruct (split_env gs'). intros Hlookup.
     induction e; simpl; intros; autorewrite with exprD_rw; auto.
     { change (
-          let zzz z (pf : Some z = nth_error (v0 ++ x) v) cast :=
+          let zzz z (pf : Some z = nth_error (v0 ++ x) v)
+                  (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
               fun e : hlist (typD ts nil) (v0 ++ x) =>
                            match
                              pf in (_ = t'')
@@ -116,7 +117,8 @@ Section instantiate.
                                 | None => unit
                               end -> typD ts nil t)
                            with
-                             | eq_refl => fun x0 : typD ts nil z => cast x0
+                             | eq_refl => fun x0 : typD ts nil z =>
+                                            cast (fun x => x) x0
                            end (hlist_nth e v)
                 in
           match
@@ -128,7 +130,7 @@ Section instantiate.
             with
               | Some z =>
                 fun pf : Some z = nth_error (v0 ++ x) v =>
-                  match typ_cast_typ ts (fun x0 : Type => x0) nil z t with
+                  match typ_cast_typ ts nil z t with
                     | Some cast =>
                       Some (zzz z pf cast)
                     | None => None
@@ -146,7 +148,7 @@ Section instantiate.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (v0 ++ x) v =>
-                      match typ_cast_typ ts (fun x0 : Type => x0) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -169,7 +171,7 @@ Section instantiate.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (v0 ++ x) v =>
-                      match typ_cast_typ ts (fun x0 : Type => x0) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -183,7 +185,7 @@ Section instantiate.
           end).
       intro zzz; clearbody zzz; revert zzz; gen_refl.
       destruct (nth_error (v0 ++ x) v); auto.
-      destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0 t); auto. }
+      destruct (typ_cast_typ ts nil t0 t); auto. }
     { forward. }
     { rewrite typeof_expr_instantiate.
       { consider (typeof_expr (typeof_env us) (v ++ x) e1); auto.
@@ -214,7 +216,7 @@ Section instantiate.
                    consider X; try congruence; intros
                end; inv_all; subst; auto.
       eapply functional_extensionality. intros.
-      specialize (IHe (Hcons (p x0) vs)). simpl in *; auto. }
+      specialize (IHe (Hcons x0 vs)). simpl in *; auto. }
     { specialize (Hlookup u).
       destruct (lookup u).
       { unfold lookupAs.
@@ -233,7 +235,7 @@ Section instantiate.
             | |- match match match ?X with _ => _ end with _ => _ end with _ => _ end =>
               consider X; intros
           end.
-          { generalize (typ_cast_typ_eq _ _ _ _ _ H3). congruence. }
+          { generalize (typ_cast_typ_eq _ _ _ _ H3). congruence. }
           { repeat match goal with
                  | _ : context [ match ?X with _ => _ end ] |- _ =>
                    consider X; try congruence; intros
@@ -388,7 +390,8 @@ Section mentionsU.
                consider X; try congruence; intros
            end.
     { change (
-          let zzz z (pf : Some z = nth_error tg v) cast :=
+          let zzz z (pf : Some z = nth_error tg v)
+                  (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
               (fun e : hlist (typD ts nil) tg =>
                            match
                              pf in (_ = t'')
@@ -398,7 +401,8 @@ Section mentionsU.
                                 | None => unit
                               end -> typD ts nil t)
                            with
-                             | eq_refl => fun x : typD ts nil z => cast x
+                             | eq_refl => fun x : typD ts nil z =>
+                                            cast (fun x => x) x
                            end (hlist_nth e v))
           in
           match
@@ -410,7 +414,7 @@ Section mentionsU.
             with
               | Some z =>
                 fun pf : Some z = nth_error tg v =>
-                  match typ_cast_typ ts (fun x : Type => x) nil z t with
+                  match typ_cast_typ ts nil z t with
                     | Some cast =>
                       Some (zzz z pf cast)
                     | None => None
@@ -428,7 +432,7 @@ Section mentionsU.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error tg v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -449,7 +453,7 @@ Section mentionsU.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error tg v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -463,7 +467,7 @@ Section mentionsU.
           end).
       intro zzz; clearbody zzz; revert zzz.
       gen_refl. destruct (nth_error tg v); auto.
-      destruct (typ_cast_typ ts (fun x : Type => x) nil t0 t); auto. }
+      destruct (typ_cast_typ ts nil t0 t); auto. }
     { forward. }
     { rewrite typeof_env_app. simpl in *.
       rewrite typeof_expr_mentionsU_strengthen by (rewrite typeof_env_length; auto).
@@ -492,11 +496,11 @@ Section mentionsU.
       { repeat rewrite nth_error_past_end by (try rewrite app_length; simpl; omega).
         auto. }
       { exfalso.
-        consider (EqNat.beq_nat (length tu) u0); congruence. } 
+        consider (EqNat.beq_nat (length tu) u0); congruence. }
       { rewrite nth_error_app_L by omega.
         destruct (nth_error tu u0); auto.
         destruct s.
-        destruct (TypesI.type_cast (fun x0 : Type => x0) nil x t); auto. } }
+        destruct (TypesI.type_cast nil x t); auto. } }
   Qed.
 
   Lemma exprD'_mentionsU_strengthen_multi_lem : forall tu e,

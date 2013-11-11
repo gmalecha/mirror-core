@@ -62,7 +62,7 @@ Section typed.
     @typ2_matchW _ _ _ typ_arr nil ft
                 (fun _ => option typ)
                 (fun l r =>
-                   match type_cast (typD := typD) (fun x => x) nil xt l with
+                   match type_cast (typD := typD) nil xt l with
                      | None => None
                      | Some cast => Some r
                    end)

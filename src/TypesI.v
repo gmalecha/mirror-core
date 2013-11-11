@@ -8,9 +8,11 @@ Require Import MirrorCore.IsoTac.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Set Printing Universes.
+
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
-{ type_cast : forall (F : Type -> Type) env (a b : typ),
-               option (F (typD env a) -> F (typD env b))
+{ type_cast : forall env (a b : typ),
+               option (forall F, F (typD env a) -> F (typD env b))
   (** It would be a little bit more modular to avoid
    ** syntactic equality in favor of semantic equality
    ** which is supported by [typ_cast]
@@ -43,15 +45,14 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
 { (** typ_eqb **)
   type_eqb_ok :> RelDec_Correct type_eqb
   (** typ_cast **)
-; type_cast_iso : forall F ts a b f,
-    type_cast F ts a b = Some f ->
+; type_cast_iso : forall ts a b f,
+    type_cast ts a b = Some f ->
     exists g,
-      type_cast F ts b a = Some g /\
-      (forall x, f (g x) = x)
+      type_cast ts b a = Some g /\
+      (forall F x, f F (g F x) = x)
 ; type_cast_refl : forall ts t F,
-                    exists f, type_cast F ts t t = Some f /\
-                              (forall x, f x = x)
-  (** instantiate_typ **)
+                    exists f, type_cast ts t t = Some f /\
+                              (forall x, f F x = x)
 }.
 
 Class RTypeEq (typ : Type) (typD : list Type -> typ -> Type) : Type :=
@@ -147,6 +148,12 @@ Section typed.
       (forall R caseType caseElse,
          typ2_matchW ts t R caseType caseElse = caseElse tt)
   ; typ2_isoOk : forall ts t u, EquivOk (typ2_iso ts t u)
+  ; typ2_match_cast_type : forall ts ta tb cast,
+                             type_cast ts ta tb = Some cast ->
+                             forall R,
+                               typ2_matchW ts tb R =
+                               cast (fun T => _ -> (unit -> R T) -> R T)
+                                    (typ2_matchW ts ta R)
   }.
 
   Theorem compose_into_into_Iso_compose : forall A B C (iAB : Iso A B) (iBC : Iso B C),
@@ -169,10 +176,10 @@ Section typed.
     Variable eAB : Equiv A B.
     Variable eFT : Equiv (F B) C.
     Definition Equiv_compose : Equiv (F A) C :=
-    {| siso := fun F' => {| into := fun x =>
-                                      sinto (iso := eFT) F' (sinto (iso := eAB) (fun x => F' (F x)) x)
-                          ; outof := fun x =>
-                                       soutof (iso := eAB) (fun x => F' (F x)) (soutof (iso := eFT) F' x) |} |}.
+      fun F' => {| into := fun x =>
+                             sinto (iso := eFT) F' (sinto (iso := eAB) (fun x => F' (F x)) x)
+                 ; outof := fun x =>
+                              soutof (iso := eAB) (fun x => F' (F x)) (soutof (iso := eFT) F' x) |}.
 
     Variable eokAB : EquivOk eAB.
     Variable eokFT : EquivOk eFT.
@@ -184,7 +191,7 @@ Section typed.
       Set Printing Implicit.
       constructor.
       { red; simpl; intros.
-        unfold sinto, soutof.
+        unfold Equiv_compose, sinto, soutof, siso.
         repeat match goal with
                  | |- appcontext [ fun x => @into _ _ ?F (@into _ _ ?G x) ] =>
                    change (fun x => @into _ _ F (@into _ _ G x)) with (compose (@into _ _ F) (@into _ _ G))
@@ -255,7 +262,7 @@ Section typed.
            (f : TypInstance2 F) (t1 : TypInstance0 T1) (t2 : TypInstance0 T2)
     : TypInstance0 (F T1 T2) :=
     { typ0 := typ2 (typ0 (TypInstance0 := t1)) (typ0 (TypInstance0 := t2))
-    ; typ0_iso := fun ts => {| siso := fun F => {| into := _ ; outof := _ |} |}
+    ; typ0_iso := fun ts => fun F => {| into := _ ; outof := _ |}
     ; typ0_match := fun ts R caseTyp caseElse t =>
         typ2_match ts t R
            (fun t1' t2' =>

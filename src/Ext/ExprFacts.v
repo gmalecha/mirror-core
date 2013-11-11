@@ -129,7 +129,8 @@ Section weaken_denote.
       inv_all; subst; auto.
     { gen_refl.
       change (
-          let zzz z (pf : Some z = nth_error venv v) cast :=
+          let zzz z (pf : Some z = nth_error venv v)
+                  (cast : forall F : Type -> Type, F (typD types nil z) -> F (typD types nil t))  :=
               (fun e1 : hlist (typD types nil) venv =>
                  match
                    pf in (_ = t'')
@@ -139,10 +140,12 @@ Section weaken_denote.
                       | None => unit
                     end -> typD types nil t)
                  with
-                   | eq_refl => fun x : typD types nil z => cast x
+                   | eq_refl => fun x : typD types nil z =>
+                                  cast (fun x : Type => x) x
                  end (hlist_nth e1 v))
           in
-          let zzz' z (pf : Some z = nth_error (venv ++ ve) v) cast := 
+          let zzz' z (pf : Some z = nth_error (venv ++ ve) v)
+                   (cast : forall F : Type -> Type, F (typD types nil z) -> F (typD types nil t)) :=
               (fun e1 : hlist (typD types nil) (venv ++ ve) =>
                  match
                    pf in (_ = t'')
@@ -152,7 +155,8 @@ Section weaken_denote.
                       | None => unit
                     end -> typD types nil t)
                  with
-                   | eq_refl => fun x : typD types nil z => cast x
+                   | eq_refl => fun x : typD types nil z =>
+                                  cast (fun x : Type => x) x
                  end (hlist_nth e1 v))
           in
           forall (e : nth_error (venv ++ ve) v = nth_error (venv ++ ve) v)
@@ -165,7 +169,7 @@ Section weaken_denote.
             with
               | Some z =>
                 fun pf : Some z = nth_error venv v =>
-                  match typ_cast_typ types (fun x : Type => x) nil z t with
+                  match typ_cast_typ types nil z t with
                     | Some cast =>
                       Some (zzz z pf cast)
                     | None => None
@@ -181,7 +185,7 @@ Section weaken_denote.
               with
                 | Some z =>
          fun pf : Some z = nth_error (venv ++ ve) v =>
-         match typ_cast_typ types (fun x : Type => x) nil z t with
+         match typ_cast_typ types nil z t with
          | Some cast =>
              Some (zzz' z pf cast)
          | None => None
@@ -216,7 +220,7 @@ Section weaken_denote.
         generalize (e1 _ e2).
         rewrite <- e.
         uip_all. reflexivity. }
-      { clearbody zzz zzz'. 
+      { clearbody zzz zzz'.
         revert H; revert zzz; revert zzz'.
         consider (nth_error venv v); try congruence.
         { intros. forward.
@@ -239,7 +243,7 @@ Section weaken_denote.
       simpl in *. forward.
       inv_all; subst.
       eapply functional_extensionality; intros.
-      apply (IHe venve (Hcons (p x) vs)). }
+      apply (IHe venve (Hcons (F := typD types nil) (p (fun x : Type => x) x) vs)). }
     { erewrite lookupAs_weaken; eauto. }
   Qed.
 

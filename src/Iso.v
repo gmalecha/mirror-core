@@ -44,7 +44,7 @@ End functorOk.
 Section Iso.
   Variables A B : Type.
 
-  Class Iso : Type := mkIso 
+  Class Iso : Type := mkIso
   { into : A -> B
   ; outof : B -> A
   }.
@@ -59,13 +59,13 @@ Arguments into {_ _} {iso} _ : rename.
 Arguments outof {_ _} {iso} _ : rename.
 
 Definition Iso_ident T : Iso T T :=
-{| into := fun x => x 
+{| into := fun x => x
  ; outof := fun x => x
  |}.
 
 Definition IsoOk_ident T : IsoOk (Iso_ident T).
 Proof.
-  constructor; reflexivity. 
+  constructor; reflexivity.
 Qed.
 
 Definition Iso_flip A B (i : Iso A B) : Iso B A :=
@@ -79,13 +79,13 @@ Proof.
 Qed.
 
 Section compose.
-  Variables A B C : Type. 
+  Variables A B C : Type.
   Variable iBC : Iso B C.
   Variable iAB : Iso A B.
 
   Definition Iso_compose : Iso A C :=
   {| into := compose into into
-   ; outof := compose outof outof 
+   ; outof := compose outof outof
    |}.
 
   Variable iokBC : IsoOk iBC.
@@ -104,8 +104,8 @@ Section IsoFunctor.
 
   Class IsoFunctorOk F (iso : IsoFunctor F) : Type :=
   { isomap_id : forall T,
-                   isomap {| into := fun x : T => x ; outof := fun x => x |} = 
-                           {| into := fun x => x ; outof := fun x => x |} 
+                   isomap {| into := fun x : T => x ; outof := fun x => x |} =
+                           {| into := fun x => x ; outof := fun x => x |}
   ; isomap_compose : forall T U V (iTU : Iso T U) (iUV : Iso U V),
                        Iso_compose (isomap iUV) (isomap iTU) = isomap (Iso_compose iUV iTU)
   ; isomap_flip : forall T U (i : Iso T U),
@@ -113,10 +113,10 @@ Section IsoFunctor.
   }.
 
   Instance IsoFunctor_Functor (F : Type -> Type) (iso : Functor F) : IsoFunctor F :=
-  { isomap := fun _ _ i => {| into :=  fmap (into (iso := i)) 
+  { isomap := fun _ _ i => {| into :=  fmap (into (iso := i))
                              ; outof := fmap (outof (iso := i)) |} }.
 
-  Instance IsoFunctorOk_Functor f F (Fok : @FunctorOk f F) 
+  Instance IsoFunctorOk_Functor f F (Fok : @FunctorOk f F)
   : IsoFunctorOk (IsoFunctor_Functor F).
   Proof.
     constructor.
@@ -124,12 +124,12 @@ Section IsoFunctor.
     { unfold Iso_compose; simpl; intros. repeat rewrite fmap_compose; eauto. }
     { reflexivity. }
   Qed.
-    
+
   Instance IsoFunctor_CoFunctor (F : Type -> Type) (iso : CoFunctor F) : IsoFunctor F :=
-  { isomap := fun _ _ i => {| into :=  cofmap (outof (iso := i)) 
+  { isomap := fun _ _ i => {| into :=  cofmap (outof (iso := i))
                              ; outof := cofmap (into (iso := i)) |} }.
 
-  Instance IsoFunctorOk_CoFunctor f F (Fok : @CoFunctorOk f F) 
+  Instance IsoFunctorOk_CoFunctor f F (Fok : @CoFunctorOk f F)
   : IsoFunctorOk (IsoFunctor_CoFunctor F).
   Proof.
     constructor.
@@ -140,25 +140,25 @@ Section IsoFunctor.
 
   Instance IsoFunctor_Fun F G (iF : IsoFunctor F) (iG : IsoFunctor G)
   : IsoFunctor (fun x => F x -> G x) :=
-  { isomap := fun _ _ i => {| into := fun i' x => 
+  { isomap := fun _ _ i => {| into := fun i' x =>
                                          let isoF := @isomap _ iF _ _ i in
                                          let isoG := @isomap _ iG _ _ i in
                                          @into _ _  isoG (i' (@outof _ _ isoF x))
-                             ; outof := fun i' x => 
+                             ; outof := fun i' x =>
                                           let isoF := @isomap _ iF _ _ i in
                                           let isoG := @isomap _ iG _ _ i in
                                           @outof _ _  isoG (i' (@into _ _ isoF x))
                             |} }.
-  Instance IsoFunctorOk_Fun F iF (fokF : @IsoFunctorOk F iF) 
-                            G iG (fokG : @IsoFunctorOk G iG) 
+  Instance IsoFunctorOk_Fun F iF (fokF : @IsoFunctorOk F iF)
+                            G iG (fokG : @IsoFunctorOk G iG)
   : IsoFunctorOk (IsoFunctor_Fun iF iG).
   Proof.
     constructor; intros. simpl.
     { repeat rewrite isomap_id. simpl. reflexivity. }
-    { unfold Iso_compose, compose; simpl. 
+    { unfold Iso_compose, compose; simpl.
       f_equal;
       eapply functional_extensionality; intro;
-      eapply functional_extensionality; intro; 
+      eapply functional_extensionality; intro;
       repeat match goal with
                | |- appcontext [ @into _ _ ?I (@into _ _ ?J ?X) ] =>
                  change (@into _ _ I (@into _ _ J X)) with (@into _ _ (@Iso_compose _ _ _ I J) X)
@@ -175,15 +175,15 @@ Section IsoFunctor.
                | |- appcontext [ @outof _ _ ?E ?X ] =>
                  change (@outof _ _ E X) with (@into _ _ (@Iso_flip _ _ E) X) ; rewrite isomap_flip
              end.
-      unfold Iso_flip. simpl. destruct i; simpl; reflexivity. 
+      unfold Iso_flip. simpl. destruct i; simpl; reflexivity.
       unfold Iso_flip. simpl. destruct i; simpl; reflexivity. }
-  Qed.   
+  Qed.
 
   Class DistIsoFunc {A B} (f : forall F, Iso (F A) (F B)) : Prop :=
     dist_over : forall (F : Type -> Type) (func : IsoFunctor F) (fOk : IsoFunctorOk func),
                   isomap (@f (fun x => x)) = f _.
 
-  Instance Functor_eta F (f : Functor F) : Functor (fun x => F x) := 
+  Instance Functor_eta F (f : Functor F) : Functor (fun x => F x) :=
   { fmap := fun _ _ f => fmap f }.
 
   Instance FunctorOk_eta F (f : Functor F) (fok : FunctorOk f) : FunctorOk (Functor_eta f).
@@ -208,7 +208,7 @@ Section Equiv.
   Variables A B : Type.
 
   Class Equiv : Type :=
-  { siso : forall (F : Type -> Type), Iso (F A) (F B) }.
+    siso : forall (F : Type -> Type), Iso (F A) (F B).
 
   Definition sinto (iso : Equiv) (F : Type -> Type) : F A -> F B :=
     @into (F A) (F B) (siso F).
@@ -223,7 +223,7 @@ Section Equiv.
 
 
 (*
-  Definition IsIdent {T} (f : T -> T) : Prop := 
+  Definition IsIdent {T} (f : T -> T) : Prop :=
     forall x, f x = x.
 
   Class Respects_IsIdent {T} (F : Type -> Type) (f : (T -> T) -> (F T -> F T)) : Prop :=
@@ -240,7 +240,7 @@ Section flip.
   Variable E : Equiv A B.
 
   Definition Equiv_flip : Equiv B A :=
-  {| siso := fun F => Iso_flip (siso F) |}. 
+    fun F => Iso_flip (siso F).
 
   Variable Eok : EquivOk E.
 
@@ -248,9 +248,10 @@ Section flip.
   Proof.
     destruct Eok.
     constructor.
-    { red; intros. 
+    { red; intros.
       specialize (siso_dist0 F _ _).
-      simpl in *. rewrite <- isomap_flip.
+      unfold siso, Equiv_flip.
+      rewrite <- isomap_flip.
       f_equal.
       rewrite <- siso_dist0. reflexivity. }
     { unfold Equiv_flip; simpl. intros.
@@ -260,9 +261,9 @@ End flip.
 
 Section ident.
   Variable A : Type.
-  
+
   Definition Equiv_ident : Equiv A A :=
-  {| siso := fun F => {| into := fun x : F A => x ; outof := fun x : F A => x |} |}.
+    fun F => {| into := fun x : F A => x ; outof := fun x : F A => x |}.
 
   Global Instance EquivOk_ident : EquivOk Equiv_ident.
   Proof.
@@ -278,7 +279,7 @@ Section Equiv_compose.
   Variable Equiv_BC : Equiv B C.
 
   Definition Equiv_compose : Equiv A C :=
-  {| siso := fun F => Iso_compose (siso F) (siso F) |}.
+    fun F => Iso_compose (siso F) (siso F).
 
   Hypothesis EquivOk_AB : EquivOk Equiv_AB.
   Hypothesis EquivOk_BC : EquivOk Equiv_BC.
@@ -287,7 +288,7 @@ Section Equiv_compose.
   Proof.
     constructor.
     { red. intros.
-      simpl.
+      unfold siso, Equiv_compose.
       rewrite <- (@siso_dist _ _ _ EquivOk_AB _ _ fOk).
       rewrite <- (@siso_dist _ _ _ EquivOk_BC _ _ fOk).
       generalize (@isomap_compose _ _ fOk _ _ _ (@siso A B Equiv_AB (fun x : Type => x)) (@siso _ _ Equiv_BC (fun x : Type => x))).
@@ -296,4 +297,3 @@ Section Equiv_compose.
       eapply sinto_soutof_Iso; eauto. }
   Qed.
 End Equiv_compose.
-

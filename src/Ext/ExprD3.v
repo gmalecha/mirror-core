@@ -92,14 +92,14 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         with
           | None => fun _ => None
           | Some t' => fun pf =>
-            match typ_cast_typ ts (fun x => x) _ t' t with
+            match typ_cast_typ ts _ t' t with
               | Some f =>
                 Some (fun e => match pf in _ = t''
                                      return match t'' with
                                               | Some t => typD ts nil t
                                               | None => unit
                                             end -> typD ts nil t with
-                                 | eq_refl => fun x => f x
+                                 | eq_refl => fun x => f (fun x => x) x
                                end (hlist_nth e x))
               | None => None
             end
@@ -118,12 +118,14 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t)
         with
           | tyArr lt rt =>
-            match typ_cast_typ ts (fun x => x) nil lt t' with
+            match typ_cast_typ ts nil lt t' with
               | None => None
               | Some cast =>
                 match @exprD' (t' :: var_env) e rt with
                   | None => None
-                  | Some a => Some (fun x y => a (@Hcons _ (typD ts nil) _ _ (cast y) x))
+                  | Some a => Some (fun x y =>
+                                      a (@Hcons _ (typD ts nil) _ _
+                                                (cast (fun x => x) y) x))
                 end
             end
           | _ => None
@@ -134,9 +136,9 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
             match exprD' var_env x l with
               | None => None
               | Some x =>
-                match typ_cast_typ ts (fun x => x) _ r t with
+                match typ_cast_typ ts _ r t with
                   | None => None
-                  | Some cast => Some (fun v => cast ((f v) (x v)))
+                  | Some cast => Some (fun v => cast (fun x => x) ((f v) (x v)))
                 end
             end
           | _ => None
@@ -180,14 +182,14 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         with
           | None => fun _ => None
           | Some t' => fun pf =>
-            match typ_cast_typ ts (fun x => x) _ t' t with
+            match typ_cast_typ ts _ t' t with
               | Some f =>
                 Some (fun e => match pf in _ = t''
                                      return match t'' with
                                               | Some t => typD ts nil t
                                               | None => unit
                                             end -> typD ts nil t with
-                                 | eq_refl => fun x => f x
+                                 | eq_refl => fun x => f (fun x => x) x
                                end (hlist_nth e v))
               | None => None
             end
@@ -198,11 +200,12 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        exprD' ve (Abs t e) u =
        match u as u return option (hlist (typD ts nil) ve -> typD ts nil u) with
          | tyArr l r =>
-           match typ_cast_typ _ (fun x => x) _ l t
+           match typ_cast_typ _ _ l t
                , exprD' (t :: ve) e r
            with
              | Some cast , Some f =>
-               Some (fun g => fun x => f (Hcons (F := typD ts nil) (cast x) g))
+               Some (fun g => fun x => f (Hcons (F := typD ts nil)
+                                                (cast (fun x => x) x) g))
              | _ , _ => None
            end
          | _ => None
@@ -263,7 +266,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      induction e; simpl; intros.
      { revert H.
        change (
-           let zzz t' (pf : Some t' = nth_error ve v) f :=
+           let zzz t' (pf : Some t' = nth_error ve v)
+                   (f : forall F : Type -> Type, F (typD ts nil t') -> F (typD ts nil t)) :=
                (fun e : hlist (typD ts nil) ve =>
                           match
                             pf in (_ = t'')
@@ -273,7 +277,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
                                | None => unit
                              end -> typD ts nil t)
                           with
-                            | eq_refl => fun x : typD ts nil t' => f x
+                            | eq_refl => fun x : typD ts nil t' => f (fun x : Type => x) x
                           end (hlist_nth e v))
            in
            match
@@ -284,7 +288,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            with
              | Some t' =>
                fun pf : Some t' = nth_error ve v =>
-                 match typ_cast_typ ts (fun x : Type => x) nil t' t with
+                 match typ_cast_typ ts nil t' t with
                    | Some f =>
                      Some (zzz t' pf f)
                    | None => None
@@ -297,13 +301,13 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
          | _ : match ?X with _ => _ end = _ |- _ =>
            consider X; try congruence; intros
        end.
-       generalize (typ_cast_typ_eq _ _ _ _ _ H); intros. subst; auto. }
+       generalize (typ_cast_typ_eq _ _ _ _ H); intros. subst; auto. }
      { unfold symAs in *.
        generalize dependent (symD f).
        destruct (typeof_sym f); try congruence; intros.
        simpl in *.
        forward.
-       generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
+       generalize (typ_cast_typ_eq _ _ _ _ H); intros.
        congruence. }
      { specialize (IHe1 ve).
        consider (exprD_simul' ve e1); try congruence; intros.
@@ -319,14 +323,14 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
          | H : match ?X with _ => _ end = _ |- _ =>
            consider X; intros; try congruence
        end.
-       generalize (@typ_cast_typ_eq _ _ _ _ _ _ H0). congruence. }
+       generalize (@typ_cast_typ_eq _ _ _ _ _ H0). congruence. }
      { destruct t0; try congruence.
        specialize (IHe (t :: ve) t0_2).
        match goal with
          | H : match ?X with _ => _ end = _ |- _ =>
            consider X; intros; try congruence
        end.
-       generalize (@typ_cast_typ_eq _ _ _ _ _ _ H); intro; subst.
+       generalize (@typ_cast_typ_eq _ _ _ _ _ H); intro; subst.
        destruct (exprD' (t :: ve) e t0_2); try congruence.
        erewrite IHe; eauto. }
      { unfold lookupAs, typeof_env in *.
@@ -337,7 +341,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
                 | H : match ?X with _ => _ end = _ |- _ =>
                   consider X; intros; try congruence
               end.
-       specialize (typ_cast_typ_eq _ _ _ _  _ H). congruence. }
+       specialize (typ_cast_typ_eq _ _ _  _ H). congruence. }
    Qed.
 
    Lemma exprD_simul'_None : forall e ve,
@@ -420,7 +424,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      induction e; simpl; intros.
      { revert H.
        change (
-           let zzz t' (pf : Some t' = nth_error ve v) f :=
+           let zzz t' (pf : Some t' = nth_error ve v)
+                   (f : forall F : Type -> Type, F (typD ts nil t') -> F (typD ts nil t))  :=
                (fun e : hlist (typD ts nil) ve =>
               match
                 pf in (_ = t'')
@@ -430,7 +435,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
                    | None => unit
                    end -> typD ts nil t)
               with
-              | eq_refl => fun x : typD ts nil t' => f x
+              | eq_refl => fun x : typD ts nil t' => f (fun x : Type => x) x
               end (hlist_nth e v))
            in
            match
@@ -441,7 +446,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
            with
              | Some t' =>
                fun pf : Some t' = nth_error ve v =>
-                 match typ_cast_typ ts (fun x : Type => x) nil t' t with
+                 match typ_cast_typ ts nil t' t with
                    | Some f =>
                      Some (zzz t' pf f)
                    | None => None
@@ -512,10 +517,10 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         | Some (tyArr l r) =>
           match exprD' ve e (tyArr l r)
               , exprD' ve arg l
-              , typ_cast_typ _ (fun x => x) _ r t
+              , typ_cast_typ _ _ r t
           with
             | Some f , Some x , Some cast =>
-              Some (fun g => cast ((f g) (x g)))
+              Some (fun g => cast (fun x => x) ((f g) (x g)))
             | _ , _ , _ => None
           end
         | _ => None

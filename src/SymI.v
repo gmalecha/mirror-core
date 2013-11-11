@@ -40,9 +40,9 @@ Section symbols.
     with
       | None => fun _ => None
       | Some ft => fun val =>
-        match type_cast (fun x => x) nil ft t with
+        match type_cast nil ft t with
           | None => None
-          | Some cast => Some (cast val)
+          | Some cast => Some (cast (fun x => x) val)
         end
     end (symD f).
 

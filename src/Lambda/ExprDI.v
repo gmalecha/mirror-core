@@ -38,12 +38,13 @@ Module Type ExprDenote_core.
           @typ2_match _ _ _ TI_Fun nil u
                       (fun t T => option (hlist (typD nil) ve -> T))
                       (fun l r =>
-                         match type_cast (fun T => T) nil l t
+                         match type_cast nil l t
                              , exprD' us (t :: ve) e r
                          with
                            | Some cast , Some f =>
                              Some (fun g => fun x =>
-                                              f (Hcons (F := typD nil) (cast x) g))
+                             f (Hcons (F := typD nil)
+                                      (cast (fun T => T) x) g))
                            | _ , _ => None
                          end)
                       (fun _ => None).
@@ -55,14 +56,14 @@ Module Type ExprDenote_core.
                    option (hlist (typD nil) ve -> typD nil t)
       with
         | Some z => fun pf =>
-          match type_cast (fun x => x) _ z t with
+          match type_cast _ z t with
             | Some cast =>
               Some (fun e => match pf in _ = t''
                                    return match t'' with
                                             | Some t => typD nil t
                                             | None => unit
                                           end -> typD nil t with
-                               | eq_refl => fun x => cast x
+                               | eq_refl => fun x => cast (fun x => x) x
                              end (hlist_nth e v))
             | None => None
           end
@@ -97,11 +98,11 @@ Module Type ExprDenote_core.
                           (fun l r => fun f' =>
                              match f'
                                  , exprD' us ve arg l
-                                 , type_cast (fun x => x) nil r t
+                                 , type_cast nil r t
                              with
                                | Some f , Some x , Some cast =>
                                  Some (fun g : hlist (typD nil) ve =>
-                                         cast ((f g) (x g)))
+                                         cast (fun x => x) ((f g) (x g)))
                                | _ , _ , _ =>
                                  None
                              end)
@@ -165,8 +166,9 @@ Module Type ExprDenote.
       @typ2_match _ _ _ TI_Fun nil t
                   (fun t'' _ => option (typD nil t''))
                   (fun l r =>
-                     bind (type_cast (fun x => x -> typD nil r) nil t' l)
+                     bind (Monad := Monad_option) (type_cast nil t' l)
                           (fun cast =>
+                             let cast := cast (fun x => x -> typD nil r) in
                              bind (exprD us vs (Abs t' e) (typ2 t' r))
                                   (fun x =>
                                      Some (tyArr_into (cast (tyArr_outof _ x))))))
@@ -188,10 +190,10 @@ Module Type ExprDenote.
                   (fun l r => fun f' =>
                      match f'
                          , exprD us ve arg l
-                         , type_cast (fun x => x) nil r t
+                         , type_cast nil r t
                      with
                        | Some f , Some x , Some cast =>
-                         Some (cast (f x))
+                         Some (cast (fun x => x) (f x))
                        | _ , _ , _ => None
                      end)
                   (fun _ => fun _ => None)

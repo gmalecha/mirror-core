@@ -282,6 +282,12 @@ Module Make (FM : S with Definition E.t := uvar
         exists e0. eauto. }
     Qed.
 
+    Ltac go :=
+      repeat match goal with
+               | H : exists x, _ |- _ =>
+                 destruct H
+             end.
+
     Lemma mentionsU_subst : forall s u x n,
       mentionsU u (raw_subst s n x) = true <->
       (mentionsU u x = true /\ ~FM.In u s \/
@@ -290,11 +296,6 @@ Module Make (FM : S with Definition E.t := uvar
                                  mentionsU u' x = true /\
                                  mentionsU u e' = true).
     Proof.
-      Ltac go :=
-        repeat match goal with
-                 | H : exists x, _ |- _ =>
-                   destruct H
-               end.
       induction x; simpl; intros;
       try solve [intuition; go; intuition; auto ].
       { specialize (IHx1 n); specialize (IHx2 n).
@@ -518,16 +519,16 @@ Module Make (FM : S with Definition E.t := uvar
         auto using raw_subst_typeof.
       Qed.
 
-      Global Instance Injective_typ_cast_typ_hetero_Some ts f a b c p :
-        Injective (typ_cast_typ ts f a b c = Some p) :=
+      Global Instance Injective_typ_cast_typ_hetero_Some ts a b c p :
+        Injective (typ_cast_typ ts a b c = Some p) :=
         { result := exists pf : b = c,
-                      match pf in _ = t
-                            return f (typD ts a b) -> f (typD ts a t)
-                      with
-                        | eq_refl => fun x => x
-                      end = p }.
+                      (fun F => match pf in _ = t
+                                      return F (typD ts a b) -> F (typD ts a t)
+                                with
+                                  | eq_refl => fun x => x
+                                end) = p }.
       Proof.
-        abstract (intros; exists (typ_cast_typ_eq _ _ _ _ _ H);
+        abstract (intros; exists (typ_cast_typ_eq _ _ _ _ H);
         uip_all;
         subst; rewrite typ_cast_typ_refl in H; f_equal; inv_all; auto).
       Defined.
@@ -567,7 +568,7 @@ Module Make (FM : S with Definition E.t := uvar
                      | |- context [ @ExprD.exprD' ?A ?B ?C ?D ?E ?F ?G ] =>
                        consider (@ExprD.exprD' A B C D E F G); intros
                    end; intuition try congruence; auto.
-            destruct (typ_cast_typ ts (fun x => x) nil t0_2 t); auto.
+            destruct (typ_cast_typ ts nil t0_2 t); auto.
             intros. rewrite IHe2. rewrite IHe1. auto. }
           { clear IHe1 IHe2.
             red. red. intros.
@@ -583,7 +584,7 @@ Module Make (FM : S with Definition E.t := uvar
             eapply ExprD.typeof_expr_exprD'.
             eauto. } }
         { destruct t0; auto.
-          destruct (typ_cast_typ ts (fun x => x) nil t0_1 t); auto.
+          destruct (typ_cast_typ ts nil t0_1 t); auto.
           specialize (IHe t0_2 (t :: v)).
           simpl in *.
           change (S (length v)) with (length (t :: v)) in *.
@@ -592,7 +593,8 @@ Module Make (FM : S with Definition E.t := uvar
                      consider (@ExprD.exprD' A B C D E F G); intros
                  end; try congruence; eauto.
           eapply functional_extensionality. intros.
-          specialize (IHe (Hcons (p x0) vs)). simpl in *. auto. }
+          specialize (IHe (Hcons (F := typD ts nil) (p (fun x => x) x0) vs)).
+          simpl in *. auto. }
         { simpl in *.
           unfold raw_lookup, EnvI.lookupAs, subst_lookup, raw_lookup in *.
           specialize (H u0).
@@ -627,23 +629,9 @@ Module Make (FM : S with Definition E.t := uvar
             destruct (nth_error u u0); auto.
             destruct s0.
             simpl in *.
-            destruct (typ_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto. } }
+            destruct (typ_cast_typ ts nil x0 t); auto. } }
       Qed.
 
-(*
-      Theorem substD_subst : forall (u v : EnvI.env (typD ts)) s e t,
-        subst_substD u v s ->
-        ExprD.exprD u v e t = ExprD.exprD u v (Subst.subst s e) t.
-      Proof.
-        intros. unfold ExprD.exprD.
-        consider (split_env v); intros.
-        eapply substD_subst_lem with (v := nil) (e := e) (t := t) in H.
-        rewrite H0 in *. simpl in *.
-        destruct (ExprD.exprD' u x e t);
-          destruct (ExprD.exprD' u x (subst_subst s 0 e) t); intuition.
-        specialize (H Hnil). f_equal; auto.
-      Qed.
-*)
       Theorem substD_lookup : forall (u v : EnvI.env (typD ts)) s uv e,
         lookup uv s = Some e ->
         subst_substD u v s ->
@@ -849,7 +837,8 @@ Module Make (FM : S with Definition E.t := uvar
         induction e; simpl; intros; consider (split_env v);
         intros; autorewrite with exprD_rw.
         { change (
-              let zzz t' (pf : Some t' = nth_error (tv' ++ x) v0) f :=
+              let zzz t' (pf : Some t' = nth_error (tv' ++ x) v0)
+                      (f : forall F : Type -> Type, F (typD ts nil t') -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (tv' ++ x) =>
                                match
                                  pf in (_ = t'')
@@ -859,7 +848,7 @@ Module Make (FM : S with Definition E.t := uvar
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x0 : typD ts nil t' => f x0
+                                 | eq_refl => fun x0 : typD ts nil t' => f (fun x => x) x0
                                end (hlist_nth e v0))
               in
               match
@@ -871,7 +860,7 @@ Module Make (FM : S with Definition E.t := uvar
                 with
                   | Some t' =>
                     fun pf : Some t' = nth_error (tv' ++ x) v0 =>
-                      match typ_cast_typ ts (fun x0 : Type => x0) nil t' t with
+                      match typ_cast_typ ts nil t' t with
                         | Some f =>
                           Some (zzz t' pf f)
                         | None => None
@@ -889,7 +878,7 @@ Module Make (FM : S with Definition E.t := uvar
                     with
                       | Some t' =>
                         fun pf : Some t' = nth_error (tv' ++ x) v0 =>
-                          match typ_cast_typ ts (fun x0 : Type => x0) nil t' t with
+                          match typ_cast_typ ts nil t' t with
                             | Some f =>
                               Some (zzz t' pf f)
                             | None => None
@@ -912,7 +901,7 @@ Module Make (FM : S with Definition E.t := uvar
                     with
                       | Some t' =>
                         fun pf : Some t' = nth_error (tv' ++ x) v0 =>
-                          match typ_cast_typ ts (fun x0 : Type => x0) nil t' t with
+                          match typ_cast_typ ts nil t' t with
                             | Some f =>
                               Some (zzz t' pf f)
                             | None => None
@@ -1036,7 +1025,8 @@ Module Make (FM : S with Definition E.t := uvar
         induction e; simpl; auto; intros; autorewrite with exprD_rw.
         { destruct (split_env v).
           change (
-              let zzz t' (pf : Some t' = nth_error (tv' ++ x0) v0) f :=
+              let zzz t' (pf : Some t' = nth_error (tv' ++ x0) v0)
+                      (f : forall F : Type -> Type, F (typD ts nil t') -> F (typD ts nil t))  :=
                             (fun e : hlist (typD ts nil) (tv' ++ x0) =>
                                match
                                  pf in (_ = t'')
@@ -1046,7 +1036,7 @@ Module Make (FM : S with Definition E.t := uvar
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x1 : typD ts nil t' => f x1
+                                 | eq_refl => fun x1 : typD ts nil t' => f (fun x => x) x1
                                end (hlist_nth e v0))
               in
               match
@@ -1058,7 +1048,7 @@ Module Make (FM : S with Definition E.t := uvar
                 with
                   | Some t' =>
                     fun pf : Some t' = nth_error (tv' ++ x0) v0 =>
-                      match typ_cast_typ ts (fun x1 : Type => x1) nil t' t with
+                      match typ_cast_typ ts nil t' t with
                         | Some f =>
                           Some (zzz t' pf f)
                         | None => None
@@ -1076,7 +1066,7 @@ Module Make (FM : S with Definition E.t := uvar
                     with
                       | Some t' =>
                         fun pf : Some t' = nth_error (tv' ++ x0) v0 =>
-                          match typ_cast_typ ts (fun x1 : Type => x1) nil t' t with
+                          match typ_cast_typ ts nil t' t with
                             | Some f =>
                               Some (zzz t' pf f)
                             | None => None
@@ -1099,7 +1089,7 @@ Module Make (FM : S with Definition E.t := uvar
                     with
                       | Some t' =>
                         fun pf : Some t' = nth_error (tv' ++ x0) v0 =>
-                          match typ_cast_typ ts (fun x1 : Type => x1) nil t' t with
+                          match typ_cast_typ ts nil t' t with
                             | Some f =>
                               Some (zzz t' pf f)
                             | None => None
@@ -1114,7 +1104,7 @@ Module Make (FM : S with Definition E.t := uvar
             ).
           intro zzz; clearbody zzz; revert zzz.
           destruct (nth_error (tv' ++ x0) v0); auto.
-          destruct (typ_cast_typ ts (fun x => x) nil t0 t); auto. }
+          destruct (typ_cast_typ ts nil t0 t); auto. }
         { repeat match goal with
                    | |- context [ match ?X with _ => _ end ] =>
                      destruct X; intros
@@ -1150,7 +1140,8 @@ Module Make (FM : S with Definition E.t := uvar
                      consider X; auto; intros; try congruence
                  end.
           eapply functional_extensionality. intros.
-          specialize (IHe (Hcons (p x1) vs')). simpl in *. auto. }
+          specialize (IHe (Hcons (F := typD ts nil) (p (fun x => x) x1) vs')).
+          simpl in *. auto. }
         { unfold ExprD.exprD in *.
           destruct (split_env v).
           unfold raw_lookup in *.
@@ -1167,8 +1158,8 @@ Module Make (FM : S with Definition E.t := uvar
                          (consider X; intros; try solve [ intuition | congruence ]); [ ]
                      end.
               match goal with
-                | |- context [ typ_cast_typ ?A ?B ?C ?D ?E ] =>
-                  consider (typ_cast_typ A B C D E)
+                | |- context [ typ_cast_typ ?A ?B ?C ?D ] =>
+                  consider (typ_cast_typ A B C D)
               end; intros.
             { inv_all; subst. subst.
               repeat match goal with

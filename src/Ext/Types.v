@@ -2,11 +2,11 @@ Require Import Morphisms.
 Require Import Relations.
 Require Import RelationClasses.
 Require Import List Bool.
-Require Import ExtLib.Core.Type.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Fun.
+Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.TypesI.
@@ -360,24 +360,25 @@ Section env.
     induction t; red; simpl; intuition; etransitivity; eauto.
   Qed.
 
-  Definition typ_cast_typ (F : Type -> Type) (env : list Type) (a b : typ)
-  : option (F (typD env a) -> F (typD env b)) :=
+  Definition typ_cast_typ (env : list Type) (a b : typ)
+  : option (forall F, F (typD env a) -> F (typD env b)) :=
     match typ_eq_odec a b with
       | None => None
-      | Some pf => Some match pf in _ = t return F (typD env a) -> F (typD env t) with
-                          | eq_refl => fun x => x
-                        end
+      | Some pf => Some (fun F =>
+                           match pf in _ = t return F (typD env a) -> F (typD env t) with
+                             | eq_refl => fun x => x
+                           end)
     end.
 
-  Theorem typ_cast_typ_eq : forall f ts t t' v,
-                              typ_cast_typ f ts t t' = Some v -> t = t'.
+  Theorem typ_cast_typ_eq : forall ts t t' v,
+                              typ_cast_typ ts t t' = Some v -> t = t'.
   Proof.
     clear. unfold typ_cast_typ; simpl; intros.
     destruct (typ_eq_odec t t'); auto. congruence.
   Qed.
 
-  Theorem typ_cast_typ_refl : forall F env t,
-    typ_cast_typ F env t t = Some (fun x => x).
+  Theorem typ_cast_typ_refl : forall env t,
+    typ_cast_typ env t t = Some (fun F x => x).
   Proof.
     unfold typ_cast_typ; simpl; intros.
     rewrite typ_eq_odec_Some_refl. reflexivity.
@@ -385,9 +386,9 @@ Section env.
 
   Definition typ_cast_val ts (a b : typ) (v : typD ts a)
   : option (typD ts b) :=
-    match typ_cast_typ (fun x => x) ts a b with
+    match typ_cast_typ ts a b with
       | None => None
-      | Some f => Some (f v)
+      | Some f => Some (f (fun x => x) v)
     end.
 
   Lemma typ_cast_val_eq : forall ts a b v v',
@@ -407,7 +408,6 @@ Section env.
   Qed.
 
   Require Import ExtLib.Core.Type.
-  Require Import ExtLib.Tactics.Injection.
 
   Fixpoint typ_typeFor g t : type (typD g t) :=
     match t as t return type (typD g t) with

@@ -30,11 +30,13 @@ Module Type ExprDenote_core.
        exprD' us ve (Abs t e) u =
        match u as u return option (hlist (typD ts nil) ve -> typD ts nil u) with
          | tyArr l r =>
-           match typ_cast_typ _ (fun x => x) _ l t
+           match typ_cast_typ _ _ l t
                , exprD' us (t :: ve) e r
            with
              | Some cast , Some f =>
-               Some (fun g => fun x => f (Hcons (F := typD ts nil) (cast x) g))
+               Some (fun g => fun x =>
+                                f (Hcons (F := typD ts nil)
+                                         (cast (fun x => x) x) g))
              | _ , _ => None
            end
          | _ => None
@@ -47,14 +49,14 @@ Module Type ExprDenote_core.
                    option (hlist (typD ts nil) ve -> typD ts nil t)
       with
         | Some z => fun pf =>
-          match typ_cast_typ _ (fun x => x) _ z t with
+          match typ_cast_typ _ _ z t with
             | Some cast =>
               Some (fun e => match pf in _ = t''
                                    return match t'' with
                                             | Some t => typD ts nil t
                                             | None => unit
                                           end -> typD ts nil t with
-                               | eq_refl => fun x => cast x
+                               | eq_refl => fun x => cast (fun x => x) x
                              end (hlist_nth e v))
             | None => None
           end
@@ -81,10 +83,10 @@ Module Type ExprDenote_core.
         | Some (tyArr l r) =>
           match exprD' us ve e (tyArr l r)
               , exprD' us ve arg l
-              , typ_cast_typ _ (fun x => x) _ r t
+              , typ_cast_typ _ _ r t
           with
             | Some f , Some x , Some cast =>
-              Some (fun g => cast ((f g) (x g)))
+              Some (fun g => cast (fun x => x) ((f g) (x g)))
             | _ , _ , _ => None
           end
         | _ => None
@@ -176,10 +178,10 @@ Module Type ExprDenote.
         | Some (tyArr l r) =>
           match exprD us ve e (tyArr l r)
               , exprD us ve arg l
-              , typ_cast_typ _ (fun x => x) _ r t
+              , typ_cast_typ _ _ r t
           with
             | Some f , Some x , Some cast =>
-              Some (cast (f x))
+              Some (cast (fun x => x) (f x))
             | _ , _ , _ => None
           end
         | _ => None
@@ -302,7 +304,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error x u =>
-                      match typ_cast_typ ts (fun x1 : Type => x1) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some
                             (fun e0 : hlist (typD ts nil) x =>
@@ -314,7 +316,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x1 : typD ts nil z => cast x1
+                                 | eq_refl => fun x1 : typD ts nil z => cast (fun x1 : Type => x1) x1
                                end (zzz e0))
                         | None => None
                       end
@@ -324,14 +326,14 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 | Some f => Some (f h)
                 | None => None
               end =
-              match typ_cast_typ ts (fun x1 : Type => x1) nil x0 t with
-                | Some f => Some (f t0)
+              match typ_cast_typ ts nil x0 t with
+                | Some f => Some (f (fun x1 : Type => x1) t0)
                 | None => None
               end).
         intro. clearbody zzz. revert zzz.
         destruct (nth_error x u); intuition.
         inv_all. subst.
-        destruct (typ_cast_typ ts (fun x1 : Type => x1) nil x0 t); auto.
+        destruct (typ_cast_typ ts nil x0 t); auto.
         f_equal. clear.
         uip_all. reflexivity. }
       { rewrite exprD'_Var.
@@ -355,7 +357,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error x u =>
-                      match typ_cast_typ ts (fun x0 : Type => x0) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some
                             (fun e0 : hlist (typD ts nil) x =>
@@ -367,7 +369,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x0 : typD ts nil z => cast x0
+                                 | eq_refl => fun x0 : typD ts nil z =>
+                                                cast (fun x0 : Type => x0) x0
                                end (zzz e0))
                         | None => None
                       end
@@ -395,7 +398,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       unfold lookupAs.
       consider (nth_error us u); intros; auto.
       destruct s.
-      destruct (TypesI.type_cast (fun x1 : Type => x1) nil x0 t); auto.
+      forward.
     Qed.
 
     Theorem exprD_Sym : forall ve f t,
@@ -413,10 +416,10 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         | Some (tyArr l r) =>
           match exprD us ve e (tyArr l r)
               , exprD us ve arg l
-              , typ_cast_typ _ (fun x => x) _ r t
+              , typ_cast_typ _ _ r t
           with
             | Some f , Some x , Some cast =>
-              Some (cast (f x))
+              Some (cast (fun x => x) (f x))
             | _ , _ , _ => None
           end
         | _ => None
@@ -434,7 +437,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                     match match ?Y with _ => _ end with _ => _ end =>
                  change X with Y; destruct Y; auto
              end.
-      destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0_2 t); auto.
+      destruct (typ_cast_typ ts nil t0_2 t); auto.
     Qed.
 
     Theorem exprD_Abs_is_arr : forall vs e t t',
@@ -456,7 +459,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         | |- match match ?x with _ => _ end with _ => _ end = _ =>
           consider x; intros; auto
       end.
-      generalize (@typ_cast_typ_eq _ _ _ _ _ _ H0).
+      generalize (@typ_cast_typ_eq _ _ _ _ _ H0).
       congruence.
     Qed.
 
@@ -480,7 +483,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       rewrite exprD'_Abs in H0.
       forward. inv_all; subst.
       exists t1.
-      pose proof (typ_cast_typ_eq _ _ _ _ _ H1); subst.
+      pose proof (typ_cast_typ_eq _ _ _ _ H1); subst.
       rewrite typ_cast_typ_refl in H1. inv_all; subst.
       exists eq_refl. simpl.
       rewrite H2.
@@ -517,7 +520,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         split; intros.
         { gen_refl.
           change (
-              let zzz z (pf : Some z = nth_error vs v) cast :=
+              let zzz z (pf : Some z = nth_error vs v)
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e0 : hlist (typD ts nil) vs =>
                                match
                                  pf in (_ = t'')
@@ -527,7 +531,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z =>
+                                                cast (fun x : Type => x) x
                                end (hlist_nth e0 v))
               in
               forall e : nth_error vs v = nth_error vs v,
@@ -539,7 +544,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error vs v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -554,7 +559,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         { revert H.
           gen_refl.
           change (
-              let zzz z (pf : Some z = nth_error vs v) cast :=
+              let zzz z (pf : Some z = nth_error vs v)
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e0 : hlist (typD ts nil) vs =>
                                match
                                  pf in (_ = t'')
@@ -564,7 +570,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z =>
+                                                cast (fun x : Type => x) x
                                end (hlist_nth e0 v)) in
               forall e : nth_error vs v = nth_error vs v,
                 match
@@ -575,7 +582,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 with
                   | Some z =>
                     fun pf : Some z = nth_error vs v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (zzz z pf cast)
                         | None => None
@@ -590,7 +597,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
             | |- context [ match ?X with _ => _ end = _ ] =>
               consider X
           end; try congruence; intros.
-          apply (typ_cast_typ_eq _ _ _ _ _ H). } }
+          apply (typ_cast_typ_eq _ _ _ _ H). } }
       { rewrite WellTyped_expr_Sym.
         rewrite exprD'_Sym.
         unfold symAs.
@@ -600,7 +607,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
           rewrite typ_cast_typ_refl in *. congruence. }
         { simpl in *. forward.
           inv_all; subst.
-          generalize (typ_cast_typ_eq _ _ _ _ _ H); intros.
+          generalize (typ_cast_typ_eq _ _ _ _ H); intros.
           f_equal; auto. } }
       { rewrite WellTyped_expr_App.
         rewrite exprD'_App.
@@ -627,7 +634,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                    | _ : not (match ?X with _ => _ end = _) |- _ =>
                      consider X; intros
                  end; try congruence.
-          generalize (typ_cast_typ_eq _ _ _ _ _ H2); intros.
+          generalize (typ_cast_typ_eq _ _ _ _ H2); intros.
           consider (exprD' us vs e1 (tyArr t0_1 t0_2)); intros; try congruence.
           inv_all. rewrite H5 in *.
           exists (tyArr t0_1 t0_2). exists t0_1.
@@ -649,7 +656,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                      | _ : match ?x with _ => _ end = _ -> False |- _ =>
                        consider x; intuition
                    end.
-            generalize (typ_cast_typ_eq _ _ _ _ _ H); intro; subst.
+            generalize (typ_cast_typ_eq _ _ _ _ H); intro; subst.
             exists t0_2. intuition.
             eapply IHe. rewrite H0. congruence. } } }
       { rewrite WellTyped_expr_UVar.
@@ -670,7 +677,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                 consider X; intros; try congruence
             end.
             inv_all; subst.
-            f_equal; eapply (typ_cast_typ_eq _ _ _ _ _ H). } }
+            f_equal; eapply (typ_cast_typ_eq _ _ _ _ H). } }
         { intuition congruence. } }
     Qed.
 

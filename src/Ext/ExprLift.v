@@ -297,7 +297,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some
                           (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
@@ -309,7 +309,8 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z =>
+                                              cast (fun x : Type => x) x
                              end (zzz e))
                       | None => None
                     end
@@ -326,7 +327,7 @@ Section typed.
                   with
                     | Some z =>
                       fun pf : Some z = nth_error (vs ++ vs'') v =>
-                        match typ_cast_typ ts (fun x : Type => x) nil z t with
+                        match typ_cast_typ ts nil z t with
                           | Some cast =>
                             Some
                               (fun e : hlist (typD ts nil) (vs ++ vs'') =>
@@ -338,7 +339,8 @@ Section typed.
                                       | None => unit
                                     end -> typD ts nil t)
                                  with
-                                   | eq_refl => fun x : typD ts nil z => cast x
+                                   | eq_refl => fun x : typD ts nil z =>
+                                                  cast (fun x : Type => x) x
                                  end (zzz' e))
                           | None => None
                         end
@@ -362,7 +364,7 @@ Section typed.
                   with
                     | Some z =>
                       fun pf : Some z = nth_error (vs ++ vs'') v =>
-                        match typ_cast_typ ts (fun x : Type => x) nil z t with
+                        match typ_cast_typ ts nil z t with
                           | Some cast =>
                             Some
                               (fun e : hlist (typD ts nil) (vs ++ vs'') =>
@@ -374,7 +376,8 @@ Section typed.
                                       | None => unit
                                     end -> typD ts nil t)
                                  with
-                                   | eq_refl => fun x : typD ts nil z => cast x
+                                   | eq_refl => fun x : typD ts nil z =>
+                                                  cast (fun x : Type => x) x
                                  end (zzz' e))
                           | None => None
                         end
@@ -390,7 +393,7 @@ Section typed.
         destruct (nth_error (vs ++ vs'') v);
         destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence; auto.
         inv_all; subst.  inversion H0. subst.
-        destruct (typ_cast_typ ts (fun x => x) nil t1 t); auto.
+        destruct (typ_cast_typ ts nil t1 t); auto.
         intros. uip_all. specialize (H VS VS' VS'').
         f_equal. etransitivity. eapply H.
         uip_all. reflexivity. }
@@ -491,7 +494,7 @@ Section typed.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some
                             (fun e1 : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
@@ -503,7 +506,8 @@ Section typed.
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z =>
+                                                cast (fun x : Type => x) x
                                end (zzz e1))
                         | None => None
                       end
@@ -518,7 +522,7 @@ Section typed.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (vs ++ vs'') (v - length vs') =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some
                             (fun e1 : hlist (typD ts nil) (vs ++ vs'') =>
@@ -530,7 +534,8 @@ Section typed.
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z =>
+                                                cast (fun x : Type => x) x
                                end (zzz' e1))
                         | None => None
                       end
@@ -544,12 +549,14 @@ Section typed.
             remember (nth_error (vs ++ vs'') (v - length vs')).
             destruct e1; try solve [ intros; congruence ].
             inversion H1. subst.
-            destruct (typ_cast_typ ts (fun x : Type => x) nil t2 t); try congruence.
+            destruct (typ_cast_typ ts nil t2 t); try congruence.
             intros; inv_all; subst. uip_all. auto. }
           { clear - HeqH3 HeqH0 H H0 H1.
             revert HeqH3 HeqH0.
             change (
-                let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v) cast := (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
+                let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
+                        (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
+                    (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                                match
                                  pf in (_ = t'')
                                  return
@@ -558,9 +565,11 @@ Section typed.
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                                end (hlist_nth e v)) in
-                let XXX' z (pf : Some z = nth_error (vs ++ vs'') (v - length vs'))  cast :=  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
+                let XXX' z (pf : Some z = nth_error (vs ++ vs'') (v - length vs'))
+                         (cast :forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t))
+                    :=  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
                                match
                                  pf in (_ = t'')
                                  return
@@ -569,7 +578,7 @@ Section typed.
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z => cast (fun x : Type => x) x
                                end (hlist_nth e (v - length vs'))) in
                 Some t0 =
                 match
@@ -580,7 +589,7 @@ Section typed.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (XXX z pf cast)
                         | None => None
@@ -596,7 +605,7 @@ Section typed.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (vs ++ vs'') (v - length vs') =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (XXX' z pf cast)
                         | None => None
@@ -607,11 +616,13 @@ Section typed.
             rewrite H1. gen_refl.
             intros.
             destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
-            destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. }
+            destruct (typ_cast_typ ts nil t1 t); congruence. }
           { clear - H1 HeqH3 HeqH0.
             revert HeqH3 HeqH0.
             change (
-                let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v) cast := (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
+                let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
+                        (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
+                    (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                                match
                                  pf in (_ = t'')
                                  return
@@ -620,9 +631,11 @@ Section typed.
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                                end (hlist_nth e v)) in
-                let XXX' z (pf : Some z = nth_error (vs ++ vs'') (v - length vs'))  cast :=  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
+                let XXX' z (pf : Some z = nth_error (vs ++ vs'') (v - length vs'))
+                         (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
+                    (fun e : hlist (typD ts nil) (vs ++ vs'') =>
                                match
                                  pf in (_ = t'')
                                  return
@@ -631,7 +644,7 @@ Section typed.
                                     | None => unit
                                   end -> typD ts nil t)
                                with
-                                 | eq_refl => fun x : typD ts nil z => cast x
+                                 | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                                end (hlist_nth e (v - length vs'))) in
                 None =
                 match
@@ -642,7 +655,7 @@ Section typed.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (XXX z pf cast)
                         | None => None
@@ -658,7 +671,7 @@ Section typed.
                 with
                   | Some z =>
                     fun pf : Some z = nth_error (vs ++ vs'') (v - length vs') =>
-                      match typ_cast_typ ts (fun x : Type => x) nil z t with
+                      match typ_cast_typ ts nil z t with
                         | Some cast =>
                           Some (XXX' z pf cast)
                         | None => None
@@ -668,7 +681,7 @@ Section typed.
             intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
             rewrite H1.
             destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
-            destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. } } } }
+            destruct (typ_cast_typ ts nil t1 t); congruence. } } } }
     { forward. }
     { erewrite typeof_expr_lower by (rewrite lower_lower'; eassumption).
       repeat match goal with
@@ -680,7 +693,7 @@ Section typed.
       repeat match goal with
                | _ : match ?X with _ => _ end |- _ =>
                  destruct X
-             end; destruct (typ_cast_typ ts (fun x0 : Type => x0) nil t0_2 t); auto.
+             end; destruct (typ_cast_typ ts nil t0_2 t); auto.
       intros.
       f_equal. rewrite IHe1. f_equal. auto. }
     { destruct t0; auto.
@@ -697,7 +710,7 @@ Section typed.
       intros.
       apply functional_extensionality; intros.
       simpl in *.
-      apply (IHe (Hcons (p x) VS) VS' VS''). }
+      apply (IHe (Hcons (F := typD ts nil) (p (fun x => x) x) VS) VS' VS''). }
     { match goal with
         | |- match match ?x with _ => _ end with _ => _ end =>
           destruct x; auto
@@ -776,7 +789,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some
                           (fun e : hlist (typD ts nil) (vs ++ vs'') =>
@@ -788,7 +801,8 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z =>
+                                              cast (fun x => x)  x
                              end (zzz e))
                       | None => None
                     end
@@ -803,7 +817,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some
                           (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
@@ -815,7 +829,8 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z =>
+                                              cast (fun x : Type => x) x
                              end (zzz' e))
                       | None => None
                     end
@@ -856,7 +871,7 @@ Section typed.
             rewrite <- H0. gen_refl.
             remember (nth_error (vs ++ vs'') v). destruct e.
             { uip_all.
-              destruct (typ_cast_typ ts (fun x : Type => x) nil t2 t); try congruence.
+              destruct (typ_cast_typ ts nil t2 t); try congruence.
               inv_all. subst. uip_all. intuition. }
             { exfalso. clear - H Heqe.
               symmetry in Heqe.
@@ -864,7 +879,8 @@ Section typed.
               apply nth_error_length_ge in Heqe. omega. } } }
         { revert HeqH1 HeqH0.
           change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs'') v) cast :=
+              let XXX z (pf : Some z = nth_error (vs ++ vs'') v)
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs'') =>
                              match
                                pf in (_ = t'')
@@ -874,9 +890,10 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                              end (hlist_nth e v)) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v) cast :=
+              let XXX' z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
+                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -886,7 +903,7 @@ Section typed.
                           | None => unit
                         end -> typD ts nil t)
                      with
-                       | eq_refl => fun x : typD ts nil z => cast x
+                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                      end (hlist_nth e v)) in
               None =
               match
@@ -897,7 +914,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX z pf cast)
                       | None => None
@@ -913,7 +930,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX' z pf cast)
                       | None => None
@@ -923,10 +940,11 @@ Section typed.
           intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
           repeat rewrite nth_error_app_L by omega.
           destruct (nth_error vs v); try congruence.
-          destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. }
+          destruct (typ_cast_typ ts nil t1 t); congruence. }
         { revert HeqH1 HeqH0.
           change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs'') v) cast :=
+              let XXX z (pf : Some z = nth_error (vs ++ vs'') v)
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs'') =>
                              match
                                pf in (_ = t'')
@@ -936,9 +954,10 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z => cast (fun x=> x) x
                              end (hlist_nth e v)) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v) cast :=
+              let XXX' z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
+                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -948,7 +967,7 @@ Section typed.
                           | None => unit
                         end -> typD ts nil t)
                      with
-                       | eq_refl => fun x : typD ts nil z => cast x
+                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                      end (hlist_nth e v)) in
               Some t0 =
               match
@@ -959,7 +978,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX z pf cast)
                       | None => None
@@ -975,7 +994,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX' z pf cast)
                       | None => None
@@ -985,7 +1004,7 @@ Section typed.
           intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
           repeat rewrite nth_error_app_L by omega.
           destruct (nth_error vs v); try congruence.
-          destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence. } }
+          destruct (typ_cast_typ ts nil t1 t); congruence. } }
       { autorewrite with exprD_rw.
         do 2 match goal with
                | |- match ?X with _ => _ end =>
@@ -1005,7 +1024,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some
                           (fun e : hlist (typD ts nil) (vs ++ vs'') =>
@@ -1017,7 +1036,7 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                              end (zzz e))
                       | None => None
                     end
@@ -1032,7 +1051,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs') =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some
                           (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
@@ -1044,7 +1063,7 @@ Section typed.
                                   | None => unit
                                 end -> typD ts nil t)
                              with
-                               | eq_refl => fun x : typD ts nil z => cast x
+                               | eq_refl => fun x : typD ts nil z => cast (fun x : Type => x) x
                              end (zzz' e))
                       | None => None
                     end
@@ -1118,12 +1137,13 @@ Section typed.
             remember (nth_error (vs ++ vs'') v).
             destruct e.
             { intros; uip_all.
-              destruct (typ_cast_typ ts (fun x : Type => x) nil t2 t); try congruence.
+              destruct (typ_cast_typ ts nil t2 t); try congruence.
               inv_all. subst. rewrite H2. uip_all. auto. }
             { congruence. } } }
         { revert HeqH0 HeqH1.
           change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs')) cast :=
+              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs'))
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -1133,9 +1153,10 @@ Section typed.
                           | None => unit
                         end -> typD ts nil t)
                      with
-                       | eq_refl => fun x : typD ts nil z => cast x
+                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                      end (hlist_nth e (v + length vs'))) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs'') v) cast :=
+              let XXX' z (pf : Some z = nth_error (vs ++ vs'') v)
+                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -1145,7 +1166,7 @@ Section typed.
                           | None => unit
                         end -> typD ts nil t)
                      with
-                       | eq_refl => fun x : typD ts nil z => cast x
+                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                      end (hlist_nth e v)) in
               Some t0 =
               match
@@ -1156,7 +1177,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs') =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX z pf cast)
                       | None => None
@@ -1173,7 +1194,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX' z pf cast)
                       | None => None
@@ -1184,11 +1205,12 @@ Section typed.
           cutrewrite (nth_error (vs ++ vs' ++ vs'') (v + length vs') =
                       nth_error (vs ++ vs'') v).
           destruct (nth_error (vs ++ vs'') v); try congruence.
-          destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence.
+          destruct (typ_cast_typ ts nil t1 t); congruence.
           repeat rewrite nth_error_app_R by omega. f_equal. omega. }
         { revert HeqH0 HeqH1.
           change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs')) cast :=
+              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs'))
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -1198,9 +1220,10 @@ Section typed.
                           | None => unit
                         end -> typD ts nil t)
                      with
-                       | eq_refl => fun x : typD ts nil z => cast x
+                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                      end (hlist_nth e (v + length vs'))) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs'') v) cast :=
+              let XXX' z (pf : Some z = nth_error (vs ++ vs'') v)
+                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (vs ++ vs'') =>
                      match
                        pf in (_ = t'')
@@ -1210,7 +1233,7 @@ Section typed.
                           | None => unit
                         end -> typD ts nil t)
                      with
-                       | eq_refl => fun x : typD ts nil z => cast x
+                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
                      end (hlist_nth e v)) in
               None =
               match
@@ -1221,7 +1244,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs') =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX z pf cast)
                       | None => None
@@ -1238,7 +1261,7 @@ Section typed.
               with
                 | Some z =>
                   fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts (fun x : Type => x) nil z t with
+                    match typ_cast_typ ts nil z t with
                       | Some cast =>
                         Some (XXX' z pf cast)
                       | None => None
@@ -1249,7 +1272,7 @@ Section typed.
           cutrewrite (nth_error (vs ++ vs' ++ vs'') (v + length vs') =
                       nth_error (vs ++ vs'') v).
           destruct (nth_error (vs ++ vs'') v); try congruence.
-          destruct (typ_cast_typ ts (fun x : Type => x) nil t1 t); congruence.
+          destruct (typ_cast_typ ts nil t1 t); congruence.
           repeat rewrite nth_error_app_R by omega. f_equal. omega. } } }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
@@ -1272,7 +1295,7 @@ Section typed.
                | _ : match ?X with _ => _ end |- _ =>
                  destruct X; intuition
              end; eauto.
-      destruct (typ_cast_typ ts (fun x : Type => x) nil t0_2 t); auto.
+      destruct (typ_cast_typ ts nil t0_2 t); auto.
       intros. rewrite IHe1. rewrite IHe2. reflexivity. }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
@@ -1287,7 +1310,7 @@ Section typed.
                  destruct X; intuition
              end; eauto.
       eapply functional_extensionality.
-      intros. eapply (IHe (Hcons (p x) VS)). }
+      intros. eapply (IHe (Hcons (F := typD ts nil) (p (fun x=>x) x) VS)). }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
                  (destruct x; auto); [ ]
