@@ -39,7 +39,7 @@ Section env.
     try solve [ inversion H ].
     { inversion H; clear H; subst; auto. }
     { inversion H; clear H; subst; auto. }
-  Qed.
+  Defined.
 
   Variable RelDec_func : RelDec (@eq func).
 
