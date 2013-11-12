@@ -3,6 +3,7 @@ Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.Ext.Types.
+Require Import MirrorCore.Ext.ExprT.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
 

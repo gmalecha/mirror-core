@@ -187,6 +187,15 @@ Module Type ExprDenote.
         | _ => None
       end.
 
+    Axiom typeof_expr_exprD : forall vs e t,
+      WellTyped_expr (typeof_env us) (typeof_env vs) e t <->
+      exists v, exprD us vs e t = Some v.
+
+    Axiom typeof_expr_exprD_same_type : forall us vs e t t' v,
+      exprD us vs e t = Some v ->
+      typeof_expr (typeof_env us) (typeof_env vs) e = Some t' ->
+      t = t'.
+
   End with_envs.
 
 End ExprDenote.
@@ -714,6 +723,17 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
           | H : match ?X with _ => _ end = _ |- exists v, ?Y = _ =>
             change Y with X ; destruct X ; try congruence
         end. eauto. }
+    Qed.
+
+    Lemma typeof_expr_exprD_same_type : forall vs e t t' v,
+      exprD us vs e t = Some v ->
+      typeof_expr (typeof_env us) (typeof_env vs) e = Some t' ->
+      t = t'.
+    Proof.
+      intros.
+      assert (exists v, exprD us vs e t = Some v); eauto.
+      eapply typeof_expr_exprD in H1.
+      red in H1. rewrite H1 in *. inv_all; subst. reflexivity.
     Qed.
 
   End with_envs.
