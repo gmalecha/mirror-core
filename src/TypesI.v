@@ -50,9 +50,9 @@ Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
     exists g,
       type_cast ts b a = Some g /\
       (forall F x, f F (g F x) = x)
-; type_cast_refl : forall ts t F,
+; type_cast_refl : forall ts t,
                     exists f, type_cast ts t t = Some f /\
-                              (forall x, f F x = x)
+                              (forall F x, f F x = x)
 }.
 
 Class RTypeEq (typ : Type) (typD : list Type -> typ -> Type) : Type :=

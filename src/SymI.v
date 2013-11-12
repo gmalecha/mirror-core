@@ -60,13 +60,13 @@ Section symbols.
     intros. unfold symAs.
     generalize (symD f).
     rewrite pf. intros.
-    destruct (type_cast_refl nil t (fun x => x)).
-    intuition.
+    destruct (type_cast_refl nil t).
+    intuition. 
     match goal with
       | H : ?Y = _ |- match ?X with _ => _ end = _ =>
         change X with Y ; rewrite H
     end; intros.
-    f_equal. eauto.
+    f_equal. rewrite H1. reflexivity.
   Qed.
 
   (** This helper function makes it a little bit easier to construct
