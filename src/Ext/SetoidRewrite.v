@@ -21,7 +21,7 @@ Section setoid.
 
   Inductive PR : Type :=
   | PRinj (r : Rbase)
-  | PRguess (t : typ)
+  | PRguess
   | PRfunctorial (l r : PR)
   | PRpointwise (t : typ) (r : PR).
 
@@ -72,26 +72,22 @@ Section setoid.
             with
               | App l r => fun recur tvs rel =>
                              (** TODO: It shouldn't be necessary to type check here **)
-                match typeof_expr tus tvs r with
-                  | None => None
-                  | Some ty =>
-                    match recur l (TransitiveClosure.RTFin _ _ _ (acc_App_l _ _)) tvs (PRfunctorial (PRguess ty) rel) with
-                      | None =>
-                        @atomic tus (App l r) recur tvs rel
-                      | Some (l', relx) =>
-                        match relx with
-                          | Rfunctorial rel' out =>
-                            match recur r (TransitiveClosure.RTFin _ _ _ (acc_App_r _ _)) tvs
-                                        (R_to_PR rel')
-                            with
-                              | None =>
-                                @atomic tus (App l r) recur tvs rel
-                              | Some (r', out_r) => (** maybe this is strange **)
-                                (** out_r = rel' **)
-                                Some (app tus tvs l' r' rel' out, out)
-                            end
-                          | _ => None (** Never happens **)
+                match recur l (TransitiveClosure.RTFin _ _ _ (acc_App_l _ _)) tvs (PRfunctorial PRguess rel) with
+                  | None =>
+                    @atomic tus (App l r) recur tvs rel
+                  | Some (l', relx) =>
+                    match relx with
+                      | Rfunctorial rel' out =>
+                        match recur r (TransitiveClosure.RTFin _ _ _ (acc_App_r _ _)) tvs
+                                    (R_to_PR rel')
+                        with
+                          | None =>
+                            @atomic tus (App l r) recur tvs rel
+                          | Some (r', out_r) => (** maybe this is strange **)
+                            (** out_r = rel' **)
+                            Some (app tus tvs l' r' rel' out, out)
                         end
+                      | _ => None (** Never happens **)
                     end
                 end
               | Abs t e' => fun recur tvs prel =>
@@ -122,16 +118,8 @@ Section setoid.
       | Rpointwise t r => tyArr t (typeForR r)
     end.
 
-  Fixpoint typeForPR (r : PR) : typ :=
-    match r with
-      | PRinj r => typeForRbase r
-      | PRfunctorial l r => tyArr (typeForPR l) (typeForPR r)
-      | PRpointwise t r => tyArr t (typeForPR r)
-      | PRguess t => t
-    end.
-
   Inductive pr_type : PR -> typ -> Prop :=
-  | PT_guess : forall t t', pr_type (PRguess t') t
+  | PT_guess : forall t, pr_type PRguess t
   | PT_inj : forall i, pr_type (PRinj i) (typeForRbase i)
   | PT_func : forall a b c d,
                 pr_type a b ->
@@ -142,7 +130,7 @@ Section setoid.
                 pr_type (PRpointwise a c) (tyArr a d).
 
   Inductive instantiates : R -> PR -> Prop :=
-  | Ins_guess : forall x, instantiates x (PRguess (typeForR x))
+  | Ins_guess : forall x, instantiates x PRguess
   | Ins_inj : forall i, instantiates (Rinj i) (PRinj i)
   | Ins_func : forall a b c d,
                  instantiates a b ->
@@ -199,24 +187,20 @@ Section setoid.
     setoid_rewrite' tus e tvs rel =
     match e with
       | App l r =>
-        match typeof_expr tus tvs r with
-          | None => None (** Never happens **)
-          | Some ty =>
-            match setoid_rewrite' tus l tvs (PRfunctorial (PRguess ty) rel) with
-              | None =>
-                @atomic tus (App l r) (fun e _ => setoid_rewrite' tus e) tvs rel
-              | Some (l', relx) =>
-                match relx with
-                  | Rfunctorial rel' out =>
-                    match setoid_rewrite' tus r tvs (R_to_PR rel') with
-                      | None =>
-                        @atomic tus (App l r) (fun e _ => setoid_rewrite' tus e) tvs rel
-                      | Some (r', out_r) => (** maybe this is strange **)
-                        (** out_r = rel' **)
-                        Some (app tus tvs l' r' rel' out, out)
-                    end
-                  | _ => None (** Never happens **)
+        match setoid_rewrite' tus l tvs (PRfunctorial PRguess rel) with
+          | None =>
+            @atomic tus (App l r) (fun e _ => setoid_rewrite' tus e) tvs rel
+          | Some (l', relx) =>
+            match relx with
+              | Rfunctorial rel' out =>
+                match setoid_rewrite' tus r tvs (R_to_PR rel') with
+                  | None =>
+                    @atomic tus (App l r) (fun e _ => setoid_rewrite' tus e) tvs rel
+                  | Some (r', out_r) => (** maybe this is strange **)
+                    (** out_r = rel' **)
+                    Some (app tus tvs l' r' rel' out, out)
                 end
+              | _ => None (** Never happens **)
             end
         end
       | Abs t e' =>
@@ -250,7 +234,7 @@ Section setoid.
       { forward. rewrite H.
         destruct (g x1
                     (TransitiveClosure.RTFin (expr_acc (func:=sym)) x1
-                                             (App x1 x2) (acc_App_l x1 x2)) a (PRfunctorial (PRguess t) b)).
+                                             (App x1 x2) (acc_App_l x1 x2)) a (PRfunctorial PRguess b)).
         { destruct p. forward. rewrite H.
           forward. eauto using atomic_ext. }
         eauto using atomic_ext. }
@@ -258,12 +242,14 @@ Section setoid.
       rewrite H. forward; eauto using atomic_ext. }
   Qed.
 
+(*
   Lemma instantiates_typeof : forall r1 r2,
                                 instantiates r1 r2 ->
                                 typeForR r1 = typeForPR r2.
   Proof.
     clear. induction 1; simpl; intros; Cases.rewrite_all; auto.
   Qed.
+*)
 
   Lemma inv_instantiates_functorial : forall a b c d,
     instantiates (Rfunctorial a b) (PRfunctorial c d) ->
@@ -281,6 +267,7 @@ Section setoid.
     { inversion H; subst; auto. f_equal; auto. }
   Qed.
 
+(*
   Lemma instantiates_guess : forall l t,
                                instantiates l (PRguess t) ->
                                typeForR l = t.
@@ -288,6 +275,7 @@ Section setoid.
     clear. intros. remember (PRguess t).
     inversion H; subst; try congruence.
   Qed.
+*)
 
   Lemma atomic_instantiates
   : forall (tus tvs : tenv typ) r r' result (e : expr sym),
@@ -316,15 +304,15 @@ Section setoid.
     destruct e; simpl; intros; rewrite setoid_rewrite'_eta in H0;
       eauto using atomic_instantiates with typeclass_instances.
     { forward.
-      consider (setoid_rewrite' tus e1 tvs (PRfunctorial (PRguess t) r));
+      consider (setoid_rewrite' tus e1 tvs (PRfunctorial PRguess r));
         intros; eauto using atomic_instantiates.
       destruct p. forward.
       consider (setoid_rewrite' tus e2 tvs (R_to_PR l));
         eauto using atomic_instantiates; intros.
       destruct p. inv_all; subst.
-      eapply H in H3; eauto with typeclass_instances.
+      eapply H in H1; eauto with typeclass_instances.
       eapply H in H2; eauto with typeclass_instances.
-      eapply inv_instantiates_functorial in H2. intuition. }
+      eapply inv_instantiates_functorial in H1. intuition. }
     { destruct r; eauto using atomic_instantiates.
       consider (setoid_rewrite' tus e (t :: tvs) r);
         eauto using atomic_instantiates.
@@ -372,14 +360,14 @@ Section setoid.
     { eapply Hatomic_typed; simpl in *; eauto; eassumption. }
     { eapply Hatomic_typed; simpl in *; eauto; eassumption. }
     { forward.
-      consider (setoid_rewrite' tus e1 tvs (PRfunctorial (PRguess t0) r));
+      consider (setoid_rewrite' tus e1 tvs (PRfunctorial PRguess r));
         try congruence; intros.
       { destruct p. destruct r0; try congruence.
         consider (setoid_rewrite' tus e2 tvs (R_to_PR r0_1)); intros.
         { destruct p; inv_all; subst.
-          destruct t1; simpl in *; try congruence.
+          destruct t0; simpl in *; try congruence.
           forward. inv_all; subst.
-          eapply H in H3; eauto with typeclass_instances.
+          eapply H in H2; eauto with typeclass_instances.
           simpl in *. inv_all; subst. reflexivity.
           constructor. constructor. auto. }
         { eapply Hatomic_typed in H6; eauto.
@@ -424,7 +412,6 @@ Section setoid.
   Proof.
     clear. induction 1; constructor; eauto.
   Qed.
-
 
   Lemma atomic_sound_lem
   : forall us e tvs r r' t result,
@@ -498,38 +485,36 @@ Section setoid.
     { eapply atomic_sound_lem; eauto. }
     { eapply atomic_sound_lem; eauto. }
     { forward; inv_all; subst.
-      { consider (setoid_rewrite' (typeof_env us) e1 tvs (PRfunctorial (PRguess t0) r));
+      { consider (setoid_rewrite' (typeof_env us) e1 tvs (PRfunctorial PRguess r));
         intros.
         { destruct p.
           destruct r0; try congruence.
           consider (setoid_rewrite' (typeof_env us) e2 tvs (R_to_PR r0_1)); intros.
           { destruct p. inv_all; subst.
             autorewrite with exprD_rw in H5.
-            rewrite H2 in *.
-            destruct t1; simpl in *; try congruence.
+            rewrite H1 in *.
+            destruct t0; simpl in *; try congruence.
             forward; inv_all; try subst.
-            subst t0. subst t.
+            subst t1. subst t.
             subst.
-            assert (pr_type (PRfunctorial (PRguess t1_1) r) (tyArr t1_1 (typeForR r'))).
+            assert (pr_type (PRfunctorial PRguess r) (tyArr t0_1 (typeForR r'))).
             { constructor. constructor. auto. }
-            generalize (H e1 _ us tvs
-                          (PRfunctorial (PRguess t1_1) r)
-                          (Rfunctorial r0_1 r') t3 _ H4 H2 H3).
-            generalize (setoid_rewrite'_instantiates _ _ _ _ H3).
+            generalize (H e1 _ us tvs _ _ t3 _ H4 H1 H2).
+            generalize (setoid_rewrite'_instantiates _ _ _ _ H2).
             generalize (setoid_rewrite'_instantiates _ _ _ _ H6).
-            generalize (@setoid_rewrite'_types_lem _ _ _ _ _ _ _ H4 H2 H3).
+            generalize (@setoid_rewrite'_types_lem _ _ _ _ _ _ _ H4 H1 H2).
             simpl. intros.
             eapply instantiates_R_to_PR in H9.
             inv_all. subst.
             assert (pr_type (R_to_PR r0_1) (typeForR r0_1)).
             { eapply pr_type_R_to_PR. }
-            generalize (H e2 _ us tvs _ _ _ _ H8 H1 H6).
+            generalize (H e2 _ us tvs _ _ _ _ H8 H3 H6).
             rewrite H7.
             intro. specialize (H9 vs).
             rewrite H5 in *. specialize (H11 vs).
             cut (TR us (join_env vs) r'
                     (app (typeof_env us) (typeof_env (join_env vs)) t3 t4 r0_1 r')
-                    (t1 vs (t5 vs))).
+                    (t0 vs (t5 vs))).
             { rewrite typeof_env_join_env. auto. }
             eapply Happ; eauto. instantiate (1 := e1).
             unfold exprD. rewrite split_env_join_env.
