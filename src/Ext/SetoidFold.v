@@ -59,8 +59,8 @@ Section setoid.
     -> tenv typ -> PR -> option (T * R).
 
   (** ?? **)
-  Variable app : tenv typ -> tenv typ -> T -> T -> R -> R -> T.
-  Variable abs : tenv typ -> tenv typ -> typ -> T -> R -> T.
+  Variable app : tenv typ -> tenv typ -> T -> T -> R -> R -> option T.
+  Variable abs : tenv typ -> tenv typ -> typ -> T -> R -> option T.
 
   Definition setoid_fold' (tus : tenv typ)
   : expr sym -> tenv typ -> PR -> option (T * R) :=
@@ -85,7 +85,8 @@ Section setoid.
                             @atomic tus (App l r) recur tvs rel
                           | Some (r', out_r) =>
                             (** out_r = rel' **)
-                            Some (app tus tvs l' r' rel' out, out)
+                            Monad.bind (app tus tvs l' r' rel' out)
+                                       (fun x => Monad.ret (x, out))
                         end
                       | _ => None (** Never happens **)
                     end
@@ -98,7 +99,8 @@ Section setoid.
                                 (t :: tvs) r'
                     with
                       | Some (result, r'') =>
-                        Some (abs tus tvs t result r'', Rpointwise t' r'')
+                        Monad.bind (abs tus tvs t result r'')
+                                   (fun x => Monad.ret (x, Rpointwise t' r''))
                       | _ =>
                         @atomic tus (Abs t e') recur tvs prel
                     end
@@ -163,7 +165,8 @@ Section setoid.
                   | None =>
                     @atomic tus (App l r) (fun e _ => setoid_fold' tus e) tvs rel
                   | Some (r', out_r) =>
-                    Some (app tus tvs l' r' rel' out, out)
+                    Monad.bind (app tus tvs l' r' rel' out)
+                               (fun x => Monad.ret (x,out))
                 end
               | _ => None (** Never happens **)
             end
@@ -173,7 +176,8 @@ Section setoid.
           | PRpointwise t' r' =>
             match setoid_fold' tus e' (t :: tvs) r' with
               | Some (result, r'') =>
-                Some (abs tus tvs t result r'', Rpointwise t' r'')
+                Monad.bind (abs tus tvs t result r'')
+                           (fun x => Monad.ret (x, Rpointwise t' r''))
               | _ =>
                 @atomic tus (Abs t e') (fun e _ => setoid_fold' tus e) tvs rel
             end
@@ -233,25 +237,28 @@ Section setoid.
 
   Hypothesis Hatomic
   : forall tus tvs e r r' result recur,
+      @atomic tus e recur tvs r = Some (result, r') ->
       (forall e' pf tvs r result r',
          @recur e' pf tvs r = Some (result, r') ->
          setoid_fold_spec tus tvs e' r result r') ->
-      @atomic tus e recur tvs r = Some (result, r') ->
       setoid_fold_spec tus tvs e r result r'.
 
   Hypothesis Happ
-  : forall us vs t1 t2 v1 f,
-      exprD us vs f (typeForR (Rfunctorial t1 t2)) = Some v1 ->
-      forall r1 r2 v2,
-      @TR us vs (Rfunctorial t1 t2) r1 v1 ->
-      @TR us vs t1 r2 v2 ->
-      @TR us vs t2 (app (typeof_env us) (typeof_env vs) r1 r2 t1 t2) (v1 v2).
+  : forall us vs t1 t2 result r1 r2,
+      app (typeof_env us) (typeof_env vs) r1 r2 t1 t2 = Some result ->
+      forall f v1 v2,
+        exprD us vs f (typeForR (Rfunctorial t1 t2)) = Some v1 ->
+        @TR us vs (Rfunctorial t1 t2) r1 v1 ->
+        @TR us vs t1 r2 v2 ->
+        @TR us vs t2 result (v1 v2).
 
   Hypothesis Habs
-  : forall us vs t1 t2 r1 v1 f,
-      exprD us vs f (typeForR (Rpointwise t1 t2)) = Some v1 ->
-      (forall x : typD ts nil t1, @TR us (existT _ _ x :: vs) t2 r1 (v1 x)) ->
-      @TR us vs (Rpointwise t1 t2) (abs (typeof_env us) (typeof_env vs) t1 r1 t2) v1.
+  : forall us vs t1 t2 r1 result,
+      abs (typeof_env us) (typeof_env vs) t1 r1 t2 = Some result ->
+      forall v1 f,
+        exprD us vs f (typeForR (Rpointwise t1 t2)) = Some v1 ->
+        (forall x : typD ts nil t1, @TR us (existT _ _ x :: vs) t2 r1 (v1 x)) ->
+        @TR us vs (Rpointwise t1 t2) result v1.
 
   Lemma inv_instantiates_functorial : forall a b c d,
     instantiates (Rfunctorial a b) (PRfunctorial c d) ->
@@ -301,58 +308,61 @@ Section setoid.
       forward; inv_all; subst.
       edestruct H4; clear H4; eauto.
       { constructor; auto. constructor. }
-      { destruct H5.
-        apply inv_instantiates_functorial in H.
-        simpl in *. inv_all; subst. intuition.
+      { unfold Monad.bind in *; simpl in *.
+        apply inv_instantiates_functorial in H. destruct H.
+        forward; inv_all; subst.
+        destruct H6. inv_all; subst.
         edestruct H3; clear H3; eauto using pr_type_R_to_PR.
         destruct H8.
+        eapply instantiates_R_to_PR in H6; subst.
+        intuition.
+        specialize (H7 _ H6).
+        specialize (H8 _ H6).
         forward. red_exprD. forward; inv_all; subst.
-        eapply instantiates_R_to_PR in H7. subst.
         assert (t3 = typeForR l).
         { eapply typeof_expr_exprD_same_type with (us := us) (vs := join_env vs) (e := e2).
           unfold exprD. rewrite split_env_join_env. rewrite H12. reflexivity.
           rewrite typeof_env_join_env.
-          apply WellTyped_env_typeof_env in H; subst; auto. }
+          apply WellTyped_env_typeof_env in H6; subst; auto. }
         subst.
-        specialize (H8 _ H).
-        specialize (H5 _ H).
         rewrite H12 in *. rewrite H11 in *.
-        assert (TR us (join_env vs) r' (app tus (typeof_env (join_env vs)) t t0 l r') (t5 vs (t6 vs))).
-        { apply WellTyped_env_typeof_env in H; subst.
-          eapply Happ; eauto.
-          unfold exprD. rewrite split_env_join_env.
-          instantiate (1 := e1).
-          rewrite H11. reflexivity. }
-        { rewrite typeof_env_join_env in H7. assumption. } } }
+        apply WellTyped_env_typeof_env in H6. subst.
+        replace tvs with (typeof_env (join_env vs)) in H5.
+        specialize (@Happ _ _ _ _ _ _ _ H5).
+        eapply Happ; eauto.
+        instantiate (1 := e1).
+        unfold exprD. rewrite split_env_join_env.
+        rewrite H11. auto.
+        rewrite typeof_env_join_env. auto. } }
     { destruct r; try_atomic.
       consider (setoid_fold' tus e (t :: tvs) r); intros; try_atomic; intros.
       destruct p. inv_all; subst.
       red. intros.
       simpl in *; forward; inv_all; subst.
-      inversion H1; clear H1; subst.
-      specialize (@H _ _ _ _ _ _ H0 _ H4 H2).
-      destruct H. destruct H1.
+      inversion H2; clear H2; subst.
+      specialize (@H _ _ _ _ _ _ H0 _ H5 H3).
+      destruct H. destruct H2. subst.
       split.
       { constructor. auto. }
       split.
       { f_equal. auto. }
       { intros.
+        specialize (H4 _ H2).
         red_exprD.
         rewrite typ_cast_typ_refl.
-        specialize (H3 _ H5).
         forward.
         assert (TR us (join_env vs) (Rpointwise t r0)
-                   (abs (typeof_env us) (typeof_env (join_env vs)) t t1 r0)
+                   result
                    (fun x : typD ts nil t => t0 (HList.Hcons x vs))).
         { eapply Habs; eauto.
-          instantiate (1 := (Abs t e)).
-          unfold exprD. rewrite split_env_join_env.
-          red_exprD.
-          rewrite typ_cast_typ_refl. rewrite H3. reflexivity.
-          intro. specialize (H6 (HList.Hcons x vs)).
-          auto. }
-        { rewrite typeof_env_join_env in *.
-          apply WellTyped_env_typeof_env in H5. subst. auto. } } }
+          { rewrite typeof_env_join_env.
+            apply WellTyped_env_typeof_env in H2; subst. eauto. }
+          { instantiate (1 := (Abs t e)).
+            unfold exprD. rewrite split_env_join_env.
+            red_exprD.
+            rewrite typ_cast_typ_refl. rewrite H4. reflexivity. }
+          { intro. specialize (H6 (HList.Hcons x vs)). auto. } }
+        { apply WellTyped_env_typeof_env in H2. subst. auto. } } }
   Qed.
 
   Definition setoid_fold (tus tvs : tenv typ) (e : expr sym) (r : R) : option T :=
@@ -402,7 +412,6 @@ Section setoid.
 
 End setoid.
 
-(**
 Section interface.
   Variable ts : types.
   Variable sym : Type. (** Symbols **)
@@ -418,51 +427,40 @@ Section interface.
     (forall e', tc_acc e' e -> tenv typ -> PR Rbase -> option (T * R Rbase))
     -> tenv typ -> PR Rbase -> option (T * R Rbase)
     (** ?? **)
-  ; app : tenv typ -> tenv typ -> T -> T -> R Rbase -> R Rbase -> T
-  ; abs : tenv typ -> tenv typ -> typ -> T -> R Rbase -> T
+  ; app : tenv typ -> tenv typ -> T -> T -> R Rbase -> R Rbase -> option T
+  ; abs : tenv typ -> tenv typ -> typ -> T -> R Rbase -> option T
   }.
 
   Record SRW_AlgoOk (T : Type) (Algo : SRW_Algo T) : Type :=
   { typeForRbase : Algo.(Rbase) -> typ
   ; TR : env (typD ts) -> env (typD ts) -> forall r : R Algo.(Rbase), T -> typD ts nil (typeForR typeForRbase r) -> Prop
-
-  ;  Hatomic
-     : forall tus tvs e r r' result
-              (recur : forall e', tc_acc e' e
-                                  -> tenv typ -> PR Algo.(Rbase) ->
-                                  option (T * R Algo.(Rbase))),
-         Algo.(atomic) tus (e := e) recur tvs r = Some (result, r') ->
-         (forall tvs e' r r' result pf,
-            recur e' pf tvs r = Some (result, r') ->
-            instantiates typeForRbase r' r /\
-            forall us vs x,
-              WellTyped_env tus us ->
-              WellTyped_env tvs vs ->
-              exprD us vs e' (typeForR typeForRbase r') = Some x ->
-              TR us vs r' result x) ->
-         instantiates typeForRbase r' r /\
-         forall us vs x,
-           WellTyped_env tus us ->
-           WellTyped_env tvs vs ->
-           exprD us vs e (typeForR typeForRbase r') = Some x ->
-           TR us vs r' result x
-  ; atomic_ext
+  ; Hatomic_ext
     : forall a b c x f g,
         (forall e pf p q,
            f e pf p q = g e pf p q) ->
         Algo.(atomic) a (e:=x) f b c = Algo.(atomic) a (e:=x) g b c
+  ; Hatomic
+  : forall tus tvs e r r' result recur,
+      Algo.(atomic) tus (e:=e) recur tvs r = Some (result, r') ->
+      (forall e' pf tvs r result r',
+         @recur e' pf tvs r = Some (result, r') ->
+         @setoid_fold_spec _ _ RSym_sym _ _ _ TR tus tvs e' r result r') ->
+      @setoid_fold_spec _ _ RSym_sym _ _ _ TR tus tvs e r result r'
   ; Happ
-    : forall us vs t1 t2 r1 r2 v1 v2 f,
-        exprD us vs f (typeForR typeForRbase (Rfunctorial t1 t2)) = Some v1 ->
+  : forall us vs t1 t2 result r1 r2,
+      Algo.(app) (typeof_env us) (typeof_env vs) r1 r2 t1 t2 = Some result ->
+      forall f v1 v2,
+        exprD us vs f (typeForR _ (Rfunctorial t1 t2)) = Some v1 ->
         @TR us vs (Rfunctorial t1 t2) r1 v1 ->
         @TR us vs t1 r2 v2 ->
-        @TR us vs t2 (Algo.(app) (typeof_env us) (typeof_env vs) r1 r2 t1 t2) (v1 v2)
+        @TR us vs t2 result (v1 v2)
   ; Habs
-    : forall us vs t1 t2 r1 v1 f,
+  : forall us vs t1 t2 r1 result,
+      Algo.(abs) (typeof_env us) (typeof_env vs) t1 r1 t2 = Some result ->
+      forall v1 f,
         exprD us vs f (typeForR typeForRbase (Rpointwise t1 t2)) = Some v1 ->
         (forall x : typD ts nil t1, @TR us (existT _ _ x :: vs) t2 r1 (v1 x)) ->
-        @TR us vs (Rpointwise t1 t2)
-            (Algo.(abs) (typeof_env us) (typeof_env vs) t1 r1 t2) v1
+        @TR us vs (Rpointwise t1 t2) result v1
   }.
 
   Section from_proper.
@@ -470,83 +468,61 @@ Section interface.
     Variable (T : Type).
     Variable (_Rbase : Type).
     Hypothesis (_properAt : expr sym -> PR _Rbase -> option (R _Rbase)).
-    Hypothesis (_atomic : tenv typ -> forall e : expr sym,
-                                       (forall e', tc_acc e' e -> tenv typ ->
-                                                   (PR _Rbase) -> option (T * (R _Rbase)))
-                                       -> tenv typ -> R _Rbase -> T).
-    Hypothesis (_app : tenv typ -> tenv typ -> T -> T -> R _Rbase -> R _Rbase -> T).
-    Hypothesis (_abs : tenv typ -> tenv typ -> typ -> T -> R _Rbase -> T).
+    Hypothesis (_atomic : tenv typ -> tenv typ -> expr sym -> R _Rbase -> option T).
+    Hypothesis (_app : tenv typ -> tenv typ -> T -> T -> R _Rbase -> R _Rbase -> option T).
+    Hypothesis (_abs : tenv typ -> tenv typ -> typ -> T -> R _Rbase -> option T).
 
     Definition SRW_Algo_properAt : SRW_Algo T :=
-      {| Rbase := _Rbase
-       ; atomic := fun tus e recur tvs rel =>
-                     match _properAt e rel with
-                       | None => None
-                       | Some rel' =>
-                         Some (_atomic tus (e:=e) recur tvs rel', rel')
-                     end
-       ; app := _app
-       ; abs := _abs
-       |}.
+    {| Rbase := _Rbase
+     ; atomic := fun tus e recur tvs rel =>
+                   match _properAt e rel with
+                     | None => None
+                     | Some rel' =>
+                       match _atomic tus tvs e rel' with
+                         | None => None
+                         | Some x => Some (x, rel')
+                       end
+                   end
+     ; app := _app
+     ; abs := _abs
+     |}.
 
     Hypothesis typeForRbase : _Rbase -> typ.
     Hypothesis TR : env (typD ts) -> env (typD ts) -> forall r : R _Rbase, T -> typD ts nil (typeForR typeForRbase r) -> Prop.
     Hypothesis Hatomic
-    : forall e r r',
+    : forall tus tvs e r r' result,
         _properAt e r = Some r' ->
-        instantiates typeForRbase r' r /\
-        forall us vs x result (recur : forall e', tc_acc e' e -> tenv typ -> PR _Rbase-> option (T * R _Rbase)),
-        (forall e' tvs r r' result pf,
-           recur e' pf tvs r = Some (result, r') ->
-           instantiates typeForRbase r' r /\
-           forall vs x,
-             WellTyped_env tvs vs ->
-             exprD us vs e' (typeForR typeForRbase r') = Some x ->
-             TR us vs r' result x) ->
-        _atomic (typeof_env us) recur (typeof_env vs) r' = result ->
-        exprD us vs e (typeForR typeForRbase r') = Some x ->
-        TR us vs r' result x.
-    Hypothesis Hatomic_ext
-    : forall a b c x f g,
-        (forall e pf p q,
-           f e pf p q = g e pf p q) ->
-        _atomic a (e:=x) f b c = _atomic a (e:=x) g b c.
+        _atomic tus tvs e r' = Some result ->
+        @setoid_fold_spec _ _ RSym_sym _ _ _ TR tus tvs e r result r'.
     Hypothesis Happ
-    : forall us vs t1 t2 r1 r2 v1 v2 f,
+    : forall us vs t1 t2 r1 r2 v1 v2 f result,
+        _app (typeof_env us) (typeof_env vs) r1 r2 t1 t2 = Some result ->
         exprD us vs f (typeForR typeForRbase (Rfunctorial t1 t2)) = Some v1 ->
         @TR us vs (Rfunctorial t1 t2) r1 v1 ->
         @TR us vs t1 r2 v2 ->
-        @TR us vs t2 (_app (typeof_env us) (typeof_env vs) r1 r2 t1 t2) (v1 v2).
+        @TR us vs t2 result (v1 v2).
     Hypothesis Habs
-    : forall us vs t1 t2 r1 v1 f,
+    : forall us vs t1 t2 r1 v1 f result,
+        _abs (typeof_env us) (typeof_env vs) t1 r1 t2 = Some result ->
         exprD us vs f (typeForR typeForRbase (Rpointwise t1 t2)) = Some v1 ->
         (forall x : typD ts nil t1, @TR us (existT _ _ x :: vs) t2 r1 (v1 x)) ->
-        @TR us vs (Rpointwise t1 t2) (_abs (typeof_env us) (typeof_env vs) t1 r1 t2) v1.
+        @TR us vs (Rpointwise t1 t2) result v1.
 
     Theorem SRW_AlgoOk_properAt : SRW_AlgoOk SRW_Algo_properAt.
     Proof.
       refine (@Build_SRW_AlgoOk _ SRW_Algo_properAt typeForRbase _ _ _ _ _);
-      simpl; eauto using Happ, Habs.
+         simpl; eauto using Hatomic, Happ, Habs.
       { intros.
-        forward; inv_all; subst.
-        destruct (@Hatomic _ _ _ H); intuition.
-        eapply H2; clear H2; eauto.
-        { instantiate (1 := recur).
-          intros.
-          specialize (@H0 _ _ _ _ _ _ H2).
-          intuition. }
-        { eapply WellTyped_env_typeof_env in H3.
-          eapply WellTyped_env_typeof_env in H4.
-          subst. reflexivity. } }
-      { intros.
-        destruct (_properAt x c); auto.
-        f_equal. f_equal. eapply Hatomic_ext. auto. }
+        forward; inv_all; subst. clear H0.
+        eapply Hatomic; eauto. }
+      { intros. eapply Happ; eauto. }
+      { intros. eapply Habs; eauto. }
     Qed.
   End from_proper.
 
   Definition setoid_foldI {T} (a : SRW_Algo T)
   : tenv typ -> tenv typ -> expr sym -> R a.(Rbase) -> option T :=
-    @setoid_fold ts sym RSym_sym _ T a.(atomic) a.(app) a.(abs).
+    @setoid_fold sym _ T a.(atomic) a.(app) a.(abs).
 
   Theorem setoid_foldI_sound {T} (a : SRW_Algo T) (aC : SRW_AlgoOk a)
   : forall tus tvs e r result,
@@ -563,4 +539,3 @@ Section interface.
   Qed.
 
 End interface.
-**)
