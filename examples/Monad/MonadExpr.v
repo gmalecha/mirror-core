@@ -5,6 +5,7 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.Fin.
+Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
@@ -107,20 +108,19 @@ Section Demo.
       | Ret t' e =>
         m_match nil (fun _ _ => Prop)
                 (fun t'' =>
-                   type_cast (fun x => x) nil t' t'' <> None /\
+                   type_cast nil t' t'' <> None /\
                    Safe_mexpr us vs e t')
                 (fun _ => False)
                 t
       | Var v =>
         exists t', nth_error vs v = Some t' /\
-                   type_cast (fun x => x) nil t' t <> None
+                   type_cast nil t' t <> None
       | Abs t' body =>
-        arr_match nil (fun _ _ => Prop)
+        arr_match nil t (fun _ _ => Prop)
                   (fun d r =>
-                     type_cast (typD := typD) (fun x => x) nil t' d <> None /\
+                     type_cast (typD := typD) nil t' d <> None /\
                      Safe_mexpr us (d :: vs) body r)
                   (fun _ => False)
-                  t
       | _ => False
     end.
 
@@ -137,15 +137,17 @@ Section Demo.
                     -> option (hlist (typD nil) g -> typD nil t)
           with
             | None => fun _ => None
-            | Some t' => match type_cast (fun x => x) nil t' t with
+            | Some t' => match type_cast nil t' t with
                            | None => fun _ => None
-                           | Some cast => fun get => Some (fun g => cast (get g))
+                           | Some cast => fun get =>
+                             Some (fun g => cast (fun x => x) (get g))
                          end
           end (fun g => hlist_nth g v)
         | Abs t' body =>
-          arr_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
+          arr_match nil t
+                    (fun ty Ty => option (hlist (typD nil) g -> Ty))
              (fun d r =>
-                match type_cast (typD := typD) (fun x => x) nil t' d with
+                match type_cast (typD := typD) nil t' d with
                   | None => None
                   | Some cast_d =>
                     match mexprD (d :: g) body r with
@@ -154,7 +156,6 @@ Section Demo.
                     end
                 end)
              (fun _ => None)
-             t
         | App t' m m' =>
           match mexprD g m (tvArr t' t) , mexprD g m' t' with
             | Some v , Some v' => Some (fun g =>
@@ -183,12 +184,12 @@ Section Demo.
         | Ret t' e =>
           m_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
             (fun t'' =>
-               match type_cast (fun x => x) nil t' t'' with
+               match type_cast nil t' t'' with
                  | None => None
                  | Some cast =>
                    match mexprD g e t' with
                      | None => None
-                     | Some r => Some (fun g => ret (cast (r g)))
+                     | Some r => Some (fun g => ret (cast (fun x => x) (r g)))
                    end
                end)
             (fun _ => None)
@@ -196,20 +197,25 @@ Section Demo.
         | Bind t' t'' c k =>
           m_match nil (fun ty Ty => option (hlist (typD nil) g -> Ty))
             (fun t''' =>
-               match type_cast (typD := typD) (fun x => typD nil t' -> m x) nil t'' t''' with
+               match type_cast (typD := typD) nil t'' t''' with
                  | None => None
                  | Some cast =>
                    match mexprD g c (tvM t') , mexprD g k (tvArr t' (tvM t'')) with
-                     | Some cv , Some kv => Some (fun g => bind _ _)
+                     | Some cv , Some kv =>
+                       Some (fun g =>
+                               bind (Monad:=Monad_m)
+                                    (m_outof (fun T : Type => T) nil t' (cv g))
+                                    (cast (fun x : Type => typD nil t' -> m x)
+                                          (m_outof (fun T : Type => typD nil t' -> T) nil
+                                                   t''
+                                                   (arr_outof (fun T : Type => T) nil t'
+                                                              (tvM t'') (kv g)))))
                      | _ , _ => None
                    end
                end)
             (fun _ => None)
             t
       end).
-  (** NOTE: Coq doesn't type check when this is inline **)
-  eapply m_outof. eapply cv. eapply g0.
-  eapply cast. eapply m_outof. eapply arr_outof. eapply kv. eapply g0.
   Defined.
 
   Fixpoint mexpr_eq (a b : mexpr) : bool :=
@@ -333,17 +339,17 @@ Section Demo.
 
   Ltac solver :=
         eauto with typeclass_instances ;
-        try eapply (@typ2_isoOk _ _ _ _ TypInstance2Ok_arr) ;
+        try eapply (@typ2_isoOk _ _ _ _ _ TypInstance2Ok_arr) ;
         try eapply (@typ1_isoOk _ _ _ _ TypInstance1Ok_m) ;
         try eapply (@typ0_isoOk _ _ _ _ TypInstance0Ok_nat) ;
         idtac.
   Theorem soutof_red : forall A B i o F,
-                         @soutof A B {| siso := fun x => {| into := i x ; outof := o x |} |} F =
+                         @soutof A B (fun x => {| into := i x ; outof := o x |}) F =
                          o F.
     reflexivity.
   Qed.
   Theorem sinto_red : forall A B i o F,
-                         @sinto A B {| siso := fun x => {| into := i x ; outof := o x |} |} F =
+                         @sinto A B (fun x => {| into := i x ; outof := o x |}) F =
                          i F.
     reflexivity.
   Qed.
@@ -352,10 +358,15 @@ Section Demo.
     match goal with
       | |- appcontext [ @into ?A ?B (@siso ?C ?D ?E ?F) ] =>
         change (@into A B (@siso C D E F))
-          with (@sinto _ _ E F)
+        with (@sinto _ _ E F)
+      | |- appcontext [ @into ?A ?B (?E ?F) ] =>
+        change (@into A B (E F)) with (@into A B (@siso _ _ E F))
       | |- appcontext [ @outof ?A ?B (@siso ?C ?D ?E ?F) ] =>
         change (@outof A B (@siso C D E F))
-          with (@soutof _ _ E F)
+        with (@soutof _ _ E F)
+      | |- appcontext [ @outof ?A ?B (?E ?F) ] =>
+        change (@outof A B (E F))
+        with (@soutof _ _ E F)
     end.
 
   Theorem P_iff : forall T P (x y : T), x = y -> (P x <-> P y).
@@ -370,34 +381,34 @@ Section Demo.
 
 
   Ltac go :=
-    repeat (   (rewrite soutof_red)
-            || (rewrite sinto_red)
-            || (erewrite soutof_sinto by solver)
-            || (erewrite sinto_soutof by solver)
-            || (erewrite sinto_option by solver)
-            || (erewrite soutof_option by solver)
-            || (erewrite into_outof by solver)
-            || (erewrite outof_into by solver)
-            || (erewrite soutof_const by solver)
-            || (erewrite sinto_const by solver)
-            || (erewrite soutof_app' by solver)
-            || (erewrite sinto_app' by solver)
-            || (erewrite soutof_app'' by solver)
-            || (erewrite sinto_app'' by solver)
-            || (erewrite soutof_app by solver)
-            || (erewrite sinto_app by solver)
-            || (erewrite typ0_match_typ0 by solver)
-            || (erewrite typ1_match_typ1 by solver)
-            || (erewrite typ2_match_typ2 by solver)
-            || match goal with
-                 | |- context [ @type_cast _ _ ?CLS ?F ?TS ?X ?X ] =>
-                   let H := fresh in
-                   let H' := fresh in
-                   destruct (@type_cast_refl _ _ CLS _ TS X  F) as [ ? [ H H' ] ] ;
-                 eauto with typeclass_instances ;
-                 rewrite H
-               end
-            || using_s).
+    repeat first [ rewrite soutof_red
+                 | rewrite sinto_red
+                 | erewrite soutof_sinto by solver
+                 | erewrite sinto_soutof by solver
+                 | erewrite sinto_option by solver
+                 | erewrite soutof_option by solver
+                 | erewrite into_outof by solver
+                 | erewrite outof_into by solver
+                 | erewrite soutof_const by solver
+                 | erewrite sinto_const by solver
+                 | erewrite soutof_app' by solver
+                 | erewrite sinto_app' by solver
+                 | erewrite soutof_app'' by solver
+                 | erewrite sinto_app'' by solver
+                 | erewrite soutof_app by solver
+                 | erewrite sinto_app by solver
+                 | erewrite typ0_match_typ0 by solver
+                 | erewrite typ1_match_typ1 by solver
+                 | erewrite typ2_match_typ2 by solver
+                 | match goal with
+                     | |- context [ @type_cast _ _ ?CLS ?TS ?X ?X ] =>
+                       let H := fresh in
+                       let H' := fresh in
+                       destruct (@type_cast_refl _ _ CLS _ TS X) as [ ? [ H H' ] ] ;
+                         eauto with typeclass_instances ;
+                         rewrite H by solver
+                   end
+                 | using_s ].
 
   Instance FuncInstance0_plus : FuncInstance0 typD mexpr plus :=
   { typ0_witness := TypInstance0_app2 typ_arr _ (TypInstance0_app2 typ_arr _ _)
@@ -420,6 +431,7 @@ Section Demo.
 
   Instance FuncInstance0Ok_plus : FuncInstance0Ok FuncInstance0_plus.
   Proof.
+    Opaque siso.
     constructor.
     { simpl; intros.
       destruct (EnvI.split_env vs).
@@ -429,9 +441,9 @@ Section Demo.
       eapply P_iff.
       apply functional_extensionality; intro;
       apply functional_extensionality; intro.
-      go.
-      repeat rewrite H2.
-      simpl. go. reflexivity. }
+      simpl. go.
+      repeat rewrite H2. go.
+      reflexivity. }
     { simpl; intros.
       unfold_all. unfold Fun.
       go. reflexivity. }
