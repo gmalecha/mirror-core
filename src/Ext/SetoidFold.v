@@ -71,8 +71,8 @@ Section setoid.
                return (forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e -> tenv typ -> PR -> option (T * R)) -> tenv typ -> PR -> option (T * R)
             with
               | App l r => fun recur tvs rel =>
-                             (** TODO: It shouldn't be necessary to type check here **)
-                match recur l (TransitiveClosure.RTFin _ _ _ (acc_App_l _ _)) tvs (PRfunctorial PRguess rel) with
+                match recur l (TransitiveClosure.RTFin _ _ _ (acc_App_l _ _))
+                            tvs (PRfunctorial PRguess rel) with
                   | None =>
                     @atomic tus (App l r) recur tvs rel
                   | Some (l', relx) =>
@@ -143,45 +143,11 @@ Section setoid.
   Variable TR : env (typD ts) -> env (typD ts) ->
                 forall r : R, T -> typD ts nil (typeForR r) -> Prop.
 
-  Hypothesis Hatomic
-  : forall tus tvs e r r' result
-           (recur : forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e
-                               -> tenv typ -> PR -> option (T * R)),
-      @atomic tus e recur tvs r = Some (result, r') ->
-      (forall tvs e' r r' result pf,
-         recur e' pf tvs r = Some (result, r') ->
-         instantiates r' r) ->
-      instantiates r' r /\
-      forall us vs x,
-        WellTyped_env tus us ->
-        WellTyped_env tvs vs ->
-        (forall e' x pf,
-           recur e' pf tvs r = Some (result, r') ->
-           WellTyped_env tus us ->
-           WellTyped_env tvs vs ->
-           exprD us vs e' (typeForR r') = Some x ->
-           TR us vs r' result x) ->
-        exprD us vs e (typeForR r') = Some x ->
-        TR us vs r' result x.
-
-  Hypothesis atomic_ext
+  Hypothesis Hatomic_ext
   : forall a b c x f g,
       (forall e pf p q,
          f e pf p q = g e pf p q) ->
       @atomic a x f b c = @atomic a x g b c.
-
-  Hypothesis Happ
-  : forall us vs t1 t2 r1 r2 v1 v2 f,
-      exprD us vs f (typeForR (Rfunctorial t1 t2)) = Some v1 ->
-      @TR us vs (Rfunctorial t1 t2) r1 v1 ->
-      @TR us vs t1 r2 v2 ->
-      @TR us vs t2 (app (typeof_env us) (typeof_env vs) r1 r2 t1 t2) (v1 v2).
-
-  Hypothesis Habs
-  : forall us vs t1 t2 r1 v1 f,
-      exprD us vs f (typeForR (Rpointwise t1 t2)) = Some v1 ->
-      (forall x : typD ts nil t1, @TR us (existT _ _ x :: vs) t2 r1 (v1 x)) ->
-      @TR us vs (Rpointwise t1 t2) (abs (typeof_env us) (typeof_env vs) t1 r1 t2) v1.
 
   Lemma setoid_fold'_eta : forall tus e tvs rel,
     setoid_fold' tus e tvs rel =
@@ -196,8 +162,7 @@ Section setoid.
                 match setoid_fold' tus r tvs (R_to_PR rel') with
                   | None =>
                     @atomic tus (App l r) (fun e _ => setoid_fold' tus e) tvs rel
-                  | Some (r', out_r) => (** maybe this is strange **)
-                    (** out_r = rel' **)
+                  | Some (r', out_r) =>
                     Some (app tus tvs l' r' rel' out, out)
                 end
               | _ => None (** Never happens **)
@@ -230,105 +195,39 @@ Section setoid.
     end.
     intro X. rewrite X; clear X.
     { subst. destruct e; try reflexivity. }
-    { destruct x; subst; simpl; intros; eauto using atomic_ext.
+    { destruct x; subst; simpl; intros; eauto using Hatomic_ext.
       { forward. rewrite H.
         destruct (g x1
                     (TransitiveClosure.RTFin (expr_acc (func:=sym)) x1
                                              (App x1 x2) (acc_App_l x1 x2)) a (PRfunctorial PRguess b)).
         { destruct p. forward. rewrite H.
-          forward. eauto using atomic_ext. }
-        eauto using atomic_ext. }
-      destruct b; eauto using atomic_ext.
-      rewrite H. forward; eauto using atomic_ext. }
+          forward. eauto using Hatomic_ext. }
+        eauto using Hatomic_ext. }
+      destruct b; eauto using Hatomic_ext.
+      rewrite H. forward; eauto using Hatomic_ext. }
   Qed.
 
-(*
-  Lemma instantiates_typeof : forall r1 r2,
-                                instantiates r1 r2 ->
-                                typeForR r1 = typeForPR r2.
-  Proof.
-    clear. induction 1; simpl; intros; Cases.rewrite_all; auto.
-  Qed.
-*)
-
-  Lemma inv_instantiates_functorial : forall a b c d,
-    instantiates (Rfunctorial a b) (PRfunctorial c d) ->
-    instantiates a c /\ instantiates b d.
-  Proof.
-    clear. inversion 1; subst; eauto.
-  Qed.
-
-  Theorem instantiates_R_to_PR : forall a b, instantiates a (R_to_PR b) -> a = b.
-  Proof.
-    clear.
-    induction a; destruct b; simpl; intros; try solve [ inversion H ].
-    { inversion H; subst; auto. }
-    { inversion H; subst; auto. Cases.rewrite_all. auto. }
-    { inversion H; subst; auto. f_equal; auto. }
-  Qed.
-
-(*
-  Lemma instantiates_guess : forall l t,
-                               instantiates l (PRguess t) ->
-                               typeForR l = t.
-  Proof.
-    clear. intros. remember (PRguess t).
-    inversion H; subst; try congruence.
-  Qed.
-*)
-
-  Lemma atomic_instantiates
-  : forall (tus tvs : tenv typ) r r' result (e : expr sym),
-      (forall y : expr sym,
-         SolveTypeClass (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e) ->
-         forall (tus0 tvs0 : tenv typ) (r0 : PR) (r'0 : R) (result0 : T),
-           setoid_fold' tus0 y tvs0 r0 = Some (result0, r'0) ->
-           instantiates r'0 r0) ->
-      atomic tus
-             (fun (e0 : expr sym)
-                  (_ : TransitiveClosure.rightTrans (expr_acc (func:=sym)) e0 e) =>
-                setoid_fold' tus e0) tvs r = Some (result, r') ->
-      instantiates r' r.
-  Proof.
-    clear - Hatomic; intros.
-    eapply Hatomic; eauto. simpl.
-    intros. eapply H; eauto.
-  Qed.
-
-  Lemma setoid_fold'_instantiates
-  : forall e tus tvs r r' result,
-      setoid_fold' tus e tvs r = Some (result, r') ->
-      instantiates r' r.
-  Proof.
-    refine (@expr_strong_ind _ _ _).
-    destruct e; simpl; intros; rewrite setoid_fold'_eta in H0;
-      eauto using atomic_instantiates with typeclass_instances.
-    { forward.
-      consider (setoid_fold' tus e1 tvs (PRfunctorial PRguess r));
-        intros; eauto using atomic_instantiates.
-      destruct p. forward.
-      consider (setoid_fold' tus e2 tvs (R_to_PR l));
-        eauto using atomic_instantiates; intros.
-      destruct p. inv_all; subst.
-      eapply H in H1; eauto with typeclass_instances.
-      eapply H in H2; eauto with typeclass_instances.
-      eapply inv_instantiates_functorial in H1. intuition. }
-    { destruct r; eauto using atomic_instantiates.
-      consider (setoid_fold' tus e (t :: tvs) r);
-        eauto using atomic_instantiates.
-      intuition. destruct p. inv_all.
-      eapply H in H0; eauto. subst.
-      constructor; auto. eauto with typeclass_instances. }
-  Qed.
-
-  Lemma pr_type_R_to_PR : forall x,
-                            pr_type (R_to_PR x) (typeForR x).
-  Proof.
-    clear. induction x; simpl.
-    constructor.
-    constructor; auto.
-    constructor; auto.
-  Qed.
+(**
+  Hypothesis Hatomic
+  : forall tus tvs e r r' result
+           (recur : forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e
+                               -> tenv typ -> PR -> option (T * R)),
+      @atomic tus e recur tvs r = Some (result, r') ->
+      (forall tvs e' r r' result pf,
+         recur e' pf tvs r = Some (result, r') ->
+         instantiates r' r) ->
+      instantiates r' r /\
+      forall us vs x,
+        WellTyped_env tus us ->
+        WellTyped_env tvs vs ->
+        (forall e' x pf,
+           recur e' pf tvs r = Some (result, r') ->
+           WellTyped_env tus us ->
+           WellTyped_env tvs vs ->
+           exprD us vs e' (typeForR r') = Some x ->
+           TR us vs r' result x) ->
+        exprD us vs e (typeForR r') = Some x ->
+        TR us vs r' result x.
 
   Hypothesis Hatomic_typed
   : forall tus tvs e r r' t result,
@@ -347,7 +246,189 @@ Section setoid.
            setoid_fold' tus0 y tvs0 r0 = Some (result0, r'0) ->
            typeForR r'0 = t0) ->
       typeForR r' = t.
+**)
 
+  
+
+  Definition setoid_fold_syntactic
+             (tus tvs : tenv typ) (e : expr sym) (r : PR) (result : T) (r' : R)
+  :=
+    pr_type r (typeForR r') ->
+    typeof_expr tus tvs e = Some (typeForR r') ->
+    instantiates r' r.
+
+(*
+  Hypothesis Hatomic_types
+  : forall tus tvs e r r' result recur,
+      (forall e' pf tvs r result r',
+         @recur e' pf tvs r = Some (result, r') ->
+         setoid_fold_syntactic tus tvs e r result r') ->
+      @atomic tus e recur tvs r = Some (result, r') ->
+      setoid_fold_syntactic tus tvs e r result r'.
+*)
+
+  Definition setoid_fold_spec
+             (tus tvs : tenv typ) (e : expr sym) (r : PR) (result : T) (r' : R)
+  :=
+    forall t,
+      pr_type r t ->
+      typeof_expr tus tvs e = Some t ->
+      instantiates r' r /\
+      typeForR r' = t /\
+      forall us,
+        WellTyped_env tus us ->
+        match exprD' us tvs e (typeForR r') with
+          | Some x =>
+            forall vs,
+              TR us (join_env vs) r' result (x vs)
+          | None => True
+        end.
+
+  Hypothesis Hatomic
+  : forall tus tvs e r r' result recur,
+      (forall e' pf tvs r result r',
+         @recur e' pf tvs r = Some (result, r') ->
+         setoid_fold_spec tus tvs e' r result r') ->
+      @atomic tus e recur tvs r = Some (result, r') ->
+      setoid_fold_spec tus tvs e r result r'.
+
+  Hypothesis Happ
+  : forall us vs t1 t2 v1 f,
+      exprD us vs f (typeForR (Rfunctorial t1 t2)) = Some v1 ->
+      forall r1 r2 v2,
+      @TR us vs (Rfunctorial t1 t2) r1 v1 ->
+      @TR us vs t1 r2 v2 ->
+      @TR us vs t2 (app (typeof_env us) (typeof_env vs) r1 r2 t1 t2) (v1 v2).
+
+  Hypothesis Habs
+  : forall us vs t1 t2 r1 v1 f,
+      exprD us vs f (typeForR (Rpointwise t1 t2)) = Some v1 ->
+      (forall x : typD ts nil t1, @TR us (existT _ _ x :: vs) t2 r1 (v1 x)) ->
+      @TR us vs (Rpointwise t1 t2) (abs (typeof_env us) (typeof_env vs) t1 r1 t2) v1.
+
+  Lemma inv_instantiates_functorial : forall a b c d,
+    instantiates (Rfunctorial a b) (PRfunctorial c d) ->
+    instantiates a c /\ instantiates b d.
+  Proof.
+    clear. inversion 1; subst; eauto.
+  Qed.
+
+  Theorem instantiates_R_to_PR : forall a b, instantiates a (R_to_PR b) -> a = b.
+  Proof.
+    clear.
+    induction a; destruct b; simpl; intros; try solve [ inversion H ].
+    { inversion H; subst; auto. }
+    { inversion H; subst; auto. Cases.rewrite_all. auto. }
+    { inversion H; subst; auto. f_equal; auto. }
+  Qed.
+
+(*
+  Lemma atomic_instantiates
+  : forall (tus tvs : tenv typ) r r' result (e : expr sym),
+      (forall y : expr sym,
+         SolveTypeClass (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e) ->
+         forall (tus0 tvs0 : tenv typ) (r0 : PR) (r'0 : R) (result0 : T),
+           setoid_fold' tus0 y tvs0 r0 = Some (result0, r'0) ->
+           instantiates r'0 r0) ->
+      atomic tus
+             (fun (e0 : expr sym)
+                  (_ : TransitiveClosure.rightTrans (expr_acc (func:=sym)) e0 e) =>
+                setoid_fold' tus e0) tvs r = Some (result, r') ->
+      instantiates r' r.
+  Proof.
+    clear - Hatomic; intros.
+    eapply Hatomic; eauto. simpl.
+    intros. eapply H; eauto.
+  Qed.
+*)
+
+  Lemma pr_type_R_to_PR : forall x,
+                            pr_type (R_to_PR x) (typeForR x).
+  Proof.
+    clear. induction x; simpl.
+    constructor.
+    constructor; auto.
+    constructor; auto.
+  Qed.
+
+  Ltac try_atomic :=
+    try match goal with
+          | H : atomic _ _ _ _ = _ |- _ =>
+            solve [ eapply Hatomic in H; eauto ]
+        end.
+
+  Lemma setoid_fold'_sound
+  : forall tus e tvs r r' result,
+      setoid_fold' tus e tvs r = Some (result, r') ->
+      setoid_fold_spec tus tvs e r result r'.
+  Proof.
+    intro.
+    refine (@expr_strong_ind _ _ _).
+    destruct e; simpl; intros; rewrite setoid_fold'_eta in H0;
+      try_atomic.
+    { forward_unsafe; inv_all; subst; try_atomic.
+      generalize (H _ _ _ _ _ _ H4); clear H4.
+      generalize (H _ _ _ _ _ _ H2); clear H2 H.
+      unfold setoid_fold_spec; intros.
+      simpl in H2. unfold type_of_apply in H2.
+      forward; inv_all; subst.
+      edestruct H4; clear H4; eauto.
+      { constructor; auto. constructor. }
+      { destruct H5.
+        apply inv_instantiates_functorial in H.
+        simpl in *. inv_all; subst. intuition.
+        edestruct H3; clear H3; eauto using pr_type_R_to_PR.
+        destruct H8.
+        forward. red_exprD. forward; inv_all; subst.
+        eapply instantiates_R_to_PR in H7. subst.
+        assert (t3 = typeForR l).
+        { eapply typeof_expr_exprD_same_type with (us := us) (vs := join_env vs) (e := e2).
+          unfold exprD. rewrite split_env_join_env. rewrite H12. reflexivity.
+          rewrite typeof_env_join_env.
+          apply WellTyped_env_typeof_env in H; subst; auto. }
+        subst.
+        specialize (H8 _ H).
+        specialize (H5 _ H).
+        rewrite H12 in *. rewrite H11 in *.
+        assert (TR us (join_env vs) r' (app tus (typeof_env (join_env vs)) t t0 l r') (t5 vs (t6 vs))).
+        { apply WellTyped_env_typeof_env in H; subst.
+          eapply Happ; eauto.
+          unfold exprD. rewrite split_env_join_env.
+          instantiate (1 := e1).
+          rewrite H11. reflexivity. }
+        { rewrite typeof_env_join_env in H7. assumption. } } }
+    { destruct r; try_atomic.
+      consider (setoid_fold' tus e (t :: tvs) r); intros; try_atomic; intros.
+      destruct p. inv_all; subst.
+      red. intros.
+      simpl in *; forward; inv_all; subst.
+      inversion H1; clear H1; subst.
+      specialize (@H _ _ _ _ _ _ H0 _ H4 H2).
+      destruct H. destruct H1.
+      split.
+      { constructor. auto. }
+      split.
+      { f_equal. auto. }
+      { intros.
+        red_exprD.
+        rewrite typ_cast_typ_refl.
+        specialize (H3 _ H5).
+        forward.
+        assert (TR us (join_env vs) (Rpointwise t r0)
+                   (abs (typeof_env us) (typeof_env (join_env vs)) t t1 r0)
+                   (fun x : typD ts nil t => t0 (HList.Hcons x vs))).
+        { eapply Habs; eauto.
+          instantiate (1 := (Abs t e)).
+          unfold exprD. rewrite split_env_join_env.
+          red_exprD.
+          rewrite typ_cast_typ_refl. rewrite H3. reflexivity.
+          intro. specialize (H6 (HList.Hcons x vs)).
+          auto. }
+        { rewrite typeof_env_join_env in *.
+          apply WellTyped_env_typeof_env in H5. subst. auto. } } }
+  Qed.
+
+(*
   Lemma setoid_fold'_types_lem
   : forall e tus tvs r r' result t,
       pr_type r t ->
@@ -396,15 +477,6 @@ Section setoid.
     { eapply Hatomic_typed in H2; eauto. }
   Qed.
 
-  Lemma typeof_env_join_env : forall a (b : HList.hlist (typD ts nil) a),
-    typeof_env (join_env b) = a.
-  Proof.
-    clear.
-    induction a; simpl; intros.
-    { rewrite (HList.hlist_eta b). reflexivity. }
-    { rewrite (HList.hlist_eta b). simpl. rewrite IHa.
-      reflexivity. }
-  Qed.
 
   Lemma instantiates_pr_type : forall r r',
                                  instantiates r' r ->
@@ -418,7 +490,7 @@ Section setoid.
       pr_type r t ->
       (forall y : expr sym,
          SolveTypeClass (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e) ->
-         forall (us0 : env (typD ts)) (tvs0 : tenv typ) 
+         forall (us0 : env (typD ts)) (tvs0 : tenv typ)
                 (r0 : PR) (r'0 : R) (result0 : T) (t0 : typ),
            pr_type r0 t0 ->
            typeof_expr (typeof_env us0) tvs0 y = Some t0 ->
@@ -559,6 +631,7 @@ Section setoid.
         simpl; Cases.rewrite_all; auto. } }
     { eapply atomic_sound_lem in H2; eauto. }
   Qed.
+**)
 
   Definition setoid_fold (tus tvs : tenv typ) (e : expr sym) (r : R) : option T :=
     match setoid_fold' tus e tvs (R_to_PR r) with
@@ -578,24 +651,31 @@ Section setoid.
     unfold setoid_fold. intros.
     consider (setoid_fold' tus e tvs (R_to_PR r)); intros; try congruence.
     destruct p; intuition. inv_all; subst.
-    eapply WellTyped_env_typeof_env in H0.
-    eapply WellTyped_env_typeof_env in H1. subst.
-    generalize (setoid_fold'_instantiates _ _ _ _ H); intros.
-    eapply instantiates_R_to_PR in H0. subst.
-    eapply setoid_fold'_sound_lem in H.
-    { unfold exprD in *.
+    eapply setoid_fold'_sound in H. red in H.
+    edestruct H; eauto using pr_type_R_to_PR.
+    { assert (exists v, exprD us vs e (typeForR r) = Some v); eauto.
+      eapply typeof_expr_exprD in H3.
+      eapply WellTyped_env_typeof_env in H0.
+      eapply WellTyped_env_typeof_env in H1. subst.
+      auto. }
+    { destruct H4.
+      specialize (H5 _ H0).
+      unfold exprD in *.
       consider (split_env vs); intros.
-      cutrewrite <- (x0 = typeof_env vs) in H.
-      forward. inv_all. subst.
-      specialize (H1 h).
+      forward. inv_all; subst.
+      eapply instantiates_R_to_PR in H3; subst.
+      cutrewrite (tvs = x0) in H5.
+      rewrite H6 in *. specialize (H5 h).
       cutrewrite (vs = join_env h). auto.
-      change h with (projT2 (existT (HList.hlist (typD ts nil)) x0 h)).
-      etransitivity. symmetry; eapply join_env_split_env.
-      rewrite H0. reflexivity.
-      change x0 with (projT1 (existT _ x0 h)).
-      rewrite <- H0. rewrite split_env_projT1. reflexivity. }
-    { eapply pr_type_R_to_PR. }
-    { eapply typeof_expr_exprD. eauto. }
+      eapply split_env_projT2_join_env; eauto.
+      change x0 with (projT1 (existT (HList.hlist (typD ts nil)) x0 h)).
+      match goal with
+        | H : _ = ?X |- _ = projT1 ?Y =>
+          change Y with X ; rewrite <- H2
+      end.
+      rewrite split_env_projT1.
+      eapply WellTyped_env_typeof_env in H1.
+      subst. reflexivity. }
   Qed.
 
 End setoid.

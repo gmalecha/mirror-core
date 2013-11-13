@@ -114,6 +114,24 @@ Section Env.
     f_equal; eauto. destruct a; reflexivity.
   Qed.
 
+  Lemma split_env_projT2_join_env : forall x h vs,
+    split_env vs = @existT _ _ x h ->
+    vs = join_env h.
+  Proof.
+    induction h; destruct vs; simpl; intros; inversion H; auto.
+    subst.
+    rewrite join_env_split_env. destruct s; auto.
+  Qed.
+
+  Lemma typeof_env_join_env : forall a (b : HList.hlist _ a),
+    typeof_env (join_env b) = a.
+  Proof.
+    induction a; simpl; intros.
+    { rewrite (HList.hlist_eta b). reflexivity. }
+    { rewrite (HList.hlist_eta b). simpl. rewrite IHa.
+      reflexivity. }
+  Qed.
+
 End Env.
 
 Arguments join_env {_ _ _} _.
