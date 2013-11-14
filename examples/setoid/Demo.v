@@ -1,4 +1,9 @@
-Require Import MirrorCore.Ext.SetoidRewrite.
+Require Import Relations Morphisms.
+Require Import ExtLib.Core.RelDec.
+Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
+Require Import MirrorCore.Ext.Expr.
+Require Import MirrorCore.Ext.SetoidFold.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -28,23 +33,29 @@ Section demo.
               end
   ; sym_eqb := fun _ _ => None
   }.
-  Inductive Rbase := Impl | Eq.
-  Definition typeForRbase (_ : Rbase) : typ := tyProp.
+  Inductive Rbase := Impl | Eq (t : typ).
+  Definition typeForRbase (r : Rbase) : typ :=
+    match r with
+      | Impl => tyProp
+      | Eq t => t
+    end.
   Definition T := expr sym.
+
 
   Fixpoint RD (r : R Rbase) : relation (typD ts nil (typeForR typeForRbase r)) :=
     match r with
       | Rfunctorial l r =>
         (fun f g => forall x y, RD l x y -> RD r (f x) (g y))
+      | Rpointwise l r =>
+        (fun f g => forall x, RD r (f x) (g x))
       | Rinj Impl => Basics.impl
-      | Rinj Eq => @eq Prop
+      | Rinj (Eq t) => @eq (typD ts nil t)
     end.
- Import ExtLib.Core.RelDec.
-  
+
   Local Instance RelDec_Rbase : RelDec (@eq Rbase) :=
   { rel_dec := fun a b =>
                  match a , b with
-                   | Eq , Eq => true
+                   | Eq t , Eq t' => t ?[ eq ] t'
                    | Impl , Impl => true
                    | _ , _ => false
                  end
@@ -52,7 +63,7 @@ Section demo.
 
   Fixpoint unify (r : R Rbase) (p : PR Rbase) : bool :=
     match p with
-      | PRguess _ => true
+      | PRguess => true
       | PRinj i => match r with
                      | Rinj i' => i ?[ eq ] i'
                      | _ => false
@@ -60,6 +71,11 @@ Section demo.
       | PRfunctorial a b =>
         match r with
           | Rfunctorial a' b' => andb (unify a' a) (unify b' b)
+          | _ => false
+        end
+      | PRpointwise a b =>
+        match r with
+          | Rpointwise a' b' => andb (a ?[ eq ] a') (unify b' b)
           | _ => false
         end
     end.
@@ -76,8 +92,9 @@ Section demo.
     else
       let results :=
           match f with
-            | Inj And => (Rfunctorial (Rinj Eq) (Rfunctorial (Rinj Eq) (Rinj Eq)) ::
-                                      Rfunctorial (Rinj Impl) (Rfunctorial (Rinj Impl) (Rinj Impl)) :: nil)
+            | Inj And =>
+              (Rfunctorial (Rinj (Eq tyProp)) (Rfunctorial (Rinj (Eq tyProp)) (Rinj (Eq tyProp))) ::
+               Rfunctorial (Rinj Impl) (Rfunctorial (Rinj Impl) (Rinj Impl)) :: nil)
             | _ => nil
           end
       in
@@ -85,6 +102,8 @@ Section demo.
         | nil => None
         | r :: _ => Some r
       end.
+
+
 
   Definition atomic (tus : tenv typ) (e : expr sym) :
     (forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e -> tenv typ -> PR Rbase -> option (T * R Rbase))
@@ -99,12 +118,17 @@ Section demo.
       exprD us vs t (typeForR typeForRbase r) = Some v' /\
       RD r v v'.
 
+  Print SRW_Algo.
+
+  Definition algo : SRW_Algo sym (expr sym) :=
+    @Build_SRW_Algo Rbase atomic app abs.
+
   Theorem Hatomic
   : forall e r r',
       properAt e r = Some r' ->
-      instantiates typeForRbase r' r /\
+      instantiates r' r /\
       forall us vs x result,
-        @atomic (typeof_env us) e (fun e _ => setoid_rewrite _ properAt atomic app (typeof_env us) e) (typeof_env vs) r' = result ->
+        @atomic (typeof_env us) e (fun e _ => setoid_fold _ properAt atomic app (typeof_env us) e) (typeof_env vs) r' = result ->
         exprD us vs e (typeForR typeForRbase r') = Some x ->
         TR us vs r' result x.
   Proof.
@@ -148,20 +172,20 @@ Section demo.
   Qed.
 
   Eval compute in
-      @setoid_rewrite _ _ _ _ _ properAt atomic app nil (Inj And) (tyProp :: nil)
+      @setoid_fold _ _ _ _ _ properAt atomic app nil (Inj And) (tyProp :: nil)
                       (PRfunctorial (PRguess _ tyProp) (PRfunctorial (PRguess _ tyProp) (PRinj Impl))).
 
   Eval compute in typeof_expr nil (tyProp :: nil) (App (Inj And) (Var 0)).
 
   Eval compute in
-      @setoid_rewrite _ _ _ _ _ properAt atomic app nil (Var 0) (tyProp :: nil)
+      @setoid_fold _ _ _ _ _ properAt atomic app nil (Var 0) (tyProp :: nil)
                       (PRinj Impl).
 
   Eval compute in
-      @setoid_rewrite _ _ _ _ _ properAt atomic app nil (App (Inj And) (Var 0)) (tyProp :: nil)
+      @setoid_fold _ _ _ _ _ properAt atomic app nil (App (Inj And) (Var 0)) (tyProp :: nil)
                       (PRfunctorial (PRguess _ tyProp) (PRinj Impl)).
 
   Eval compute in
-      @setoid_rewrite _ _ _ _ _ properAt atomic app nil (App (App (Inj And) (Var 0)) (Var 0)) (tyProp :: nil)
+      @setoid_fold _ _ _ _ _ properAt atomic app nil (App (App (Inj And) (Var 0)) (Var 0)) (tyProp :: nil)
                       (PRinj Eq).
 End demo.
