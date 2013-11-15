@@ -175,7 +175,7 @@ Section with_expr.
         { clear - H2 H.
           intros. rewrite hlist_app_assoc'; eauto with typeclass_instances.
           generalize (hlist_app a b).
-          generalize (app_assoc_reverse vars0 x x0).
+          generalize (app_ass_trans vars0 x x0).
           generalize dependent x2. generalize dependent P0.
           rewrite <- app_ass. intuition.
           rewrite H in *. inv_all; subst.
@@ -204,8 +204,9 @@ Section with_expr.
                 replace X with Y; try reflexivity
             end.
             intro X; apply X.
-            generalize e0. generalize e1.
-            rewrite <- e1. intros. uip_all. reflexivity. } } }
+            generalize (app_ass_trans vars0 x x0).
+            generalize e0. rewrite <- H.
+            uip_all. reflexivity. } } }
       { clear - H2. rewrite <- app_ass.
         rewrite H2. congruence. } }
   Qed.
