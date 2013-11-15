@@ -8,7 +8,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      ExprLift ExprUnifySyntactic \
 	      ExprSubst LemmaExt \
 	      Expr FMapSubst EnvFunc ExprTactics \
-	      SetoidFold
+	      SetoidFold AppFull
 LAMBDA := ExprCore ExprT ExprDI
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp SymI \
