@@ -3,10 +3,13 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprDFacts.
 Require Import MirrorCore.Ext.ExprD3.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Module EXPR_DENOTE := Build_ExprDenote EXPR_DENOTE_core.
 
 Include EXPR_DENOTE.
 

@@ -370,5 +370,3 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
 
   End with_envs.
 End EXPR_DENOTE_core.
-
-Module EXPR_DENOTE := Build_ExprDenote EXPR_DENOTE_core.
