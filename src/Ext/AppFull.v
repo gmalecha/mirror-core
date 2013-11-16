@@ -104,9 +104,38 @@ Section app_full.
         congruence. }
     Qed.
 
+    Lemma exprD_apps : forall es e t,
+      exprD us vs (apps e es) t = apps_sem e es t.
+    Proof.
+      induction es; simpl; intros.
+      { unfold apps_sem.
+        rewrite exprD_type_cast. forward. }
+      { rewrite IHes.
+        unfold apps_sem.
+        simpl. forward.
+        consider (typeof_expr (typeof_env us) (typeof_env vs) a); intros.
+        { destruct t0; forward.
+          simpl.
+          consider (typ_eqb t0_1 t1); intros; subst.
+          { red_exprD. Cases.rewrite_all.
+            forward. rewrite typ_cast_typ_refl. reflexivity. }
+          { forward. exfalso.
+            rewrite exprD_type_cast in H3.
+            rewrite H0 in *.
+            rewrite typ_cast_typ_neq in * by auto.
+            congruence. } }
+        { forward. subst.
+          rewrite exprD_type_cast in H3. rewrite H0 in *. congruence. } }
+    Qed.
+
 (*
-    Lemma apps_sem_cons : forall e t,
-                            apps_sem f (e::es) t =
+    Check apply_sem.
+
+    Lemma apps_sem_cons : forall tf f t x e es,
+                            @apply_sem tf f (e::es) t = x.
+      simpl.
+                            match tf 
+                            match typeof_expr 
                             match exprD us vs f
 
     Lemma apps_app
@@ -420,7 +449,52 @@ Section app_full.
         specialize (@H _ eq_refl).
         cutrewrite (join_env h = vs) in Happ. auto.
         rewrite <- split_env_projT2_join_env with (vs := vs); auto. }
-      { admit. } }
+      { rewrite exprD_apps in H2.
+        unfold apps_sem in H2.
+        simpl in H2.
+        consider (typeof_expr (typeof_env us) (typeof_env vs) l0).
+        { intros.
+          consider (typeof_expr (typeof_env us) (typeof_env vs) (fst x)).
+          { intros. destruct t0; simpl in H4; try solve [ inversion H4 ].
+            consider (typ_eqb t0_1 t1); intros. subst.
+            { consider (exprD us vs (App l0 (fst x)) t0_2).
+              { (* intros.
+                red_exprD. rewrite H2 in H4.
+                consider (exprD us vs l0 (tyArr t1 t0_2)); try solve [ inversion 2 ]; intros.
+                consider (exprD us vs (fst x) t1); try solve [ inversion 2 ]; intros.
+                rewrite typ_cast_typ_refl in *. inv_all. subst.
+                unfold exprD in *.
+                consider (split_env vs); intros.
+                consider (exprD' us x0 l0 (tyArr t1 t0_2)); try solve [ inversion 2 ]; intros.
+                consider (exprD' us x0 (fst x) t1); try solve [ inversion 2 ]; intros.
+                inv_all; subst.
+                replace vs with (join_env (projT2 (split_env vs))).
+                rewrite typeof_env_join_env.
+                Lemma projT1_split_env_typeof_env
+                : forall vs,
+                    projT1 (split_env (typD := typD ts) vs) = typeof_env vs.
+                Proof.
+                Admitted.
+                replace (do_app l0 l_res (x :: l) (typeof_env us) (projT1 (split_env vs)))
+                   with (do_app l0 l_res (x :: l) (typeof_env us) (typeof_env vs)).
+                { rewrite H. simpl. admit. 
+                  cutrewrite (val = apply h _ t (t4 h)).
+eapply Happ.
+
+                cut (R t val (do_app l0 l_res (x :: l) (typeof_env us) (typeof_env vs))
+                          us (join_env (projT2 (split_env vs)))).
+                { rewrite projT1_split_env_typeof_env at 1.
+
+                replace (projT1 (split_env 
+                
+                                            
+                } *) admit.
+                
+              }
+              { inversion 2. } }
+            { inversion H5. } }
+          { inversion 2. } }
+        { inversion 2. } } }
     Qed.
   End sem_fold.
 
