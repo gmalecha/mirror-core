@@ -86,16 +86,33 @@ Section app_full.
                                app_fold e = result ->
                                R e result.
     Proof.
-      induction e; simpl; intros; try solve [ subst; eauto ].
-      assert (Forall (fun x => R (fst x) (snd x)) ((e2, app_fold e2) :: nil)).
-      { repeat constructor; simpl. eauto. }
-      cutrewrite (App e1 e2 = apps e1 (map fst ((e2, app_fold e2) :: nil))); [ | reflexivity ].
-      generalize dependent ((e2, app_fold e2) :: nil).
-      clear - Happ IHe1.
-      revert IHe1 result.
-      induction e1; try solve [ simpl; intros; subst; eauto using Happ ].
-      { intros; subst; simpl in *.
-    Admitted.
+      refine (expr_strong_ind _ _).
+      destruct e; simpl; intros; try solve [ subst; eauto ].
+      { assert (Forall (fun x => R (fst x) (snd x)) ((e2, app_fold e2) :: nil)).
+        { repeat constructor; simpl. eapply H; eauto with typeclass_instances. }
+        cutrewrite (App e1 e2 = apps e1 (map fst ((e2, app_fold e2) :: nil)));
+          [ | reflexivity ].
+        generalize dependent ((e2, app_fold e2) :: nil).
+        assert (forall y : expr sym,
+                  SolveTypeClass
+                    (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e1) ->
+                  forall result : T, app_fold y = result -> R y result).
+        { clear - H. intuition.
+          eapply H; eauto.
+          eapply TransitiveClosure.RTStep. eapply X.
+          constructor. }
+        revert H0. revert result. clear H.
+        induction e1; simpl; intros; subst; eauto using Happ with typeclass_instances.
+        { change (apps (App e1_1 e1_2) (map fst l))
+            with (apps e1_1 (map fst ((e1_2,app_fold e1_2) :: l))).
+          eapply IHe1_1; eauto.
+          { clear - H0.
+            intros. eapply H0; eauto.
+            red. eapply TransitiveClosure.RTStep. eapply X. constructor. }
+          { constructor; eauto. simpl.
+            eapply H0; eauto with typeclass_instances. } } }
+      { subst. eapply Habs. eapply H; eauto with typeclass_instances. }
+    Qed.
 
   End fold.
 
