@@ -193,35 +193,66 @@ Section app_full.
            end) l ((r,app_fold r) :: nil)
       end.
 
-    Variable R : expr sym -> T' -> env (typD ts) -> env (typD ts) -> Prop.
-    Hypothesis Hvar : forall us vs v,
-                        R (Var v) (do_var v (typeof_env us) (typeof_env vs)) us vs.
-    Hypothesis Huvar : forall us vs v,
-                         R (UVar v) (do_uvar v (typeof_env us) (typeof_env vs)) us vs.
-    Hypothesis Hinj : forall us vs i,
-                        R (Inj i) (do_inj i (typeof_env us) (typeof_env vs)) us vs.
-    Hypothesis Habs : forall us vs t e e_res,
-                        (forall x, R e (e_res (typeof_env us) (t :: typeof_env vs))
-                                     us
-                                     (@existT _ _ t x :: vs)) ->
-                        R (Abs t e)
-                          (do_abs t e e_res (typeof_env us) (typeof_env vs))
-                          us vs.
-    Hypothesis Happ : forall us vs l l_res rs,
-                        R l (l_res (typeof_env us) (typeof_env vs)) us vs ->
-                        Forall (fun x => R (fst x) (snd x (typeof_env us) (typeof_env vs)) us vs) rs ->
-                        R (apps l (map fst rs))
-                          (do_app l l_res rs (typeof_env us) (typeof_env vs))
-                          us vs.
+    Variable R_t : expr sym -> T' -> tenv typ -> tenv typ -> Prop.
+    Variable R_s : expr sym -> T' -> env (typD ts) -> env (typD ts) -> Prop.
 
-    Theorem app_fold_sound : forall us e vs result,
-                               app_fold e (typeof_env us) (typeof_env vs) = result ->
-                               R e result us vs.
+    Hypothesis Hvar
+    : forall tus tvs v,
+            R_t (Var v) (do_var v tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s (Var v) (do_var v tus tvs) us vs.
+    Hypothesis Huvar
+    : forall tus tvs v,
+            R_t (UVar v) (do_uvar v tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s (UVar v) (do_uvar v tus tvs) us vs.
+    Hypothesis Hinj
+    : forall tus tvs v,
+            R_t (Inj v) (do_inj v tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s (Inj v) (do_inj v tus tvs) us vs.
+    Hypothesis Habs
+    : forall tus tvs t e e_res,
+        R_t e (e_res tus (t :: tvs)) tus (t :: tvs) ->
+           R_t (Abs t e) (do_abs t e e_res tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             (forall x,
+                R_s e (e_res tus (t :: tvs)) us (@existT _ _ t x :: vs)) ->
+             R_s (Abs t e) (do_abs t e e_res tus tvs) us vs.
+    Hypothesis Happ
+    : forall tus tvs l l_res rs,
+        R_t l (l_res tus tvs) tus tvs ->
+        Forall (fun x => R_t (fst x) (snd x tus tvs) tus tvs) rs ->
+           R_t (apps l (map fst rs)) (do_app l l_res rs tus tvs) tus tvs
+        /\ forall us vs,
+             R_s l (l_res tus tvs) us vs ->
+             Forall (fun x => R_s (fst x) (snd x tus tvs) us vs) rs ->
+             R_s (apps l (map fst rs))
+                 (do_app l l_res rs tus tvs)
+                 us vs.
+
+(*
+    Theorem app_fold_sound
+    : forall tus e tvs result,
+        app_fold e tus tvs = result ->
+           R_t e result tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s e result us vs.
     Proof.
-      intro us.
+      intro tus.
       refine (expr_strong_ind _ _).
       destruct e; simpl; intros; try solve [ subst; eauto ].
-      { assert (Forall (fun x => R (fst x) (snd x (typeof_env us) (typeof_env vs)) us vs)
+      { assert (Forall (fun x => R_t (fst x) (snd x tus tvs) tus tvs)
                        ((e2, app_fold e2) :: nil)).
         { repeat constructor; simpl. eapply H; eauto with typeclass_instances. }
         cutrewrite (App e1 e2 = apps e1 (map fst ((e2, app_fold e2) :: nil)));
@@ -251,6 +282,7 @@ Section app_full.
           specialize (H0 e1 (@existT _ _ t x :: vs) _ _ eq_refl). eauto. } }
       { subst. eapply Habs. intros; eapply H; eauto with typeclass_instances. }
     Qed.
+*)
 
   End fold.
 
@@ -265,29 +297,6 @@ Section app_full.
              tenv typ -> tenv typ -> T
   }.
 
-  Record AppFullFoldArgsOk {T} (Args : AppFullFoldArgs T) : Type :=
-  { TR : expr sym -> T -> env (typD ts) -> env (typD ts) -> Prop
-  ; Hvar : forall us vs v,
-              TR (Var v) (Args.(do_var) v (typeof_env us) (typeof_env vs)) us vs
-  ; Huvar : forall us vs v,
-               TR (UVar v) (Args.(do_uvar) v (typeof_env us) (typeof_env vs)) us vs
-  ; Hinj : forall us vs i,
-             TR (Inj i) (Args.(do_inj) i (typeof_env us) (typeof_env vs)) us vs
-  ; Habs : forall us vs t e e_res,
-              (forall x, TR e (e_res (typeof_env us) (t :: typeof_env vs))
-                           us
-                           (@existT _ _ t x :: vs)) ->
-              TR (Abs t e)
-                (Args.(do_abs) t e e_res (typeof_env us) (typeof_env vs))
-                us vs
-  ; Happ : forall us vs l l_res rs,
-             TR l (l_res (typeof_env us) (typeof_env vs)) us vs ->
-             Forall (fun x => TR (fst x) (snd x (typeof_env us) (typeof_env vs)) us vs) rs ->
-             TR (apps l (map fst rs))
-               (Args.(do_app) l l_res rs (typeof_env us) (typeof_env vs))
-               us vs
-  }.
-
   Definition app_fold_args {T} (Args : AppFullFoldArgs T)
   : expr sym -> tenv typ -> tenv typ -> T :=
     match Args with
@@ -296,6 +305,54 @@ Section app_full.
         @app_fold T do_var do_uvar do_inj do_abs do_app
     end.
 
+  Record AppFullFoldArgsOk {T} (Args : AppFullFoldArgs T) : Type :=
+  { R_t : expr sym -> T -> tenv typ -> tenv typ -> Prop
+  ; R_s : expr sym -> T -> env (typD ts) -> env (typD ts) -> Prop
+  ; Hvar
+    : forall tus tvs v,
+            R_t (Var v) (Args.(do_var) v tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s (Var v) (Args.(do_var) v tus tvs) us vs
+  ; Huvar
+    : forall tus tvs v,
+            R_t (UVar v) (Args.(do_uvar) v tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s (UVar v) (Args.(do_uvar) v tus tvs) us vs
+  ; Hinj
+    : forall tus tvs v,
+            R_t (Inj v) (Args.(do_inj) v tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             R_s (Inj v) (Args.(do_inj) v tus tvs) us vs
+  ; Habs
+    : forall tus tvs t e e_res,
+        R_t e (e_res tus (t :: tvs)) tus (t :: tvs) ->
+           R_t (Abs t e) (Args.(do_abs) t e e_res tus tvs) tus tvs
+        /\ forall us vs,
+             WellTyped_env tus us ->
+             WellTyped_env tvs vs ->
+             (forall x,
+                R_s e (e_res tus (t :: tvs)) us (@existT _ _ t x :: vs)) ->
+             R_s (Abs t e) (Args.(do_abs) t e e_res tus tvs) us vs
+  ; Happ
+    : forall tus tvs l l_res rs,
+        R_t l (l_res tus tvs) tus tvs ->
+        Forall (fun x => R_t (fst x) (snd x tus tvs) tus tvs) rs ->
+           R_t (apps l (map fst rs)) (Args.(do_app) l l_res rs tus tvs) tus tvs
+        /\ forall us vs,
+             R_s l (l_res tus tvs) us vs ->
+             Forall (fun x => R_s (fst x) (snd x tus tvs) us vs) rs ->
+             R_s (apps l (map fst rs))
+                 (Args.(do_app) l l_res rs tus tvs)
+                 us vs
+  }.
+
+(*
   Section sem_fold.
     Variable TT : Type.
     Let T := tenv typ -> tenv typ -> TT.
@@ -309,6 +366,8 @@ Section app_full.
 
     Definition semArgs : AppFullFoldArgs TT :=
       @Build_AppFullFoldArgs TT do_var do_uvar do_inj do_abs do_app.
+
+    Variable 
 
     Variable R : forall t, typD ts nil t -> TT -> env (typD ts) -> env (typD ts) -> Prop.
     Hypothesis Hvar : forall us tvs t v val,
@@ -497,5 +556,6 @@ eapply Happ.
         { inversion 2. } } }
     Qed.
   End sem_fold.
+*)
 
 End app_full.
