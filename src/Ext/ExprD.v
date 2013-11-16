@@ -24,3 +24,4 @@ Create HintDb exprD_rw discriminated.
 
 Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Sym : exprD_rw.
 Hint Rewrite exprD'_Abs exprD'_Var exprD'_App exprD'_UVar exprD'_Sym : exprD_rw.
+Hint Rewrite typ_cast_typ_refl typ_cast_typ_neq using congruence : exprD_rw.

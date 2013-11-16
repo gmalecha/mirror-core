@@ -551,6 +551,216 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       red in H1. rewrite H1 in *. inv_all; subst. reflexivity.
     Qed.
 
+    Theorem exprD'_type_cast
+    : forall e tvs t,
+        exprD' us tvs e t =
+        match typeof_expr (typeof_env us) tvs e with
+          | None => None
+          | Some t' =>
+            match typ_cast_typ ts nil t' t with
+              | None => None
+              | Some cast =>
+                match exprD' us tvs e t' with
+                  | None => None
+                  | Some x =>
+                    Some (fun gs => cast (fun x => x) (x gs))
+                end
+            end
+        end.
+    Proof.
+      induction e; simpl; intros.
+      { repeat match goal with
+                 | |- context [ match ?X with _ => _ end ] =>
+                   consider X; intros
+               end.
+        { rewrite exprD'_Var in *.
+          generalize (typ_cast_typ_eq _ _ _ _ H0); intros; subst.
+          rewrite H1.
+          rewrite typ_cast_typ_refl in H0.
+          inv_all; subst. reflexivity. }
+        { generalize (typ_cast_typ_eq _ _ _ _ H0); intros; subst; congruence. }
+        { rewrite exprD'_Var.
+          change (
+              let zzz z (pf : Some z = nth_error tvs v)
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
+                  (fun e : hlist (typD ts nil) tvs =>
+                                  match
+                                    pf in (_ = t'')
+                                    return
+                                    (match t'' with
+                                       | Some t1 => typD ts nil t1
+                                       | None => unit
+                                     end -> typD ts nil t)
+                                  with
+                                    | eq_refl =>
+                                      fun x : typD ts nil z => cast (fun x0 : Type => x0) x
+                                  end (hlist_nth e v))
+              in
+              match
+                     nth_error tvs v as z
+                     return
+                     (z = nth_error tvs v ->
+                      option (hlist (typD ts nil) tvs -> typD ts nil t))
+                   with
+                     | Some z =>
+                       fun pf : Some z = nth_error tvs v =>
+                         match typ_cast_typ ts nil z t with
+                           | Some cast =>
+                             Some (zzz z pf cast)
+                           | None => None
+                         end
+                     | None => fun _ : None = nth_error tvs v => None
+              end eq_refl = None).
+          intro zzz; clearbody zzz; revert zzz.
+          rewrite H. intros.
+          match goal with
+            | H : ?X = _ |- match ?Y with _ => _ end = _ =>
+              change Y with X; rewrite H
+          end; auto. }
+        { rewrite exprD'_Var.
+          match goal with
+            | |- match ?X with
+                   | Some z => @?B z
+                   | None => ?Y
+                 end ?N = ?M =>
+              change (
+                  let k := B in
+                  match X with
+                    | Some z => k z
+                    | None => Y
+                  end N = M) ;
+                intro k; clearbody k; revert k
+          end.
+          rewrite H; auto. } }
+      { repeat match goal with
+                 | |- context [ match ?X with _ => _ end ] =>
+                   consider X; intros
+               end.
+        { rewrite exprD'_Sym in *.
+          unfold symAs in *.
+          generalize dependent (symD f).
+          rewrite H. simpl; intros.
+          rewrite typ_cast_typ_refl in *. inv_all; subst.
+          generalize (typ_cast_typ_eq _ _ _ _ H0); intros; subst.
+          rewrite typ_cast_typ_refl in *. inv_all; subst.
+          reflexivity. }
+        { generalize (typ_cast_typ_eq _ _ _ _ H0); intros; subst.
+          auto. }
+        { rewrite exprD'_Sym. unfold symAs.
+          generalize (symD f). rewrite H.
+          simpl. intros.
+          match goal with
+            | H : ?X = _ |- match match ?Y with _ => _ end with _ => _ end = _ =>
+              change Y with X ; rewrite H
+          end. auto. }
+        { rewrite exprD'_Sym. unfold symAs.
+          generalize (symD f).
+          rewrite H. auto. } }
+      { rewrite exprD'_App.
+        specialize (IHe1 tvs); specialize (IHe2 tvs).
+        consider (typeof_expr (typeof_env us) tvs e1); intros; auto.
+        consider (typeof_expr (typeof_env us) tvs e2); intros.
+        { destruct t0; simpl in *; auto.
+          consider (typ_eqb t0_1 t1).
+          { intros; subst.
+            rewrite IHe1; clear IHe1.
+            rewrite IHe2; clear IHe2.
+            repeat rewrite typ_cast_typ_refl.
+            rewrite exprD'_App. Cases.rewrite_all.
+            match goal with
+              | |- _ = match ?X with _ => _ end =>
+                consider X; intros
+            end; intros.
+            { generalize (typ_cast_typ_eq _ _ _ _ H1); intros; subst.
+              forward.
+              rewrite typ_cast_typ_refl in H1.
+              rewrite typ_cast_typ_refl in H4.
+              inv_all; subst. auto. }
+            { match goal with
+                | H : ?X = _ |- context [ ?Y ] =>
+                  change Y with X ; rewrite H
+              end.
+              forward. } }
+          { intros.
+            rewrite IHe1.
+            rewrite typ_cast_typ_refl.
+            rewrite IHe2.
+            rewrite typ_cast_typ_neq by auto.
+            forward. } }
+        { destruct t0; auto.
+          rewrite IHe1.
+          rewrite typ_cast_typ_refl.
+          rewrite H1. forward. } }
+      { specialize (IHe (t :: tvs)).
+        rewrite exprD'_Abs.
+        consider (typeof_expr (typeof_env us) (t :: tvs) e); intros.
+        { destruct t0; try rewrite typ_cast_typ_neq by congruence; auto.
+          rewrite exprD'_Abs.
+          rewrite typ_cast_typ_refl.
+          rewrite IHe; clear IHe.
+          match goal with
+            | |- _ = match ?X with _ => _ end =>
+              consider X; intros
+          end.
+          { generalize (typ_cast_typ_eq  _ _ _ _ H0).
+            intros. inversion H1; clear H1; subst.
+            repeat rewrite typ_cast_typ_refl in *.
+            inv_all; subst.
+            forward. }
+          { eapply typ_cast_typ_neq' in H0.
+            forward. exfalso.
+            apply H0. f_equal.
+            generalize (typ_cast_typ_eq _ _ _ _ H1); intros; auto.
+            generalize (typ_cast_typ_eq _ _ _ _ H2); intros; auto. } }
+        { destruct t0; auto.
+          rewrite H0. forward. } }
+      { rewrite exprD'_UVar. unfold lookupAs.
+        rewrite nth_error_typeof_env.
+        forward; subst.
+        simpl.
+        rewrite exprD'_UVar. unfold lookupAs.
+        rewrite H0. simpl.
+        rewrite typ_cast_typ_refl.
+        match goal with
+          | |- match match ?X with _ => _ end with _ => _ end =
+               match ?Y with _ => _ end =>
+            change Y with X; destruct X
+        end; auto. }
+    Qed.
+
+    Theorem exprD_type_cast
+    : forall e vs t,
+        exprD us vs e t =
+        match typeof_expr (typeof_env us) (typeof_env vs) e with
+          | None => None
+          | Some t' =>
+            match typ_cast_typ ts nil t' t with
+              | None => None
+              | Some cast =>
+                match exprD us vs e t' with
+                  | None => None
+                  | Some x =>
+                    Some (cast (fun x => x) x)
+                end
+            end
+        end.
+    Proof.
+      intros. unfold exprD.
+      consider (split_env vs); intros.
+      rewrite exprD'_type_cast.
+      assert (x = typeof_env vs).
+      { unfold typeof_env.
+        rewrite <- split_env_projT1. rewrite H. reflexivity. }
+      subst.
+      forward.
+      match goal with
+        | |- match match ?X with _ => _ end with _ => _ end =
+             match ?Y with _ => _ end =>
+          change Y with X
+      end.
+      forward.
+    Qed.
+
     Theorem exprD'_Var_App_L : forall tvs' t tvs v,
       v < length tvs ->
       match exprD' us (tvs ++ tvs') (Var v) t , exprD' us tvs (Var v) t with
@@ -574,8 +784,8 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
           repeat rewrite exprD'_Var in *. simpl in *.
           gen_refl.
           change (
-              let zzz z (pf : Some z = nth_error (tvs ++ tvs') v) 
-                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) := 
+              let zzz z (pf : Some z = nth_error (tvs ++ tvs') v)
+                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e0 : hlist (typD ts nil) (tvs ++ tvs') =>
                      match
                        pf in (_ = t'')
@@ -588,7 +798,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                        | eq_refl =>
                          fun x : typD ts nil z => cast (fun x0 : Type => x0) x
                      end (hlist_nth e0 v))
-              in 
+              in
               let zzz' z (pf : Some z = nth_error tvs v)
                        (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e1 : hlist (typD ts nil) tvs =>
@@ -604,7 +814,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
                          fun x : typD ts nil z => cast (fun x0 : Type => x0) x
                      end (hlist_nth e1 v))
               in
-              let zzz'' z (pf : Some z = nth_error (a :: tvs) (S v)) 
+              let zzz'' z (pf : Some z = nth_error (a :: tvs) (S v))
                         (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
                   (fun e1 : hlist (typD ts nil) (a :: tvs) =>
                      match

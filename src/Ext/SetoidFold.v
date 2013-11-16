@@ -349,7 +349,6 @@ Section setoid.
       { intros.
         specialize (H4 _ H2).
         red_exprD.
-        rewrite typ_cast_typ_refl.
         forward.
         assert (TR us (join_env vs) (Rpointwise t r0)
                    result
@@ -360,7 +359,7 @@ Section setoid.
           { instantiate (1 := (Abs t e)).
             unfold exprD. rewrite split_env_join_env.
             red_exprD.
-            rewrite typ_cast_typ_refl. rewrite H4. reflexivity. }
+            rewrite H4. reflexivity. }
           { intro. specialize (H6 (HList.Hcons x vs)). auto. } }
         { apply WellTyped_env_typeof_env in H2. subst. auto. } } }
   Qed.

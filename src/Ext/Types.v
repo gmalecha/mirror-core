@@ -370,6 +370,17 @@ Section env.
                            end)
     end.
 
+  Theorem typ_cast_typ_refl : forall env t,
+                                typ_cast_typ env t t = Some (fun F x => x).
+  Proof.
+    unfold typ_cast_typ; simpl; intros.
+    rewrite typ_eq_odec_Some_refl. reflexivity.
+  Qed.
+
+  (** NOTE: These requirements are pretty strict, they say
+   ** precisely that typ_cast_typ implies equality. For the time
+   ** being that is ok.
+   **)
   Theorem typ_cast_typ_eq : forall ts t t' v,
                               typ_cast_typ ts t t' = Some v -> t = t'.
   Proof.
@@ -377,11 +388,22 @@ Section env.
     destruct (typ_eq_odec t t'); auto. congruence.
   Qed.
 
-  Theorem typ_cast_typ_refl : forall env t,
-    typ_cast_typ env t t = Some (fun F x => x).
+  Lemma typ_cast_typ_neq : forall env t t',
+                             t <> t' ->
+                             typ_cast_typ env t t' = None.
   Proof.
-    unfold typ_cast_typ; simpl; intros.
-    rewrite typ_eq_odec_Some_refl. reflexivity.
+    intros.
+    consider (typ_cast_typ env t t'); auto; intros.
+    exfalso. generalize (typ_cast_typ_eq _ _ _ H0). auto.
+  Qed.
+
+  Lemma typ_cast_typ_neq' : forall env t t',
+                              typ_cast_typ env t t' = None ->
+                              t <> t'.
+  Proof.
+    intros. unfold typ_cast_typ in *.
+    consider (typ_eq_odec t t'); intros; try congruence.
+    eapply typ_eq_odec_None in H. auto.
   Qed.
 
   Definition typ_cast_val ts (a b : typ) (v : typD ts a)

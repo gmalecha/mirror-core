@@ -224,6 +224,40 @@ Module Type ExprDenote.
       v >= length vs ->
       exprD us (vs ++ vs') (Var v) t = exprD us vs' (Var (v - length vs)) t.
 
+    Axiom exprD'_type_cast
+    : forall e tvs t,
+        exprD' us tvs e t =
+        match typeof_expr (typeof_env us) tvs e with
+          | None => None
+          | Some t' =>
+            match TypesI.type_cast nil t' t with
+              | None => None
+              | Some cast =>
+                match exprD' us tvs e t' with
+                  | None => None
+                  | Some x =>
+                    Some (fun gs => cast (fun x => x) (x gs))
+                end
+            end
+        end.
+
+    Axiom exprD_type_cast
+    : forall e vs t,
+        exprD us vs e t =
+        match typeof_expr (typeof_env us) (typeof_env vs) e with
+          | None => None
+          | Some t' =>
+            match TypesI.type_cast nil t' t with
+              | None => None
+              | Some cast =>
+                match exprD us vs e t' with
+                  | None => None
+                  | Some x =>
+                    Some (cast (fun x => x) x)
+                end
+            end
+        end.
+
   End with_envs.
 
 End ExprDenote.

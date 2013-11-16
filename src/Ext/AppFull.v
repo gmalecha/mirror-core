@@ -41,12 +41,99 @@ Section app_full.
     eapply IHe1 in H. auto.
   Qed.
 
+  Section app_sem.
+    Variables us vs : env (typD ts).
+
+    Fixpoint apply_sem
+             (tf : typ) (e : typD ts nil tf)
+             (ls : list (expr sym)) (t : typ)
+             {struct ls}
+    : option (typD ts nil t) :=
+      match ls with
+        | nil =>
+          match typ_cast_typ ts nil tf t with
+            | None => None
+            | Some cast => Some (cast (fun x => x) e)
+          end
+        | l :: ls =>
+          match tf as tf
+                return typD ts nil tf -> _
+          with
+            | tyArr a b => fun f =>
+                             match exprD us vs l a with
+                               | None => None
+                               | Some x => apply_sem b (f x) ls t
+                             end
+            | _ => fun _ => None
+          end e
+      end.
+
+    Definition apps_sem
+               (e : expr sym) (l : list (expr sym)) (t : typ)
+    : option (typD ts nil t) :=
+      match typeof_expr (typeof_env us) (typeof_env vs) e with
+        | None => None
+        | Some tf =>
+          match exprD us vs e tf with
+            | Some f => apply_sem _ f l t
+            | None => None
+          end
+      end.
+
+    Lemma apps_sem_nil : forall e t,
+                           apps_sem e nil t = exprD us vs e t.
+    Proof.
+      intros. unfold apps_sem.
+      consider (typeof_expr (typeof_env us) (typeof_env vs) e); intros.
+      { eapply typeof_expr_exprD in H.
+        destruct H. rewrite H.
+        simpl.
+        match goal with
+          | |- match ?X with _ => _ end = _ =>
+            consider X; intros
+        end.
+        { inv_all. subst. auto. }
+        { rewrite exprD_type_cast in *.
+          forward. inv_all.
+          revert H3. subst. subst; intros.
+          autorewrite with exprD_rw in *. congruence. } }
+      { consider (exprD us vs e t); auto; intros.
+        exfalso.
+        assert (exists v, exprD us vs e t = Some v); eauto.
+        eapply typeof_expr_exprD in H1. red in H1.
+        congruence. }
+    Qed.
+
 (*
-  Lemma app_fullD : forall us vs e e' es t val,
-                      app_full e = (e',es) ->
-                      exprD us vs e t = Some val ->
-                      exists ts,
+    Lemma apps_sem_cons : forall e t,
+                            apps_sem f (e::es) t =
+                            match exprD us vs f
+
+    Lemma apps_app
+
+    Lemma app_fullD : forall e e' es es' t,
+                        app_full' e es = (e',es' ++ es) ->
+                        apps_sem e' (es' ++ es) t =
+                        match exprD us vs e ? with
+                          | None => None
+                          | Some ed => _
+                        end.
+    Proof.
+      induction e; simpl; intros; inv_all; subst; try rewrite apps_sem_nil; auto.
+      { unfold app_full in *. simpl in *.
+        eapply IHe1 in H.
+        unfold apply_sem. simpl.
+
+    Lemma app_fullD : forall e e' es t,
+                        app_full e = (e',es) ->
+                        exprD us vs e t = apps_sem e' es t.
+    Proof.
+      induction e; simpl; intros; inv_all; subst; try rewrite apps_sem_nil; auto.
+      { unfold app_full in *. simpl in *.
+        eapply IHe1 in H.
+        unfold apply_sem. simpl.
 *)
+  End app_sem.
 
   (** TODO: This is best phrased in terms of monadic logics, but I don't have
    ** access to ILogic due to circular dependency issues
@@ -131,7 +218,7 @@ Section app_full.
           { constructor; eauto. simpl.
             eapply H0; eauto with typeclass_instances. } }
         { eapply Happ; eauto.
-          eapply Habs. intros. 
+          eapply Habs. intros.
           specialize (H0 e1 (@existT _ _ t x :: vs) _ _ eq_refl). eauto. } }
       { subst. eapply Habs. intros; eapply H; eauto with typeclass_instances. }
     Qed.
@@ -171,6 +258,14 @@ Section app_full.
                (Args.(do_app) l l_res rs (typeof_env us) (typeof_env vs))
                us vs
   }.
+
+  Definition app_fold_args {T} (Args : AppFullFoldArgs T)
+  : expr sym -> tenv typ -> tenv typ -> T :=
+    match Args with
+      | {| do_var := do_var ; do_uvar := do_uvar ; do_inj := do_inj
+         ; do_abs := do_abs ; do_app := do_app |} =>
+        @app_fold T do_var do_uvar do_inj do_abs do_app
+    end.
 
   Section sem_fold.
     Variable TT : Type.
@@ -245,7 +340,7 @@ Section app_full.
                      exprD us vs e t = Some val ->
                      @R t val res us vs |}
           ).
-    { simpl; intros. 
+    { simpl; intros.
       cutrewrite (vs = join_env (projT2 (split_env vs))).
       { rewrite typeof_env_join_env.
         unfold exprD in H. destruct (split_env vs).
@@ -255,7 +350,7 @@ Section app_full.
           eapply Hvar; eauto. }
         { inversion H. } }
       { rewrite join_env_split_env. reflexivity. } }
-    { simpl; intros. 
+    { simpl; intros.
       cutrewrite (vs = join_env (projT2 (split_env vs))).
       { rewrite typeof_env_join_env.
         unfold exprD in H. destruct (split_env vs).
@@ -265,7 +360,7 @@ Section app_full.
           eapply Huvar; eauto. }
         { inversion H. } }
       { rewrite join_env_split_env. reflexivity. } }
-    { simpl; intros. 
+    { simpl; intros.
       cutrewrite (vs = join_env (projT2 (split_env vs))).
       { rewrite typeof_env_join_env.
         unfold exprD in H. destruct (split_env vs).
@@ -278,7 +373,7 @@ Section app_full.
     { clear - Habs. simpl; intros.
       cutrewrite (vs = join_env (projT2 (split_env vs))).
       { rewrite typeof_env_join_env.
-        unfold exprD in H0. 
+        unfold exprD in H0.
         remember (split_env vs); destruct s.
         red_exprD. destruct t0.
         { inversion H0. }
