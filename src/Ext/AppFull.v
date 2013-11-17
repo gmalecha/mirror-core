@@ -22,7 +22,8 @@ Section app_full.
       | l :: ls => apps (App e l) ls
     end.
 
-  Fixpoint app_full' (e : expr sym) (acc : list (expr sym)) : expr sym * list (expr sym) :=
+  Fixpoint app_full' (e : expr sym) (acc : list (expr sym))
+  : expr sym * list (expr sym) :=
     match e with
       | App l r =>
         app_full' l (r :: acc)
@@ -43,6 +44,18 @@ Section app_full.
 
   Section app_sem.
     Variables us vs : env (typD ts).
+
+    Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD ts nil t}) t {struct ls} :
+      typD ts nil (fold_left (fun x y => tyArr y x) (map (@projT1 _ _) ls) t) ->
+      typD ts nil t :=
+      match ls as ls
+            return typD ts nil (fold_left (fun x y => tyArr y x)
+                                          (map (@projT1 _ _) ls) t) ->
+                   typD ts nil t
+      with
+        | nil => fun x => x
+        | l :: ls => fun f => apply x ls (tyArr (projT1 l) t) f (projT2 l x)
+      end.
 
     Fixpoint apply_sem
              (tf : typ) (e : typD ts nil tf)
@@ -239,7 +252,6 @@ Section app_full.
                  (do_app l l_res rs tus tvs)
                  us vs.
 
-(*
     Theorem app_fold_sound
     : forall tus e tvs result,
         app_fold e tus tvs = result ->
@@ -254,35 +266,61 @@ Section app_full.
       destruct e; simpl; intros; try solve [ subst; eauto ].
       { assert (Forall (fun x => R_t (fst x) (snd x tus tvs) tus tvs)
                        ((e2, app_fold e2) :: nil)).
-        { repeat constructor; simpl. eapply H; eauto with typeclass_instances. }
+        { constructor; [ | constructor ].
+          eapply H; eauto with typeclass_instances. }
+        assert (forall us vs,
+                  WellTyped_env tus us ->
+                  WellTyped_env tvs vs ->
+                  Forall (fun x => R_s (fst x) (snd x tus tvs) us vs)
+                         ((e2, app_fold e2) :: nil)).
+        { clear - H1 H. intros.
+          constructor; [ | constructor ]; simpl.
+          eapply H; eauto with typeclass_instances. }
         cutrewrite (App e1 e2 = apps e1 (map fst ((e2, app_fold e2) :: nil)));
           [ | reflexivity ].
         generalize dependent ((e2, app_fold e2) :: nil).
-        assert (forall y : expr sym, forall vs,
+        assert (forall y : expr sym,
                   SolveTypeClass
                     (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e1) ->
-                  forall result : T, app_fold y = result -> R y (result (typeof_env us) (typeof_env vs)) us vs).
-        { clear - H. intuition.
-          eapply H; eauto.
-          eapply TransitiveClosure.RTStep. eapply X.
-          constructor. subst; auto. }
-        revert H0. revert result. revert vs. clear H.
-        induction e1; simpl; intros; subst; eauto using Happ with typeclass_instances.
-        { change (apps (App e1_1 e1_2) (map fst l))
+                  forall (tvs : tenv typ) (result : T'),
+                    app_fold y tus tvs = result ->
+                    R_t y result tus tvs /\
+                    (forall us vs : env (typD ts),
+                       WellTyped_env tus us -> WellTyped_env tvs vs -> R_s y result us vs)).
+        { clear - H. intros.
+          destruct (fun x => H y x _ _ H0).
+          { eapply TransitiveClosure.RTStep. eauto. constructor. }
+          { intuition. } }
+        specialize (H e1 _ tvs).
+        revert result. clear - H H0 Happ.
+        specialize (@Happ tus tvs).
+        induction e1; simpl; intros; subst.
+        { specialize (H _ eq_refl); destruct H.
+          specialize (@Happ (Var v) (do_var v) l H H2). intuition. }
+        { specialize (H _ eq_refl); destruct H.
+          specialize (@Happ _ _ l H H2). intuition. }
+        {
+          change (apps (App e1_1 e1_2) (map fst l))
             with (apps e1_1 (map fst ((e1_2,app_fold e1_2) :: l))).
-          eapply IHe1_1; eauto.
-          { clear - H0.
-            intros. subst. eapply H0; eauto.
-            red. eapply TransitiveClosure.RTStep. eassumption.
-            constructor. }
-          { constructor; eauto. simpl.
-            eapply H0; eauto with typeclass_instances. } }
-        { eapply Happ; eauto.
-          eapply Habs. intros.
-          specialize (H0 e1 (@existT _ _ t x :: vs) _ _ eq_refl). eauto. } }
-      { subst. eapply Habs. intros; eapply H; eauto with typeclass_instances. }
+          specialize (@Happ e1_1 (app_fold e1_1) ((e1_2,app_fold e1_2) :: l)).
+          destruct (fun x => IHe1_1 (H0 e1_1 _ tvs) x _ ((e1_2, app_fold e1_2) :: l) eq_refl); clear IHe1_1.
+          { intros.
+            eapply (H0 y); eauto.
+            eapply TransitiveClosure.RTStep. eassumption. constructor. }
+          { constructor; eauto. eapply H0; eauto with typeclass_instances. }
+          { intros; constructor; eauto. simpl. eapply H0; eauto with typeclass_instances. }
+          { split; eauto. } }
+        { specialize (H _ eq_refl); destruct H.
+          specialize (@Happ _ _ l H H2). intuition. }
+        { specialize (H _ eq_refl); destruct H.
+          specialize (@Happ _ _ l H H2). intuition. } }
+      { specialize (H e _ (t :: tvs) _ eq_refl); destruct H.
+        specialize (@Habs tus tvs t e (app_fold e) H); destruct Habs.
+        subst; intuition.
+        eapply H4; eauto.
+        intros. eapply H1; eauto.
+        constructor; auto. }
     Qed.
-*)
 
   End fold.
 
@@ -352,57 +390,53 @@ Section app_full.
                  us vs
   }.
 
-(*
   Section sem_fold.
-    Variable TT : Type.
-    Let T := tenv typ -> tenv typ -> TT.
+    Variable T : Type.
+    Variable Args : AppFullFoldArgs T.
 
-    Variable do_var : var -> T.
-    Variable do_uvar : uvar -> T.
-    Variable do_inj : sym -> T.
-    Variable do_abs : typ -> expr sym -> T -> T.
-    Variable do_app : expr sym -> T ->
-                      list (expr sym * T) -> T.
-
-    Definition semArgs : AppFullFoldArgs TT :=
-      @Build_AppFullFoldArgs TT do_var do_uvar do_inj do_abs do_app.
-
-    Variable 
-
-    Variable R : forall t, typD ts nil t -> TT -> env (typD ts) -> env (typD ts) -> Prop.
-    Hypothesis Hvar : forall us tvs t v val,
-                        exprD' us tvs (Var v) t = Some val ->
-                        forall vs,
-                          R t (val vs) (do_var v (typeof_env us) tvs) us (join_env vs).
-    Hypothesis Huvar : forall us tvs t v val,
-                        exprD' us tvs (UVar v) t = Some val ->
-                        forall vs,
-                          R t (val vs) (do_uvar v (typeof_env us) tvs) us (join_env vs).
-    Hypothesis Hinj : forall us tvs t v val,
-                        exprD' us tvs (Inj v) t = Some val ->
-                        forall vs,
-                          R t (val vs) (do_inj v (typeof_env us) tvs) us (join_env vs).
+    Variable Rs_t : typ -> T -> tenv typ -> tenv typ -> Prop.
+    Variable Rs_s : forall t, typD ts nil t -> T -> 
+                              env (typD ts) -> env (typD ts) -> Prop.
+    Hypothesis Hvar
+    : forall tus tvs v t,
+        let result := Args.(do_var) v tus tvs in
+        nth_error tvs v = Some t ->
+           Rs_t t result tus tvs
+        /\ forall (us : hlist _ tus) (vs : hlist _ tvs) val,
+             exprD (join_env us) (join_env vs) (Var v) t = Some val ->
+             @Rs_s t val result (join_env us) (join_env vs).
+    Hypothesis Huvar
+    : forall tus tvs v t,
+        let result := Args.(do_uvar) v tus tvs in
+        nth_error tus v = Some t ->
+           Rs_t t result tus tvs
+        /\ forall (us : hlist _ tus) (vs : hlist _ tvs) val,
+             exprD (join_env us) (join_env vs) (UVar v) t = Some val ->
+             @Rs_s t val result (join_env us) (join_env vs).
+    Hypothesis Hsym
+    : forall tus tvs v t,
+        let result := Args.(do_inj) v tus tvs in
+        typeof_sym v = Some t ->
+           Rs_t t result tus tvs
+        /\ forall (us : hlist _ tus) (vs : hlist _ tvs) val,
+             exprD (join_env us) (join_env vs) (Inj v) t = Some val ->
+             @Rs_s t val result (join_env us) (join_env vs).
     (** INTERESTING ONES **)
-    Hypothesis Habs : forall us tvs t t' e e_res val,
-                        exprD' us (t :: tvs) e t' = Some val ->
-                        forall (vs : hlist (typD ts nil) tvs),
-                          (forall x,
-                             R t' (val (Hcons x vs)) (e_res (typeof_env us) (t :: tvs))
-                               us ((@existT _ (typD ts nil) t x) :: join_env vs)) ->
-                          R (tyArr t t') (fun x => val (Hcons x vs))
-                            (do_abs t e e_res (typeof_env us) tvs) us (join_env vs).
-    Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD ts nil t}) t {struct ls} :
-      typD ts nil (fold_left (fun x y => tyArr y x) (map (@projT1 _ _) ls) t) ->
-      typD ts nil t :=
-      match ls as ls
-            return typD ts nil (fold_left (fun x y => tyArr y x)
-                                          (map (@projT1 _ _) ls) t) ->
-                   typD ts nil t
-      with
-        | nil => fun x => x
-        | l :: ls => fun f => apply x ls (tyArr (projT1 l) t) f (projT2 l x)
-      end.
+    Hypothesis Habs
+    : forall tus tvs t e e_res t',
+        let result := Args.(do_abs) t e e_res tus tvs in
+        typeof_expr tus (t :: tvs) e = Some t' ->
+        Rs_t t' (e_res tus (t :: tvs)) tus (t :: tvs) ->
+           Rs_t (tyArr t t') result tus tvs
+        /\ forall (us : hlist _ tus) (vs : hlist _ tvs) val,
+             exprD (join_env us) (join_env vs)
+                   (Abs t e) (tyArr t t') = Some val ->
+             (forall x,
+                @Rs_s t' (val x) (e_res tus (t :: tvs)) (join_env us)
+                      ((@existT _ (typD ts nil) t x) :: join_env vs)) ->
+             @Rs_s (tyArr t t') val result (join_env us) (join_env vs).
 
+(*
     Hypothesis Happ
     : forall us tvs l l_res (rs : list (expr sym * T)) t
              (tvals : list {t : typ & hlist (typD ts nil) tvs -> typD ts nil t}) val,
@@ -420,15 +454,45 @@ Section app_full.
           @R t (apply  vs tvals t (val vs))
              (do_app l l_res rs (typeof_env us) tvs)
              us (join_env vs).
+*)
 
-    Definition semArgsOk : AppFullFoldArgsOk semArgs.
+
+    Definition semArgsOk : AppFullFoldArgsOk Args.
     refine (
-        {| TR := fun e res us vs =>
-                   forall t val,
-                     exprD us vs e t = Some val ->
-                     @R t val res us vs |}
-          ).
+        {| R_t := fun e res tus tvs =>
+                    match typeof_expr tus tvs e with
+                      | Some t => Rs_t t res tus tvs
+                      | None => True
+                    end
+         ; R_s := fun e res us vs =>
+                    match typeof_expr (typeof_env us) (typeof_env vs) e with
+                      | None => True
+                      | Some t =>
+                        match exprD us vs e t with
+                          | None => False
+                          | Some val => @Rs_s t val res us vs
+                        end
+                    end
+        |}).
     { simpl; intros.
+      consider (nth_error tvs v); intros.
+      { generalize H; eapply Hvar with (tus := tus) in H. intuition.
+        apply WellTyped_env_typeof_env in H3. subst.
+        rewrite H0.
+        red_exprD.
+        unfold lookupAs.
+        rewrite nth_error_typeof_env in H0. forward.
+        inv_all; subst; simpl. red_exprD.
+        rewrite typ_cast_typ_refl in *.
+        admit. }
+      { intuition.
+        apply WellTyped_env_typeof_env in H1. subst.
+        rewrite H. auto. } }
+    { admit. }
+    { admit. }
+    { admit. }
+    { admit. }
+(* 
       cutrewrite (vs = join_env (projT2 (split_env vs))).
       { rewrite typeof_env_join_env.
         unfold exprD in H. destruct (split_env vs).
@@ -554,8 +618,8 @@ eapply Happ.
             { inversion H5. } }
           { inversion 2. } }
         { inversion 2. } } }
+*)
     Qed.
   End sem_fold.
-*)
 
 End app_full.
