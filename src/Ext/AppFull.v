@@ -483,7 +483,6 @@ Section app_full.
         unfold lookupAs.
         rewrite nth_error_typeof_env in H0. forward.
         inv_all; subst; simpl. red_exprD.
-        rewrite typ_cast_typ_refl in *.
         admit. }
       { intuition.
         apply WellTyped_env_typeof_env in H1. subst.

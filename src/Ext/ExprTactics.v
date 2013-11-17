@@ -62,22 +62,25 @@ Qed.
 Ltac wf_expr_ind :=
   eapply expr_strong_ind.
 
+Hint Rewrite typ_cast_typ_refl : exprD_rw.
+
 Ltac red_exprD :=
-  repeat match goal with
-           | H : context [ @ExprD.exprD _ _ _ _ _ _ _ ] |- _ =>
-             progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
-           | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
-             progress (repeat (autorewrite with exprD_rw; simpl))
-           | H : context [ @ExprD.exprD' _ _ _ _ _ _ _ ] |- _ =>
-             progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
-           | |- context [ @ExprD.exprD' _ _ _ _ _ _ _ ] =>
-             progress (repeat (autorewrite with exprD_rw; simpl))
-           | H : @exprD ?ts ?f ?r ?us ?vs (Abs ?t' ?e) ?t = Some ?v |- _ =>
-             eapply (@exprD_Abs ts f r us vs e t t' v) in H ;
-               destruct H as [ ? [ ? [ ? ? ] ] ];
-               try subst
-           | |- context [ SymI.symAs _ _ ] =>
-             unfold SymI.symAs
-           | H : context [ SymI.symAs _ _ ] |- _ =>
-             unfold SymI.symAs in H
-         end.
+  repeat first [ progress autorewrite with exprD_rw in *
+               | match goal with
+                   | H : context [ @ExprD.exprD _ _ _ _ _ _ _ ] |- _ =>
+                     progress (repeat (autorewrite with exprD_rw in * ; simpl in H))
+                   | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
+                     progress (repeat (autorewrite with exprD_rw; simpl))
+                   | H : context [ @ExprD.exprD' _ _ _ _ _ _ _ ] |- _ =>
+                     progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
+                   | |- context [ @ExprD.exprD' _ _ _ _ _ _ _ ] =>
+                     progress (repeat (autorewrite with exprD_rw; simpl))
+                   | H : @exprD ?ts ?f ?r ?us ?vs (Abs ?t' ?e) ?t = Some ?v |- _ =>
+                     eapply (@exprD_Abs ts f r us vs e t t' v) in H ;
+                       destruct H as [ ? [ ? [ ? ? ] ] ];
+                       try subst
+                   | |- context [ SymI.symAs _ _ ] =>
+                     unfold SymI.symAs
+                   | H : context [ SymI.symAs _ _ ] |- _ =>
+                     unfold SymI.symAs in H
+                 end ].
