@@ -220,8 +220,8 @@ Section app_full.
     Lemma apps_sem_cons : forall tf f t x e es,
                             @apply_sem tf f (e::es) t = x.
       simpl.
-                            match tf 
-                            match typeof_expr 
+                            match tf
+                            match typeof_expr
                             match exprD us vs f
 
     Lemma apps_app
@@ -426,5 +426,141 @@ Section app_full.
                 rs ->
         R_t t (apps l (map fst rs)) (Args.(do_app) l l_res rs tus tvs) tus tvs
   }.
+
+  Section wf_fold.
+    Variable T' : expr sym -> Type.
+    Let T (e : expr sym) : Type := tenv typ -> tenv typ -> T' e.
+    Variable do_var : forall v, T (Var v).
+    Variable do_uvar : forall u, T (UVar u).
+    Variable do_inj : forall i, T (Inj i).
+    Variable do_abs : forall (rt : expr sym -> Type)
+                             (srt : forall e e', expr_acc e' e -> rt e -> rt e')
+                             (recur : forall e, rt e -> T e)
+                             (t : typ) e (r : rt e), T (Abs t e).
+    Variable do_app : forall (rt : expr sym -> Type)
+                             (srt : forall e e', expr_acc e' e -> rt e -> rt e')
+                             (recur : forall e, rt e -> T e)
+                             e es (r : rt e) (ls : hlist rt es), T (apps e es).
+
+    Require Import ExtLib.Recur.GenRec.
+    Require Import ExtLib.Recur.Relation.
+
+    Let acc := TransitiveClosure.leftTrans (expr_acc (func:=sym)).
+
+    Definition wf_para : forall e, T e :=
+      @Fix (expr sym) acc (wf_leftTrans (@wf_expr_acc sym))
+           T
+           (fun e =>
+              match e as e
+                    return (forall y, acc y e -> T y) -> T e
+              with
+                | Var v => fun _ => do_var v
+                | UVar u => fun _ => do_uvar u
+                | Inj s => fun _ => do_inj s
+                | Abs t e => fun rec =>
+                  @do_abs (fun x => acc x (Abs t e))
+                          (fun _ _ pf pf' =>
+                             TransitiveClosure.LTStep _ pf pf')
+                          rec t e
+                          (TransitiveClosure.LTFin _ _ _ (acc_Abs _ _))
+                | App f es => fun rec =>
+                  (fix gather e' ls
+                   : forall (etkn : acc e' (App f es))
+                            (tkns : hlist (fun x => acc x (App f es)) ls),
+                       T (apps e' ls) :=
+                     match e' as e'
+                           return forall (etkn : acc e' (App f es))
+                                         (tkns : hlist (fun x => acc x (App f es)) ls),
+                                    T (apps e' ls)
+                     with
+                       | App a b => fun etkn tkns =>
+                         gather a (b :: ls)
+                                (TransitiveClosure.LTStep a (acc_App_l a b) etkn)
+                                (Hcons
+                                   (TransitiveClosure.LTStep b (acc_App_r a b) etkn)
+                                   tkns)
+                       | z => fun etkn tkns =>
+                         @do_app (fun x => acc x (App f es))
+                                 (fun _ _ pf pf' =>
+                                    TransitiveClosure.LTStep _ pf pf')
+                                 rec z ls
+                                 etkn tkns
+                     end) f (es :: nil)
+                          (TransitiveClosure.LTFin _ _ _ (acc_App_l _ _))
+                          (Hcons (TransitiveClosure.LTFin _ _ _ (acc_App_r _ _))
+                                 Hnil)
+              end).
+    End wf_fold.
+
+(*
+  Section para.
+    Variable T' : expr sym -> Type.
+    Let T (e : expr sym) : Type := tenv typ -> tenv typ -> T' e.
+    Variable do_var : forall v : var, T (Var v).
+    Variable do_uvar : forall u : uvar, T (UVar u).
+    Variable do_inj : forall i : sym, T (Inj i).
+    Variable do_abs : forall (r : Type)
+                             (get : r -> expr sym)
+                             (recur : forall t : r, T (get t)),
+                        forall (t : typ) (r : r), T (Abs t (get r)).
+    Variable do_app : forall (rt : Type)
+                             (get : rt -> expr sym)
+                             (recur : forall r : rt, T (get r)),
+                        forall (f : rt) (args : list rt),
+                          T (apps (get f) (map get args)).
+
+    Fixpoint app_fold (e : expr sym) : T e.
+    refine (
+        match e as e return T e with
+          | Var v => do_var v
+          | UVar u => do_uvar u
+          | Inj s => do_inj s
+          | Abs t e =>
+          | _ => _
+        end).
+
+      match e with
+        | Var v => do_var v
+        | UVar u => do_uvar u
+        | Inj i => do_inj i
+        | Abs t e =>
+          @do_abs t e (app_fold e)
+        | App l r =>
+          (fix gather e (ls : list (expr sym * T)) :=
+           match e with
+             | App a b =>
+               gather a ((b, app_fold b) :: ls)
+             | e => do_app e (app_fold e) ls
+           end) l ((r,app_fold r) :: nil)
+      end.
+
+    Variable R_t : typ -> expr sym -> T' -> tenv typ -> tenv typ -> Prop.
+
+    Hypothesis Hvar
+    : forall tus tvs v t,
+        typeof_expr tus tvs (Var v) = Some t ->
+        R_t t (Var v) (do_var v tus tvs) tus tvs.
+    Hypothesis Huvar
+    : forall tus tvs v t,
+        typeof_expr tus tvs (UVar v) = Some t ->
+        R_t t (UVar v) (do_uvar v tus tvs) tus tvs.
+    Hypothesis Hinj
+    : forall tus tvs v t,
+        typeof_expr tus tvs (Inj v) = Some t ->
+        R_t t (Inj v) (do_inj v tus tvs) tus tvs.
+    Hypothesis Habs
+    : forall tus tvs t t' e e_res,
+        typeof_expr tus tvs (Abs t e) = Some (tyArr t t') ->
+        R_t t' e (e_res tus (t :: tvs)) tus (t :: tvs) ->
+        R_t (tyArr t t') (Abs t e) (do_abs t e e_res tus tvs) tus tvs.
+    Hypothesis Happ
+    : forall tus tvs l l_res rs t ts,
+        typeof_expr tus tvs (apps l (map fst rs)) = Some t ->
+        let ft := fold_right tyArr t ts in
+        R_t ft l (l_res tus tvs) tus tvs ->
+        Forall2 (fun t x => R_t t (fst x) (snd x tus tvs) tus tvs)
+                ts rs ->
+        R_t t (apps l (map fst rs)) (do_app l l_res rs tus tvs) tus tvs.
+*)
 
 End app_full.
