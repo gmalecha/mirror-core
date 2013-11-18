@@ -116,6 +116,17 @@ Section app_full.
 
   End apps_type.
 
+  Theorem tyArr_circ_L : forall a b, a = tyArr a b -> False.
+  Proof.
+    clear.
+    induction a; intros; try congruence.
+  Qed.
+  Theorem tyArr_circ_R : forall a b, a = tyArr b a -> False.
+  Proof.
+    clear.
+    induction a; intros; try congruence.
+  Qed.
+
   Section app_sem.
     Variables us vs : env (typD ts).
 
@@ -303,7 +314,9 @@ Section app_full.
         typeof_expr tus tvs (apps l (map fst rs)) = Some t ->
         let ft := fold_right tyArr t ts in
         R_t ft l (l_res tus tvs) tus tvs ->
-        Forall2 (fun t x => R_t t (fst x) (snd x tus tvs) tus tvs)
+        Forall2 (fun t x =>
+                      typeof_expr tus tvs (fst x) = Some t
+                   /\ R_t t (fst x) (snd x tus tvs) tus tvs)
                 ts rs ->
         R_t t (apps l (map fst rs)) (do_app l l_res rs tus tvs) tus tvs.
 
@@ -323,10 +336,13 @@ Section app_full.
                end.
         destruct t0; simpl in H2; try solve [ inversion H2 ].
         forward; inv_all; subst.
-        assert (Forall2 (fun t x => R_t t (fst x) (snd x tus tvs) tus tvs)
+        assert (Forall2 (fun t x =>
+                              typeof_expr tus tvs (fst x) = Some t
+                           /\ R_t t (fst x) (snd x tus tvs) tus tvs)
                         (t1 :: nil)
                         ((e2, app_fold e2) :: nil)).
         { constructor; [ simpl | constructor ].
+          split; auto.
           eapply H; eauto with typeclass_instances. }
         generalize (H e1 _ tus tvs _ _ eq_refl H0).
         assert (forall y : expr sym,
@@ -363,6 +379,7 @@ Section app_full.
             with (apps e1_1 (map fst ((e1_2,app_fold e1_2) :: l0))).
           eapply IHe1_1; eauto.
           { constructor; eauto.
+            simpl. split; eauto.
             eapply H3. simpl; eauto with typeclass_instances.
             reflexivity. simpl. eauto. }
           { reflexivity. }
