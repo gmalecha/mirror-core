@@ -438,11 +438,31 @@ Section app_full.
         typeof_expr tus tvs (apps l (map fst rs)) = Some t ->
         let ft := fold_right tyArr t ts in
         R_t ft l (l_res tus tvs) tus tvs ->
-        Forall2 (fun t x => R_t t (fst x) (snd x tus tvs) tus tvs)
+        Forall2 (fun t x =>
+                      typeof_expr tus tvs (fst x) = Some t
+                   /\ R_t t (fst x) (snd x tus tvs) tus tvs)
                 ts
                 rs ->
         R_t t (apps l (map fst rs)) (Args.(do_app) l l_res rs tus tvs) tus tvs
   }.
+
+  Theorem app_fold_args_sound {T} (args : AppFullFoldArgs T)
+          (sound : AppFullFoldArgsOk args)
+  : forall e tus tvs t result,
+      app_fold_args args e tus tvs = result ->
+      typeof_expr tus tvs e = Some t ->
+      sound.(R_t) t e result tus tvs.
+  Proof.
+    intros.
+    unfold app_fold_args in *. destruct args.
+    eapply app_fold_sound with (R_t := sound.(R_t)) in H;
+      eauto using Hvar, Huvar, Hinj, Happ, Habs.
+    eapply Hvar.
+    eapply Huvar.
+    eapply Hinj.
+    eapply Habs.
+    eapply Happ.
+  Qed.
 
   Section wf_fold.
     Variable T' : expr sym -> Type.
