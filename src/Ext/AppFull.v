@@ -255,7 +255,7 @@ Section app_full.
    **)
   Section fold.
     Variable T' : Type.
-    Let T := tenv typ -> tenv typ -> T'.
+    Let T : Type := tenv typ -> tenv typ -> T'.
     Variable do_var : var -> T.
     Variable do_uvar : uvar -> T.
     Variable do_inj : sym -> T.
@@ -322,65 +322,58 @@ Section app_full.
                    consider X; intros
                end.
         destruct t0; simpl in H2; try solve [ inversion H2 ].
-        consider (typ_eqb t0_1 t1); intros.
-        { inv_all; subst.
-          assert (Forall2 (fun t x => R_t t (fst x) (snd x tus tvs) tus tvs)
-                          (t1 :: nil)
-                          ((e2, app_fold e2) :: nil)).
-          { constructor; [ simpl | constructor ].
-            eapply H; eauto with typeclass_instances. }
-          generalize (H e1 _ tus tvs _ _ eq_refl H0).
-          assert (forall y : expr sym,
-                    SolveTypeClass
-                      (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e1) ->
-                    forall (tus tvs : tenv typ) (t : typ) (result : T'),
-                      app_fold y tus tvs = result ->
-                      typeof_expr tus tvs y = Some t ->
-                      R_t t y result tus tvs).
-          { clear - H. intuition.
-            eapply H; eauto.
+        forward; inv_all; subst.
+        assert (Forall2 (fun t x => R_t t (fst x) (snd x tus tvs) tus tvs)
+                        (t1 :: nil)
+                        ((e2, app_fold e2) :: nil)).
+        { constructor; [ simpl | constructor ].
+          eapply H; eauto with typeclass_instances. }
+        generalize (H e1 _ tus tvs _ _ eq_refl H0).
+        assert (forall y : expr sym,
+                  SolveTypeClass
+                    (TransitiveClosure.rightTrans (expr_acc (func:=sym)) y e1) ->
+                  forall (tus tvs : tenv typ) (t : typ) (result : T'),
+                    app_fold y tus tvs = result ->
+                    typeof_expr tus tvs y = Some t ->
+                    R_t t y result tus tvs).
+        { clear - H. intuition.
+          eapply H; eauto.
+          eapply TransitiveClosure.RTStep. eauto. constructor. }
+        assert (typeof_expr tus tvs (apps e1 (map fst ((e2, app_fold e2) :: nil))) = Some t).
+        { simpl. rewrite H0. rewrite H1. simpl. forward. }
+        revert H2 H0 H3 H4.
+        change (App e1 e2)
+          with (apps e1 (map fst ((e2, app_fold e2) :: nil))).
+        change (tyArr t1 t)
+          with (fold_right tyArr t (t1 :: nil)).
+        generalize ((e2, app_fold e2) :: nil).
+        generalize (t1 :: nil).
+        clear - Happ. specialize (@Happ tus tvs).
+        Opaque app_fold.
+        induction e1; simpl; intros; eauto.
+        { repeat match goal with
+                   | H : _ |- _ =>
+                     solve [ inversion H ]
+                   | _ : match ?X with _ => _ end = _ |- _ =>
+                     consider X; intros
+                 end.
+          destruct t0; simpl in *; try solve [ inversion H5 ].
+          forward; inv_all; subst.
+          change (apps (App e1_1 e1_2) (map fst l0))
+            with (apps e1_1 (map fst ((e1_2,app_fold e1_2) :: l0))).
+          eapply IHe1_1; eauto.
+          { constructor; eauto.
+            eapply H3. simpl; eauto with typeclass_instances.
+            reflexivity. simpl. eauto. }
+          { reflexivity. }
+          { intros.
+            eapply H3; eauto.
             eapply TransitiveClosure.RTStep. eauto. constructor. }
-          assert (typeof_expr tus tvs (apps e1 (map fst ((e2, app_fold e2) :: nil))) = Some t).
-          { simpl. rewrite H0. rewrite H1. simpl.
-            consider (typ_eqb t1 t1); auto. congruence. }
-          revert H2 H0 H3 H4.
-          change (App e1 e2)
-            with (apps e1 (map fst ((e2, app_fold e2) :: nil))).
-          change (tyArr t1 t)
-            with (fold_right tyArr t (t1 :: nil)).
-          generalize ((e2, app_fold e2) :: nil).
-          generalize (t1 :: nil).
-          clear - Happ. specialize (@Happ tus tvs).
-          Opaque app_fold.
-          induction e1; simpl; intros; eauto.
-          { repeat match goal with
-                     | H : _ |- _ =>
-                       solve [ inversion H ]
-                     | _ : match ?X with _ => _ end = _ |- _ =>
-                       consider X; intros
-                   end.
-            destruct t0; simpl in *; try solve [ inversion H5 ].
-            consider (typ_eqb t0_1 t1); intros.
-            { inv_all; subst.
-              change (apps (App e1_1 e1_2) (map fst l0))
-                with (apps e1_1 (map fst ((e1_2,app_fold e1_2) :: l0))).
-              eapply IHe1_1; eauto.
-              { constructor; eauto.
-                eapply H3. simpl; eauto with typeclass_instances.
-                reflexivity. simpl. eauto. }
-              { reflexivity. }
-              { intros.
-                eapply H3; eauto.
-                eapply TransitiveClosure.RTStep. eauto. constructor. }
-              { eapply H3; eauto with typeclass_instances. } }
-            { inversion H6. } }
-          Transparent app_fold. }
-        { inversion H3. } }
-      { consider (typeof_expr tus (t :: tvs) e); intros.
-        { inv_all; subst.
-          specialize (H e _ tus (t :: tvs) _ _ eq_refl H0).
-          eapply Habs; eauto. simpl. rewrite H0. auto. }
-        { inversion H1. } }
+          { eapply H3; eauto with typeclass_instances. } }
+        Transparent app_fold. }
+      { forward; inv_all; subst.
+        specialize (H e _ tus (t :: tvs) _ _ eq_refl H0).
+        eapply Habs; eauto. simpl. rewrite H0. auto. }
     Qed.
 
   End fold.
