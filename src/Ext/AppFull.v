@@ -127,6 +127,37 @@ Section app_full.
     induction a; intros; try congruence.
   Qed.
 
+  Fixpoint typ_size (t : typ) : nat :=
+    match t with
+      | tyProp => 1
+      | tyType _ => 1
+      | tyArr a b => typ_size a + typ_size b + 1
+      | tyVar _ => 1
+    end.
+
+  Lemma type_of_applys_circle_False_lem
+  : forall tus tvs ls t t',
+      type_of_applys tus tvs t ls = Some t' ->
+      typ_size t >= typ_size t'.
+  Proof.
+    clear.
+    induction ls; intros.
+    { simpl in *. inv_all. subst. 
+      omega. }
+    { simpl in *. forward. subst.
+      inv_all. subst.
+      eapply IHls in H2. simpl. omega. }
+  Qed.
+
+  Lemma type_of_applys_circle_False
+  : forall tus tvs ls t t',
+      type_of_applys tus tvs t ls = Some (tyArr t' t) -> False.
+  Proof.
+    clear.
+    intros. eapply type_of_applys_circle_False_lem in H.
+    simpl in *. omega.
+  Qed.
+
   Section app_sem.
     Variables us vs : env (typD ts).
 
