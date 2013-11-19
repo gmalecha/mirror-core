@@ -142,7 +142,7 @@ Section app_full.
   Proof.
     clear.
     induction ls; intros.
-    { simpl in *. inv_all. subst. 
+    { simpl in *. inv_all. subst.
       omega. }
     { simpl in *. forward. subst.
       inv_all. subst.
@@ -445,9 +445,9 @@ Section app_full.
         @app_fold T do_var do_uvar do_inj do_abs do_app
     end.
 
-  Record AppFullFoldArgsOk {T} (Args : AppFullFoldArgs T) : Type :=
-  { R_t : typ -> expr sym -> T -> tenv typ -> tenv typ -> Prop
-  ; Hvar
+  Record AppFullFoldArgsOk {T} (Args : AppFullFoldArgs T)
+         (R_t : typ -> expr sym -> T -> tenv typ -> tenv typ -> Prop) : Type :=
+  { Hvar
     : forall tus tvs v t,
         typeof_expr tus tvs (Var v) = Some t ->
         R_t t (Var v) (Args.(do_var) v tus tvs) tus tvs
@@ -478,21 +478,21 @@ Section app_full.
   }.
 
   Theorem app_fold_args_sound {T} (args : AppFullFoldArgs T)
-          (sound : AppFullFoldArgsOk args)
+          R_t
+          (sound : AppFullFoldArgsOk args R_t)
   : forall e tus tvs t result,
       app_fold_args args e tus tvs = result ->
       typeof_expr tus tvs e = Some t ->
-      sound.(R_t) t e result tus tvs.
+      R_t t e result tus tvs.
   Proof.
     intros.
     unfold app_fold_args in *. destruct args.
-    eapply app_fold_sound with (R_t := sound.(R_t)) in H;
-      eauto using Hvar, Huvar, Hinj, Happ, Habs.
-    eapply Hvar.
-    eapply Huvar.
-    eapply Hinj.
-    eapply Habs.
-    eapply Happ.
+    eapply app_fold_sound with (R_t := R_t) in H; try eassumption.
+    eapply (Hvar sound).
+    eapply (Huvar sound).
+    eapply (Hinj sound).
+    eapply (Habs sound).
+    eapply (Happ sound).
   Qed.
 
   Section wf_fold.
