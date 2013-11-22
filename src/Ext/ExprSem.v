@@ -22,13 +22,13 @@ Section sem.
           | _ , _ => False
         end.
 
-  Local Instance Reflexive_Sem_equiv t Rt (Refl_Rt : Reflexive Rt)
+  Instance Reflexive_Sem_equiv t Rt (Refl_Rt : Reflexive Rt)
   : Reflexive (Sem_equiv t Rt).
   Proof.
     red. red; intros. destruct (exprD' us tvs x t); auto.
   Qed.
 
-  Local Instance Symmetric_Sem_equiv t Rt (Refl_Rt : Symmetric Rt)
+  Instance Symmetric_Sem_equiv t Rt (Refl_Rt : Symmetric Rt)
   : Symmetric (Sem_equiv t Rt).
   Proof.
     red. unfold Sem_equiv. intros.
@@ -37,7 +37,7 @@ Section sem.
     destruct (exprD' us tvs y t); intuition.
   Qed.
 
-  Local Instance Transitive_Sem_equiv t Rt (Refl_Rt : Transitive Rt)
+  Instance Transitive_Sem_equiv t Rt (Refl_Rt : Transitive Rt)
   : Transitive (Sem_equiv t Rt).
   Proof.
     red. unfold Sem_equiv; red; intros.
