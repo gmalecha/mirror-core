@@ -132,6 +132,16 @@ Section Env.
       reflexivity. }
   Qed.
 
+  Lemma map_projT1_split_env
+  : forall vs x h,
+      split_env vs = existT (HList.hlist _) x h ->
+      map (@projT1 _ _) vs = x.
+  Proof.
+    intros. change x with (projT1 (existT _ x h)).
+    rewrite <- H.
+    rewrite split_env_projT1. reflexivity.
+  Qed.
+
 End Env.
 
 Arguments join_env {_ _ _} _.
