@@ -1,4 +1,4 @@
-Require Import Bool.
+Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.

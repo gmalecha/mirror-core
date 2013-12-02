@@ -4,6 +4,7 @@ PROVERS := ProverTac AssumptionProver
 EXTENSIBLE := Repr Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
+	      ExprDI2 \
 	      ExprFacts \
 	      ExprLift ExprUnifySyntactic \
 	      ExprSubst LemmaExt \
@@ -22,7 +23,7 @@ TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS :=-R . MirrorCore -R ../coq-ext-lib/theories ExtLib
+ARGS :=-R . MirrorCore
 
 .PHONY: coq clean package
 
@@ -33,9 +34,7 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(VS)
-	coq_makefile $(ARGS) $(VS) \
-	  | sed -re 's/-R ([^ ]+) ExtLib/-I \1 -as ExtLib/g' \
-          > Makefile.coq
+	coq_makefile $(ARGS) $(VS) > Makefile.coq
 
 
 Makefile.test.coq: Makefile $(TVS)
@@ -61,3 +60,5 @@ depgraph: Makefile.coq
 
 toplevel: coq
 	coqtop.opt $(ARGS)
+
+-include ../Makefile.paths

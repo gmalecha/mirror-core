@@ -3,6 +3,7 @@
 *.v.d
 Makefile.coq
 Makefile.test.coq
+Makefile.paths
 *~
 .dir-locals.el
 deps.*
