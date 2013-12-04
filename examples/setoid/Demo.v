@@ -103,25 +103,22 @@ Section demo.
         | r :: _ => Some r
       end.
 
-
-
   Definition atomic (tus : tenv typ) (e : expr sym) :
     (forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e -> tenv typ -> PR Rbase -> option (T * R Rbase))
-    -> tenv typ -> R Rbase -> T :=
-    fun _ _ _ => e.
+    -> tenv typ -> PR Rbase -> option (T * R Rbase) :=
+    fun _ _ r => None.
 
-  Definition app : T -> T -> R Rbase -> R Rbase -> T :=
-    fun a b _ _ => App a b.
+  Definition app (a b : tenv typ) : T -> T -> R Rbase -> R Rbase -> option T :=
+    fun a b _ _ => Some (App a b).
 
   Definition TR (us vs : env (typD ts)) (r : R Rbase) (t : T) (v : typD ts nil (typeForR typeForRbase r)) : Prop :=
     exists v',
       exprD us vs t (typeForR typeForRbase r) = Some v' /\
       RD r v v'.
 
-  Print SRW_Algo.
-
+(*
   Definition algo : SRW_Algo sym (expr sym) :=
-    @Build_SRW_Algo Rbase atomic app abs.
+    @Build_SRW_Algo sym T Rbase atomic app.
 
   Theorem Hatomic
   : forall e r r',
@@ -188,4 +185,5 @@ Section demo.
   Eval compute in
       @setoid_fold _ _ _ _ _ properAt atomic app nil (App (App (Inj And) (Var 0)) (Var 0)) (tyProp :: nil)
                       (PRinj Eq).
+*)
 End demo.

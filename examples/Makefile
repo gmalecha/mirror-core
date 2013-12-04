@@ -11,7 +11,7 @@ TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS :=-R . Examples -R ../src MirrorCore -R ../coq-ext-lib/theories ExtLib
+ARGS :=-R . Examples -R ../src MirrorCore
 
 .PHONY: coq clean package
 
@@ -22,16 +22,10 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(VS)
-	coq_makefile $(ARGS) $(VS) \
-	  | sed -re 's/-R ([^ ]+) ExtLib/-I \1 -as ExtLib/g' \
-	  | sed -re 's/-R ([^ ]+) MirrorCore/-I \1 -as MirrorCore/g' \
-	  > Makefile.coq
+	coq_makefile $(ARGS) $(VS) > Makefile.coq
 
 Makefile.test.coq: Makefile $(TVS)
-	coq_makefile $(ARGS) $(TVS) \
-	  | sed -re 's/-R ([^ ]+) ExtLib/-I \1 -as ExtLib/g' \
-	  | sed -re 's/-R ([^ ]+) MirrorCore/-I \1 -as MirrorCore/g' \
-	  > Makefile.test.coq
+	coq_makefile $(ARGS) $(TVS) > Makefile.test.coq
 
 test: coq Makefile.test.coq
 	$(MAKE) -f Makefile.test.coq

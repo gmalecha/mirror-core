@@ -1,4 +1,4 @@
-Require Import List Bool.
+Require Import Coq.Lists.List Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.Fun.
