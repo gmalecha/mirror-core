@@ -112,14 +112,28 @@ let to_positive contrib =
   let xO = lazy (resolve_symbol contrib pos_pkg "xO") in
   let xI = lazy (resolve_symbol contrib pos_pkg "xI") in
   let rec to_positive n =
-    if n = 0 then
+    if n = 1 then
       Lazy.force xH
     else
       if n mod 2 = 0 then
 	Term.mkApp (Lazy.force xO, [| to_positive (n / 2) |])
       else
   	Term.mkApp (Lazy.force xI, [| to_positive (n / 2) |])
-  in to_positive
+  in
+  fun n ->
+    if n = 0
+    then raise (Invalid_argument "to_positive")
+    else to_positive n
+
+let to_N contrib =
+  let n_pkg = ["Coq";"Numbers";"BinNums"] in
+  let o = lazy (resolve_symbol contrib n_pkg "N0") in
+  let pos = lazy (resolve_symbol contrib n_pkg "Npos") in
+  let to_pos = to_positive contrib in
+  fun n ->
+    if n = 0
+    then Lazy.force o
+    else Term.mkApp (Lazy.force pos, [| to_pos n |])
 
 let to_nat contrib =
   let pos_pkg = ["Coq";"Init";"Datatypes"] in
