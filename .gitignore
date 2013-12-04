@@ -11,3 +11,9 @@ deps.*
 .#*
 mirror-core.tgz
 coq-ext-lib
+*.cmi
+*.cmo
+*.cmx
+*.cmxs
+*.o
+*.d

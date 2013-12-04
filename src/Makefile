@@ -1,28 +1,6 @@
-GENERIC := Iso IsoTac Approx
-PROVERS := ProverTac AssumptionProver
-#  Transitivity
-EXTENSIBLE := Repr Types ExprCore \
-	      ExprT \
-	      ExprDI ExprDFacts ExprD3 ExprD \
-	      ExprFacts \
-	      ExprLift ExprUnifySyntactic \
-	      ExprSubst LemmaExt \
-	      Expr FMapSubst EnvFunc ExprTactics \
-	      SetoidFold AppFull Red ExprSem
-LAMBDA := ExprCore ExprT ExprDI
-MODULES    := Generic \
-	      TypesI EnvI ExprI ExprProp SymI \
-	      Prover Subst SealedSubst \
-	      $(EXTENSIBLE:%=Ext/%) \
-	      $(LAMBDA:%=Lambda/%) \
-	      $(PROVERS:%=provers/%) \
-
-
-TESTS :=
-VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
-TVS        := $(TESTS:%=%.v)
-
-ARGS :=-R . MirrorCore
+SRCS := $(wildcard *.ml) \
+        $(wildcard *.mli) \
+        $(wildcard *.ml4)
 
 .PHONY: coq clean package
 
@@ -32,8 +10,8 @@ coq: Makefile.coq
 install: coq
 	$(MAKE) -f Makefile.coq install
 
-Makefile.coq: Makefile $(VS)
-	coq_makefile $(ARGS) $(VS) > Makefile.coq
+Makefile.coq: Makefile $(SRCS)
+	coq_makefile $(ARGS) $(SRCS) -o Makefile.coq
 
 
 Makefile.test.coq: Makefile $(TVS)

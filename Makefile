@@ -1,10 +1,10 @@
-MODULE:=MirrorCore
-
 all:
 	$(MAKE) -C src
+	$(MAKE) -C theories
 
 clean:
 	$(MAKE) -C src clean
+	$(MAKE) -C theories clean
 
 dist:
 	git archive --prefix=mirror-core/ -o mirror-core.tgz HEAD
@@ -13,7 +13,7 @@ dist:
 	@ sed s,PWD,$(shell pwd -P),g tools/dir-locals.el | sed s,MOD,$(MODULE),g > .dir-locals.el
 
 install:
-	$(MAKE) -C src install
+	$(MAKE) -C theories install
 
 init:
 	@ ./tools/setup.sh -b $(EXTBRANCH)
@@ -21,5 +21,3 @@ init:
 
 
 .PHONY: all clean dist init
-
-include Makefile.config
