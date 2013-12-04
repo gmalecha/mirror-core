@@ -1,0 +1,4 @@
+232c231
+< 	$(COQDEP) -slash $(OCAMLLIBS) "$<" > "$@" || ( RV=$$?; rm -f "$@"; exit $${RV} )
+---
+> 	$(OCAMLDEP) -slash -ml-synonym .ml4 $(OCAMLLIBS) "$<" > "$@" || ( RV=$$?; rm -f "$@"; exit $${RV} )
