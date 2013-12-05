@@ -107,7 +107,7 @@ let as_arrow t =
     Invalid_argument _ -> None
 
 let to_positive contrib =
-  let pos_pkg = ["Coq";"PArith";"BinPos"] in
+  let pos_pkg = ["Coq";"Numbers";"BinNums"] in
   let xH = lazy (resolve_symbol contrib pos_pkg "xH") in
   let xO = lazy (resolve_symbol contrib pos_pkg "xO") in
   let xI = lazy (resolve_symbol contrib pos_pkg "xI") in
@@ -121,8 +121,8 @@ let to_positive contrib =
   	Term.mkApp (Lazy.force xI, [| to_positive (n / 2) |])
   in
   fun n ->
-    if n = 0
-    then raise (Invalid_argument "to_positive")
+    if n <= 0
+    then raise (Invalid_argument ("to_positive: " ^ string_of_int n))
     else to_positive n
 
 let to_N contrib =
@@ -133,7 +133,10 @@ let to_N contrib =
   fun n ->
     if n = 0
     then Lazy.force o
-    else Term.mkApp (Lazy.force pos, [| to_pos n |])
+    else
+      if n < 0
+      then raise (Invalid_argument ("to_N: " ^ string_of_int n))
+      else Term.mkApp (Lazy.force pos, [| to_pos n |])
 
 let to_nat contrib =
   let pos_pkg = ["Coq";"Init";"Datatypes"] in
@@ -144,7 +147,53 @@ let to_nat contrib =
       Lazy.force o
     else
       Term.mkApp (Lazy.force s, [| to_nat (n - 1) |])
-  in to_nat
+  in
+  fun n ->
+    if n < 0
+    then raise (Invalid_argument ("to_nat: " ^ string_of_int n))
+    else to_nat n
+
+let to_list contrib =
+  let list_pkg = ["Coq";"Init";"Datatypes"] in
+  let c_nil = lazy (resolve_symbol contrib list_pkg "nil") in
+  let c_cons = lazy (resolve_symbol contrib list_pkg "cons") in
+  fun typ ->
+    let the_nil = Term.mkApp (Lazy.force c_nil, [| typ |]) in
+    let rec to_list (ls : Term.constr list) : Term.constr =
+      match ls with
+	[] -> the_nil
+      | l :: ls ->
+	Term.mkApp (Lazy.force c_cons, [| typ ; l ; to_list ls |])
+    in to_list
+
+(** TODO: It is probably easier to do a list and then build
+ ** and then use gallina to build the actual pmap object
+ **)
+(*
+type 'a pmap =
+| PM_Empty
+| PM_Branch of 'a pmap * 'a option * 'a pmap
+
+let rec pmap_add k v m =
+  if k = 1 then
+    match m with
+      PM_Empty -> PM_Branch (PM_Empty, Some v, PM_Empty)
+    | PM_Branch(l,_,r) -> PM_Branch (l, v, r)
+  else
+    if k mod 2 = 0 then
+      match m with
+	PM_Empty -> PM_Branch (pmap_add (k / 2) v PM_Empty, None, PM_Empty)
+      | PM_Branch (l,d,r) -> PM_Branch (pmap_add (k / 2) v l, d, r)
+    else
+      match m with
+	PM_Empty -> PM_Branch (PM_Empty, None, pmap_add (k / 2) v PM_Empty)
+      | PM_Branch (l,d,r) -> PM_Branch (l, d, pmap_add (k / 2) v r)
+
+let to_posmap contrib =
+  let pm_pkg = ["ExtLib";"Data";"Map";"FMapPositive"] in
+  let ctor_empty =
+*)
+
 
 let rec app_long f acc =
   match Term.kind_of_term f with

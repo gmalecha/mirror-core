@@ -1,6 +1,8 @@
 SRCS := $(wildcard *.ml) \
         $(wildcard *.mli) \
-        $(wildcard *.ml4)
+        $(wildcard *.ml4) \
+        $(wildcard *.mllib)
+
 
 .PHONY: coq clean package
 
@@ -11,8 +13,8 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(SRCS)
-	coq_makefile $(ARGS) $(SRCS) -o Makefile.coq
-	patch -p0 Makefile.coq < Makefile.patch
+	@ coq_makefile $(ARGS) $(SRCS) -o Makefile.coq
+	@ patch -p0 Makefile.coq < Makefile.patch
 
 
 Makefile.test.coq: Makefile $(TVS)

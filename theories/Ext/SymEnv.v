@@ -1,8 +1,16 @@
-Require Import BinPos List.
+(** This file defines a Symbol instantiation that
+ ** has a special case for [eq] and [not] and supports
+ ** other symbols through a polymorphic function
+ ** environment.
+ **
+ ** NOTE
+ **  It is not generic because it builds on top of Ext.Types
+ **)
+Require Import BinPos Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Positive.
+Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 
@@ -30,7 +38,6 @@ Proof.
   constructor.
   destruct x; destruct y; simpl; try rewrite rel_dec_correct;
   intuition; subst; auto; try congruence.
-Require Import ExtLib.Tactics.Consider.
   consider (fi ?[ eq ] fi0); intros.
   consider (ts ?[ eq ] ts0); intros. subst; auto.
   inversion H; clear H; subst.

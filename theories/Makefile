@@ -7,11 +7,13 @@ EXTENSIBLE := Repr Types ExprCore \
 	      ExprFacts \
 	      ExprLift ExprUnifySyntactic \
 	      ExprSubst LemmaExt \
-	      Expr FMapSubst EnvFunc ExprTactics \
+	      Expr FMapSubst ExprTactics \
+	      SymEnv \
 	      SetoidFold AppFull Red ExprSem
 LAMBDA := ExprCore ExprT ExprDI
 MODULES    := Generic \
-	      TypesI EnvI ExprI ExprProp SymI \
+	      TypesI EnvI ExprI ExprProp \
+	      SymI \
 	      Prover Subst SealedSubst \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \

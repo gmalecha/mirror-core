@@ -1,5 +1,15 @@
 open Reify_gen
 
+module type EXPR_BUILDER =
+sig
+  type e_result
+  type t_result
+  val mkVar : int -> e_result
+  val mkUVar : int -> e_result
+  val mkAbs : t_result -> e_result -> e_result
+  val mkApp : e_result -> e_result -> e_result
+end
+
 let contrib_name = "reify_ext"
 
 let resolve_symbol = resolve_symbol contrib_name
@@ -28,9 +38,6 @@ struct
     Term.mkApp (Lazy.force typ_arr, [| l ; r |])
 
   let rec reify (t : Term.constr) : Term.constr m =
-    (** Perhaps this should use [Term.kind_of_type], but it is
-     **	marked "experimental"
-     **)
     match Term.kind_of_term t with
       Term.Prod (n,lt,rt) ->
 	if Term.noccurn 0 rt then
@@ -56,51 +63,42 @@ let rec app_long f acc =
     (f, List.rev acc)
 
 (** Reify an expression **)
-module ReifyExpr (M : MONAD) (E : READER with type env = Environ.env
-                                         with type 'a m = 'a M.m)
+module ReifyExpr
+  (M : MONAD)
+  (E : READER with type env = Environ.env
+              with type 'a m = 'a M.m)
+  (EXPR : EXPR_BUILDER)
   (RT : REIFY with type 'a m = 'a M.m
-              with type result = Term.constr)
+              with type result = EXPR.t_result)
   (RE : REIFY with type 'a m = 'a M.m
-              with type result = Term.constr)
+              with type result = EXPR.e_result)
   (RA : REIFY_APP with type 'a m = 'a M.m
-                  with type result = Term.constr)
+                  with type result = EXPR.e_result)
   : REIFY with type 'a m = 'a M.m
-          with type result = RE.result =
+          with type result = EXPR.e_result =
 struct
-  type result = RE.result
+  type result = EXPR.e_result
   type 'a m = 'a M.m
-
-  let types_pkg = ["MirrorCore";"Ext";"ExprCore"]
-
-  let expr_var = lazy (resolve_symbol types_pkg "Var")
-
-  let expr_uvar = lazy (resolve_symbol types_pkg "UVar")
-
-  let expr_abs = lazy (resolve_symbol types_pkg "Abs")
-
-  let expr_app = lazy (resolve_symbol types_pkg "App")
-
-  let expr_Var n =
-    M.ret (Term.mkApp (Lazy.force expr_var, [| to_nat n |]))
-
-  let expr_Abs t e =
-    M.ret (Term.mkApp (Lazy.force expr_abs, [| t ; e |]))
 
   let rec expr_App f es =
     match es with
       [] -> M.ret f
     | e :: es ->
-      expr_App (Term.mkApp (Lazy.force expr_app, [| f ; e |])) es
+      expr_App (EXPR.mkApp f e) es
 
-  let reify : Term.constr -> Term.constr m =
-    let rec reify_expr t =
-      match Term.kind_of_term t with
+  let reify : Term.constr -> result m =
+    let rec reify_expr tm =
+      match Term.kind_of_term tm with
 	Term.Lambda (name, t, c) ->
-	  M.bind (RT.reify t) (fun rt ->
-	    M.bind (E.local (Environ.push_rel (name, None, t)) (reify_expr c)) (fun e ->
-	      expr_Abs rt e))
+	  if not (Term.isSort t) then
+	    M.bind (RT.reify t) (fun rt ->
+	      M.bind (E.local (Environ.push_rel (name, None, t)) (reify_expr c)) (fun e ->
+		M.ret (EXPR.mkAbs rt e)))
+	  else
+	    (** There is no way to reify type abstractions in Ext **)
+	    reify_expr tm
       | Term.Rel n ->
-	expr_Var n
+	M.ret (EXPR.mkVar n)
       | Term.Evar e ->
 	assert false
       | Term.App (f,es) ->
@@ -108,7 +106,7 @@ struct
       | Term.Cast (t, _, ty) ->
 	reify_expr t
       | _ ->
-	RE.reify t
+	RE.reify tm
     in reify_expr
 end
 
@@ -133,42 +131,11 @@ struct
 
   let get_funcs = fun _ _ fs -> !fs
   let put_funcs fs = fun _ _ rfs -> rfs := fs
-end
 
-module MakeReifyExpr =
-  ReifyExpr
-    (REIFY_MONAD)
-    (struct
-      type env = Environ.env
-      type 'a m = 'a REIFY_MONAD.m
-      let local = REIFY_MONAD.local_env
-      let ask = REIFY_MONAD.ask_env
-     end)
-    (ReifyType (REIFY_MONAD)
-               (ReifyMap (ReifyEnv (REIFY_MONAD)
-			            (struct
-				      type state = Term.constr list
-				      type 'a m = 'a REIFY_MONAD.m
-				      let put = REIFY_MONAD.put_types
-				      let get = REIFY_MONAD.get_types
-				     end))
-		  (struct
-		    type result = Term.constr
-		    let typ_ref = lazy (resolve_symbol ["MirrorCore";"Ext";"Types"] "tyType")
-		    let map x = REIFY_MONAD.bind x (fun x ->
-		      REIFY_MONAD.ret (Term.mkApp (Lazy.force typ_ref, [| to_positive x |])))
-		   end)))
-    (ReifyMap (ReifyEnv (REIFY_MONAD)
-		        (struct
-			  type state = Term.constr list
-			  type 'a m = 'a REIFY_MONAD.m
-			  let put = REIFY_MONAD.put_funcs
-			  let get = REIFY_MONAD.get_funcs
-			 end))
-		  (struct
-		    type result = Term.constr
-		    let expr_inj = lazy (resolve_symbol ["MirrorCore";"Ext";"ExprCore"] "Inj")
-		    let map x = REIFY_MONAD.bind x (fun x ->
-		      REIFY_MONAD.ret (Term.mkApp (Lazy.force expr_inj, [| to_positive x |])))
-		   end))
-    (SimpleReifyApp (REIFY_MONAD) (struct type result = Term.constr end))
+  let runM c ts fs e =
+    let ts = ref ts in
+    let fs = ref fs in
+    let res = c e ts fs in
+    (res, !ts, !fs)
+
+end

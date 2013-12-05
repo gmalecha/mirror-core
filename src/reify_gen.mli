@@ -3,6 +3,7 @@ val resolve_symbol : string -> string list -> string -> Term.constr
 val to_positive : string -> int -> Term.constr
 val to_N : string -> int -> Term.constr
 val to_nat : string -> int -> Term.constr
+val to_list : string -> Term.constr -> Term.constr list -> Term.constr
 
 (** Monadic Interfaces **)
 module type MONAD =
