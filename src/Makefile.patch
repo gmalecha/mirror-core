@@ -1,4 +1,11 @@
-232c231
-< 	$(COQDEP) -slash $(OCAMLLIBS) "$<" > "$@" || ( RV=$$?; rm -f "$@"; exit $${RV} )
----
-> 	$(OCAMLDEP) -slash -ml-synonym .ml4 $(OCAMLLIBS) "$<" > "$@" || ( RV=$$?; rm -f "$@"; exit $${RV} )
+--- Makefile.coq.orig	2013-12-05 14:02:01.101015832 -0500
++++ Makefile.coq	2013-12-05 14:02:01.104015832 -0500
+@@ -248,7 +248,7 @@
+ 	$(CAMLOPTC) $(ZDEBUG) $(ZFLAGS) $(PP) -impl $<
+ 
+ %.ml4.d: %.ml4
+-	$(COQDEP) -slash $(OCAMLLIBS) "$<" > "$@" || ( RV=$$?; rm -f "$@"; exit $${RV} )
++	$(OCAMLDEP) -slash -ml-synonym .ml4 $(OCAMLLIBS) "$<" > "$@" || ( RV=$$?; rm -f "$@"; exit $${RV} )
+ 
+ %.cmo: %.ml
+ 	$(CAMLC) $(ZDEBUG) $(ZFLAGS) $<

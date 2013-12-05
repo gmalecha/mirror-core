@@ -14,8 +14,7 @@ install: coq
 
 Makefile.coq: Makefile $(SRCS)
 	@ coq_makefile $(ARGS) $(SRCS) -o Makefile.coq
-	@ patch -p0 Makefile.coq < Makefile.patch
-
+	@ patch Makefile.coq < Makefile.patch
 
 Makefile.test.coq: Makefile $(TVS)
 	coq_makefile $(ARGS) $(TVS) -o Makefile.test.coq

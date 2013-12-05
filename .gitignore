@@ -15,5 +15,8 @@ coq-ext-lib
 *.cmo
 *.cmx
 *.cmxs
+*.cma
+*.cmxa
+*.a
 *.o
 *.d
