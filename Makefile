@@ -1,9 +1,7 @@
 all:
-	$(MAKE) -C src
 	$(MAKE) -C theories
 
 clean:
-	$(MAKE) -C src clean
 	$(MAKE) -C theories clean
 
 dist:
