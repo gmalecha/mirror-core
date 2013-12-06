@@ -6,6 +6,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Fun.
+Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.EqDep.
@@ -52,12 +53,31 @@ Section env.
      ; Eqb_correct := fun x => match x with end
     |}.
 
-  Definition types := list type.
-(*
   Inductive types : Type :=
-  | TEnil : types
-  | TEcons : type -> types -> types.
-*)
+  | TEemp : types
+  | TEbranch : types -> option Type -> types -> types.
+
+  Definition types_left (t : types) : types :=
+    match t with
+      | TEemp => TEemp
+      | TEbranch l _ _ => l
+    end.
+
+  Definition types_right (t : types) : types :=
+    match t with
+      | TEemp => TEemp
+      | TEbranch l _ _ => l
+    end.
+
+  Fixpoint getType (ts : types) (n : positive) {struct n} : Type :=
+    match n with
+      | xH => match ts with
+                | TEbranch _ (Some T) _ => T
+                | _ => Empty_set
+              end
+      | xO n => getType (types_left ts) n
+      | xI n => getType (types_right ts) n
+    end.
 
   Variable ts : types.
 
@@ -65,7 +85,7 @@ Section env.
   Inductive typ : Type :=
   | tyProp
   | tyArr : typ -> typ -> typ
-  | tyType : nat -> typ
+  | tyType : positive -> typ
   | tyVar : nat -> typ.
 
   Fixpoint typ_eqb (a b : typ) {struct a} : bool :=
@@ -73,7 +93,7 @@ Section env.
       | tyProp , tyProp => true
       | tyArr a b , tyArr c d =>
         if typ_eqb a c then typ_eqb b d else false
-      | tyType x , tyType y => EqNat.beq_nat x y
+      | tyType x , tyType y => x ?[ eq ] y
       | tyVar x , tyVar y => EqNat.beq_nat x y
       | _ , _ => false
     end.
@@ -87,6 +107,26 @@ Section env.
                                             | eq_refl => eq_refl
                                           end)
                      end
+      | _ , _ => None
+    end.
+
+  Fixpoint positive_eq_odec (a b : positive) : option (a = b) :=
+    match a as a , b as b return option (a = b) with
+      | xH , xH => Some (eq_refl _)
+      | xI a , xI b =>
+        match positive_eq_odec a b with
+          | None => None
+          | Some pf => Some (match pf in _ = b' return xI a = xI b' with
+                               | eq_refl => eq_refl
+                             end)
+        end
+      | xO a , xO b =>
+        match positive_eq_odec a b with
+          | None => None
+          | Some pf => Some (match pf in _ = b' return xO a = xO b' with
+                               | eq_refl => eq_refl
+                             end)
+        end
       | _ , _ => None
     end.
 
@@ -106,7 +146,7 @@ Section env.
                        end
         end
       | tyType x , tyType y =>
-        match nat_eq_odec x y with
+        match positive_eq_odec x y with
           | None => None
           | Some pf => Some (match pf in _ = y' return tyType x = tyType y' with
                                | eq_refl => eq_refl
@@ -130,6 +170,7 @@ Section env.
     induction a; destruct b; simpl; intros;
       try solve [ congruence | f_equal; apply EqNat.beq_nat_true; assumption ].
     { consider (typ_eqb a1 b1); intros. f_equal; auto. }
+    { consider (p ?[ eq ] p0); intros. f_equal; auto. }
   Defined.
 
   Global Instance RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ.
@@ -141,9 +182,8 @@ Section env.
       rewrite IHx1 in H. rewrite IHx2 in H0. subst; reflexivity. }
     { inversion H. apply IHx1 in H1. apply IHx2 in H2.
       simpl in *. inversion H; subst. unfold rel_dec in *; simpl in *. rewrite H1. auto. }
-    { unfold rel_dec in *; simpl in *.
-      inversion H.
-      consider (EqNat.beq_nat n0 n0); auto. }
+    { consider (p ?[ eq ] p0); intros; f_equal; auto. }
+    { inversion H. consider (p0 ?[ eq ] p0); auto. }
     { eapply NPeano.Nat.eqb_eq. inversion H; auto. }
   Qed.
 
@@ -152,6 +192,17 @@ Section env.
     clear; induction a; destruct b; simpl; try congruence.
     specialize (IHa b). destruct (nat_eq_odec a b); try congruence.
     auto.
+  Qed.
+
+  Theorem positive_eq_odec_None : forall a b, positive_eq_odec a b = None -> a <> b.
+  Proof.
+    clear; induction a; destruct b; simpl; try congruence.
+    { specialize (IHa b).
+      destruct (positive_eq_odec a b); intros; try congruence.
+      specialize (IHa eq_refl). congruence. }
+    { specialize (IHa b).
+      destruct (positive_eq_odec a b); intros; try congruence.
+      specialize (IHa eq_refl). congruence. }
   Qed.
 
   Theorem typ_eq_odec_None : forall t t',
@@ -164,7 +215,7 @@ Section env.
              end.
     eapply IHt2 in H0; congruence.
     eapply IHt1 in H; congruence.
-    eapply nat_eq_odec_None in H. congruence.
+    eapply positive_eq_odec_None in H. congruence.
     eapply nat_eq_odec_None in H. congruence.
   Qed.
 
@@ -191,11 +242,7 @@ Section env.
     match x return Type with
       | tyProp => Prop
       | tyArr l r => typD env l -> typD env r
-      | tyType x =>
-        match nth_error ts x return Type with
-          | None => Empty_set
-          | Some t => Impl t
-        end
+      | tyType x => getType ts x
       | tyVar x =>
         match nth_error env x return Type with
           | None => Empty_set

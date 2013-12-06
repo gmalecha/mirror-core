@@ -15,7 +15,7 @@ Definition eq_nat : nat -> nat -> Prop := @eq nat.
 Ltac reify_goal :=
   match goal with
     | |- ?X =>
-      let k e := pose e in
+      let k t e := pose t ; pose e in
       reify_expr X k
   end.
 
@@ -30,6 +30,11 @@ reflexivity.
 Qed.
 
 Goal eq_nat 20 20.
+reify_goal.
+reflexivity.
+Qed.
+
+Goal 0 = 0.
 reify_goal.
 reflexivity.
 Qed.

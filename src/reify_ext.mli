@@ -40,12 +40,12 @@ module REIFY_MONAD
   val ask_env : Environ.env m
   val local_env : (Environ.env -> Environ.env) -> 'a m -> 'a m
 
-  val get_types : Term.constr list m
-  val put_types : Term.constr list -> unit m
+  val get_types : Term.constr option list m
+  val put_types : Term.constr option list -> unit m
 
-  val get_funcs : Term.constr list m
-  val put_funcs : Term.constr list -> unit m
+  val get_funcs : Term.constr option list m
+  val put_funcs : Term.constr option list -> unit m
 
-  val runM : 'a m -> Term.constr list -> Term.constr list -> Environ.env
-    -> ('a * Term.constr list * Term.constr list)
+  val runM : 'a m -> Term.constr option list -> Term.constr option list -> Environ.env
+    -> ('a * Term.constr option list * Term.constr option list)
 end

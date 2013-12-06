@@ -1,9 +1,17 @@
-val resolve_symbol : string -> string list -> string -> Term.constr
+(** TODO: This should move b/c it has nothing to do with reification **)
+module Std (C : sig val contrib_name : string end) :
+sig
+  val resolve_symbol : string list -> string -> Term.constr
 
-val to_positive : string -> int -> Term.constr
-val to_N : string -> int -> Term.constr
-val to_nat : string -> int -> Term.constr
-val to_list : string -> Term.constr -> Term.constr list -> Term.constr
+  val to_positive : int -> Term.constr
+  val to_N : int -> Term.constr
+  val to_nat : int -> Term.constr
+
+  val to_option : Term.constr -> Term.constr option -> Term.constr
+  val to_list : Term.constr -> Term.constr list -> Term.constr
+  val to_posmap : 'b -> ('b -> 'c option -> 'b -> 'b) ->
+    ('a -> 'c option) -> 'a list -> 'b
+end
 
 (** Monadic Interfaces **)
 module type MONAD =
@@ -60,7 +68,7 @@ module ReifyMap
 
 module ReifyEnv
   (M : MONAD)
-  (S : STATE with type state = Term.constr list
+  (S : STATE with type state = Term.constr option list
              with type 'a m = 'a M.m)
   : REIFY with type 'a m = 'a M.m
           with type result = int

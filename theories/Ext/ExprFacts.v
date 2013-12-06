@@ -11,7 +11,6 @@ Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
 Require Import MirrorCore.Ext.ExprT.
-Require Import MirrorCore.Ext.EnvFunc.
 
 Set Implicit Arguments.
 Set Strict Implicit.

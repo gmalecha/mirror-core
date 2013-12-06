@@ -10,11 +10,11 @@ sig
   val mkApp : e_result -> e_result -> e_result
 end
 
-let contrib_name = "reify_ext"
+module Std = Reify_gen.Std (struct let contrib_name = "reify_ext" end)
 
-let resolve_symbol = resolve_symbol contrib_name
-let to_nat = to_nat contrib_name
-let to_positive = to_positive contrib_name
+let resolve_symbol = Std.resolve_symbol
+let to_nat = Std.to_nat
+let to_positive = Std.to_positive
 
 (** Reify Type **)
 module ReifyType (M : MONAD)
@@ -113,7 +113,9 @@ end
 (** The reification monad **)
 module REIFY_MONAD =
 struct
-  type 'a m = Environ.env -> (Term.constr list) ref -> (Term.constr list) ref -> 'a
+  type 'a m = Environ.env ->
+    (Term.constr option list) ref ->
+    (Term.constr option list) ref -> 'a
 
   let ret (x : 'a) : 'a m =
     fun _ _ _ -> x
@@ -139,3 +141,6 @@ struct
     (res, !ts, !fs)
 
 end
+
+(** TODO: Move this to a separate file that deals with reifying Ext.Types
+ **)
