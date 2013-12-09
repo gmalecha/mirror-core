@@ -41,7 +41,8 @@ sig
   type result
   type 'a m
 
-  val reify_app : (Term.constr -> result m) ->
+  val reify_app : result m Lazy.t ->
+                  (Term.constr -> result m) ->
                   (result -> result list -> result m) ->
                   Term.constr -> Term.constr array -> result m
 end
@@ -226,7 +227,6 @@ struct
 
 end
 
-
 let rec app_long f acc =
   match Term.kind_of_term f with
     Term.App (f,es) ->
@@ -250,8 +250,161 @@ struct
       | e :: es -> M.bind (f e) (fun e -> M.bind (mapM es) (fun es -> M.ret (e :: es)))
     in mapM
 
-  let reify_app reify_expr reify_app t ts =
+  let reify_app _ reify_expr reify_app t ts =
     M.bind (reify_expr t) (fun t ->
       M.bind (mapM reify_expr (Array.to_list ts)) (fun ts ->
 	reify_app t ts))
 end
+
+(** This is the version of reify_app that will handle polymorphism **)
+module ReifyAppDep
+  (M : MONAD)
+  (V : READER with type 'a m = 'a M.m
+              with type env = Environ.env)
+  (VE : READER with type 'a m = 'a M.m
+               with type env = Evd.evar_map)
+  (R : REIFY with type 'a m = 'a M.m)
+  : REIFY_APP with type 'a m = 'a M.m
+              with type result = R.result =
+struct
+  type result = R.result
+  type 'a m = 'a M.m
+
+  let mapM f =
+    let rec mapM es =
+      match es with
+	[] -> M.ret []
+      | e :: es -> M.bind (f e) (fun e -> M.bind (mapM es) (fun es -> M.ret (e :: es)))
+    in mapM
+
+  let rec noccurn_dprod n cs rc =
+    match cs with
+      [] -> Term.noccurn n rc
+    | c :: cs ->
+      if Term.noccurn n c then
+	noccurn_dprod (1+n) cs rc
+      else
+	false
+
+  let pp_constr fmt x = Pp.pp_with fmt (Printer.pr_constr x)
+
+  let mark_terms (env : Environ.env) =
+    let rec mark_terms ty xs =
+      match xs with
+	[] -> ([], ty)
+      | x :: xs ->
+	if Term.isProd ty then
+	  let (_,t1,t2) = Term.destProd ty in
+	  if Term.noccurn 1 t2 then
+	    let _ = Format.printf "Non dependent: %a\n" pp_constr t2 in
+	    (** non-dependent **)
+	    let (rs,rt) = mark_terms t2 xs in
+	    ((false, t1, x) :: rs, rt)
+	else
+	    let _ = Format.printf "Dependent: %a\n" pp_constr t2 in
+	    (** dependent **)
+	    let (rs,rt) = mark_terms (Term.subst1 x t2) xs in
+	    ((true, t1, x) :: rs, rt)
+	else
+(*	  let (rcs, res) = Reduction.dest_prod env ty in *)
+	  assert false
+    in mark_terms
+(*
+	  _ (* TODO: reverse rcs *)
+    and continue_terms tys rty xs =
+      match tys with
+	[] -> mark_terms ty xs
+      | ty :: ts_ ->
+	match xs with
+	  [] -> ([], Term.compose_prod tys rty)
+	| x :: xs ->
+	  if noccurn_dprod 1 ts_ rty then
+	    (false, t1) :: continue_terms ts_ rty xs
+	  else
+	    (true, t1) :: continue_terms ts_ rty 
+
+      (** look at this type and see if it is dependent **)
+*)
+  let rindex p =
+    let rec rindex i ls =
+      match ls with
+	[] -> None
+      | l :: ls ->
+	match rindex (1+i) ls with
+	  None -> if p l then Some i else None
+	| res -> res
+    in rindex 0
+
+  let rec firstn n ls =
+    if n > 0 then
+      match ls with
+	[] -> []
+      | l :: ls -> l :: firstn (n - 1) ls
+    else
+      []
+  let rec skipn n ls =
+    if n > 0 then
+      match ls with
+	[] -> []
+      | _ :: ls -> skipn (n - 1) ls
+    else
+      ls
+
+  let partition_until ls =
+    match rindex (fun (x,_,_) -> x) ls with
+      None -> ([], ls)
+    | Some i -> let i = i + 1 in (firstn i ls, skipn i ls)
+
+  let build_lambda f ts =
+    match ts with
+      [] -> f
+    | _ ->
+      let mx = List.length ts in
+      let app_args = List.mapi (fun n (dep,t,x) ->
+	if dep then
+	  x
+	else
+	  Term.mkRel (mx - n - 1)) ts
+      in
+      let lam_args =
+	List.map
+	  (fun (_,t,_) -> (Names.Anonymous, t))
+	  (List.filter (fun (x,_,_) -> not x) ts)
+      in
+      (** Here, we do any reduction that we can, just to simplify things **)
+      Term.compose_lam (List.rev lam_args)
+	               (Reduction.beta_appvect f (Array.of_list app_args))
+
+  let pp_list pp fmt l = List.iter (fun x -> Format.fprintf fmt "%a; " pp x) l
+
+  let reify_app no_progress reify_expr reify_app t ts =
+    M.bind V.ask (fun env ->
+      M.bind VE.ask (fun evar ->
+	let ty = Typing.type_of env evar t in
+	let (ts,_) = mark_terms env ty (Array.to_list ts) in
+	let (ds,ns) = partition_until ts in
+	if ns = [] then
+	  Lazy.force no_progress
+	else
+	  let _ =
+	    Printf.fprintf stderr "len ds = %d ; len ns = %d\n"
+	      (List.length ds) (List.length ns)
+	  in
+	  let new_t = build_lambda t ds in
+	  let _ = Format.printf "new_t: %a\n" pp_constr new_t in
+	  let new_ts = List.map (fun (_,_,x) -> x)
+	      (List.filter (fun (x,_,_) -> not x) ds @ ns) in
+	  let _ = Format.printf "args: %a\n" (pp_list pp_constr) new_ts in
+	  (** TODO: I shouldn't call [reify_expr] on [new_t] because
+	   ** I know that there is no way to reify it.
+ 	   **)
+	  M.bind (R.reify new_t) (fun t ->
+	    M.bind (mapM reify_expr new_ts) (fun ts ->
+	      reify_app t ts))))
+end
+
+(*
+(fun T x -> x) nat 5
+(fun x -> (fun T x -> x) nat x) 5
+   ^---- reduce this term before I recurse on it
+*)

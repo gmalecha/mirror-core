@@ -53,7 +53,8 @@ sig
   type result
   type 'a m
 
-  val reify_app : (Term.constr -> result m) ->
+  val reify_app : result m Lazy.t ->
+                  (Term.constr -> result m) ->
                   (result -> result list -> result m) ->
                   Term.constr -> Term.constr array -> result m
 end
@@ -76,5 +77,15 @@ module ReifyEnv
 module SimpleReifyApp
   (M : MONAD)
   (R : sig type result end)
+  : REIFY_APP with type 'a m = 'a M.m
+              with type result = R.result
+
+module ReifyAppDep
+  (M : MONAD)
+  (V : READER with type 'a m = 'a M.m
+              with type env = Environ.env)
+  (VE : READER with type 'a m = 'a M.m
+               with type env = Evd.evar_map)
+  (R : REIFY with type 'a m = 'a M.m)
   : REIFY_APP with type 'a m = 'a M.m
               with type result = R.result

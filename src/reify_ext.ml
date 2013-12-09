@@ -17,11 +17,15 @@ let to_nat = Std.to_nat
 let to_positive = Std.to_positive
 
 (** Reify Type **)
-module ReifyType (M : MONAD)
-                 (R : REIFY with type 'a m = 'a M.m
-                            with type result = Term.constr)
-		 : REIFY with type 'a m = 'a M.m
-   		         with type result = Term.constr =
+module ReifyType
+  (M : MONAD)
+  (R : REIFY with type 'a m = 'a M.m
+             with type result = Term.constr)
+  (Z : sig val under_type : bool -> 'a M.m -> 'a M.m
+	   val lookup_type : int -> int M.m
+       end)
+  : REIFY with type 'a m = 'a M.m
+          with type result = Term.constr =
 struct
   type result = Term.constr
   type 'a m = 'a M.m
@@ -34,6 +38,8 @@ struct
 
   let typ_prop = lazy (resolve_symbol types_pkg "tyProp")
 
+  let typ_var = lazy (resolve_symbol types_pkg "tyVar")
+
   let typ_arrow (l : Term.constr) (r : Term.constr) : Term.constr =
     Term.mkApp (Lazy.force typ_arr, [| l ; r |])
 
@@ -42,11 +48,14 @@ struct
       Term.Prod (n,lt,rt) ->
 	if Term.noccurn 0 rt then
 	  M.bind (reify lt) (fun lc ->
-	    M.bind (reify rt) (fun rc ->
+	    M.bind (Z.under_type false (reify rt)) (fun rc ->
 	      M.ret (typ_arrow lc rc)))
 	else
 	  (** I can't reify **)
 	  R.reify t
+    | Term.Rel n ->
+      M.bind (Z.lookup_type n) (fun l ->
+	M.ret (Term.mkApp (Lazy.force typ_var, [| to_nat l |])))
     | Term.Sort (Term.Prop _) ->
       M.ret (Lazy.force typ_prop)
     | _ ->
@@ -86,8 +95,12 @@ struct
     | e :: es ->
       expr_App (EXPR.mkApp f e) es
 
+
+  let pp_constr fmt x = Pp.pp_with fmt (Printer.pr_constr x)
+
   let reify : Term.constr -> result m =
     let rec reify_expr tm =
+      let _ = Format.printf "Reify: %a\n" pp_constr tm in
       match Term.kind_of_term tm with
 	Term.Lambda (name, t, c) ->
 	  if not (Term.isSort t) then
@@ -102,7 +115,7 @@ struct
       | Term.Evar e ->
 	assert false
       | Term.App (f,es) ->
-	RA.reify_app reify_expr expr_App f es
+	RA.reify_app (lazy (RE.reify tm)) reify_expr expr_App f es
       | Term.Cast (t, _, ty) ->
 	reify_expr t
       | _ ->
@@ -114,30 +127,53 @@ end
 module REIFY_MONAD =
 struct
   type 'a m = Environ.env ->
+    Evd.evar_map ->
+    (bool list) ->
     (Term.constr option list) ref ->
     (Term.constr option list) ref -> 'a
 
   let ret (x : 'a) : 'a m =
-    fun _ _ _ -> x
+    fun _ _ _ _ _ -> x
 
   let bind (c : 'a m) (f : 'a -> 'b m) : 'b m =
-    fun e x y ->
-      let b = c e x y in
-      f b e x y
+    fun e em look x y ->
+      let b = c e em look x y in
+      f b e em look x y
 
-  let ask_env = fun e _ _ -> e
+  let ask_env = fun e _ _ _ _ -> e
   let local_env f c = fun e -> c (f e)
 
-  let get_types = fun _ ts _ -> !ts
-  let put_types ts = fun _ rts _ -> rts := ts
+  let under_type bind_no_bind c =
+    fun e em look x y ->
+      c e em (bind_no_bind :: look) x y
+  let lookup_type n =
+    let rec go n ls =
+      match ls with
+	[] -> assert false
+      | l :: ls ->
+	if n = 1 then
+	  let _ = assert (l = true) in 0
+	else if n > 1 then
+	  let res = go (n - 1) ls in
+	  if l then res + 1 else res
+	else
+	  assert false
+    in
+    fun _ _ look _ _ -> go n look
 
-  let get_funcs = fun _ _ fs -> !fs
-  let put_funcs fs = fun _ _ rfs -> rfs := fs
+  let ask_evar = fun _ e _ _ _ -> e
+  let local_evar _ _ = fun _ _ _ _ _ -> assert false
 
-  let runM c ts fs e =
+  let get_types = fun _ _ _ ts _ -> !ts
+  let put_types ts = fun _ _ _ rts _ -> rts := ts
+
+  let get_funcs = fun _ _ _ _ fs -> !fs
+  let put_funcs fs = fun _ _ _ _ rfs -> rfs := fs
+
+  let runM c ts fs e em =
     let ts = ref ts in
     let fs = ref fs in
-    let res = c e ts fs in
+    let res = c e em [] ts fs in
     (res, !ts, !fs)
 
 end

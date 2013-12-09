@@ -15,7 +15,7 @@ Definition eq_nat : nat -> nat -> Prop := @eq nat.
 Ltac reify_goal :=
   match goal with
     | |- ?X =>
-      let k t e := pose t ; pose e in
+      let k t f e := idtac t f ; pose e in
       reify_expr X k
   end.
 
@@ -38,3 +38,16 @@ Goal 0 = 0.
 reify_goal.
 reflexivity.
 Qed.
+
+Definition foo (t : bool) (tr fa : nat) := if t then tr else fa.
+
+Goal 0 = foo true 0 1.
+reify_goal.
+reflexivity.
+Qed.
+
+Parameter trial : nat -> forall T, T -> Prop.
+
+Goal trial 0 _ 0.
+reify_goal.
+Abort.
