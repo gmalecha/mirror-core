@@ -1,0 +1,269 @@
+(*i camlp4deps: "parsing/grammar.cma" i*)
+(*i camlp4use: "pa_extend.cmo" i*)
+
+open Reify_gen
+open Reify_ext
+open Plugin_utils.Term_match
+
+let contrib_name = "reify_MirrorCore.Ext.SymEnv"
+
+module Std = Reify_gen.Std (struct let contrib_name = contrib_name end)
+
+let resolve_symbol = Std.resolve_symbol
+let to_positive = Std.to_positive
+
+(** Reification of MirrorCore.Ext.SymEnv **)
+let sym_env_pkg = ["MirrorCore";"Ext";"SymEnv"]
+
+let func = lazy (resolve_symbol sym_env_pkg "func")
+
+module ExprBuilder = Reify_ext.ExprBuilder (struct let ext_type = func end) 
+
+module REIFY_MONAD =
+struct
+  type 'a m = Environ.env ->
+    Evd.evar_map ->
+    (bool list) ->
+    (Term.constr option list) ref ->
+    (Term.constr option list) ref -> 'a
+
+  let ret (x : 'a) : 'a m =
+    fun _ _ _ _ _ -> x
+
+  let bind (c : 'a m) (f : 'a -> 'b m) : 'b m =
+    fun e em look x y ->
+      let b = c e em look x y in
+      f b e em look x y
+
+  let ask_env = fun e _ _ _ _ -> e
+  let local_env f c = fun e -> c (f e)
+
+  let under_type bind_no_bind c =
+    fun e em look x y ->
+      c e em (bind_no_bind :: look) x y
+  let lookup_type n =
+    let rec go n ls =
+      match ls with
+	[] -> assert false
+      | l :: ls ->
+	if n = 1 then
+	  let _ = assert (l = true) in 0
+	else if n > 1 then
+	  let res = go (n - 1) ls in
+	  if l then res + 1 else res
+	else
+	  assert false
+    in
+    fun _ _ look _ _ -> go n look
+
+  let ask_evar = fun _ e _ _ _ -> e
+  let local_evar _ _ = fun _ _ _ _ _ -> assert false
+
+  let get_types = fun _ _ _ ts _ -> !ts
+  let put_types ts = fun _ _ _ rts _ -> rts := ts
+
+  let get_funcs = fun _ _ _ _ fs -> !fs
+  let put_funcs fs = fun _ _ _ _ rfs -> rfs := fs
+
+  let runM c ts fs e em =
+    let ts = ref ts in
+    let fs = ref fs in
+    let res = c e em [] ts fs in
+    (res, !ts, !fs)
+end
+
+(** This is really fixed **)
+module ReifySym
+  (M : MONAD)
+  (S : STATE with type 'a m = 'a M.m
+             with type state = Term.constr option list)
+  (RT : REIFY with type 'a m = 'a M.m
+              with type result = Term.constr)
+  (E : READER with type 'a m = 'a M.m
+              with type env = Environ.env)
+  : REIFY with type 'a m = 'a M.m
+          with type result = Term.constr =
+struct
+  type 'a m = 'a M.m
+  type result = Term.constr
+
+  module RE = ReifyEnv (M) (S)
+
+  let tm_eq = lazy (resolve_symbol ["Coq";"Init";"Logic"] "eq")
+  let tm_not = lazy (resolve_symbol ["Coq";"Init";"Logic"] "not")
+
+  let expr_eq = lazy (resolve_symbol sym_env_pkg "Equal")
+  let expr_not = lazy (resolve_symbol sym_env_pkg "Not")
+  let expr_fref = lazy (resolve_symbol sym_env_pkg "FRef")
+
+  let reify (tm : Term.constr) : result m =
+    M.bind (E.ask) (fun ctx ->
+      matches ctx
+	[ (App (Glob tm_eq, As (Ignore,"t")),
+	   fun s ->
+	     let t = Hashtbl.find s "t" in
+	     M.bind (RT.reify t) (fun t ->
+	       M.ret (Term.mkApp (Lazy.force expr_eq, [| t |]))))
+        ; (Glob tm_not,
+	   fun _ ->
+	     M.ret (Lazy.force expr_not))
+        ; (Ignore,
+	   fun _ ->
+	     M.bind (RE.reify tm) (fun t ->
+	       let idx = to_positive (1 + t) in
+	       M.ret (Term.mkApp (Lazy.force expr_fref, [| idx |]))))
+	]
+	tm)
+end
+
+(** **)
+module ReifyExtTypes =
+  Reify_ext.ReifyExtTypes (REIFY_MONAD)
+
+module REIFY_MONAD_READ_ENV =
+struct
+  type env = Environ.env
+  type 'a m = 'a REIFY_MONAD.m
+  let local = REIFY_MONAD.local_env
+  let ask = REIFY_MONAD.ask_env
+end
+
+module REIFY_MONAD_READ_EVAR =
+struct
+  type env = Evd.evar_map
+  type 'a m = 'a REIFY_MONAD.m
+  let local = REIFY_MONAD.local_evar
+  let ask = REIFY_MONAD.ask_evar
+end
+
+module REIFY_ENV_FUNC =
+  ReifyMap (ReifyEnv (REIFY_MONAD)
+	      (struct
+		type state = Term.constr option list
+		type 'a m = 'a REIFY_MONAD.m
+		let put = REIFY_MONAD.put_funcs
+		let get = REIFY_MONAD.get_funcs
+	       end))
+    (struct
+      type result = Term.constr
+      let expr_fref = lazy (resolve_symbol ["MirrorCore";"Ext";"SymEnv"] "FRef")
+      let nil_types = lazy (Std.to_list (resolve_symbol ["MirrorCore";"Ext";"Types"] "typ") [])
+      let map x = REIFY_MONAD.bind x (fun x ->
+	let sym =
+	  Term.mkApp (Lazy.force expr_fref,
+		      [| to_positive (1 + x)
+		      ; Lazy.force nil_types |]) in
+	REIFY_MONAD.ret (ExprBuilder.mkInj sym))
+     end)
+
+module ReifyExtSymEnv =
+  ReifyExpr
+    (REIFY_MONAD)
+    (REIFY_MONAD_READ_ENV)
+    (ExprBuilder)
+    (ReifyExtTypes)
+    (REIFY_ENV_FUNC)
+(*    (SimpleReifyApp (REIFY_MONAD) (struct type result = Term.constr end)) *)
+    (ReifyAppDep (REIFY_MONAD) (REIFY_MONAD_READ_ENV) (REIFY_MONAD_READ_EVAR)
+       (REIFY_ENV_FUNC))
+;;
+
+(** extract the values from an environment **)
+let types_empty = lazy (resolve_symbol ["MirrorCore";"Ext";"Types"] "TEemp")
+let types_branch = lazy (resolve_symbol ["MirrorCore";"Ext";"Types"] "TEbranch")
+
+let mapM (f : 'a -> 'b REIFY_MONAD.m) =
+  let rec mapM (ls : 'a list) : 'b list REIFY_MONAD.m =
+    match ls with
+      [] -> REIFY_MONAD.ret []
+    | l :: ls -> REIFY_MONAD.bind (f l) (fun l ->
+      REIFY_MONAD.bind (mapM ls) (fun ls ->
+	REIFY_MONAD.ret (l :: ls)))
+  in mapM
+
+
+let mkFunction = lazy (resolve_symbol ["MirrorCore";"Ext";"SymEnv"] "F")
+
+(** reify ML-style function types **)
+let reify_function_scheme reify_type =
+  let rec reify_function_scheme n ft =
+    match Term.kind_of_term ft with
+      Term.Prod (_,t1,t2) ->
+	if Term.noccurn 1 t2 then
+	  (** It is a lambda **)
+	  REIFY_MONAD.bind
+	    (REIFY_MONAD.under_type true (reify_type ft)) (fun rft ->
+	    REIFY_MONAD.ret (n, rft))
+	else
+	  reify_function_scheme (1+n) t2
+    | _ ->
+      REIFY_MONAD.bind (reify_type ft) (fun rft ->
+	REIFY_MONAD.ret (n, rft))
+  in reify_function_scheme 0
+
+let build_functions evar env : (Term.constr -> Term.constr) list REIFY_MONAD.m =
+  let do_func f =
+    match f with
+      None -> assert false (** TODO **)
+    | Some f ->
+      let tf = Typing.type_of env evar f in
+      REIFY_MONAD.bind (reify_function_scheme ReifyExtTypes.reify tf) (fun (n, rft) ->
+	REIFY_MONAD.ret (fun ts ->
+	  Term.mkApp (Lazy.force mkFunction,
+		      [| ts ; Std.to_nat n ; rft ; f |])))
+  in
+  REIFY_MONAD.bind REIFY_MONAD.get_funcs (fun fs ->
+    mapM do_func fs)
+
+let extract_types (ls : Term.constr option list) =
+  let rtype = Term.mkSort (Term.Type (Termops.new_univ ())) in
+  Std.to_posmap (Lazy.force types_empty)
+    (fun a b c ->
+      Term.mkApp (Lazy.force types_branch,
+		  [| a ; Std.to_option rtype b ; c |]))
+    (fun x -> x) ls
+;;
+
+let ctor_branch =
+  lazy (resolve_symbol ["Coq";"FSets";"FMapPositive";"PositiveMap"] "Node")
+
+let ctor_leaf =
+  lazy (resolve_symbol ["Coq";"FSets";"FMapPositive";"PositiveMap"] "Leaf")
+
+let e_function =
+  lazy (resolve_symbol ["MirrorCore";"Ext";"SymEnv"] "function")
+
+(** the simplest version of the tactic will just construct the version of the
+ ** environment and return that with the expression.
+ ** NOTE: In the future, we'll need to write more plugins to do more specialized
+ **       instantiation
+ **)
+TACTIC EXTEND reify_Ext_SymEnv_reify_expr
+  | ["reify_expr" constr(e) tactic(k) ] ->
+    [ fun gl ->
+        let env = Tacmach.pf_env gl in
+	let evar_map = Tacmach.project gl in
+	let i_types = [] in
+	let i_funcs = [] in
+        let (res, r_types, r_funcs) =
+	  let cmd = REIFY_MONAD.bind (ReifyExtSymEnv.reify e) (fun re ->
+	    REIFY_MONAD.bind (build_functions evar_map env) (fun fs ->
+	      REIFY_MONAD.ret (re, fs)))
+	  in
+	  let ((res, r_funcs), r_types, _) =
+	    REIFY_MONAD.runM cmd i_types i_funcs env evar_map in
+	  (res, r_types, r_funcs)
+	in
+	let r_types = extract_types r_types in
+	Plugin_utils.Use_ltac.pose "types" r_types (fun r_types ->
+	  let typ = Term.mkApp (Lazy.force e_function, [| r_types |]) in
+	  let leaf = Term.mkApp (Lazy.force ctor_leaf, [| typ |]) in
+	  let r_funcs = Std.to_posmap leaf
+	    (fun a b c ->
+	      Term.mkApp (Lazy.force ctor_branch, [| typ ; a ; Std.to_option typ b ; c |]))
+	    (fun f -> Some (f r_types)) r_funcs in
+	  Plugin_utils.Use_ltac.pose "funcs" r_funcs (fun r_funcs ->
+	    let ltac_args = List.map Plugin_utils.Use_ltac.to_ltac_val [r_types; r_funcs; res] in
+	    Plugin_utils.Use_ltac.ltac_apply k ltac_args)) gl
+    ]
+END;;

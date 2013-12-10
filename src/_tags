@@ -1,0 +1,4 @@
+<*.ml4>: use_grammar
+<reify_gen.*>: coq
+<reify_ext.*>: coq
+<reify_*.*>: coq, plugin_utils

@@ -402,9 +402,3 @@ struct
 	    M.bind (mapM reify_expr new_ts) (fun ts ->
 	      reify_app t ts))))
 end
-
-(*
-(fun T x -> x) nat 5
-(fun x -> (fun T x -> x) nat x) 5
-   ^---- reduce this term before I recurse on it
-*)

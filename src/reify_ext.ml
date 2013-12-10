@@ -123,60 +123,75 @@ struct
     in reify_expr
 end
 
-(** The reification monad **)
-module REIFY_MONAD =
+module ExprBuilder
+  (EXT : sig val ext_type : Term.constr Lazy.t end)
+(*: EXPR_BUILDER with type e_result = Term.constr
+                 with type t_result = Term.constr *) =
 struct
-  type 'a m = Environ.env ->
-    Evd.evar_map ->
-    (bool list) ->
-    (Term.constr option list) ref ->
-    (Term.constr option list) ref -> 'a
+  type e_result = Term.constr
+  type t_result = Term.constr
+  let expr_pkg = ["MirrorCore";"Ext";"ExprCore"]
 
-  let ret (x : 'a) : 'a m =
-    fun _ _ _ _ _ -> x
+  let expr_var = lazy (resolve_symbol expr_pkg "Var")
+  let expr_uvar = lazy (resolve_symbol expr_pkg "UVar")
+  let expr_abs = lazy (resolve_symbol expr_pkg "Abs")
+  let expr_app = lazy (resolve_symbol expr_pkg "App")
+  let expr_inj = lazy (resolve_symbol expr_pkg "Inj")
 
-  let bind (c : 'a m) (f : 'a -> 'b m) : 'b m =
-    fun e em look x y ->
-      let b = c e em look x y in
-      f b e em look x y
+  let mkVar n =
+    Term.mkApp (Lazy.force expr_var, [| Lazy.force EXT.ext_type ; Std.to_nat n |])
 
-  let ask_env = fun e _ _ _ _ -> e
-  let local_env f c = fun e -> c (f e)
+  let mkUVar n =
+    Term.mkApp (Lazy.force expr_uvar, [| Lazy.force EXT.ext_type ; Std.to_nat n |])
 
-  let under_type bind_no_bind c =
-    fun e em look x y ->
-      c e em (bind_no_bind :: look) x y
-  let lookup_type n =
-    let rec go n ls =
-      match ls with
-	[] -> assert false
-      | l :: ls ->
-	if n = 1 then
-	  let _ = assert (l = true) in 0
-	else if n > 1 then
-	  let res = go (n - 1) ls in
-	  if l then res + 1 else res
-	else
-	  assert false
-    in
-    fun _ _ look _ _ -> go n look
+  let mkAbs t e =
+    Term.mkApp (Lazy.force expr_abs, [| Lazy.force EXT.ext_type ; t ; e |])
 
-  let ask_evar = fun _ e _ _ _ -> e
-  let local_evar _ _ = fun _ _ _ _ _ -> assert false
+  let mkApp f x =
+    Term.mkApp (Lazy.force expr_app, [| Lazy.force EXT.ext_type ; f ; x |])
 
-  let get_types = fun _ _ _ ts _ -> !ts
-  let put_types ts = fun _ _ _ rts _ -> rts := ts
-
-  let get_funcs = fun _ _ _ _ fs -> !fs
-  let put_funcs fs = fun _ _ _ _ rfs -> rfs := fs
-
-  let runM c ts fs e em =
-    let ts = ref ts in
-    let fs = ref fs in
-    let res = c e em [] ts fs in
-    (res, !ts, !fs)
-
+  let mkInj x =
+    Term.mkApp (Lazy.force expr_inj, [| Lazy.force EXT.ext_type ; x |])
 end
 
-(** TODO: Move this to a separate file that deals with reifying Ext.Types
- **)
+(** **)
+module ReifyExtTypes
+  (PARAM : sig type 'a m
+	       val ret : 'a -> 'a m
+	       val bind : 'a m -> ('a -> 'b m) -> 'b m
+	       val put_types : Term.constr option list -> unit m
+	       val get_types : Term.constr option list m
+	       val under_type : bool -> 'a m -> 'a m
+	       val lookup_type : int -> int m
+           end)
+  : REIFY with type 'a m = 'a PARAM.m
+          with type result = Term.constr =
+  ReifyType
+    (struct
+      type 'a m = 'a PARAM.m
+      let bind = PARAM.bind
+      let ret = PARAM.ret
+     end)
+    (ReifyMap (ReifyEnv
+		 (struct
+		   type 'a m = 'a PARAM.m
+		   let bind = PARAM.bind
+		   let ret = PARAM.ret
+		  end)
+		 (struct
+		   type state = Term.constr option list
+		   type 'a m = 'a PARAM.m
+		   let put = PARAM.put_types
+		   let get = PARAM.get_types
+		  end))
+       (struct
+	 type result = Term.constr
+	 let typ_ref = lazy (resolve_symbol ["MirrorCore";"Ext";"Types"] "tyType")
+	 let map x = PARAM.bind x (fun x ->
+	   PARAM.ret (Term.mkApp (Lazy.force typ_ref, [| to_positive (1 + x) |])))
+	end))
+    (struct
+      type 'a m = 'a PARAM.m
+      let under_type = PARAM.under_type
+      let lookup_type = PARAM.lookup_type
+     end)
