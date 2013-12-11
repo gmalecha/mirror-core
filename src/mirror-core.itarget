@@ -1,4 +1,2 @@
-reify_ext.cmx
-reify_ext.cma
-reify_Ext_SymEnv.cmxs
-reify_Ext_SymEnv.cma
+reify_Ext_SymEnv_plugin.cmxs
+reify_Ext_SymEnv_plugin.cma

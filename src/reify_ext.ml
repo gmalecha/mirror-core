@@ -10,7 +10,7 @@ sig
   val mkApp : e_result -> e_result -> e_result
 end
 
-module Std = Reify_gen.Std (struct let contrib_name = "reify_ext" end)
+module Std = Plugin_utils.Coqstd.Std (struct let contrib_name = "reify_ext" end)
 
 let resolve_symbol = Std.resolve_symbol
 let to_nat = Std.to_nat
@@ -81,6 +81,7 @@ module ReifyExpr
               with type result = EXPR.t_result)
   (RE : REIFY with type 'a m = 'a M.m
               with type result = EXPR.e_result)
+  (REX : sig val reify_evar : Term.constr -> int M.m end)
   (RA : REIFY_APP with type 'a m = 'a M.m
                   with type result = EXPR.e_result)
   : REIFY with type 'a m = 'a M.m
@@ -109,11 +110,12 @@ struct
 		M.ret (EXPR.mkAbs rt e)))
 	  else
 	    (** There is no way to reify type abstractions in Ext **)
-	    reify_expr tm
+	    RE.reify tm
       | Term.Rel n ->
 	M.ret (EXPR.mkVar n)
-      | Term.Evar e ->
-	assert false
+      | Term.Evar _ ->
+	M.bind (REX.reify_evar tm) (fun k ->
+	  M.ret (EXPR.mkUVar k))
       | Term.App (f,es) ->
 	RA.reify_app (lazy (RE.reify tm)) reify_expr expr_App f es
       | Term.Cast (t, _, ty) ->
