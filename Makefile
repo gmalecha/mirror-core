@@ -1,8 +1,14 @@
-all:
+all: coq plugin
+
+coq:
 	$(MAKE) -C theories
+
+plugin:
+	$(MAKE) -C src
 
 clean:
 	$(MAKE) -C theories clean
+	$(MAKE) -C src clean
 
 dist:
 	git archive --prefix=mirror-core/ -o mirror-core.tgz HEAD
@@ -18,4 +24,4 @@ init:
 	@ (cd coq-ext-lib; $(MAKE))
 
 
-.PHONY: all clean dist init
+.PHONY: all clean dist init coq plugin
