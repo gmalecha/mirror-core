@@ -1,2 +1,4 @@
+libReifyExt.cmxa
+libReifyExt.cma
 reify_Ext_SymEnv_plugin.cmxs
 reify_Ext_SymEnv_plugin.cma

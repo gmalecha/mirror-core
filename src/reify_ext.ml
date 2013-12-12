@@ -81,7 +81,8 @@ module ReifyExpr
               with type result = EXPR.t_result)
   (RE : REIFY with type 'a m = 'a M.m
               with type result = EXPR.e_result)
-  (REX : sig val reify_evar : Term.constr -> int M.m end)
+  (REX : REIFY with type 'a m = 'a M.m
+               with type result = int)
   (RA : REIFY_APP with type 'a m = 'a M.m
                   with type result = EXPR.e_result)
   : REIFY with type 'a m = 'a M.m
@@ -114,7 +115,7 @@ struct
       | Term.Rel n ->
 	M.ret (EXPR.mkVar n)
       | Term.Evar _ ->
-	M.bind (REX.reify_evar tm) (fun k ->
+	M.bind (REX.reify tm) (fun k ->
 	  M.ret (EXPR.mkUVar k))
       | Term.App (f,es) ->
 	RA.reify_app (lazy (RE.reify tm)) reify_expr expr_App f es
@@ -174,7 +175,7 @@ module ReifyExtTypes
       let bind = PARAM.bind
       let ret = PARAM.ret
      end)
-    (ReifyMap (ReifyEnv
+    (ReifyMap (ReifyEnvOption
 		 (struct
 		   type 'a m = 'a PARAM.m
 		   let bind = PARAM.bind

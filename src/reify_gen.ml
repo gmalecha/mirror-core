@@ -65,7 +65,7 @@ end
 
 (** Reification based on environments of terms.
  **)
-module ReifyEnv
+module ReifyEnvOption
   (M : MONAD)
   (S : STATE with type state = Term.constr option list
              with type 'a m = 'a M.m)
@@ -89,6 +89,39 @@ struct
 
   let env_app a b =
     (List.append a [Some b], List.length a)
+
+  let reify (t : Term.constr) : int m =
+    M.bind S.get (fun e ->
+      match env_get t e with
+	Some i -> M.ret i
+      | None ->
+	let (new_e, res) = env_app e t in
+	M.bind (S.put new_e) (fun _ ->
+	  M.ret res))
+end
+
+module ReifyEnv
+  (M : MONAD)
+  (S : STATE with type state = Term.constr list
+             with type 'a m = 'a M.m)
+  : REIFY with type 'a m = 'a M.m
+          with type result = int =
+struct
+  type result = int
+  type 'a m = 'a M.m
+
+  let env_get k =
+    let rec env_get i x =
+      match x with
+	[] -> None
+      | x :: xs ->
+	if Term.eq_constr x k
+	then Some i
+	else env_get (i+1) xs
+    in env_get 0
+
+  let env_app a b =
+    (List.append a [b], List.length a)
 
   let reify (t : Term.constr) : int m =
     M.bind S.get (fun e ->

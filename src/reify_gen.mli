@@ -54,6 +54,13 @@ module ReifyMap
 
 module ReifyEnv
   (M : MONAD)
+  (S : STATE with type state = Term.constr list
+             with type 'a m = 'a M.m)
+  : REIFY with type 'a m = 'a M.m
+          with type result = int
+
+module ReifyEnvOption
+  (M : MONAD)
   (S : STATE with type state = Term.constr option list
              with type 'a m = 'a M.m)
   : REIFY with type 'a m = 'a M.m

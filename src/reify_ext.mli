@@ -29,7 +29,8 @@ module ReifyExpr
               with type result = EXPR.t_result)
   (RE : REIFY with type 'a m = 'a M.m
               with type result = EXPR.e_result)
-  (REX : sig val reify_evar : Term.constr -> int M.m end)
+  (REX : REIFY with type 'a m = 'a M.m
+               with type result = int)
   (RA : REIFY_APP with type 'a m = 'a M.m
                   with type result = EXPR.e_result)
   : REIFY with type 'a m = 'a M.m

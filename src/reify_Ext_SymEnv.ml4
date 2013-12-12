@@ -66,7 +66,7 @@ struct
   let get_funcs = fun _ _ _ _ _ fs -> !fs
   let put_funcs fs = fun _ _ _ _ _ rfs -> rfs := fs
 
-  let get_evars = fun _ _ _ evs _ _ -> !evs
+  let get_evars = fun _ _ _ revs _ _ -> !revs
   let put_evars evs = fun _ _ _ revs _ _ -> revs := evs
 
   let runM c ts fs evars e em =
@@ -92,7 +92,7 @@ struct
   type 'a m = 'a M.m
   type result = Term.constr
 
-  module RE = ReifyEnv (M) (S)
+  module RE = ReifyEnvOption (M) (S)
 
   let tm_eq = lazy (resolve_symbol ["Coq";"Init";"Logic"] "eq")
   let tm_not = lazy (resolve_symbol ["Coq";"Init";"Logic"] "not")
@@ -142,7 +142,7 @@ struct
 end
 
 module REIFY_ENV_FUNC =
-  ReifyMap (ReifyEnv (REIFY_MONAD)
+  ReifyMap (ReifyEnvOption (REIFY_MONAD)
 	      (struct
 		type state = Term.constr option list
 		type 'a m = 'a REIFY_MONAD.m
@@ -161,6 +161,15 @@ module REIFY_ENV_FUNC =
 	REIFY_MONAD.ret (ExprBuilder.mkInj sym))
      end)
 
+module REIFY_ENV_EVAR =
+  ReifyEnv (REIFY_MONAD)
+    (struct
+      type state = Term.constr list
+      type 'a m = 'a REIFY_MONAD.m
+      let put = REIFY_MONAD.put_evars
+      let get = REIFY_MONAD.get_evars
+     end)
+
 module ReifyExtSymEnv =
   ReifyExpr
     (REIFY_MONAD)
@@ -168,24 +177,7 @@ module ReifyExtSymEnv =
     (ExprBuilder)
     (ReifyExtTypes)
     (REIFY_ENV_FUNC)
-    (struct
-      let find x =
-	let rec find ls =
-	  match ls with
-	    [] -> None
-	  | l :: ls ->
-	    if l = x then Some (List.length ls) else find ls
-	in find
-
-      let reify_evar (ev : Term.constr) : int REIFY_MONAD.m =
-	REIFY_MONAD.bind REIFY_MONAD.get_evars (fun evs ->
-	  match find ev evs with
-	    None ->
-	      let res = List.length evs in
-	      REIFY_MONAD.bind (REIFY_MONAD.put_evars (ev :: evs)) (fun _ ->
-		REIFY_MONAD.ret res)
-	  | Some res -> REIFY_MONAD.ret res)
-     end)
+    (REIFY_ENV_EVAR)
 (*    (SimpleReifyApp (REIFY_MONAD) (struct type result = Term.constr end)) *)
     (ReifyAppDep (REIFY_MONAD) (REIFY_MONAD_READ_ENV) (REIFY_MONAD_READ_EVAR)
        (REIFY_ENV_FUNC))
