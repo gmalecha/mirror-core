@@ -10,7 +10,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      Expr FMapSubst ExprTactics \
 	      SymEnv \
 	      SetoidFold AppFull Red ExprSem
-LAMBDA := ExprCore ExprT ExprDI
+LAMBDA := ExprCore ExprT ExprDI ExprD3
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
 	      SymI \
