@@ -383,18 +383,17 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        end. rewrite <- e.
        intros. rewrite H0. reflexivity. }
    Qed.
-
 (*
-   Lemma exprD'_typeof : forall e ve t val,
-     exprD' ve e t = Some val ->
-     typeof_expr (typeof_env us) ve e = Some t.
+   Lemma exprD'_typeof : forall us e ve t val,
+     exprD' e us ve t = Some val ->
+     typeof_expr us ve e = Some t.
    Proof.
      induction e; simpl; intros.
      { revert H.
        change (
            let zzz t' (pf : Some t' = nth_error ve v)
                    (f : forall F : Type -> Type, F (typD nil t') -> F (typD nil t)) :=
-               (fun e : hlist (typD nil) ve =>
+               (fun (_ : hlist (typD nil) us) (e : hlist (typD nil) ve) =>
                           match
                             pf in (_ = t'')
                             return
@@ -410,11 +409,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
              nth_error ve v as z
              return
              (z = nth_error ve v ->
-              option (hlist (typD nil) ve -> typD nil t))
+              option (hlist (typD nil) us -> hlist (typD nil) ve -> typD nil t))
            with
              | Some t' =>
                fun pf : Some t' = nth_error ve v =>
-                 match typ_cast_typ ts nil t' t with
+                 match type_cast nil t' t with
                    | Some f =>
                      Some (zzz t' pf f)
                    | None => None
@@ -427,7 +426,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
          | _ : match ?X with _ => _ end = _ |- _ =>
            consider X; try congruence; intros
        end.
-       generalize (typ_cast_typ_eq _ _ _ _ H); intros. subst; auto. }
+       inv_all; subst.
+       generalize (type_cast_eq _ _ _ _ H); intros. subst; auto. }
      { unfold symAs in *.
        generalize dependent (symD f).
        destruct (typeof_sym f); try congruence; intros.
@@ -469,17 +469,60 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
               end.
        specialize (typ_cast_typ_eq _ _ _  _ H). congruence. }
    Qed.
+*)
 
-   Lemma exprD_simul'_None : forall e ve,
-     match exprD_simul' ve e with
-       | None => typeof_expr (typeof_env us) ve e = None
-       | Some t => typeof_expr (typeof_env us) ve e = Some (projT1 t)
+   Require Import MirrorCore.IsoTac.
+
+   (** This demonstrates that I must have transitivity of type_cast **)
+(**
+   Theorem exprD'_exprD'_type_cast
+    : forall e tus tvs t t' v v',
+        exprD' e tus tvs t = Some v ->
+        exprD' e tus tvs t' = Some v' ->
+        exists cast, type_cast nil t t' = Some cast.
+   Proof.
+     intros e tus. induction e; simpl; intros.
+     { revert H H0. gen_refl.
+       admit. }
+     { unfold symAs in *.
+       generalize dependent (symD f).
+       intros. forward.
+       inv_all. subst.
+**)
+(*
+   Theorem exprD'_type_cast
+    : forall e tus tvs t,
+        exprD' e tus tvs t =
+        match typeof_expr tus tvs e with
+          | None => None
+          | Some t' =>
+            match TypesI.type_cast nil t' t with
+              | None => None
+              | Some cast =>
+                match exprD' e tus tvs t' with
+                  | None => None
+                  | Some x =>
+                    Some (fun us gs => cast (fun x => x) (x us gs))
+                end
+            end
+        end.
+   Proof.
+     intros e tus. induction e; simpl; intros.
+     { admit. }
+     { admit. }
+     { 
+*)
+
+   Lemma exprD_simul'_None : forall e us ve,
+     match exprD_simul' e us ve with
+       | None => typeof_expr us ve e = None
+       | Some t => typeof_expr us ve e = Some (projT1 t)
      end.
    Proof.
      induction e; simpl; intros.
      { change (
            let zzz t (pf : Some t = nth_error ve v) :=
-               (fun e : hlist (typD nil) ve =>
+               (fun (_ : hlist (typD nil) us) (e : hlist (typD nil) ve) =>
                   match
                     pf in (_ = t'')
                     return
@@ -496,12 +539,12 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
                nth_error ve v as pf
                return
                (pf = nth_error ve v ->
-                option {t : typ & hlist (typD nil) ve -> typD nil t})
+                option {t : typ & hlist (typD nil) us -> hlist (typD nil) ve -> typD nil t})
              with
                | Some t =>
                  fun pf : Some t = nth_error ve v =>
                    Some
-                     (existT (fun x1 : typ => hlist (typD nil) ve -> typD nil x1)
+                     (existT (fun x1 : typ => hlist (typD nil) us -> hlist (typD nil) ve -> typD nil x1)
                              t
                              (zzz t pf))
                | None => fun _ : None = nth_error ve v => None
@@ -513,17 +556,44 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        intro zzz; clearbody zzz; revert zzz.
        destruct (nth_error ve v); auto. }
      { generalize (symD f). forward. }
-     { specialize (IHe1 ve). specialize (IHe2 ve).
-       destruct (exprD_simul' ve e1).
+     { specialize (IHe1 us ve). specialize (IHe2 us ve).
+       destruct (exprD_simul' e1 us ve).
        { destruct s; simpl in *.
          rewrite IHe1.
-         destruct x; simpl; try match goal with
-                                  | |- context [ match ?X with _ => _ end ] =>
-                                    destruct X; reflexivity
-                                end.
-         consider (exprD_simul' ve e2); intros; try rewrite IHe2.
-         { destruct s. generalize (exprD'_exprD_simul' _ H).
-           consider (exprD' ve e2 x1); intros.
+         destruct (@typ2_matchW_case _ _ _ _ _ _ nil x).
+         { destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ].
+           rewrite H0.
+           unfold type_of_apply.
+           consider (exprD_simul' e2 us ve); intros; try rewrite IHe2;
+           try rewrite H0.
+           { autorewrite with iso. 
+             destruct s. generalize (exprD'_exprD_simul' _ H1).
+             intro. destruct H2. intuition. simpl in *.
+             (** TODO: It seems that I must have transitivity of [type_cast]
+              ** because I need to related [exprD' e t1] and [exprD' e t2] when
+              ** [type_cast t1 t2 = Some cast].
+              **)
+             consider (exprD' e2 us ve x0); intros.
+             { 
+               SearchAbout Iso.soutof.
+               erewrite soutof_app; eauto with typeclass_instances.
+               erewrite soutof_option; eauto with typeclass_instances.
+               unfold type_of_apply.
+               rewrite H0.
+               destruct (type_cast nil x3 x0).
+               { erewrite soutof_option; eauto with typeclass_instances.
+                 f_equal.
+                 repeat rewrite soutof_const by eauto with typeclass_instances.
+                 reflexivity. }
+               { exfalso. admit. } }
+             { erewrite soutof_app; eauto with typeclass_instances.
+               erewrite soutof_option; eauto with typeclass_instances.
+               unfold type_of_apply.
+               rewrite H0. admit. } }
+           { 
+               { exf
+                 
+             consider (exprD' ve e2 x1); intros.
            { simpl.
              consider (typ_eqb x1 x); auto; intros.
              eapply exprD'_typeof in H0.

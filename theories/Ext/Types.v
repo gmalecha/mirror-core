@@ -7,8 +7,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.TypesI.
 
@@ -502,13 +501,20 @@ Section env.
   Proof.
     constructor.
     eauto with typeclass_instances.
+    { intros. unfold type_cast; simpl.
+      rewrite typ_cast_typ_refl. eauto. }
     { unfold type_cast. simpl; intros.
       unfold typ_cast_typ in *.
       consider (typ_eq_odec a b); intros; subst.
       inv_all; subst.
       rewrite typ_eq_odec_Some_refl. eauto. congruence. }
-    { intros. unfold type_cast; simpl.
-      rewrite typ_cast_typ_refl. eauto. }
+    { unfold type_cast, typ_cast_typ; simpl.
+      unfold type_cast, typ_cast_typ; simpl.
+      intros.
+      forward.
+      subst.
+      inv_all; subst.
+      rewrite H. eexists; split; eauto. }
   Qed.
 
   Global Instance TypInstance0_tyProp : TypInstance0 typD Prop :=
