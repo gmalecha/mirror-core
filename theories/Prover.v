@@ -20,8 +20,11 @@ Section proverI.
   Context {Expr_expr : Expr typD expr}.
   Context {typ0_prop : TypInstance0 typD Prop}.
 
-  (** TODO: It may be adventageous to have a non-prop prover,
-   **       to allow asking to prove equality facts.
+  (** TODO:
+   ** It may be adventageous to have a non-prop prover, to allow
+   ** asking to prove equality facts.
+   ** Additionally, restricting ourselves to goals denoted by
+   ** [expr] implies that you are limited by what you can express.
    **)
 
   Record ProverT : Type :=
@@ -40,12 +43,6 @@ Section proverI.
       valid uvars vars sum ->
       forall goal,
         prover sum (typeof_env uvars) (typeof_env vars) goal = true ->
-(* 
-        match exprD uvars vars goal (@typ0 _ _ _ typ0_prop) return Prop with
-          | None => True
-          | Some P => soutof (iso := @typ0_iso _ _ _ typ0_prop nil) (fun x => x) P
-        end.
-*)
         Safe_expr (typeof_env uvars) (typeof_env vars) goal (@typ0 _ _ _ typ0_prop) ->
         Provable typ0_prop uvars vars goal.
 
