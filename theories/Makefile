@@ -24,9 +24,7 @@ TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
--include ../Makefile.paths
-
-ARGS +=-R . MirrorCore
+ARGS := -R . MirrorCore
 
 .PHONY: coq clean package
 
@@ -64,3 +62,5 @@ depgraph: Makefile.coq
 
 toplevel: coq
 	coqtop.opt $(ARGS)
+
+-include ../Makefile.paths
