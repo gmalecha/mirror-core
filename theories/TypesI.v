@@ -15,7 +15,7 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
                option (forall F, F (typD env a) -> F (typD env b))
   (** It would be a little bit more modular to avoid
    ** syntactic equality in favor of semantic equality
-   ** which is supported by [typ_cast]
+   ** which is supported by [type_cast]
    **)
 ; type_eqb :> RelDec (@eq typ)
   (** This function gives the appropriate equivalence
@@ -23,22 +23,6 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
    ** ----- Currently Unused -------
    **)
 ; typeFor : forall ts (t : typ), type (typD ts t)
-(**
-  (** These two pieces are specialized to functions
-   ** - It is possible that they should be broken into a separate typeclass.
-   **)
-
-  (** This supports syntactic polymorphism. It implements
-   ** [subst] at the type level.
-   **)
-; instantiate_typ : list typ -> typ -> typ
-  (** This determines the type of the result of applying
-   ** a function of type [ft] to a value of type [argt].
-   ** The result should be [None] if [ft] is not a function
-   ** that expects (semantically) values of type [argt].
-   **)
-; type_of_apply : forall (ft : typ) (argt : typ), option typ
-**)
 }.
 
 Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
@@ -139,6 +123,8 @@ Section typed.
   Class TypInstance2_Ok F (ti : TypInstance2 F) : Type :=
   { typ2_match_typ2 : forall ts R caseTyp caseElse t u,
       (typ2_match ts (typ2 t u) R caseTyp caseElse) = sinto (iso := typ2_iso ts t u) _ (caseTyp t u)
+  ; typ2_matchW_typ2 : forall ts R t u caseTyp caseElse,
+      (typ2_matchW ts (typ2 t u) R caseTyp caseElse) = sinto (iso := typ2_iso ts t u) _ (caseTyp t u)
   ; typ2_matchW_case : forall ts t,
       (exists l r (pf : Equiv (typD ts t) (F (typD ts l) (typD ts r))),
          EquivOk pf /\

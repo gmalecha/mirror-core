@@ -37,6 +37,17 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
+    Theorem exprD'_var_env
+    : forall vs vs' e t (H : vs' = vs),
+        exprD' us vs e t = match H in _ = vs
+                                 return option (hlist (typD ts nil) vs -> typD ts nil t)
+                           with
+                             | eq_refl => exprD' us vs' e t
+                           end.
+    Proof.
+      intros. uip_all. reflexivity.
+    Qed.
+
     Theorem typeof_expr_exprD'_impl : forall vs e t,
       typeof_expr (typeof_env us) vs e = Some t ->
       exists val, exprD' us vs e t = Some val.
