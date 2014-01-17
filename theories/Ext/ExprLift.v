@@ -113,6 +113,22 @@ Section typed.
     f_equal.
   Qed.
 
+
+  Theorem lift_lift_1 : forall a b c t,
+    lift a (b + c) t = lift (a + b) c (lift a b t).
+  Proof.
+    intros; repeat rewrite lift_lift'.
+    revert a b c.
+    induction t; simpl; intros; auto.
+    { consider (NPeano.ltb v a); simpl; intros.
+      { consider (NPeano.ltb v (a + b)); auto. intros. exfalso; omega. }
+      { consider (NPeano.ltb (v + b) (a + b)); intros.
+        exfalso; omega.
+        f_equal. omega. } }
+    { rewrite IHt1. rewrite IHt2. reflexivity. }
+    { rewrite IHt. reflexivity. }
+  Qed.
+
   Theorem lift_lower : forall e s l,
                          lower s l (lift s l e) = Some e.
   Proof.
