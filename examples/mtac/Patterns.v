@@ -9,7 +9,7 @@ Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.Expr.
-Require Import MirrorCore.Ext.EnvFunc.
+Require Import MirrorCore.Ext.SymEnv.
 
 Set Implicit Arguments.
 Set Strict Implicit.
