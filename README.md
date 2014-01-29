@@ -3,10 +3,15 @@ mirror-core
 
 A framework for general, extensible, reflective decision procedures. 
 
+Bugs
+----
+
+If you find a bug, please report it.
+
 Quick Start
 -----------
 
-(In the following commands 'mirror-core' refers to the root directory of mirr0r-core)
+(In the following commands 'mirror-core' refers to the root directory of mirror-core)
 
 To pull in read-only copies of all of the dependencies, run the following:
 
