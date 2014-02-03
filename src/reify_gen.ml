@@ -274,12 +274,20 @@ struct
       None -> ([], ls)
     | Some i -> let i = i + 1 in (firstn i ls, skipn i ls)
 
+  let mapi (f : int -> 'a -> 'b) (ls : 'a list) =
+    let rec mapi (ls : 'a list) (i : int) =
+      match ls with
+	[] -> []
+      | l :: ls -> f i l :: mapi ls (i + 1)
+    in
+    mapi ls 0
+
   let build_lambda f ts =
     match ts with
       [] -> f
     | _ ->
       let mx = List.length ts in
-      let app_args = List.mapi (fun n (dep,t,x) ->
+      let app_args = mapi (fun n (dep,t,x) ->
 	if dep then
 	  x
 	else
