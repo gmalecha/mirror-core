@@ -14,7 +14,7 @@ LAMBDA := ExprCore ExprT ExprDI ExprD3
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
 	      SymI \
-	      Prover Subst SealedSubst \
+	      Prover EProver Subst SealedSubst \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
