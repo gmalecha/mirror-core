@@ -73,7 +73,7 @@ Section proverI.
     apply Forall_app; auto.
   Qed.
 
-  Theorem assumptionProverCorrect : ProverCorrect assumptionValid assumptionProve.
+  Theorem assumptionProveOk : ProveOk assumptionValid assumptionProve.
   Proof.
     red. unfold assumptionValid, assumptionProve.
     induction sum; simpl; intros; try congruence.
@@ -82,16 +82,16 @@ Section proverI.
     { inversion H; subst. intros. eauto. }
   Qed.
 
-  Definition assumptionProver : @ProverT typ expr :=
+  Definition assumptionProver : Prover typ expr :=
   {| Facts := assumption_summary
    ; Summarize := fun _ _ => assumptionSummarize
    ; Learn := fun f _ _ => assumptionLearn f
    ; Prove := assumptionProve
    |}.
 
-  Definition assumptionProver_correct : ProverT_correct assumptionProver.
-  eapply Build_ProverT_correct with (Valid := assumptionValid);
-    eauto using assumptionValid_extensible, assumptionSummarizeCorrect, assumptionLearnCorrect, assumptionProverCorrect.
+  Definition assumptionProver_correct : ProverOk assumptionProver.
+  eapply Build_ProverOk with (Valid := assumptionValid);
+    eauto using assumptionValid_extensible, assumptionSummarizeCorrect, assumptionLearnCorrect, assumptionProveOk.
   { simpl. intros. eapply assumptionLearnCorrect; eauto. }
   Qed.
 

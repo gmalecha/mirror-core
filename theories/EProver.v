@@ -27,7 +27,7 @@ Section proverI.
    ** [expr] implies that you are limited by what you can express.
    **)
 
-  Record EProverT : Type :=
+  Record EProver : Type :=
   { Facts : Type
   ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
   ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
@@ -35,7 +35,7 @@ Section proverI.
               Facts -> tenv typ -> tenv typ -> subst -> expr -> option subst
   }.
 
-  Definition EProverCorrect (summary : Type)
+  Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
              (SsubstOk : @SubstOk subst expr typ _ _ _)
     (valid : env typD -> env typD -> summary -> Prop)
@@ -49,7 +49,7 @@ Section proverI.
         Safe_expr (typeof_env uvars) (typeof_env vars) goal (@typ0 _ _ _ typ0_prop) ->
         Provable typ0_prop uvars vars goal /\ substD uvars vars sub.
 
-  Record EProverT_correct (P : EProverT) : Type :=
+  Record EProverOk (P : EProver) : Type :=
   { Valid : env typD -> env typD -> Facts P -> Prop
   ; Valid_weaken : forall u g f ue ge,
     Valid u g f -> Valid (u ++ ue) (g ++ ge) f
@@ -62,15 +62,15 @@ Section proverI.
     Valid uvars vars (P.(Learn) facts (typeof_env uvars) (typeof_env vars) hyps)
   ; Prove_correct : forall subst (Ssubst : Subst subst expr)
                       (Sok : SubstOk _ _),
-                      EProverCorrect Sok Valid (@Prove P subst Ssubst)
+                      EProveOk Sok Valid (@Prove P subst Ssubst)
   }.
 
 
   (** Composite Prover **)
   Section composite.
-    Variables pl pr : EProverT.
+    Variables pl pr : EProver.
 
-    Definition composite_ProverT : EProverT :=
+    Definition composite_EProver : EProver :=
     {| Facts := Facts pl * Facts pr
      ; Summarize := fun uenv venv hyps =>
          (pl.(Summarize) uenv venv hyps, pr.(Summarize) uenv venv hyps)
@@ -85,19 +85,19 @@ Section proverI.
          end
     |}.
 
-    Variable pl_correct : EProverT_correct pl.
-    Variable pr_correct : EProverT_correct pr.
+    Variable pl_correct : EProverOk pl.
+    Variable pr_correct : EProverOk pr.
 
-    Theorem composite_ProverT_correct : EProverT_correct composite_ProverT.
+    Theorem composite_ProverT_correct : EProverOk composite_EProver.
     Proof.
       refine (
-        {| Valid := fun uvars vars (facts : Facts composite_ProverT) =>
+        {| Valid := fun uvars vars (facts : Facts composite_EProver) =>
              let (fl,fr) := facts in
              Valid pl_correct uvars vars fl /\ Valid pr_correct uvars vars fr
          |});
       (destruct pl_correct; destruct pr_correct; simpl;
        try destruct facts; intuition eauto).
-      unfold EProverCorrect. destruct sum.
+      unfold EProveOk. destruct sum.
       intros.
       destruct H.
       match goal with
@@ -112,28 +112,32 @@ Section proverI.
   (** From non-EProvers **)
   Section non_eprover.
     Require Import MirrorCore.Prover.
-    Variables p : @ProverT typ expr.
+    Variables p : Prover typ expr.
 
-    Definition from_ProverT : EProverT :=
-      @Build_EProverT
+    Definition from_Prover : EProver :=
+      @Build_EProver
         p.(Facts)
         p.(Summarize)
         p.(Learn)
         (fun subst Subst facts uenv venv s goal =>
            if p.(Prove) facts uenv venv goal then Some s else None).
 
-    Variable p_correct : ProverT_correct p.
+    Variable p_correct : ProverOk p.
 
-    Theorem from_ProverT_correct : EProverT_correct from_ProverT.
+    Theorem from_ProverT_correct : EProverOk from_Prover.
     Proof.
       refine (
-          @Build_EProverT_correct from_ProverT
+          @Build_EProverOk from_Prover
                                   p_correct.(Valid) _ _ _ _);
       (destruct p_correct; simpl; intuition eauto).
-      unfold EProverCorrect, ProverCorrect in *.
+      unfold EProveOk, ProveOk in *.
       intros.
       forward. inv_all; subst.
       split; eauto.
     Qed.
   End non_eprover.
 End proverI.
+
+Arguments EProver typ expr.
+Arguments composite_EProver {typ} {expr} _ _.
+Arguments from_Prover {typ} {expr} _.

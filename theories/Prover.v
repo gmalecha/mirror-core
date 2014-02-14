@@ -1,4 +1,4 @@
-Require Import List Arith Bool.
+Require Import Coq.Bool.Bool.
 Require Import ExtLib.Structures.EqDep.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.HList.
@@ -13,7 +13,7 @@ Set Strict Implicit.
 
 (** Provers that establish [expr]-encoded facts *)
 Section proverI.
-  Context {typ : Type}.
+  Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
   Context {RType_typ : RType typD}.
   Variable expr : Type.
@@ -27,14 +27,14 @@ Section proverI.
    ** [expr] implies that you are limited by what you can express.
    **)
 
-  Record ProverT : Type :=
+  Record Prover : Type :=
   { Facts : Type
   ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
   ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
   ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
   }.
 
-  Definition ProverCorrect (summary : Type)
+  Definition ProveOk (summary : Type)
     (** Some prover work only needs to be done once per set of hypotheses,
         so we do it once and save the outcome in a summary of this type. *)
     (valid : env typD -> env typD -> summary -> Prop)
@@ -47,7 +47,7 @@ Section proverI.
         Provable typ0_prop uvars vars goal.
 
 
-  Record ProverT_correct (P : ProverT) : Type :=
+  Record ProverOk (P : Prover) : Type :=
   { Valid : env typD -> env typD -> Facts P -> Prop
   ; Valid_weaken : forall u g f ue ge,
     Valid u g f -> Valid (u ++ ue) (g ++ ge) f
@@ -58,15 +58,15 @@ Section proverI.
     Valid uvars vars facts -> forall hyps,
     Forall (Provable typ0_prop uvars vars) hyps ->
     Valid uvars vars (P.(Learn) facts (typeof_env uvars) (typeof_env vars) hyps)
-  ; Prove_correct : ProverCorrect Valid P.(Prove)
+  ; Prove_correct : ProveOk Valid P.(Prove)
   }.
 
 
   (** Composite Prover **)
   Section composite.
-    Variables pl pr : ProverT.
+    Variables pl pr : Prover.
 
-    Definition composite_ProverT : ProverT :=
+    Definition composite_Prover : Prover :=
     {| Facts := Facts pl * Facts pr
      ; Summarize := fun uenv venv hyps =>
          (pl.(Summarize) uenv venv hyps, pr.(Summarize) uenv venv hyps)
@@ -79,22 +79,23 @@ Section proverI.
          else pr.(Prove) fr uenv venv goal
     |}.
 
-    Variable pl_correct : ProverT_correct pl.
-    Variable pr_correct : ProverT_correct pr.
+    Variable pl_correct : ProverOk pl.
+    Variable pr_correct : ProverOk pr.
 
-    Theorem composite_ProverT_correct : ProverT_correct composite_ProverT.
+    Theorem composite_ProverOk : ProverOk composite_Prover.
     Proof.
       refine (
-        {| Valid := fun uvars vars (facts : Facts composite_ProverT) =>
+        {| Valid := fun uvars vars (facts : Facts composite_Prover) =>
              let (fl,fr) := facts in
              Valid pl_correct uvars vars fl /\ Valid pr_correct uvars vars fr
          |});
       (destruct pl_correct; destruct pr_correct; simpl;
        try destruct facts; intuition eauto).
-      unfold ProverCorrect. destruct sum; intuition.
+      unfold ProveOk. destruct sum; intuition.
       consider (Prove pl f (typeof_env uvars) (typeof_env vars) goal); intros.
       eapply Prove_correct0; eassumption.
       eapply Prove_correct1; eassumption.
     Qed.
   End composite.
 End proverI.
+
