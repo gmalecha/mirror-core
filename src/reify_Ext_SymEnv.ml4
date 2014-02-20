@@ -92,7 +92,8 @@ struct
   type 'a m = 'a M.m
   type result = Term.constr
 
-  module RE = ReifyEnvOption (M) (S)
+  module CHK = CheckEq (M)
+  module RE = ReifyEnvOption (M) (S) (CHK)
 
   let tm_eq = lazy (resolve_symbol ["Coq";"Init";"Logic"] "eq")
   let tm_not = lazy (resolve_symbol ["Coq";"Init";"Logic"] "not")
@@ -123,7 +124,7 @@ end
 
 (** **)
 module ReifyExtTypes =
-  Reify_ext.ReifyExtTypes (REIFY_MONAD)
+  Reify_ext.ReifyExtTypes (REIFY_MONAD) (CheckEq (REIFY_MONAD))
 
 module REIFY_MONAD_READ_ENV =
 struct
@@ -148,7 +149,8 @@ module REIFY_ENV_FUNC =
 		type 'a m = 'a REIFY_MONAD.m
 		let put = REIFY_MONAD.put_funcs
 		let get = REIFY_MONAD.get_funcs
-	       end))
+	       end)
+	      (CheckEq (REIFY_MONAD)))
     (struct
       type result = Term.constr
       let expr_fref = lazy (resolve_symbol ["MirrorCore";"Ext";"SymEnv"] "FRef")
@@ -169,6 +171,7 @@ module REIFY_ENV_EVAR =
       let put = REIFY_MONAD.put_evars
       let get = REIFY_MONAD.get_evars
      end)
+    (CheckEq (REIFY_MONAD))
 
 module ReifyExtSymEnv =
   ReifyExpr

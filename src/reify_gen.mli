@@ -44,6 +44,14 @@ sig
                   Term.constr -> Term.constr array -> result m
 end
 
+module type Checker =
+sig
+  type 'a m
+  val is_eqb : Term.constr -> Term.constr -> bool m
+end
+
+module CheckEq (M : MONAD) : Checker with type 'a m = 'a M.m
+
 module ReifyMap
   (R : REIFY)
   (F : sig type result
@@ -56,6 +64,7 @@ module ReifyEnv
   (M : MONAD)
   (S : STATE with type state = Term.constr list
              with type 'a m = 'a M.m)
+  (CHK : Checker with type 'a m = 'a M.m)
   : REIFY with type 'a m = 'a M.m
           with type result = int
 
@@ -63,6 +72,7 @@ module ReifyEnvOption
   (M : MONAD)
   (S : STATE with type state = Term.constr option list
              with type 'a m = 'a M.m)
+  (CHK : Checker with type 'a m = 'a M.m)
   : REIFY with type 'a m = 'a M.m
           with type result = int
 

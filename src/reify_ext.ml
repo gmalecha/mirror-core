@@ -102,7 +102,7 @@ struct
 
   let reify : Term.constr -> result m =
     let rec reify_expr tm =
-      let _ = Format.printf "Reify: %a\n" pp_constr tm in
+(**      let _ = Format.printf "Reify: %a\n" pp_constr tm in **)
       match Term.kind_of_term tm with
 	Term.Lambda (name, t, c) ->
 	  if not (Term.isSort t) then
@@ -167,6 +167,7 @@ module ReifyExtTypes
 	       val under_type : bool -> 'a m -> 'a m
 	       val lookup_type : int -> int m
            end)
+  (CHK : Checker with type 'a m = 'a PARAM.m)
   : REIFY with type 'a m = 'a PARAM.m
           with type result = Term.constr =
   ReifyType
@@ -186,7 +187,8 @@ module ReifyExtTypes
 		   type 'a m = 'a PARAM.m
 		   let put = PARAM.put_types
 		   let get = PARAM.get_types
-		  end))
+		  end)
+		 (CHK))
        (struct
 	 type result = Term.constr
 	 let typ_ref = lazy (resolve_symbol ["MirrorCore";"Ext";"Types"] "tyType")
