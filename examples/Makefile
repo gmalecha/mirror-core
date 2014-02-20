@@ -1,11 +1,12 @@
 MONAD := Expr Demo ReduceApprox Reduce ReduceWf
-SEPLOG := NatDed SepLog SepHeap
 MTAC := Patterns McMatch
 SETOID := Demo
+AUTO := AutoProver
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
 	      $(MTAC:%=mtac/%) \
 	      $(SETOID:%=setoid/%)
+	      $(AUTO:%=Auto/%)
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)

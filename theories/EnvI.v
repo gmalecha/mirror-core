@@ -148,6 +148,19 @@ Section Env.
     rewrite split_env_projT1. reflexivity.
   Qed.
 
+  Lemma nth_error_join_env
+  : forall ls (hls : HList.hlist _ ls) v t,
+      nth_error ls v = Some t ->
+      exists val,
+        nth_error (join_env hls) v = Some (@existT _ _ t val).
+  Proof.
+    clear.
+    induction hls; simpl; intros.
+    { destruct v; inversion H. }
+    { destruct v; simpl in *; eauto.
+      inversion H; clear H; subst. eauto. }
+  Qed.
+
 End Env.
 
 Arguments join_env {_ _ _} _.
