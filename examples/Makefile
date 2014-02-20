@@ -4,7 +4,6 @@ MTAC := Patterns McMatch
 SETOID := Demo
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
-	      $(SEPLOG:%=SepLog/%) \
 	      $(MTAC:%=mtac/%) \
 	      $(SETOID:%=setoid/%)
 TESTS :=
