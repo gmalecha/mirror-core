@@ -72,6 +72,12 @@ Section Env.
     f_equal. auto.
   Qed.
 
+  Theorem split_env_typeof_env : forall x,
+    projT1 (split_env x) = typeof_env x.
+  Proof.
+    exact split_env_projT1.
+  Qed.
+
   Theorem split_env_nth_error : forall ve v tv,
     nth_error ve v = Some tv <->
     match nth_error (projT1 (split_env ve)) v as t
