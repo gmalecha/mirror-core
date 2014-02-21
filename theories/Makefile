@@ -9,7 +9,8 @@ EXTENSIBLE := Repr Types ExprCore \
 	      ExprSubst LemmaExt \
 	      Expr FMapSubst ExprTactics \
 	      SymEnv \
-	      SetoidFold AppFull Red ExprSem AsConst
+	      SetoidFold AppFull Red ExprSem AsConst \
+	      provers/UnifyEProver
 LAMBDA := ExprCore ExprT ExprDI ExprD3
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
