@@ -1,4 +1,4 @@
-Require Import List.
+Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
@@ -445,15 +445,12 @@ Section typed.
         assert (tv = typeof_env v) by (eapply WellTyped_env_typeof_env; assumption).
         specialize (H1 u v H6 H7 H8).
         intuition.
-        autorewrite with exprD_rw.
         assert (tv' = typeof_env v') by (eapply WellTyped_env_typeof_env; assumption); subst.
-        gen_refl.
         generalize (@typeof_expr_eq_exprD_False _ _ _ u t1 (v' ++ v) e1 x).
         generalize (@typeof_expr_eq_exprD_False _ _ _ u t1 (v' ++ v) e2 x).
         unfold typecheck_expr, WellTyped_expr in *.
-        erewrite typeof_env_app. simpl in *.
+        erewrite typeof_env_app.
         rewrite H5. rewrite H4.
-        repeat rewrite rel_dec_eq_true by eauto with typeclass_instances.
         intros. unfold exprD in *. simpl in *. remember (split_env (v' ++ v)).
         destruct s0.
         simpl in *.

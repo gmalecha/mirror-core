@@ -18,14 +18,14 @@ Section proverI.
   Context {RType_typ : RType typD}.
   Variable expr : Type.
   Context {Expr_expr : Expr typD expr}.
-  Context {typ0_prop : TypInstance0 typD Prop}.
+  Context {ty : typ}.
+  Variable Provable' : typD nil ty -> Prop.
 
-  (** TODO:
-   ** It may be adventageous to have a non-prop prover, to allow
-   ** asking to prove equality facts.
-   ** Additionally, restricting ourselves to goals denoted by
-   ** [expr] implies that you are limited by what you can express.
-   **)
+  Let Provable (us vs : env typD) (e : expr) : Prop :=
+    match exprD us vs e ty with
+      | None => False
+      | Some val => Provable' val
+    end.
 
   Record EProver : Type :=
   { Facts : Type
@@ -46,25 +46,45 @@ Section proverI.
         prover sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
         WellTyped_subst (typeof_env uvars) (typeof_env uvars) sub ->
         substD uvars vars sub' ->
-        Safe_expr (typeof_env uvars) (typeof_env vars) goal (@typ0 _ _ _ typ0_prop) ->
-        Provable typ0_prop uvars vars goal /\ substD uvars vars sub.
+        match exprD uvars vars goal ty with
+          | None => True
+          | Some val => Provable' val /\ substD uvars vars sub
+        end.
 
   Record EProverOk (P : EProver) : Type :=
   { Valid : env typD -> env typD -> Facts P -> Prop
   ; Valid_weaken : forall u g f ue ge,
     Valid u g f -> Valid (u ++ ue) (g ++ ge) f
   ; Summarize_correct : forall (uvars vars : env typD) (hyps : list expr),
-    Forall (Provable (expr := expr) typ0_prop uvars vars) hyps ->
+    Forall (Provable uvars vars) hyps ->
     Valid uvars vars (Summarize P (typeof_env uvars) (typeof_env vars) hyps)
   ; Learn_correct : forall uvars vars facts,
     Valid uvars vars facts -> forall hyps,
-    Forall (Provable typ0_prop uvars vars) hyps ->
+    Forall (Provable uvars vars) hyps ->
     Valid uvars vars (P.(Learn) facts (typeof_env uvars) (typeof_env vars) hyps)
   ; Prove_correct : forall subst (Ssubst : Subst subst expr)
                       (Sok : SubstOk _ _),
                       EProveOk Sok Valid (@Prove P subst Ssubst)
   }.
 
+  Theorem Prove_concl P (Pok : EProverOk P)
+  : forall subst (Ssubst : Subst subst expr)
+           (Sok : SubstOk _ _)
+           (vars uvars : env typD)
+           (sum : Facts P),
+      Valid Pok uvars vars sum ->
+      forall (goal : expr) (sub sub' : subst),
+        Prove P sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
+        WellTyped_subst (typeof_env uvars) (typeof_env uvars) sub ->
+        substD uvars vars sub' ->
+        forall val,
+          exprD uvars vars goal ty = Some val ->
+          Provable' val /\ substD uvars vars sub.
+  Proof.
+    intros.
+    specialize (@Pok.(Prove_correct) Sok vars uvars sum H goal sub H0 H1 H2).
+    rewrite H3. exact (fun x => x).
+  Qed.
 
   (** Composite Prover **)
   Section composite.
@@ -95,17 +115,19 @@ Section proverI.
              let (fl,fr) := facts in
              Valid pl_correct uvars vars fl /\ Valid pr_correct uvars vars fr
          |});
-      (destruct pl_correct; destruct pr_correct; simpl;
-       try destruct facts; intuition eauto).
+      try solve [ destruct pl_correct; destruct pr_correct; simpl;
+       try destruct facts; intuition eauto ].
+      intros.
       unfold EProveOk. destruct sum.
       intros.
-      destruct H.
+      destruct H. simpl in H0.
+      forward. 
       match goal with
         | H : match ?X with _ => _ end = _ |- _ =>
           consider X; intros
       end; inv_all; subst.
-      { eapply Prove_correct0; try eassumption. }
-      { eapply Prove_correct1; try eassumption. }
+      { eapply (Prove_concl pl_correct); try eassumption. }
+      { eapply (Prove_concl pr_correct); try eassumption. }
     Qed.
   End composite.
 
@@ -122,18 +144,19 @@ Section proverI.
         (fun subst Subst facts uenv venv s goal =>
            if p.(Prove) facts uenv venv goal then Some s else None).
 
-    Variable p_correct : ProverOk p.
+    Variable p_correct : ProverOk Provable' p.
 
     Theorem from_ProverT_correct : EProverOk from_Prover.
     Proof.
       refine (
           @Build_EProverOk from_Prover
                                   p_correct.(Valid) _ _ _ _);
-      (destruct p_correct; simpl; intuition eauto).
+      try solve [ destruct p_correct; simpl; intuition eauto ].
       unfold EProveOk, ProveOk in *.
-      intros.
+      intros. simpl in H0.
       forward. inv_all; subst.
       split; eauto.
+      eapply Prover.Prove_concl; eauto.
     Qed.
   End non_eprover.
 End proverI.
