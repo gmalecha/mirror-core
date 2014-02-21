@@ -44,7 +44,7 @@ Section proverI.
       valid uvars vars sum ->
       forall (goal : expr) (sub sub' : subst),
         prover sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
-        WellTyped_subst (typeof_env uvars) (typeof_env uvars) sub ->
+        WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
         substD uvars vars sub' ->
         match exprD uvars vars goal ty with
           | None => True
@@ -75,7 +75,7 @@ Section proverI.
       Valid Pok uvars vars sum ->
       forall (goal : expr) (sub sub' : subst),
         Prove P sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
-        WellTyped_subst (typeof_env uvars) (typeof_env uvars) sub ->
+        WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
         substD uvars vars sub' ->
         forall val,
           exprD uvars vars goal ty = Some val ->
@@ -121,7 +121,7 @@ Section proverI.
       unfold EProveOk. destruct sum.
       intros.
       destruct H. simpl in H0.
-      forward. 
+      forward.
       match goal with
         | H : match ?X with _ => _ end = _ |- _ =>
           consider X; intros
