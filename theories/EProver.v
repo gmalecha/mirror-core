@@ -40,7 +40,7 @@ Section proverI.
              (SsubstOk : @SubstOk subst expr typ _ _ _)
     (valid : env typD -> env typD -> summary -> Prop)
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst) : Prop :=
-    forall vars uvars sum,
+    forall uvars vars sum,
       valid uvars vars sum ->
       forall (goal : expr) (sub sub' : subst),
         prover sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
@@ -82,7 +82,7 @@ Section proverI.
           Provable' val /\ substD uvars vars sub.
   Proof.
     intros.
-    specialize (@Pok.(Prove_correct) Sok vars uvars sum H goal sub H0 H1 H2).
+    specialize (@Pok.(Prove_correct) Sok uvars vars sum H goal sub H0 H1 H2).
     rewrite H3. exact (fun x => x).
   Qed.
 

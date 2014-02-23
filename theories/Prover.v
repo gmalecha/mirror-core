@@ -36,7 +36,7 @@ Section proverI.
         so we do it once and save the outcome in a summary of this type. *)
     (valid : env typD -> env typD -> summary -> Prop)
     (prover : summary -> tenv typ -> tenv typ -> expr -> bool) : Prop :=
-    forall vars uvars sum,
+    forall uvars vars sum,
       valid uvars vars sum ->
       forall goal,
         prover sum (typeof_env uvars) (typeof_env vars) goal = true ->
@@ -70,7 +70,7 @@ Section proverI.
           Provable' val.
   Proof.
     intros.
-    specialize (@Pok.(Prove_correct) vars uvars sum H goal H0).
+    specialize (@Pok.(Prove_correct) uvars vars sum H goal H0).
     rewrite H1. exact (fun x => x).
   Qed.
 
