@@ -1,10 +1,12 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Subst.
 Require Import MirrorCore.EProver.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
 Require Import MirrorCore.Ext.ExprSubst.
+Require Import MirrorCore.Ext.ExprUnifySyntactic.
 
 (** TODO **)
 Require Import FunctionalExtensionality.
@@ -12,13 +14,29 @@ Require Import FunctionalExtensionality.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** NOTE: This entire prover could be over an arbitrary logic if we change
+ **       lemma to be over an arbitrary ILogic
+ **)
 Section parameterized.
   Variable ts : types.
   Variable func : Type.
+  Variable RSym_func : SymI.RSym (typD ts) func.
+
+  Let Expr_expr := @Expr_expr ts func RSym_func.
+  Local Existing Instance Expr_expr.
 
   Record Hints : Type :=
   { Apply : list (lemma func (expr func))
   ; Extern : @EProver typ (expr func)
+  }.
+
+  Record HintsOk (h : Hints) : Type :=
+  { ApplyOk : Forall (@lemmaD ts func (expr func)
+                              (fun us tvs g =>
+                                 @exprD' ts _ RSym_func us tvs g tyProp)
+                              RSym_func
+                              nil nil) h.(Apply)
+  ; ExternOk : @EProverOk _ (typD ts) (expr func) _ tyProp (fun x => x) h.(Extern)
   }.
 
   Section get_applicable.
@@ -43,16 +61,11 @@ Section parameterized.
 
   Variable subst : Type.
   Variable Subst_subst : Subst subst (expr func).
+  Variable SubstOk_subst : SubstOk _ Subst_subst.
 
   Variable hints : Hints.
 
-  Fixpoint anyb {T} (p : T -> bool) (ls : list T) : bool :=
-    match ls with
-      | nil => false
-      | l :: ls => if p l then true else anyb p ls
-    end.
-
-  Fixpoint openOver (e : expr func) (skip add : nat) : expr func :=
+   Fixpoint openOver (e : expr func) (skip add : nat) : expr func :=
     match e with
       | Var v =>
         if v ?[ lt ] skip then Var v
@@ -253,8 +266,36 @@ Section parameterized.
   Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
              (lem : lemma func (expr func)) (e : expr func)
   : option subst :=
-    let _ := openOver lem.(concl) 0 (length tus) in
-    None.
+    let pattern := openOver lem.(concl) 0 (length tus) in
+    let fuel := 100 in
+    @exprUnify subst _ _ RSym_func Subst_subst fuel tus tvs 0 s pattern e tyProp.
+
+  Fixpoint copy_into (from len : nat) (src : subst) (acc : subst) : subst :=
+    match len with
+      | 0 => acc
+      | S len => match lookup (from + len) src with
+                   | None => copy_into from len src acc
+                   | Some e => match set (from + len) e acc with
+                                 | None => copy_into from len src acc
+                                 | Some acc => copy_into from len src acc
+                               end
+                 end
+    end.
+
+  Fixpoint check_instantiated (from len : nat) (s : subst) : bool :=
+    match len with
+      | 0 => true
+      | S len => match lookup (from + len) s with
+                   | None => false
+                   | Some _ => check_instantiated from len s
+                 end
+    end.
+
+  Fixpoint check_and_drop (from len : nat) (s : subst) : option subst :=
+    if check_instantiated from len s then
+      Some (copy_into 0 from s (@empty subst (expr func) _))
+    else
+      None.
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> EnvI.tenv typ -> EnvI.tenv typ -> expr func -> subst -> option subst)
@@ -288,9 +329,10 @@ Section parameterized.
               | None => None
               | Some sub =>
                 (** TODO: I need to post-process this, i.e. check that all new
-                 **       unification variables are solved
+                 **       unification variables are solved.
+                 ** Then I need to remove them
                  **)
-                Some sub
+                check_and_drop len_tus from sub
             end
         in
         fold_right (fun x acc =>
@@ -313,6 +355,66 @@ Section parameterized.
           facts tus tvs g s
     end.
 
+  Definition auto_prove_sound_ind
+             (auto_prove : forall (facts : hints.(Extern).(Facts))
+                                  (tus tvs : EnvI.tenv typ) (g : expr func)
+                                  (s : subst), option subst)
+  := forall facts tus tvs g s s' (Hok : HintsOk hints),
+       auto_prove facts tus tvs g s = Some s' ->
+       WellTyped_subst tus tvs s ->
+       forall us : HList.hlist _ tus,
+         match exprD' (EnvI.join_env us) tvs g tyProp with
+           | None => True
+           | Some valG =>
+             forall vs,
+               Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
+               substD (EnvI.join_env us) (EnvI.join_env vs) s' ->
+               valG vs /\ substD (EnvI.join_env us) (EnvI.join_env vs) s
+         end.
+
+  Lemma get_applicable_sound
+  : forall g app lems,
+      Forall (fun ls : (lemma func (expr func) * subst) =>
+                let '(l,s) := ls in
+                In l lems /\ app l g = Some s)
+             (get_applicable g app lems).
+  Proof.
+    clear. induction lems; simpl; intros.
+    { constructor. }
+    { consider (app a g); intros.
+      { constructor; eauto.
+        eapply Forall_impl; eauto.
+        simpl in *. destruct a0. intuition. }
+      { eapply Forall_impl; eauto.
+        simpl in *. destruct a0. intuition. } }
+  Qed.
+
+  Lemma auto_prove_rec_sound
+  : forall recurse,
+      auto_prove_sound_ind recurse ->
+      auto_prove_sound_ind (auto_prove_rec recurse).
+  Proof.
+    red. unfold auto_prove_rec. intros.
+    forward.
+    consider (Prove (Extern hints) facts tus tvs s g).
+    { intros; inv_all; subst.
+      generalize (Hok.(ExternOk).(Prove_correct) _ (EnvI.join_env us) (EnvI.join_env vs) facts H3 g s).
+      repeat rewrite EnvI.typeof_env_join_env.
+      intro XXX. specialize (XXX _ H0 H1 H4).
+      simpl in *. unfold exprD in XXX.
+      rewrite EnvI.split_env_join_env in XXX.
+      rewrite H2 in *. assumption. }
+    { intro XXX; clear XXX.
+      admit. }
+  Qed.
+
+  Theorem auto_prove_sound
+  : forall fuel, auto_prove_sound_ind (auto_prove fuel).
+  Proof.
+    induction fuel.
+    { simpl. red. congruence. }
+    { eapply auto_prove_rec_sound. eapply IHfuel. }
+  Qed.
+
 End parameterized.
 
-(** TODO: Write a demo! **)

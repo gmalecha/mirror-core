@@ -1,11 +1,11 @@
 MONAD := Expr Demo ReduceApprox Reduce ReduceWf
 MTAC := Patterns McMatch
 SETOID := Demo
-AUTO := AutoProver
+AUTO := AutoProver Demo
 MODULES    := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
 	      $(MTAC:%=mtac/%) \
-	      $(SETOID:%=setoid/%)
+	      $(SETOID:%=setoid/%) \
 	      $(AUTO:%=Auto/%)
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
