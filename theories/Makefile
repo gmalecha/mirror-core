@@ -5,7 +5,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
 	      ExprFacts \
-	      ExprLift ExprUnifySyntactic \
+	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 \
 	      ExprSubst LemmaExt \
 	      Expr FMapSubst ExprTactics \
 	      SymEnv \
@@ -15,7 +15,8 @@ LAMBDA := ExprCore ExprT ExprDI ExprD3
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp \
 	      SymI \
-	      Prover EProver Subst SealedSubst \
+	      Prover EProver Subst Subst2 SealedSubst \
+              FastSubst RawSubst2 \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
