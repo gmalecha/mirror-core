@@ -9,7 +9,11 @@ Set Strict Implicit.
 Section subst.
   Variable T : Type.
   (** the [expr] type requires a notion of unification variable **)
+  Variable typ : Type.
+  Variable typD : list Type -> typ -> Type.
   Variable expr : Type.
+  Variable Expr_expr : Expr typD expr.
+
   Let uvar : Type := nat.
 
   Class Subst :=
@@ -19,13 +23,9 @@ Section subst.
 
   Class SubstUpdate :=
   { set : uvar -> expr -> T -> option T (** TODO: Should this be typed? **)
-  ; pull : uvar -> nat -> T -> option (T * list expr)
+  ; pull : uvar -> nat -> T -> option T
   ; empty : T
   }.
-
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Variable Expr_expr : Expr typD expr.
 
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
@@ -74,24 +74,20 @@ Section subst.
       Forall (fun x => x) (substD u v s) /\
       (forall tv, nth_error u uv = Some tv ->
                   exprD u v e (projT1 tv) = Some (projT2 tv))
-  ; WellFormed_pull : forall s s' u n ins,
+  ; WellFormed_pull : forall s s' u n,
       WellFormed_subst s ->
-      pull u n s = Some (s', ins) ->
+      pull u n s = Some s' ->
       WellFormed_subst s'
-  ; WellTyped_pull : forall tus tus' tvs u s s' ins,
+  ; WellTyped_pull : forall tus tus' tvs u s s',
       WellFormed_subst s ->
-      pull u (length tus') s = Some (s', ins) ->
+      pull u (length tus') s = Some s' ->
       WellTyped_subst (tus ++ tus') tvs s ->
       WellTyped_subst tus tvs s'
-  ; substD_pull : forall us us' vs u s s' ins,
+  ; substD_pull : forall us us' vs u s s',
       WellFormed_subst s ->
       Forall (fun x => x) (substD (us ++ us') vs s) ->
-      pull u (length us') s = Some (s', ins) ->
-      Forall (fun x => x) (substD us vs s') /\
-      (forall i e val,
-         nth_error ins i = Some e ->
-         nth_error us' i = Some val ->
-         exprD us vs e (projT1 val) = Some (projT2 val))
+      pull u (length us') s = Some s' ->
+      Forall (fun x => x) (substD us vs s')
   }.
 
   Variable Subst_subst : Subst.

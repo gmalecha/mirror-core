@@ -1,4 +1,4 @@
-Require Import List Bool.
+Require Import Coq.Lists.List Coq.Bool.Bool.
 Require Import Relations.Relation_Definitions.
 Require Import Classes.RelationClasses.
 Require Import ExtLib.Tactics.Consider.

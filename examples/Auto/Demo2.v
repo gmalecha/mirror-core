@@ -19,15 +19,38 @@ Inductive Even : nat -> Prop :=
 | Even_0 : Even 0
 | Even_SS : forall n, Even n -> Even (S (S n)).
 
+Theorem Even_plus : forall n m,
+                      Even n -> Even m ->
+                      Even (n + m).
+Proof.
+  induction 1; simpl; intros; auto.
+  apply Even_SS. auto.
+Qed.
+
+Theorem Even_minus : forall n m,
+                       Even n -> Even m ->
+                       Even (n - m).
+Proof.
+  intros n m H. revert m.
+  induction H; simpl; intros; auto.
+  { constructor. }
+  { destruct H0.
+    { constructor. specialize (IHEven 0 Even_0).
+      rewrite <- Minus.minus_n_O in IHEven. auto. }
+    { eauto. } }
+Qed.
+
 Definition ts : types :=
   Eval compute in list_to_types (@Some Type nat :: nil).
 
 Definition fs : functions ts :=
   Eval simpl in from_list
                   ((@F ts 0 (tyArr (tyType 1) tyProp) Even) ::
-                                                            (@F ts 0 (tyType 1) O) ::
-                                                            (@F ts 0 (tyArr (tyType 1) (tyType 1)) S) ::
-                                                            nil).
+                   (@F ts 0 (tyType 1) O) ::
+                   (@F ts 0 (tyArr (tyType 1) (tyType 1)) S) ::
+                   (@F ts 0 (tyArr (tyType 1) (tyArr (tyType 1) (tyType 1))) plus) ::
+                   (@F ts 0 (tyArr (tyType 1) (tyArr (tyType 1) (tyType 1))) minus) ::
+                   nil).
 
 Fixpoint makeNat (n : nat) : expr func :=
   match n with
@@ -49,20 +72,37 @@ Definition lem_SS : lemma func (expr func) :=
                     (App (Inj (FRef 3 nil)) (App (Inj (FRef 3 nil)) (Var 0)))
   |}.
 
+Definition lem_plus : lemma func (expr func) :=
+  {| vars := tyType 1 :: tyType 1 :: nil
+   ; premises := App (Inj (FRef 1 nil)) (Var 0) ::
+                 App (Inj (FRef 1 nil)) (Var 1) :: nil
+   ; concl := App (Inj (FRef 1 nil))
+                  (App (App (Inj (FRef 4 nil)) (Var 0)) (Var 1))
+  |}.
+
+Definition lem_minus : lemma func (expr func) :=
+  {| vars := tyType 1 :: tyType 1 :: nil
+   ; premises := App (Inj (FRef 1 nil)) (Var 0) ::
+                 App (Inj (FRef 1 nil)) (Var 1) :: nil
+   ; concl := App (Inj (FRef 1 nil))
+                  (App (App (Inj (FRef 5 nil)) (Var 0)) (Var 1))
+  |}.
+
+
 Definition evenHints : Hints func :=
-  {| Apply := lem_0 :: lem_SS :: nil
-     ; Extern := from_Prover (@assumptionProver _ (expr func) _)
+  {| Apply := lem_0 :: lem_SS :: lem_plus :: lem_minus :: nil
+   ; Extern := from_Prover (@assumptionProver _ (expr func) _)
   |}.
 
 Theorem evenHintsOk : @HintsOk _ _ _ evenHints.
 Proof.
   constructor.
   { unfold evenHints; simpl.
-    constructor.
-    { exact Even_0. }
-    { constructor.
-      { exact Even_SS. }
-      { constructor. } } }
+    repeat (apply Forall_cons || apply Forall_nil).
+    exact Even_0.
+    exact Even_SS.
+    exact Even_plus.
+    exact Even_minus. }
   { unfold evenHints; simpl.
     eapply from_ProverT_correct; eauto with typeclass_instances.
     assert (ExprI.ExprOk (Expr_expr RSym_func)) by admit.
@@ -81,7 +121,7 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ hints)
                 fuel facts
                 (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
                 (fast_subst_empty _) = Some s' ->
-    @Subst2.substD _ _ _ _ _ _ SubstOk_fast_subst us vs s' ->
+    Forall (fun x => x) (@Subst2.substD _ _ _ _ _ _ SubstOk_fast_subst us vs s') ->
     match exprD us vs goal tyProp with
       | None => True
       | Some P => P
@@ -132,7 +172,7 @@ Proof.
                                      (etransitivity ; [ | exact (@eq_refl _ res) ])
   end.
   Time vm_compute; reflexivity.
-  compute. auto.
+  admit.
 Qed.
 (** vm_compute is still *very* slow for this!
  ** - Some optimizations might be possible
@@ -145,3 +185,52 @@ Goal Even 200.
 Proof.
   Time eauto 200 using Even_0, Even_SS.
 Qed.
+
+Goal Even ((200 + 200) + 200).
+Proof.
+  Time eauto 400 using Even_0, Even_SS, Even_plus.
+Qed.
+
+Definition seven : expr func -> expr func := 
+  App (Inj (FRef 1 nil)).
+Definition splus (l r : expr func) : expr func := App (App (Inj (FRef 4 nil)) l) r.
+
+(** BUG in Subst? **)
+Goal Even ((0 + 0)).
+Proof.
+  pose (goal := seven (splus (makeNat 0) (makeNat 0))).
+  (** This is problematic because it is going to actually compute 600? **)
+  Time change match exprD nil nil goal tyProp with
+                | None => True
+                | Some P => P
+              end.
+  eapply (@Apply_auto_prove 800 evenHints evenHintsOk
+                            (evenHints.(Extern).(Summarize) nil nil nil)).
+  match goal with
+    | |- ?X = Some ?Y =>
+      let res := eval vm_compute in X in
+      (etransitivity ; [ exact (@eq_refl _ res) | ])
+  end.
+  Time vm_compute; reflexivity.
+  admit.
+Qed.
+
+Goal Even ((200 + 200) + 200).
+Proof.
+  pose (goal := seven (splus (splus (makeNat 200) (makeNat 200)) (makeNat 200))).
+  (** This is problematic because it is going to actually compute 600? **)
+  Time change match exprD nil nil goal tyProp with
+                | None => True
+                | Some P => P
+              end.
+  eapply (@Apply_auto_prove 800 evenHints evenHintsOk
+                            (evenHints.(Extern).(Summarize) nil nil nil)).
+  match goal with
+    | |- ?X = Some ?Y =>
+      let res := eval vm_compute in X in
+      (etransitivity ; [ exact (@eq_refl _ res) | ])
+  end.
+  Time vm_compute; reflexivity.
+  admit.
+Qed.
+*)

@@ -20,6 +20,14 @@ Instance Expr_expr ts func (RSym_func : RSym (typD ts) func) : Expr (typD ts) (e
 ; wf_acc := @wf_expr_acc _
 }.
 
+Theorem ExprOk_expr ts func (RSym_func : RSym (typD ts) func)
+: @ExprOk _ _ _ (@Expr_expr ts func RSym_func).
+Proof.
+  constructor.
+  { eapply EXPR_DENOTE.typeof_expr_exprD. }
+  { admit. } (** TODO: this is weakening... *)
+Qed.
+
 Create HintDb exprD_rw discriminated.
 
 Hint Rewrite exprD_Var exprD_App exprD_UVar exprD_Sym : exprD_rw.

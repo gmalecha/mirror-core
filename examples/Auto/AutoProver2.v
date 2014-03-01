@@ -1,5 +1,7 @@
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Subst2.
 Require Import MirrorCore.EProver.
@@ -21,6 +23,7 @@ Section parameterized.
   Variable ts : types.
   Variable func : Type.
   Variable RSym_func : SymI.RSym (typD ts) func.
+  Variable RSymOk_func : RSymOk RSym_func.
 
   Let Expr_expr := @Expr_expr ts func RSym_func.
   Local Existing Instance Expr_expr.
@@ -62,6 +65,8 @@ Section parameterized.
   Variable subst : Type.
   Variable Subst_subst : Subst subst (expr func).
   Variable SubstOk_subst : SubstOk _ Subst_subst.
+  Variable SU : SubstUpdate subst (expr func).
+  Variable SubstUpdateOk : SubstUpdateOk SU _.
 
   Variable hints : Hints.
 
@@ -263,7 +268,7 @@ Section parameterized.
       rewrite H. eauto. }
   Qed.
 
-  Variable SU : SubstUpdate subst (expr func).
+
 
   Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
              (lem : lemma func (expr func)) (e : expr func)
@@ -272,40 +277,91 @@ Section parameterized.
     let fuel := 100 in
     @exprUnify subst _ _ RSym_func Subst_subst SU fuel tus tvs 0 s pattern e tyProp.
 
-  Fixpoint copy_into (from len : nat) (src : subst) (acc : subst) : subst :=
-    match len with
-      | 0 => acc
-      | S len => match lookup (from + len) src with
-                   | None => copy_into from len src acc
-                   | Some e => match set (from + len) e acc with
-                                 | None => copy_into from len src acc
-                                 | Some acc => copy_into from len src acc
-                               end
-                 end
-    end.
+  SearchAbout lemma.
 
-  Fixpoint check_instantiated (from len : nat) (s : subst) : bool :=
-    match len with
-      | 0 => true
-      | S len => match lookup (from + len) s with
-                   | None => false
-                   | Some _ => check_instantiated from len s
-                 end
-    end.
+  Check lemmaD.
 
-  Check pull.
+  Lemma applicable_sound
+  : forall s tus tvs l0 g s1,
+      applicable s tus tvs l0 g = Some s1 ->
+      @lemmaD ts func (expr func) (fun us tvs e => @exprD' ts func _ us tvs e tyProp) _ nil nil l0 ->
+      WellFormed_subst s ->
+      WellTyped_subst tus tvs s ->
+      WellTyped_expr tus tvs g tyProp ->
+      WellTyped_subst (tus ++ l0.(vars)) tvs s1 /\
+      forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
+        Forall (fun x => x)
+               (substD (join_env us ++ join_env us') (join_env vs) s1) ->
+        exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
+        exprD (join_env us) (join_env us' ++ join_env vs) g tyProp
+        /\ Forall (fun x => x)
+                  (substD (join_env us ++ join_env us') (join_env vs) s).
+  Proof.
+    unfold applicable.
+    intros.
+    generalize exprUnify_sound.
+    unfold unify_sound, unify_sound_ind.
+    intro XXX; eapply XXX with (tv' := nil) in H; clear XXX;
+    eauto with typeclass_instances.
+    (** TODO : WellTyped_subst weaken, substD_weaken **)
+  Qed.
 
-  Fixpoint check_and_drop (from len : nat) (s : subst) : option subst :=
-    match pull from len s with
-      | None => None
-      | Some (x,_) => Some x
-    end.
+
 
   Definition Subst1_subst : Subst.Subst subst (expr func) :=
     {| Subst.set := @set _ _ SU
      ; Subst.empty := @empty _ _ SU
      ; Subst.lookup := @lookup _ _ Subst_subst
     |}.
+
+  Instance Subst1Ok_subst : Subst.SubstOk _ Subst1_subst :=
+    { substD := fun a b c => Forall (fun x => x) (@substD _ _ _ _ _ _ _ a b c)
+      ; WellTyped_subst := @WellTyped_subst _ _ _ _ _ _ _
+      }.
+  admit. admit. admit. admit. admit. admit.
+  Defined.
+
+  Section iteration.
+    Context (T U : Type) (f : T -> option U).
+
+    Fixpoint first_success  (ls : list T) : option U :=
+      match ls with
+        | nil => None
+        | l :: ls =>
+          match f l with
+            | None => first_success ls
+            | x => x
+          end
+      end.
+
+    Lemma first_success_sound
+    : forall ls val,
+        first_success ls = Some val ->
+        exists l,
+          In l ls /\ f l = Some val.
+    Proof.
+      induction ls; simpl; intros.
+      - congruence.
+      - consider (f a); intros.
+        + exists a. inv_all; subst. auto.
+        + apply IHls in H0. destruct H0. intuition. eauto.
+    Qed.
+
+    Variable (f' : T -> U -> option U).
+
+    Fixpoint all_success (ls : list T) (acc : U)
+    : option U :=
+      match ls with
+        | nil => Some acc
+        | l :: ls =>
+          match f' l acc with
+            | None => None
+            | Some x => all_success ls x
+          end
+      end.
+
+  End iteration.
+
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> EnvI.tenv typ -> EnvI.tenv typ -> expr func -> subst -> option subst)
@@ -323,18 +379,14 @@ Section parameterized.
             let '(lem,sub) := lem_sub in
             let from := length lem.(vars) in
             match
-              fold_right (fun h acc =>
-                            match acc with
-                              | None => None
-                              | Some sub =>
-                                let e :=
-                                    instantiate (fun x => lookup x sub)
-                                                (openOver h 0 len_tus)
-                                in
-                                auto_prove facts (tus ++ lem.(vars)) tvs e sub
-                            end)
-                         (Some sub)
-                         lem.(premises)
+              all_success (fun h sub =>
+                             let e :=
+                                 instantiate (fun x => lookup x sub)
+                                             (openOver h 0 len_tus)
+                             in
+                             auto_prove facts (tus ++ lem.(vars)) tvs e sub)
+                          lem.(premises)
+                          sub
             with
               | None => None
               | Some sub =>
@@ -342,16 +394,11 @@ Section parameterized.
                  **       unification variables are solved.
                  ** Then I need to remove them
                  **)
-                check_and_drop len_tus from sub
+                pull len_tus from sub
             end
         in
-        fold_right (fun x acc =>
-                      match acc with
-                        | None =>
-                          check x
-                        | Some res => Some res
-                      end) None
-                   (@get_applicable subst g (applicable s tus tvs) hints.(Apply))
+        first_success check
+                      (@get_applicable subst g (applicable s tus tvs) hints.(Apply))
     end.
 
   Fixpoint auto_prove (fuel : nat)
@@ -371,16 +418,18 @@ Section parameterized.
                                   (s : subst), option subst)
   := forall facts tus tvs g s s' (Hok : HintsOk hints),
        auto_prove facts tus tvs g s = Some s' ->
-       WellTyped_subst tus tvs s ->
+       WellFormed_subst s ->
+       WellFormed_subst s' /\
+       (WellTyped_subst tus tvs s ->
        forall us : HList.hlist _ tus,
          match exprD' (EnvI.join_env us) tvs g tyProp with
            | None => True
            | Some valG =>
              forall vs,
                Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
-               substD (EnvI.join_env us) (EnvI.join_env vs) s' ->
-               valG vs /\ substD (EnvI.join_env us) (EnvI.join_env vs) s
-         end.
+               Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s') ->
+               valG vs /\ Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s)
+         end).
 
   Lemma get_applicable_sound
   : forall g app lems,
@@ -404,18 +453,45 @@ Section parameterized.
       auto_prove_sound_ind recurse ->
       auto_prove_sound_ind (auto_prove_rec recurse).
   Proof.
-(*
     red. unfold auto_prove_rec. intros.
+    split.
+    { admit. (** TODO: this is the problem with falling back on subst1 **) }
+    intros.
     forward.
-    consider (Prove (Extern hints) facts tus tvs s g).
+    match goal with
+      | H : match ?X with _ => _ end = _ |- _ =>
+        consider X; intros
+    end.
     { intros; inv_all; subst.
-      generalize (Hok.(ExternOk).(Prove_correct) _ (EnvI.join_env us) (EnvI.join_env vs) facts H3 g s).
+      generalize (Hok.(ExternOk).(Prove_correct) Subst1Ok_subst (EnvI.join_env us) (EnvI.join_env vs) facts H4 g s).
       repeat rewrite EnvI.typeof_env_join_env.
-      intro XXX. specialize (XXX _ H0 H1 H4).
+      intro XXX. specialize (XXX _ H0 H2 H5).
       simpl in *. unfold exprD in XXX.
       rewrite EnvI.split_env_join_env in XXX.
-      rewrite H2 in *. assumption. }
-    { intro XXX; clear XXX.
+      rewrite H3 in *. assumption. }
+    { clear H0.
+      revert H6.
+      generalize (get_applicable_sound g (applicable s tus tvs) (Apply hints)).
+      generalize dependent (get_applicable g (applicable s tus tvs) (Apply hints)).
+      induction 1.
+      { simpl. congruence. }
+      { simpl; intros.
+        forward. inv_all; subst.
+
+            
+
+        match goal with
+          | H : match ?X with _ => _ end = _ |- _ =>
+            consider X; intros
+        end.
+        { 
+        match goal with
+          | H : match ?X with _ => _ end |- _ =>
+            consider X; intros
+        end.
+        
+       
+
       admit. }
 *)
   Admitted.

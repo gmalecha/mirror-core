@@ -48,6 +48,7 @@ Module Make (FM : S with Definition E.t := uvar
     Definition raw_lookup : uvar -> raw -> option (expr func) :=
        @FM.find _.
 
+    (** this is like instantiate **)
     Section raw_subst.
       Variable s : raw.
 
@@ -66,16 +67,6 @@ Module Make (FM : S with Definition E.t := uvar
             end
         end.
     End raw_subst.
-
-    Fixpoint subst_one (u : uvar) (e' : expr func) (under : nat) (e : expr func)
-    : expr func :=
-      match e with
-        | Var _
-        | Inj _ => e
-        | App l r => App (subst_one u e' under l) (subst_one u e' under r)
-        | Abs t e => Abs t (subst_one u e' (S under) e)
-        | UVar u' => if u ?[ eq ] u' then lift 0 under e' else e
-      end.
 
     Definition raw_set (u : uvar) (e : expr func) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
@@ -1320,7 +1311,7 @@ Module Make (FM : S with Definition E.t := uvar
   End hide_hints.
 End Make.
 
-Require FSets.FMapList.
+Require FSets.FMapAVL.
 
 Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
                                            with Definition eq := @eq uvar.
@@ -1360,5 +1351,5 @@ Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
     end (refl_equal _).
 End UVar_ord.
 
-Module MAP := FMapList.Make UVar_ord.
+Module MAP := FMapAVL.Make UVar_ord.
 Module SUBST := Make MAP.
