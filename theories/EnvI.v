@@ -78,7 +78,7 @@ Section Env.
     exact split_env_projT1.
   Qed.
 
-  Theorem split_env_nth_error : forall ve v tv,
+  Theorem split_env_nth_error : forall (ve : env) v tv,
     nth_error ve v = Some tv <->
     match nth_error (projT1 (split_env ve)) v as t
           return match t with

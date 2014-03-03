@@ -17,41 +17,42 @@ Set Strict Implicit.
 Module Type ExprDenote_core.
 
   Parameter exprD' : forall {ts : types} {func : Type} {_ : RSym (typD ts) func},
-    env (typD ts) -> forall g : list typ, expr func -> forall t : typ,
-    option (hlist (typD ts nil) g -> typD ts nil t).
+    forall (tus tvs : tenv typ), expr func -> forall (t : typ),
+    option (hlist (typD ts nil) tus -> hlist (typD ts nil) tvs -> typD ts nil t).
 
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
     Variable RSym_func : RSym (typD ts) func.
-    Variable us : env (typD ts).
+    Variable tus : tenv typ.
 
-    Axiom exprD'_Abs : forall ve t e u,
-       exprD' us ve (Abs t e) u =
-       match u as u return option (hlist (typD ts nil) ve -> typD ts nil u) with
+    Axiom exprD'_Abs : forall tvs t e u,
+       exprD' tus tvs (Abs t e) u =
+       match u as u return option (hlist (typD ts nil) tus -> hlist (typD ts nil) tvs -> typD ts nil u) with
          | tyArr l r =>
            match typ_cast_typ _ _ l t
-               , exprD' us (t :: ve) e r
+               , exprD' tus (t :: tvs) e r
            with
              | Some cast , Some f =>
-               Some (fun g => fun x =>
-                                f (Hcons (F := typD ts nil)
-                                         (cast (fun x => x) x) g))
+               Some (fun u g => fun x =>
+                                  f u (Hcons (F := typD ts nil)
+                                             (cast (fun x => x) x) g))
              | _ , _ => None
            end
          | _ => None
        end.
 
-    Axiom exprD'_Var : forall ve v t,
-      exprD' us ve (Var v) t =
-      match nth_error ve v as z
-            return z = nth_error ve v ->
-                   option (hlist (typD ts nil) ve -> typD ts nil t)
+    Axiom exprD'_Var : forall tvs v t,
+      exprD' tus tvs (Var v) t =
+      match nth_error tvs v as z
+            return z = nth_error tvs v ->
+                   option (hlist (typD ts nil) tus ->
+                           hlist (typD ts nil) tvs -> typD ts nil t)
       with
         | Some z => fun pf =>
           match typ_cast_typ _ _ z t with
             | Some cast =>
-              Some (fun e => match pf in _ = t''
+              Some (fun _ e => match pf in _ = t''
                                    return match t'' with
                                             | Some t => typD ts nil t
                                             | None => unit
@@ -63,30 +64,45 @@ Module Type ExprDenote_core.
         | None => fun _ => None
       end eq_refl.
 
-    Axiom exprD'_UVar : forall ve u t,
-      exprD' us ve (UVar u) t =
-      match lookupAs us u t with
-        | Some z => Some (fun _ => z)
-        | None => None
-      end.
+    Axiom exprD'_UVar : forall tvs u t,
+      exprD' tus tvs (UVar u) t =
+      match nth_error tus u as z
+            return z = nth_error tus u ->
+                   option (hlist (typD ts nil) tus ->
+                           hlist (typD ts nil) tvs -> typD ts nil t)
+      with
+        | Some z => fun pf =>
+          match typ_cast_typ _ _ z t with
+            | Some cast =>
+              Some (fun e _ => match pf in _ = t''
+                                   return match t'' with
+                                            | Some t => typD ts nil t
+                                            | None => unit
+                                          end -> typD ts nil t with
+                               | eq_refl => fun x => cast (fun x => x) x
+                             end (hlist_nth e u))
+            | None => None
+          end
+        | None => fun _ => None
+      end eq_refl.
 
-    Axiom exprD'_Sym : forall ve f t,
-      exprD' us ve (Inj f) t =
+    Axiom exprD'_Sym : forall tvs f t,
+      exprD' tus tvs (Inj f) t =
       match symAs f t with
         | None => None
-        | Some val => Some (fun _ => val)
+        | Some val => Some (fun _ _ => val)
       end.
 
-    Axiom exprD'_App : forall ve t e arg,
-      exprD' us ve (App e arg) t =
-      match typeof_expr (typeof_env us) ve e with
+    Axiom exprD'_App : forall tvs t e arg,
+      exprD' tus tvs (App e arg) t =
+      match typeof_expr tus tvs e with
         | Some (tyArr l r) =>
-          match exprD' us ve e (tyArr l r)
-              , exprD' us ve arg l
+          match exprD' tus tvs e (tyArr l r)
+              , exprD' tus tvs arg l
               , typ_cast_typ _ _ r t
           with
             | Some f , Some x , Some cast =>
-              Some (fun g => cast (fun x => x) ((f g) (x g)))
+              Some (fun u g => cast (fun x => x) ((f u g) (x u g)))
             | _ , _ , _ => None
           end
         | _ => None
@@ -98,6 +114,7 @@ End ExprDenote_core.
 Module Type ExprDenote.
   Include ExprDenote_core.
 
+(*
   (**
    ** The denotation function with binders must be total because we
    ** can't introduce the binder until we know that we are going to get
@@ -110,19 +127,34 @@ Module Type ExprDenote.
    ** there is an error before needing to get the variables.
    **
    **)
-  Definition exprD {ts} {func : Type} {fs : RSym (typD ts) func} us vs e t
+  Definition exprD {ts} {func : Type} {fs : RSym (typD ts) func} e t us vs
   : option (typD ts nil t) :=
+    let (tus,gus) := split_env us in
     let (tvs,gvs) := split_env vs in
-    match @exprD' ts func fs us tvs e t with
+    match @exprD' ts func fs e t tus tvs with
       | None => None
-      | Some f => Some (f gvs)
+      | Some f => Some (f gus gvs)
     end.
+*)
 
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
     Variable RSym_func : RSym (typD ts) func.
-    Variable us : env (typD ts).
+
+    Axiom typeof_expr_exprD' : forall tus tvs e t,
+      WellTyped_expr tus tvs e t <->
+      exists v, exprD' tus tvs e t = Some v.
+
+    Variables us vs : env (typD ts).
+
+    Instance Expr_expr : @Expr typ (typD ts) (expr func) :=
+      @Build_Expr _ (typD ts) (expr func)
+                  exprD'
+                  (@WellTyped_expr ts func _)
+                  _
+                  (@wf_expr_acc func).
+
 
 (*
     Axiom typeof_expr_exprD : forall vs e t,
@@ -130,16 +162,16 @@ Module Type ExprDenote.
       exists val, exprD' us vs e t = Some val.
 *)
 
-    Axiom exprD_Var : forall ve v t,
-      exprD us ve (Var v) t = lookupAs ve v t.
+    Axiom exprD_Var : forall v t,
+      exprD us vs (Var v) t = lookupAs vs v t.
 
-    Axiom exprD_UVar : forall ve u t,
-      exprD us ve (UVar u) t = lookupAs us u t.
+    Axiom exprD_UVar : forall u t,
+      exprD us vs (UVar u) t = lookupAs us u t.
 
-    Axiom exprD_Sym : forall ve f t,
-      exprD us ve (Inj f) t = symAs f t.
+    Axiom exprD_Sym : forall f t,
+      exprD us vs (Inj f) t = symAs f t.
 
-    Axiom exprD_Abs_is_arr : forall vs e t t',
+    Axiom exprD_Abs_is_arr : forall e t t',
       exprD us vs (Abs t' e) t =
       match t as t return option (typD ts nil t) with
         | tyArr l r =>
@@ -149,7 +181,7 @@ Module Type ExprDenote.
         | _ => None
       end.
 
-    Axiom exprD_Abs : forall vs e t t' v,
+    Axiom exprD_Abs : forall e t t' v,
       exprD us vs (Abs t' e) t = Some v ->
       exists tr (pf : t = tyArr t' tr)
              (pf' : forall a : typD ts nil t', exprD us (existT (typD ts nil) _ a :: vs) e tr = None ->
@@ -163,21 +195,17 @@ Module Type ExprDenote.
                          | None => fun pf => match pf eq_refl with end
                        end (pf' x).
 
-    Axiom typeof_expr_eq_exprD_False : forall l ve e t,
-      WellTyped_expr (typeof_env us) (l :: typeof_env ve) e t ->
-      forall x, exprD us (existT _ l x :: ve) e t = None ->
+    Axiom typeof_expr_eq_exprD_False : forall l e t,
+      WellTyped_expr (typeof_env us) (l :: typeof_env vs) e t ->
+      forall x, exprD us (existT _ l x :: vs) e t = None ->
                 False.
 
-    Axiom typeof_expr_exprD' : forall vs e t,
-      WellTyped_expr (typeof_env us) vs e t <->
-      exists v, exprD' us vs e t = Some v.
-
-    Axiom exprD_App : forall ve t e arg,
-      exprD us ve (App e arg) t =
-      match typeof_expr (typeof_env us) (typeof_env ve) e with
+    Axiom exprD_App : forall vs t e arg,
+      exprD us vs (App e arg) t =
+      match typeof_expr (typeof_env us) (typeof_env vs) e with
         | Some (tyArr l r) =>
-          match exprD us ve e (tyArr l r)
-              , exprD us ve arg l
+          match exprD us vs e (tyArr l r)
+              , exprD us vs arg l
               , typ_cast_typ _ _ r t
           with
             | Some f , Some x , Some cast =>
@@ -187,16 +215,17 @@ Module Type ExprDenote.
         | _ => None
       end.
 
-    Axiom typeof_expr_exprD : forall vs e t,
+    Axiom typeof_expr_exprD : forall e t,
       WellTyped_expr (typeof_env us) (typeof_env vs) e t <->
       exists v, exprD us vs e t = Some v.
 
-    Axiom typeof_expr_exprD_same_type : forall us vs e t t' v,
+    Axiom typeof_expr_exprD_same_type : forall e t t' v,
       exprD us vs e t = Some v ->
       typeof_expr (typeof_env us) (typeof_env vs) e = Some t' ->
       t = t'.
 
-    Axiom exprD'_Var_App_L : forall tvs' t tvs v,
+(*
+    Axiom exprD'_Var_App_L : forall tus tvs' t tvs v,
       v < length tvs ->
       match exprD' us (tvs ++ tvs') (Var v) t , exprD' us tvs (Var v) t with
         | None , None => True
@@ -223,26 +252,27 @@ Module Type ExprDenote.
     Axiom exprD_Var_App_R : forall vs' t vs v,
       v >= length vs ->
       exprD us (vs ++ vs') (Var v) t = exprD us vs' (Var (v - length vs)) t.
+*)
 
     Axiom exprD'_type_cast
-    : forall e tvs t,
-        exprD' us tvs e t =
-        match typeof_expr (typeof_env us) tvs e with
+    : forall tus tvs e t,
+        exprD' tus tvs e t =
+        match typeof_expr tus tvs e with
           | None => None
           | Some t' =>
             match TypesI.type_cast nil t' t with
               | None => None
               | Some cast =>
-                match exprD' us tvs e t' with
+                match exprD' tus tvs e t' with
                   | None => None
                   | Some x =>
-                    Some (fun gs => cast (fun x => x) (x gs))
+                    Some (fun us gs => cast (fun x => x) (x us gs))
                 end
             end
         end.
 
     Axiom exprD_type_cast
-    : forall e vs t,
+    : forall us vs e t,
         exprD us vs e t =
         match typeof_expr (typeof_env us) (typeof_env vs) e with
           | None => None

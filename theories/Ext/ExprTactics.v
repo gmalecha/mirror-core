@@ -67,16 +67,16 @@ Hint Rewrite typ_cast_typ_refl : exprD_rw.
 Ltac red_exprD :=
   repeat first [ progress autorewrite with exprD_rw in *
                | match goal with
-                   | H : context [ @ExprD.exprD _ _ _ _ _ _ _ ] |- _ =>
+                   | H : context [ @ExprI.exprD _ _ _ _ _ _ _ _ _ ] |- _ =>
                      progress (repeat (autorewrite with exprD_rw in * ; simpl in H))
-                   | |- context [ @ExprD.exprD _ _ _ _ _ _ _ ] =>
+                   | |- context [ @ExprI.exprD _ _ _ _ _ _ _ _ _ ] =>
                      progress (repeat (autorewrite with exprD_rw; simpl))
                    | H : context [ @ExprD.exprD' _ _ _ _ _ _ _ ] |- _ =>
                      progress (repeat (autorewrite with exprD_rw in H ; simpl in H))
                    | |- context [ @ExprD.exprD' _ _ _ _ _ _ _ ] =>
                      progress (repeat (autorewrite with exprD_rw; simpl))
-                   | H : @exprD ?ts ?f ?r ?us ?vs (Abs ?t' ?e) ?t = Some ?v |- _ =>
-                     eapply (@exprD_Abs ts f r us vs e t t' v) in H ;
+                   | H : @ExprI.exprD ?typ (typD ?ts) (expr ?func) ?Expr (Abs ?t' ?e) ?t ?us ?vs = Some ?v |- _ =>
+                     eapply (@exprD_Abs ts func _ us vs e t t' v) in H ;
                        destruct H as [ ? [ ? [ ? ? ] ] ];
                        try subst
                    | |- context [ SymI.symAs _ _ ] =>

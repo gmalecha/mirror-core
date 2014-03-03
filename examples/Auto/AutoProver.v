@@ -109,13 +109,14 @@ Section parameterized.
   Qed.
 
   Theorem openOver_exprD' (Z : SymI.RSym (typD ts) func)
-  : forall us e tvs t tvs' val,
-      exprD' us (tvs ++ tvs') e t = Some val ->
+  : forall tus e tvs t tvs' val,
+      exprD' tus (tvs ++ tvs') e t = Some val ->
       forall vs' : HList.hlist _ tvs',
       exists val',
-        exprD' (us ++ EnvI.join_env vs') tvs (openOver e (length tvs) (length us)) t = Some val' /\
-        forall vs, val (HList.hlist_app vs vs') = val' vs.
+        exprD' (tus ++ tvs') tvs (openOver e (length tvs) (length tus)) t = Some val' /\
+        forall us vs, val us (HList.hlist_app vs vs') = val' (HList.hlist_app us vs') vs.
   Proof.
+(*
     clear. induction e; simpl; intros.
     { consider (v ?[ lt ] length tvs); intros.
       { generalize (@exprD'_Var_App_L _ _ _ us tvs' t tvs v H0).
@@ -262,6 +263,7 @@ Section parameterized.
       eapply EnvI.lookupAs_weaken in H.
       rewrite H. eauto. }
   Qed.
+*) Admitted.
 
   Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
              (lem : lemma func (expr func)) (e : expr func)
@@ -362,15 +364,14 @@ Section parameterized.
   := forall facts tus tvs g s s' (Hok : HintsOk hints),
        auto_prove facts tus tvs g s = Some s' ->
        WellTyped_subst tus tvs s ->
-       forall us : HList.hlist _ tus,
-         match exprD' (EnvI.join_env us) tvs g tyProp with
-           | None => True
-           | Some valG =>
-             forall vs,
-               Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
-               substD (EnvI.join_env us) (EnvI.join_env vs) s' ->
-               valG vs /\ substD (EnvI.join_env us) (EnvI.join_env vs) s
-         end.
+       match exprD' tus tvs g tyProp with
+         | None => True
+         | Some valG =>
+           forall us vs,
+             Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
+             substD (EnvI.join_env us) (EnvI.join_env vs) s' ->
+             valG us vs /\ substD (EnvI.join_env us) (EnvI.join_env vs) s
+       end.
 
   Lemma get_applicable_sound
   : forall g app lems,
@@ -399,10 +400,11 @@ Section parameterized.
     consider (Prove (Extern hints) facts tus tvs s g).
     { intros; inv_all; subst.
       generalize (Hok.(ExternOk).(Prove_correct) _ (EnvI.join_env us) (EnvI.join_env vs) facts H3 g s).
-      repeat rewrite EnvI.typeof_env_join_env.
+      repeat rewrite EnvI.typeof_env_join_env in *.
       intro XXX. specialize (XXX _ H0 H1 H4).
       simpl in *. unfold exprD in XXX.
-      rewrite EnvI.split_env_join_env in XXX.
+      repeat rewrite EnvI.split_env_join_env in XXX.
+      simpl in *.
       rewrite H2 in *. assumption. }
     { intro XXX; clear XXX.
       admit. }

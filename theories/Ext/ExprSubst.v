@@ -12,6 +12,7 @@ Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 Require Import MirrorCore.Subst.
@@ -45,6 +46,9 @@ Section instantiate.
   Variable func : Type.
   Variable RSym_func : RSym (typD ts) func.
   Variable lookup : uvar -> option (expr func).
+
+  Let Expr_expr : Expr (typD ts) (expr func) := Expr_expr _.
+  Local Existing Instance Expr_expr.
 
   Local Hint Immediate RSym_func : typeclass_instances.
 
@@ -90,22 +94,25 @@ Section instantiate.
        lookup u = Some e' ->
        exists tval,
          nth_error us u = Some tval /\
-         ExprD.exprD us gs' e' (projT1 tval) = Some (projT2 tval)) ->
+         exprD us gs' e' (projT1 tval) = Some (projT2 tval)) ->
     forall e t v,
       let (tv',vs') := EnvI.split_env gs' in
-      match ExprD.exprD' us (v ++ tv') e t ,
-            ExprD.exprD' us (v ++ tv') (instantiate (length v) e) t
+      let (tu',us') := EnvI.split_env us in
+      match ExprD.exprD' tu' (v ++ tv') e t,
+            ExprD.exprD' tu' (v ++ tv') (instantiate (length v) e) t
       with
-        | Some l , Some r => forall vs,
-                               l (hlist_app vs vs') = r (hlist_app vs vs')
+        | Some l , Some r => forall vs us,
+                               l us (hlist_app vs vs') = r us (hlist_app vs vs')
         | None , None => True
         | _ , _ => False
       end.
   Proof.
-    unfold ExprD.exprD. intros us gs'.
+    unfold exprD. intros us gs'.
+    consider (split_env us). intros x h Hsplit_env.
     destruct (split_env gs'). intros Hlookup.
+    Opaque exprD'.
     induction e; simpl; intros; autorewrite with exprD_rw; auto.
-    { change (
+    { admit. (*change (
           let zzz z (pf : Some z = nth_error (v0 ++ x) v)
                   (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
               fun e : hlist (typD ts nil) (v0 ++ x) =>
@@ -185,10 +192,10 @@ Section instantiate.
           end).
       intro zzz; clearbody zzz; revert zzz; gen_refl.
       destruct (nth_error (v0 ++ x) v); auto.
-      destruct (typ_cast_typ ts nil t0 t); auto. }
+      destruct (typ_cast_typ ts nil t0 t); auto. *) }
     { forward. }
     { rewrite typeof_expr_instantiate.
-      { consider (typeof_expr (typeof_env us) (v ++ x) e1); auto.
+      { consider (typeof_expr x (v ++ x0) e1); auto.
         destruct t0; auto.
         specialize (IHe1 (tyArr t0_1 t0_2) v).
         specialize (IHe2 t0_1 v).
@@ -199,13 +206,18 @@ Section instantiate.
                    consider X; try congruence; intros
                end; auto.
         inv_all; subst. rewrite IHe2. rewrite IHe1. reflexivity. }
-      { clear - Hlookup.
+      { clear - Hlookup Hsplit_env.
         intros. specialize (Hlookup _ _ H).
         destruct Hlookup. intuition.
-        rewrite nth_error_typeof_env.
-        rewrite H1.
-        eexists; split; eauto.
-        consider (ExprD.exprD' us x e' (projT1 x0)); try congruence; intros.
+        unfold ExprI.exprD' in H2. simpl in H2.
+        forward; inv_all; subst.
+        exists (projT1 x1).
+        apply split_env_nth_error in H1.
+        rewrite Hsplit_env in *. simpl in *.
+        generalize dependent (hlist_nth h u).
+        forward. subst; simpl.
+        split; eauto. simpl in *.
+        consider (ExprD.exprD' x x0 e' t0); try congruence; intros.
         eapply ExprD.typeof_expr_exprD'. eauto. } }
     { destruct t0; auto.
       specialize (IHe t0_2 (t :: v)). simpl in *.
@@ -216,12 +228,16 @@ Section instantiate.
                    consider X; try congruence; intros
                end; inv_all; subst; auto.
       eapply functional_extensionality. intros.
-      specialize (IHe (Hcons x0 vs)). simpl in *; auto. }
+      specialize (IHe (Hcons x1 vs) us0). simpl in *; auto. }
     { specialize (Hlookup u).
       destruct (lookup u).
       { unfold lookupAs.
         destruct (Hlookup _ eq_refl); clear Hlookup.
-        intuition.
+        intuition. simpl in *.
+        apply split_env_nth_error in H0.
+        rewrite Hsplit_env in *. simpl in *.
+        gen_refl.
+        forward. inv_all; subst. admit. (*
         rewrite H0. destruct x0; simpl in *.
         generalize (exprD'_lift _ us nil v x e t); simpl.
         consider (x0 ?[ eq ] t); intros; subst.
@@ -247,9 +263,9 @@ Section instantiate.
             { eapply ExprD.typeof_expr_exprD'; eauto. }
             assert (typeof_expr (typeof_env us) x e = Some x0).
             { eapply ExprD.typeof_expr_exprD'; eauto. }
-            rewrite H2 in H0. inv_all; auto. } } }
+            rewrite H2 in H0. inv_all; auto. } } *) }
       { autorewrite with exprD_rw.
-        destruct (lookupAs us u t); auto. } }
+        destruct (lookupAs us u t); auto. admit. admit. } }
   Qed.
 End instantiate.
 
@@ -379,17 +395,19 @@ Section mentionsU.
         , ExprD.exprD' tu tg e t
     with
       | None , None => True
-      | Some l , Some r => forall vs,
-                             l vs = r vs
+      | Some l , Some r => forall us uv vs,
+                             l (hlist_app us (Hcons uv Hnil)) vs = r us vs
       | _ , _ => False
     end.
   Proof.
+(*
     induction e; simpl; intros; autorewrite with exprD_rw;
     repeat match goal with
              | _ : context [ match ?X with _ => _ end ] |- _ =>
                consider X; try congruence; intros
            end.
-    { change (
+    { admit. (*
+change (
           let zzz z (pf : Some z = nth_error tg v)
                   (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
               (fun e : hlist (typD ts nil) tg =>
@@ -467,7 +485,7 @@ Section mentionsU.
           end).
       intro zzz; clearbody zzz; revert zzz.
       gen_refl. destruct (nth_error tg v); auto.
-      destruct (typ_cast_typ ts nil t0 t); auto. }
+      destruct (typ_cast_typ ts nil t0 t); auto. *) }
     { forward. }
     { rewrite typeof_env_app. simpl in *.
       rewrite typeof_expr_mentionsU_strengthen by (rewrite typeof_env_length; auto).
@@ -501,7 +519,8 @@ Section mentionsU.
         destruct (nth_error tu u0); auto.
         destruct s.
         destruct (TypesI.type_cast nil x t); auto. } }
-  Qed.
+*)
+  Admitted.
 
   Lemma exprD'_mentionsU_strengthen_multi_lem : forall tu e,
     (forall n, length tu <= n -> mentionsU n e = false) ->
@@ -510,13 +529,14 @@ Section mentionsU.
           , ExprD.exprD' tu tg e t
       with
         | None , None => True
-        | Some l , Some r => forall vs,
-                               l vs = r vs
+        | Some l , Some r => forall us us' vs,
+                               l (hlist_app us us') vs = r us vs
         | _ , _ => False
       end.
   Proof.
+(*
     induction tu'; intros; simpl.
-    { rewrite app_nil_r. destruct (ExprD.exprD' tu tg e t); auto. }
+    { admit. }
     { rewrite <- app_ass.
       assert (mentionsU (length (tu ++ rev tu')) e = false).
       { rewrite H; auto. rewrite app_length; omega. }
@@ -527,7 +547,8 @@ Section mentionsU.
                  destruct X; intuition
              end.
       etransitivity. eapply H1. eapply IHtu'. }
-  Qed.
+*)
+  Admitted.
 
   Theorem exprD'_mentionsU_strengthen_multi : forall tu e,
     (forall n, length tu <= n -> mentionsU n e = false) ->
@@ -536,8 +557,8 @@ Section mentionsU.
           , ExprD.exprD' tu tg e t
       with
         | None , None => True
-        | Some l , Some r => forall vs,
-                               l vs = r vs
+        | Some l , Some r => forall us us' vs,
+                               l (hlist_app us us') vs = r us vs
         | _ , _ => False
       end.
   Proof.
@@ -546,20 +567,29 @@ Section mentionsU.
     eapply exprD'_mentionsU_strengthen_multi_lem. auto.
   Qed.
 
+
+  Check Expr_expr.
+
   Theorem exprD_mentionsU_strength_multi : forall tu e,
     (forall n, length tu <= n -> mentionsU n e = false) ->
     forall tg t tu',
-      ExprD.exprD (tu ++ tu') tg e t = ExprD.exprD tu tg e t.
+      exprD (E := @Expr_expr ts _ _) (tu ++ tu') tg e t =
+      exprD (E := @Expr_expr ts _ _) tu tg e t.
   Proof.
-    intros; unfold ExprD.exprD.
-    destruct (split_env tg).
-    generalize (exprD'_mentionsU_strengthen_multi tu e H x t tu').
-    intros;
-    repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X; intuition
-             end.
-    f_equal. eapply H0.
+    intros; unfold exprD.
+    rewrite split_env_app.
+    destruct (split_env tg); destruct (split_env tu').
+    consider (split_env tu); intros.
+    simpl.
+    cutrewrite (length tu = length x1) in H.
+    { generalize (exprD'_mentionsU_strengthen_multi _ e H x t x0).
+      intros;
+        repeat match goal with
+                 | _ : match ?X with _ => _ end |- _ =>
+                   destruct X; intuition
+               end.
+      f_equal. eapply H1. }
+    { rewrite split_env_length. rewrite H0. reflexivity. }
   Qed.
 
 End mentionsU.

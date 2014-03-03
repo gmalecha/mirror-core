@@ -1,6 +1,5 @@
-Require Import List.
-Require Import Relations.
-
+Require Import Coq.Lists.List.
+Require Import Coq.Relations.Relations.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.

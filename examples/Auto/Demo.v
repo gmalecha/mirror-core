@@ -38,6 +38,9 @@ Fixpoint makeNat (n : nat) : expr func :=
 Let RSym_func : RSym (typD ts) func := @RSym_func ts fs.
 Local Existing Instance RSym_func.
 
+Let Expr_expr : Expr (typD ts) (expr func) := @Expr_expr _ _ _.
+Local Existing Instance Expr_expr.
+
 Definition lem_0 : lemma func (expr func) :=
   Eval simpl makeNat in
     {| vars := nil ; premises := nil ; concl := App (Inj (FRef 1 nil)) (makeNat 0) |}.
@@ -65,7 +68,7 @@ Proof.
       { constructor. } } }
   { unfold evenHints; simpl.
     eapply from_ProverT_correct; eauto with typeclass_instances.
-    assert (ExprI.ExprOk (Expr_expr RSym_func)) by admit.
+    assert (ExprI.ExprOk Expr_expr) by admit.
     generalize (@assumptionProver_correct typ (typD ts) _ (expr func) _ _ _ _ H).
     unfold ExprProp.Provable_val, TypInstance0_tyProp.
     simpl. unfold Iso.soutof, Iso.outof, Iso.siso.
@@ -88,7 +91,7 @@ Admitted.
 Goal Even 0.
 Proof.
   pose (goal := App (Inj (FRef 1 nil)) (makeNat 0)).
-  change match exprD nil nil goal tyProp with
+  change match exprD (E := Expr_expr) nil nil goal tyProp with
            | None => True
            | Some P => P
          end.
@@ -101,7 +104,7 @@ Qed.
 Goal Even 2.
 Proof.
   pose (goal := App (Inj (FRef 1 nil)) (makeNat 2)).
-  change match exprD nil nil goal tyProp with
+  change match exprD (E := Expr_expr) nil nil goal tyProp with
            | None => True
            | Some P => P
          end.
@@ -114,7 +117,7 @@ Qed.
 Goal Even 200.
 Proof.
   pose (goal := App (Inj (FRef 1 nil)) (makeNat 200)).
-  change match exprD nil nil goal tyProp with
+  change match exprD (E := Expr_expr) nil nil goal tyProp with
            | None => True
            | Some P => P
          end.

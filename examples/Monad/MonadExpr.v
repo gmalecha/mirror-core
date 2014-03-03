@@ -320,14 +320,11 @@ Section Demo.
   Qed.
 
   Global Instance Expr_mexpr : Expr typD mexpr :=
-  { exprD := fun _ g e t =>
-               match EnvI.split_env g with
-                 | existT te env =>
-                   match mexprD te e t with
-                     | None => None
-                     | Some f => Some (f env)
-                   end
-               end
+  { exprD' := fun tus tvs e t =>
+                match mexprD tvs e t with
+                  | None => None
+                  | Some x => Some (fun _ => x)
+                end
   ; Safe_expr := Safe_mexpr
   ; acc := acc_mexpr
   ; wf_acc := well_founded_acc_mexpr
@@ -434,8 +431,11 @@ Section Demo.
     Opaque siso.
     constructor.
     { simpl; intros.
+      unfold exprD.
       destruct (EnvI.split_env vs).
+      destruct (EnvI.split_env us).
       unfold Fun.
+      unfold exprD'. simpl.
       unfold_all.
       go.
       eapply P_iff.

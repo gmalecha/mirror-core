@@ -3,7 +3,7 @@ Require Import Relations.Relation_Definitions.
 Require Import Classes.RelationClasses.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.Vector.
-Require Import ExtLib.Data.Fin.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
 Require Import MirrorCore.Generic.
@@ -28,22 +28,50 @@ Section Expr.
    **   specialized variable environments.
    **)
   Class Expr : Type :=
-  { exprD : env typD -> env typD -> expr -> forall t : typ, option (typD nil t)
+  { exprD' : forall (us vs : tenv typ), expr -> forall (t : typ),
+                       option (hlist (typD nil) us -> hlist (typD nil) vs -> typD nil t)
   ; Safe_expr : list typ -> list typ -> expr -> typ -> Prop
   ; acc : relation expr
   ; wf_acc : well_founded acc
   }.
 
+  Definition exprD {E : Expr} (uvar_env var_env : env typD) (e : expr) (t : typ)
+  : option (typD nil t) :=
+    let (tus,us) := split_env uvar_env in
+    let (tvs,vs) := split_env var_env in
+    match exprD' tus tvs e t with
+      | None => None
+      | Some f => Some (f us vs)
+    end.
+
   Class ExprOk (E : Expr) : Type :=
   { Safe_expr_exprD : forall us vs e t,
-                        Safe_expr (typeof_env us) (typeof_env vs) e t <->
-                        exists val, exprD us vs e t = Some val
-  ; exprD_weaken : forall us us' vs vs' e t val,
-                     exprD us vs e t = Some val ->
-                     exprD (us ++ us') (vs ++ vs') e t = Some val
+                        Safe_expr us vs e t <->
+                        exists val, exprD' us vs e t = Some val
+  ; exprD'_weaken : forall tus tus' tvs tvs' e t val,
+                      exprD' tus tvs e t = Some val ->
+                      exists val',
+                        exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
+                        /\ forall us vs us' vs',
+                             val us vs = val' (hlist_app us us') (hlist_app vs vs')
   }.
 
   Context {Expr_expr : Expr}.
+
+  Theorem exprD_weaken (EOk : ExprOk Expr_expr)
+  : forall us us' vs vs' e t val,
+      exprD us vs e t = Some val ->
+      exprD (us ++ us') (vs ++ vs') e t = Some val.
+  Proof.
+    unfold exprD. intros.
+    repeat rewrite split_env_app.
+    destruct (split_env us); destruct (split_env us');
+    destruct (split_env vs); destruct (split_env vs').
+    consider (exprD' x x1 e t); intros; try congruence.
+    inversion H0; clear H0; subst.
+    eapply exprD'_weaken in H. destruct H. destruct H.
+    rewrite H. rewrite <- H0. reflexivity.
+  Qed.
 
   Class FuncInstance0 (T : Type) (F : T) : Type :=
   { typ0_witness : TypInstance0 typD T
@@ -58,7 +86,7 @@ Section Expr.
   { ctor0_iso : forall us vs P,
       match exprD us vs ctor0 (@typ0 _ _ _ typ0_witness) with
         | None => False
-        | Some G => P F <-> P (soutof (iso := typ0_iso nil) (fun x => x) G)
+        | Some G =>  P F <-> P (soutof (iso := typ0_iso nil) (fun x => x) G)
       end
   ; ctor0_match_ctor0 : forall R caseCtor caseElse,
                           @ctor0_match _ _ FI R caseCtor caseElse ctor0 = caseCtor tt

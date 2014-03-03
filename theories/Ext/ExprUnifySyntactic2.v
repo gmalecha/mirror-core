@@ -6,6 +6,7 @@ Require Import ExtLib.Tactics.Injection.
 Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Subst2.
 Require Import MirrorCore.Ext.Types.
@@ -29,7 +30,7 @@ Section typed.
   Variable Subst_subst : Subst subst (expr func).
   Variable SubstUpdate_subst : SubstUpdate subst (expr func).
   Variable SubstOk_subst : SubstOk (Expr_expr RSym_func) Subst_subst.
-  Variable SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ _ Subst_subst SubstUpdate_subst _.
+  Variable SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ (Expr_expr RSym_func) _ SubstUpdate_subst _.
 
   Section nested.
 
@@ -500,8 +501,8 @@ Section typed.
         assert (tu = typeof_env u) by (eapply WellTyped_env_typeof_env; assumption).
         assert (tv = typeof_env v) by (eapply WellTyped_env_typeof_env; assumption).
         assert (tv' = typeof_env v') by (eapply WellTyped_env_typeof_env; assumption); subst.
-        generalize (@typeof_expr_eq_exprD_False _ _ _ u t1 (v' ++ v) e1 x).
-        generalize (@typeof_expr_eq_exprD_False _ _ _ u t1 (v' ++ v) e2 x).
+        generalize (@typeof_expr_eq_exprD_False _ _ _ u (v' ++ v) t1 e1 x).
+        generalize (@typeof_expr_eq_exprD_False _ _ _ u (v' ++ v) t1 e2 x).
         unfold typecheck_expr, WellTyped_expr in *.
         erewrite typeof_env_app.
         intros; forward_reason.
@@ -509,6 +510,7 @@ Section typed.
         intros. unfold exprD in *. simpl in *. remember (split_env (v' ++ v)).
         destruct s0.
         simpl in *.
+        destruct (split_env u).
         repeat rewrite exprD'_Abs.
         rewrite typ_cast_typ_refl.
         generalize typeof_expr_exprD'. unfold WellTyped_expr.
@@ -518,7 +520,7 @@ Section typed.
           generalize (@split_env_projT1 _ _ (v' ++ v)).
           rewrite <- Heqs0. simpl. intro. symmetry. exact H15. }
         subst. forward_reason.
-        rewrite H4. rewrite H6.
+        admit. (*rewrite H4. rewrite H6.
         f_equal.
         eapply functional_extensionality; intros.
         specialize (H13 x2). specialize (H14 x2).
@@ -527,7 +529,7 @@ Section typed.
         assert (WellTyped_env (t1 :: typeof_env v') (existT (typD types nil) t1 x2 :: v')).
         { constructor; auto. }
         forward_reason.
-        forward. inv_all; subst. auto. } }
+        forward. inv_all; subst. auto. *) } }
     { destruct e2; eauto using handle_uvar2.
       { consider (EqNat.beq_nat u u0); intros; inv_all; subst.
         { intuition. }
@@ -604,7 +606,7 @@ Section typed.
               rewrite H6. rewrite lower_lower'. simpl. auto. }
             { eapply handle_uvar; eauto.
               rewrite H5. rewrite lower_lower'. simpl. auto. } } } } }
-    Grab Existential Variables.
+    Grab Existential Variables. (** this is problematic **)
     apply nil.
   Qed.
 

@@ -21,10 +21,10 @@ Section proverI.
   Context {ty : typ}.
   Variable Provable' : typD nil ty -> Prop.
 
-  Let Provable (us vs : env typD) (e : expr) : Prop :=
+  Let Provable us vs e :=
     match exprD us vs e ty with
       | None => False
-      | Some val => Provable' val
+      | Some p => Provable' p
     end.
 
   Record EProver : Type :=

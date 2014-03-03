@@ -114,13 +114,14 @@ Section parameterized.
   Qed.
 
   Theorem openOver_exprD' (Z : SymI.RSym (typD ts) func)
-  : forall us e tvs t tvs' val,
-      exprD' us (tvs ++ tvs') e t = Some val ->
-      forall vs' : HList.hlist _ tvs',
+  : forall tus e tvs t tvs' val,
+      exprD' tus (tvs ++ tvs') e t = Some val ->
       exists val',
-        exprD' (us ++ EnvI.join_env vs') tvs (openOver e (length tvs) (length us)) t = Some val' /\
-        forall vs, val (HList.hlist_app vs vs') = val' vs.
+        exprD' (tus ++ tvs') tvs (openOver e (length tvs) (length tus)) t = Some val' /\
+        forall us vs' vs, val us (HList.hlist_app vs vs') =
+                          val' (HList.hlist_app us vs') vs.
   Proof.
+(*
     clear. induction e; simpl; intros.
     { consider (v ?[ lt ] length tvs); intros.
       { generalize (@exprD'_Var_App_L _ _ _ us tvs' t tvs v H0).
@@ -266,9 +267,8 @@ Section parameterized.
       forward. inv_all; subst.
       eapply EnvI.lookupAs_weaken in H.
       rewrite H. eauto. }
-  Qed.
-
-
+  Qed. *)
+  Admitted.
 
   Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
              (lem : lemma func (expr func)) (e : expr func)
@@ -276,10 +276,6 @@ Section parameterized.
     let pattern := openOver lem.(concl) 0 (length tus) in
     let fuel := 100 in
     @exprUnify subst _ _ RSym_func Subst_subst SU fuel tus tvs 0 s pattern e tyProp.
-
-  SearchAbout lemma.
-
-  Check lemmaD.
 
   Lemma applicable_sound
   : forall s tus tvs l0 g s1,
@@ -297,6 +293,7 @@ Section parameterized.
         /\ Forall (fun x => x)
                   (substD (join_env us ++ join_env us') (join_env vs) s).
   Proof.
+(*
     unfold applicable.
     intros.
     generalize exprUnify_sound.
@@ -305,8 +302,8 @@ Section parameterized.
     eauto with typeclass_instances.
     (** TODO : WellTyped_subst weaken, substD_weaken **)
   Qed.
-
-
+*)
+  Admitted.
 
   Definition Subst1_subst : Subst.Subst subst (expr func) :=
     {| Subst.set := @set _ _ SU
@@ -421,15 +418,15 @@ Section parameterized.
        WellFormed_subst s ->
        WellFormed_subst s' /\
        (WellTyped_subst tus tvs s ->
-       forall us : HList.hlist _ tus,
-         match exprD' (EnvI.join_env us) tvs g tyProp with
-           | None => True
-           | Some valG =>
-             forall vs,
-               Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
-               Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s') ->
-               valG vs /\ Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s)
-         end).
+        match exprD' tus tvs g tyProp with
+          | None => True
+          | Some valG =>
+            forall us vs,
+              Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
+              Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s') ->
+              valG us vs /\ Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s)
+        end).
+
 
   Lemma get_applicable_sound
   : forall g app lems,
@@ -467,7 +464,8 @@ Section parameterized.
       repeat rewrite EnvI.typeof_env_join_env.
       intro XXX. specialize (XXX _ H0 H2 H5).
       simpl in *. unfold exprD in XXX.
-      rewrite EnvI.split_env_join_env in XXX.
+      repeat rewrite EnvI.split_env_join_env in XXX.
+      simpl in *.
       rewrite H3 in *. assumption. }
     { clear H0.
       revert H6.
@@ -477,23 +475,7 @@ Section parameterized.
       { simpl. congruence. }
       { simpl; intros.
         forward. inv_all; subst.
-
-            
-
-        match goal with
-          | H : match ?X with _ => _ end = _ |- _ =>
-            consider X; intros
-        end.
-        { 
-        match goal with
-          | H : match ?X with _ => _ end |- _ =>
-            consider X; intros
-        end.
-        
-       
-
-      admit. }
-*)
+        admit. }
   Admitted.
 
   Theorem auto_prove_sound

@@ -4,27 +4,23 @@ Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprT.
 Require Import MirrorCore.Ext.ExprDFacts.
-Require Import MirrorCore.Ext.ExprD3.
+Require MirrorCore.Ext.ExprD3.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Module EXPR_DENOTE := Build_ExprDenote EXPR_DENOTE_core.
+Module EXPR_DENOTE := Build_ExprDenote ExprD3.EXPR_DENOTE_core.
 
 Include EXPR_DENOTE.
 
-Instance Expr_expr ts func (RSym_func : RSym (typD ts) func) : Expr (typD ts) (expr func) :=
-{ exprD := exprD
-; Safe_expr := @WellTyped_expr _ _ RSym_func
-; acc := @expr_acc _
-; wf_acc := @wf_expr_acc _
-}.
+Existing Instance Expr_expr.
 
+(** TODO: Move this **)
 Theorem ExprOk_expr ts func (RSym_func : RSym (typD ts) func)
 : @ExprOk _ _ _ (@Expr_expr ts func RSym_func).
 Proof.
   constructor.
-  { eapply EXPR_DENOTE.typeof_expr_exprD. }
+  { eapply EXPR_DENOTE.typeof_expr_exprD'. }
   { admit. } (** TODO: this is weakening... *)
 Qed.
 

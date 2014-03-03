@@ -1,10 +1,11 @@
-Require Import Compare_dec.
+Require Import Coq.Arith.Compare_dec.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 
@@ -214,7 +215,8 @@ Section app_full.
       intros. unfold apps_sem.
       consider (typeof_expr (typeof_env us) (typeof_env vs) e); intros.
       { eapply typeof_expr_exprD in H.
-        destruct H. rewrite H.
+        destruct H.
+        rewrite H.
         simpl.
         match goal with
           | |- match ?X with _ => _ end = _ =>

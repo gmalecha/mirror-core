@@ -1,5 +1,5 @@
-Require Import List.
-Require Import Relations.
+Require Import Coq.Lists.List.
+Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.Set.ListSet.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.

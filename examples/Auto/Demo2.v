@@ -61,6 +61,9 @@ Fixpoint makeNat (n : nat) : expr func :=
 Let RSym_func : RSym (typD ts) func := @RSym_func ts fs.
 Local Existing Instance RSym_func.
 
+Let Expr_expr := Expr_expr RSym_func.
+Local Existing Instance RSym_func.
+
 Definition lem_0 : lemma func (expr func) :=
   Eval simpl makeNat in
     {| vars := nil ; premises := nil ; concl := App (Inj (FRef 1 nil)) (makeNat 0) |}.
@@ -105,7 +108,7 @@ Proof.
     exact Even_minus. }
   { unfold evenHints; simpl.
     eapply from_ProverT_correct; eauto with typeclass_instances.
-    assert (ExprI.ExprOk (Expr_expr RSym_func)) by admit.
+    assert (ExprI.ExprOk Expr_expr) by admit.
     generalize (@assumptionProver_correct typ (typD ts) _ (expr func) _ _ _ _ H).
     unfold ExprProp.Provable_val, TypInstance0_tyProp.
     simpl. unfold Iso.soutof, Iso.outof, Iso.siso.
@@ -114,10 +117,13 @@ Qed.
 
 Axiom SubstOk_fast_subst : @Subst2.SubstOk _ _ _ _ _ (@Subst_fast_subst (expr func)).
 
+Check auto_prove.
+
 Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ hints)
 : forall facts (us vs : EnvI.env (typD ts)) goal s',
-    @auto_prove ts func _ (fast_subst _) (@Subst_fast_subst _) hints
+    @auto_prove ts func _ (fast_subst _) (@Subst_fast_subst _)
                 (@SubstUpdate_fast_subst _ (@get_mentions_instantiate _) (@instantiate _))
+                hints
                 fuel facts
                 (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
                 (fast_subst_empty _) = Some s' ->
@@ -132,7 +138,7 @@ Admitted.
 Goal Even 0.
 Proof.
   pose (goal := App (Inj (FRef 1 nil)) (makeNat 0)).
-  change match exprD nil nil goal tyProp with
+  change match exprD (E := Expr_expr) nil nil goal tyProp with
            | None => True
            | Some P => P
          end.
@@ -160,7 +166,7 @@ Qed.
 Goal Even 200.
 Proof.
   pose (goal := App (Inj (FRef 1 nil)) (makeNat 200)).
-  change match exprD nil nil goal tyProp with
+  change match exprD (E := Expr_expr) nil nil goal tyProp with
            | None => True
            | Some P => P
          end.
@@ -195,12 +201,13 @@ Definition seven : expr func -> expr func :=
   App (Inj (FRef 1 nil)).
 Definition splus (l r : expr func) : expr func := App (App (Inj (FRef 4 nil)) l) r.
 
+(*
 (** BUG in Subst? **)
-Goal Even ((0 + 0)).
+Goal Even (0 + 0).
 Proof.
   pose (goal := seven (splus (makeNat 0) (makeNat 0))).
   (** This is problematic because it is going to actually compute 600? **)
-  Time change match exprD nil nil goal tyProp with
+  Time change match exprD (E := Expr_expr) nil nil goal tyProp with
                 | None => True
                 | Some P => P
               end.
@@ -209,7 +216,8 @@ Proof.
   match goal with
     | |- ?X = Some ?Y =>
       let res := eval vm_compute in X in
-      (etransitivity ; [ exact (@eq_refl _ res) | ])
+                                     idtac res ;
+      (etransitivity ; [ | exact (@eq_refl _ res) ])
   end.
   Time vm_compute; reflexivity.
   admit.
@@ -219,7 +227,7 @@ Goal Even ((200 + 200) + 200).
 Proof.
   pose (goal := seven (splus (splus (makeNat 200) (makeNat 200)) (makeNat 200))).
   (** This is problematic because it is going to actually compute 600? **)
-  Time change match exprD nil nil goal tyProp with
+  Time change match exprD (E := Expr_expr) nil nil goal tyProp with
                 | None => True
                 | Some P => P
               end.

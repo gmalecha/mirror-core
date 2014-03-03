@@ -498,7 +498,7 @@ Section funced.
   Require Import MirrorCore.Ext.ExprCore.
   Require Import MirrorCore.Ext.ExprSubst.
 
-  Let func : Type := nat.
+  Variable func : Type.
 
   Definition instantiate : (uvar -> option (expr func)) -> expr func -> expr func :=
     fun z => ExprSubst.instantiate z 0.
@@ -517,6 +517,7 @@ Section funced.
     let e' := instantiate i e in
     (get_mentions e' (PositiveMap.empty _), e').
 
+(*
   Definition l := @fast_subst_lookup (expr func).
   Definition e := @fast_subst_empty (expr func).
   Definition s := @fast_subst_set (expr func) get_mentions_instantiate instantiate.
@@ -525,10 +526,9 @@ Section funced.
   Require Import ExtLib.Structures.Monad.
   Require Import ExtLib.Data.Monads.OptionMonad.
 
-  Check d.
-
   Eval compute in s 0 (UVar 1) e.
   Eval compute in bind (s 1 (Inj 2) e) (fun x => bind (s 0 (UVar 1) x) (d 1 1)).
   Eval compute in bind (s 0 (UVar 1) e) (fun x => bind (s 1 (Inj 2) x) (d 0 2)).
+*)
 
 End funced.

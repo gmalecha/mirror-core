@@ -1,10 +1,11 @@
-Require Import Compare_dec.
+Require Import Coq.Arith.Compare_dec.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 
@@ -50,6 +51,9 @@ Section substitute.
   Variable sym : Type.
   Variable RSym_sym : RSym (typD ts) sym.
 
+  Let Expr_expr : Expr (typD ts) (expr sym) := Expr_expr _.
+  Local Existing Instance Expr_expr.
+
   Fixpoint substitute' (v : var) (w : expr sym) (e : expr sym) : expr sym :=
     match e with
       | Var v' =>
@@ -71,19 +75,20 @@ Section substitute.
         typeof_expr tus (tvs ++ tvs') w = Some t ->
         typeof_expr tus (tvs ++ t :: tvs') e = Some t' ->
         typeof_expr tus (tvs ++ tvs') e' = Some t' /\
-        (forall (us : hlist _ tus) val x,
-           exprD' (join_env us) (tvs ++ tvs') w t = Some val ->
-           exprD' (join_env us) (tvs ++ t :: tvs') e t' = Some x ->
+        (forall val x,
+           exprD' tus (tvs ++ tvs') w t = Some val ->
+           exprD' tus (tvs ++ t :: tvs') e t' = Some x ->
            match
-             exprD' (join_env us) (tvs ++ tvs') e' t'
+             exprD' tus (tvs ++ tvs') e' t'
            with
              | None => False
              | Some val' =>
-               forall (gs : hlist (typD ts nil) tvs) (gs' : hlist (typD ts nil) tvs'),
-                 x (hlist_app gs (Hcons (val (hlist_app gs gs')) gs')) =
-                 val' (hlist_app gs gs')
+               forall (us : hlist _ tus) (gs : hlist (typD ts nil) tvs) (gs' : hlist (typD ts nil) tvs'),
+                 x us (hlist_app gs (Hcons (val us (hlist_app gs gs')) gs')) =
+                 val' us (hlist_app gs gs')
            end).
   Proof.
+    Opaque exprD'.
     induction e; simpl; intros; subst.
     { destruct (nat_compare_spec (length tvs) v).
       { subst.
@@ -91,7 +96,7 @@ Section substitute.
         rewrite Minus.minus_diag in *. simpl in H1; inversion H1; clear H1; subst.
         split; auto.
         intros. rewrite H. intuition.
-        specialize (@exprD'_Var_App_R _ _ RSym_sym (join_env us) (t' :: tvs') t' tvs (length tvs)).
+        specialize (@exprD'_Var_App_R _ _ RSym_sym tus (t' :: tvs') t' tvs (length tvs)).
         rewrite H1. rewrite Minus.minus_diag.
         rewrite exprD'_Var. simpl.
         rewrite typ_cast_typ_refl; intros.
@@ -102,13 +107,13 @@ Section substitute.
         simpl in H1. split; auto.
         intros.
         assert (v >= length tvs) by omega.
-        specialize (@exprD'_Var_App_R _ _ RSym_sym (join_env us) (t :: tvs') t' tvs v H4); clear H4.
+        specialize (@exprD'_Var_App_R _ _ RSym_sym tus (t :: tvs') t' tvs v H4); clear H4.
         rewrite H3. intro.
         assert (v - 1 >= length tvs) by omega.
-        specialize (@exprD'_Var_App_R _ _ RSym_sym (join_env us) tvs' t' tvs (v - 1) H5); clear H5; simpl.
+        specialize (@exprD'_Var_App_R _ _ RSym_sym tus tvs' t' tvs (v - 1) H5); clear H5; simpl.
         simpl in *; intros.
         assert (v - length tvs >= 1) by omega.
-        specialize (@exprD'_Var_App_R _ _ RSym_sym (join_env us) tvs' t' (t :: nil) (v - length tvs) H6); clear H6; simpl.
+        specialize (@exprD'_Var_App_R _ _ RSym_sym tus tvs' t' (t :: nil) (v - length tvs) H6); clear H6; simpl.
         intros.
         replace (v - length tvs - 1) with (v - 1 - length tvs) in * by omega.
         repeat match goal with
@@ -117,15 +122,15 @@ Section substitute.
                  | H : forall x : hlist _ _, _ , H' : _ |- _ =>
                    specialize (H H')
               end; intuition.
-        { specialize (H8 (Hcons (val (hlist_app gs gs')) Hnil) gs').
-          specialize (H6 (Hcons (val (hlist_app gs gs')) gs')).
+        { specialize (H8 (Hcons (val us (hlist_app gs gs')) Hnil) gs').
+          specialize (H6 (Hcons (val us (hlist_app gs gs')) gs')).
           simpl in *.
           etransitivity. eapply H6. etransitivity. eapply H8.
           eauto. } }
       { simpl. repeat rewrite nth_error_app_L in * by omega.
         split; auto; intros.
-        specialize (@exprD'_Var_App_L _ _ RSym_sym (join_env us) (t :: tvs') t' tvs v H).
-        specialize (@exprD'_Var_App_L _ _ RSym_sym (join_env us) tvs' t' tvs v H).
+        specialize (@exprD'_Var_App_L _ _ RSym_sym tus (t :: tvs') t' tvs v H).
+        specialize (@exprD'_Var_App_L _ _ RSym_sym tus tvs' t' tvs v H).
         intros.
         repeat match goal with
                  | H : context [ match ?X with _ => _ end ] |- _ =>
@@ -134,7 +139,7 @@ Section substitute.
                    specialize (H H')
               end; intuition try congruence.
         { inv_all; subst.
-          specialize (H7 (Hcons (val (hlist_app gs gs')) gs')).
+          specialize (H7 (Hcons (val us (hlist_app gs gs')) gs')).
           simpl in *. etransitivity. eapply H7. eauto. } } }
     { simpl; split; auto; intros.
       red_exprD.
@@ -149,13 +154,13 @@ Section substitute.
       unfold type_of_apply in *; forward. inv_all.
       revert H13. subst; intros; subst.
       rewrite exprD'_type_cast in H11.
-      rewrite typeof_env_join_env in *.
+(*      rewrite typeof_env_join_env in *. *)
       rewrite H1 in *. forward.
       inv_all; subst.
-      specialize (H6 _ _ _ H7 H8).
-      specialize (H4 _ _ _ H7 H10).
+      specialize (H6 _ _ H7 eq_refl).
+      specialize (H4 _ _ H7 H10).
       forward. rewrite typ_cast_typ_refl.
-      intuition. rewrite H4. rewrite H6. reflexivity. }
+      intuition. uip_all. rewrite H9. rewrite H6. reflexivity. }
     { simpl in *. forward.
       inv_all; subst.
       specialize (fun x => IHe (t :: tvs) (lift 0 1 w) _ eq_refl tus tvs' t0 t1 x H).
@@ -165,21 +170,22 @@ Section substitute.
       { simpl in *. rewrite H1. intuition.
         red_exprD.
         forward. inv_all; subst.
-        generalize (exprD'_lift RSym_sym (join_env us) nil (t :: nil) (tvs ++ tvs') w t0); simpl; intros.
-        specialize (H2 us).
-        destruct (exprD' (join_env us) (t :: tvs ++ tvs') (lift' 0 1 w) t0).
+        generalize (exprD'_lift RSym_sym tus nil (t :: nil) (tvs ++ tvs') w t0); simpl; intros.
+        destruct (exprD' tus (t :: tvs ++ tvs') (lift' 0 1 w) t0).
         { forward; inv_all; subst.
-          specialize (@H2 _ _ eq_refl H4).
+          specialize (@H4 _ _ eq_refl eq_refl).
           forward.
           eapply functional_extensionality. intros.
-          specialize (H5 (Hcons x gs) gs').
-          specialize (H6 Hnil (Hcons x Hnil) (hlist_app gs gs')).
+          specialize (H6 us Hnil (Hcons x Hnil) (hlist_app gs gs')).
+          specialize (H5 us (Hcons x gs) gs').
           simpl in *.
           etransitivity. 2: eapply H5.
           f_equal. f_equal. f_equal. f_equal. auto. }
         { forward. } } }
     { simpl. intuition.
-      red_exprD. forward; inv_all; subst. auto. }
+      red_exprD.
+      revert H2. gen_refl.
+      admit. }
   Qed.
 
   Theorem substitute'_typed
@@ -220,9 +226,11 @@ Section substitute.
   Proof.
     intros.
     destruct (@substitute'_lem e (typeof_env vs) w _ eq_refl (typeof_env us) (typeof_env vs') t t').
-    { clear - H. rewrite exprD_type_cast in H. forward.
+    { clear - H.
+      unfold Expr_expr in *. rewrite exprD_type_cast in H. forward.
       inv_all; subst. rewrite typeof_env_app in *. auto. }
-    { clear - H0. rewrite exprD_type_cast in H0. forward.
+    { clear - H0.
+      unfold Expr_expr in *. rewrite exprD_type_cast in H0. forward.
       inv_all; subst. rewrite typeof_env_app in *. auto. }
     { unfold exprD in *.
       repeat rewrite split_env_app in *.
@@ -236,15 +244,14 @@ Section substitute.
              end.
       intuition.
       revert H7 H8 H9. subst.
-      specialize (H2 h).
       forward; inv_all.
-      rewrite H7 in *.
-      specialize (@H2 _ _ H0 H).
-      forward. rewrite typeof_env_length in *.
-      rewrite H2.
-      f_equal. rewrite <- H3.
-      revert H7 H8 H9. subst.
-      auto. }
+      specialize (H2 _ _ H0 H).
+      unfold ExprI.exprD' in *. simpl in *.
+      rewrite typeof_env_length in *.
+      forward; inv_all.
+      f_equal. subst val.
+      rewrite <- H3.
+      f_equal. f_equal. f_equal. auto. }
   Qed.
 
 End substitute.
@@ -253,6 +260,9 @@ Section beta.
   Variable ts : types.
   Variable sym : Type.
   Variable RSym_sym : RSym (typD ts) sym.
+
+  Let Expr_expr : Expr (typD ts) (expr sym) := Expr_expr _.
+  Local Existing Instance Expr_expr.
 
   Fixpoint beta (e : expr sym) : expr sym :=
     match e with
@@ -287,23 +297,26 @@ Section beta.
     induction e; simpl; intros; auto.
     Opaque beta.
     destruct e1; simpl; eauto.
-    { red_exprD. forward.
+    { unfold Expr_expr in *.
+      red_exprD. forward.
       inv_all; subst.
       specialize (IHe1 _ _ H1).
       erewrite beta_typed.
-      2: simpl; Cases.rewrite_all; reflexivity.
+      2: eassumption.
       simpl. Cases.rewrite_all.
       rewrite typ_cast_typ_refl in *. auto. }
-    { red_exprD. forward; inv_all; subst.
+    { unfold Expr_expr in *.
+      red_exprD. forward; inv_all; subst.
       eapply substitute'_exprD with (vs := nil); intros.
       { simpl. eassumption. }
       { simpl.
         red_exprD.
+        admit. (*
         inversion x0; subst. revert H.
         uip_all'. intros; subst.
         generalize (x1 t5). clear.
-        destruct (exprD us (existT (typD ts nil) t2 t5 :: vs) e1 x); auto.
-        intros; exfalso; auto. } }
+        destruct (exprD e1 x us (existT (typD ts nil) t0 t5 :: vs)); auto.
+        intros; exfalso; auto. *) } }
   Qed.
 
 End beta.

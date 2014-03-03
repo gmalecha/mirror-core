@@ -61,7 +61,7 @@ Section symbols.
     generalize (symD f).
     rewrite pf. intros.
     destruct (type_cast_refl nil t).
-    intuition. 
+    intuition.
     match goal with
       | H : ?Y = _ |- match ?X with _ => _ end = _ =>
         change X with Y ; rewrite H

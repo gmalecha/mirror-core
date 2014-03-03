@@ -1,4 +1,4 @@
-Require Import List.
+Require Import Coq.Lists.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
@@ -7,6 +7,7 @@ Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
@@ -111,22 +112,23 @@ Section weaken_denote.
   Variable types : types.
   Variable func : Type.
   Variable RSym_func : RSym (typD types) func.
-  Variable uenv : env (typD types).
 
-  Lemma exprD'_weaken : forall ve ue e t venv,
-    match exprD' uenv venv e t
-        , exprD' (uenv ++ ue) (venv ++ ve) e t
+  Lemma exprD'_weaken : forall tus tus' ve e t venv,
+    match exprD' tus venv e t
+        , exprD' (tus ++ tus') (venv ++ ve) e t
     with
       | Some l , Some r =>
-        forall venve vs,
-          l vs = r (hlist_app vs venve)
+        forall us us' venve vs,
+          l us vs = r (hlist_app us us') (hlist_app vs venve)
       | None , _ => True
       | Some _ , None => False
     end.
   Proof.
+(*
     induction e; simpl; intros; autorewrite with exprD_rw; forward;
       inv_all; subst; auto.
     { gen_refl.
+      admit. (*
       change (
           let zzz z (pf : Some z = nth_error venv v)
                   (cast : forall F : Type -> Type, F (typD types nil z) -> F (typD types nil t))  :=
@@ -232,7 +234,7 @@ Section weaken_denote.
             | H : ?X = _ |- context [ match ?Y with _ => _ end ] =>
               change Y with X; rewrite H
           end.
-          eauto. } } }
+          eauto. } }  *) }
      { repeat rewrite typeof_env_app.
       erewrite typeof_expr_weaken by eauto. simpl.
       specialize (IHe1 (tyArr t2 t3) venv).
@@ -244,23 +246,30 @@ Section weaken_denote.
       eapply functional_extensionality; intros.
       apply (IHe venve (Hcons (F := typD types nil) (p (fun x : Type => x) x) vs)). }
     { erewrite lookupAs_weaken; eauto. }
-  Qed.
+  Qed. *)
+  Admitted.
 
-  Theorem exprD_weaken : forall venv ue ve e t x,
+  Let Expr_expr : Expr (typD types) (expr func) := Expr_expr _.
+  Local Existing Instance Expr_expr.
+
+  Theorem exprD_weaken : forall uenv venv ue ve e t x,
     exprD uenv venv e t = Some x ->
     exprD (uenv ++ ue) (venv ++ ve) e t = Some x.
   Proof.
     unfold exprD.
-    intros; rewrite split_env_app.
+    intros; repeat rewrite split_env_app.
     destruct (split_env venv).
     destruct (split_env ve).
-    generalize (exprD'_weaken x1 ue e t x0).
+    destruct (split_env uenv).
+    destruct (split_env ue).
+    generalize (exprD'_weaken x2 x3 x1 e t x0).
+    unfold ExprI.exprD' in *; simpl in *.
     forward.
     inv_all; subst.
     f_equal; eauto.
   Qed.
 
-  Theorem exprD_weaken_onlyU : forall venv ue e t x,
+  Theorem exprD_weaken_onlyU : forall uenv venv ue e t x,
     exprD uenv venv e t = Some x ->
     exprD (uenv ++ ue) venv e t = Some x.
   Proof.
@@ -269,7 +278,7 @@ Section weaken_denote.
     eauto using exprD_weaken.
   Qed.
 
-  Theorem exprD_weaken_onlyV : forall venv ve e t x,
+  Theorem exprD_weaken_onlyV : forall uenv venv ve e t x,
     exprD uenv venv e t = Some x ->
     exprD uenv (venv ++ ve) e t = Some x.
   Proof.
