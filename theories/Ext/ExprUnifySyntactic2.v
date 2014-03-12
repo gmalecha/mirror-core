@@ -510,7 +510,7 @@ Section typed.
         intros. unfold exprD in *. simpl in *. remember (split_env (v' ++ v)).
         destruct s0.
         simpl in *.
-        destruct (split_env u).
+        consider (split_env u); intros.
         repeat rewrite exprD'_Abs.
         rewrite typ_cast_typ_refl.
         generalize typeof_expr_exprD'. unfold WellTyped_expr.
@@ -518,18 +518,21 @@ Section typed.
         assert (typeof_env v' ++ typeof_env v = x0).
         { rewrite <- typeof_env_app.
           generalize (@split_env_projT1 _ _ (v' ++ v)).
-          rewrite <- Heqs0. simpl. intro. symmetry. exact H15. }
+          rewrite <- Heqs0. simpl. intro. symmetry. exact H16. }
+        assert (typeof_env u = x1).
+        { generalize (@split_env_projT1 _ _ u).
+          rewrite H11. simpl. intro. symmetry. exact H17. }
         subst. forward_reason.
-        admit. (*rewrite H4. rewrite H6.
+        Cases.rewrite_all_goal.
         f_equal.
         eapply functional_extensionality; intros.
-        specialize (H13 x2). specialize (H14 x2).
-        specialize (H11 (existT _ t1 x2  :: v')). simpl in *.
+        specialize (H14 x2). specialize (H15 x2).
+        specialize (H13 (existT _ t1 x2  :: v')). simpl in *.
         rewrite <- Heqs0 in *. simpl in *.
         assert (WellTyped_env (t1 :: typeof_env v') (existT (typD types nil) t1 x2 :: v')).
         { constructor; auto. }
         forward_reason.
-        forward. inv_all; subst. auto. *) } }
+        forward. inv_all; subst. auto. } }
     { destruct e2; eauto using handle_uvar2.
       { consider (EqNat.beq_nat u u0); intros; inv_all; subst.
         { intuition. }
@@ -587,7 +590,7 @@ Section typed.
               eapply substD_set in H7; eauto.
               forward_reason.
               split; auto. intros.
-              erewrite exprD_from_subst with (u := u0); eauto using nth_error_from_WellTyped_UVar.
+              erewrite exprD_from_subst with (u := u0); eauto using (fun x => @nth_error_from_WellTyped_UVar x tv).
               rewrite exprD_UVar.
               rewrite WellTyped_expr_UVar in *.
               unfold lookupAs.
@@ -606,8 +609,6 @@ Section typed.
               rewrite H6. rewrite lower_lower'. simpl. auto. }
             { eapply handle_uvar; eauto.
               rewrite H5. rewrite lower_lower'. simpl. auto. } } } } }
-    Grab Existential Variables. (** this is problematic **)
-    apply nil.
   Qed.
 
   Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify fuel).

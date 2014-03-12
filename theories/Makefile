@@ -4,7 +4,6 @@ PROVERS := ProverTac AssumptionProver
 EXTENSIBLE := Repr Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
-	      ExprFacts \
 	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 \
 	      ExprSubst LemmaExt \
 	      Expr FMapSubst ExprTactics \

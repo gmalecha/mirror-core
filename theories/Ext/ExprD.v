@@ -21,7 +21,7 @@ Theorem ExprOk_expr ts func (RSym_func : RSym (typD ts) func)
 Proof.
   constructor.
   { eapply EXPR_DENOTE.typeof_expr_exprD'. }
-  { admit. } (** TODO: this is weakening... *)
+  { eapply EXPR_DENOTE.exprD'_weaken. }
 Qed.
 
 Create HintDb exprD_rw discriminated.

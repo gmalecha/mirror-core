@@ -14,6 +14,94 @@ Require Import MirrorCore.Ext.ExprT.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Section nth_error_get_hlist_nth.
+  Context (iT : Type) (F : iT -> Type).
+
+  Fixpoint nth_error_get_hlist_nth (ls : list iT) (n : nat) {struct ls} :
+    option {t : iT & hlist F ls -> F t} :=
+    match
+      ls as ls0
+      return option {t : iT & hlist F ls0 -> F t}
+    with
+      | nil => None
+      | l :: ls0 =>
+        match
+          n as n0
+          return option {t : iT & hlist F (l :: ls0) -> F t}
+        with
+          | 0 =>
+            Some (@existT _ (fun t => hlist F (l :: ls0) -> F t)
+                          l (@hlist_hd _ _ _ _))
+          | S n0 =>
+            match nth_error_get_hlist_nth ls0 n0 with
+              | Some (existT x f) =>
+                Some (@existT _ (fun t => hlist F _ -> F t)
+                              x (fun h : hlist F (l :: ls0) => f (hlist_tl h)))
+              | None => None
+            end
+        end
+    end.
+
+  Theorem nth_error_get_hlist_nth_Some
+  : forall ls n s,
+      nth_error_get_hlist_nth ls n = Some s ->
+      exists pf : nth_error ls n = Some (projT1 s),
+        forall h, projT2 s h = match pf in _ = t
+                                     return match t with
+                                              | Some t => F t
+                                              | None => unit
+                                            end
+                               with
+                                 | eq_refl => hlist_nth h n
+                               end.
+  Proof.
+    induction ls; simpl; intros; try congruence.
+    { destruct n.
+      { inv_all; subst; simpl.
+        exists (eq_refl).
+        intros. rewrite (hlist_eta h). reflexivity. }
+      { forward. inv_all; subst.
+        destruct (IHls _ _ H0); clear IHls.
+        simpl in *. exists x0.
+        intros.
+        rewrite (hlist_eta h). simpl. auto. } }
+  Qed.
+
+  Theorem nth_error_get_hlist_nth_None
+  : forall ls n,
+      nth_error_get_hlist_nth ls n = None <->
+      nth_error ls n = None.
+  Proof.
+    induction ls; simpl; intros; try congruence.
+    { destruct n; intuition. }
+    { destruct n; simpl; try solve [ intuition congruence ].
+      { unfold value. intuition congruence. }
+      { specialize (IHls n).
+        forward. } }
+  Qed.
+
+End nth_error_get_hlist_nth.
+
+Lemma nth_error_get_hlist_nth_weaken
+: forall T F ls ls' n x,
+    nth_error_get_hlist_nth F ls n = Some x ->
+    exists z,
+      nth_error_get_hlist_nth F (ls ++ ls') n =
+      Some (@existT T (fun t => hlist F (ls ++ ls') -> F t) (projT1 x) z)
+      /\ forall h h', projT2 x h = z (hlist_app h h').
+Proof.
+  intros T F ls ls'. revert ls.
+  induction ls; simpl; intros; try congruence.
+  { destruct n; inv_all; subst.
+    { simpl. eexists; split; eauto.
+      intros. rewrite (hlist_eta h). reflexivity. }
+    { forward. inv_all; subst. simpl.
+      apply IHls in H0. forward_reason.
+      rewrite H. eexists; split; eauto.
+      intros. rewrite (hlist_eta h). simpl in *.
+      auto. } }
+Qed.
+
 Module Type ExprDenote_core.
 
   Parameter exprD' : forall {ts : types} {func : Type} {_ : RSym (typD ts) func},
@@ -44,47 +132,31 @@ Module Type ExprDenote_core.
 
     Axiom exprD'_Var : forall tvs v t,
       exprD' tus tvs (Var v) t =
-      match nth_error tvs v as z
-            return z = nth_error tvs v ->
-                   option (hlist (typD ts nil) tus ->
-                           hlist (typD ts nil) tvs -> typD ts nil t)
-      with
-        | Some z => fun pf =>
-          match typ_cast_typ _ _ z t with
-            | Some cast =>
-              Some (fun _ e => match pf in _ = t''
-                                   return match t'' with
-                                            | Some t => typD ts nil t
-                                            | None => unit
-                                          end -> typD ts nil t with
-                               | eq_refl => fun x => cast (fun x => x) x
-                             end (hlist_nth e v))
+      match @nth_error_get_hlist_nth _ _ tvs v with
+        | None => None
+        | Some (existT t' get) =>
+          match typ_cast_typ ts _ t' t with
             | None => None
+            | Some cast =>
+              Some (fun (_ : hlist (typD ts nil) tus)
+                        (vs : hlist (typD ts nil) tvs) =>
+                      cast (fun x => x) (get vs))
           end
-        | None => fun _ => None
-      end eq_refl.
+      end.
 
     Axiom exprD'_UVar : forall tvs u t,
       exprD' tus tvs (UVar u) t =
-      match nth_error tus u as z
-            return z = nth_error tus u ->
-                   option (hlist (typD ts nil) tus ->
-                           hlist (typD ts nil) tvs -> typD ts nil t)
-      with
-        | Some z => fun pf =>
-          match typ_cast_typ _ _ z t with
-            | Some cast =>
-              Some (fun e _ => match pf in _ = t''
-                                   return match t'' with
-                                            | Some t => typD ts nil t
-                                            | None => unit
-                                          end -> typD ts nil t with
-                               | eq_refl => fun x => cast (fun x => x) x
-                             end (hlist_nth e u))
+      match @nth_error_get_hlist_nth _ _ tus u with
+        | None => None
+        | Some (existT t' get) =>
+          match typ_cast_typ ts _ t' t with
             | None => None
+            | Some cast =>
+              Some (fun (us : hlist (typD ts nil) tus)
+                        (_ : hlist (typD ts nil) tvs) =>
+                      cast (fun x => x) (get us))
           end
-        | None => fun _ => None
-      end eq_refl.
+      end.
 
     Axiom exprD'_Sym : forall tvs f t,
       exprD' tus tvs (Inj f) t =
@@ -287,6 +359,23 @@ Module Type ExprDenote.
                 end
             end
         end.
+
+    Axiom exprD'_weaken
+    : forall (tus : tenv typ) (tus' : list typ)
+             (tvs : tenv typ) (tvs' : list typ)
+             (e : expr func) (t : typ)
+             (val : hlist (typD ts nil) tus ->
+                    hlist (typD ts nil) tvs -> typD ts nil t),
+        exprD' tus tvs e t = Some val ->
+        exists
+          val' : hlist (typD ts nil) (tus ++ tus') ->
+                 hlist (typD ts nil) (tvs ++ tvs') -> typD ts nil t,
+          exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val' /\
+          (forall (us : hlist (typD ts nil) tus)
+                  (vs : hlist (typD ts nil) tvs)
+                  (us' : hlist (typD ts nil) tus')
+                  (vs' : hlist (typD ts nil) tvs'),
+             val us vs = val' (hlist_app us us') (hlist_app vs vs')).
 
   End with_envs.
 

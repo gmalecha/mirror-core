@@ -567,9 +567,6 @@ change (
     eapply exprD'_mentionsU_strengthen_multi_lem. auto.
   Qed.
 
-
-  Check Expr_expr.
-
   Theorem exprD_mentionsU_strength_multi : forall tu e,
     (forall n, length tu <= n -> mentionsU n e = false) ->
     forall tg t tu',
