@@ -10,7 +10,6 @@ Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
 Require Import MirrorCore.Ext.ExprUnifySyntactic2.
 
-(** TODO **)
 Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
@@ -275,7 +274,7 @@ Section parameterized.
   : option subst :=
     let pattern := openOver lem.(concl) 0 (length tus) in
     let fuel := 100 in
-    @exprUnify subst _ _ RSym_func Subst_subst SU fuel tus tvs 0 s pattern e tyProp.
+    @exprUnify subst _ _ RSym_func Subst_subst SU fuel (tus ++ lem.(vars)) tvs 0 s pattern e tyProp.
 
   Lemma applicable_sound
   : forall s tus tvs l0 g s1,

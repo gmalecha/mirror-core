@@ -117,8 +117,6 @@ Qed.
 
 Axiom SubstOk_fast_subst : @Subst2.SubstOk _ _ _ _ _ (@Subst_fast_subst (expr func)).
 
-Check auto_prove.
-
 Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ hints)
 : forall facts (us vs : EnvI.env (typD ts)) goal s',
     @auto_prove ts func _ (fast_subst _) (@Subst_fast_subst _)
@@ -201,8 +199,6 @@ Definition seven : expr func -> expr func :=
   App (Inj (FRef 1 nil)).
 Definition splus (l r : expr func) : expr func := App (App (Inj (FRef 4 nil)) l) r.
 
-(*
-(** BUG in Subst? **)
 Goal Even (0 + 0).
 Proof.
   pose (goal := seven (splus (makeNat 0) (makeNat 0))).
@@ -211,15 +207,14 @@ Proof.
                 | None => True
                 | Some P => P
               end.
-  eapply (@Apply_auto_prove 800 evenHints evenHintsOk
+  eapply (@Apply_auto_prove 2 evenHints evenHintsOk
                             (evenHints.(Extern).(Summarize) nil nil nil)).
   match goal with
     | |- ?X = Some ?Y =>
       let res := eval vm_compute in X in
-                                     idtac res ;
       (etransitivity ; [ | exact (@eq_refl _ res) ])
   end.
-  Time vm_compute; reflexivity.
+  Time (vm_compute; reflexivity).
   admit.
 Qed.
 
@@ -231,14 +226,13 @@ Proof.
                 | None => True
                 | Some P => P
               end.
-  eapply (@Apply_auto_prove 800 evenHints evenHintsOk
+  eapply (@Apply_auto_prove 203 evenHints evenHintsOk
                             (evenHints.(Extern).(Summarize) nil nil nil)).
   match goal with
     | |- ?X = Some ?Y =>
       let res := eval vm_compute in X in
-      (etransitivity ; [ exact (@eq_refl _ res) | ])
+      (etransitivity ; [ | exact (@eq_refl _ res) ])
   end.
   Time vm_compute; reflexivity.
   admit.
 Qed.
-*)

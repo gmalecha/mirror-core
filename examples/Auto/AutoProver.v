@@ -270,7 +270,7 @@ Section parameterized.
   : option subst :=
     let pattern := openOver lem.(concl) 0 (length tus) in
     let fuel := 100 in
-    @exprUnify subst _ _ RSym_func Subst_subst fuel tus tvs 0 s pattern e tyProp.
+    @exprUnify subst _ _ RSym_func Subst_subst fuel (tus ++ lem.(vars)) tvs 0 s pattern e tyProp.
 
   Fixpoint copy_into (from len : nat) (src : subst) (acc : subst) : subst :=
     match len with
