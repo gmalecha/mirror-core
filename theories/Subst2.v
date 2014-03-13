@@ -111,4 +111,3 @@ Section subst.
       Forall (fun x => x) (substD u v a).
 
 End subst.
-

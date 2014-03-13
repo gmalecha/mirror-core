@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
+Require Coq.FSets.FMapFacts.
 Require Import Coq.PArith.BinPos.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Nat.
@@ -10,8 +11,11 @@ Require Import MirrorCore.Subst2.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Import FMapPositive.PositiveMap.
+
+Module Facts := FMapFacts.Facts PositiveMap.
+
 Section parametric.
-  Import FMapPositive.PositiveMap.
 
   Let uvar := nat.
   Variables typ expr : Type.
@@ -110,6 +114,38 @@ Section parametric.
   Let RelDec_eq_uvar : RelDec (@eq uvar) := RelDec_eq.
   Local Existing Instance RelDec_eq_uvar.
 
+  (** This function records that [up] mentions every variable in [s] **)
+  Definition add_mentionedBy (up : positive) (s : pset)
+  : fast_subst -> fast_subst :=
+    fold (fun p _ acc =>
+            match find p acc with
+              | None =>
+                add p (inr (add up tt (empty _))) acc
+              | Some (inr mb) =>
+                add p (inr (add up tt mb)) acc
+              | Some (inl (e,m)) =>
+                acc (** dead code **)
+            end)
+         s.
+
+  (** This function instantiates each variable in [s] by applying [mu] to update
+   ** the [mentions] field and [i] to update the [expr] field
+   **)
+  Definition instantiate_current (mu : pset -> pset) (i : expr -> expr) (s : pset)
+  : fast_subst -> fast_subst :=
+    fold (fun p _ acc =>
+            match find p acc with
+              | None =>
+                acc (** dead code **)
+              | Some (inr mb) =>
+                acc (** dead code **)
+              | Some (inl (e,m)) =>
+                add p (inl (i e, mu m)) acc
+            end) s.
+
+  (** An fmap over the finite map might be more efficient in some cases, but
+   ** in general, we expect to only be updating a few elements
+   **)
   Definition set_helper_mentionedBy (u : uvar) (up : positive) (e : expr) (mb : pset)
              (fs : fast_subst) : option fast_subst :=
     let (mentions, e_inst) :=
@@ -117,38 +153,237 @@ Section parametric.
     in
     if find up mentions then None
     else
-      Some (fold (fun p _ acc =>
-                    match find p acc with
-                      | None =>
-                        acc (** dead code **)
-                      | Some (inr mb) =>
-                        acc (** dead code **)
-                      | Some (inl (e,m)) =>
-                        add p (inl (instantiate (fun x => if x ?[ eq ] u then
-                                                            Some e_inst
-                                                          else None) e,
-                                    remove up (pset_union mentions m))) acc
-                    end)
-                 mb
-                 (fold (fun p _ acc =>
-                          match find p acc with
-                            | None =>
-                              add p (inr (add up tt (empty _))) acc
-                            | Some (inr mb) =>
-                              add p (inr (add up tt mb)) acc
-                            | Some (inl (e,m)) =>
-                              (** dead code **) acc
-                          end)
-                       mentions
-                       (add up (inl (e_inst, mentions)) fs))).
+      Some (add up (inl (e_inst, mentions))
+                (instantiate_current
+                   (fun m => remove up (pset_union mentions m))
+                   (instantiate (fun x => if x ?[ eq ] u then
+                                            Some e_inst
+                                          else None))
+                   mb
+                   (add_mentionedBy up mentions fs))).
+
+
+  Definition pm_left {T} (m : pmap T) :=
+    match m with
+      | Leaf => Leaf _
+      | Node l _ _ => l
+    end.
+  Definition pm_right {T} (m : pmap T) :=
+    match m with
+      | Leaf => Leaf _
+      | Node _ _ r => r
+    end.
+  Definition pm_here {T} (m : pmap T) :=
+    match m with
+      | Leaf => None
+      | Node _ d _ => d
+    end.
+
+  Section update_1.
+    Variable update : option ExprData -> ExprData.
+
+    Fixpoint update_1
+             (mb : pset) (fs : fast_subst) : fast_subst :=
+      match mb with
+        | Leaf => fs
+        | Node l d r =>
+          match fs with
+            | Leaf => Node (update_1 l (Leaf _))
+                           match d with
+                             | None => None
+                             | Some _ => Some (update None)
+                           end
+                           (update_1 r (@Leaf _))
+            | Node sl sd sr => Node (update_1 l sl)
+                                    match d with
+                                      | None => sd
+                                      | Some _ => Some (update sd)
+                                    end
+                                    (update_1 r sr)
+          end
+      end.
+  End update_1.
+
+  Section update_both.
+    Variable update : bool -> bool -> option ExprData -> ExprData.
+
+    Fixpoint update_both
+             (mb : pset) (mentions : pset) (fs : fast_subst) : fast_subst :=
+      match mb with
+        | Leaf => update_1 (update false true) mentions fs
+        | Node l d r =>
+          match mentions with
+            | Leaf => update_1 (update true false) mb fs
+            | Node l' d' r' =>
+              Node (update_both l l' (pm_left fs))
+                   match d , d' with
+                     | None , None => pm_here fs
+                     | Some _ , None => Some (update true false (pm_here fs))
+                     | None , Some _ => Some (update false true (pm_here fs))
+                     | Some _ , Some _ => Some (update true true (pm_here fs))
+                   end
+                   (update_both r r' (pm_right fs))
+          end
+      end.
+
+    Require Import Coq.Bool.Bool.
+
+    Hypothesis update_false_false : forall x, update false false (Some x) = x.
+
+    Lemma update_1_true_false
+    : forall m fs,
+        update_1 (update true false) m fs = update_both m (Leaf _) fs.
+    Proof.
+      clear - update_false_false.
+      destruct m; simpl; auto.
+    Qed.
+
+    Lemma update_1_false_true
+    : forall m fs,
+        update_1 (update false true) m fs = update_both (Leaf _) m fs.
+    Proof.
+      clear - update_false_false.
+      destruct m; simpl; auto.
+    Qed.
+
+    Lemma mem_empty : forall T k, mem k (empty T) = false.
+    Proof.
+      destruct k; reflexivity.
+    Qed.
+
+    Lemma update_both_spec
+    : forall mb men fs k,
+        find k (update_both mb men fs) =
+        match find k fs with
+          | None => if mem k mb || mem k men then
+                      Some (update (mem k mb) (mem k men) None)
+                    else
+                      None
+          | Some v => Some (update (mem k mb) (mem k men) (Some v))
+        end.
+    Proof.
+      induction mb; induction men; simpl; intros.
+      { simpl. change (Leaf unit) with (empty unit).
+        repeat rewrite mem_empty.
+        simpl. destruct (find k fs); auto.
+        rewrite update_false_false. reflexivity. }
+      { destruct fs.
+         { destruct k; simpl; repeat rewrite update_1_false_true.
+           { rewrite IHmen2.
+             change (Leaf ExprData) with (empty ExprData).
+             rewrite gempty.
+             change (Leaf unit) with (empty unit).
+             rewrite mem_empty. simpl. reflexivity. }
+           { rewrite IHmen1.
+             change (Leaf ExprData) with (empty ExprData).
+             rewrite gempty.
+             change (Leaf unit) with (empty unit).
+             rewrite mem_empty. simpl. reflexivity. }
+           { destruct o; reflexivity. } }
+         { destruct k; simpl; repeat rewrite update_1_false_true.
+           { rewrite IHmen2.
+             change (Leaf unit) with (empty unit).
+             rewrite mem_empty. reflexivity. }
+           { rewrite IHmen1.
+             change (Leaf unit) with (empty unit).
+             rewrite mem_empty. reflexivity. }
+           { destruct o; destruct o0; auto.
+             rewrite update_false_false. reflexivity. } } }
+      { destruct fs.
+        { change (Leaf ExprData) with (empty ExprData).
+          rewrite gempty.
+          change (Leaf unit) with (empty unit).
+          rewrite mem_empty.
+          rewrite orb_false_r.
+          destruct k; simpl; repeat rewrite update_1_true_false;
+          Cases.rewrite_all_goal.
+          { rewrite gempty.
+            change Leaf with empty.
+            rewrite mem_empty.
+            rewrite orb_false_r. reflexivity. }
+          { change Leaf with empty.
+            rewrite mem_empty. rewrite gempty.
+            rewrite orb_false_r. reflexivity. }
+          { destruct o; auto. } }
+        { destruct k; simpl; repeat rewrite update_1_true_false;
+          Cases.rewrite_all_goal.
+          { change Leaf with empty. rewrite mem_empty.
+            reflexivity. }
+          { change Leaf with empty. rewrite mem_empty.
+            reflexivity. }
+          { destruct o; destruct o0; auto.
+            rewrite update_false_false. auto. } } }
+      { destruct k; simpl.
+        { rewrite IHmb2.
+          destruct fs; simpl.
+          { change Leaf with empty. rewrite gempty. reflexivity. }
+          { reflexivity. } }
+        { rewrite IHmb1; destruct fs; simpl; auto.
+          change Leaf with empty; rewrite gempty; auto. }
+        { destruct o; destruct o0; destruct fs; simpl; auto; destruct o; auto.
+          rewrite update_false_false. reflexivity. } }
+    Qed.
+  End update_both.
+
+  Axiom DEAD : ExprData.
+  Axiom DEAD1 : ExprData.
+  Axiom DEAD2 : ExprData.
+  Axiom DEAD3 : ExprData.
+  Axiom DEAD4 : ExprData.
+
+  Definition the_update_function (up : positive) (i : expr -> expr) (mu : pset -> pset)
+             (mb mem : bool) : option ExprData -> ExprData :=
+    match mb , mem with
+      | false , false => fun x => match x with
+                                    | None => DEAD1
+                                    | Some x => x
+                                  end
+      | true , false => fun x =>
+        match x with
+          | None =>
+            DEAD3 (** dead code **)
+          | Some (inr mb) =>
+            DEAD4 (** dead code **)
+          | Some (inl (e,m)) =>
+            inl (i e, mu m)
+        end
+      | false , true => fun x =>
+        match x with
+          | None =>
+            inr (add up tt (empty _))
+          | Some (inr mb) =>
+            inr (add up tt mb)
+          | Some (inl (e,m)) =>
+            DEAD2 (** dead code **)
+        end
+      | true , true => fun _ => DEAD
+    end.
+
+  Definition set_helper_mentionedBy' (u : uvar) (up : positive) (e : expr) (mb : pset)
+             (fs : fast_subst) : option fast_subst :=
+    let (mentions, e_inst) :=
+        @get_mentions_instantiate (fs_lookup fs) e
+    in
+    if find up mentions then None
+    else
+      let new :=
+          update_both
+            (the_update_function up
+                                 (instantiate (fun x => if x ?[ eq ] u then
+                                                          Some e_inst
+                                                        else None))
+                                 (fun m => remove up (pset_union mentions m)))
+            mb mentions fs
+      in
+      Some (add up (inl (e_inst, mentions)) new).
 
   Definition fast_subst_set (u : uvar) (e : expr) (s : fast_subst)
   : option fast_subst :=
     let up := to_key u in
     match find up s with
       | Some (inl _) => None
-      | Some (inr mb) => set_helper_mentionedBy u up e mb s
-      | None => set_helper_mentionedBy u up e (empty _) s
+      | Some (inr mb) => set_helper_mentionedBy' u up e mb s
+      | None => set_helper_mentionedBy' u up e (empty _) s
     end.
 
   Definition fast_subst_empty : fast_subst :=
@@ -438,9 +673,105 @@ Section parametric.
          Safe_expr tus tvs e t') ->
       Safe_expr tus tvs (instantiate f e) t <-> Safe_expr tus tvs e t.
 
+  Lemma to_key_injective : forall a b, to_key a = to_key b -> a = b.
+  Proof.
+    clear. unfold to_key.
+    intros.
+    apply Pnat.Nat2Pos.inj in H; auto.
+  Qed.
+
+  Instance Injective_to_key a b : Injective (to_key a = to_key b) :=
+    { result := a = b
+    }.
+  Proof.
+    apply to_key_injective.
+  Defined.
+
+  Lemma set_helper_mentionedBy'_ok
+  : forall (s s' : fast_subst) (e : expr) (uv : nat),
+      WellFormed_fast_subst s ->
+      lookup uv s = None ->
+      forall mb : pset,
+        mentionedBy (to_key uv) mb s ->
+        set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
+        WellFormed_fast_subst s' /\
+        (forall (tus tvs : EnvI.tenv typ) (t0 : typ),
+           WellTyped_fast_subst tus tvs s ->
+           Safe_expr tus tvs e t0 ->
+           nth_error tus uv = Some t0 ->
+           WellTyped_fast_subst tus tvs s' /\
+           (forall us vs : EnvI.env typD,
+              Forall (fun x : Prop => x) (substD_fast_subst us vs s') ->
+              Forall (fun x : Prop => x) (substD_fast_subst us vs s) /\
+              (forall tv : sigT (typD nil),
+                 nth_error us uv = Some tv ->
+                 exprD us vs e (projT1 tv) = Some (projT2 tv)))).
+  Proof.
+    unfold set_helper_mentionedBy'. intros.
+    forward. inv_all; subst. split.
+    { admit. (** this is the hard one? **) }
+    { intros. split.
+      { (** WellTyped **)
+        unfold WellTyped_fast_subst in *. intros.
+        unfold lookup in *. simpl in *.
+        unfold fast_subst_lookup in *.
+        rewrite Facts.add_o in H7.
+        consider (E.eq_dec (to_key uv) (to_key u)).
+        { intros. inv_all. subst.
+          rewrite H6. admit. }
+        { rewrite update_both_spec; eauto.
+          forward. inv_all; subst.
+          specialize (H4 u). admit. (*
+          consider (find (to_key u) s).
+          { intros.
+            inv_all; subst. destruct e2.
+            { destruct p0. specialize (H6 _ eq_refl).
+              forward.
+              unfold the_update_function in *. *) } }
+      { (** substD **)
+        intros. split.
+        { eapply substD_fast_subst_substD_fast_subst'.
+          eapply substD_fast_subst_substD_fast_subst' in H7.
+          unfold substD_fast_subst' in *.
+          repeat rewrite Forall_map in *.
+          Lemma Forall_elements
+          : forall T (P : positive * T -> Prop) m,
+              Forall P (elements m) <->
+              (forall k,
+                 match find k m with
+                   | None => True
+                   | Some v => P (k,v)
+                 end).
+          Proof.
+            clear. intros. rewrite Forall_forall.
+            split; intros.
+            { forward. eapply H.
+              eapply elements_correct. auto. }
+            { destruct x. specialize (H p).
+              apply elements_complete in H0.
+              rewrite H0 in *. assumption. }
+          Qed.
+          rewrite Forall_elements in H7.
+          apply Forall_elements.
+          intro k. specialize (H7 k).
+          rewrite Facts.add_o in H7.
+          forward. subst.
+          consider (E.eq_dec (to_key uv) k); intros.
+          { forward. subst.
+            rewrite to_key_from_key in H8.
+            clear - H10 H0.
+            unfold lookup in *. simpl in *. unfold fast_subst_lookup in H0.
+            rewrite H10 in H0. congruence. }
+          { rewrite update_both_spec in H7; eauto.
+            { rewrite H10 in *. simpl in *.
+              admit. } } }
+        { admit. } } }
+  Qed.
+
   Lemma All_set_fast_subst
   : forall (uv : nat) (e : expr) (s s' : fast_subst),
       WellFormed_subst s ->
+      lookup uv s = None ->
       set uv e s = Some s' ->
       WellFormed_subst s' /\
       forall tus tvs t,
@@ -459,10 +790,10 @@ Section parametric.
     match goal with
       | |- ?G =>
         assert (forall mb, mentionedBy (to_key uv) mb s ->
-                           set_helper_mentionedBy uv (to_key uv) e mb s = Some s' ->
+                           set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
                            G)
     end.
-    { admit. }
+    { eapply set_helper_mentionedBy'_ok; eauto. }
     { red in H. specialize (H (to_key uv)).
       destruct (find (to_key uv) s); eauto.
       { destruct e0; try congruence; eauto. } }
@@ -479,13 +810,20 @@ Section parametric.
       unfold fast_subst_lookup.
       intros. destruct (to_key u0); compute in H; try congruence. }
     { intros.
-      specialize (@All_set_fast_subst uv e s s' H H0).
+      assert (lookup uv s = None) by admit.
+      specialize (@All_set_fast_subst uv e s s' H H1 H0).
       tauto. }
     { intros.
-      destruct (@All_set_fast_subst uv e s s' H H3).
-      specialize (@H5 u v t0 H0 H2 H1).
+      assert (lookup uv s = None) by admit.
+      destruct (@All_set_fast_subst uv e s s' H H4 H3).
+      specialize (@H6 u v t0 H0 H2 H1).
       tauto. }
-    { admit. }
+    { intros.
+      eapply All_set_fast_subst in H2; eauto.
+      forward_reason.
+      specialize (H3 (EnvI.typeof_env u) (EnvI.typeof_env v)).
+      
+      admit. }
     { admit. }
     { admit. }
     { admit. }
