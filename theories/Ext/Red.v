@@ -9,7 +9,6 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 
-(** TODO **)
 Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
@@ -185,7 +184,8 @@ Section substitute.
     { simpl. intuition.
       red_exprD.
       revert H2. gen_refl.
-      admit. }
+      forward.
+      inv_all; subst. reflexivity. }
   Qed.
 
   Theorem substitute'_typed
@@ -310,13 +310,17 @@ Section beta.
       eapply substitute'_exprD with (vs := nil); intros.
       { simpl. eassumption. }
       { simpl.
-        red_exprD.
-        admit. (*
-        inversion x0; subst. revert H.
-        uip_all'. intros; subst.
-        generalize (x1 t5). clear.
-        destruct (exprD e1 x us (existT (typD ts nil) t0 t5 :: vs)); auto.
-        intros; exfalso; auto. *) } }
+        apply exprD_Abs in H1.
+        forward_reason.
+        inversion x0. subst.
+        rewrite (UIP_refl x0) in H.
+        subst.
+        generalize dependent (x1 t5). clear x1.
+        match goal with
+          | |- forall x, ?X = Some (match ?Y with _ => _ end _) =>
+            change Y with X ; consider X
+        end; auto.
+        intros. exfalso; auto. } }
   Qed.
 
 End beta.
