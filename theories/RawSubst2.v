@@ -53,7 +53,7 @@ Section list_subst.
   Fixpoint list_subst_domain' (l : list_subst) (u : uvar) : list uvar :=
     match l with
       | Snil => nil
-      | Sfilled _ l => S u :: list_subst_domain' l (S u)
+      | Sfilled _ l => u :: list_subst_domain' l (S u)
       | Sempty l => list_subst_domain' l (S u)
     end.
 
