@@ -24,6 +24,9 @@ Section substU.
   Variable u : uvar.
   Variable e' : expr func.
 
+  (** This replaces [UVar under] with [e] doing the appropriate
+   ** lifing.
+   **)
   Fixpoint substU (under : nat) (e : expr func) : expr func :=
     match e with
       | Var _ => e

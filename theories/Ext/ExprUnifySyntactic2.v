@@ -472,16 +472,17 @@ Section typed.
         unfold type_of_apply in H11.
         forward; inv_all; subst. clear H6.
         rewrite H5 in H2.
-        inv_all. inversion H2; clear H2; subst.
+        inv_all. subst. 
         forward_reason.
         split; eauto. split; eauto.
         intros.
-        specialize (H14 u v H11 H15).
-        specialize (H6 u v H11 H15).
+        specialize (H14 u v H15 H16).
+        specialize (H11 u v H15 H16).
         forward_reason.
         split; auto. intros.
-        specialize (H18 v' H19).
-        specialize (H17 v' H19).
+        specialize (H18 v').
+        specialize (H19 v').
+        forward_reason.
         autorewrite with exprD_rw.
         assert (tu = typeof_env u) by (eapply WellTyped_env_typeof_env; assumption).
         assert (tv = typeof_env v) by (eapply WellTyped_env_typeof_env; assumption).

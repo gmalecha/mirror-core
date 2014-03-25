@@ -846,6 +846,30 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       { rewrite X. auto. }
     Qed.
 
+    Theorem exprD'_var_env
+    : forall us vs vs' e t (H : vs' = vs),
+        exprD' us vs e t =
+        match H in _ = vs
+              return option (_ -> hlist (typD ts nil) vs -> typD ts nil t)
+        with
+          | eq_refl => exprD' us vs' e t
+        end.
+    Proof.
+      intros. uip_all. reflexivity.
+    Qed.
+
+    Theorem exprD'_uvar_env
+    : forall us us' vs e t (H : us' = us),
+        exprD' us vs e t =
+        match H in _ = us
+              return option (hlist (typD ts nil) us -> _ -> typD ts nil t)
+        with
+          | eq_refl => exprD' us' vs e t
+        end.
+    Proof.
+      intros. uip_all. reflexivity.
+    Qed.
+
   End with_envs.
 
 End Build_ExprDenote.

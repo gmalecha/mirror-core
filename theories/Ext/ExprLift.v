@@ -8,6 +8,8 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
+Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprTactics.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
 
@@ -20,6 +22,7 @@ Section typed.
   Variable ts : types.
   Variable func : Type.
 
+  (** NOTE: This is a local definition, you should avoid using it directly **)
   Fixpoint lift' (s l : nat) (e : expr func) : expr func :=
     match e with
       | Var v =>
@@ -31,12 +34,18 @@ Section typed.
       | UVar u => e
     end.
 
+  (** [lift s l e]
+   ** skips [s] variables, and adds [l] new binders.
+   **   us , vs ++ vs'' ===> us , vs ++ vs' ++ vs''
+   ** where [length vs = s] and [length vs' = l]
+   **)
   Definition lift (s l : nat) : expr func -> expr func :=
     match l with
       | 0 => fun x => x
       | _ => lift' s l
     end.
 
+  (** NOTE: This is a local definition, you should avoid using it directly **)
   Fixpoint lower' (s l : nat) (e : expr func) : option (expr func) :=
     match e with
       | Var v =>
@@ -57,6 +66,11 @@ Section typed.
       | UVar u => Some e
     end.
 
+  (** [lower s l e]
+   ** forgets binders and fails if they are mentioned
+   **   us , vs ++ vs' ++ vs'' ===> us , vs ++ vs''
+   ** where [length vs = s] and [length vs' = l]
+   **)
   Definition lower s l : expr func -> option (expr func) :=
     match l with
       | 0 => @Some _
@@ -574,3 +588,96 @@ Section typed.
   Qed.
 
 End typed.
+
+Section typed1.
+  Variable ts : types.
+  Variable func : Type.
+
+  Fixpoint vars_to_uvars (lu lv lv' : nat) (e : expr func) : expr func :=
+    match e with
+      | Var v =>
+        if v ?[ lt ] lv then Var v
+        else
+          let l := v - lv in
+          if l ?[ lt ] lv' then
+            UVar (l + lu)
+          else
+            Var (v - lv')
+      | UVar u =>
+        if u ?[ lt ] lu then
+          UVar u
+        else
+          UVar (u + lv')
+      | Inj _ => e
+      | App l r => App (vars_to_uvars lu lv lv' l)
+                       (vars_to_uvars lu lv lv' r)
+      | Abs t e => Abs t (vars_to_uvars lu (S lv) lv' e)
+    end.
+
+  Variable RSym_func : SymI.RSym (typD ts) func.
+
+  Theorem vars_to_uvars_typeof_expr
+  : forall e tus tus' tvs tvs' tvs'' t,
+      typeof_expr (tus ++ tus') (tvs ++ tvs' ++ tvs'') e = Some t ->
+      typeof_expr (tus ++ tvs' ++ tus') (tvs ++ tvs'')
+                  (vars_to_uvars (length tus) (length tvs) (length tvs') e) = Some t.
+  Proof.
+    clear. induction e; simpl; intros; auto.
+    { consider (v ?[ lt ] length tvs); intros.
+      { simpl. rewrite ListNth.nth_error_app_L in *; auto. }
+      { simpl. rewrite ListNth.nth_error_app_R in * by omega.
+        consider ((v - length tvs) ?[ lt ] (length tvs')); intros.
+        { simpl.
+          rewrite ListNth.nth_error_app_R in * by omega.
+          replace (v - length tvs + length tus - length tus) with (v - length tvs) by omega.
+          rewrite ListNth.nth_error_app_L in * by omega. assumption. }
+        { simpl.
+          rewrite ListNth.nth_error_app_R in * by omega.
+          rewrite <- H. f_equal. omega. } } }
+    { forward. erewrite IHe1; eauto. erewrite IHe2; eauto. }
+    { forward. eapply (IHe tus tus' (t :: tvs) tvs') in H.
+      simpl in *.
+      rewrite H in *. auto. }
+    { consider (u ?[ lt ] (length tus)); intros; simpl in *.
+      { rewrite ListNth.nth_error_app_L in * by omega. assumption. }
+      { repeat rewrite ListNth.nth_error_app_R in * by omega.
+        rewrite <- H. f_equal. omega. } }
+  Qed.
+
+
+
+  Theorem vars_to_uvars_exprD
+  : forall e tus tus' tvs tvs' tvs'' t val val',
+      exprD' (tus ++ tus') (tvs ++ tvs' ++ tvs'') e t = Some val ->
+      exprD' (tus ++ tvs' ++ tus') (tvs ++ tvs'')
+             (vars_to_uvars (length tus) (length tvs) (length tvs') e) t = Some val' ->
+      forall us us' vs vs' vs'',
+        val (hlist_app us us') (hlist_app vs (hlist_app vs' vs'')) =
+        val' (hlist_app us (hlist_app vs' us')) (hlist_app vs vs'').
+  Proof.
+    clear. induction e; simpl; intros; auto.
+    { consider (v ?[ lt ] length tvs); intros.
+      { red_exprD.
+        admit. }
+      { admit. } }
+    { red_exprD. forward. inv_all; subst. reflexivity. }
+    { red_exprD. forward. inv_all; subst.
+      apply vars_to_uvars_typeof_expr in H6. rewrite H6 in *.
+      inv_all; subst.
+      rewrite (@IHe1 _ _ _ _ _ _ _ _ H7 H2).
+      rewrite (@IHe2 _ _ _ _ _ _ _ _ H8 H3).
+      reflexivity. }
+    { red_exprD.
+      forward. inv_all; subst.
+      change (S (length tvs)) with (length (t :: tvs)) in *.
+      change (t :: tvs ++ tvs' ++ tvs'') with ((t :: tvs) ++ tvs' ++ tvs'') in *.
+      change (t :: tvs ++ tvs'') with ((t :: tvs) ++ tvs'') in *.
+      specialize (@IHe _ _ _ _ _ _ _ _ H1 H2 us us').
+      apply functional_extensionality; intros.
+      specialize (IHe (Hcons x vs) vs' vs''). apply IHe. }
+    { consider (u ?[ lt ] (length tus)); intros; simpl in *.
+      { admit. }
+      { admit. } }
+  Qed.
+
+End typed1.
