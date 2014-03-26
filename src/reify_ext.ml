@@ -113,7 +113,8 @@ struct
 	    (** There is no way to reify type abstractions in Ext **)
 	    RE.reify tm
       | Term.Rel n ->
-	M.ret (EXPR.mkVar n)
+	 (** Coq deBruijn indicies start at 1, not 0 **)
+	M.ret (EXPR.mkVar (n-1))
       | Term.Evar _ ->
 	M.bind (REX.reify tm) (fun k ->
 	  M.ret (EXPR.mkUVar k))
