@@ -1,4 +1,5 @@
 Require Import Coq.Lists.List.
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
@@ -51,24 +52,6 @@ Section list_subst.
                       | S u => list_subst_lookup u l
                     end
     end.
-
-  Section add.
-    Variable e : expr.
-
-    Fixpoint list_subst_add (u : uvar) (l : list_subst) : list_subst :=
-      match u with
-        | 0 => Sfilled e match l with
-                           | Snil => Snil
-                           | Sfilled _ l => l
-                           | Sempty l => l
-                         end
-        | S u => match l with
-                   | Snil => Sempty (list_subst_add u Snil)
-                   | Sfilled x l => Sfilled x (list_subst_add u l)
-                   | Sempty l => Sempty (list_subst_add u l)
-                 end
-      end.
-  End add.
 
   Fixpoint list_subst_domain' (l : list_subst) (u : uvar) : list uvar :=
     match l with
@@ -215,26 +198,108 @@ Section list_subst.
     exact list_subst_domain_ok.
   Defined.
 
+  Section add.
+    Variable e : expr.
+
+    Fixpoint list_subst_add (u : uvar) (l : list_subst) : list_subst :=
+      match u with
+        | 0 => Sfilled e match l with
+                           | Snil => Snil
+                           | Sfilled _ l => l
+                           | Sempty l => l
+                         end
+        | S u => match l with
+                   | Snil => Sempty (list_subst_add u Snil)
+                   | Sfilled x l => Sfilled x (list_subst_add u l)
+                   | Sempty l => Sempty (list_subst_add u l)
+                 end
+      end.
+
+    Lemma list_subst_add_eq
+    : forall u l,
+        lookup u (list_subst_add u l) = Some e.
+    Proof.
+      clear. induction u; simpl; intros; auto.
+      { destruct l; simpl; rewrite IHu; auto. }
+    Qed.
+
+    Lemma list_subst_add_neq
+    : forall u u' l,
+        u <> u' ->
+        lookup u' (list_subst_add u l) = lookup u' l.
+    Proof.
+      clear. induction u; simpl; intros; auto.
+      { destruct l; simpl.
+        { destruct u'; try congruence.
+          simpl. destruct u'; simpl; auto. }
+        { destruct u'; try congruence. reflexivity. }
+        { destruct u'; try congruence. reflexivity. } }
+      { destruct l; simpl.
+        { destruct u'; simpl; auto.
+          rewrite IHu.
+          destruct u'; reflexivity. omega. }
+        { destruct u'; simpl; auto. }
+        { destruct u'; simpl; auto. } }
+    Qed.
+
+  End add.
+
   Section to_list_subst.
     Variable T : Type.
     Variable Subst_T : Subst T expr.
     Variable SubstOk_T : SubstOk _ _.
 
+
     Section prime.
       Variable s : T.
 
-      Fixpoint to_list_subst' (dom : list uvar) (acc : list_subst) : list_subst :=
+      Fixpoint to_list_subst' (dom : list uvar) : list_subst :=
         match dom with
-          | nil => acc
-          | d :: dom => to_list_subst' dom (match lookup d s with
-                                              | None => acc
-                                              | Some e => list_subst_add e d acc
-                                            end)
+          | nil => Snil
+          | d :: dom => match lookup d s with
+                          | None => to_list_subst' dom
+                          | Some e => list_subst_add e d (to_list_subst' dom)
+                        end
         end.
+
+      Definition to_list_subst : list_subst :=
+        to_list_subst' (domain s).
     End prime.
 
-    Definition to_list_subst (s : T) : list_subst :=
-      to_list_subst' s (domain s) Snil.
+    Lemma subst_to_list_subst_lookup
+    : forall s, WellFormed_subst s ->
+                forall n, lookup n s = lookup n (to_list_subst s).
+    Proof.
+      unfold to_list_subst.
+      intros.
+      generalize (WellFormed_domain _ H eq_refl n).
+      consider (lookup n s); intros.
+      { assert (Some e <> None) by congruence.
+        rewrite <- H1 in H2.
+        clear - H0 H2.
+        revert H2.
+        induction (domain s); intros.
+        { inversion H2. }
+        { consider (a ?[ eq ] n); intros.
+          { subst. simpl.
+            rewrite H0.
+            rewrite list_subst_add_eq. reflexivity. }
+          { simpl.
+            destruct H2. congruence.
+            destruct (lookup a s); rewrite IHl; auto.
+            rewrite list_subst_add_neq; eauto. } } }
+      { assert (~In n (domain s)).
+        { rewrite H1. congruence. }
+        clear - H2.
+        generalize dependent n.
+        induction (domain s).
+        { simpl. intros.
+          destruct n; reflexivity. }
+        { simpl; intros.
+          destruct (lookup a s).
+          { rewrite list_subst_add_neq. apply IHl. intuition. intuition. }
+          { apply IHl. intuition. } } }
+    Qed.
 
     Theorem WellFormed_to_list_subst
     : forall s, WellFormed_subst s -> WellFormed_subst (to_list_subst s).
@@ -246,14 +311,17 @@ Section list_subst.
         WellTyped_subst tus tvs s ->
         WellTyped_subst tus tvs (to_list_subst s).
     Proof.
-      unfold to_list_subst.
-      intros tus tvs.
       intros.
       generalize (@WellFormed_domain _ _ _ _ _ _ SubstOk_T s _ H eq_refl).
       red; simpl. red; simpl.
       intros.
       apply Forall_forall. intros.
-      admit.
+      change (list_subst_lookup) with (@lookup _ _ Subst_list_subst).
+      rewrite <- subst_to_list_subst_lookup; auto.
+      consider (lookup x s); intros; forward.
+      eapply WellTyped_lookup in H3; eauto.
+      forward_reason. Cases.rewrite_all_goal.
+      assumption.
     Qed.
 
     Theorem substD_to_list_subst
@@ -262,6 +330,20 @@ Section list_subst.
         Forall (fun x => x) (substD us vs s) ->
         Forall (fun x => x) (substD us vs (to_list_subst s)).
     Proof.
-    Admitted.
+      intros.
+      unfold substD. simpl. unfold substD_for_domain.
+      rewrite Forall_map.
+      apply Forall_forall; intros.
+      rewrite list_subst_domain_ok in H1; eauto.
+      consider (lookup x (to_list_subst s)); try congruence; intros.
+      rewrite <- subst_to_list_subst_lookup in H1; auto.
+      generalize H.
+      eapply WellFormed_domain with (n := x) in H; try reflexivity.
+      rewrite H1 in *. intro.
+      eapply substD_lookup in H1; eauto.
+      forward_reason. Cases.rewrite_all_goal.
+      destruct x0. simpl in *. Cases.rewrite_all_goal.
+      reflexivity.
+    Qed.
   End to_list_subst.
 End list_subst.
