@@ -1,7 +1,5 @@
-Require Import List Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
-Require Import MirrorCore.Generic.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
 

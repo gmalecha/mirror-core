@@ -1,7 +1,4 @@
-Require Import RelationClasses.
-Require Import Morphisms Relations.
-Require Import ExtLib.Data.HList.
-Require Import MirrorCore.SymI.
+Require Import Coq.Classes.Morphisms Coq.Relations.Relations.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 

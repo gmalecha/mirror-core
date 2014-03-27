@@ -1,7 +1,6 @@
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Core.Type.
 Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.

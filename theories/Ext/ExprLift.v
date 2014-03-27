@@ -658,8 +658,51 @@ Section typed1.
     clear. induction e; simpl; intros; auto.
     { consider (v ?[ lt ] length tvs); intros.
       { red_exprD.
-        admit. }
-      { admit. } }
+        forward. subst. inv_all; subst.
+        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ (tvs' ++ tvs'') tvs v); auto.
+        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tvs'' tvs v); auto.
+        forward_reason.
+        repeat match goal with
+                 | H : ?X = _ , H' : ?Y = _ |- _ =>
+                   change X with Y in H ; rewrite H' in H
+               end; inv_all; subst.
+        simpl in *.
+        revert H3 H4. uip_all'.
+        intros. rewrite H4. rewrite H7. reflexivity. }
+      { consider ((v - length tvs) ?[ lt ] length tvs'); intros.
+        { red_exprD. forward. subst; inv_all; subst.
+          eapply nth_error_get_hlist_nth_appR in H6; eauto with typeclass_instances.
+          2: omega.
+          eapply nth_error_get_hlist_nth_appR in H3; eauto with typeclass_instances.
+          2: omega.
+          forward_reason. simpl in *.
+          rewrite H4; clear H4.
+          rewrite H3; clear H3.
+          destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tvs'' tvs' (v - length tvs)); auto.
+          replace (v - length tvs + length tus - length tus) with (v - length tvs) in * by omega.
+          destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tus' tvs' (v - length tvs)); auto.
+          forward_reason; simpl in *.
+          repeat match goal with
+                   | H : ?X = _ , H' : ?Y = _ |- _ =>
+                     change X with Y in H ; rewrite H' in H
+                 end; inv_all; subst.
+          simpl in *. uip_all'. intros.
+          rewrite H6. rewrite H8. reflexivity. }
+        { red_exprD. forward. subst; inv_all; subst.
+          eapply nth_error_get_hlist_nth_appR in H6; eauto with typeclass_instances.
+          2: omega.
+          eapply nth_error_get_hlist_nth_appR in H3; eauto with typeclass_instances.
+          2: omega.
+          forward_reason; simpl in *.
+          eapply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
+          2: omega.
+          forward_reason; simpl in *.
+          replace (v - length tvs' - length tvs) with (v - length tvs - length tvs') in * by omega.
+          repeat match goal with
+                   | H : ?X = _ , H' : ?Y = _ |- _ =>
+                     change X with Y in H ; rewrite H' in H
+                 end; inv_all; subst.
+          Cases.rewrite_all_goal. reflexivity. } } }
     { red_exprD. forward. inv_all; subst. reflexivity. }
     { red_exprD. forward. inv_all; subst.
       apply vars_to_uvars_typeof_expr in H6. rewrite H6 in *.
@@ -676,7 +719,9 @@ Section typed1.
       apply functional_extensionality; intros.
       specialize (IHe (Hcons x vs) vs' vs''). apply IHe. }
     { consider (u ?[ lt ] (length tus)); intros; simpl in *.
-      { admit. }
+      { admit.
+
+ }
       { admit. } }
   Qed.
 

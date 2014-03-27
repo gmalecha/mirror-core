@@ -1,4 +1,4 @@
-Require Import Coq.Lists.List Coq.Bool.Bool.
+Require Import Coq.Lists.List.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.

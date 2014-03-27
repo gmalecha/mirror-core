@@ -1,7 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
