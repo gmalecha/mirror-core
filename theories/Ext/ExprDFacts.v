@@ -792,8 +792,21 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         | |- match match ?X with _ => _ end with _ => _ end =>
           consider X
       end; intros.
-      forward. subst.
-    Admitted.
+      { forward. subst.
+        eapply nth_error_get_hlist_nth_appR in H1; eauto with typeclass_instances.
+        simpl in *. forward_reason.
+        rewrite H0.
+        forward. f_equal. apply H1. }
+      { forward.
+        rewrite nth_error_get_hlist_nth_None in H0.
+        rewrite nth_error_app_R in H0; auto.
+        rewrite <- nth_error_get_hlist_nth_None with (F := typD ts nil) in H0.
+        clear - H0 H2.
+        match goal with
+          | H : ?X = _ , H' : ?Y = _ |- _ =>
+            change Y with X in H' ; rewrite H in H'
+        end. congruence. }
+    Qed.
 
     Theorem exprD_Var_App_L : forall us vs' t vs v,
       v < length vs ->
