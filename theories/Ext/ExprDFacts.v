@@ -859,6 +859,110 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
       { rewrite X. auto. }
     Qed.
 
+    Theorem exprD'_UVar_App_L : forall tus tus' t tvs v,
+      v < length tus ->
+      match exprD' (tus ++ tus') tvs (UVar v) t , exprD' tus tvs (UVar v) t with
+        | None , None => True
+        | Some val , Some val' =>
+          forall us us' vs,
+            val (hlist_app us us') vs = val' us vs
+        | _ , _ => False
+      end.
+    Proof.
+      intros. repeat rewrite exprD'_UVar.
+      eapply nth_error_get_hlist_nth_appL with (tvs := tus) (tvs' := tus') (F := typD ts nil) in H; eauto with typeclass_instances.
+      forward_reason.
+      repeat match goal with
+               | H : ?X = _ |- context [ ?Y ] =>
+                 change Y with X; rewrite H
+             end.
+      destruct x; simpl in *. forward.
+      rewrite H1. auto.
+    Qed.
+
+    Theorem exprD'_UVar_App_R : forall tus tus' t tvs v,
+      v >= length tus ->
+      match exprD' (tus ++ tus') tvs (UVar v) t
+          , exprD' tus' tvs (UVar (v - length tus)) t with
+        | None , None => True
+        | Some val , Some val' =>
+          forall us us' vs,
+            val (hlist_app us us') vs = val' us' vs
+        | _ , _ => False
+      end.
+    Proof.
+      intros. repeat rewrite exprD'_UVar.
+      match goal with
+        | |- match match ?X with _ => _ end with _ => _ end =>
+          consider X
+      end; intros.
+      { forward. subst.
+        eapply nth_error_get_hlist_nth_appR in H1; eauto with typeclass_instances.
+        simpl in *. forward_reason.
+        rewrite H0.
+        forward. f_equal. apply H1. }
+      { forward.
+        rewrite nth_error_get_hlist_nth_None in H0.
+        rewrite nth_error_app_R in H0; auto.
+        rewrite <- nth_error_get_hlist_nth_None with (F := typD ts nil) in H0.
+        clear - H0 H2.
+        match goal with
+          | H : ?X = _ , H' : ?Y = _ |- _ =>
+            change Y with X in H' ; rewrite H in H'
+        end. congruence. }
+    Qed.
+
+    Theorem exprD_UVar_App_L : forall us us' vs t v,
+      v < length us ->
+      exprD (us ++ us') vs (UVar v) t = exprD us vs (UVar v) t.
+    Proof.
+      intros.
+      generalize (@exprD'_UVar_App_L (typeof_env us) (typeof_env us') t (typeof_env vs) v).
+      rewrite typeof_env_length.
+      intro X; specialize (X H).
+      unfold exprD.
+      rewrite split_env_app.
+      consider (split_env us); consider (split_env us'); intros.
+      assert (x = typeof_env us').
+      { unfold typeof_env. rewrite <- split_env_projT1. rewrite H0. reflexivity. }
+      assert (x0 = typeof_env us).
+      { unfold typeof_env. rewrite <- split_env_projT1. rewrite H1. reflexivity. }
+      subst.
+      consider (split_env vs). intros. simpl.
+      assert (x = typeof_env vs).
+      { unfold typeof_env. rewrite <- split_env_projT1. rewrite H2. reflexivity. }
+      subst.
+      destruct (exprD' (typeof_env us ++ typeof_env us') (typeof_env vs) (UVar v) t);
+        destruct (exprD' (typeof_env us) (typeof_env vs) (UVar v) t); intuition.
+      { rewrite X. auto. }
+    Qed.
+
+    Theorem exprD_UVar_App_R : forall us us' vs t v,
+      v >= length us ->
+      exprD (us ++ us') vs (UVar v) t = exprD us' vs (UVar (v - length us)) t.
+    Proof.
+      intros.
+      generalize (@exprD'_UVar_App_R (typeof_env us) (typeof_env us') t (typeof_env vs) v).
+      rewrite typeof_env_length.
+      intro X; specialize (X H).
+      unfold exprD.
+      rewrite split_env_app.
+      consider (split_env vs); consider (split_env us'); consider (split_env us); intros.
+      assert (x1 = typeof_env vs).
+      { unfold typeof_env. rewrite <- split_env_projT1. rewrite H2. reflexivity. }
+      assert (x0 = typeof_env us').
+      { unfold typeof_env. rewrite <- split_env_projT1. rewrite H1. reflexivity. }
+      assert (x = typeof_env us).
+      { unfold typeof_env. rewrite <- split_env_projT1. rewrite H0. reflexivity. }
+      subst.
+      simpl.
+      repeat match goal with
+               | H : match ?X with _ => _ end |- context [ ?Y ] =>
+                 change Y with X; consider X; intros
+             end; intuition.
+      { rewrite X. auto. }
+    Qed.
+
     Theorem exprD'_var_env
     : forall us vs vs' e t (H : vs' = vs),
         exprD' us vs e t =

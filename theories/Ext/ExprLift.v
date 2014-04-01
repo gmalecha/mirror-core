@@ -240,6 +240,18 @@ Section typed.
       erewrite IHe by eauto. reflexivity. }
   Qed.
 
+  Lemma nth_error_length_lt
+  : forall {T} (ls : list T) n val,
+      nth_error ls n = Some val ->
+      n < length ls.
+  Proof.
+    induction ls; destruct n; simpl; intros; auto.
+    { inversion H. }
+    { inversion H. }
+    { omega. }
+    { apply Lt.lt_n_S. eauto. }
+  Qed.
+
   Lemma exprD'_lower
   : forall us vs vs' vs'' e e0 t,
       lower (length vs) (length vs') e = Some e0 ->
@@ -348,17 +360,6 @@ Section typed.
             exfalso.
             apply nth_error_length_ge in H4. rewrite app_length in H4.
             destruct H3. clear H3 H1.
-            Lemma nth_error_length_lt
-            : forall {T} (ls : list T) n val,
-                nth_error ls n = Some val ->
-                n < length ls.
-            Proof.
-              induction ls; destruct n; simpl; intros; auto.
-              { inversion H. }
-              { inversion H. }
-              { omega. }
-              { apply Lt.lt_n_S. eauto. }
-            Qed.
             apply nth_error_length_lt in x.
             repeat rewrite app_length in x. omega. } }
         { apply ExprDI.nth_error_get_hlist_nth_None in H3.
