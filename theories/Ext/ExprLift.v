@@ -720,10 +720,36 @@ Section typed1.
       apply functional_extensionality; intros.
       specialize (IHe (Hcons x vs) vs' vs''). apply IHe. }
     { consider (u ?[ lt ] (length tus)); intros; simpl in *.
-      { admit.
-
- }
-      { admit. } }
+      { red_exprD.
+        forward. subst. inv_all; subst.
+        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tus' tus u); auto.
+        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ (tvs' ++ tus') tus u); auto.
+        forward_reason.
+        repeat match goal with
+                 | H : ?X = _ , H' : ?Y = _ |- _ =>
+                   change X with Y in H ; rewrite H' in H
+               end; inv_all; subst.
+        simpl in *.
+        revert H3 H4. uip_all'.
+        intros. rewrite H4. rewrite H7. reflexivity. }
+      { red_exprD.
+        forward. subst. inv_all; subst.
+        apply nth_error_get_hlist_nth_appR in H5; eauto with typeclass_instances.
+        2: omega.
+        simpl in *.
+        forward_reason.
+        apply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
+        2: omega.
+        simpl in *. forward_reason.
+        apply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
+        2: omega.
+        simpl in *. forward_reason.
+        replace (u + length tvs' - length tus - length tvs') with (u - length tus) in * by omega.
+        repeat match goal with
+                 | H : ?X = _ , H' : ?Y = _ |- _ =>
+                   change X with Y in H ; rewrite H' in H
+               end; inv_all; subst.
+        rewrite H1. rewrite H3. symmetry. apply H4. } }
   Qed.
 
 End typed1.
