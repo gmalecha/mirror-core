@@ -165,7 +165,7 @@ Section with_expr.
         rewrite (UIP_refl _).
         rewrite <- H4. auto. } }
     { destruct H2. intuition.
-      Cases.rewrite_all.
+      Cases.rewrite_all_goal.
       eapply conclusionD_weaken with (us' := us') (tvs' := x0) in H0.
       destruct H0; intuition.
       clear H3 H.

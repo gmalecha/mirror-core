@@ -106,7 +106,7 @@ Section typed.
   Lemma lift'_lift' : forall e a b d,
     lift' a b (lift' a d e) = lift' a (b + d) e.
   Proof.
-    induction e; simpl; intros; Cases.rewrite_all; eauto.
+    induction e; simpl; intros; Cases.rewrite_all_goal; eauto.
     { remember (NPeano.ltb v a). destruct b0.
       { simpl. rewrite <- Heqb0. reflexivity. }
       { simpl.

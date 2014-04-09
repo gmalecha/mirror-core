@@ -274,7 +274,7 @@ Section setoid.
     clear.
     induction a; destruct b; simpl; intros; try solve [ inversion H ].
     { inversion H; subst; auto. }
-    { inversion H; subst; auto. Cases.rewrite_all. auto. }
+    { inversion H; subst; auto. Cases.rewrite_all_goal. auto. }
     { inversion H; subst; auto. f_equal; auto. }
   Qed.
 

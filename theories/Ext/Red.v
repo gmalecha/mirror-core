@@ -149,7 +149,7 @@ Section substitute.
       destruct IHe1; destruct IHe2.
       rewrite H3 in *. rewrite H5 in *.
       intuition.
-      red_exprD. Cases.rewrite_all.
+      red_exprD. Cases.rewrite_all_goal.
       unfold type_of_apply in *; forward. inv_all.
       revert H13. subst; intros; subst.
       rewrite exprD'_type_cast in H11.
@@ -281,7 +281,7 @@ Section beta.
     induction e; simpl; intros; auto.
     Opaque beta.
     forward.
-    destruct e1; simpl; Cases.rewrite_all; auto.
+    destruct e1; simpl; Cases.rewrite_all_goal; auto.
     simpl in *. forward.
     eapply (substitute'_typed RSym_sym e1 nil); eauto.
     simpl. inv_all; subst.
@@ -303,7 +303,7 @@ Section beta.
       specialize (IHe1 _ _ H1).
       erewrite beta_typed.
       2: eassumption.
-      simpl. Cases.rewrite_all.
+      simpl. Cases.rewrite_all_goal.
       rewrite typ_cast_typ_refl in *. auto. }
     { unfold Expr_expr in *.
       red_exprD. forward; inv_all; subst.

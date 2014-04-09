@@ -6,8 +6,6 @@ Require Import MirrorCore.IsoTac.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Set Printing Universes.
-
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { type_cast : forall env (a b : typ),
                option (forall F, F (typD env a) -> F (typD env b))

@@ -528,7 +528,7 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
             rewrite IHe1; clear IHe1.
             rewrite IHe2; clear IHe2.
             repeat rewrite typ_cast_typ_refl.
-            rewrite exprD'_App. Cases.rewrite_all.
+            rewrite exprD'_App. Cases.rewrite_all_goal.
             match goal with
               | |- _ = match ?X with _ => _ end =>
                 consider X; intros
@@ -641,11 +641,11 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         forall ue ve,
           typeof_expr (uenv ++ ue) (venv ++ ve) e = Some t.
     Proof.
-      induction e; simpl; intros; forward; inv_all; subst; Cases.rewrite_all ;
+      induction e; simpl; intros; forward; inv_all; subst; Cases.rewrite_all_goal ;
       eauto using nth_error_weaken.
       { specialize (IHe uenv (t :: venv) t1).
         simpl in *.
-        Cases.rewrite_all. auto. }
+        Cases.rewrite_all_goal. auto. }
     Qed.
 
 

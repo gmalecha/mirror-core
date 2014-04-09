@@ -86,18 +86,18 @@ Section app_full.
         { destruct t; simpl;
           try solve [
                 rewrite type_of_applys_typeof_None;
-                simpl; Cases.rewrite_all; auto ].
+                simpl; Cases.rewrite_all_goal; auto ].
           match goal with
             | |- context [ match ?X with _ => _ end ] =>
               consider X; intros
           end.
           inv_all. subst.
           { erewrite IHes. reflexivity.
-            simpl; Cases.rewrite_all; simpl.
+            simpl; Cases.rewrite_all_goal; simpl.
             consider (typ_eqb t1 t1); try reflexivity.
             congruence. }
           { rewrite type_of_applys_typeof_None; auto.
-            simpl. Cases.rewrite_all. simpl.
+            simpl. Cases.rewrite_all_goal. simpl.
             consider (typ_eqb t1 t0); auto; intros.
             subst. rewrite typ_cast_typ_refl in H1.
             congruence. } }
@@ -247,7 +247,7 @@ Section app_full.
         { destruct t0; forward.
           simpl.
           consider (typ_eqb t0_1 t1); intros; subst.
-          { red_exprD. Cases.rewrite_all.
+          { red_exprD. Cases.rewrite_all_goal.
             forward. rewrite typ_cast_typ_refl. reflexivity. }
           { forward. exfalso.
             rewrite exprD_type_cast in H3.
@@ -356,7 +356,7 @@ Section app_full.
         { destruct t0; forward.
           simpl.
           consider (typ_eqb t0_1 t1); intros; subst.
-          { red_exprD. Cases.rewrite_all.
+          { red_exprD. Cases.rewrite_all_goal.
             forward. rewrite typ_cast_typ_refl. reflexivity. }
           { forward. exfalso.
             rewrite exprD'_type_cast in H3.
