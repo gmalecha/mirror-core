@@ -69,7 +69,7 @@ Section parameterized.
 
   Variable hints : Hints.
 
-   Fixpoint openOver (e : expr func) (skip add : nat) : expr func :=
+  Fixpoint openOver (e : expr func) (skip add : nat) : expr func :=
     match e with
       | Var v =>
         if v ?[ lt ] skip then Var v
@@ -279,8 +279,10 @@ Section parameterized.
   Lemma applicable_sound
   : forall s tus tvs l0 g s1,
       applicable s tus tvs l0 g = Some s1 ->
-      @lemmaD ts func (expr func) (fun us tvs e => @exprD' ts func _ us tvs e tyProp) _ nil nil l0 ->
       WellFormed_subst s ->
+      WellFormed_subst s1 /\
+      (@lemmaD ts func (expr func) (fun us tvs e => @exprD' ts func _ us tvs e tyProp) _ nil nil l0 ->
+
       WellTyped_subst tus tvs s ->
       WellTyped_expr tus tvs g tyProp ->
       WellTyped_subst (tus ++ l0.(vars)) tvs s1 /\
@@ -290,7 +292,7 @@ Section parameterized.
         exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
         exprD (join_env us) (join_env us' ++ join_env vs) g tyProp
         /\ Forall (fun x => x)
-                  (substD (join_env us ++ join_env us') (join_env vs) s).
+                  (substD (join_env us ++ join_env us') (join_env vs) s)).
   Proof.
 (*
     unfold applicable.
@@ -356,8 +358,25 @@ Section parameterized.
           end
       end.
 
-  End iteration.
+    Lemma all_success_sound
+    : forall (P : T -> Prop) (Q : U -> Prop),
+        (forall x y z,
+           P x -> Q y ->
+           f' x y = Some z -> Q z) ->
+        forall ls,
+          Forall P ls ->
+          forall acc res,
+          Q acc ->
+          all_success ls acc = Some res ->
+          Q res.
+    Proof.
+      clear.
+      induction 2; simpl; intros.
+      { inv_all; subst; auto. }
+      { forward. eauto. }
+    Qed.
 
+  End iteration.
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> EnvI.tenv typ -> EnvI.tenv typ -> expr func -> subst -> option subst)
@@ -451,7 +470,26 @@ Section parameterized.
   Proof.
     red. unfold auto_prove_rec. intros.
     split.
-    { admit. (** TODO: this is the problem with falling back on subst1 **) }
+    { match goal with
+        | _ : match ?X with _ => _ end = _ |- _ =>
+          consider X; intros; inv_all; subst; auto
+      end.
+      { admit. }
+      { eapply first_success_sound in H2.
+        forward_reason.
+        destruct x. forward.
+        eapply WellFormed_pull in H4; eauto.
+        generalize (get_applicable_sound g (applicable s tus tvs) (Apply hints)).
+        intro. eapply Forall_forall in H5. 2: eassumption.
+        simpl in *.
+        destruct H5.
+        eapply all_success_sound in H3.
+        eapply H3.
+        { instantiate (1 := fun _ => True). simpl.
+          intros. eapply H in H9.
+          apply H9 in H8. intuition. }
+        { apply Forall_forall. auto. }
+        { destruct (applicable_sound _ _ _ _ _ H6 H1). auto. } } }
     intros.
     forward.
     match goal with

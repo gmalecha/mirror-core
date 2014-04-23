@@ -2,11 +2,8 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.EqDep.
-Require Import ExtLib.Tactics.Cases.
-Require Import MirrorCore.Subst.
+Require Import ExtLib.Tactics.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.

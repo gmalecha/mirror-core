@@ -8,7 +8,7 @@ Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Subst.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprT.
@@ -47,35 +47,35 @@ Section typed.
       | UVar u1 , UVar u2 =>
         if EqNat.beq_nat u1 u2 then Some s
         else
-          match Subst.lookup u1 s , Subst.lookup u2 s with
+          match lookup u1 s , lookup u2 s with
             | None , None =>
-              match Subst.set u1 (UVar u2) s with
+              match set u1 (UVar u2) s with
                 | None =>
-                  Subst.set u2 (UVar u1) s
+                  set u2 (UVar u1) s
                 | Some s => Some s
               end
             | Some e1' , None =>
-              Subst.set u2 e1' s
+              set u2 e1' s
             | None , Some e2' =>
-              Subst.set u1 e2' s
+              set u1 e2' s
             | Some e1' , Some e2' =>
               exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
           end
       | UVar u1 , _ =>
-        match Subst.lookup u1 s with
+        match lookup u1 s with
           | None =>
             match lower 0 n e2 with
               | None => None
-              | Some e2 => Subst.set u1 e2 s
+              | Some e2 => set u1 e2 s
             end
           | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
         end
       | _ , UVar u2 =>
-        match Subst.lookup u2 s with
+        match lookup u2 s with
           | None =>
             match lower 0 n e1 with
               | None => None
-              | Some e1 => Subst.set u2 e1 s
+              | Some e1 => set u2 e1 s
             end
           | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
         end
@@ -332,7 +332,7 @@ Section typed.
   Lemma WellTyped_from_subst : forall tu tv tv' s e t u,
     WellTyped_subst (SubstOk := SubstOk_subst) tu tv s ->
     WellTyped_expr tu (tv' ++ tv) (UVar u) t ->
-    Subst.lookup u s = Some e ->
+    lookup u s = Some e ->
     WellTyped_expr tu (tv' ++ tv) (lift 0 (length tv') e) t.
   Proof.
     intros.
@@ -348,7 +348,7 @@ Section typed.
 
   Lemma exprD_from_subst : forall us vs vs' s e u t,
     substD (SubstOk := SubstOk_subst) us vs s ->
-    Subst.lookup u s = Some e ->
+    lookup u s = Some e ->
     nth_error (typeof_env us) u = Some t ->
     exprD us (vs' ++ vs) (UVar u) t =
     exprD us (vs' ++ vs) (lift 0 (length vs') e) t.

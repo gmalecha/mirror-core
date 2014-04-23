@@ -3,6 +3,7 @@ Require Import MirrorCore.ExprProp.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.EProver.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.Expr.
@@ -40,8 +41,8 @@ Section parameters.
   |}.
 
   Theorem EProveOk_unify
-  : forall (subst : Type) (Ssubst : Subst.Subst subst (expr func))
-           (Sok : Subst.SubstOk (Expr_expr RSym_func) Ssubst),
+  : forall (subst : Type) (Ssubst : Subst subst (expr func))
+           (Sok : SubstOk (Expr_expr RSym_func) Ssubst),
       EProveOk (Provable_val (TypInstance0_tyProp types)) Sok
                (fun (_ _ : EnvI.env (typD types)) (_ : Facts EProver_unify) => True)
                (Prove EProver_unify (subst:=subst)).

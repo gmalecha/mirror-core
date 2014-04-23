@@ -6,7 +6,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Subst2.
+Require Import MirrorCore.SubstI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -14,6 +14,18 @@ Set Strict Implicit.
 Import FMapPositive.PositiveMap.
 
 Module Facts := FMapFacts.Facts PositiveMap.
+
+(** TODO: Move **)
+Lemma Forall_map
+: forall T U (f : T -> U) P ls,
+    Forall P (List.map f ls) <-> Forall (fun x => P (f x)) ls.
+Proof.
+  induction ls; simpl.
+  { split; intros; constructor. }
+  { split; inversion 1; intros; subst; constructor; auto.
+    apply IHls. auto. apply IHls. auto. }
+Qed.
+
 
 Section parametric.
 
@@ -430,23 +442,26 @@ Section parametric.
                   | Some t => Safe_expr tus tvs e t
                 end.
 
-  Definition substD_fast_subst (us vs : EnvI.env typD) (s : fast_subst) : list Prop :=
-    fold (fun p e acc =>
-            match e with
-              | inl (e,_) =>
-                match List.nth_error us (from_key p) with
-                  | None => False :: acc
-                  | Some (existT ty val) =>
-                    match exprD us vs e ty with
-                      | Some val' => (val' = val) :: acc
-                      | None => False :: acc
-                    end
-                end
-              | inr _ => acc
-            end) s nil.
+  Definition substD_fast_subst (us vs : EnvI.env typD) (s : fast_subst)
+  : Prop :=
+    Forall (fun P => P)
+           (fold (fun p e acc =>
+                    match e with
+                      | inl (e,_) =>
+                        match List.nth_error us (from_key p) with
+                          | None => False :: acc
+                          | Some (existT ty val) =>
+                            match exprD us vs e ty with
+                              | Some val' => (val' = val) :: acc
+                              | None => False :: acc
+                            end
+                        end
+                      | inr _ => acc
+                    end) s nil).
 
-  Definition substD_fast_subst' (us vs : EnvI.env typD) (s : fast_subst) : list Prop :=
-    List.map (fun p_e =>
+  Definition substD_fast_subst' (us vs : EnvI.env typD) (s : fast_subst)
+  : Prop :=
+    Forall (fun p_e =>
            let '(p,e) := p_e in
            match e with
              | inl (e,_) =>
@@ -478,8 +493,8 @@ Section parametric.
 
   Theorem substD_fast_subst_substD_fast_subst'
   : forall us vs s,
-      Forall (fun x => x) (substD_fast_subst us vs s) <->
-      Forall (fun x => x) (substD_fast_subst' us vs s).
+      substD_fast_subst us vs s <->
+      substD_fast_subst' us vs s.
   Proof.
     unfold substD_fast_subst, substD_fast_subst'; intros.
     rewrite fold_1.
@@ -535,7 +550,8 @@ Section parametric.
           repeat rewrite Forall_app. repeat rewrite Forall_cons_iff.
           tauto. } } }
     { specialize (H nil).
-      simpl in *. apply H. }
+      simpl in *.
+      rewrite H. rewrite Forall_map. reflexivity. }
   Qed.
 
   Lemma WellTyped_lookup_fast_subst
@@ -550,22 +566,12 @@ Section parametric.
     forward. eauto.
   Qed.
 
-  (** TODO: Move **)
-  Lemma Forall_map
-  : forall T U (f : T -> U) P ls,
-      Forall P (List.map f ls) <-> Forall (fun x => P (f x)) ls.
-  Proof.
-    induction ls; simpl.
-    { split; intros; constructor. }
-    { split; inversion 1; intros; subst; constructor; auto.
-      apply IHls. auto. apply IHls. auto. }
-  Qed.
 
   Lemma substD_lookup_fast_subst
   : forall (u v : EnvI.env typD) (s : fast_subst) (uv : nat) (e : expr),
       WellFormed_fast_subst s ->
       lookup uv s = Some e ->
-      List.Forall (fun x : Prop => x) (substD_fast_subst u v s) ->
+      substD_fast_subst u v s ->
       exists val : sigT (typD nil),
         List.nth_error u uv = Some val /\
         exprD u v e (projT1 val) = Some (projT2 val).
@@ -575,7 +581,6 @@ Section parametric.
     forward. inv_all; subst.
     rewrite substD_fast_subst_substD_fast_subst' in H1.
     unfold substD_fast_subst' in H1.
-    rewrite Forall_map in H1.
     generalize (elements_correct s (to_key uv) H2).
     intros.
     eapply Forall_forall in H1; eauto.
@@ -701,8 +706,8 @@ Section parametric.
            nth_error tus uv = Some t0 ->
            WellTyped_fast_subst tus tvs s' /\
            (forall us vs : EnvI.env typD,
-              Forall (fun x : Prop => x) (substD_fast_subst us vs s') ->
-              Forall (fun x : Prop => x) (substD_fast_subst us vs s) /\
+              substD_fast_subst us vs s' ->
+              substD_fast_subst us vs s /\
               (forall tv : sigT (typD nil),
                  nth_error us uv = Some tv ->
                  exprD us vs e (projT1 tv) = Some (projT2 tv)))).
@@ -780,8 +785,8 @@ Section parametric.
         nth_error tus uv = Some t ->
         WellTyped_subst tus tvs s' /\
         forall us vs,
-          Forall (fun x => x) (substD us vs s') ->
-          Forall (fun x => x) (substD us vs s) /\
+          substD us vs s' ->
+          substD us vs s /\
           (forall tv : sigT (typD nil),
              nth_error us uv = Some tv -> exprD us vs e (projT1 tv) = Some (projT2 tv)).
   Proof.

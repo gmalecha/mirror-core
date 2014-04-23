@@ -12,7 +12,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
-Require Import MirrorCore.Subst.
+Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
 Set Strict Implicit.

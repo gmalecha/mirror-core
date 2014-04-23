@@ -3,7 +3,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SubstI.
+Require Import MirrorCore.SubstI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -36,19 +36,24 @@ Section proverI.
 
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : @SubstOk subst expr typ _ _ _)
+             (SsubstOk : @SubstOk subst typ typD expr _ _)
     (valid : env typD -> env typD -> summary -> Prop)
-    (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst) : Prop :=
+    (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
+  : Prop :=
     forall uvars vars sum,
       valid uvars vars sum ->
       forall (goal : expr) (sub sub' : subst),
         prover sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
-        WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
-        substD uvars vars sub' ->
-        match exprD uvars vars goal ty with
-          | None => True
-          | Some val => Provable' val /\ substD uvars vars sub
-        end.
+        WellFormed_subst sub ->
+        WellFormed_subst sub' /\
+        (WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
+         WellTyped_subst (typeof_env uvars) (typeof_env vars) sub' /\
+         (substD uvars vars sub' ->
+          match exprD uvars vars goal ty with
+            | None => True
+            | Some val => Provable' val
+                       /\ substD uvars vars sub
+          end)).
 
   Record EProverOk (P : EProver) : Type :=
   { Valid : env typD -> env typD -> Facts P -> Prop
@@ -74,15 +79,22 @@ Section proverI.
       Valid Pok uvars vars sum ->
       forall (goal : expr) (sub sub' : subst),
         Prove P sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
-        WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
-        substD uvars vars sub' ->
-        forall val,
-          exprD uvars vars goal ty = Some val ->
-          Provable' val /\ substD uvars vars sub.
+        WellFormed_subst sub ->
+        WellFormed_subst sub' /\
+        (WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
+         WellTyped_subst (typeof_env uvars) (typeof_env vars) sub' /\
+         (substD uvars vars sub' ->
+          forall val,
+            exprD uvars vars goal ty = Some val ->
+            Provable' val /\ substD uvars vars sub)).
   Proof.
     intros.
-    specialize (@Pok.(Prove_correct) Sok uvars vars sum H goal sub H0 H1 H2).
-    rewrite H3. exact (fun x => x).
+    destruct (@Pok.(Prove_correct) Sok uvars vars sum H goal sub H0 H1).
+    split; auto.
+    intros. specialize (H3 H4). destruct H3.
+    split; auto.
+    intros. specialize (H5 H6).
+    forward.
   Qed.
 
   (** Composite Prover **)
@@ -125,8 +137,10 @@ Section proverI.
         | H : match ?X with _ => _ end = _ |- _ =>
           consider X; intros
       end; inv_all; subst.
-      { eapply (Prove_concl pl_correct); try eassumption. }
-      { eapply (Prove_concl pr_correct); try eassumption. }
+      { eapply (Prove_concl pl_correct) in H0; try eassumption.
+        intuition. forward. eapply H8; eauto. }
+      { eapply (Prove_concl pr_correct) in H3; try eassumption.
+        intuition. forward. eapply H9; eauto. }
     Qed.
   End composite.
 
@@ -155,7 +169,9 @@ Section proverI.
       intros. simpl in H0.
       forward. inv_all; subst.
       split; eauto.
-      eapply Prover.Prove_concl; eauto.
+      eapply Prover.Prove_concl in H0.
+      2: eapply H.
+      intro. split; auto. intros. split; eauto. eauto.
     Qed.
   End non_eprover.
 End proverI.

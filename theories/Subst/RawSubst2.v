@@ -3,7 +3,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.Subst2.
+Require Import MirrorCore.SubstI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -63,7 +63,7 @@ Section list_subst.
   Definition list_subst_domain (l : list_subst) : list uvar :=
     list_subst_domain' l 0.
 
-  Local Instance Subst_list_subst : @Subst2.Subst list_subst expr :=
+  Local Instance Subst_list_subst : @SubstI2.Subst list_subst expr :=
   { lookup := list_subst_lookup
   ; domain := list_subst_domain
   }.
@@ -83,8 +83,8 @@ Section list_subst.
               end) (domain s).
 
   Definition substD_for_domain (T : Type) (S : Subst T expr)
-             (us vs : EnvI.env typD) (s : T) : list Prop :=
-    List.map (fun u =>
+             (us vs : EnvI.env typD) (s : T) : Prop :=
+    Forall (fun u =>
                 match nth_error us u , lookup (expr := expr) u s with
                   | _ , None => True
                   | None , Some _ => False
@@ -170,13 +170,12 @@ Section list_subst.
   : forall (u v : env typD) (s : list_subst) (uv : nat) (e : expr),
       True ->
       lookup uv s = Some e ->
-      Forall (fun x : Prop => x) (substD_for_domain Subst_list_subst u v s) ->
+      substD_for_domain Subst_list_subst u v s ->
       exists val : sigT (typD nil),
         nth_error u uv = Some val /\
         exprD u v e (projT1 val) = Some (projT2 val).
   Proof.
     unfold substD_for_domain. intros.
-    rewrite Forall_map in H1.
     rewrite Forall_forall in H1.
     assert (lookup uv s <> None) by congruence.
     rewrite <- (list_subst_domain_ok s I eq_refl uv) in H2.
@@ -327,12 +326,11 @@ Section list_subst.
     Theorem substD_to_list_subst
     : forall us vs s,
         WellFormed_subst s ->
-        Forall (fun x => x) (substD us vs s) ->
-        Forall (fun x => x) (substD us vs (to_list_subst s)).
+        substD us vs s ->
+        substD us vs (to_list_subst s).
     Proof.
       intros.
       unfold substD. simpl. unfold substD_for_domain.
-      rewrite Forall_map.
       apply Forall_forall; intros.
       rewrite list_subst_domain_ok in H1; eauto.
       consider (lookup x (to_list_subst s)); try congruence; intros.

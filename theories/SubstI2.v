@@ -30,7 +30,7 @@ Section subst.
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
   ; WellTyped_subst : EnvI.tenv typ -> EnvI.tenv typ -> T -> Prop
-  ; substD : EnvI.env typD -> EnvI.env typD -> T -> list Prop
+  ; substD : EnvI.env typD -> EnvI.env typD -> T -> Prop
   ; WellTyped_lookup : forall u v s uv e,
       WellFormed_subst s ->
       WellTyped_subst u v s ->
@@ -41,7 +41,7 @@ Section subst.
   ; substD_lookup : forall u v s uv e,
       WellFormed_subst s ->
       lookup uv s = Some e ->
-      Forall (fun x => x) (substD u v s) ->
+      substD u v s ->
       exists val,
         nth_error u uv = Some val /\
         exprD u v e (projT1 val) = Some (projT2 val)
@@ -53,7 +53,7 @@ Section subst.
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { WellFormed_empty : WellFormed_subst empty
-  ; substD_empty : forall u v, Forall (fun x => x) (substD u v empty)
+  ; substD_empty : forall u v, substD u v empty
   ; WellTyped_empty : forall u v, WellTyped_subst u v empty
   ; WellFormed_set : forall uv e s s',
       WellFormed_subst s ->
@@ -68,10 +68,10 @@ Section subst.
       WellTyped_subst u v s'
   ; substD_set : forall uv e s s' u v,
       WellFormed_subst s ->
-      Forall (fun x => x) (substD u v s') ->
+      substD u v s' ->
       lookup uv s = None ->
       set uv e s = Some s' ->
-      Forall (fun x => x) (substD u v s) /\
+      substD u v s /\
       (forall tv, nth_error u uv = Some tv ->
                   exprD u v e (projT1 tv) = Some (projT2 tv))
   ; WellFormed_pull : forall s s' u n,
@@ -85,9 +85,9 @@ Section subst.
       WellTyped_subst tus tvs s'
   ; substD_pull : forall us us' vs u s s',
       WellFormed_subst s ->
-      Forall (fun x => x) (substD (us ++ us') vs s) ->
+      substD (us ++ us') vs s ->
       pull u (length us') s = Some s' ->
-      Forall (fun x => x) (substD us vs s')
+      substD us vs s'
   }.
 
   Variable Subst_subst : Subst.
@@ -107,7 +107,7 @@ Section subst.
 
   Definition Subst_Extends (a b : T) : Prop :=
     forall u v,
-      Forall (fun x => x) (substD u v b) ->
-      Forall (fun x => x) (substD u v a).
+      substD u v b ->
+      substD u v a.
 
 End subst.

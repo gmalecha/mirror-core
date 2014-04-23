@@ -8,7 +8,7 @@ Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Subst2.
+Require Import MirrorCore.SubstI2.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprT.
@@ -46,35 +46,35 @@ Section typed.
       | UVar u1 , UVar u2 =>
         if EqNat.beq_nat u1 u2 then Some s
         else
-          match Subst2.lookup u1 s , Subst2.lookup u2 s with
+          match lookup u1 s , lookup u2 s with
             | None , None =>
-              match Subst2.set u1 (UVar u2) s with
+              match set u1 (UVar u2) s with
                 | None =>
-                  Subst2.set u2 (UVar u1) s
+                  set u2 (UVar u1) s
                 | Some s => Some s
               end
             | Some e1' , None =>
-              Subst2.set u2 e1' s
+              set u2 e1' s
             | None , Some e2' =>
-              Subst2.set u1 e2' s
+              set u1 e2' s
             | Some e1' , Some e2' =>
               exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
           end
       | UVar u1 , _ =>
-        match Subst2.lookup u1 s with
+        match lookup u1 s with
           | None =>
             match lower 0 n e2 with
               | None => None
-              | Some e2 => Subst2.set u1 e2 s
+              | Some e2 => set u1 e2 s
             end
           | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
         end
       | _ , UVar u2 =>
-        match Subst2.lookup u2 s with
+        match lookup u2 s with
           | None =>
             match lower 0 n e1 with
               | None => None
-              | Some e1 => Subst2.set u2 e1 s
+              | Some e1 => set u2 e1 s
             end
           | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
         end
@@ -157,8 +157,8 @@ Section typed.
       /\ (forall u v,
             WellTyped_env tu u ->
             WellTyped_env tv v ->
-            Forall (fun x => x) (substD (SubstOk := SubstOk_subst) u v s') ->
-               Forall (fun x => x) (substD (SubstOk := SubstOk_subst) u v s)
+            substD (SubstOk := SubstOk_subst) u v s' ->
+               substD (SubstOk := SubstOk_subst) u v s
             /\ forall v',
                  WellTyped_env tv' v' ->
                  exprD u (v' ++ v) e1 t = exprD u (v' ++ v) e2 t).
@@ -203,8 +203,8 @@ Section typed.
         (forall u0 v : @env typ (typD types),
            @WellTyped_env types tu u0 ->
            @WellTyped_env types tv v ->
-           Forall (fun x => x) (substD u0 v s') ->
-           Forall (fun x => x) (substD u0 v s) /\
+           substD u0 v s' ->
+           substD u0 v s /\
            (forall v' : @env typ (typD types),
               @WellTyped_env types tv' v' ->
               exprD u0 (v' ++ v) (UVar u) t =
@@ -261,8 +261,8 @@ Section typed.
           (forall u0 v : @env typ (typD types),
              WellTyped_env tu u0 ->
              WellTyped_env tv v ->
-             Forall (fun x=> x) (substD u0 v s') ->
-             Forall (fun x => x) (substD u0 v s) /\
+             substD u0 v s' ->
+             substD u0 v s /\
              (forall v' : @env typ (typD types),
                 WellTyped_env tv' v' ->
                 exprD u0 (v' ++ v) e t =
@@ -341,8 +341,8 @@ Section typed.
    (forall u0 v : @env typ (typD types),
     WellTyped_env tu u0 ->
     WellTyped_env tv v ->
-    Forall (fun x=>x) (substD u0 v s') ->
-    Forall (fun x => x) (substD u0 v s) /\
+    substD u0 v s' ->
+    substD u0 v s /\
     (forall v' : @env typ (typD types),
      WellTyped_env tv' v' ->
      exprD u0 (v' ++ v) (UVar u) t =
@@ -408,7 +408,7 @@ Section typed.
 
   Lemma exprD_from_subst : forall us vs vs' s e u t,
     WellFormed_subst s ->
-    Forall (fun x => x) (substD us vs s) ->
+    substD us vs s ->
     lookup u s = Some e ->
     nth_error (typeof_env us) u = Some t ->
     exprD us (vs' ++ vs) (UVar u) t =

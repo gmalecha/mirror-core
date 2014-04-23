@@ -1,6 +1,6 @@
 GENERIC := Iso IsoTac Approx
 PROVERS := ProverTac AssumptionProver
-#  Transitivity
+SUBST   := SealedSubst FastSubst RawSubst2
 EXTENSIBLE := Repr Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
@@ -14,11 +14,11 @@ LAMBDA := ExprCore ExprT ExprDI ExprD3
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \
-	      Prover EProver Subst Subst2 SealedSubst \
-              FastSubst RawSubst2 \
+	      Prover EProver EProver2 SubstI SubstI2 \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
+	      $(SUBST:%=Subst/%)
 
 
 TESTS :=
