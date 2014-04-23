@@ -1,7 +1,6 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Subst.
 Require Import MirrorCore.EProver.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
@@ -9,7 +8,7 @@ Require Import MirrorCore.Ext.ExprSubst.
 Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require Import MirrorCore.Ext.SymEnv.
 Require Import MirrorCore.provers.AssumptionProver.
-Require Import MirrorCore.FastSubst.
+Require Import MirrorCore.Subst.FastSubst.
 Require Import Examples.Auto.AutoProver2.
 
 Set Implicit Arguments.
@@ -115,7 +114,7 @@ Proof.
     simpl. auto. }
 Qed.
 
-Axiom SubstOk_fast_subst : @Subst2.SubstOk _ _ _ _ _ (@Subst_fast_subst (expr func)).
+Axiom SubstOk_fast_subst : @SubstI2.SubstOk _ _ _ _ _ (@Subst_fast_subst (expr func)).
 
 Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ hints)
 : forall facts (us vs : EnvI.env (typD ts)) goal s',
@@ -125,7 +124,7 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ hints)
                 fuel facts
                 (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
                 (fast_subst_empty _) = Some s' ->
-    Forall (fun x => x) (@Subst2.substD _ _ _ _ _ _ SubstOk_fast_subst us vs s') ->
+    @SubstI2.substD _ _ _ _ _ _ SubstOk_fast_subst us vs s' ->
     match exprD us vs goal tyProp with
       | None => True
       | Some P => P

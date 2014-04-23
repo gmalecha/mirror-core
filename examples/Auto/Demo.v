@@ -1,7 +1,6 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Subst.
 Require Import MirrorCore.EProver.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
@@ -10,7 +9,7 @@ Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require Import MirrorCore.Ext.SymEnv.
 Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.Ext.FMapSubst.
-Require Import Examples.Auto.AutoProver.
+Require Import MirrorCore.Examples.Auto.AutoProver.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -25,9 +24,9 @@ Definition ts : types :=
 Definition fs : functions ts :=
   Eval simpl in from_list
                   ((@F ts 0 (tyArr (tyType 1) tyProp) Even) ::
-                                                            (@F ts 0 (tyType 1) O) ::
-                                                            (@F ts 0 (tyArr (tyType 1) (tyType 1)) S) ::
-                                                            nil).
+                   (@F ts 0 (tyType 1) O) ::
+                   (@F ts 0 (tyArr (tyType 1) (tyType 1)) S) ::
+                   nil).
 
 Fixpoint makeNat (n : nat) : expr func :=
   match n with
@@ -80,7 +79,7 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ hints)
     @auto_prove ts func _ (SUBST.subst _) (SUBST.Subst_subst _) hints fuel facts
                 (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
                 (SUBST.subst_empty _) = Some s' ->
-    @substD _ _ _ _ _ _  (SUBST.SubstOk_subst _) us vs s' ->
+    @SubstI.substD _ _ _ _ _ _  (SUBST.SubstOk_subst _) us vs s' ->
     match exprD us vs goal tyProp with
       | None => True
       | Some P => P

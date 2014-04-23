@@ -1,7 +1,7 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Subst.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.EProver.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
@@ -419,4 +419,3 @@ Section parameterized.
   Qed.
 
 End parameterized.
-

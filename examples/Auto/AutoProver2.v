@@ -3,9 +3,9 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Subst2.
+Require Import MirrorCore.SubstI2.
 Require Import MirrorCore.EProver.
-Require Import MirrorCore.FastSubst.
+Require Import MirrorCore.Subst.FastSubst.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
 Require Import MirrorCore.Ext.ExprUnifySyntactic2.
@@ -287,12 +287,10 @@ Section parameterized.
       WellTyped_expr tus tvs g tyProp ->
       WellTyped_subst (tus ++ l0.(vars)) tvs s1 /\
       forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
-        Forall (fun x => x)
-               (substD (join_env us ++ join_env us') (join_env vs) s1) ->
+        substD (join_env us ++ join_env us') (join_env vs) s1 ->
         exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
         exprD (join_env us) (join_env us' ++ join_env vs) g tyProp
-        /\ Forall (fun x => x)
-                  (substD (join_env us ++ join_env us') (join_env vs) s)).
+        /\ substD (join_env us ++ join_env us') (join_env vs) s).
   Proof.
 (*
     unfold applicable.
@@ -306,16 +304,16 @@ Section parameterized.
 *)
   Admitted.
 
-  Definition Subst1_subst : Subst.Subst subst (expr func) :=
-    {| Subst.set := @set _ _ SU
-     ; Subst.empty := @empty _ _ SU
-     ; Subst.lookup := @lookup _ _ Subst_subst
+  Definition Subst1_subst : SubstI.Subst subst (expr func) :=
+    {| SubstI.set := @set _ _ SU
+     ; SubstI.empty := @empty _ _ SU
+     ; SubstI.lookup := @lookup _ _ Subst_subst
     |}.
 
-  Instance Subst1Ok_subst : Subst.SubstOk _ Subst1_subst :=
-    { substD := fun a b c => Forall (fun x => x) (@substD _ _ _ _ _ _ _ a b c)
-      ; WellTyped_subst := @WellTyped_subst _ _ _ _ _ _ _
-      }.
+  Instance Subst1Ok_subst : SubstI.SubstOk _ Subst1_subst :=
+    { substD := @substD _ _ _ _ _ _ _
+    ; WellTyped_subst := @WellTyped_subst _ _ _ _ _ _ _
+    }.
   admit. admit. admit. admit. admit. admit.
   Defined.
 
@@ -441,8 +439,8 @@ Section parameterized.
           | Some valG =>
             forall us vs,
               Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
-              Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s') ->
-              valG us vs /\ Forall (fun x => x) (substD (EnvI.join_env us) (EnvI.join_env vs) s)
+              substD (EnvI.join_env us) (EnvI.join_env vs) s' ->
+              valG us vs /\ substD (EnvI.join_env us) (EnvI.join_env vs) s
         end).
 
 

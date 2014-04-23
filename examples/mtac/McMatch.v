@@ -16,8 +16,8 @@ Require Import ExtLib.Data.Monads.ReaderMonad.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprUnifySyntactic.
-Require MirrorCore.SealedSubst.
-Require Import mtac.Patterns.
+Require MirrorCore.Subst.SealedSubst.
+Require Import MirrorCore.Examples.mtac.Patterns.
 
 (** This is just a default. Most users won't want/want
  ** to chnage this, but if there is a better substitution
@@ -34,11 +34,11 @@ Section with_func.
   Variable RSym_func : RSym (typD ts) func.
 
   Definition subst := SealedSubst.seal_subst (FMapSubst.SUBST.subst func).
-  Local Instance Subst_subst : Subst.Subst subst (expr func) :=
+  Local Instance Subst_subst : SubstI.Subst subst (expr func) :=
     @SealedSubst.Subst_seal_subst _ _ (FMapSubst.SUBST.Subst_subst func).
   Definition empty_above (above : uvar) : subst :=
     SealedSubst.seal (fun x => above ?[ le ] x)
-                     (@Subst.empty _ _ (FMapSubst.SUBST.Subst_subst func)).
+                     (@SubstI.empty _ _ (FMapSubst.SUBST.Subst_subst func)).
 
   (** Pattern matching **)
   Context {T : Type}.
@@ -65,7 +65,7 @@ Section with_func.
        match ls with
          | nil => fun x => x
          | l :: ls => fun f =>
-                        match Subst.lookup from s with
+                        match SubstI.lookup from s with
                           | None => error tt
                           | Some e => recur (S from) ls (f e)
                         end
