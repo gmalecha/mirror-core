@@ -31,6 +31,10 @@ Section subst.
   { WellFormed_subst : T -> Prop
   ; WellTyped_subst : EnvI.tenv typ -> EnvI.tenv typ -> T -> Prop
   ; substD : EnvI.env typD -> EnvI.env typD -> T -> Prop
+  ; substD_WellTyped : forall u v s,
+      WellFormed_subst s ->
+      substD u v s ->
+      WellTyped_subst (typeof_env u) (typeof_env v) s
   ; WellTyped_lookup : forall u v s uv e,
       WellFormed_subst s ->
       WellTyped_subst u v s ->

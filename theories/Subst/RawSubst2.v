@@ -71,6 +71,7 @@ Section list_subst.
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
   Variable Expr_expr : Expr typD expr.
+  Variable ExprOk_expr : ExprOk Expr_expr.
 
   Definition WellTyped_for_domain (T : Type) (S : Subst T expr)
              (tus tvs : EnvI.tenv typ) (s : T) : Prop :=
@@ -186,12 +187,29 @@ Section list_subst.
     eexists; split; eauto.
   Qed.
 
+  Lemma substD_typed
+  : forall (u v : env typD) (s : list_subst),
+      substD_for_domain Subst_list_subst u v s ->
+      WellTyped_for_domain Subst_list_subst (typeof_env u) (typeof_env v) s.
+  Proof.
+    unfold substD_for_domain; intros.
+    eapply Forall_forall. intros. eapply Forall_forall in H; eauto.
+    unfold typeof_env.
+    rewrite ListNth.nth_error_map.
+    forward. simpl in *. subst.
+    eapply Safe_expr_exprD; eauto.
+    unfold exprD in H3. forward. inv_all; subst.
+    do 2 rewrite <- split_env_projT1.
+    rewrite H3; rewrite H. simpl. eauto.
+  Qed.
+
   Local Instance SubstOk_list_subst : SubstOk _ Subst_list_subst :=
   { WellFormed_subst := fun _ => True
   ; WellTyped_subst := WellTyped_for_domain Subst_list_subst
   ; substD := substD_for_domain Subst_list_subst
   }.
   Proof.
+    intros; apply substD_typed; auto.
     exact list_subst1.
     exact list_subst2.
     exact list_subst_domain_ok.
