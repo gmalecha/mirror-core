@@ -201,7 +201,8 @@ Lemma mapT_compose'
         | |- match ?X with _ => _ end => consider X; intros
       end; forward.
       { inv_all. subst.
-        apply exprD'_weaken with (tus' := x2) (tvs' := x0) in H0.
+        change exprD' with (@ExprI.exprD' _ _ _ (@Expr_expr _ _ _)) in H0.
+        eapply exprD'_weaken with (tus' := x2) (tvs' := x0) in H0; eauto using ExprOk_expr.
         destruct H0 as [ ? [ ? ? ] ].
         forward. erewrite H2.
         instantiate (1 := h4).
@@ -234,12 +235,13 @@ Lemma mapT_compose'
         generalize dependent t; generalize dependent x5.
         generalize (eq_sym (app_ass_trans vars0 x x0)).
         rewrite app_ass. uip_all'.
-        rewrite H0 in H. inv_all; subst; auto. }
+        simpl in *. rewrite H0 in H. inv_all; subst; auto. }
       { clear - H0 H.
-        apply exprD'_weaken with (tus' := x2) (tvs' := x0) in H0.
+        change exprD' with (@ExprI.exprD' _ _ _ (@Expr_expr _ _ _)) in H0.
+        apply exprD'_weaken with (tus' := x2) (tvs' := x0) in H0; eauto using ExprOk_expr.
         destruct H0 as [ ? [ ? ? ] ].
         clear - H0 H.
-        rewrite <- app_ass in H. congruence. } }
+        rewrite <- app_ass in H. simpl in *. congruence. } }
     { specialize (H0 premises0).
       match goal with
         | H : match ?X with _ => _ end

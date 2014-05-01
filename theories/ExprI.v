@@ -1,7 +1,7 @@
 Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
 Require Import Classes.RelationClasses.
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Generic.
@@ -18,20 +18,33 @@ Section Expr.
 
   Variable expr : Type.
 
+  Definition ResType (us vs : tenv typ) (T : Type) : Type :=
+    option (hlist (typD nil) us -> hlist (typD nil) vs -> T).
+
   (** TODO:
    ** - Right now this is intensionally weak, but it should probably include
    **   a few more operations given that it is already specialized for both
    **   [UVar] and [Var].
    ** - An alternative is to generalize it monadically and eliminate the
    **   specialized variable environments.
+   ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
   { exprD' : forall (us vs : tenv typ), expr -> forall (t : typ),
-                       option (hlist (typD nil) us -> hlist (typD nil) vs -> typD nil t)
-  ; Safe_expr : list typ -> list typ -> expr -> typ -> Prop
-  ; acc : relation expr
-  ; wf_acc : well_founded acc
+                                                  ResType us vs (typD nil t)
+  ; Expr_acc : relation expr
+  ; wf_Expr_acc : well_founded Expr_acc
   }.
+
+  Definition Safe_expr {E : Expr} (tus tvs : tenv typ) (e : expr) (t : typ)
+  : Prop :=
+    exists val, exprD' tus tvs e t = Some val.
+
+  Theorem Safe_expr_exprD {E : Expr}
+  : forall us vs e t,
+      Safe_expr us vs e t <->
+      exists val, exprD' us vs e t = Some val.
+  Proof. reflexivity. Qed.
 
   Definition exprD {E : Expr} (uvar_env var_env : env typD) (e : expr) (t : typ)
   : option (typD nil t) :=
@@ -43,18 +56,38 @@ Section Expr.
     end.
 
   Class ExprOk (E : Expr) : Type :=
-  { Safe_expr_exprD : forall us vs e t,
-                        Safe_expr us vs e t <->
-                        exists val, exprD' us vs e t = Some val
-  ; exprD'_weaken : forall tus tus' tvs tvs' e t val,
-                      exprD' tus tvs e t = Some val ->
-                      exists val',
-                        exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
-                        /\ forall us vs us' vs',
-                             val us vs = val' (hlist_app us us') (hlist_app vs vs')
+  { exprD'_weakenU
+    : forall tus tus' tvs e t val,
+        exprD' tus tvs e t = Some val ->
+        exists val',
+             exprD' (tus ++ tus') tvs e t = Some val'
+          /\ forall us vs us',
+               val us vs = val' (hlist_app us us') vs
+  ; exprD'_weakenV
+    : forall tus tvs tvs' e t val,
+        exprD' tus tvs e t = Some val ->
+        exists val',
+             exprD' tus (tvs ++ tvs') e t = Some val'
+          /\ forall us vs vs',
+               val us vs = val' us (hlist_app vs vs')
   }.
 
   Context {Expr_expr : Expr}.
+
+  Theorem exprD'_weaken (EOk : ExprOk Expr_expr)
+  : forall tus tus' tvs tvs' e t val,
+      exprD' tus tvs e t = Some val ->
+      exists val',
+        exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
+        /\ forall us us' vs vs',
+             val us vs = val' (hlist_app us us') (hlist_app vs vs').
+  Proof.
+    intros.
+    destruct (exprD'_weakenU tus' _ H) as [ ? [ ? ? ] ]; clear H.
+    destruct (exprD'_weakenV tvs' _ H0) as [ ? [ ? ? ] ]; clear H0.
+    eexists; split; eauto.
+    intros. erewrite H1. erewrite H2. reflexivity.
+  Qed.
 
   Theorem exprD_weaken (EOk : ExprOk Expr_expr)
   : forall us us' vs vs' e t val,
@@ -67,7 +100,8 @@ Section Expr.
     destruct (split_env vs); destruct (split_env vs').
     consider (exprD' x x1 e t); intros; try congruence.
     inversion H0; clear H0; subst.
-    eapply exprD'_weaken in H. destruct H. destruct H.
+    eapply exprD'_weaken in H; eauto with typeclass_instances.
+    destruct H. destruct H.
     rewrite H. rewrite <- H0. reflexivity.
   Qed.
 
@@ -129,7 +163,7 @@ Section Expr.
   { fun_iso : forall ts, Iso (typD ts TF) (typD ts TD -> typD ts TR)
   ; sapp : forall ts, typD ts TF -> typD ts TD -> typD ts TR
   ; app1 : expr -> expr -> expr
-  ; app1_check : forall e : expr, option { x : expr * expr & acc (fst x) e /\ acc (snd x) e }
+  ; app1_check : forall e : expr, option { x : expr * expr & Expr_acc (fst x) e /\ Expr_acc (snd x) e }
   }.
 
   Class AppInstanceOk d r f (AI : @AppInstance f d r) : Type :=
@@ -143,7 +177,7 @@ Section Expr.
   Record AppN (ft : typ) (dom : list typ) (ran : typ) : Type := mkAppN
   { appn : expr -> vector expr (length dom) -> expr
   ; appn_check : forall e : expr,
-                   option { x : expr * vector expr (length dom) & acc (fst x) e /\ ForallV (fun x => acc x e) (snd x) }
+                   option { x : expr * vector expr (length dom) & Expr_acc (fst x) e /\ ForallV (fun x => Expr_acc x e) (snd x) }
   }.
 
 (*
@@ -178,7 +212,7 @@ Section Expr.
 
   Record SymAppN (n : nat) (dom : list (vector typ n -> typ)) (ran : exp typ n) : Type := mkSymAppN
   { sappn : vector typ n -> vector expr (length dom) -> expr
-  ; sappn_check : forall e : expr, option { x : vector typ n * vector expr (length dom) & ForallV (fun x => acc x e) (snd x) }
+  ; sappn_check : forall e : expr, option { x : vector typ n * vector expr (length dom) & ForallV (fun x => Expr_acc x e) (snd x) }
   }.
 
   Definition SymApp0_0 T F `(FI : @FuncInstance0 T F) : @SymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI)).
@@ -207,7 +241,7 @@ Section Expr.
                            match @app1_check _ _ _ (FI (fst ts_es)) e with
                              | None => None
                              | Some (existT (e_e') pf') =>
-                               let npf := @ForallV_cons _ (fun x => acc x e) _ _ _ (proj2 pf') pf in
+                               let npf := @ForallV_cons _ (fun x => Expr_acc x e) _ _ _ (proj2 pf') pf in
                                Some (existT _ (fst ts_es, Vcons (snd e_e') (snd ts_es)) npf)
                            end
                        end)).
@@ -216,7 +250,7 @@ Section Expr.
   (** Binder **)
   Record Lambda : Type :=
   { lambda : typ -> expr -> expr
-  ; lambda_check : forall e : expr, option { x : typ * expr & acc (snd x) e }
+  ; lambda_check : forall e : expr, option { x : typ * expr & Expr_acc (snd x) e }
   ; subst0 : expr -> expr -> expr
   }.
 
@@ -228,3 +262,7 @@ Section Expr.
 *)
 
 End Expr.
+
+Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
+Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
+Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.

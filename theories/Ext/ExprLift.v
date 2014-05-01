@@ -337,8 +337,8 @@ Section typed.
         end.
         { eapply nth_error_get_hlist_nth_appR with (tvs' := vs' ++ vs'') in H1; eauto with typeclass_instances.
           match goal with
-            | |- context [ @ExprDI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
-              consider (@ExprDI.nth_error_get_hlist_nth A B C D); intros
+            | |- context [ @EnvI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
+              consider (@EnvI.nth_error_get_hlist_nth A B C D); intros
           end.
           { eapply nth_error_get_hlist_nth_appR with (tvs' := vs'') in H2; eauto with typeclass_instances.
             assert (v - length vs' >= length vs) by omega.
@@ -355,22 +355,22 @@ Section typed.
                    end.
             inv_all; subst. forward.
             f_equal. Cases.rewrite_all_goal. reflexivity. }
-          { apply ExprDI.nth_error_get_hlist_nth_None in H4.
-            apply ExprDI.nth_error_get_hlist_nth_Some in H3.
+          { apply EnvI.nth_error_get_hlist_nth_None in H4.
+            apply EnvI.nth_error_get_hlist_nth_Some in H3.
             exfalso.
             apply nth_error_length_ge in H4. rewrite app_length in H4.
             destruct H3. clear H3 H1.
             apply nth_error_length_lt in x.
             repeat rewrite app_length in x. omega. } }
-        { apply ExprDI.nth_error_get_hlist_nth_None in H3.
+        { apply EnvI.nth_error_get_hlist_nth_None in H3.
           apply nth_error_length_ge in H3.
           repeat rewrite app_length in H3.
           match goal with
-            | |- context [ @ExprDI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
-              consider (@ExprDI.nth_error_get_hlist_nth A B C D); intros
+            | |- context [ @EnvI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
+              consider (@EnvI.nth_error_get_hlist_nth A B C D); intros
           end; auto.
           exfalso.
-          apply ExprDI.nth_error_get_hlist_nth_Some in H4.
+          apply EnvI.nth_error_get_hlist_nth_Some in H4.
           destruct H4. clear H4.
           apply nth_error_length_lt in x.
           rewrite app_length in x. omega. } } }
@@ -479,8 +479,8 @@ Section typed.
         end.
         { assert (v >= length vs) by omega.
           match goal with
-            | |- context [ @ExprDI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
-              consider (@ExprDI.nth_error_get_hlist_nth A B C D); intros
+            | |- context [ @EnvI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
+              consider (@EnvI.nth_error_get_hlist_nth A B C D); intros
           end.
           { eapply nth_error_get_hlist_nth_appR in H1; eauto with typeclass_instances.
             eapply nth_error_get_hlist_nth_appR in H0; eauto with typeclass_instances.
@@ -502,16 +502,16 @@ Section typed.
             inv_all; subst.
             forward. f_equal. Cases.rewrite_all_goal. reflexivity. }
           { exfalso.
-            apply ExprDI.nth_error_get_hlist_nth_Some in H0.
+            apply EnvI.nth_error_get_hlist_nth_Some in H0.
             destruct H0. clear H0.
-            apply ExprDI.nth_error_get_hlist_nth_None in H2.
+            apply EnvI.nth_error_get_hlist_nth_None in H2.
             apply nth_error_length_lt in x.
             apply nth_error_length_ge in H2.
             repeat rewrite app_length in *.
             omega. } }
         { forward.
-          apply ExprDI.nth_error_get_hlist_nth_None in H0.
-          apply ExprDI.nth_error_get_hlist_nth_Some in H2.
+          apply EnvI.nth_error_get_hlist_nth_None in H0.
+          apply EnvI.nth_error_get_hlist_nth_Some in H2.
           destruct H2.
           clear - x0 H0 H.
           apply nth_error_length_ge in H0.

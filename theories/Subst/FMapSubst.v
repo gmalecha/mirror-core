@@ -7,6 +7,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
+(** TODO: These should be abstracted **)
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 Require Import MirrorCore.Ext.ExprSubst.

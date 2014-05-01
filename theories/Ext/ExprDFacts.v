@@ -32,7 +32,6 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
     Instance Expr_expr : @Expr typ (typD ts) (expr func) :=
       @Build_Expr _ (typD ts) (expr func)
                   exprD'
-                  (@WellTyped_expr ts func _)
                   _
                   (@wf_expr_acc func).
 
@@ -648,43 +647,37 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         Cases.rewrite_all_goal. auto. }
     Qed.
 
-
-
-    Theorem exprD'_weaken
+    Theorem exprD'_weakenU
     : forall (tus : tenv typ) (tus' : list typ) (tvs : tenv typ)
-             (tvs' : list typ) (e : expr func) (t : typ)
+             (e : expr func) (t : typ)
              (val : hlist (typD ts nil) tus ->
                     hlist (typD ts nil) tvs -> typD ts nil t),
         @exprD' _ func RSym_func tus tvs e t = Some val ->
         exists
           val' : hlist (typD ts nil) (tus ++ tus') ->
-                 hlist (typD ts nil) (tvs ++ tvs') -> typD ts nil t,
-          @exprD' ts func RSym_func (tus ++ tus') (tvs ++ tvs') e t = Some val' /\
+                 hlist (typD ts nil) tvs -> typD ts nil t,
+          @exprD' ts func RSym_func (tus ++ tus') tvs e t = Some val' /\
           (forall (us : hlist (typD ts nil) tus) (vs : hlist (typD ts nil) tvs)
-                  (us' : hlist (typD ts nil) tus') (vs' : hlist (typD ts nil) tvs'),
-             val us vs = val' (hlist_app us us') (hlist_app vs vs')).
+                  (us' : hlist (typD ts nil) tus'),
+             val us vs = val' (hlist_app us us') vs).
     Proof.
-      intros tus tus' tvs tvs' e. revert tvs.
+      intros tus tus' tvs e. revert tvs.
       induction e; simpl; intros.
       { rewrite exprD'_Var in *.
-        forward; subst; inv_all; subst.
-        eapply nth_error_get_hlist_nth_weaken with (ls' := tvs') in H0.
-        forward_reason. simpl in *.
-        rewrite H. rewrite H1. eexists; split; eauto.
-        simpl; intros. rewrite <- H0. reflexivity. }
+        forward; subst; inv_all; subst. eauto. }
       { rewrite exprD'_Sym in *.
         forward. inv_all; subst.
         eexists; split; eauto. }
       { rewrite exprD'_App in *.
         forward; inv_all; subst.
-        erewrite typeof_expr_weaken by eauto.
-        simpl.
+        eapply typeof_expr_weaken with (ue := tus') (ve := nil) in H0.
+        rewrite app_nil_r in *.
         eapply IHe1 in H1.
         eapply IHe2 in H2. forward_reason.
         Cases.rewrite_all_goal.
         eexists; split; eauto.
         simpl. intros.
-        f_equal. rewrite <- H4. rewrite <- H2. reflexivity. } 
+        f_equal. rewrite <- H4. rewrite <- H2. reflexivity. }
       { rewrite exprD'_Abs in *.
         forward; inv_all; subst.
         eapply IHe in H1.
@@ -703,6 +696,54 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         simpl; intros. rewrite <- H0. reflexivity. }
     Qed.
 
+    Theorem exprD'_weakenV
+    : forall (tus : tenv typ) (tvs : tenv typ)
+             (tvs' : list typ) (e : expr func) (t : typ)
+             (val : hlist (typD ts nil) tus ->
+                    hlist (typD ts nil) tvs -> typD ts nil t),
+        @exprD' _ func RSym_func tus tvs e t = Some val ->
+        exists
+          val' : hlist (typD ts nil) tus ->
+                 hlist (typD ts nil) (tvs ++ tvs') -> typD ts nil t,
+          @exprD' ts func RSym_func tus (tvs ++ tvs') e t = Some val' /\
+          (forall (us : hlist (typD ts nil) tus) (vs : hlist (typD ts nil) tvs)
+                  (vs' : hlist (typD ts nil) tvs'),
+             val us vs = val' us (hlist_app vs vs')).
+    Proof.
+      intros tus tvs tvs' e. revert tvs.
+      induction e; simpl; intros.
+      { rewrite exprD'_Var in *.
+        forward; subst; inv_all; subst.
+        eapply nth_error_get_hlist_nth_weaken with (ls' := tvs') in H0.
+        forward_reason. simpl in *.
+        rewrite H. rewrite H1. eexists; split; eauto.
+        simpl; intros. rewrite <- H0. reflexivity. }
+      { rewrite exprD'_Sym in *.
+        forward. inv_all; subst.
+        eexists; split; eauto. }
+      { rewrite exprD'_App in *.
+        forward; inv_all; subst.
+        eapply typeof_expr_weaken with (ue := nil) (ve := tvs') in H0.
+        rewrite app_nil_r in *.
+        eapply IHe1 in H1.
+        eapply IHe2 in H2. forward_reason.
+        Cases.rewrite_all_goal.
+        eexists; split; eauto.
+        simpl. intros.
+        f_equal. rewrite <- H4. rewrite <- H2. reflexivity. }
+      { rewrite exprD'_Abs in *.
+        forward; inv_all; subst.
+        eapply IHe in H1.
+        forward_reason. simpl in *.
+        rewrite H.
+        eexists; split; eauto.
+        simpl; intros.
+        apply functional_extensionality.
+        intro.
+        apply (H1 us (@Hcons _ (typD ts nil) _ _ (p (fun x => x) x0) vs)). }
+      { rewrite exprD'_UVar in *.
+        forward; subst; inv_all; subst. eauto. }
+    Qed.
 
     Lemma nth_error_get_hlist_nth_appL
     : forall t (F : t -> Type) (eqd : EquivDec.EqDec _ (@eq t)) tvs' tvs n,
