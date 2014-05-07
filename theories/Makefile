@@ -15,7 +15,7 @@ MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \
 	      SubstI SubstI2 SubstI3 \
-	      Prover EProver EProver3 \
+	      Prover EProver EProver2 \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \

@@ -60,15 +60,24 @@ Section proverI.
 
   Record EProverOk (P : EProver) : Type :=
   { factsD : forall tus tvs : tenv typ, Facts P -> ResType typD tus tvs Prop
-  ; factsD_weaken
+  ; factsD_weakenU
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->
-        forall tus' tvs',
+        forall tus',
         exists sumD',
-             factsD (tus ++ tus') (tvs ++ tvs') f = Some sumD'
-          /\ forall us vs us' vs',
+             factsD (tus ++ tus') tvs f = Some sumD'
+          /\ forall us vs us',
                sumD us vs <->
-               sumD' (HList.hlist_app us us') (HList.hlist_app vs vs')
+               sumD' (HList.hlist_app us us') vs
+  ; factsD_weakenV
+    : forall tus tvs f sumD,
+        factsD tus tvs f = Some sumD ->
+        forall tvs',
+        exists sumD',
+             factsD tus (tvs ++ tvs') f = Some sumD'
+          /\ forall us vs vs',
+               sumD us vs <->
+               sumD' us (HList.hlist_app vs vs')
   ; Summarize_sound
     : forall tus tvs hyps premD,
         mapT (T := list) (F := option) (fun e => exprD' tus tvs e ty) hyps = Some premD ->
@@ -79,7 +88,7 @@ Section proverI.
             sumD us vs
   ; Learn_sound
     : forall tus tvs hyps premD sum sumD,
-        factsD tus tvs sum = Some sumD /\
+        factsD tus tvs sum = Some sumD ->
         mapT (T := list) (F := option) (fun e => exprD' tus tvs e ty) hyps = Some premD ->
         exists sumD',
           factsD tus tvs (Learn P sum tus tvs hyps) = Some sumD' /\
@@ -121,7 +130,6 @@ Section proverI.
   Qed.
 *)
 
-(*
   (** Composite Prover **)
   Section composite.
     Variables pl pr : EProver.
@@ -144,34 +152,68 @@ Section proverI.
     Variable pl_correct : EProverOk pl.
     Variable pr_correct : EProverOk pr.
 
+    Opaque mapT.
+
     Theorem composite_ProverT_correct : EProverOk composite_EProver.
     Proof.
       refine (
-        {| Valid := fun uvars vars (facts : Facts composite_EProver) =>
+        {| factsD := fun uvars vars (facts : Facts composite_EProver) =>
              let (fl,fr) := facts in
-             Valid pl_correct uvars vars fl /\ Valid pr_correct uvars vars fr
-         |});
-      try solve [ destruct pl_correct; destruct pr_correct; simpl;
-       try destruct facts; intuition eauto ].
-      intros.
-      unfold EProveOk. destruct sum.
-      intros.
-      destruct H. simpl in H0.
-      forward.
-      admit.
-(*
-      match goal with
-        | H : match ?X with _ => _ end = _ |- _ =>
-          consider X; intros
-      end; inv_all; subst.
-      { eapply (Prove_concl pl_correct) in H0; try eassumption.
-        intuition. forward. eapply H8; eauto. }
-      { eapply (Prove_concl pr_correct) in H3; try eassumption.
-        intuition. forward. eapply H9; eauto. }
-*)
+             match factsD pl_correct uvars vars fl
+                 , factsD pr_correct uvars vars fr
+             with
+               | Some l , Some r => Some (fun us vs => l us vs /\ r us vs)
+               | _ , _ => None
+             end
+         |}).
+      { intros. forward. inv_all; subst.
+        eapply factsD_weakenU with (tus' := tus') in H0.
+        eapply factsD_weakenU with (tus' := tus') in H1.
+        forward_reason. Cases.rewrite_all_goal.
+        eexists; split; eauto. intros. simpl.
+        rewrite <- H2. rewrite H1. reflexivity. }
+      { intros. forward. inv_all; subst.
+        eapply factsD_weakenV with (tvs' := tvs') in H0.
+        eapply factsD_weakenV with (tvs' := tvs') in H1.
+        forward_reason. Cases.rewrite_all_goal.
+        eexists; split; eauto. intros. simpl.
+        rewrite <- H2. rewrite <- H1. reflexivity. }
+      { simpl; intros.
+        specialize (@Summarize_sound _ pl_correct _ _ _ _ H).
+        specialize (@Summarize_sound _ pr_correct _ _ _ _ H).
+        intros; forward_reason. Cases.rewrite_all_goal.
+        eexists; split; eauto.
+        intros. simpl. split; eauto. }
+      { simpl; intros. forward; inv_all; subst.
+        forward_reason; inv_all; subst.
+        specialize (@Learn_sound _ pl_correct _ _ _ _ _ _ H1 H0).
+        specialize (@Learn_sound _ pr_correct _ _ _ _ _ _ H2 H0).
+        intros. forward_reason.
+        Cases.rewrite_all_goal.
+        eexists; split; eauto. intros.
+        simpl. intuition. }
+      { red. simpl. intros.
+        forward. subst.
+        consider (Prove pl f tus tvs sub goal).
+        { intros; inv_all; subst.
+          specialize (@Prove_sound _ pl_correct _ _ _ _ _ _ _ _ _ H H0).
+          intros; forward_reason.
+          split; auto. intros; forward_reason.
+          forward. inv_all; subst.
+          specialize (H3 _ _ _ eq_refl H4 H5).
+          forward_reason. eexists; split; eauto.
+          intros. eapply H7; intuition. }
+        { intros; inv_all; subst.
+          specialize (@Prove_sound _ pr_correct _ _ _ _ _ _ _ _ _ H1 H0).
+          intros; forward_reason.
+          split; auto. intros; forward_reason.
+          forward. inv_all; subst.
+          specialize (H7 _ _ _ eq_refl H5 H6).
+          forward_reason. eexists; split; eauto.
+          intros. eapply H8; intuition. } }
     Qed.
   End composite.
-*)
+
 (*
   (** From non-EProvers **)
   Section non_eprover.
@@ -209,7 +251,7 @@ Section proverI.
 End proverI.
 
 Arguments EProver typ expr.
-(*
 Arguments composite_EProver {typ} {expr} _ _.
+(*
 Arguments from_Prover {typ} {expr} _.
 *)
