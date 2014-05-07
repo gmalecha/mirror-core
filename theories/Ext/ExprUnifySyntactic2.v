@@ -215,6 +215,7 @@ Section typed.
     { eapply WellFormed_set; eauto with typeclass_instances. }
     split.
     { eapply WellTyped_set; eauto.
+      red. simpl. eapply EXPR_DENOTE.typeof_expr_exprD'; eauto.
       simpl. red. generalize (typeof_expr_lower _ tu e nil tv' tv).
       simpl. intro. rewrite <- H6; eauto. }
     { intros.
@@ -309,7 +310,10 @@ Section typed.
         simpl in *. rewrite H1 in *.
         destruct H4. intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. red in H7. etransitivity; eauto. } }
+        intros. red in H7. etransitivity; eauto.
+        simpl in *. destruct H7.
+        eapply ExprD3.EXPR_DENOTE_core.exprD'_typeof in H6.
+        assumption. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -389,7 +393,10 @@ Section typed.
         simpl in *. rewrite H0 in *.
         destruct H3; intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. etransitivity; eassumption. } }
+        intros. etransitivity; try eassumption.
+        destruct H6. simpl in *.
+        eapply ExprD3.EXPR_DENOTE_core.exprD'_typeof in H5.
+        assumption. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -412,7 +419,10 @@ Section typed.
     etransitivity.
     eapply (typeof_expr_lift _ tu nil tv' tv e).
     rewrite H1 in *. inv_all; subst.
-    exact H3.
+    simpl.
+    destruct H3. simpl in *.
+    eapply ExprD3.EXPR_DENOTE_core.exprD'_typeof in H0.
+    assumption.
   Qed.
 
   Lemma exprD_from_subst : forall us vs vs' s e u t,

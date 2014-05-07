@@ -3,17 +3,73 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.SubstI2.
-Require Import MirrorCore.EProver2.
+Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.EProver3.
 Require Import MirrorCore.Subst.FastSubst.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.LemmaExt.
-Require Import MirrorCore.Ext.ExprUnifySyntactic2.
+Require Import MirrorCore.Ext.ExprUnifySyntactic3.
 
 Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Section lem.
+  Variables (ts : types) (func conclusion : Type).
+
+  Record lemma : Type := Build_lemma
+  { vars : list typ
+  ;  premises : list (expr func)
+  ;  concl : conclusion }.
+
+  Variables (conclusionD : forall us vs : list typ,
+                            conclusion ->
+                            option
+                              (hlist (typD ts nil) us -> hlist (typD ts nil) vs -> Prop))
+           (RSym_func : RSym (typD ts) func).
+
+  (** This is an alternative [lemmaD] **)
+  Definition lemmaD' (tus tvs : tenv typ) (l : lemma)
+  : ResType (typD ts) tus tvs Prop :=
+    match
+      Traversable.mapT (fun e : expr func => exprD' tus (vars l ++ tvs) e tyProp)
+                       (premises l)
+      , conclusionD tus (vars l ++ tvs) (concl l)
+    with
+      | Some prems , Some concl =>
+        Some (fun us vs =>
+                foralls ts
+                        (fun h : hlist (typD ts nil) (vars l) =>
+                           let vs' := hlist_app h vs in
+                           impls
+                             (map
+                                (fun
+                                    x : hlist (typD ts nil) tus ->
+                                        hlist (typD ts nil) (vars l ++ tvs) -> Prop =>
+                                    x us vs') prems) (concl us vs')))
+      | _ , _ => None
+    end.
+
+  Lemma lemmaD'_weaken
+  : forall tus tvs l lD,
+      lemmaD' tus tvs l = Some lD ->
+      forall tus' tvs',
+        exists lD',
+          lemmaD' (tus ++ tus') (tvs ++ tvs') l = Some lD' /\
+          forall us us' vs vs',
+            lD us vs <-> lD' (hlist_app us us') (hlist_app vs vs').
+  Proof.
+  Admitted.
+
+  Definition lemmaD (us vs : env (typD ts)) (l : lemma) : Prop :=
+    let (tus,us) := split_env us in
+    let (tvs,vs) := split_env vs in
+    match lemmaD' tus tvs l with
+      | None => False
+      | Some P => P us vs
+    end.
+End lem.
 
 (** NOTE: This entire prover could be over an arbitrary logic if we change
  **       lemma to be over an arbitrary ILogic
@@ -72,6 +128,7 @@ Section parameterized.
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
 
+  (** TODO: This is already implemented elsewhere! **)
   Fixpoint openOver (e : expr func) (skip add : nat) : expr func :=
     match e with
       | Var v =>
@@ -279,21 +336,23 @@ Section parameterized.
     let fuel := 100 in
     @exprUnify subst _ _ RSym_func Subst_subst SU fuel (tus ++ lem.(vars)) tvs 0 s pattern e tyProp.
 
+(*
   Lemma applicable_sound
   : forall s tus tvs l0 g s1,
       applicable s tus tvs l0 g = Some s1 ->
       WellFormed_subst s ->
       WellFormed_subst s1 /\
-      (@lemmaD ts func (expr func) (fun us tvs e => @exprD' ts func _ us tvs e tyProp) _ nil nil l0 ->
-
-      WellTyped_subst tus tvs s ->
-      Safe_expr tus tvs g tyProp ->
-      WellTyped_subst (tus ++ l0.(vars)) tvs s1 /\
-      forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
-        substD (join_env us ++ join_env us') (join_env vs) s1 ->
-        exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
-        exprD (join_env us) (join_env us' ++ join_env vs) g tyProp
-        /\ substD (join_env us ++ join_env us') (join_env vs) s).
+      forall lD sD gD,
+        @lemmaD' ts func (expr func) (fun us tvs e => @exprD' ts func _ us tvs e tyProp) _ nil nil l0 = Some lD ->
+        substD tus tvs s = sD ->
+        exprD' tus tvs g tyProp = Some gD ->
+        exists s1D,
+          substD (tus ++ l0.(vars)) tvs s1 = Some s1D /\
+          forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
+            s1D (hlist_app us us') vs ->
+            exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
+            exprD (join_env us) (join_env us' ++ join_env vs) g tyProp
+            /\ substD (join_env us ++ join_env us') (join_env vs) s.
   Proof.
 (*
     unfold applicable.
@@ -306,7 +365,7 @@ Section parameterized.
   Qed.
 *)
   Admitted.
-
+*)
   Section iteration.
     Context (T U : Type) (f : T -> option U).
 
@@ -347,21 +406,29 @@ Section parameterized.
       end.
 
     Lemma all_success_sound
-    : forall (P : T -> Prop) (R : U -> U -> Prop),
+    : forall (P : T -> Prop) (Q : U -> T -> Prop) (R : U -> U -> Prop),
         Reflexive R -> Transitive R ->
         (forall x y z,
            P x ->
-           f' x y = Some z -> R y z) ->
+           f' x y = Some z ->
+           Q z x /\ R y z) ->
+        (forall y z a,
+           R y z -> P a -> Q y a -> Q z a) ->
         forall ls,
           Forall P ls ->
           forall acc res,
           all_success ls acc = Some res ->
-          R acc res.
+          R acc res /\ Forall (Q res) ls.
     Proof.
-      clear.
+      clear. admit. (*
       induction 4; simpl; intros.
       { inv_all; subst; auto. }
-      { forward. eauto. }
+      { forward. admit. (*
+        fill_holes.
+        specialize (H1 _ _ _ H3 H5).
+        specialize (IHForall _ _ H6). intuition.
+        etransitivity; eauto.
+        constructor; eauto. *) } *)
     Qed.
 
   End iteration.
@@ -393,10 +460,6 @@ Section parameterized.
             with
               | None => None
               | Some sub =>
-                (** TODO: I need to post-process this, i.e. check that all new
-                 **       unification variables are solved.
-                 ** Then I need to remove them
-                 **)
                 pull len_tus from sub
             end
         in
@@ -423,17 +486,16 @@ Section parameterized.
        auto_prove facts tus tvs g s = Some s' ->
        WellFormed_subst s ->
        WellFormed_subst s' /\
-       (WellTyped_facts (Hok.(ExternOk)) tus tvs facts ->
-        WellTyped_subst tus tvs s ->
-        match exprD' tus tvs g tyProp with
-          | None => True
-          | Some valG =>
-            WellTyped_subst tus tvs s' /\
-            forall us vs,
-              Valid Hok.(ExternOk) (EnvI.join_env us) (EnvI.join_env vs) facts ->
-              substD (EnvI.join_env us) (EnvI.join_env vs) s' ->
-              valG us vs /\ substD (EnvI.join_env us) (EnvI.join_env vs) s
-        end).
+       forall fD sD gD,
+         factsD Hok.(ExternOk) tus tvs facts = Some fD ->
+         substD tus tvs s = Some sD ->
+         exprD' tus tvs g tyProp = Some gD ->
+         exists sD',
+           substD tus tvs s' = Some sD' /\
+           forall us vs,
+             fD us vs ->
+             sD' us vs ->
+             gD us vs /\ sD us vs.
 
   Lemma get_applicable_sound
   : forall g app lems,
@@ -452,64 +514,131 @@ Section parameterized.
         simpl in *. destruct a0. intuition. } }
   Qed.
 
-  Lemma lemmaD_WellTyped_premises
-  : forall Z c (cD : forall us vs : list typ, c -> option (hlist (typD ts nil) us -> hlist (typD ts nil) vs -> Prop))
-           us vs l,
-      lemmaD cD Z us vs l ->
-      Forall (fun e : expr func => Safe_expr (typeof_env us) (typeof_env vs ++ vars l) e tyProp) (premises l).
-  Proof.
-    clear. intros.
-    red in H.
-    forward. revert H1.
-    destruct l.  clear. simpl LemmaExt.premises. simpl LemmaExt.vars.
-    simpl in l0. revert l0. induction premises.
-    { constructor. }
-    { simpl; intros.
-      forward. inv_all; subst.
-      constructor.
-      { admit. }
-      { eapply IHpremises. eapply H0. } }
-  Qed.
+  Ltac fill_holes :=
+    let is_prop P := match type of P with
+                       | Prop => idtac
+                       | _ => fail
+                     end
+    in
+    repeat match goal with
+             | |- _ => progress intros
+             | H : exists x , _ |- _ => destruct H
+             | H : _ /\ _ |- _ => destruct H
+             | |- exists x, _ /\ _ =>
+               eexists; split; [ solve [ eauto ] | ]
+             | |- _ /\ _ =>
+               (split; eauto); [ ]
+             | [ H : _ -> _ , H' : ?P |- _ ] =>
+               is_prop P ;
+                 specialize (H H')
+             | [ H : forall x, @?X x -> _ , H' : ?P |- _ ] =>
+               is_prop P ;
+                 specialize (@H _ H')
+             | [ H : forall x y, @?X x y -> _ , H' : ?P |- _ ] =>
+               is_prop P ;
+                 first [ specialize (@H _ _ H')
+                       | specialize (fun y => @H _ y H')
+                       | specialize (fun x => @H x _ H')
+                       | specialize (@H _ _ eq_refl)
+                       | specialize (fun y => @H _ y eq_refl)
+                       | specialize (fun x => @H x _ eq_refl)
+                       ]
+             | [ H : forall x y z, @?X x y z -> _ , H' : ?P |- _ ] =>
+               is_prop P ;
+                 first [ specialize (@H _ _ _ H')
+                       | specialize (fun x => @H x _ _ H')
+                       | specialize (fun y => @H _ y _ H')
+                       | specialize (fun z => @H _ _ z H')
+                       | specialize (fun x y => @H x y _ H')
+                       | specialize (fun y z => @H _ y z H')
+                       | specialize (fun x z => @H x _ z H')
+                       | specialize (@H _ _ _ eq_refl)
+                       | specialize (fun x => @H x _ _ eq_refl)
+                       | specialize (fun y => @H _ y _ eq_refl)
+                       | specialize (fun z => @H _ _ z eq_refl)
+                       | specialize (fun x y => @H x y _ eq_refl)
+                       | specialize (fun y z => @H _ y z eq_refl)
+                       | specialize (fun x z => @H x _ z eq_refl)
+                       ]
+             | [ H : forall x y z a, @?X x y z a -> _ , H' : ?P |- _ ] =>
+               is_prop P ;
+                 first [ specialize (@H _ _ _ _ H')
+                       | specialize (fun x => @H x _ _ _ H')
+                       | specialize (fun y => @H _ y _ _ H')
+                       | specialize (fun z => @H _ _ z _ H')
+                       | specialize (fun a => @H _ _ _ a H')
+                       | specialize (fun x y => @H x y _ _ H')
+                       | specialize (fun y z => @H _ y z _ H')
+                       | specialize (fun z a => @H _ _ z a H')
+                       | specialize (fun x a => @H x _ _ a H')
+                       | specialize (fun x y z => @H x y z _ H')
+                       | specialize (fun y z a => @H _ y z a H')
+                       | specialize (fun x z a => @H x _ z a H')
+                       | specialize (fun x y a => @H x y _ a H')
+                       | specialize (fun x => @H x _ _ _ eq_refl)
+                       | specialize (fun y => @H _ y _ _ eq_refl)
+                       | specialize (fun z => @H _ _ z _ eq_refl)
+                       | specialize (fun a => @H _ _ _ a eq_refl)
+                       | specialize (fun x y => @H x y _ _ eq_refl)
+                       | specialize (fun y z => @H _ y z _ eq_refl)
+                       | specialize (fun z a => @H _ _ z a eq_refl)
+                       | specialize (fun x a => @H x _ _ a eq_refl)
+                       | specialize (fun x y z => @H x y z _ eq_refl)
+                       | specialize (fun y z a => @H _ y z a eq_refl)
+                       | specialize (fun x z a => @H x _ z a eq_refl)
+                       | specialize (fun x y a => @H x y _ a eq_refl)
+                       ]
+           end.
 
-  Lemma instantiate_Safe_expr
-  : forall tus tvs e t f,
-      Safe_expr tus tvs e t ->
-      (forall u e' t',
-         f u = Some e' ->
-         nth_error tus u = Some t' ->
-         Safe_expr tus tvs e' t') ->
-      Safe_expr tus tvs (instantiate f e) t.
-  Admitted.
-  Lemma instantiate_exprD'
-  : forall tus tvs e t f v,
-      exprD' tus tvs e t = Some v ->
-      match exprD' tus tvs (instantiate f e) t
-      with
-        | Some v' =>
-          forall us vs,
-            (forall u e' t' val get,
-               f u = Some e' ->
-               ExprDI.nth_error_get_hlist_nth _ tus u = Some (existT _ t' get) ->
-               exprD' tus tvs e' t' = Some val /\
-               get us = val us vs) ->
-            v us vs = v' us vs
-        | None =>
-          exists u e' t',
-            nth_error tus u = Some t' /\
-            f u = Some e' /\
-            ~Safe_expr tus tvs e' t'
-      end.
-  Admitted.
-
-  Lemma substD_pull'
-  : forall tus tus' tvs s s',
+  Lemma applicable_sound
+  : forall s tus tvs l0 g s1,
+      applicable s tus tvs l0 g = Some s1 ->
       WellFormed_subst s ->
-      pull (length tus) (length tus') s = Some s' ->
-      forall (us : HList.hlist _ tus) (vs : HList.hlist _ tvs),
-        exists (us' : HList.hlist _ tus'),
-          (substD (join_env us ++ join_env us') (join_env vs) s ->
-           substD (join_env us) (join_env vs) s').
+      WellFormed_subst s1 /\
+      forall lD sD gD,
+        @lemmaD' ts func (expr func) (fun us tvs e => @exprD' ts func _ us tvs e tyProp) _ nil nil l0 = Some lD ->
+        substD tus tvs s = Some sD ->
+        exprD' tus tvs g tyProp = Some gD ->
+        exists s1D,
+          substD (tus ++ l0.(vars)) tvs s1 = Some s1D /\
+          forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
+            s1D (hlist_app us us') vs ->
+            exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
+            Some (gD us vs)
+            /\ sD us vs.
+  Proof.
   Admitted.
+
+  Lemma substD_weakenU
+  : forall tus tvs tus' s sD,
+      substD tus tvs s = Some sD ->
+      exists sD',
+        substD (tus ++ tus') tvs s = Some sD' /\
+        forall a b c,
+          sD a b <-> sD' (hlist_app a c) b.
+  Proof.
+  Admitted.
+
+  Lemma list_mapT_cons
+  : forall T U (F : T -> option U) ls a,
+      Traversable.mapT F (a :: ls) =
+      match match F a with
+              | Some x => Some (cons x)
+              | None => None
+            end with
+        | Some f =>
+          match Traversable.mapT F ls with
+            | Some x => Some (f x)
+            | None => None
+          end
+        | None => None
+      end.
+  Proof. reflexivity. Qed.
+
+  Lemma list_mapT_nil
+  : forall T U (F : T -> option U),
+      Traversable.mapT F nil = Some nil.
+  Proof. reflexivity. Qed.
 
   Lemma auto_prove_rec_sound
   : forall recurse,
@@ -522,114 +651,134 @@ Section parameterized.
         consider X; intros; inv_all; subst; auto
     end.
     { (** Extern **)
-      destruct (@Prove_correct _ _ _ _ _ _ _ Hok.(ExternOk) _ _ _ tus tvs facts g s s' H0 H1);
-      split; auto. intros.
-      forward.
-      assert (Safe_expr tus tvs g tyProp) by (eapply Safe_expr_exprD; eauto with typeclass_instances).
+      eapply (@Prove_sound _ _ _ _ _ _ _ Hok.(ExternOk)) in H0.
       forward_reason.
       split; auto. intros.
-      specialize (H8 us vs). forward_reason.
-      unfold exprD in H8.
-      repeat rewrite split_env_join_env in H8.
-      simpl in *. rewrite H6 in *. assumption. }
+      specialize (H2 _ _ _ H3 H4 H5).
+      forward_reason.
+      eexists; split; eauto.
+      intros.
+      specialize (H6 _ _ H7). intuition. }
     { (** Apply **)
+      clear H0.
       eapply first_success_sound in H2.
       forward_reason.
       forward. subst.
       generalize (get_applicable_sound g (applicable s tus tvs) (Apply hints)).
       intro. eapply Forall_forall in H2; [ | eassumption ].
-      simpl in *. clear H3.
-      destruct H2.
-      specialize (proj1 (Forall_forall _ _) (ApplyOk Hok) _ H2); intro.
-      split.
-      { eapply (@all_success_sound _ _ _
-                                   (fun e => True)
-                                   (fun s s' => WellFormed_subst s -> WellFormed_subst s')) in H4; eauto.
-        { eapply WellFormed_pull; eauto. }
-        { admit. }
-        { clear. induction (premises l); auto. }
-        { eapply applicable_sound in H3; eauto.
-          destruct H3; auto. } }
-      { intros.
-        forward.
-        (** TODO: I'm not certain that this is entirely correct, it seems like something
-         ** might be on the wrong environment
-         **)
-        pose (Rel := fun s s' : subst =>
-                     (   WellFormed_subst s -> WellTyped_subst (tus ++ vars l) tvs s
-                         -> (WellFormed_subst s' /\ WellTyped_subst (tus ++ vars l) tvs s' /\
-                             forall (us : hlist (typD ts nil) tus) (us' : hlist (typD ts nil) (vars l)) (vs : hlist (typD ts nil) tvs),
-                               Valid (ExternOk Hok) (join_env us ++ join_env us') (join_env vs) facts ->
-                               substD (join_env us ++ join_env us') (join_env vs) s' ->
-                               substD (join_env us ++ join_env us') (join_env vs) s))).
-        assert (Reflexive Rel).
-        { unfold Rel; red; intuition. }
-        assert (Transitive Rel).
-        { clear. unfold Rel; red; intuition. }
-        eapply (@all_success_sound _ _
-                                   (fun (h : expr func) (sub : subst) =>
-                                      recurse facts (tus ++ vars l) tvs
-                                              (instantiate (fun x : uvar => lookup x sub)
-                                                           (openOver h 0 (length tus))) sub)
-                                   (fun e => Safe_expr tus (vars l) e tyProp)
-                                   _
-                                   H10 H11) in H4; eauto; unfold Rel in *; clear H10 H11 Rel.
-        { split.
-          { eapply applicable_sound in H3.
-
- }
-            { admit. } }
-          { intros.
-            eapply H in H11. revert H11. instantiate (1 := Hok). intros.
-            assert (WellTyped_facts (ExternOk Hok) (tus ++ vars l) tvs facts) by admit.
-            forward_reason.
-            split; auto.
-            eapply Safe_expr_exprD in H10; eauto with typeclass_instances.
-            destruct H10. simpl in H10.
-            destruct (@openOver_exprD' _ tus x nil tyProp (vars l) _ H10).
-            simpl in H16. destruct H16.
-            destruct (@exprD'_weakenV _ _ _ _ _ (tus ++ vars l) nil tvs _ tyProp _ H16).
-            simpl in *. forward_reason.
-            generalize (@instantiate_exprD' (tus ++ vars l) tvs (openOver x 0 (length tus)) tyProp (fun x => lookup x y) _ H18).
-            match goal with
-              | |- match ?X with _ => _ end -> _ =>
-                consider X; intros
-            end.
-            { forward_reason. split; auto.
-              intros.
-              eapply substD_pull' with (us := us) (vs := vs) in H5; eauto.
-              { forward_reason.
-                specialize (H21 (hlist_app us x3) vs).
-                specialize (H22 (hlist_app us x3) vs).
-                assert (Valid (ExternOk Hok) (join_env (hlist_app us x3)) (join_env vs) facts) by admit.
-                assert (substD (join_env (hlist_app us x3)) (join_env vs) z) by admit.
-                forward_reason.
-                
-              
-              
-
-              About substD_pull.
-              eapply substD_pull in H5.
-              SearchAbout pull.
-
-            }
-            { forward_reason.
-              exfalso.
-              eapply WellTyped_lookup in H22; eauto.
-              forward_reason. rewrite H22 in H21. inv_all; subst. auto. } }
-          { eapply lemmaD_WellTyped_premises in H6.
-            simpl in *. revert H6.
-            eapply Forall_impl.
-            clear. intros.
-            (** TODO: This should be phrased in terms of Safe_expr **)
-            admit. }
-          { eapply applicable_sound in H3; auto.
-            destruct H3; auto. }
-          { eapply applicable_sound in H3; auto.
-            destruct H3; auto.
-            cut (WellTyped_expr tus tvs g tyProp); intros.
-            forward_reason; auto.
-            rewrite typeof_expr_exprD'. eauto. } } }
+      simpl in *. clear H0. forward_reason.
+      specialize (proj1 (Forall_forall _ _) (ApplyOk Hok) _ H0); intro.
+      red in H5. simpl in *.
+      forward.
+      eapply applicable_sound in H2; eauto.
+      simpl in *; forward_reason.
+      specialize (fun sD gD => H7 _ sD gD H5).
+      eapply lemmaD'_weaken with (tus' := tus) (tvs' := tvs) in H5.
+      simpl in *. forward_reason.
+      unfold lemmaD' in H5. forward.
+      inv_all; subst. Opaque Traversable.mapT impls.
+      specialize (fun us' vs' => H8 Hnil us' Hnil vs'). simpl in *.
+      assert (forall us' vs',
+                foralls ts
+                        (fun h : hlist (typD ts nil) (vars l) =>
+                           impls
+                             (map
+                                (fun x =>
+                                   x us' (hlist_app h vs')) l0) (t us' (hlist_app h vs')))).
+      { clear - H8 H6.
+        intros. rewrite <- H8. assumption. }
+      clear H8 H6.
+      (** Before cutting this, I need to do pull_sound, that is what manifests
+       ** the other environment...
+       **)
+      cut (
+          WellFormed_subst s1 /\
+          (forall fD sD gD,
+              factsD (ExternOk Hok) tus tvs facts = Some fD ->
+              substD (tus ++ vars l) tvs s0 = Some sD ->
+              exprD' tus (vars l ++ tvs) (concl l) tyProp = Some gD ->
+              exists sD',
+                substD (tus ++ vars l) tvs s1 = Some sD' /\
+                (forall (us : hlist (typD ts nil) tus)
+                        (vs : hlist (typD ts nil) tvs)
+                        (vs' : hlist (typD ts nil) (vars l)),
+                   fD us vs ->
+                   sD' (hlist_app us vs') vs ->
+                      (impls
+                         (map (fun x => x us (hlist_app vs' vs)) l0)
+                         (gD us (hlist_app vs' vs)) ->
+                       gD us (hlist_app vs' vs))
+                   /\ sD (hlist_app us vs') vs))).
+      { clear H3 H5 H recurse H0.
+        intros.
+        forward_reason.
+        eapply pull_sound in H4; eauto.
+        forward_reason.
+        split; auto. intros.
+        progress fill_holes.
+        repeat match goal with
+                 | H : _ |- _ => specialize (H us vs)
+               end.
+        match goal with
+          | _ : let x := ?X in _ |- _ => remember X
+        end.
+        simpl in *.
+        specialize (H12 h).
+        fill_holes.
+        unfold exprD in H11.
+        rewrite split_env_app in H11.
+        repeat rewrite split_env_join_env in H11.
+        simpl in *.
+        rewrite H9 in H11.
+        inv_all.
+        rewrite <- H11; clear H11.
+        apply H12; clear H12.
+        rewrite foralls_sem in H10.
+        eapply H10. }
+      { clear H4 H7 H10.
+        generalize dependent l0.
+        generalize dependent s0.
+        generalize dependent (premises l).
+        induction l0.
+        { simpl. intros; inv_all; subst.
+          rewrite list_mapT_nil in H5.
+          inv_all; subst.
+          split; auto. intros.
+          eexists; split; eauto. }
+        { simpl. intros.
+          rewrite list_mapT_cons in H5.
+          forward.
+          specialize (H _ _ _ _ _ _ Hok H3 H2); clear H3.
+          inv_all; subst.
+          destruct H.
+          specialize (IHl0 _ H8 H _ eq_refl).
+          forward_reason. split; auto.
+          intros.
+          assert (exists fD',
+                      factsD (ExternOk Hok) (tus ++ vars l) tvs facts = Some fD'
+                      /\ forall a b c,
+                           fD a b <-> fD' (hlist_app a c) b).
+          { admit. }
+          destruct H13 as [ ? [ ? ? ] ].
+          assert (exists gD',
+                    exprD' (tus ++ vars l) tvs
+                           (instantiate (fun x : uvar => lookup x s0)
+                                        (openOver a 0 (length tus))) tyProp = Some gD'
+                    /\ forall a b c,
+                         t0 a (hlist_app c b) <-> gD' (hlist_app a c) b).
+          { admit. }
+          destruct H15 as [ ? [ ? ? ] ].
+          fill_holes.
+          clear - H17 H18 H14 H16 H19 H20.
+          eapply H14 in H19; clear H14.
+          eapply H17 in H19; clear H17.
+          destruct H19. split; auto.
+          intros. eapply H18.
+          eapply impls_sem. intros.
+          rewrite impls_sem in H1. eapply H1.
+          rewrite Forall_map in *.
+          constructor; auto.
+          apply H16. assumption. } } }
   Qed.
 
   Theorem auto_prove_sound

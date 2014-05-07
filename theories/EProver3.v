@@ -1,9 +1,10 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Tactics.
+Require Import ExtLib.Structures.Traversable.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SubstI2.
+Require Import MirrorCore.SubstI3.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -37,43 +38,59 @@ Section proverI.
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
              (SsubstOk : @SubstOk subst typ typD expr _ _)
-    (wfValid : tenv typ -> tenv typ -> summary -> Prop)
-    (valid : env typD -> env typD -> summary -> Prop)
+    (Valid : forall tus tvs : tenv typ, summary -> ResType typD tus tvs Prop)
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
     forall tus tvs sum (goal : expr) (sub sub' : subst),
       prover sum tus tvs sub goal = Some sub' ->
       WellFormed_subst sub ->
       WellFormed_subst sub' /\
-      (wfValid tus tvs sum ->
-       WellTyped_subst tus tvs sub ->
-       Safe_expr tus tvs goal ty ->
-       WellTyped_subst tus tvs sub' /\
-       forall (us : HList.hlist (typD nil) tus)  (vs : HList.hlist (typD nil) tvs),
-         valid (join_env us) (join_env vs) sum ->
-         substD (join_env us) (join_env vs) sub' ->
-         match exprD (join_env us) (join_env vs) goal ty with
-           | None => True
-           | Some val =>
-             Provable' val
-             /\ substD (join_env us) (join_env vs) sub
-         end).
+      (forall sumD subD goalD,
+         Valid tus tvs sum = Some sumD ->
+         substD tus tvs sub = Some subD ->
+         exprD' tus tvs goal ty = Some goalD ->
+         exists subD',
+           substD tus tvs sub' = Some subD' /\
+           forall (us : HList.hlist (typD nil) tus)
+                  (vs : HList.hlist (typD nil) tvs),
+             sumD us vs ->
+             subD' us vs ->
+             subD us vs /\
+             Provable' (goalD us vs)).
 
   Record EProverOk (P : EProver) : Type :=
-  { WellTyped_facts : tenv typ -> tenv typ -> Facts P -> Prop
-  ; Valid : env typD -> env typD -> Facts P -> Prop
-  ; Valid_weaken : forall u g f ue ge,
-    Valid u g f -> Valid (u ++ ue) (g ++ ge) f
-  ; Summarize_correct : forall (uvars vars : env typD) (hyps : list expr),
-    Forall (Provable uvars vars) hyps ->
-    Valid uvars vars (Summarize P (typeof_env uvars) (typeof_env vars) hyps)
-  ; Learn_correct : forall uvars vars facts,
-    Valid uvars vars facts -> forall hyps,
-    Forall (Provable uvars vars) hyps ->
-    Valid uvars vars (P.(Learn) facts (typeof_env uvars) (typeof_env vars) hyps)
-  ; Prove_correct : forall subst (Ssubst : Subst subst expr)
-                      (Sok : SubstOk _ _),
-                      EProveOk Sok WellTyped_facts Valid (@Prove P subst Ssubst)
+  { factsD : forall tus tvs : tenv typ, Facts P -> ResType typD tus tvs Prop
+  ; factsD_weaken
+    : forall tus tvs f sumD,
+        factsD tus tvs f = Some sumD ->
+        forall tus' tvs',
+        exists sumD',
+             factsD (tus ++ tus') (tvs ++ tvs') f = Some sumD'
+          /\ forall us vs us' vs',
+               sumD us vs <->
+               sumD' (HList.hlist_app us us') (HList.hlist_app vs vs')
+  ; Summarize_sound
+    : forall tus tvs hyps premD,
+        mapT (T := list) (F := option) (fun e => exprD' tus tvs e ty) hyps = Some premD ->
+        exists sumD,
+          factsD tus tvs (Summarize P tus tvs hyps) = Some sumD /\
+          forall us vs,
+            Forall (fun x => Provable' (x us vs)) premD ->
+            sumD us vs
+  ; Learn_sound
+    : forall tus tvs hyps premD sum sumD,
+        factsD tus tvs sum = Some sumD /\
+        mapT (T := list) (F := option) (fun e => exprD' tus tvs e ty) hyps = Some premD ->
+        exists sumD',
+          factsD tus tvs (Learn P sum tus tvs hyps) = Some sumD' /\
+          forall us vs,
+            Forall (fun x => Provable' (x us vs)) premD ->
+            sumD us vs ->
+            sumD' us vs
+  ; Prove_sound
+    : forall subst (Ssubst : Subst subst expr)
+             (Sok : SubstOk _ _),
+        EProveOk Sok factsD (@Prove P subst Ssubst)
   }.
 
 (*

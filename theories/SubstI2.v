@@ -97,7 +97,14 @@ Section subst.
   Variable Subst_subst : Subst.
   Variable SubstOk_subst : SubstOk Subst_subst.
 
-  (** maybe [mentionsU] should be part of [Expr]? **)
+  Definition Subst_Extends (a b : T) : Prop :=
+    forall u v,
+      substD u v b ->
+      substD u v a.
+
+  (** TODO:
+   ** Should [mentionsU] be part of [Expr]?
+   **)
   Variable mentionsU : uvar -> expr -> bool.
 
   Class NormalizedSubstOk : Type :=
@@ -108,10 +115,5 @@ Section subst.
         lookup u' s = Some e' ->
         mentionsU u' e = false
   }.
-
-  Definition Subst_Extends (a b : T) : Prop :=
-    forall u v,
-      substD u v b ->
-      substD u v a.
 
 End subst.

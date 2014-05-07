@@ -1,4 +1,4 @@
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import MirrorCore.TypesI.
@@ -161,5 +161,74 @@ Section Env.
   Qed.
 
 End Env.
+
+
+Section nth_error_get_hlist_nth.
+  Context (iT : Type) (F : iT -> Type).
+
+  Fixpoint nth_error_get_hlist_nth (ls : list iT) (n : nat) {struct ls} :
+    option {t : iT & hlist F ls -> F t} :=
+    match
+      ls as ls0
+      return option {t : iT & hlist F ls0 -> F t}
+    with
+      | nil => None
+      | l :: ls0 =>
+        match
+          n as n0
+          return option {t : iT & hlist F (l :: ls0) -> F t}
+        with
+          | 0 =>
+            Some (@existT _ (fun t => hlist F (l :: ls0) -> F t)
+                          l (@hlist_hd _ _ _ _))
+          | S n0 =>
+            match nth_error_get_hlist_nth ls0 n0 with
+              | Some (existT x f) =>
+                Some (@existT _ (fun t => hlist F _ -> F t)
+                              x (fun h : hlist F (l :: ls0) => f (hlist_tl h)))
+              | None => None
+            end
+        end
+    end.
+
+  Theorem nth_error_get_hlist_nth_Some
+  : forall ls n s,
+      nth_error_get_hlist_nth ls n = Some s ->
+      exists pf : nth_error ls n = Some (projT1 s),
+        forall h, projT2 s h = match pf in _ = t
+                                     return match t with
+                                              | Some t => F t
+                                              | None => unit
+                                            end
+                               with
+                                 | eq_refl => hlist_nth h n
+                               end.
+  Proof.
+    induction ls; simpl; intros; try congruence.
+    { destruct n.
+      { inv_all; subst; simpl.
+        exists (eq_refl).
+        intros. rewrite (hlist_eta h). reflexivity. }
+      { forward. inv_all; subst.
+        destruct (IHls _ _ H0); clear IHls.
+        simpl in *. exists x0.
+        intros.
+        rewrite (hlist_eta h). simpl. auto. } }
+  Qed.
+
+  Theorem nth_error_get_hlist_nth_None
+  : forall ls n,
+      nth_error_get_hlist_nth ls n = None <->
+      nth_error ls n = None.
+  Proof.
+    induction ls; simpl; intros; try congruence.
+    { destruct n; intuition. }
+    { destruct n; simpl; try solve [ intuition congruence ].
+      { unfold value. intuition congruence. }
+      { specialize (IHls n).
+        forward. } }
+  Qed.
+
+End nth_error_get_hlist_nth.
 
 Arguments join_env {_ _ _} _.

@@ -1,5 +1,5 @@
 (** This file contains generic functions for manipulating,
- ** i.e. substituting and finding, unification variables
+ ** (i.e. substituting and finding) unification variables
  **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
@@ -88,8 +88,6 @@ Section instantiate.
       congruence. }
   Qed.
 
-  Require Import MirrorCore.EnvI.
-
   Theorem exprD'_instantiate : forall us gs',
     (forall u e',
        lookup u = Some e' ->
@@ -165,7 +163,7 @@ Section instantiate.
           | |- match match ?X with _ => _ end with _ => _ end =>
             consider X; intros; forward
         end.
-        { eapply ExprDI.nth_error_get_hlist_nth_Some in H5.
+        { eapply EnvI.nth_error_get_hlist_nth_Some in H5.
           forward_reason. simpl in *. subst.
           apply split_env_nth_error in H.
           rewrite Hsplit_env in *. simpl in *.
@@ -183,7 +181,7 @@ Section instantiate.
           f_equal. specialize (H3 h Hnil). simpl in *.
           rewrite H3. auto. }
         { inv_all; subst.
-          eapply ExprDI.nth_error_get_hlist_nth_None in H4.
+          eapply EnvI.nth_error_get_hlist_nth_None in H4.
           clear - H H4 Hsplit_env.
           apply split_env_nth_error in H.
           rewrite Hsplit_env in *. simpl in *.
@@ -367,7 +365,7 @@ Section mentionsU.
           { intros. exfalso. omega. }
           { congruence. } }
         { forward. subst. inv_all; subst.
-          apply ExprDI.nth_error_get_hlist_nth_Some in H2.
+          apply EnvI.nth_error_get_hlist_nth_Some in H2.
           forward_reason. simpl in *.
           clear - x l.
           apply nth_error_length_lt in x. omega. } }
@@ -474,8 +472,8 @@ Section mentionsU.
   Theorem exprD_mentionsU_strength_multi : forall tu e,
     (forall n, length tu <= n -> mentionsU n e = false) ->
     forall tg t tu',
-      exprD (E := @Expr_expr ts _ _) (tu ++ tu') tg e t =
-      exprD (E := @Expr_expr ts _ _) tu tg e t.
+      exprD (Expr := @Expr_expr ts _ _) (tu ++ tu') tg e t =
+      exprD (Expr := @Expr_expr ts _ _) tu tg e t.
   Proof.
     intros; unfold exprD.
     rewrite split_env_app.
@@ -496,7 +494,9 @@ Section mentionsU.
 End mentionsU.
 
 
-(** TODO: This is generic to [expr] **)
+(** TODO:
+ ** This is a lot like [pull]
+ **)
 Section getInstantiation.
   Require Import MirrorCore.ExprI.
   Require Import MirrorCore.Ext.ExprD.
@@ -592,7 +592,7 @@ Section getInstantiation.
     cutrewrite (length us + n - length us = n) in H4; try omega.
     rewrite H2 in *. intuition; inv_all; subst.
     unfold Safe_expr in *; simpl in *.
-    red in H8.
+    admit. (*
     rewrite typeof_expr_mentionsU_strengthen_multi in H8.
     eapply H8.
     intros.
@@ -604,6 +604,6 @@ Section getInstantiation.
       { rewrite app_length in H7; omega. }
       { eapply lookup_normalized; try eassumption.
         replace (length us + (n0 - length us)) with n0 in H9 by omega.
-        intuition eauto. } }
+        intuition eauto. } } *)
   Qed.
 End getInstantiation.

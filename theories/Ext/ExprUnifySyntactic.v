@@ -142,6 +142,13 @@ Section typed.
 
   Definition unify_sound := unify_sound_ind.
 
+  Lemma Safe_expr_WellTyped_expr
+  : forall tus tvs e t,
+      Safe_expr tus tvs e t <-> WellTyped_expr tus tvs e t.
+  Proof.
+    intros. rewrite typeof_expr_exprD'. reflexivity.
+  Qed.
+
   Lemma handle_set : forall
     (unify : tenv typ -> tenv typ -> nat -> subst ->
              expr func -> expr func -> typ -> option subst),
@@ -169,7 +176,8 @@ Section typed.
     intros.
     split.
     { eapply WellTyped_set; eauto.
-      simpl. red. generalize (typeof_expr_lower _ tu e nil tv' tv).
+      simpl. eapply Safe_expr_WellTyped_expr. red.
+      generalize (typeof_expr_lower _ tu e nil tv' tv).
       simpl. intro. rewrite <- H6; eauto. }
     { intros.
       generalize H3. intro. eapply substD_set in H8; eauto.
@@ -250,7 +258,8 @@ Section typed.
         simpl in *. rewrite H0 in *.
         destruct H3. intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. etransitivity; eauto. } }
+        intros. etransitivity; eauto.
+        apply Safe_expr_WellTyped_expr in H6. apply H6. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -321,7 +330,8 @@ Section typed.
         simpl in *. rewrite H0 in *.
         destruct H3; intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. etransitivity; eassumption. } }
+        intros. etransitivity; try eassumption.
+        eapply Safe_expr_WellTyped_expr in H6. eapply H6. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -339,6 +349,7 @@ Section typed.
     rewrite WellTyped_expr_UVar in H0.
     eapply WellTyped_lookup in H1. 2: eauto.
     rewrite H0 in *. destruct H1; intuition; inv_all; subst.
+    eapply Safe_expr_WellTyped_expr in H3.
     red in H3. simpl in H3.
     red.
     etransitivity.
