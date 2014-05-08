@@ -16,6 +16,7 @@ MODULES    := Generic \
 	      SymI \
 	      SubstI SubstI2 SubstI3 \
 	      Prover EProver EProver2 \
+	      Lemma \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
