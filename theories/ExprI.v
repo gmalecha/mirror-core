@@ -36,6 +36,19 @@ Section Expr.
   ; wf_Expr_acc : well_founded Expr_acc
   }.
 
+  Theorem exprD'_conv (E : Expr)
+  : forall tus tus' tvs tvs' e t
+      (pfu : tus' = tus) (pfv : tvs' = tvs),
+      exprD' tus tvs e t = match pfu in _ = tus'
+                               , pfv in _ = tvs'
+                                 return ResType tus' tvs' (typD nil t)
+                           with
+                             | eq_refl , eq_refl => exprD' tus' tvs' e t
+                           end.
+  Proof.
+    destruct pfu. destruct pfv. reflexivity.
+  Qed.
+
   Definition Safe_expr {E : Expr} (tus tvs : tenv typ) (e : expr) (t : typ)
   : Prop :=
     exists val, exprD' tus tvs e t = Some val.

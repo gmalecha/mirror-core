@@ -27,38 +27,28 @@ Section proverI.
       | Some p => Provable' p
     end.
 
-  Record EProver : Type :=
+  Record Prover : Type :=
   { Facts : Type
   ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
   ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
-  ; Prove : forall (subst : Type) {S : Subst subst expr},
-              Facts -> tenv typ -> tenv typ -> subst -> expr -> option subst
+  ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
   }.
 
-  Definition EProveOk (summary : Type)
-             (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : @SubstOk subst typ typD expr _ _)
+  Definition ProveOk (summary : Type)
     (Valid : forall tus tvs : tenv typ, summary -> ResType typD tus tvs Prop)
-    (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
+    (prover : summary -> tenv typ -> tenv typ -> expr -> bool)
   : Prop :=
-    forall tus tvs sum (goal : expr) (sub sub' : subst),
-      prover sum tus tvs sub goal = Some sub' ->
-      WellFormed_subst sub ->
-      WellFormed_subst sub' /\
-      (forall sumD subD goalD,
+    forall tus tvs sum (goal : expr),
+      prover sum tus tvs goal = true ->
+      (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
-         substD tus tvs sub = Some subD ->
          exprD' tus tvs goal ty = Some goalD ->
-         exists subD',
-           substD tus tvs sub' = Some subD' /\
-           forall (us : HList.hlist (typD nil) tus)
-                  (vs : HList.hlist (typD nil) tvs),
-             sumD us vs ->
-             subD' us vs ->
-             subD us vs /\
-             Provable' (goalD us vs)).
+         forall (us : HList.hlist (typD nil) tus)
+                (vs : HList.hlist (typD nil) tvs),
+           sumD us vs ->
+           Provable' (goalD us vs)).
 
-  Record EProverOk (P : EProver) : Type :=
+  Record ProverOk (P : Prover) : Type :=
   { factsD : forall tus tvs : tenv typ, Facts P -> ResType typD tus tvs Prop
   ; factsD_weakenU
     : forall tus tvs f sumD,
@@ -97,9 +87,7 @@ Section proverI.
             sumD us vs ->
             sumD' us vs
   ; Prove_sound
-    : forall subst (Ssubst : Subst subst expr)
-             (Sok : SubstOk _ _),
-        EProveOk Sok factsD (@Prove P subst Ssubst)
+    : ProveOk factsD (@Prove P)
   }.
 
 (*
@@ -132,32 +120,30 @@ Section proverI.
 
   (** Composite Prover **)
   Section composite.
-    Variables pl pr : EProver.
+    Variables pl pr : Prover.
 
-    Definition composite_EProver : EProver :=
+    Definition composite_Prover : Prover :=
     {| Facts := Facts pl * Facts pr
      ; Summarize := fun uenv venv hyps =>
          (pl.(Summarize) uenv venv hyps, pr.(Summarize) uenv venv hyps)
      ; Learn := fun facts uenv venv hyps =>
          let (fl,fr) := facts in
          (pl.(Learn) fl uenv venv hyps, pr.(Learn) fr uenv venv hyps)
-     ; Prove := fun subst Subst facts uenv venv s goal =>
+     ; Prove := fun facts uenv venv goal =>
          let (fl,fr) := facts in
-         match @Prove pl subst Subst fl uenv venv s goal with
-           | Some s' => Some s'
-           | None => @Prove pr subst Subst fr uenv venv s goal
-         end
+         if @Prove pl fl uenv venv goal then true
+         else @Prove pr fr uenv venv goal
     |}.
 
-    Variable pl_correct : EProverOk pl.
-    Variable pr_correct : EProverOk pr.
+    Variable pl_correct : ProverOk pl.
+    Variable pr_correct : ProverOk pr.
 
     Opaque mapT.
 
-    Theorem composite_ProverT_correct : EProverOk composite_EProver.
+    Theorem composite_ProverT_correct : ProverOk composite_Prover.
     Proof.
       refine (
-        {| factsD := fun uvars vars (facts : Facts composite_EProver) =>
+        {| factsD := fun uvars vars (facts : Facts composite_Prover) =>
              let (fl,fr) := facts in
              match factsD pl_correct uvars vars fl
                  , factsD pr_correct uvars vars fr
@@ -194,59 +180,17 @@ Section proverI.
         simpl. intuition. }
       { red. simpl. intros.
         forward. subst.
-        consider (Prove pl f tus tvs sub goal).
+        consider (Prove pl f tus tvs goal).
         { intros; inv_all; subst.
-          specialize (@Prove_sound _ pl_correct _ _ _ _ _ _ _ _ _ H H0).
-          intros; forward_reason.
-          split; auto. intros; forward_reason.
-          forward. inv_all; subst.
-          specialize (H3 _ _ _ eq_refl H4 H5).
-          forward_reason. eexists; split; eauto.
-          intros. eapply H7; intuition. }
+          specialize (@Prove_sound _ pl_correct _ _ _ _ H _ _ H3 H1).
+          intros; forward_reason; eauto. }
         { intros; inv_all; subst.
-          specialize (@Prove_sound _ pr_correct _ _ _ _ _ _ _ _ _ H1 H0).
-          intros; forward_reason.
-          split; auto. intros; forward_reason.
-          forward. inv_all; subst.
-          specialize (H7 _ _ _ eq_refl H5 H6).
-          forward_reason. eexists; split; eauto.
-          intros. eapply H8; intuition. } }
+          specialize (@Prove_sound _ pr_correct _ _ _ _ H0 _ _ H4 H1).
+          intros; forward_reason; eauto. } }
     Qed.
   End composite.
 
-  (** From non-EProvers **)
-  Section non_eprover.
-    Require Import MirrorCore.Prover2.
-    Variables p : @Prover typ expr.
-
-    Definition from_Prover : EProver :=
-      @Build_EProver
-        p.(Facts)
-        p.(Summarize)
-        p.(Learn)
-        (fun subst Subst facts uenv venv s goal =>
-           if p.(Prove) facts uenv venv goal then Some s else None).
-
-    Variable p_correct : ProverOk Provable' p.
-
-    Theorem from_ProverT_correct : EProverOk from_Prover.
-    Proof.
-      refine (
-          @Build_EProverOk from_Prover
-                                  p_correct.(factsD) _ _ _ _ _);
-      try solve [ destruct p_correct; simpl; intuition eauto ].
-      unfold EProveOk, ProveOk in *.
-      intros. simpl in H0.
-      simpl in H. forward. inv_all; subst.
-      split; auto. intros.
-      eexists; split; eauto. intros. split; auto.
-      eapply Prove_sound in H; eauto.
-      eapply H; eauto.
-    Qed.
-  End non_eprover.
-
 End proverI.
 
-Arguments EProver typ expr.
-Arguments composite_EProver {typ} {expr} _ _.
-Arguments from_Prover {typ} {expr} _.
+Arguments Prover typ expr.
+Arguments composite_Prover {typ} {expr} _ _.
