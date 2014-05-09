@@ -284,37 +284,23 @@ Module Type ExprDenote.
             end
         end.
 
-    Axiom exprD'_weakenU
-    : forall (tus : tenv typ) (tus' : list typ)
+    Axiom exprD'_weaken
+    : forall (tus : tenv typ)
              (tvs : tenv typ)
              (e : expr func) (t : typ)
              (val : hlist (typD ts nil) tus ->
                     hlist (typD ts nil) tvs -> typD ts nil t),
         exprD' tus tvs e t = Some val ->
+        forall (tus' : list typ) (tvs' : list typ),
         exists
           val' : hlist (typD ts nil) (tus ++ tus') ->
-                 hlist (typD ts nil) tvs -> typD ts nil t,
-          exprD' (tus ++ tus') tvs e t = Some val' /\
-          (forall (us : hlist (typD ts nil) tus)
-                  (vs : hlist (typD ts nil) tvs)
-                  (us' : hlist (typD ts nil) tus'),
-             val us vs = val' (hlist_app us us') vs).
-
-    Axiom exprD'_weakenV
-    : forall (tus : tenv typ)
-             (tvs : tenv typ) (tvs' : list typ)
-             (e : expr func) (t : typ)
-             (val : hlist (typD ts nil) tus ->
-                    hlist (typD ts nil) tvs -> typD ts nil t),
-        exprD' tus tvs e t = Some val ->
-        exists
-          val' : hlist (typD ts nil) tus ->
                  hlist (typD ts nil) (tvs ++ tvs') -> typD ts nil t,
-          exprD' tus (tvs ++ tvs') e t = Some val' /\
+          exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val' /\
           (forall (us : hlist (typD ts nil) tus)
                   (vs : hlist (typD ts nil) tvs)
+                  (us' : hlist (typD ts nil) tus')
                   (vs' : hlist (typD ts nil) tvs'),
-             val us vs = val' us (hlist_app vs vs')).
+             val us vs = val' (hlist_app us us') (hlist_app vs vs')).
 
   End with_envs.
 

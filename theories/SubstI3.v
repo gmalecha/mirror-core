@@ -49,6 +49,13 @@ Section subst.
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
   ; substD : forall (tus tvs : tenv typ), T -> ResType typD tus tvs Prop
+  ; substD_weaken
+    : forall tus tvs tus' tvs' s sD,
+        substD tus tvs s = Some sD ->
+        exists sD',
+          substD (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
+          forall us us' vs vs',
+            sD us vs <-> sD' (hlist_app us us') (hlist_app vs vs')
   ; substD_lookup
     : forall s uv e,
         WellFormed_subst s ->
@@ -77,10 +84,11 @@ Section subst.
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { WellFormed_empty : WellFormed_subst empty
-  ; substD_empty : forall tus tvs,
-                   exists P,
-                     substD tus tvs empty = Some P /\
-                     forall us vs, P us vs
+  ; substD_empty
+    : forall tus tvs,
+      exists P,
+        substD tus tvs empty = Some P /\
+        forall us vs, P us vs
   ; set_sound
     : forall uv e s s',
         set uv e s = Some s' ->
@@ -144,5 +152,61 @@ Section subst.
         lookup u' s = Some e' ->
         mentionsU u' e = false
   }.
+
+  Lemma substD_weakenU
+  : forall tus tvs tus' s sD,
+      substD tus tvs s = Some sD ->
+      exists sD',
+        substD (tus ++ tus') tvs s = Some sD' /\
+        forall a b c,
+          sD a b <-> sD' (hlist_app a c) b.
+  Proof.
+    intros.
+    eapply substD_weaken with (tvs' := nil) in H.
+    revert H.
+    instantiate (1 := tus').
+    intro. destruct H as [ ? [ ? ? ] ].
+    exists (match app_nil_r_trans tvs in _ = t
+                  return hlist (typD nil) (tus ++ tus') -> hlist (typD nil) t -> Prop
+            with
+              | eq_refl => x
+            end).
+    split.
+    { clear - H. generalize dependent x.
+      destruct (app_nil_r_trans tvs). auto. }
+    { intros. rewrite H0.
+      instantiate (1 := Hnil). instantiate (1 := c).
+      rewrite hlist_app_nil_r.
+      clear. revert x. revert b.
+      destruct (app_nil_r_trans tvs). reflexivity. }
+  Qed.
+
+  Lemma substD_weakenV
+  : forall tus tvs tvs' s sD,
+      substD tus tvs s = Some sD ->
+      exists sD',
+        substD tus (tvs ++ tvs') s = Some sD' /\
+        forall a b c,
+          sD a b <-> sD' a (hlist_app b c).
+  Proof.
+    intros.
+    eapply substD_weaken with (tus' := nil) in H.
+    revert H.
+    instantiate (1 := tvs').
+    intro. destruct H as [ ? [ ? ? ] ].
+    exists (match app_nil_r_trans tus in _ = t
+                  return hlist (typD nil) t -> hlist (typD nil) _ -> Prop
+            with
+              | eq_refl => x
+            end).
+    split.
+    { clear - H. generalize dependent x.
+      destruct (app_nil_r_trans tus). auto. }
+    { intros. rewrite H0.
+      instantiate (1 := c). instantiate (1 := Hnil).
+      rewrite hlist_app_nil_r.
+      clear. revert x. revert a.
+      destruct (app_nil_r_trans tus). reflexivity. }
+  Qed.
 
 End subst.

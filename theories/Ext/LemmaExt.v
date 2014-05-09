@@ -16,6 +16,7 @@ Require Import MirrorCore.Ext.Expr.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** TODO: This file is probably dead **)
 Section with_expr.
   Variable ts : types.
   Variable func : Type.
@@ -202,7 +203,8 @@ Lemma mapT_compose'
       end; forward.
       { inv_all. subst.
         change exprD' with (@ExprI.exprD' _ _ _ (@Expr_expr _ _ _)) in H0.
-        eapply exprD'_weaken with (tus' := x2) (tvs' := x0) in H0; eauto using ExprOk_expr.
+        simpl in H0.
+        eapply exprD'_weaken with (tus' := x2) (tvs' := x0) (t := tyProp) in H0.
         destruct H0 as [ ? [ ? ? ] ].
         forward. erewrite H2.
         instantiate (1 := h4).
@@ -238,7 +240,8 @@ Lemma mapT_compose'
         simpl in *. rewrite H0 in H. inv_all; subst; auto. }
       { clear - H0 H.
         change exprD' with (@ExprI.exprD' _ _ _ (@Expr_expr _ _ _)) in H0.
-        apply exprD'_weaken with (tus' := x2) (tvs' := x0) in H0; eauto using ExprOk_expr.
+        simpl in H0.
+        eapply exprD'_weaken with (tus' := x2) (tvs' := x0) (t := tyProp) in H0; eauto using ExprOk_expr.
         destruct H0 as [ ? [ ? ? ] ].
         clear - H0 H.
         rewrite <- app_ass in H. simpl in *. congruence. } }

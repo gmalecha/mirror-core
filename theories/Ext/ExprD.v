@@ -20,8 +20,7 @@ Theorem ExprOk_expr ts func (RSym_func : RSym (typD ts) func)
 : @ExprOk _ _ _ (@Expr_expr ts func RSym_func).
 Proof.
   constructor.
-  { eapply EXPR_DENOTE.exprD'_weakenU. }
-  { eapply EXPR_DENOTE.exprD'_weakenV. }
+  { eapply EXPR_DENOTE.exprD'_weaken. }
 Qed.
 
 Create HintDb exprD_rw discriminated.

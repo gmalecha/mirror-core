@@ -69,37 +69,82 @@ Section Expr.
     end.
 
   Class ExprOk (E : Expr) : Type :=
-  { exprD'_weakenU
-    : forall tus tus' tvs e t val,
+  { exprD'_weaken
+    : forall tus tvs e t val,
         exprD' tus tvs e t = Some val ->
+        forall tus' tvs',
         exists val',
-             exprD' (tus ++ tus') tvs e t = Some val'
-          /\ forall us vs us',
-               val us vs = val' (hlist_app us us') vs
-  ; exprD'_weakenV
-    : forall tus tvs tvs' e t val,
-        exprD' tus tvs e t = Some val ->
-        exists val',
-             exprD' tus (tvs ++ tvs') e t = Some val'
-          /\ forall us vs vs',
-               val us vs = val' us (hlist_app vs vs')
+             exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
+          /\ forall us vs us' vs',
+               val us vs = val' (hlist_app us us') (hlist_app vs vs')
   }.
 
   Context {Expr_expr : Expr}.
 
-  Theorem exprD'_weaken (EOk : ExprOk Expr_expr)
-  : forall tus tus' tvs tvs' e t val,
+  Lemma exprD'_weakenU (EOk : ExprOk Expr_expr)
+  : forall tus tus' tvs e t val,
       exprD' tus tvs e t = Some val ->
       exists val',
-        exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
-        /\ forall us us' vs vs',
-             val us vs = val' (hlist_app us us') (hlist_app vs vs').
+        exprD' (tus ++ tus') tvs e t = Some val'
+        /\ forall us vs us',
+             val us vs = val' (hlist_app us us') vs.
   Proof.
     intros.
-    destruct (exprD'_weakenU tus' _ H) as [ ? [ ? ? ] ]; clear H.
-    destruct (exprD'_weakenV tvs' _ H0) as [ ? [ ? ? ] ]; clear H0.
-    eexists; split; eauto.
-    intros. erewrite H1. erewrite H2. reflexivity.
+    eapply (@exprD'_weaken Expr_expr) with (tus' := tus') (tvs' := nil) in H; eauto.
+    destruct H as [ ? [ ? ? ] ].
+    erewrite exprD'_conv with (tus' := tus ++ tus') (tvs' := tvs ++ nil).
+    instantiate (1 := app_nil_r_trans _).
+    instantiate (1 := eq_refl).
+    simpl.
+    rewrite H.
+    exists (match
+               app_nil_r_trans tvs in (_ = tvs')
+               return (hlist _ (tus ++ tus') -> hlist _ tvs' -> typD nil t)
+             with
+               | eq_refl => x
+             end).
+    split.
+    { clear. revert x. destruct (app_nil_r_trans tvs). reflexivity. }
+    { intros. erewrite H0.
+      instantiate (1 := Hnil).
+      instantiate (1 := us').
+      clear.
+      rewrite hlist_app_nil_r at 1.
+      revert x. revert vs. destruct (app_nil_r_trans tvs).
+      reflexivity. }
+  Qed.
+
+  Lemma exprD'_weakenV (EOk : ExprOk Expr_expr)
+  : forall tus tvs tvs' e t val,
+      exprD' tus tvs e t = Some val ->
+      exists val',
+        exprD' tus (tvs ++ tvs') e t = Some val'
+        /\ forall us vs vs',
+             val us vs = val' us (hlist_app vs vs').
+  Proof.
+    intros.
+    eapply (@exprD'_weaken Expr_expr) with (tus' := nil) (tvs' := tvs') in H; eauto.
+    destruct H as [ ? [ ? ? ] ].
+    erewrite exprD'_conv with (tus' := tus ++ nil) (tvs' := tvs ++ tvs').
+    instantiate (1 := @eq_refl _ _).
+    instantiate (1 := app_nil_r_trans _).
+    simpl.
+    rewrite H.
+    exists (match
+               app_nil_r_trans tus in (_ = tus')
+               return (hlist _ tus' -> _ -> typD nil t)
+             with
+               | eq_refl => x
+             end).
+    split.
+    { clear. revert x. destruct (app_nil_r_trans tus). reflexivity. }
+    { intros. erewrite H0.
+      instantiate (1 := vs').
+      instantiate (1 := Hnil).
+      clear.
+      rewrite hlist_app_nil_r at 1.
+      revert x. revert us. destruct (app_nil_r_trans tus).
+      reflexivity. }
   Qed.
 
   Theorem exprD_weaken (EOk : ExprOk Expr_expr)

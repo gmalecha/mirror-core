@@ -42,7 +42,7 @@ Section Demo.
     let e := @App_list (Inj (FRef 2%positive (tyType 1 :: nil)))
                     ((Abs tyNat (@App_list (Inj (FRef 4%positive (tyType 1 :: nil)))
                                                 ((Var 0) :: Inj (FRef 5%positive nil) :: nil))) :: nil) in
-    match exprD (E := Expr_expr (RSym_func funcs')) nil nil e tyProp with
+    match exprD (Expr := Expr_expr (RSym_func funcs')) nil nil e tyProp with
       | None => False
       | Some p => p
     end.

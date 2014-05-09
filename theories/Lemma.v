@@ -265,7 +265,7 @@ Section lem.
           [ | intro XXX; specialize (XXX H) ]
     end.
     { simpl. intros.
-      eapply exprD'_weakenU with (tus' := tus') in H1;
+      eapply exprD'_weakenU with (tus' := tus') (t := tyProp) in H1;
         eauto with typeclass_instances. }
     eapply mapT_success
     with (P := fun e =>
@@ -450,6 +450,25 @@ Section lem.
         destruct (app_ass_trans (vars l) tvs tvs').
         reflexivity. } }
     { eauto. }
+  Qed.
+
+  Lemma lemmaD'_weaken
+  : forall tus tvs l lD,
+      lemmaD' tus tvs l = Some lD ->
+      forall tus' tvs',
+        exists lD',
+          lemmaD' (tus ++ tus') (tvs ++ tvs') l = Some lD' /\
+          forall us us' vs vs',
+            lD us vs <-> lD' (hlist_app us us') (hlist_app vs vs').
+  Proof.
+    clear. intros.
+    eapply lemmaD'_weakenU with (tus' := tus') in H.
+    destruct H as [ ? [ ? ? ] ].
+    eapply lemmaD'_weakenV with (tvs' := tvs') in H.
+    destruct H as [ ? [ ? ? ] ].
+    eexists; split; eauto.
+    intros.
+    etransitivity. eapply H0. eapply H1.
   Qed.
 
   Definition lemmaD (us vs : env typD) (l : lemma) : Prop :=

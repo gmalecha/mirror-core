@@ -14,6 +14,7 @@ Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.ReaderMonad.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require MirrorCore.Subst.SealedSubst.
@@ -23,7 +24,7 @@ Require Import MirrorCore.Examples.mtac.Patterns.
  ** to chnage this, but if there is a better substitution
  ** available we should change to use that.
  **)
-Require MirrorCore.Ext.FMapSubst.
+(* Require MirrorCore.Subst.FMapSubst. *)
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -33,12 +34,14 @@ Section with_func.
   Variable func : Type.
   Variable RSym_func : RSym (typD ts) func.
 
-  Definition subst := SealedSubst.seal_subst (FMapSubst.SUBST.subst func).
+  Variable subst' : Type.
+  Variable Subst_subst' : Subst subst' (expr func).
+  Definition subst := SealedSubst.seal_subst subst'.
   Local Instance Subst_subst : SubstI.Subst subst (expr func) :=
-    @SealedSubst.Subst_seal_subst _ _ (FMapSubst.SUBST.Subst_subst func).
+    @SealedSubst.Subst_seal_subst _ _ (Subst_subst').
   Definition empty_above (above : uvar) : subst :=
     SealedSubst.seal (fun x => above ?[ le ] x)
-                     (@SubstI.empty _ _ (FMapSubst.SUBST.Subst_subst func)).
+                     (@SubstI.empty _ _ _).
 
   (** Pattern matching **)
   Context {T : Type}.
@@ -134,8 +137,8 @@ Section with_func.
 End with_func.
 
 Arguments Case {_ _} _ _.
-Arguments _mmatchAt {_ _ _ _} _ _ _ _ _ _ _.
-Arguments _mmatch {_ _ _ _} _ _ _ _ _ _.
+Arguments _mmatchAt {_ _ _ _ _ _} _ _ _ _ _ _ _.
+Arguments _mmatch {_ _ _ _ _ _} _ _ _ _ _ _.
 
 Module McMtacNotation.
   Delimit Scope mcmtac_scope with mcmtac.

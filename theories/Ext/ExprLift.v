@@ -590,166 +590,139 @@ Section typed.
 
 End typed.
 
-Section typed1.
+Section vars_to_uvars.
+  Require Import MirrorCore.EnvI.
   Variable ts : types.
   Variable func : Type.
 
-  Fixpoint vars_to_uvars (lu lv lv' : nat) (e : expr func) : expr func :=
+  Fixpoint vars_to_uvars (e : expr func) (skip add : nat) : expr func :=
     match e with
       | Var v =>
-        if v ?[ lt ] lv then Var v
-        else
-          let l := v - lv in
-          if l ?[ lt ] lv' then
-            UVar (l + lu)
-          else
-            Var (v - lv')
-      | UVar u =>
-        if u ?[ lt ] lu then
-          UVar u
-        else
-          UVar (u + lv')
+        if v ?[ lt ] skip then Var v
+        else UVar (v - skip + add)
+      | UVar _
       | Inj _ => e
-      | App l r => App (vars_to_uvars lu lv lv' l)
-                       (vars_to_uvars lu lv lv' r)
-      | Abs t e => Abs t (vars_to_uvars lu (S lv) lv' e)
+      | App l r => App (vars_to_uvars l skip add) (vars_to_uvars r skip add)
+      | Abs t e => Abs t (vars_to_uvars e (S skip) add)
     end.
 
-  Variable RSym_func : SymI.RSym (typD ts) func.
-
-  Theorem vars_to_uvars_typeof_expr
-  : forall e tus tus' tvs tvs' tvs'' t,
-      typeof_expr (tus ++ tus') (tvs ++ tvs' ++ tvs'') e = Some t ->
-      typeof_expr (tus ++ tvs' ++ tus') (tvs ++ tvs'')
-                  (vars_to_uvars (length tus) (length tvs) (length tvs') e) = Some t.
+  Theorem vars_to_uvars_typeof_expr (Z : SymI.RSym (typD ts) func)
+  : forall tus e tvs tvs' t,
+      typeof_expr tus (tvs ++ tvs') e = Some t ->
+      typeof_expr (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus))
+      = Some t.
   Proof.
     clear. induction e; simpl; intros; auto.
     { consider (v ?[ lt ] length tvs); intros.
-      { simpl. rewrite ListNth.nth_error_app_L in *; auto. }
-      { simpl. rewrite ListNth.nth_error_app_R in * by omega.
-        consider ((v - length tvs) ?[ lt ] (length tvs')); intros.
-        { simpl.
-          rewrite ListNth.nth_error_app_R in * by omega.
-          replace (v - length tvs + length tus - length tus) with (v - length tvs) by omega.
-          rewrite ListNth.nth_error_app_L in * by omega. assumption. }
-        { simpl.
-          rewrite ListNth.nth_error_app_R in * by omega.
-          rewrite <- H. f_equal. omega. } } }
+      { simpl. rewrite ListNth.nth_error_app_L in H; auto. }
+      { simpl. rewrite ListNth.nth_error_app_R in H; auto. 2: omega.
+        rewrite ListNth.nth_error_app_R; try omega.
+        replace (v - length tvs + length tus - length tus) with (v - length tvs)
+          by omega.
+        auto. } }
     { forward. erewrite IHe1; eauto. erewrite IHe2; eauto. }
-    { forward. eapply (IHe tus tus' (t :: tvs) tvs') in H.
+    { forward. eapply (IHe (t :: tvs) tvs') in H.
       simpl in *.
       rewrite H in *. auto. }
-    { consider (u ?[ lt ] (length tus)); intros; simpl in *.
-      { rewrite ListNth.nth_error_app_L in * by omega. assumption. }
-      { repeat rewrite ListNth.nth_error_app_R in * by omega.
-        rewrite <- H. f_equal. omega. } }
+    { apply ListNth.nth_error_weaken; auto. }
   Qed.
 
-
-
-  Theorem vars_to_uvars_exprD
-  : forall e tus tus' tvs tvs' tvs'' t val val',
-      exprD' (tus ++ tus') (tvs ++ tvs' ++ tvs'') e t = Some val ->
-      exprD' (tus ++ tvs' ++ tus') (tvs ++ tvs'')
-             (vars_to_uvars (length tus) (length tvs) (length tvs') e) t = Some val' ->
-      forall us us' vs vs' vs'',
-        val (hlist_app us us') (hlist_app vs (hlist_app vs' vs'')) =
-        val' (hlist_app us (hlist_app vs' us')) (hlist_app vs vs'').
+  Lemma nth_error_get_hlist_nth_rwR
+  : forall {T} (F : T -> _) tus tvs' n,
+      n >= length tus ->
+      match nth_error_get_hlist_nth F tvs' (n - length tus) with
+        | None => True
+        | Some (existT t v) =>
+          exists val,
+          nth_error_get_hlist_nth F (tus ++ tvs') n = Some (@existT _ _ t val) /\
+          forall a b,
+            v a = val (hlist_app b a)
+      end.
   Proof.
-    clear. induction e; simpl; intros; auto.
+    clear. intros.
+    forward. subst.
+    consider (nth_error_get_hlist_nth F (tus ++ tvs') n).
+    { intros.
+      eapply nth_error_get_hlist_nth_appR in H; eauto.
+      destruct s. simpl in *. rewrite H1 in *.
+      destruct H as [ ? [ ? ? ] ]. inv_all; subst.
+      eexists; split; eauto. }
+    { intros.
+      exfalso.
+      eapply nth_error_get_hlist_nth_Some in H1.
+      eapply nth_error_get_hlist_nth_None in H0.
+      forward_reason. simpl in *.
+      eapply ListNth.nth_error_length_ge in H0.
+      clear H1. eapply nth_error_length_lt in x0.
+      rewrite app_length in H0. omega. }
+  Qed.
+
+  Theorem vars_to_uvars_exprD' (Z : SymI.RSym (typD ts) func)
+  : forall tus e tvs t tvs' val,
+      exprD' tus (tvs ++ tvs') e t = Some val ->
+      exists val',
+        exprD' (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus)) t = Some val' /\
+        forall us vs' vs, val us (HList.hlist_app vs vs') =
+                          val' (HList.hlist_app us vs') vs.
+  Proof.
+    clear. induction e; simpl; intros.
     { consider (v ?[ lt ] length tvs); intros.
+      { generalize (@exprD'_Var_App_L _ _ _ tus tvs' t tvs v H0).
+        rewrite H. intros; forward.
+        red_exprD. forward.
+        eexists; split; eauto.
+        inv_all; subst. eauto. }
       { red_exprD.
-        forward. subst. inv_all; subst.
-        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ (tvs' ++ tvs'') tvs v); auto.
-        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tvs'' tvs v); auto.
+        forward. inv_all; subst.
+        eapply nth_error_get_hlist_nth_appR in H1; [ | omega ].
+        simpl in H1.
         forward_reason.
-        repeat match goal with
-                 | H : ?X = _ , H' : ?Y = _ |- _ =>
-                   change X with Y in H ; rewrite H' in H
-               end; inv_all; subst.
-        simpl in *.
-        revert H3 H4. uip_all'.
-        intros. rewrite H4. rewrite H7. reflexivity. }
-      { consider ((v - length tvs) ?[ lt ] length tvs'); intros.
-        { red_exprD. forward. subst; inv_all; subst.
-          eapply nth_error_get_hlist_nth_appR in H6; eauto with typeclass_instances.
-          2: omega.
-          eapply nth_error_get_hlist_nth_appR in H3; eauto with typeclass_instances.
-          2: omega.
-          forward_reason. simpl in *.
-          rewrite H4; clear H4.
-          rewrite H3; clear H3.
-          destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tvs'' tvs' (v - length tvs)); auto.
-          replace (v - length tvs + length tus - length tus) with (v - length tvs) in * by omega.
-          destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tus' tvs' (v - length tvs)); auto.
-          forward_reason; simpl in *.
-          repeat match goal with
-                   | H : ?X = _ , H' : ?Y = _ |- _ =>
-                     change X with Y in H ; rewrite H' in H
-                 end; inv_all; subst.
-          simpl in *. uip_all'. intros.
-          rewrite H6. rewrite H8. reflexivity. }
-        { red_exprD. forward. subst; inv_all; subst.
-          eapply nth_error_get_hlist_nth_appR in H6; eauto with typeclass_instances.
-          2: omega.
-          eapply nth_error_get_hlist_nth_appR in H3; eauto with typeclass_instances.
-          2: omega.
-          forward_reason; simpl in *.
-          eapply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
-          2: omega.
-          forward_reason; simpl in *.
-          replace (v - length tvs' - length tvs) with (v - length tvs - length tvs') in * by omega.
-          repeat match goal with
-                   | H : ?X = _ , H' : ?Y = _ |- _ =>
-                     change X with Y in H ; rewrite H' in H
-                 end; inv_all; subst.
-          Cases.rewrite_all_goal. reflexivity. } } }
-    { red_exprD. forward. inv_all; subst. reflexivity. }
-    { red_exprD. forward. inv_all; subst.
-      apply vars_to_uvars_typeof_expr in H6. rewrite H6 in *.
+        assert (v - length tvs + length tus >= length tus) by omega.
+        eapply nth_error_get_hlist_nth_rwR
+        with (F := typD ts nil) in H2.
+        replace (v - length tvs + length tus - length tus)
+        with (v - length tvs) in H2 by omega.
+        revert H2. instantiate (1 := tvs').
+        match goal with
+          | H : ?X = _ |- context [ ?Y ] =>
+            change Y with X; rewrite H
+        end.
+        destruct 1 as [ ? [ ? ? ] ].
+        match goal with
+          | H : ?X = _ |- context [ ?Y ] =>
+            change Y with X; rewrite H
+        end.
+        rewrite typ_cast_typ_refl.
+        eexists; split; eauto. simpl.
+        intros. rewrite H1. auto. } }
+    { red_exprD.
+      forward.
       inv_all; subst.
-      rewrite (@IHe1 _ _ _ _ _ _ _ _ H7 H2).
-      rewrite (@IHe2 _ _ _ _ _ _ _ _ H8 H3).
-      reflexivity. }
+      eexists; split; eauto. }
     { red_exprD.
       forward. inv_all; subst.
-      change (S (length tvs)) with (length (t :: tvs)) in *.
-      change (t :: tvs ++ tvs' ++ tvs'') with ((t :: tvs) ++ tvs' ++ tvs'') in *.
-      change (t :: tvs ++ tvs'') with ((t :: tvs) ++ tvs'') in *.
-      specialize (@IHe _ _ _ _ _ _ _ _ H1 H2 us us').
-      apply functional_extensionality; intros.
-      specialize (IHe (Hcons x vs) vs' vs''). apply IHe. }
-    { consider (u ?[ lt ] (length tus)); intros; simpl in *.
-      { red_exprD.
-        forward. subst. inv_all; subst.
-        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ tus' tus u); auto.
-        destruct (@nth_error_get_hlist_nth_appL _ (typD ts nil) _ (tvs' ++ tus') tus u); auto.
-        forward_reason.
-        repeat match goal with
-                 | H : ?X = _ , H' : ?Y = _ |- _ =>
-                   change X with Y in H ; rewrite H' in H
-               end; inv_all; subst.
-        simpl in *.
-        revert H3 H4. uip_all'.
-        intros. rewrite H4. rewrite H7. reflexivity. }
-      { red_exprD.
-        forward. subst. inv_all; subst.
-        apply nth_error_get_hlist_nth_appR in H5; eauto with typeclass_instances.
-        2: omega.
-        simpl in *.
-        forward_reason.
-        apply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
-        2: omega.
-        simpl in *. forward_reason.
-        apply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
-        2: omega.
-        simpl in *. forward_reason.
-        replace (u + length tvs' - length tus - length tvs') with (u - length tus) in * by omega.
-        repeat match goal with
-                 | H : ?X = _ , H' : ?Y = _ |- _ =>
-                   change X with Y in H ; rewrite H' in H
-               end; inv_all; subst.
-        rewrite H1. rewrite H3. symmetry. apply H4. } }
+      eapply vars_to_uvars_typeof_expr in H0.
+      eapply IHe1 in H1.
+      eapply IHe2 in H2. forward_reason.
+      Cases.rewrite_all_goal.
+      rewrite typ_cast_typ_refl.
+      eexists; split; eauto.
+      intros.
+      rewrite H2. rewrite H3. reflexivity. }
+    { red_exprD.
+      forward. inv_all; subst.
+      destruct (IHe (t :: tvs) _ _ _ H1) as [ ? [ ? ? ] ].
+      simpl in *. rewrite H.
+      eexists; eauto; split; eauto.
+      intros. simpl.
+      eapply functional_extensionality. intros.
+      rewrite <- H0. simpl. reflexivity. }
+    { red_exprD.
+      forward. inv_all; subst.
+      eapply ExprDI.nth_error_get_hlist_nth_weaken in H0.
+      simpl in *. forward_reason.
+      rewrite H. rewrite typ_cast_typ_refl.
+      eexists; split; eauto. intros. apply H0. }
   Qed.
 
-End typed1.
+End vars_to_uvars.
