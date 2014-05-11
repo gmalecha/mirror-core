@@ -379,6 +379,148 @@ Section parameterized.
     { eapply H6. eapply H11. }
   Qed.
 
+  Lemma typeof_expr_instantiate_Some
+  : forall (lookup : uvar -> option (expr func)) (tu : list typ)
+           (tg : tenv typ),
+      (forall (u : uvar) (e' : expr func) t',
+         lookup u = Some e' ->
+         nth_error tu u = Some t' ->
+         typeof_expr tu tg e' = Some t') ->
+      forall (e : expr func) (tg' : list typ) t,
+        typeof_expr tu (tg' ++ tg) e = Some t ->
+        typeof_expr tu (tg' ++ tg) (instantiate lookup (length tg') e) = Some t.
+  Proof.
+    clear. induction e; simpl; intros; auto; forward.
+    { eapply IHe1 in H0. eapply IHe2 in H1.
+      Cases.rewrite_all_goal. reflexivity. }
+    { inv_all; subst.
+      eapply (IHe (t :: tg')) in H0.
+      simpl in H0. rewrite H0. reflexivity. }
+    { eapply H in H1; eauto.
+      generalize (@typeof_expr_lift _ _ RSym_func tu nil tg' tg e).
+      simpl. congruence. }
+  Qed.
+
+  Lemma exprD'_instantiate
+  : forall tus tvs P fn,
+      (forall u t' e get,
+         nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
+         fn u = Some e ->
+         exists eD,
+           exprD' tus tvs e t' = Some eD /\
+           forall us vs,
+             P us vs ->
+             eD us vs = get us) ->
+      forall e tvs' t eD,
+        exprD' tus (tvs' ++ tvs) e t = Some eD ->
+        exists eD',
+          exprD' tus (tvs' ++ tvs) (instantiate fn (length tvs') e) t = Some eD' /\
+          forall us vs' vs,
+            P us vs ->
+            eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
+  Proof.
+    clear.
+    induction e; simpl; intros; eauto.
+    { red_exprD.
+      forward; inv_all; subst.
+      specialize (IHe1 _ _ _ H2); clear H2.
+      specialize (IHe2 _ _ _ H3); clear H3.
+      eapply typeof_expr_instantiate_Some with (lookup := fn) in H1; eauto.
+      { forward_reason.
+        Cases.rewrite_all_goal.
+        rewrite typ_cast_typ_refl. eexists; split; eauto.
+        simpl. intros.
+        rewrite H4; eauto.
+        rewrite H3; eauto. }
+      { clear - H.
+        intros.
+        specialize (H u t' e').
+        consider (nth_error_get_hlist_nth (typD ts nil) tus u); intros.
+        { destruct s.
+          generalize H.
+          eapply nth_error_get_hlist_nth_Some in H. simpl in *.
+          forward_reason.
+          rewrite x0 in H1. inv_all; subst.
+          intros.
+          specialize (H2 _ H1 H0). destruct H2 as [ ? [ ? ? ] ].
+          clear H H1.
+          rewrite exprD'_type_cast in H2.
+          forward. inv_all; subst. reflexivity. }
+        { exfalso. eapply nth_error_get_hlist_nth_None in H.
+          congruence. } } }
+    { red_exprD.
+      forward; inv_all; subst.
+      specialize (IHe (t :: tvs') t2 _ H2).
+      simpl in IHe.
+      forward_reason.
+      rewrite H0.
+      eexists; split; eauto.
+      simpl. intros.
+      eapply functional_extensionality. intros.
+      exact (H1 us (Hcons x0 vs') vs X). }
+    { consider (fn u); intros.
+      { red_exprD.
+        forward; inv_all; subst.
+        specialize (H _ _ _ _ H2 H1).
+        forward_reason.
+        generalize (@exprD'_lift _ _ RSym_func tus nil tvs' tvs e t).
+        simpl. rewrite H.
+        intros. forward.
+        eexists; split; eauto.
+        intros.
+        erewrite <- H0. symmetry. eapply (H4 us Hnil vs' vs). apply X. }
+      { eauto. } }
+  Qed.
+
+  Lemma exprD'_instantiate_subst
+  : forall tus tvs tvs' sub e t eD sD,
+      WellFormed_subst sub ->
+      substD tus tvs sub = Some sD ->
+      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exists eD',
+        exprD' tus (tvs' ++ tvs) (instantiate (fun x => lookup x sub) (length tvs') e) t = Some eD' /\
+        forall us vs vs',
+          sD us vs ->
+          eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
+  Proof.
+    clear.
+    intros.
+    destruct (fun H =>
+                  @exprD'_instantiate tus tvs sD (fun x => lookup x sub) H
+                                      e tvs' t eD H1) as [ ? [ ? ? ] ].
+    { intros.
+      eapply substD_lookup in H3; eauto.
+      simpl in H3.
+      eapply nth_error_get_hlist_nth_Some in H2.
+      simpl in *.
+      forward_reason.
+      assert (t' = x).
+      {  clear - x1 x2. rewrite <- x1 in x2. inv_all; auto. }
+      subst.
+      eexists; split; eauto.
+      intros. eapply H4 in H5; clear H4.
+      specialize (H2 us).
+      rewrite H2; clear H2.
+      match goal with
+        | H : ?X = _ |- context [ ?Y ] =>
+          change Y with X ; rewrite H
+      end.
+      clear.
+      replace x1 with (eq_sym x2).
+      { clear. revert x0. revert us.
+        change (typD ts nil x)
+        with   (match Some x with
+                  | Some x1 => typD ts nil x1
+                  | None => unit
+                end).
+        destruct x2.
+        reflexivity. }
+      { generalize x1. generalize x2.
+        rewrite x1. intros.
+        uip_all. reflexivity.  (** this is a little messy, but it works **) } }
+    { eexists; split; eauto. }
+  Qed.
+
   Lemma auto_prove_rec_sound
   : forall recurse,
       auto_prove_sound_ind recurse ->
@@ -536,8 +678,69 @@ Section parameterized.
             eapply (@exprD'_weakenV _ _ _ Expr_expr) with (tvs' := tvs) (t := tyProp) in H0; eauto with typeclass_instances.
             destruct H0 as [ ? [ ? ? ] ].
             simpl in H0.
-            (** This is about instantiate **)
-            admit. }
+
+            assert (exists y,
+                      exprD' (tus ++ vars l) tvs (vars_to_uvars a 0 (length tus))
+                             tyProp = Some y /\
+                      forall us vs vs',
+                        x2 (hlist_app us (hlist_app vs Hnil)) vs' =
+                        y (hlist_app us vs) vs').
+            { generalize (@exprD'_conv _ _ _ Expr_expr
+                                   (tus ++ vars l) (tus ++ vars l ++ nil)
+                                   tvs tvs
+                                   (vars_to_uvars a 0 (length tus))
+                                   tyProp).
+              simpl. intro XXX; erewrite XXX; clear XXX.
+              instantiate (1 := eq_refl).
+              instantiate (1 := match eq_sym (app_nil_r_trans (vars l)) in _ = tvs'
+                                      return tus ++ tvs' = tus ++ vars l
+                                with
+                                  | eq_refl => eq_refl
+                                end).
+              simpl. rewrite H0.
+              exists match
+                  match
+                    eq_sym (app_nil_r_trans (vars l)) in (_ = tvs')
+                    return (tus ++ tvs' = tus ++ vars l)
+                  with
+                    | eq_refl => eq_refl
+                  end in (_ = tus') return hlist _ tus' -> hlist _ tvs -> Prop
+                with
+                  | eq_refl => x2
+                end.
+              split.
+              { clear. revert x2.
+                destruct (app_nil_r_trans (vars l)).
+                reflexivity. }
+              { clear. intros.
+                rewrite hlist_app_nil_r.
+                revert x2. revert vs.
+                destruct (app_nil_r_trans (vars l)).
+                reflexivity. } }
+            destruct H14 as [ ? [ ? ? ] ].
+            destruct (@exprD'_instantiate_subst
+                          (tus ++ vars l)
+                          tvs
+                          nil
+                          s0
+                          (vars_to_uvars a 0 (length tus))
+                          tyProp _ _ H2 H7 H14) as [ ? [ ? ? ] ].
+            simpl in *.
+            eexists; split; eauto.
+            intros.
+            repeat match goal with
+                     | [ H : forall x : hlist _ _, _ , H' : _ |- _ ] =>
+                       specialize (H H') || specialize (H Hnil)
+                   end.
+            erewrite H11.
+            instantiate (1 := a0).
+            simpl.
+            specialize (H12 (hlist_app b Hnil) Hnil).
+            simpl in H12. rewrite H12; clear H12.
+            erewrite H13; clear H13.
+            specialize (H17 (hlist_app a0 b) c Hnil H18).
+            simpl in H17. rewrite <- H17; clear H17.
+            instantiate (1 := c). simpl. eauto. }
           destruct H11 as [ ? [ ? ? ] ].
           progress fill_holes.
           repeat match goal with
