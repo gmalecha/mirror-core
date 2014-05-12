@@ -1,6 +1,6 @@
 GENERIC := Iso IsoTac Approx
 PROVERS := ProverTac AssumptionProver
-SUBST   := SealedSubst FastSubst RawSubst2
+SUBST   := SealedSubst FastSubst RawSubst2 FMapSubst3
 EXTENSIBLE := Repr Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \

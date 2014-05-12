@@ -3,23 +3,21 @@ Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI.
+Require Import MirrorCore.SubstI3.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-(** TODO: These should be abstracted **)
-Require Import MirrorCore.Ext.Expr.
-Require Import MirrorCore.Ext.ExprLift.
-Require Import MirrorCore.Ext.ExprSubst.
+
+(** TODO: Move the lemmas related to nth_error_get_hlist_nth **)
+Require Import MirrorCore.Ext.ExprDI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** Temporary **)
-Require Import FunctionalExtensionality.
-
-(** Finite Maps **) 
+(** Finite Maps **)
 Require Import FMapInterface.
+
+Let uvar : Type := nat.
 
 Module Make (FM : S with Definition E.t := uvar
                     with Definition E.eq := @eq uvar).
@@ -29,14 +27,18 @@ Module Make (FM : S with Definition E.t := uvar
   Module FACTS := FMapFacts.WFacts FM.
   Module PROPS := FMapFacts.WProperties FM.
 
-  Section hide_hints.
-    Variable ts : types.
-    Variable func : Type.
-    Variable RSym_func : RSym (typD ts) func.
+  Section exprs.
+    Variable typ : Type.
+    Variable typD : list Type -> typ -> Type.
+    Variable expr : Type.
+    Variable Expr_expr : Expr typD expr.
+    Variable ExprOk_expr : ExprOk Expr_expr.
 
-    Definition raw : Type := FM.t (expr func).
+    Variable mentionsU : uvar -> expr -> bool.
 
-    Definition normalized (this : raw) (e : expr func) : Prop :=
+    Definition raw : Type := FM.t expr.
+
+    Definition normalized (this : raw) (e : expr) : Prop :=
       forall u, mentionsU u e = true -> ~FM.In u this.
 
     Definition WellFormed (this : raw) : Prop :=
@@ -44,30 +46,15 @@ Module Make (FM : S with Definition E.t := uvar
         FM.MapsTo k e this ->
         normalized this e.
 
-    Definition raw_lookup : uvar -> raw -> option (expr func) :=
+    Definition raw_lookup : uvar -> raw -> option expr :=
        @FM.find _.
 
-    (** this is like instantiate **)
-    Section raw_subst.
-      Variable s : raw.
+    Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
 
-      Fixpoint raw_subst (under : nat) (e : expr func) : expr func :=
-        match e with
-          | Var _
-          | Inj _ => e
-          | App l r => App (raw_subst under l) (raw_subst under r)
-          | Abs t e => Abs t (raw_subst (S under) e)
-          | UVar u =>
-            match raw_lookup u s with
-              | None => e
-              | Some e => lift 0 under e
-            (** 0 should be the number of binders to skip
-             **)
-            end
-        end.
-    End raw_subst.
+    Definition raw_subst (s : raw) : nat -> expr -> expr :=
+      instantiate (fun x => raw_lookup x s).
 
-    Definition raw_set (u : uvar) (e : expr func) (s : raw) : option raw :=
+    Definition raw_set (u : uvar) (e : expr) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
       if mentionsU u v'
       then None
@@ -75,9 +62,11 @@ Module Make (FM : S with Definition E.t := uvar
            let s := FM.map (raw_subst s 0) s in
            Some s.
 
+(*
     Definition raw_WellTyped (U G : EnvI.tenv _) (s : raw) : Prop :=
       forall k v, FM.MapsTo k v s ->
         exists t, nth_error U k = Some t /\ WellTyped_expr U G v t.
+*)
 
     Lemma raw_lookup_MapsTo : forall u s e,
                                 raw_lookup u s = Some e <-> FM.MapsTo u e s.
@@ -95,6 +84,7 @@ Module Make (FM : S with Definition E.t := uvar
     Hint Resolve -> raw_lookup_MapsTo.
     Hint Resolve -> raw_lookup_In.
 
+(*
     Lemma normalized_lift : forall s n e,
                               normalized s e <-> normalized s (lift 0 n e).
     Proof.
@@ -102,6 +92,9 @@ Module Make (FM : S with Definition E.t := uvar
       rewrite mentionsU_lift in *. eauto.
       eapply H. rewrite mentionsU_lift; eauto. eauto.
     Qed.
+*)
+
+    (* mentionsU and instantiate
 
     Lemma mentionsU_raw_subst_n_irr : forall u s e n n',
       mentionsU u (raw_subst s n e) = mentionsU u (raw_subst s n' e).
@@ -111,7 +104,9 @@ Module Make (FM : S with Definition E.t := uvar
       { destruct (raw_lookup u0 s); auto.
         repeat rewrite mentionsU_lift. auto. }
     Qed.
+*)
 
+(* normalized and instantiate
     Lemma wf_instantiate_normalized : forall s e n,
       WellFormed s ->
       normalized s (raw_subst s n e).
@@ -133,6 +128,7 @@ Module Make (FM : S with Definition E.t := uvar
         { simpl in *. consider (EqNat.beq_nat u0 u); intros.
           subst. eapply raw_lookup_In in H0. auto. } }
     Qed.
+*)
 
     Local Ltac think :=
       unfold raw_lookup in *; simpl in *; intros;
@@ -161,6 +157,7 @@ Module Make (FM : S with Definition E.t := uvar
       repeat (   (rewrite FACTS.add_eq_o by intuition)
               || (rewrite FACTS.add_neq_o by intuition)).
 
+(*
     Lemma raw_subst_add_not_mentions : forall k e e' s n,
       mentionsU k e = false ->
       raw_subst (FM.add k e' s) n  e = raw_subst s n e.
@@ -174,26 +171,34 @@ Module Make (FM : S with Definition E.t := uvar
       { consider (EqNat.beq_nat k u); try congruence; intros.
         reducer. auto. }
     Qed.
+*)
 
-    Definition raw_substD us vs (sub : raw) : Prop :=
+    Definition raw_substD (tus tvs : list typ) (sub : raw)
+    : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop) :=
       FM.fold (fun k v P =>
-                 match nth_error us k with
-                   | None => False
-                   | Some (existT T val) => match exprD us vs v T with
-                                              | Some val' => val = val' /\ P
-                                              | None => False
-                                            end
-                 end) sub True.
+                 match nth_error_get_hlist_nth _ tus k with
+                   | None => None
+                   | Some (existT T get) =>
+                     match exprD' tus tvs v T with
+                       | Some val' =>
+                         match P with
+                           | None => None
+                           | Some P =>
+                             Some (fun us vs => get us = val' us vs /\ P us vs)
+                         end
+                       | None => None
+                     end
+                 end) sub (Some (fun _ _ => True)).
 
     Record subst : Type :=
     { env : raw
     ; wf : WellFormed env
     }.
 
-    Definition subst_lookup (uv : uvar) (s : subst) : option (expr func) :=
+    Definition subst_lookup (uv : uvar) (s : subst) : option expr :=
       raw_lookup uv s.(env).
 
-    Definition subst_subst (s : subst) : nat -> expr func -> expr func :=
+    Definition subst_subst (s : subst) : nat -> expr -> expr :=
       raw_subst s.(env).
 
     Theorem MapsTo_map_add : forall T U k (v : T) f k' (v' : U) m,
@@ -212,6 +217,7 @@ Module Make (FM : S with Definition E.t := uvar
         intuition. subst. exists x. intuition. }
     Qed.
 
+(*
     Lemma normalized_App : forall s l r,
       normalized s (App l r) <-> (normalized s l /\ normalized s r).
     Proof.
@@ -225,7 +231,9 @@ Module Make (FM : S with Definition E.t := uvar
         { intro X; specialize (H0 _ X); auto. }
         { intros ? X; specialize (H1 _ X); auto. } }
     Qed.
+*)
 
+(* normalized and instantiate
     Lemma raw_subst_normalized : forall r e n,
       normalized r e ->
       raw_subst r n e = e.
@@ -241,7 +249,9 @@ Module Make (FM : S with Definition E.t := uvar
       2: exists e; eauto.
       consider (EqNat.beq_nat u u); auto.
     Qed.
+*)
 
+(*
     Lemma raw_subst_idem : forall e b c d,
       WellFormed c ->
       raw_subst c b (raw_subst c d e) = raw_subst c d e.
@@ -249,7 +259,9 @@ Module Make (FM : S with Definition E.t := uvar
       intros.
       erewrite raw_subst_normalized; auto using wf_instantiate_normalized.
     Qed.
+*)
 
+(*
     Lemma mentionsU_add_normalized : forall u e s x n,
       normalized s x ->
       raw_subst (FM.add u e s) n x =
@@ -271,6 +283,7 @@ Module Make (FM : S with Definition E.t := uvar
         consider (EqNat.beq_nat u0 u0); try congruence.
         exists e0. eauto. }
     Qed.
+*)
 
     Ltac go :=
       repeat match goal with
@@ -278,6 +291,7 @@ Module Make (FM : S with Definition E.t := uvar
                  destruct H
              end.
 
+(*
     Lemma mentionsU_subst : forall s u x n,
       mentionsU u (raw_subst s n x) = true <->
       (mentionsU u x = true /\ ~FM.In u s \/
@@ -327,12 +341,14 @@ Module Make (FM : S with Definition E.t := uvar
             consider (EqNat.beq_nat x u0); intros; subst.
             exfalso. apply H. exists x0; eauto. } } }
     Qed.
+*)
 
     Theorem raw_set_WellFormed : forall u e s s',
       raw_set u e s = Some s' ->
       WellFormed s ->
       WellFormed s'.
     Proof.
+(*
       unfold raw_set; intros.
       consider (mentionsU u (raw_subst s 0 e)); try congruence; intros.
       inv_all; subst.
@@ -374,22 +390,27 @@ Module Make (FM : S with Definition E.t := uvar
             generalize (@wf_instantiate_normalized s e 0 H0); intros.
             eapply H in H6. apply H6. eexists; eauto. }
           { apply FACTS.empty_mapsto_iff in H9. auto. } } }
-    Qed.
+*)
+    Admitted.
 
-    Definition subst_set (u : uvar) (e : expr func) (s : subst) : option subst :=
+    Definition subst_set (u : uvar) (e : expr) (s : subst) : option subst :=
       match raw_set u e s.(env) as v return raw_set u e s.(env) = v -> option subst with
         | None => fun _ => None
         | Some s' => fun pf => Some {| env := s'
                                      ; wf := @raw_set_WellFormed _ _ _ _ pf s.(wf) |}
       end eq_refl.
 
+(*
     Definition subst_substD us vs (sub : subst) : Prop :=
       raw_substD us vs sub.(env).
+*)
 
+(*
     Definition subst_WellTyped tus tvs (sub : subst) : Prop :=
       raw_WellTyped tus tvs sub.(env).
+*)
 
-    Lemma wf_empty : WellFormed (FM.empty (expr func)).
+    Lemma wf_empty : WellFormed (FM.empty expr).
     Proof.
       red. red. intros.
       intro.
@@ -399,116 +420,407 @@ Module Make (FM : S with Definition E.t := uvar
     Definition subst_empty : subst :=
     {| env := FM.empty _ ; wf := wf_empty |}.
 
-    Instance Subst_subst : Subst subst (expr func) :=
-    { lookup := subst_lookup
-    ; set := subst_set
-    ; empty := subst_empty
+    Instance Subst_subst : Subst raw expr :=
+    { lookup := raw_lookup
+    ; domain := fun x => List.map (@fst _ _) (FM.elements x)
     }.
 
-    Section semantic.
+    Instance SubstUpdate_subst : SubstUpdate raw expr :=
+    { set := raw_set
+    ; pull := fun _ _ _ => None
+    ; empty := FM.empty _
+    }.
 
-      Lemma raw_substD_sem : forall (us vs : EnvI.env (typD ts)) s,
-        raw_substD us vs s <->
-        (forall uv e,
+    Lemma None_becomes_None
+    : forall tus tvs l, fold_left
+         (fun
+            (a0 : option
+                    (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop))
+            (p : FM.key * expr) =>
+          match nth_error_get_hlist_nth (typD nil) tus (fst p) with
+          | Some (existT T get) =>
+              match exprD' tus tvs (snd p) T with
+              | Some val' =>
+                  match a0 with
+                  | Some P1 =>
+                      Some
+                        (fun (us : hlist (typD nil) tus)
+                           (vs : hlist (typD nil) tvs) =>
+                         get us = val' us vs /\ P1 us vs)
+                  | None => None
+                  end
+              | None => None
+              end
+          | None => None
+          end) l None = None.
+    Proof.
+      clear. induction l; simpl; auto.
+      forward.
+    Qed.
+
+    Lemma substD_weaken
+    : forall (tus tvs : tenv typ) (tus' tvs' : list typ) (s : raw)
+             (sD : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop),
+        raw_substD tus tvs s = Some sD ->
+        exists
+          sD' : hlist (typD nil) (tus ++ tus') ->
+                hlist (typD nil) (tvs ++ tvs') -> Prop,
+          raw_substD (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
+          (forall (us : hlist (typD nil) tus) (us' : hlist (typD nil) tus')
+                  (vs : hlist (typD nil) tvs) (vs' : hlist (typD nil) tvs'),
+             sD us vs <-> sD' (hlist_app us us') (hlist_app vs vs')).
+    Proof.
+      intros.
+      unfold raw_substD in *.
+      rewrite FM.fold_1 in *.
+      revert H.
+      match goal with
+        | |- fold_left _ _ (Some ?X) = _ -> ?G =>
+          match G with
+            | context [ fold_left _ _ (Some ?Y) ] =>
+              remember X ; remember Y (*;
+              assert (forall us vs us' vs',
+                X us vs <-> Y (hlist_app us us') (hlist_app vs vs')) by reflexivity ;
+              generalize dependent X ; generalize dependent Y
+ *)
+          end
+      end.
+      assert (forall us vs us' vs',
+                P us vs <-> P0 (hlist_app us us') (hlist_app vs vs')).
+      { subst. reflexivity. }
+      clear HeqP HeqP0.
+      generalize dependent P; revert P0; revert sD.
+      induction (FM.elements s); simpl.
+      { intros. inv_all; subst.
+        eexists; split; eauto. }
+      { intros.
+        match goal with
+          | H : fold_left _ _ ?X = Some _ |- _ =>
+            consider X; intros ; try solve [ rewrite None_becomes_None in *; congruence ]
+        end.
+        forward. inv_all; subst.
+
+        eapply nth_error_get_hlist_nth_weaken with (ls' := tus') in H2.
+        simpl in *.
+        eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H3; eauto with typeclass_instances.
+        forward_reason.
+        Cases.rewrite_all_goal.
+        eapply IHl in H1; eauto with typeclass_instances.
+        clear H1. intros. simpl.
+        erewrite H; clear H. erewrite H3; clear H3.
+        erewrite H4; clear H4. reflexivity. }
+    Qed.
+
+    Lemma substD_lookup
+    : forall (s : raw) (uv : nat) (e : expr),
+        WellFormed s ->
+        lookup uv s = Some e ->
+        forall (tus tvs : tenv typ)
+               (sD : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop),
+          raw_substD tus tvs s = Some sD ->
+          exists
+            (t : typ) (val : hlist (typD nil) tus ->
+                             hlist (typD nil) tvs -> typD nil t)
+            (pf : Some t = nth_error tus uv),
+            exprD' tus tvs e t = Some val /\
+            (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+               sD us vs ->
+               hlist_nth us uv =
+               match
+                 pf in (_ = t0)
+                 return match t0 with
+                          | Some x => typD nil x
+                          | None => unit
+                        end
+               with
+                 | eq_refl => val us vs
+               end).
+    Proof.
+      intros.
+      unfold raw_substD in *.
+      match goal with
+        | H : FM.fold _ _ (Some ?X) = _ |- _ =>
+          generalize dependent X
+      end.
+      revert sD.
+      generalize dependent s. intro s.
+      intro H.
+      eapply PROPS.map_induction with (m := s).
+      { simpl; intros.
+        exfalso. clear - H0 H1.
+        unfold raw_lookup in H1.
+        red in H0.
+        eapply FM.find_2 in H1.
+        eapply H0. eauto. }
+      { intros.
+        generalize H2.
+        match goal with
+          | H : FM.fold ?F _ ?R = _ |- _ =>
+            eapply PROPS.fold_Add
+            with (eqA := fun (a b : option (hlist _ tus -> hlist _ tvs -> Prop)) =>
+                           match a , b with
+                             | None , None => True
+                             | Some a , Some b =>
+                               forall us vs, a us vs <-> b us vs
+                             | _ , _ => False
+                           end)
+                   (f := F) (i := R) in H2
+        end; eauto.
+        { simpl in H3. unfold raw_lookup in H3.
+          intro. red in H5.
+          rewrite H5 in H3; clear H5.
+          erewrite FACTS.add_o in H3.
+          consider (FM.E.eq_dec x uv).
+          { red in e1. intros; inv_all; subst.
+            progress forward.
+            inv_all; subst.
+            eapply nth_error_get_hlist_nth_Some in H6; simpl in *;
+            forward_reason.
+            do 3 eexists; split; eauto.
+            instantiate (1 := eq_sym x0).
+            intros. eapply H5 in H4; clear H5.
+            destruct H4.
+            rewrite <- H4. rewrite H3. clear.
+            destruct x0. reflexivity. }
+          { intro. forward; inv_all; subst.
+            specialize (H0 H3 _ _ H9); clear H2 H9.
+            forward_reason.
+            do 3 eexists; split; eauto.
+            intros. eapply H2.
+            apply H6 in H4; intuition. } }
+        { constructor; repeat red; intros; subst.
+          destruct x0; intuition.
+          destruct x0; destruct y; auto. symmetry; auto.
+          destruct x0; destruct y; destruct z; intuition.
+          eapply H6. eapply H5. auto.
+          eapply H5. eapply H6. auto. }
+        { clear. repeat red. simpl; intros.
+          match goal with
+            | |- match match ?X with _ => _ end with _ => _ end =>
+              change X with (nth_error_get_hlist_nth (typD nil) tus x)
+          end.
+          subst.
+          forward.
+          destruct (nth_error_get_hlist_nth (typD nil) tus y);
+            forward.
+          subst.
+          destruct x1; destruct y1; auto.
+          intros. rewrite H1. reflexivity. }
+        { clear. red; intros.
+          repeat match goal with
+                   | |- context [ match ?X with _ => _ end ] =>
+                     match X with
+                       | match _ with _ => _ end => fail 1
+                       | _ => consider X; intros
+                     end
+                 end; auto.
+          subst. intuition. } }
+    Qed.
+
+    Lemma WellFormed_domain
+    : forall (s : raw) (ls : list nat),
+        WellFormed s ->
+        map fst (FM.elements s) = ls ->
+        forall n : nat, In n ls <-> raw_lookup n s <> None.
+    Proof.
+      clear. intros.
+      subst. rewrite in_map_iff.
+      unfold raw_lookup. split; intros.
+      { destruct H0. intuition; subst.
+        eapply FACTS.not_find_in_iff in H1. apply H1.
+        red. exists (snd x).
+        eapply FM.elements_2. clear - H3.
+        induction (FM.elements s).
+        { inversion H3. }
+        { inversion H3. subst. left. destruct x; simpl. compute. auto.
+          right. auto. } }
+      { consider (FM.find n s); intros; try congruence.
+        eapply FM.find_2 in H0.
+        exists (n,e). split; auto.
+        eapply FM.elements_1 in H0.
+        clear - H0.
+        induction H0.
+        { inversion H. red in H0. simpl in *. subst. destruct y; auto. }
+        { right; auto. } }
+    Qed.
+
+    Instance SubstOk_subst : SubstOk Expr_expr Subst_subst :=
+    {| WellFormed_subst := WellFormed
+     ; substD := raw_substD
+     ; substD_weaken := substD_weaken
+     ; substD_lookup := substD_lookup
+     ; WellFormed_domain := WellFormed_domain
+    |}.
+
+    Lemma WellFormed_empty : WellFormed_subst (FM.empty expr).
+    Proof.
+      compute. intros.
+      eapply FACTS.empty_mapsto_iff. eauto.
+    Qed.
+
+    Lemma substD_empty
+    : forall tus tvs : tenv typ,
+      exists P : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+        substD tus tvs (empty (expr:=expr)) = Some P /\
+        (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs), P us vs).
+    Proof.
+      clear. simpl; intros.
+      unfold raw_substD.
+      rewrite FM.fold_1.
+      cutrewrite (FM.elements (FM.empty expr) = nil).
+      { simpl. eexists; split; eauto. simpl. auto. }
+      { apply PROPS.elements_Empty.
+        eapply FM.empty_1. }
+    Qed.
+
+(*
+    Lemma raw_substD_add
+    : forall tus tvs uv e s,
+        raw_lookup uv s = None ->
+        exprD' tus tvs e t 
+        raw_substD tus tvs (FM.add uv e s) = Some sD ->
+        exists sD',
+          raw_substD tus tvs s = Some sD' /\
+          exists x,
+            nth_error_get_hlist_nth _ tus uv = Some x /\
+            forall us vs,
+              sD us vs <->
+              exprD (join_env us) (join_env vs) tvs e (projT1 x) = Some (projT2 x).
+    Proof.
+      intros.
+      rewrite raw_substD_sem in *.
+      unfold raw_lookup in *.
+      intuition.
+      specialize (H0 uv0 e0).
+      rewrite FACTS.add_o in *.
+      destruct (FM.E.eq_dec uv uv0).
+      { red in e1; subst. congruence. }
+      { destruct (H0 H1); intuition. }
+    Qed.
+*)
+
+    Lemma raw_substD_map
+    : forall tus tvs f s sD,
+        (forall uv e x val,
            raw_lookup uv s = Some e ->
-           exists v,
-             nth_error us uv = Some v /\
-             exprD us vs e (projT1 v) = Some (projT2 v)).
-      Proof.
-        simpl.
-        unfold raw_substD, raw_lookup.
-        simpl in *. intros us vs s.
-        cut True; auto. generalize True. intro.
-        eapply PROPS.map_induction with (m := s); intros.
-        { split; intros.
-          { eapply FM.find_2 in H2. eapply H in H2. intuition. }
-          { rewrite PROPS.fold_Empty; eauto with typeclass_instances. } }
-        { split; intros.
-          { rewrite PROPS.fold_Add in H3; eauto with typeclass_instances.
-            repeat match goal with
-                     | H : match ?X with _ => _ end |- _ =>
-                       consider X; intros; try contradiction
-                     | H : _ /\ _ |- _ => destruct H
-                   end; subst.
-            rewrite H1 in H4. rewrite FACTS.add_o in H4.
-            destruct (FM.E.eq_dec x uv); unfold FM.E.eq in *; subst.
-            { rewrite H5. eexists. split; eauto.
-              inv_all; subst. simpl. eauto. }
-            { eapply H; eauto. }
-            { repeat (red; intros; subst);
-              repeat match goal with
-                       | |- context [ match ?X with _ => _ end ] => destruct X
-                     end; intuition. }
-            { repeat (red; intros; subst);
-              repeat match goal with
-                       | |- context [ match ?X with _ => _ end ] => destruct X
-                     end; intuition. } }
-          { specialize (H H2).
-            rewrite PROPS.fold_Add; eauto with typeclass_instances.
-            generalize (H3 x e); intros. rewrite H1 in H4. rewrite FACTS.add_o in H4.
-            destruct (FM.E.eq_dec x x); try congruence. specialize (H4 refl_equal).
-            destruct H4; intuition. rewrite H5.
-            destruct x0; simpl in *.
-            rewrite H6.
-            split; auto.
-            eapply H7. intros. eapply H3. rewrite H1.
-            rewrite FACTS.add_o.
-            destruct (FM.E.eq_dec x uv);
-              unfold FM.E.eq in *; auto. subst. exfalso. apply H0.
-            exists e1. apply FACTS.find_mapsto_iff; auto.
-            { repeat (red; intros; subst);
-              repeat match goal with
-                       | |- context [ match ?X with _ => _ end ] => destruct X
-                     end; intuition. }
-            { repeat (red; intros; subst);
-              repeat match goal with
-                       | |- context [ match ?X with _ => _ end ] => destruct X
-                     end; intuition. } } }
-      Qed.
+           nth_error tus uv = Some x ->
+           exprD' tus tvs (f e) x = Some val ->
+           exists val',
+             exprD' tus tvs e x = Some val' /\
+             forall us vs, val us vs = val' us vs) ->
+        raw_substD tus tvs (FM.map f s) = Some sD ->
+        exists sD',
+          raw_substD tus tvs s = Some sD' /\
+          forall us vs,
+            sD us vs <-> sD' us vs.
+    Proof.
+(*
+      intros.
+      SearchAbout raw_substD.
+      rewrite raw_substD_sem in *.
+      intros. specialize (H0 uv (f e)).
+      unfold raw_lookup in *.
+      rewrite FACTS.map_o in H0. rewrite H1 in *.
+      specialize (H0 eq_refl).
+      destruct H0; intuition.
+      rewrite H2.
+      eexists; split; eauto.
+*)
+    Admitted.
 
-      Theorem substD_sem : forall (us vs : EnvI.env (typD ts)) (s : subst),
-        subst_substD us vs s <->
-        (forall uv e,
-           lookup uv s = Some e ->
-           exists v,
-             nth_error us uv = Some v /\
-             exprD us vs e (projT1 v) = Some (projT2 v)).
+(*
+      Theorem substD_set : forall (uv : nat) (e : expr _) (s s' : subst) u v,
+        subst_substD u v s' ->
+        lookup uv s = None ->
+        set uv e s = Some s' ->
+        subst_substD u v s /\
+        (forall tv : sigT (typD ts nil),
+           nth_error u uv = Some tv ->
+           exprD u v e (projT1 tv) = Some (projT2 tv)).
       Proof.
-        destruct s; simpl.
-        unfold subst_substD, subst_lookup.
-        simpl in *. eauto using raw_substD_sem.
+        simpl. unfold subst_set, subst_lookup.
+        intros. revert H1. destruct s; destruct s'; simpl in *.
+        gen_refl. unfold subst_substD in *; simpl in *.
+        generalize (@raw_set_WellFormed uv e env0).
+        remember (raw_set uv e env0).
+        destruct o; try congruence.
+        intros; inv_all; subst.
+        inversion H1; clear H1; subst. clear e0 w.
+        unfold raw_set in *.
+        consider (mentionsU uv (raw_subst env0 0 e)); try congruence.
+        intros. inv_all; subst.
+        eapply raw_substD_map in H.
+        eapply raw_substD_add in H; eauto.
+        { intuition.
+          destruct H3. intuition.
+          rewrite H in H4. inv_all; subst; auto.
+          rewrite (@raw_substD_exprD _ _ _ (projT1 x) e H2) in H5.
+          auto. }
+        { intros. unfold raw_lookup in *.
+          rewrite FACTS.add_o in *.
+          destruct (FM.E.eq_dec uv uv0).
+          { inv_all; subst.
+            rewrite raw_subst_add_not_mentions in H4 by eauto.
+            rewrite raw_subst_idem in *; eauto. }
+          { rewrite raw_substD_sem in H.
+            specialize (H uv).
+            unfold raw_lookup in *.
+            rewrite FACTS.map_o in H. rewrite FACTS.add_o in H.
+            destruct (FM.E.eq_dec uv uv).
+            2: red in n0; congruence.
+            specialize (H _ eq_refl).
+            destruct H; intuition; inv_all; subst.
+            etransitivity; [ | eassumption ].
+            rewrite (@raw_subst_exprD_add uv u v (raw_subst env0 0 e) env0 x0 e0 (projT1 x) H0 H5).
+            rewrite raw_subst_normalized by eauto. reflexivity.
+            rewrite raw_subst_add_not_mentions in * by eauto.
+            rewrite raw_subst_idem in * by eauto. auto. } }
       Qed.
+*)
 
-      Lemma raw_subst_typeof : forall u e v v' s,
-        raw_WellTyped u v s ->
-        typeof_expr u (v' ++ v) (raw_subst s (length v') e) =
-        typeof_expr u (v' ++ v) e.
-      Proof.
-        induction e; simpl; intros;
-        repeat match goal with
-                 | H : _ |- _ =>
-                   rewrite H by eauto
-               end; eauto.
-        { change (t :: v' ++ v) with ((t :: v') ++ v).
-          change (S (length v')) with (length (t :: v')).
-          rewrite IHe; eauto. }
-        { consider (raw_lookup u0 s); intros.
-          red in H. edestruct H; eauto with typeclass_instances.
-          intuition. unfold WellTyped_expr in *.
-          rewrite (typeof_expr_lift _ u nil v' v).
-          simpl; auto. etransitivity; eauto.
-          reflexivity. }
-      Qed.
+    Lemma substD_set
+    : forall (uv : nat) (e : expr) (s s' : raw),
+        set uv e s = Some s' ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        (forall (tus tvs : tenv typ) (t : typ)
+                (val : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t)
+                (sD : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop),
+           substD tus tvs s = Some sD ->
+           forall pf : Some t = nth_error tus uv,
+             exprD' tus tvs e t = Some val ->
+             exists sD' : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+               substD tus tvs s' = Some sD' /\
+               (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+                  sD' us vs ->
+                  sD us vs /\
+                  hlist_nth us uv =
+                  match
+                    pf in (_ = t0)
+                    return match t0 with
+                             | Some x => typD nil x
+                             | None => unit
+                           end
+                  with
+                    | eq_refl => val us vs
+                  end)).
+    Proof.
+      unfold set; simpl; intros. unfold raw_set in *.
+      forward. inv_all; subst.
+      split.
+      { admit. }
+      { intros. admit. }
+    Qed.
 
-      Lemma subst_subst_typeof : forall u e v v' s,
-        subst_WellTyped u v s ->
-        typeof_expr u (v' ++ v) (subst_subst s (length v') e) =
-        typeof_expr u (v' ++ v) e.
-      Proof.
-        unfold subst_WellTyped, subst_subst. destruct s; simpl.
-        auto using raw_subst_typeof.
-      Qed.
-
+    Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
+    {| WellFormed_empty := WellFormed_empty
+     ; substD_empty := substD_empty
+     |}.
+    admit.
+    admit.
+    Qed.
+(*
+(*
       Global Instance Injective_typ_cast_typ_hetero_Some ts a b c p :
         Injective (typ_cast_typ ts a b c = Some p) :=
         { result := exists pf : b = c,
@@ -525,6 +837,7 @@ Module Make (FM : S with Definition E.t := uvar
 
       Hint Extern 1 (Injective (@typ_cast_typ ?ts ?F ?env ?a ?b = Some ?c)) =>
       exact (@Injective_typ_cast_typ_hetero_Some ts F env a b c) : typeclass_instances.
+*)
 
       Lemma substD_subst_lem : forall u v' s e t,
         subst_substD u v' s ->
@@ -626,28 +939,6 @@ Module Make (FM : S with Definition E.t := uvar
 *)
       Admitted.
 
-      Theorem substD_lookup : forall (u v : EnvI.env (typD ts)) s uv e,
-        lookup uv s = Some e ->
-        subst_substD u v s ->
-        exists val : sigT (typD ts nil),
-          nth_error u uv = Some val /\
-          exprD u v e (projT1 val) = Some (projT2 val).
-      Proof.
-        intros. eapply substD_sem in H0; eauto.
-      Qed.
-
-      Theorem WellTyped_lookup : forall (u v : tenv typ) s uv e t,
-        subst_WellTyped u v s ->
-        nth_error u uv = Some t ->
-        lookup uv s = Some e ->
-        ExprI.Safe_expr (Expr := @ExprD.Expr_expr ts _ _) u v e t.
-      Proof.
-        simpl in *.
-        unfold subst_WellTyped, raw_WellTyped, subst_lookup, raw_lookup; intros.
-        eapply FM.find_2 in H1. eapply H in H1.
-        rewrite H0 in H1. destruct H1; intuition; inv_all; subst; auto.
-      Qed.
-
       Lemma ex_iff : forall T (P Q : T -> Prop),
         (forall x, P x <-> Q x) -> ((exists x, P x) <-> (exists y, Q y)).
       Proof.
@@ -655,7 +946,7 @@ Module Make (FM : S with Definition E.t := uvar
         { destruct H0. exists x. eapply H; eauto. }
         { destruct H0. exists x. eapply H; eauto. }
       Qed.
-
+(*
       Lemma WellTyped_raw_subst_add : forall u s v uv e' t' e v' t,
         raw_WellTyped u v s ->
         nth_error u uv = Some t' ->
@@ -718,7 +1009,9 @@ Module Make (FM : S with Definition E.t := uvar
           unfold WellTyped_expr. generalize (@typeof_expr_lift _ _ _ u nil v' v e).
           simpl. intro X; rewrite X. eapply H3. }
       Qed.
+*)
 
+(*
       Lemma WellTyped_raw_subst_add_new : forall u s v uv e' t' e v',
         raw_lookup uv s = None ->
         nth_error u uv = Some t' ->
@@ -748,6 +1041,7 @@ Module Make (FM : S with Definition E.t := uvar
           intro X; rewrite X; clear X.
           rewrite H1. rewrite H0. reflexivity. }
       Qed.
+*)
 
       Theorem WellTyped_set : forall (uv : nat) (e : expr _) (s s' : subst) u v t,
         subst_WellTyped u v s ->
@@ -1201,107 +1495,7 @@ Module Make (FM : S with Definition E.t := uvar
       Qed. *)
       Admitted.
 
-      Lemma raw_substD_add : forall u v uv e s,
-        raw_lookup uv s = None ->
-        raw_substD u v (FM.add uv e s) ->
-        raw_substD u v s /\
-        exists x,
-          nth_error u uv = Some x /\
-          exprD u v e (projT1 x) = Some (projT2 x).
-      Proof.
-        intros.
-        rewrite raw_substD_sem in *.
-        unfold raw_lookup in *.
-        intuition.
-        specialize (H0 uv0 e0).
-        rewrite FACTS.add_o in *.
-        destruct (FM.E.eq_dec uv uv0).
-        { red in e1; subst. congruence. }
-        { destruct (H0 H1); intuition. }
-      Qed.
-
-      Lemma raw_substD_map : forall u v f s,
-         (forall uv e x,
-            raw_lookup uv s = Some e ->
-            nth_error u uv = Some x ->
-            exprD u v (f e) (projT1 x) = Some (projT2 x) ->
-            exprD u v e (projT1 x) = Some (projT2 x)) ->
-         raw_substD u v (FM.map f s) ->
-         raw_substD u v s.
-      Proof.
-        intros.
-        rewrite raw_substD_sem in *.
-        intros. specialize (H0 uv (f e)).
-        unfold raw_lookup in *.
-        rewrite FACTS.map_o in H0. rewrite H1 in *.
-        specialize (H0 eq_refl).
-        destruct H0; intuition.
-        rewrite H2.
-        eexists; split; eauto.
-      Qed.
-
-      Theorem substD_set : forall (uv : nat) (e : expr _) (s s' : subst) u v,
-        subst_substD u v s' ->
-        lookup uv s = None ->
-        set uv e s = Some s' ->
-        subst_substD u v s /\
-        (forall tv : sigT (typD ts nil),
-           nth_error u uv = Some tv ->
-           exprD u v e (projT1 tv) = Some (projT2 tv)).
-      Proof.
-        simpl. unfold subst_set, subst_lookup.
-        intros. revert H1. destruct s; destruct s'; simpl in *.
-        gen_refl. unfold subst_substD in *; simpl in *.
-        generalize (@raw_set_WellFormed uv e env0).
-        remember (raw_set uv e env0).
-        destruct o; try congruence.
-        intros; inv_all; subst.
-        inversion H1; clear H1; subst. clear e0 w.
-        unfold raw_set in *.
-        consider (mentionsU uv (raw_subst env0 0 e)); try congruence.
-        intros. inv_all; subst.
-        eapply raw_substD_map in H.
-        eapply raw_substD_add in H; eauto.
-        { intuition.
-          destruct H3. intuition.
-          rewrite H in H4. inv_all; subst; auto.
-          rewrite (@raw_substD_exprD _ _ _ (projT1 x) e H2) in H5.
-          auto. }
-        { intros. unfold raw_lookup in *.
-          rewrite FACTS.add_o in *.
-          destruct (FM.E.eq_dec uv uv0).
-          { inv_all; subst.
-            rewrite raw_subst_add_not_mentions in H4 by eauto.
-            rewrite raw_subst_idem in *; eauto. }
-          { rewrite raw_substD_sem in H.
-            specialize (H uv).
-            unfold raw_lookup in *.
-            rewrite FACTS.map_o in H. rewrite FACTS.add_o in H.
-            destruct (FM.E.eq_dec uv uv).
-            2: red in n0; congruence.
-            specialize (H _ eq_refl).
-            destruct H; intuition; inv_all; subst.
-            etransitivity; [ | eassumption ].
-            rewrite (@raw_subst_exprD_add uv u v (raw_subst env0 0 e) env0 x0 e0 (projT1 x) H0 H5).
-            rewrite raw_subst_normalized by eauto. reflexivity.
-            rewrite raw_subst_add_not_mentions in * by eauto.
-            rewrite raw_subst_idem in * by eauto. auto. } }
-      Qed.
-
-      Theorem substD_empty : forall u v,
-        subst_substD u v subst_empty.
-      Proof.
-        red. red. simpl. intros. rewrite FM.fold_1.
-        rewrite PROPS.elements_empty. simpl. exact I.
-      Qed.
-
-      Theorem WellTyped_empty : forall u v,
-        subst_WellTyped u v subst_empty.
-      Proof.
-        red. red. simpl; intros.
-        exfalso.
-        eapply FACTS.empty_mapsto_iff in H. assumption.
-      Qed.
+      
 
       Instance SubstOk_subst : @SubstOk _ _ _ _ (@ExprD.Expr_expr ts _ _)  Subst_subst :=
       { substD := subst_substD
@@ -1318,6 +1512,8 @@ Module Make (FM : S with Definition E.t := uvar
 
     End semantic.
   End hide_hints.
+*)
+  End exprs.
 End Make.
 
 Require FSets.FMapAVL.
