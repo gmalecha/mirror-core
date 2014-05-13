@@ -319,10 +319,6 @@ Section setoid.
         destruct H8.
         eapply instantiates_R_to_PR in H6; subst.
         intuition.
-(*
-        specialize (H7 _ H6).
-        specialize (H8 _ H6).
-*)
         forward. red_exprD. forward; inv_all; subst.
         change ((fix typeForR (r : R) : typ :=
              match r with
@@ -333,14 +329,6 @@ Section setoid.
         rewrite H11 in H8.
         rewrite H10 in H7.
         uip_all.
-(*        
-        assert (t3 = typeForR l).
-        { eapply typeof_expr_exprD_same_type with (us := us) (vs := join_env vs) (e := e2).
-          unfold exprD. rewrite split_env_join_env. rewrite H12. reflexivity.
-          rewrite typeof_env_join_env.
-          apply WellTyped_env_typeof_env in H6; subst; auto. } 
-        subst.
-        rewrite H12 in *. rewrite H11 in *. *)
         replace tvs with (typeof_env (join_env vs)) in H5 by apply typeof_env_join_env.
         replace tus with (typeof_env (join_env us)) in H5 by apply typeof_env_join_env.
         specialize (@Happ _ _ _ _ _ _ _ H5).
