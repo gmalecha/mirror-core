@@ -46,6 +46,7 @@ Section parameterized.
   ; ExternOk : @EProverOk _ (typD ts) (expr func) _ tyProp (fun x => x) h.(Extern)
   }.
 
+  (** TODO: This is essentially [filter_map] **)
   Section get_applicable.
     Variable subst : Type.
     Variable Subst_subst : Subst subst (expr func).
@@ -75,19 +76,7 @@ Section parameterized.
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
 
-  Lemma nth_error_join_env
-  : forall ls (hls : HList.hlist (typD ts nil) ls) v t,
-      nth_error ls v = Some t ->
-      exists val,
-        nth_error (EnvI.join_env hls) v = Some (@existT _ _ t val).
-  Proof.
-    clear.
-    induction hls; simpl; intros.
-    { destruct v; inversion H. }
-    { destruct v; simpl in *; eauto.
-      inversion H; clear H; subst. eauto. }
-  Qed.
-
+  (** TODO: Move this to [LemmaApply].v **)
   Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
              (lem : lemma typ (expr func) (expr func)) (e : expr func)
   : option subst :=
@@ -252,8 +241,6 @@ Section parameterized.
                        ]
            end.
 
-  Opaque Traversable.mapT impls.
-
   Lemma applicable_sound
   : forall s tus tvs l0 g s1,
       applicable s tus tvs l0 g = Some s1 ->
@@ -328,6 +315,8 @@ Section parameterized.
       eassumption. }
     { eapply H6. eapply H11. }
   Qed.
+
+  Opaque Traversable.mapT impls.
 
   Lemma exprD'_instantiate_subst_Some
   : forall tus tvs tvs' sub e t eD sD,

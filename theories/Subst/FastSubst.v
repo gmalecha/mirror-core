@@ -8,6 +8,7 @@ Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI2.
+Require Import MirrorCore.Util.Iteration.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -582,16 +583,6 @@ Section parametric.
 
   Definition fast_subst_pull (base : uvar) := fast_subst_pull' (to_key base).
 
-  Fixpoint filter_map T U (f : T -> option U) (ls : list T) : list U :=
-    match ls with
-      | nil => nil
-      | l :: ls => match f l with
-                     | None => filter_map f ls
-                     | Some x => x :: filter_map f ls
-                   end
-    end.
-
-
   Instance Subst_fast_subst : Subst fast_subst expr :=
   { lookup := fast_subst_lookup
   ; domain := fun x => filter_map (fun x =>
@@ -752,24 +743,6 @@ Section parametric.
     simpl in *.
     forward. subst.
     rewrite to_key_from_key in *. eauto.
-  Qed.
-
-  Lemma in_filter_map_iff : forall T U (P : T -> option U) ls x,
-                              List.In x (filter_map P ls) <->
-                              exists y, P y = Some x /\ List.In y ls.
-  Proof.
-    clear.
-    induction ls; simpl.
-    { intuition. destruct H; intuition. }
-    { intuition.
-      { consider (P a); intros.
-        { destruct H0. subst. eauto.
-          eapply IHls in H0. destruct H0. intuition; eauto. }
-        { eapply IHls in H0. destruct H0; intuition; eauto. } }
-      { destruct H. destruct H.
-        destruct H0; subst.
-        { rewrite H. left. auto. }
-        { destruct (P a); try right; apply IHls; eauto. } } }
   Qed.
 
   Lemma WellFormed_domain_fast_subst
