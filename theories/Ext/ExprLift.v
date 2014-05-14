@@ -1,17 +1,18 @@
-Require Import List.
+(** Lifting and lowering expressions for binder manipulation.
+ **)
+Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.Cases.
-Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
+Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprTactics.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprD.
 
-(** TODO : Temporary **)
 Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
@@ -21,6 +22,7 @@ Section typed.
   Variable ts : types.
   Variable func : Type.
 
+  (** NOTE: This is a local definition, you should avoid using it directly **)
   Fixpoint lift' (s l : nat) (e : expr func) : expr func :=
     match e with
       | Var v =>
@@ -32,12 +34,18 @@ Section typed.
       | UVar u => e
     end.
 
+  (** [lift s l e]
+   ** skips [s] variables, and adds [l] new binders.
+   **   us , vs ++ vs'' ===> us , vs ++ vs' ++ vs''
+   ** where [length vs = s] and [length vs' = l]
+   **)
   Definition lift (s l : nat) : expr func -> expr func :=
     match l with
       | 0 => fun x => x
       | _ => lift' s l
     end.
 
+  (** NOTE: This is a local definition, you should avoid using it directly **)
   Fixpoint lower' (s l : nat) (e : expr func) : option (expr func) :=
     match e with
       | Var v =>
@@ -58,6 +66,11 @@ Section typed.
       | UVar u => Some e
     end.
 
+  (** [lower s l e]
+   ** forgets binders and fails if they are mentioned
+   **   us , vs ++ vs' ++ vs'' ===> us , vs ++ vs''
+   ** where [length vs = s] and [length vs' = l]
+   **)
   Definition lower s l : expr func -> option (expr func) :=
     match l with
       | 0 => @Some _
@@ -93,7 +106,7 @@ Section typed.
   Lemma lift'_lift' : forall e a b d,
     lift' a b (lift' a d e) = lift' a (b + d) e.
   Proof.
-    induction e; simpl; intros; Cases.rewrite_all; eauto.
+    induction e; simpl; intros; Cases.rewrite_all_goal; eauto.
     { remember (NPeano.ltb v a). destruct b0.
       { simpl. rewrite <- Heqb0. reflexivity. }
       { simpl.
@@ -111,6 +124,21 @@ Section typed.
     f_equal. omega.
     rewrite lift'_lift'.
     f_equal.
+  Qed.
+
+  Theorem lift_lift_1 : forall a b c t,
+    lift a (b + c) t = lift (a + b) c (lift a b t).
+  Proof.
+    intros; repeat rewrite lift_lift'.
+    revert a b c.
+    induction t; simpl; intros; auto.
+    { consider (NPeano.ltb v a); simpl; intros.
+      { consider (NPeano.ltb v (a + b)); auto. intros. exfalso; omega. }
+      { consider (NPeano.ltb (v + b) (a + b)); intros.
+        exfalso; omega.
+        f_equal. omega. } }
+    { rewrite IHt1. rewrite IHt2. reflexivity. }
+    { rewrite IHt. reflexivity. }
   Qed.
 
   Theorem lift_lower : forall e s l,
@@ -159,6 +187,8 @@ Section typed.
   Qed.
 
   Variable RSym_func : RSym (typD ts) func.
+  Let Expr_expr : Expr (typD ts) (expr func) := Expr_expr _.
+  Local Existing Instance Expr_expr.
 
   Lemma typeof_expr_lift : forall us vs vs' vs'' e,
     ExprT.typeof_expr us (vs ++ vs' ++ vs'') (lift (length vs) (length vs') e) =
@@ -210,18 +240,31 @@ Section typed.
       erewrite IHe by eauto. reflexivity. }
   Qed.
 
-  Lemma exprD'_lower : forall us vs vs' vs'' e e0 t,
-                         lower (length vs) (length vs') e = Some e0 ->
-                         match exprD' us (vs ++ vs' ++ vs'') e t
-                             , exprD' us (vs ++ vs'') e0 t
-                         with
-                           | None , None => True
-                           | Some l , Some r =>
-                             forall VS VS' VS'',
-                               l (hlist_app VS (hlist_app VS' VS'')) =
-                               r (hlist_app VS VS'')
-                           | _ , _ => False
-                         end.
+  Lemma nth_error_length_lt
+  : forall {T} (ls : list T) n val,
+      nth_error ls n = Some val ->
+      n < length ls.
+  Proof.
+    induction ls; destruct n; simpl; intros; auto.
+    { inversion H. }
+    { inversion H. }
+    { omega. }
+    { apply Lt.lt_n_S. eauto. }
+  Qed.
+
+  Lemma exprD'_lower
+  : forall us vs vs' vs'' e e0 t,
+      lower (length vs) (length vs') e = Some e0 ->
+      match exprD' us (vs ++ vs' ++ vs'') e t
+          , exprD' us (vs ++ vs'') e0 t
+      with
+        | None , None => True
+        | Some l , Some r =>
+          forall US VS VS' VS'',
+            l US (hlist_app VS (hlist_app VS' VS'')) =
+            r US (hlist_app VS VS'')
+        | _ , _ => False
+      end.
   Proof.
     Opaque exprD exprD'.
     intros us vs vs' vs'' e e0 t H.
@@ -271,417 +314,66 @@ Section typed.
           { exfalso. clear - H Heqe.
             symmetry in Heqe. apply nth_error_length_ge in Heqe.
             omega. } }
-        revert H0 H1. clear.
-        change (
-            let zzz e := hlist_nth e v in
-            let zzz' e := hlist_nth e v in
-            forall H0 : nth_error (vs ++ vs'') v = nth_error (vs ++ vs' ++ vs'') v,
-              (forall (a : hlist (typD ts nil) vs) (b : hlist (typD ts nil) vs')
-                      (c : hlist (typD ts nil) vs''),
-                 zzz (hlist_app a (hlist_app b c)) =
-                 match
-                   H0 in (_ = z)
-                   return match z with
-                            | Some v0 => typD ts nil v0
-                            | None => unit
-                          end
-                 with
-                   | eq_refl => zzz' (hlist_app a c)
-                 end) ->
-            match
-              match
-                nth_error (vs ++ vs' ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some
-                          (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t0 => typD ts nil t0
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z =>
-                                              cast (fun x : Type => x) x
-                             end (zzz e))
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-              end eq_refl
-            with
-              | Some l =>
-                match
-                  match
-                    nth_error (vs ++ vs'') v as z
-                    return
-                    (z = nth_error (vs ++ vs'') v ->
-                     option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-                  with
-                    | Some z =>
-                      fun pf : Some z = nth_error (vs ++ vs'') v =>
-                        match typ_cast_typ ts nil z t with
-                          | Some cast =>
-                            Some
-                              (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                                 match
-                                   pf in (_ = t'')
-                                   return
-                                   (match t'' with
-                                      | Some t0 => typD ts nil t0
-                                      | None => unit
-                                    end -> typD ts nil t)
-                                 with
-                                   | eq_refl => fun x : typD ts nil z =>
-                                                  cast (fun x : Type => x) x
-                                 end (zzz' e))
-                          | None => None
-                        end
-                    | None => fun _ : None = nth_error (vs ++ vs'') v => None
-                  end eq_refl
-                with
-                  | Some r =>
-                    forall (VS : hlist (typD ts nil) vs)
-                           (VS' : hlist (typD ts nil) vs')
-                           (VS'' : hlist (typD ts nil) vs''),
-                      l (hlist_app VS (hlist_app VS' VS'')) = r (hlist_app VS VS'')
-                  | None => False
-                end
-              | None =>
-                match
-                  match
-                    nth_error (vs ++ vs'') v as z
-                    return
-                    (z = nth_error (vs ++ vs'') v ->
-                     option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-                  with
-                    | Some z =>
-                      fun pf : Some z = nth_error (vs ++ vs'') v =>
-                        match typ_cast_typ ts nil z t with
-                          | Some cast =>
-                            Some
-                              (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                                 match
-                                   pf in (_ = t'')
-                                   return
-                                   (match t'' with
-                                      | Some t0 => typD ts nil t0
-                                      | None => unit
-                                    end -> typD ts nil t)
-                                 with
-                                   | eq_refl => fun x : typD ts nil z =>
-                                                  cast (fun x : Type => x) x
-                                 end (zzz' e))
-                          | None => None
-                        end
-                    | None => fun _ : None = nth_error (vs ++ vs'') v => None
-                  end eq_refl
-                with
-                  | Some _ => False
-                  | None => True
-                end
-            end).
-        gen_refl.
-        intros. clearbody zzz. clearbody zzz'.
-        destruct (nth_error (vs ++ vs'') v);
-        destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence; auto.
-        inv_all; subst.  inversion H0. subst.
-        destruct (typ_cast_typ ts nil t1 t); auto.
-        intros. uip_all. specialize (H VS VS' VS'').
-        f_equal. etransitivity. eapply H.
-        uip_all. reflexivity. }
-      { assert (nth_error (vs ++ vs' ++ vs'') v = nth_error (vs ++ vs'') (v - length vs')).
-        { repeat rewrite nth_error_app_R by omega. f_equal. omega. }
-        symmetry in H1.
-        assert (forall a b c, hlist_nth (hlist_app a (hlist_app b c)) v =
-                              match H1 in _ = z return match z with
-                                                         | None => unit
-                                                         | Some v => typD ts nil v
-                                                       end
-                              with
-                                | eq_refl => hlist_nth (hlist_app a c) (v - length vs')
-                              end).
-        { intros.
-          repeat rewrite hlist_nth_hlist_app; eauto with typeclass_instances.
-          repeat match goal with
-                   | |- appcontext [ cast2 ?X ?Y ?Z ] =>
-                     generalize dependent (cast2 X Y Z)
-                   | |- appcontext [ cast1 ?X ?Y ?Z ] =>
-                     generalize dependent (cast1 X Y Z)
-                 end.
-          assert (v - length vs - length vs' = v - length vs' - length vs).
-          { omega. }
-          repeat match goal with
-                   | |- appcontext [ @hlist_nth ?X ?Y ?Z ?A ] =>
-                     generalize (@hlist_nth X Y Z A)
-                 end.
-          rewrite H2. intros.
-          generalize (y (v - length vs' - length vs)).
-          gen_refl.
-          generalize (y1 v).
-          generalize (y0 (v - length vs)).
-          generalize (y1 (v - length vs')).
-          clear H2 y y0 y1.
-          remember (nth_error vs v). destruct e5.
-          { exfalso.
-            clear - Heqe5 H. rewrite nth_error_past_end in Heqe5.
-            congruence. omega. }
-          { intros. generalize (e4 e6).
-            clear - H H0. generalize H1. rewrite <- H1.
-            uip_all. gen_refl. revert y0.
-            remember (nth_error vs' (v - length vs)).
-            destruct e4.
-            { exfalso. clear - H H0 Heqe4.
-              rewrite <- (app_nil_r vs') in Heqe4.
-              rewrite nth_error_app_R in Heqe4. rewrite nth_error_nil in *. congruence.
-              omega. }
-            { intros.
-              remember (nth_error vs (v - length vs')).
-              destruct e8.
-              { exfalso. clear - Heqe8 H0 H.
-                rewrite <- (app_nil_r vs) in Heqe8.
-                rewrite nth_error_app_R in Heqe8 by omega.
-                rewrite nth_error_nil in Heqe8. congruence. }
-              { generalize (e2 e4).
-                uip_all. clear.
-                generalize e8. generalize e9.
-                generalize y2. rewrite e8. intros.
-                uip_all. auto. } } } }
-        { do 2 match goal with
-                 | |- match ?X with _ => _ end =>
-                   let z := fresh in
-                   remember X as z; destruct z
-               end; auto.
-          { intros.
-            revert HeqH0 HeqH3.
-            gen_refl.
-            intros.
-            specialize (H2 VS VS' VS'').
-            match goal with
-              | _ : context [ ?X ] |- _ ?Z = _ =>
-                change Z with X; generalize dependent X
-            end; intros.
-            match goal with
-              | _ : context [ ?X ] |- _ = _ ?Z =>
-                change Z with X; generalize dependent X
-            end; intros.
-            revert HeqH3 HeqH0. revert H2.
-            change (
-                let zzz e := hlist_nth e v in
-                let zzz' e := hlist_nth e (v - length vs') in
-                zzz h = match
-                  H1 in (_ = z)
-                  return match z with
-                           | Some v0 => typD ts nil v0
-                           | None => unit
-                         end
-                with
-                  | eq_refl => zzz' h0
-                end ->
-                Some t0 =
-                match
-                  nth_error (vs ++ vs' ++ vs'') v as z
-                  return
-                  (z = nth_error (vs ++ vs' ++ vs'') v ->
-                   option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some
-                            (fun e1 : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                               match
-                                 pf in (_ = t'')
-                                 return
-                                 (match t'' with
-                                    | Some t2 => typD ts nil t2
-                                    | None => unit
-                                  end -> typD ts nil t)
-                               with
-                                 | eq_refl => fun x : typD ts nil z =>
-                                                cast (fun x : Type => x) x
-                               end (zzz e1))
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-                end e ->
-                Some t1 =
-                match
-                  nth_error (vs ++ vs'') (v - length vs') as z
-                  return
-                  (z = nth_error (vs ++ vs'') (v - length vs') ->
-                   option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (vs ++ vs'') (v - length vs') =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some
-                            (fun e1 : hlist (typD ts nil) (vs ++ vs'') =>
-                               match
-                                 pf in (_ = t'')
-                                 return
-                                 (match t'' with
-                                    | Some t2 => typD ts nil t2
-                                    | None => unit
-                                  end -> typD ts nil t)
-                               with
-                                 | eq_refl => fun x : typD ts nil z =>
-                                                cast (fun x : Type => x) x
-                               end (zzz' e1))
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (vs ++ vs'') (v - length vs') => None
-                end e0 -> t0 h = t1 h0
-              ).
-            intros zzz zzz'.
-            clearbody zzz zzz'.
-            remember (nth_error (vs ++ vs' ++ vs'') v).
-            destruct e1; try solve [ intros; congruence ].
-            remember (nth_error (vs ++ vs'') (v - length vs')).
-            destruct e1; try solve [ intros; congruence ].
-            inversion H1. subst.
-            destruct (typ_cast_typ ts nil t2 t); try congruence.
-            intros; inv_all; subst. uip_all. auto. }
-          { clear - HeqH3 HeqH0 H H0 H1.
-            revert HeqH3 HeqH0.
-            change (
-                let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
-                        (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                    (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                               match
-                                 pf in (_ = t'')
-                                 return
-                                 (match t'' with
-                                    | Some t1 => typD ts nil t1
-                                    | None => unit
-                                  end -> typD ts nil t)
-                               with
-                                 | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                               end (hlist_nth e v)) in
-                let XXX' z (pf : Some z = nth_error (vs ++ vs'') (v - length vs'))
-                         (cast :forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t))
-                    :=  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                               match
-                                 pf in (_ = t'')
-                                 return
-                                 (match t'' with
-                                    | Some t1 => typD ts nil t1
-                                    | None => unit
-                                  end -> typD ts nil t)
-                               with
-                                 | eq_refl => fun x : typD ts nil z => cast (fun x : Type => x) x
-                               end (hlist_nth e (v - length vs'))) in
-                Some t0 =
-                match
-                  nth_error (vs ++ vs' ++ vs'') v as z
-                  return
-                  (z = nth_error (vs ++ vs' ++ vs'') v ->
-                   option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (XXX z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-                end eq_refl ->
-                None =
-                match
-                  nth_error (vs ++ vs'') (v - length vs') as z
-                  return
-                  (z = nth_error (vs ++ vs'') (v - length vs') ->
-                   option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (vs ++ vs'') (v - length vs') =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (XXX' z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (vs ++ vs'') (v - length vs') => None
-                end eq_refl -> False).
-            intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
-            rewrite H1. gen_refl.
-            intros.
-            destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
-            destruct (typ_cast_typ ts nil t1 t); congruence. }
-          { clear - H1 HeqH3 HeqH0.
-            revert HeqH3 HeqH0.
-            change (
-                let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
-                        (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                    (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                               match
-                                 pf in (_ = t'')
-                                 return
-                                 (match t'' with
-                                    | Some t1 => typD ts nil t1
-                                    | None => unit
-                                  end -> typD ts nil t)
-                               with
-                                 | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                               end (hlist_nth e v)) in
-                let XXX' z (pf : Some z = nth_error (vs ++ vs'') (v - length vs'))
-                         (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                    (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                               match
-                                 pf in (_ = t'')
-                                 return
-                                 (match t'' with
-                                    | Some t1 => typD ts nil t1
-                                    | None => unit
-                                  end -> typD ts nil t)
-                               with
-                                 | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                               end (hlist_nth e (v - length vs'))) in
-                None =
-                match
-                  nth_error (vs ++ vs' ++ vs'') v as z
-                  return
-                  (z = nth_error (vs ++ vs' ++ vs'') v ->
-                   option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (XXX z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-                end eq_refl ->
-                Some t0 =
-                match
-                  nth_error (vs ++ vs'') (v - length vs') as z
-                  return
-                  (z = nth_error (vs ++ vs'') (v - length vs') ->
-                   option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (vs ++ vs'') (v - length vs') =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (XXX' z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (vs ++ vs'') (v - length vs') => None
-                end eq_refl -> False).
-            intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
-            rewrite H1.
-            destruct (nth_error (vs ++ vs' ++ vs'') v); try congruence.
-            destruct (typ_cast_typ ts nil t1 t); congruence. } } } }
+        generalize H.
+        eapply nth_error_get_hlist_nth_appL with (F := typD ts nil) (tvs' := vs'') in H; eauto with typeclass_instances.
+        intro.
+        eapply nth_error_get_hlist_nth_appL with (F := typD ts nil) (tvs' := vs' ++ vs'') in H2; eauto with typeclass_instances.
+
+        forward_reason.
+        repeat match goal with
+                 | H : ?X = _ |- context [ ?Y ] =>
+                   change Y with X ; rewrite H
+                 | H : ?X = _ , H' : ?Y = _ |- _ =>
+                   change Y with X in H' ; rewrite H in H'
+               end.
+        forward. simpl in *. inv_all; subst.
+        forward. f_equal.
+        rewrite H6. apply H7. }
+      { assert (v >= length vs) by omega.
+        assert (v - length vs' >= length vs) by omega.
+        match goal with
+          | |- match match ?X with _ => _ end with _ => _ end =>
+            consider X ; intros
+        end.
+        { eapply nth_error_get_hlist_nth_appR with (tvs' := vs' ++ vs'') in H1; eauto with typeclass_instances.
+          match goal with
+            | |- context [ @EnvI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
+              consider (@EnvI.nth_error_get_hlist_nth A B C D); intros
+          end.
+          { eapply nth_error_get_hlist_nth_appR with (tvs' := vs'') in H2; eauto with typeclass_instances.
+            assert (v - length vs' >= length vs) by omega.
+            eapply nth_error_get_hlist_nth_appR with (tvs' := vs'') in H5; eauto with typeclass_instances.
+            assert (v - length vs >= length vs') by omega.
+            forward_reason.
+            eapply nth_error_get_hlist_nth_appR with (tvs' := vs'') in H6; eauto with typeclass_instances.
+            replace (v - length vs - length vs') with (v - length vs' - length vs) in * by omega.
+            forward_reason.
+            forward. simpl in *. subst.
+            repeat match goal with
+                     | H : ?X = _ , H' : ?Y = _ |- _ =>
+                       change Y with X in H' ; rewrite H in H'
+                   end.
+            inv_all; subst. forward.
+            f_equal. Cases.rewrite_all_goal. reflexivity. }
+          { apply EnvI.nth_error_get_hlist_nth_None in H4.
+            apply EnvI.nth_error_get_hlist_nth_Some in H3.
+            exfalso.
+            apply nth_error_length_ge in H4. rewrite app_length in H4.
+            destruct H3. clear H3 H1.
+            apply nth_error_length_lt in x.
+            repeat rewrite app_length in x. omega. } }
+        { apply EnvI.nth_error_get_hlist_nth_None in H3.
+          apply nth_error_length_ge in H3.
+          repeat rewrite app_length in H3.
+          match goal with
+            | |- context [ @EnvI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
+              consider (@EnvI.nth_error_get_hlist_nth A B C D); intros
+          end; auto.
+          exfalso.
+          apply EnvI.nth_error_get_hlist_nth_Some in H4.
+          destruct H4. clear H4.
+          apply nth_error_length_lt in x.
+          rewrite app_length in x. omega. } } }
     { forward. }
     { erewrite typeof_expr_lower by (rewrite lower_lower'; eassumption).
       repeat match goal with
@@ -710,11 +402,8 @@ Section typed.
       intros.
       apply functional_extensionality; intros.
       simpl in *.
-      apply (IHe (Hcons (F := typD ts nil) (p (fun x => x) x) VS) VS' VS''). }
-    { match goal with
-        | |- match match ?x with _ => _ end with _ => _ end =>
-          destruct x; auto
-      end. }
+      apply (IHe US (Hcons (F := typD ts nil) (p (fun x => x) x) VS) VS' VS''). }
+    { forward. }
     Transparent exprD exprD'.
   Qed.
 
@@ -729,17 +418,18 @@ Section typed.
              | |- context [ EnvI.split_env ?X ] =>
                consider (EnvI.split_env X); intros
            end.
-    cutrewrite (length vs = length x) in H.
-    cutrewrite (length vs' = length x0) in H.
-    specialize (@exprD'_lower us x x0 x1 e e0 t H).
+    cutrewrite (length vs = length x0) in H.
+    cutrewrite (length vs' = length x1) in H.
+    specialize (@exprD'_lower x x0 x1 x2 e e0 t H).
     intros.
+    unfold ExprI.exprD'. simpl.
     repeat match goal with
              | _ : match ?X with _ => _ end |- _ =>
                destruct X
            end; intuition try congruence.
-    rewrite H3. reflexivity.
+    f_equal. eauto.
+    rewrite EnvI.split_env_length. rewrite H2. reflexivity.
     rewrite EnvI.split_env_length. rewrite H1. reflexivity.
-    rewrite EnvI.split_env_length. rewrite H0. reflexivity.
   Qed.
 
   Lemma exprD'_lift : forall us vs vs' vs'' e t,
@@ -748,9 +438,9 @@ Section typed.
     with
       | None , None => True
       | Some l , Some r =>
-        forall VS VS' VS'',
-          l (hlist_app VS (hlist_app VS' VS'')) =
-          r (hlist_app VS VS'')
+        forall US VS VS' VS'',
+          l US (hlist_app VS (hlist_app VS' VS'')) =
+          r US (hlist_app VS VS'')
       | _ , _ => False
     end.
   Proof.
@@ -768,512 +458,66 @@ Section typed.
            end.
     { consider (NPeano.ltb v (length vs)); intros.
       { autorewrite with exprD_rw.
-        do 2 match goal with
-               | |- match ?X with _ => _ end =>
-                 let z := fresh in
-                 remember X as z ; destruct z
-             end; auto.
-        { intros.
-          assert (nth_error (vs ++ vs' ++ vs'') v = nth_error (vs ++ vs'') v).
-          { repeat rewrite nth_error_app_L by omega. auto. }
-          revert HeqH1 HeqH0.
-          change (
-              let zzz e := hlist_nth e v in
-              let zzz' e := hlist_nth e v in
-              Some t1 =
-              match
-                nth_error (vs ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some
-                          (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t2 => typD ts nil t2
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z =>
-                                              cast (fun x => x)  x
-                             end (zzz e))
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs'') v => None
-              end eq_refl ->
-              Some t0 =
-              match
-                nth_error (vs ++ vs' ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some
-                          (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t2 => typD ts nil t2
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z =>
-                                              cast (fun x : Type => x) x
-                             end (zzz' e))
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-              end eq_refl ->
-              t0 (hlist_app VS (hlist_app VS' VS'')) = t1 (hlist_app VS VS'')).
-          intros zzz zzz'.
-          symmetry in H0.
-          assert (zzz' (hlist_app VS (hlist_app VS' VS'')) =
-                  match H0 in _ = z return match z with
-                                             | None => unit
-                                             | Some t => typD ts nil t
-                                           end
-                  with
-                    | eq_refl => zzz (hlist_app VS VS'')
-                  end).
-          { subst zzz zzz'; simpl.
-            repeat rewrite hlist_nth_hlist_app by eauto with typeclass_instances.
-            gen_refl.
-            repeat match goal with
-                   | |- appcontext [ cast2 ?X ?Y ?Z ] =>
-                     generalize dependent (cast2 X Y Z)
-                   | |- appcontext [ cast1 ?X ?Y ?Z ] =>
-                     generalize dependent (cast1 X Y Z)
-                 end.
-            rewrite <- H0.
-            generalize dependent (hlist_nth VS v).
-            remember (nth_error vs v). destruct e.
-            { simpl. intros. uip_all. clear.
-              generalize e9 e7. rewrite <- e9.
-              uip_all. auto. }
-            { exfalso. clear - Heqe H.
-              symmetry in Heqe.
-              apply nth_error_length_ge in Heqe. omega. } }
-          { generalize dependent (hlist_app VS (hlist_app VS' VS'')).
-            generalize dependent (hlist_app VS VS'').
-            clearbody zzz zzz'. revert zzz zzz'.
-            rewrite <- H0. gen_refl.
-            remember (nth_error (vs ++ vs'') v). destruct e.
-            { uip_all.
-              destruct (typ_cast_typ ts nil t2 t); try congruence.
-              inv_all. subst. uip_all. intuition. }
-            { exfalso. clear - H Heqe.
-              symmetry in Heqe.
-              rewrite nth_error_app_L in Heqe by omega.
-              apply nth_error_length_ge in Heqe. omega. } } }
-        { revert HeqH1 HeqH0.
-          change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs'') v)
-                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t1 => typD ts nil t1
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                             end (hlist_nth e v)) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
-                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                     match
-                       pf in (_ = t'')
-                       return
-                       (match t'' with
-                          | Some t1 => typD ts nil t1
-                          | None => unit
-                        end -> typD ts nil t)
-                     with
-                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                     end (hlist_nth e v)) in
-              None =
-              match
-                nth_error (vs ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX z pf cast)
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs'') v => None
-              end eq_refl ->
-              Some t0 =
-              match
-                nth_error (vs ++ vs' ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX' z pf cast)
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-              end eq_refl -> False).
-          intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
-          repeat rewrite nth_error_app_L by omega.
-          destruct (nth_error vs v); try congruence.
-          destruct (typ_cast_typ ts nil t1 t); congruence. }
-        { revert HeqH1 HeqH0.
-          change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs'') v)
-                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t1 => typD ts nil t1
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z => cast (fun x=> x) x
-                             end (hlist_nth e v)) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs' ++ vs'') v)
-                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                     match
-                       pf in (_ = t'')
-                       return
-                       (match t'' with
-                          | Some t1 => typD ts nil t1
-                          | None => unit
-                        end -> typD ts nil t)
-                     with
-                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                     end (hlist_nth e v)) in
-              Some t0 =
-              match
-                nth_error (vs ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX z pf cast)
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs'') v => None
-              end eq_refl ->
-              None =
-              match
-                nth_error (vs ++ vs' ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX' z pf cast)
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs' ++ vs'') v => None
-              end eq_refl -> False).
-          intros XXX XXX'; clearbody XXX XXX'; revert XXX XXX'.
-          repeat rewrite nth_error_app_L by omega.
-          destruct (nth_error vs v); try congruence.
-          destruct (typ_cast_typ ts nil t1 t); congruence. } }
+        generalize H.
+        intro.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := vs' ++ vs'') (F := typD ts nil) in H; eauto with typeclass_instances.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := vs'') (F := typD ts nil) in H0; eauto with typeclass_instances.
+        forward_reason.
+        repeat match goal with
+                 | H : ?X = _ , H' : ?Y = _ |- _ =>
+                   change Y with X in H' ; rewrite H in H'
+                 | H : ?X = _ |- context [ ?Y ] =>
+                   change Y with X ; rewrite H
+               end.
+        forward; inv_all; subst. simpl in *. subst.
+        forward. f_equal.
+        Cases.rewrite_all_goal. reflexivity. }
       { autorewrite with exprD_rw.
-        do 2 match goal with
-               | |- match ?X with _ => _ end =>
-                 let z := fresh in
-                 remember X as z ; destruct z
-             end; auto.
-        { intros. revert HeqH1 HeqH0.
-          change (
-              let zzz e := hlist_nth e v in
-              let zzz' e := hlist_nth e (v + length vs') in
-              Some t1 =
-              match
-                nth_error (vs ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some
-                          (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t2 => typD ts nil t2
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                             end (zzz e))
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs'') v => None
-              end eq_refl ->
-              Some t0 =
-              match
-                nth_error (vs ++ vs' ++ vs'') (v + length vs') as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') (v + length vs') ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs') =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some
-                          (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                             match
-                               pf in (_ = t'')
-                               return
-                               (match t'' with
-                                  | Some t2 => typD ts nil t2
-                                  | None => unit
-                                end -> typD ts nil t)
-                             with
-                               | eq_refl => fun x : typD ts nil z => cast (fun x : Type => x) x
-                             end (zzz' e))
-                      | None => None
-                    end
-                | None =>
-                  fun _ : None = nth_error (vs ++ vs' ++ vs'') (v + length vs') => None
-              end eq_refl ->
-              t0 (hlist_app VS (hlist_app VS' VS'')) = t1 (hlist_app VS VS'')).
-          intros zzz zzz'.
-          assert (nth_error (vs ++ vs' ++ vs'') (v + length vs') =
-                  nth_error (vs ++ vs'') v).
-          { repeat rewrite nth_error_app_R by omega.
-            f_equal. omega. }
-          assert (zzz (hlist_app VS VS'') =
-                  match H0 in _ = t return match t with
-                                             | None => unit
-                                             | Some t => typD ts nil t
-                                           end
-                  with
-                    | eq_refl => zzz' (hlist_app VS (hlist_app VS' VS''))
-                  end).
-          { subst zzz zzz'. simpl.
-            repeat rewrite hlist_nth_hlist_app by eauto with typeclass_instances.
-            gen_refl. generalize H0.
-            assert (v + length vs' - length vs - length vs' = v - length vs) by omega.
+        match goal with
+          | |- match match ?X with _ => _ end with _ => _ end =>
+            consider X; intros
+        end.
+        { assert (v >= length vs) by omega.
+          match goal with
+            | |- context [ @EnvI.nth_error_get_hlist_nth ?A ?B ?C ?D ] =>
+              consider (@EnvI.nth_error_get_hlist_nth A B C D); intros
+          end.
+          { eapply nth_error_get_hlist_nth_appR in H1; eauto with typeclass_instances.
+            eapply nth_error_get_hlist_nth_appR in H0; eauto with typeclass_instances.
+            2: omega.
+            forward_reason.
+            eapply nth_error_get_hlist_nth_appR in H0; eauto with typeclass_instances.
+            2: omega.
+            eapply nth_error_get_hlist_nth_appR in H2; eauto with typeclass_instances.
+            2: omega.
+            forward_reason. simpl in *. forward.
+            simpl in *; subst.
+            replace (v + length vs' - length vs - length vs') with (v - length vs) in * by omega.
             repeat match goal with
-                   | |- appcontext [ cast2 ?X ?Y ?Z ] =>
-                     generalize dependent (cast2 X Y Z)
-                   | |- appcontext [ cast1 ?X ?Y ?Z ] =>
-                     generalize dependent (cast1 X Y Z)
-                 end.
-            rewrite H1. rewrite H0. clear - H.
-            generalize dependent (hlist_nth VS'' (v - length vs)).
-            repeat match goal with
-                     | |- appcontext [ @hlist_nth ?A ?B ?C ?D ?E ] =>
-                       generalize (@hlist_nth A B C D E)
+                     | H : ?X = _ , H' : ?Y = _ |- _ =>
+                       change Y with X in H' ; rewrite H in H'
+                     | H : ?X = _ |- context [ ?Y ] =>
+                       change Y with X ; rewrite H
                    end.
-            remember (nth_error vs v). destruct e.
-            { exfalso.
-              rewrite <- (app_nil_r vs) in Heqe.
-              rewrite nth_error_app_R in Heqe. rewrite nth_error_nil in Heqe.
-              congruence.  omega. }
-            { uip_all. generalize (e4 eq_refl). intros.
-              clear - H. revert y y0 y2.
-              generalize e8 e3 e2. rewrite e8.
-              intros; uip_all. clear - H.
-              revert y0. gen_refl.
-              remember (nth_error vs (v + length vs')).
-              destruct e1.
-              { exfalso. clear - Heqe1 H.
-                rewrite <- (app_nil_r vs) in Heqe1.
-                rewrite nth_error_app_R in Heqe1 by omega.
-                rewrite nth_error_nil in *. congruence. }
-              { intros. revert y2 y.
-                generalize (e4 e1). intro. generalize e3.
-                gen_refl. clear - H e3. revert e5 e2.
-                rewrite <- e3. clear e3.
-                intros; uip_all.
-                gen_refl.
-                remember (nth_error vs' (v + length vs' - length vs)).
-                destruct e0.
-                { exfalso. clear - H Heqe0.
-                  rewrite <- (app_nil_r vs') in Heqe0.
-                  rewrite nth_error_app_R in Heqe0. rewrite nth_error_nil in Heqe0.
-                  congruence.
-                  rewrite app_nil_r. omega. }
-                { intros. generalize (e5 e0). uip_all. auto. } } } }
-          { clearbody zzz zzz'.
-            generalize dependent (hlist_app VS VS'').
-            generalize dependent (hlist_app VS (hlist_app VS' VS'')).
-            revert zzz zzz'. generalize H0. rewrite H0.
-            remember (nth_error (vs ++ vs'') v).
-            destruct e.
-            { intros; uip_all.
-              destruct (typ_cast_typ ts nil t2 t); try congruence.
-              inv_all. subst. rewrite H2. uip_all. auto. }
-            { congruence. } } }
-        { revert HeqH0 HeqH1.
-          change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs'))
-                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                     match
-                       pf in (_ = t'')
-                       return
-                       (match t'' with
-                          | Some t1 => typD ts nil t1
-                          | None => unit
-                        end -> typD ts nil t)
-                     with
-                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                     end (hlist_nth e (v + length vs'))) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs'') v)
-                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                     match
-                       pf in (_ = t'')
-                       return
-                       (match t'' with
-                          | Some t1 => typD ts nil t1
-                          | None => unit
-                        end -> typD ts nil t)
-                     with
-                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                     end (hlist_nth e v)) in
-              Some t0 =
-              match
-                nth_error (vs ++ vs' ++ vs'') (v + length vs') as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') (v + length vs') ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs') =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX z pf cast)
-                      | None => None
-                    end
-                | None =>
-                  fun _ : None = nth_error (vs ++ vs' ++ vs'') (v + length vs') => None
-              end eq_refl ->
-              None =
-              match
-                nth_error (vs ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX' z pf cast)
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs'') v => None
-              end eq_refl -> False).
-          intros zzz zzz'; clearbody zzz zzz'; revert zzz zzz'.
-          cutrewrite (nth_error (vs ++ vs' ++ vs'') (v + length vs') =
-                      nth_error (vs ++ vs'') v).
-          destruct (nth_error (vs ++ vs'') v); try congruence.
-          destruct (typ_cast_typ ts nil t1 t); congruence.
-          repeat rewrite nth_error_app_R by omega. f_equal. omega. }
-        { revert HeqH0 HeqH1.
-          change (
-              let XXX z (pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs'))
-                      (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs' ++ vs'') =>
-                     match
-                       pf in (_ = t'')
-                       return
-                       (match t'' with
-                          | Some t1 => typD ts nil t1
-                          | None => unit
-                        end -> typD ts nil t)
-                     with
-                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                     end (hlist_nth e (v + length vs'))) in
-              let XXX' z (pf : Some z = nth_error (vs ++ vs'') v)
-                       (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-                  (fun e : hlist (typD ts nil) (vs ++ vs'') =>
-                     match
-                       pf in (_ = t'')
-                       return
-                       (match t'' with
-                          | Some t1 => typD ts nil t1
-                          | None => unit
-                        end -> typD ts nil t)
-                     with
-                       | eq_refl => fun x : typD ts nil z => cast (fun x => x) x
-                     end (hlist_nth e v)) in
-              None =
-              match
-                nth_error (vs ++ vs' ++ vs'') (v + length vs') as z
-                return
-                (z = nth_error (vs ++ vs' ++ vs'') (v + length vs') ->
-                 option (hlist (typD ts nil) (vs ++ vs' ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs' ++ vs'') (v + length vs') =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX z pf cast)
-                      | None => None
-                    end
-                | None =>
-                  fun _ : None = nth_error (vs ++ vs' ++ vs'') (v + length vs') => None
-              end eq_refl ->
-              Some t0 =
-              match
-                nth_error (vs ++ vs'') v as z
-                return
-                (z = nth_error (vs ++ vs'') v ->
-                 option (hlist (typD ts nil) (vs ++ vs'') -> typD ts nil t))
-              with
-                | Some z =>
-                  fun pf : Some z = nth_error (vs ++ vs'') v =>
-                    match typ_cast_typ ts nil z t with
-                      | Some cast =>
-                        Some (XXX' z pf cast)
-                      | None => None
-                    end
-                | None => fun _ : None = nth_error (vs ++ vs'') v => None
-              end eq_refl -> False).
-          intros zzz zzz'; clearbody zzz zzz'; revert zzz zzz'.
-          cutrewrite (nth_error (vs ++ vs' ++ vs'') (v + length vs') =
-                      nth_error (vs ++ vs'') v).
-          destruct (nth_error (vs ++ vs'') v); try congruence.
-          destruct (typ_cast_typ ts nil t1 t); congruence.
-          repeat rewrite nth_error_app_R by omega. f_equal. omega. } } }
+            inv_all; subst.
+            forward. f_equal. Cases.rewrite_all_goal. reflexivity. }
+          { exfalso.
+            apply EnvI.nth_error_get_hlist_nth_Some in H0.
+            destruct H0. clear H0.
+            apply EnvI.nth_error_get_hlist_nth_None in H2.
+            apply nth_error_length_lt in x.
+            apply nth_error_length_ge in H2.
+            repeat rewrite app_length in *.
+            omega. } }
+        { forward.
+          apply EnvI.nth_error_get_hlist_nth_None in H0.
+          apply EnvI.nth_error_get_hlist_nth_Some in H2.
+          destruct H2.
+          clear - x0 H0 H.
+          apply nth_error_length_ge in H0.
+          apply nth_error_length_lt in x0.
+          repeat rewrite app_length in *.
+          omega. } } }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
                  (destruct x; auto); [ ]
@@ -1310,7 +554,7 @@ Section typed.
                  destruct X; intuition
              end; eauto.
       eapply functional_extensionality.
-      intros. eapply (IHe (Hcons (F := typD ts nil) (p (fun x=>x) x) VS)). }
+      intros. eapply (IHe US (Hcons (F := typD ts nil) (p (fun x=>x) x) VS)). }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
                  (destruct x; auto); [ ]
@@ -1330,17 +574,155 @@ Section typed.
              | |- context [ EnvI.split_env ?X ] =>
                consider (EnvI.split_env X); intros
            end.
-    cutrewrite (length vs = length x).
-    cutrewrite (length vs' = length x0).
-    specialize (@exprD'_lift us x x0 x1 e t).
+    cutrewrite (length vs = length x0).
+    cutrewrite (length vs' = length x1).
+    specialize (@exprD'_lift x x0 x1 x2 e t).
     intros.
+    unfold ExprI.exprD'; simpl.
     repeat match goal with
              | _ : match ?X with _ => _ end |- _ =>
                destruct X
            end; intuition try congruence.
-    rewrite H2. reflexivity.
+    f_equal. eauto.
+    rewrite EnvI.split_env_length. rewrite H1. reflexivity.
     rewrite EnvI.split_env_length. rewrite H0. reflexivity.
-    rewrite EnvI.split_env_length. rewrite H. reflexivity.
   Qed.
 
 End typed.
+
+Section vars_to_uvars.
+  Require Import MirrorCore.EnvI.
+  Variable ts : types.
+  Variable func : Type.
+
+  Fixpoint vars_to_uvars (e : expr func) (skip add : nat) : expr func :=
+    match e with
+      | Var v =>
+        if v ?[ lt ] skip then Var v
+        else UVar (v - skip + add)
+      | UVar _
+      | Inj _ => e
+      | App l r => App (vars_to_uvars l skip add) (vars_to_uvars r skip add)
+      | Abs t e => Abs t (vars_to_uvars e (S skip) add)
+    end.
+
+  Theorem vars_to_uvars_typeof_expr (Z : SymI.RSym (typD ts) func)
+  : forall tus e tvs tvs' t,
+      typeof_expr tus (tvs ++ tvs') e = Some t ->
+      typeof_expr (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus))
+      = Some t.
+  Proof.
+    clear. induction e; simpl; intros; auto.
+    { consider (v ?[ lt ] length tvs); intros.
+      { simpl. rewrite ListNth.nth_error_app_L in H; auto. }
+      { simpl. rewrite ListNth.nth_error_app_R in H; auto. 2: omega.
+        rewrite ListNth.nth_error_app_R; try omega.
+        replace (v - length tvs + length tus - length tus) with (v - length tvs)
+          by omega.
+        auto. } }
+    { forward. erewrite IHe1; eauto. erewrite IHe2; eauto. }
+    { forward. eapply (IHe (t :: tvs) tvs') in H.
+      simpl in *.
+      rewrite H in *. auto. }
+    { apply ListNth.nth_error_weaken; auto. }
+  Qed.
+
+  Lemma nth_error_get_hlist_nth_rwR
+  : forall {T} (F : T -> _) tus tvs' n,
+      n >= length tus ->
+      match nth_error_get_hlist_nth F tvs' (n - length tus) with
+        | None => True
+        | Some (existT t v) =>
+          exists val,
+          nth_error_get_hlist_nth F (tus ++ tvs') n = Some (@existT _ _ t val) /\
+          forall a b,
+            v a = val (hlist_app b a)
+      end.
+  Proof.
+    clear. intros.
+    forward. subst.
+    consider (nth_error_get_hlist_nth F (tus ++ tvs') n).
+    { intros.
+      eapply nth_error_get_hlist_nth_appR in H; eauto.
+      destruct s. simpl in *. rewrite H1 in *.
+      destruct H as [ ? [ ? ? ] ]. inv_all; subst.
+      eexists; split; eauto. }
+    { intros.
+      exfalso.
+      eapply nth_error_get_hlist_nth_Some in H1.
+      eapply nth_error_get_hlist_nth_None in H0.
+      forward_reason. simpl in *.
+      eapply ListNth.nth_error_length_ge in H0.
+      clear H1. eapply nth_error_length_lt in x0.
+      rewrite app_length in H0. omega. }
+  Qed.
+
+  Theorem vars_to_uvars_exprD' (Z : SymI.RSym (typD ts) func)
+  : forall tus e tvs t tvs' val,
+      exprD' tus (tvs ++ tvs') e t = Some val ->
+      exists val',
+        exprD' (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus)) t = Some val' /\
+        forall us vs' vs, val us (HList.hlist_app vs vs') =
+                          val' (HList.hlist_app us vs') vs.
+  Proof.
+    clear. induction e; simpl; intros.
+    { consider (v ?[ lt ] length tvs); intros.
+      { generalize (@exprD'_Var_App_L _ _ _ tus tvs' t tvs v H0).
+        rewrite H. intros; forward.
+        red_exprD. forward.
+        eexists; split; eauto.
+        inv_all; subst. eauto. }
+      { red_exprD.
+        forward. inv_all; subst.
+        eapply nth_error_get_hlist_nth_appR in H1; [ | omega ].
+        simpl in H1.
+        forward_reason.
+        assert (v - length tvs + length tus >= length tus) by omega.
+        eapply nth_error_get_hlist_nth_rwR
+        with (F := typD ts nil) in H2.
+        replace (v - length tvs + length tus - length tus)
+        with (v - length tvs) in H2 by omega.
+        revert H2. instantiate (1 := tvs').
+        match goal with
+          | H : ?X = _ |- context [ ?Y ] =>
+            change Y with X; rewrite H
+        end.
+        destruct 1 as [ ? [ ? ? ] ].
+        match goal with
+          | H : ?X = _ |- context [ ?Y ] =>
+            change Y with X; rewrite H
+        end.
+        rewrite typ_cast_typ_refl.
+        eexists; split; eauto. simpl.
+        intros. rewrite H1. auto. } }
+    { red_exprD.
+      forward.
+      inv_all; subst.
+      eexists; split; eauto. }
+    { red_exprD.
+      forward. inv_all; subst.
+      eapply vars_to_uvars_typeof_expr in H0.
+      eapply IHe1 in H1.
+      eapply IHe2 in H2. forward_reason.
+      Cases.rewrite_all_goal.
+      rewrite typ_cast_typ_refl.
+      eexists; split; eauto.
+      intros.
+      rewrite H2. rewrite H3. reflexivity. }
+    { red_exprD.
+      forward. inv_all; subst.
+      destruct (IHe (t :: tvs) _ _ _ H1) as [ ? [ ? ? ] ].
+      simpl in *. rewrite H.
+      eexists; eauto; split; eauto.
+      intros. simpl.
+      eapply functional_extensionality. intros.
+      rewrite <- H0. simpl. reflexivity. }
+    { red_exprD.
+      forward. inv_all; subst.
+      eapply nth_error_get_hlist_nth_weaken in H0.
+      simpl in *. forward_reason.
+      rewrite H. rewrite typ_cast_typ_refl.
+      eexists; split; eauto. intros. apply H0. }
+  Qed.
+
+End vars_to_uvars.

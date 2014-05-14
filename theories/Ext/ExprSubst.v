@@ -1,25 +1,22 @@
 (** This file contains generic functions for manipulating,
- ** i.e. substituting and finding, unification variables
+ ** (i.e. substituting and finding) unification variables
  **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.EqDep.
-Require Import ExtLib.Tactics.Cases.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
-Require Import MirrorCore.Subst.
+Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** Temporary **)
 Require Import FunctionalExtensionality.
 
 Section substU.
@@ -27,6 +24,9 @@ Section substU.
   Variable u : uvar.
   Variable e' : expr func.
 
+  (** This replaces [UVar under] with [e] doing the appropriate
+   ** lifing.
+   **)
   Fixpoint substU (under : nat) (e : expr func) : expr func :=
     match e with
       | Var _ => e
@@ -45,6 +45,9 @@ Section instantiate.
   Variable func : Type.
   Variable RSym_func : RSym (typD ts) func.
   Variable lookup : uvar -> option (expr func).
+
+  Let Expr_expr : Expr (typD ts) (expr func) := Expr_expr _.
+  Local Existing Instance Expr_expr.
 
   Local Hint Immediate RSym_func : typeclass_instances.
 
@@ -90,105 +93,28 @@ Section instantiate.
        lookup u = Some e' ->
        exists tval,
          nth_error us u = Some tval /\
-         ExprD.exprD us gs' e' (projT1 tval) = Some (projT2 tval)) ->
+         exprD us gs' e' (projT1 tval) = Some (projT2 tval)) ->
     forall e t v,
       let (tv',vs') := EnvI.split_env gs' in
-      match ExprD.exprD' us (v ++ tv') e t ,
-            ExprD.exprD' us (v ++ tv') (instantiate (length v) e) t
+      let (tu',us') := EnvI.split_env us in
+      match ExprD.exprD' tu' (v ++ tv') e t,
+            ExprD.exprD' tu' (v ++ tv') (instantiate (length v) e) t
       with
         | Some l , Some r => forall vs,
-                               l (hlist_app vs vs') = r (hlist_app vs vs')
+                               l us' (hlist_app vs vs') = r us' (hlist_app vs vs')
         | None , None => True
         | _ , _ => False
       end.
   Proof.
-    unfold ExprD.exprD. intros us gs'.
+    unfold exprD. intros us gs'.
+    consider (split_env us). intros x h Hsplit_env.
     destruct (split_env gs'). intros Hlookup.
+    Opaque exprD'.
     induction e; simpl; intros; autorewrite with exprD_rw; auto.
-    { change (
-          let zzz z (pf : Some z = nth_error (v0 ++ x) v)
-                  (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-              fun e : hlist (typD ts nil) (v0 ++ x) =>
-                           match
-                             pf in (_ = t'')
-                             return
-                             (match t'' with
-                                | Some t0 => typD ts nil t0
-                                | None => unit
-                              end -> typD ts nil t)
-                           with
-                             | eq_refl => fun x0 : typD ts nil z =>
-                                            cast (fun x => x) x0
-                           end (hlist_nth e v)
-                in
-          match
-            match
-              nth_error (v0 ++ x) v as z
-              return
-              (z = nth_error (v0 ++ x) v ->
-               option (hlist (typD ts nil) (v0 ++ x) -> typD ts nil t))
-            with
-              | Some z =>
-                fun pf : Some z = nth_error (v0 ++ x) v =>
-                  match typ_cast_typ ts nil z t with
-                    | Some cast =>
-                      Some (zzz z pf cast)
-                    | None => None
-                  end
-              | None => fun _ : None = nth_error (v0 ++ x) v => None
-            end eq_refl
-          with
-            | Some l =>
-              match
-                match
-                  nth_error (v0 ++ x) v as z
-                  return
-                  (z = nth_error (v0 ++ x) v ->
-                   option (hlist (typD ts nil) (v0 ++ x) -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (v0 ++ x) v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (zzz z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (v0 ++ x) v => None
-                end eq_refl
-              with
-                | Some r =>
-                  forall vs : hlist (typD ts nil) v0,
-                    l (hlist_app vs h) = r (hlist_app vs h)
-                | None => False
-              end
-            | None =>
-              match
-                match
-                  nth_error (v0 ++ x) v as z
-                  return
-                  (z = nth_error (v0 ++ x) v ->
-                   option (hlist (typD ts nil) (v0 ++ x) -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error (v0 ++ x) v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (zzz z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error (v0 ++ x) v => None
-                end eq_refl
-              with
-                | Some _ => False
-                | None => True
-              end
-          end).
-      intro zzz; clearbody zzz; revert zzz; gen_refl.
-      destruct (nth_error (v0 ++ x) v); auto.
-      destruct (typ_cast_typ ts nil t0 t); auto. }
+    { forward. }
     { forward. }
     { rewrite typeof_expr_instantiate.
-      { consider (typeof_expr (typeof_env us) (v ++ x) e1); auto.
+      { consider (typeof_expr x (v ++ x0) e1); auto.
         destruct t0; auto.
         specialize (IHe1 (tyArr t0_1 t0_2) v).
         specialize (IHe2 t0_1 v).
@@ -199,13 +125,18 @@ Section instantiate.
                    consider X; try congruence; intros
                end; auto.
         inv_all; subst. rewrite IHe2. rewrite IHe1. reflexivity. }
-      { clear - Hlookup.
+      { clear - Hlookup Hsplit_env.
         intros. specialize (Hlookup _ _ H).
         destruct Hlookup. intuition.
-        rewrite nth_error_typeof_env.
-        rewrite H1.
-        eexists; split; eauto.
-        consider (ExprD.exprD' us x e' (projT1 x0)); try congruence; intros.
+        unfold ExprI.exprD' in H2. simpl in H2.
+        forward; inv_all; subst.
+        exists (projT1 x1).
+        apply split_env_nth_error in H1.
+        rewrite Hsplit_env in *. simpl in *.
+        generalize dependent (hlist_nth h u).
+        forward. subst; simpl.
+        split; eauto. simpl in *.
+        consider (ExprD.exprD' x x0 e' t0); try congruence; intros.
         eapply ExprD.typeof_expr_exprD'. eauto. } }
     { destruct t0; auto.
       specialize (IHe t0_2 (t :: v)). simpl in *.
@@ -216,41 +147,144 @@ Section instantiate.
                    consider X; try congruence; intros
                end; inv_all; subst; auto.
       eapply functional_extensionality. intros.
-      specialize (IHe (Hcons x0 vs)). simpl in *; auto. }
+      specialize (IHe (Hcons x1 vs)). simpl in *; auto. }
     { specialize (Hlookup u).
       destruct (lookup u).
-      { unfold lookupAs.
-        destruct (Hlookup _ eq_refl); clear Hlookup.
-        intuition.
-        rewrite H0. destruct x0; simpl in *.
-        generalize (exprD'_lift _ us nil v x e t); simpl.
-        consider (x0 ?[ eq ] t); intros; subst.
-        { consider (ExprD.exprD' us x e t); try congruence; intros.
-          consider (ExprD.exprD' us (v ++ x) (lift 0 (length v) e) t);
-            consider (ExprD.exprD' us x e t); intuition; try congruence.
-          inv_all. rewrite typ_cast_typ_refl.
-          intros.
-          specialize (H4 Hnil vs h). simpl in *. subst; auto. }
-        { match goal with
-            | |- match match match ?X with _ => _ end with _ => _ end with _ => _ end =>
-              consider X; intros
+      { specialize (Hlookup _ eq_refl).
+        forward_reason.
+        forward. inv_all; subst.
+        rewrite exprD'_type_cast.
+        generalize (exprD'_lift _ x nil v x0 e (projT1 x1)).
+        simpl. simpl in H0. rewrite H0.
+        forward.
+        erewrite ExprD3.EXPR_DENOTE_core.exprD'_typeof by eauto.
+        rewrite H2.
+        match goal with
+          | |- match match ?X with _ => _ end with _ => _ end =>
+            consider X; intros; forward
+        end.
+        { eapply EnvI.nth_error_get_hlist_nth_Some in H5.
+          forward_reason. simpl in *. subst.
+          apply split_env_nth_error in H.
+          rewrite Hsplit_env in *. simpl in *.
+          specialize (H5 h).
+          match goal with
+            | H : _ = match _ with eq_refl => ?X end , H' : _ ?Y |- _ =>
+              change X with Y in H ; generalize dependent Y
           end.
-          { generalize (typ_cast_typ_eq _ _ _ _ H3). congruence. }
-          { repeat match goal with
-                 | _ : context [ match ?X with _ => _ end ] |- _ =>
-                   consider X; try congruence; intros
-                 | |- context [ match ?X with _ => _ end ] =>
-                   consider X; try congruence; intros
-               end; inv_all; subst; auto.
-            clear - H H1 H4.
-            assert (typeof_expr (typeof_env us) x e = Some t).
-            { eapply ExprD.typeof_expr_exprD'; eauto. }
-            assert (typeof_expr (typeof_env us) x e = Some x0).
-            { eapply ExprD.typeof_expr_exprD'; eauto. }
-            rewrite H2 in H0. inv_all; auto. } } }
-      { autorewrite with exprD_rw.
-        destruct (lookupAs us u t); auto. } }
+          rewrite x3. intros; subst; simpl in *.
+          match goal with
+            | |- match match ?x with _ => _ end with Some _ => match match ?y with _ => _ end with _ => _ end | _ => _ end =>
+              change y with x ; consider x
+          end; auto.
+          intros.
+          f_equal. specialize (H3 h Hnil). simpl in *.
+          rewrite H3. auto. }
+        { inv_all; subst.
+          eapply EnvI.nth_error_get_hlist_nth_None in H4.
+          clear - H H4 Hsplit_env.
+          apply split_env_nth_error in H.
+          rewrite Hsplit_env in *. simpl in *.
+          generalize dependent (hlist_nth h u).
+          rewrite H4. auto. } }
+      { clear Hlookup.
+        autorewrite with exprD_rw.
+        forward. } }
   Qed.
+
+  Lemma typeof_expr_instantiate_Some
+  : forall (*lookup : uvar -> option (expr func)*) (tu : list typ)
+           (tg : tenv typ),
+      (forall (u : uvar) (e' : expr func) t',
+         lookup u = Some e' ->
+         nth_error tu u = Some t' ->
+         typeof_expr tu tg e' = Some t') ->
+      forall (e : expr func) (tg' : list typ) t,
+        typeof_expr tu (tg' ++ tg) e = Some t ->
+        typeof_expr tu (tg' ++ tg) (instantiate (length tg') e) = Some t.
+  Proof.
+    clear. induction e; simpl; intros; auto; forward.
+    { eapply IHe1 in H0. eapply IHe2 in H1.
+      Cases.rewrite_all_goal. reflexivity. }
+    { inv_all; subst.
+      eapply (IHe (t :: tg')) in H0.
+      simpl in H0. rewrite H0. reflexivity. }
+    { eapply H in H1; eauto.
+      generalize (@typeof_expr_lift _ _ RSym_func tu nil tg' tg e).
+      simpl. congruence. }
+  Qed.
+
+  Lemma exprD'_instantiate_Some
+  : forall tus tvs P,
+      (forall u t' e get,
+         nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
+         lookup u = Some e ->
+         exists eD,
+           exprD' tus tvs e t' = Some eD /\
+           forall us vs,
+             P us vs ->
+             eD us vs = get us) ->
+      forall e tvs' t eD,
+        exprD' tus (tvs' ++ tvs) e t = Some eD ->
+        exists eD',
+          exprD' tus (tvs' ++ tvs) (instantiate (length tvs') e) t = Some eD' /\
+          forall us vs' vs,
+            P us vs ->
+            eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
+  Proof.
+    clear.
+    induction e; simpl; intros; eauto.
+    { red_exprD.
+      forward; inv_all; subst.
+      specialize (IHe1 _ _ _ H2); clear H2.
+      specialize (IHe2 _ _ _ H3); clear H3.
+      eapply typeof_expr_instantiate_Some in H1; eauto.
+      { forward_reason.
+        Cases.rewrite_all_goal.
+        rewrite typ_cast_typ_refl. eexists; split; eauto.
+        simpl. intros.
+        rewrite H4; eauto.
+        rewrite H3; eauto. }
+      { clear - H.
+        intros.
+        specialize (H u t' e').
+        consider (nth_error_get_hlist_nth (typD ts nil) tus u); intros.
+        { destruct s.
+          generalize H.
+          eapply nth_error_get_hlist_nth_Some in H. simpl in *.
+          forward_reason.
+          rewrite x0 in H1. inv_all; subst.
+          intros.
+          specialize (H2 _ H1 H0). destruct H2 as [ ? [ ? ? ] ].
+          clear H H1.
+          rewrite exprD'_type_cast in H2.
+          forward. inv_all; subst. reflexivity. }
+        { exfalso. eapply nth_error_get_hlist_nth_None in H.
+          congruence. } } }
+    { red_exprD.
+      forward; inv_all; subst.
+      specialize (IHe (t :: tvs') t2 _ H2).
+      simpl in IHe.
+      forward_reason.
+      rewrite H0.
+      eexists; split; eauto.
+      simpl. intros.
+      eapply functional_extensionality. intros.
+      exact (H1 us (Hcons x0 vs') vs X). }
+    { consider (lookup u); intros.
+      { red_exprD.
+        forward; inv_all; subst.
+        specialize (H _ _ _ _ H2 H1).
+        forward_reason.
+        generalize (@exprD'_lift _ _ RSym_func tus nil tvs' tvs e t).
+        simpl. rewrite H.
+        intros. forward.
+        eexists; split; eauto.
+        intros.
+        erewrite <- H0. symmetry. eapply (H4 us Hnil vs' vs). apply X. }
+      { eauto. } }
+  Qed.
+
 End instantiate.
 
 Section mentionsU.
@@ -379,8 +413,8 @@ Section mentionsU.
         , ExprD.exprD' tu tg e t
     with
       | None , None => True
-      | Some l , Some r => forall vs,
-                             l vs = r vs
+      | Some l , Some r => forall us uv vs,
+                             l (hlist_app us (Hcons uv Hnil)) vs = r us vs
       | _ , _ => False
     end.
   Proof.
@@ -389,92 +423,13 @@ Section mentionsU.
              | _ : context [ match ?X with _ => _ end ] |- _ =>
                consider X; try congruence; intros
            end.
-    { change (
-          let zzz z (pf : Some z = nth_error tg v)
-                  (cast : forall F : Type -> Type, F (typD ts nil z) -> F (typD ts nil t)) :=
-              (fun e : hlist (typD ts nil) tg =>
-                           match
-                             pf in (_ = t'')
-                             return
-                             (match t'' with
-                                | Some t0 => typD ts nil t0
-                                | None => unit
-                              end -> typD ts nil t)
-                           with
-                             | eq_refl => fun x : typD ts nil z =>
-                                            cast (fun x => x) x
-                           end (hlist_nth e v))
-          in
-          match
-            match
-              nth_error tg v as z
-              return
-              (z = nth_error tg v ->
-               option (hlist (typD ts nil) tg -> typD ts nil t))
-            with
-              | Some z =>
-                fun pf : Some z = nth_error tg v =>
-                  match typ_cast_typ ts nil z t with
-                    | Some cast =>
-                      Some (zzz z pf cast)
-                    | None => None
-                  end
-              | None => fun _ : None = nth_error tg v => None
-            end eq_refl
-          with
-            | Some l =>
-              match
-                match
-                  nth_error tg v as z
-                  return
-                  (z = nth_error tg v ->
-                   option (hlist (typD ts nil) tg -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error tg v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (zzz z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error tg v => None
-                end eq_refl
-              with
-                | Some r => forall vs : hlist (typD ts nil) tg, l vs = r vs
-                | None => False
-              end
-            | None =>
-              match
-                match
-                  nth_error tg v as z
-                  return
-                  (z = nth_error tg v ->
-                   option (hlist (typD ts nil) tg -> typD ts nil t))
-                with
-                  | Some z =>
-                    fun pf : Some z = nth_error tg v =>
-                      match typ_cast_typ ts nil z t with
-                        | Some cast =>
-                          Some (zzz z pf cast)
-                        | None => None
-                      end
-                  | None => fun _ : None = nth_error tg v => None
-                end eq_refl
-              with
-                | Some _ => False
-                | None => True
-              end
-          end).
-      intro zzz; clearbody zzz; revert zzz.
-      gen_refl. destruct (nth_error tg v); auto.
-      destruct (typ_cast_typ ts nil t0 t); auto. }
     { forward. }
-    { rewrite typeof_env_app. simpl in *.
-      rewrite typeof_expr_mentionsU_strengthen by (rewrite typeof_env_length; auto).
-      consider (typeof_expr (typeof_env tu) tg e1); auto; intros.
-      destruct t0; auto.
-      specialize (H0 eq_refl tg (tyArr t0_1 t0_2)).
-      specialize (IHe2 H1 tg t0_1).
+    { forward. }
+    { forward_reason.
+      repeat rewrite typeof_expr_mentionsU_strengthen by eauto.
+      forward. subst.
+      specialize (H0 tg (tyArr t1 t2)).
+      specialize (IHe2 tg t1).
       repeat match goal with
                | _ : context [ match ?X with _ => _ end ] |- _ =>
                  consider X; try congruence; intros
@@ -491,16 +446,34 @@ Section mentionsU.
                  consider X; try congruence; intros
              end; inv_all; subst; auto.
       eapply functional_extensionality; eauto. }
-    { unfold lookupAs.
-      destruct (Compare_dec.lt_eq_lt_dec (length tu) u0) as [ [ | ] | ].
-      { repeat rewrite nth_error_past_end by (try rewrite app_length; simpl; omega).
-        auto. }
+    { destruct (Compare_dec.lt_eq_lt_dec (length tu) u0) as [ [ | ] | ].
+      { match goal with
+          | |- match match ?X with _ => _ end with _ => _ end =>
+            consider X; intros
+        end.
+        { eapply nth_error_get_hlist_nth_appR in H0; eauto with typeclass_instances.
+          2: omega.
+          simpl in *. forward_reason.
+          exfalso.
+          consider (u0 - length tu).
+          { intros. exfalso. omega. }
+          { congruence. } }
+        { forward. subst. inv_all; subst.
+          apply EnvI.nth_error_get_hlist_nth_Some in H2.
+          forward_reason. simpl in *.
+          clear - x l.
+          apply nth_error_length_lt in x. omega. } }
       { exfalso.
         consider (EqNat.beq_nat (length tu) u0); congruence. }
-      { rewrite nth_error_app_L by omega.
-        destruct (nth_error tu u0); auto.
-        destruct s.
-        destruct (TypesI.type_cast nil x t); auto. } }
+      { generalize l.
+        eapply nth_error_get_hlist_nth_appL with (F := typD ts nil) (tvs' := u :: nil) in l; eauto with typeclass_instances.
+        forward_reason. simpl in *.
+        repeat match goal with
+          | H : ?X = _ |- context [ ?Y ] =>
+            change Y with X ; rewrite H
+        end.
+        forward. simpl in *. forward.
+        subst. f_equal. auto. } }
   Qed.
 
   Lemma exprD'_mentionsU_strengthen_multi_lem : forall tu e,
@@ -510,23 +483,67 @@ Section mentionsU.
           , ExprD.exprD' tu tg e t
       with
         | None , None => True
-        | Some l , Some r => forall vs,
-                               l vs = r vs
+        | Some l , Some r => forall us us' vs,
+                               l (hlist_app us us') vs = r us vs
         | _ , _ => False
       end.
   Proof.
     induction tu'; intros; simpl.
-    { rewrite app_nil_r. destruct (ExprD.exprD' tu tg e t); auto. }
-    { rewrite <- app_ass.
-      assert (mentionsU (length (tu ++ rev tu')) e = false).
+    { consider (exprD' tu tg e t); intros.
+      { consider (exprD' (tu ++ nil) tg e t); intros.
+        { rewrite (hlist_eta us').
+          assert (tu ++ nil = tu) by (rewrite app_nil_r; auto).
+          clear - H0 H1 H2.
+          assert (hlist_app us Hnil = match eq_sym H2 in _ = t return hlist _ t with
+                                        | eq_refl => us
+                                      end).
+          { clear.
+            induction us. uip_all. reflexivity.
+            simpl in *.
+            uip_all.
+            inversion e. specialize (IHus (eq_sym H0)).
+            rewrite IHus. uip_all. clear.
+            revert us.
+            revert e. rewrite <- e0.
+            intros. uip_all. reflexivity. }
+          { rewrite H.
+            revert H0. revert H1. clear.
+            revert t1. revert t0. rewrite H2.
+            intros. rewrite H1 in *.
+            inv_all. subst t0.
+            simpl. reflexivity. } }
+        { assert (exprD' tu tg e t <> None) by congruence.
+          clear - H1 H2.
+          rewrite app_nil_r in H1. congruence. } }
+      { forward.
+        assert (exprD' (tu ++ nil) tg e t <> None) by congruence.
+        clear - H0 H2.
+        rewrite app_nil_r in H2. congruence. } }
+    { assert (mentionsU (length (tu ++ rev tu')) e = false).
       { rewrite H; auto. rewrite app_length; omega. }
       generalize (exprD'_mentionsU_strengthen (tu ++ rev tu') a e H0 tg t).
-      intros.
-      repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X; intuition
-             end.
-      etransitivity. eapply H1. eapply IHtu'. }
+      consider (exprD' (tu ++ rev tu') tg e t);
+        consider (exprD' tu tg e t); intros; auto; forward.
+      { consider (exprD' (tu ++ rev tu' ++ a :: nil) tg e t); intros.
+        { generalize (hlist_app_hlist_split _ _ us').
+          destruct (hlist_split (rev tu') (a :: nil) us').
+          simpl in *.
+          specialize (IHtu' us h vs).
+          specialize (H4 (hlist_app us h) (hlist_hd h0) vs).
+          intros. rewrite <- IHtu'. rewrite <- H4.
+          subst. rewrite hlist_app_assoc; eauto with typeclass_instances.
+          rewrite (hlist_eta h0). rewrite (hlist_eta (hlist_tl h0)).
+          simpl in *.
+          uip_all.
+          generalize (hlist_app us (hlist_app h (Hcons (hlist_hd h0) Hnil))).
+          generalize dependent t2; generalize dependent t3.
+          clear. revert e0.
+          rewrite <- (@app_ass typ). uip_all.
+          rewrite H3 in H5. inv_all; subst; auto. }
+        { clear - H3 H5.
+          generalize dependent t2.
+          rewrite app_ass. rewrite H5. congruence. } }
+      { rewrite app_ass in H4. congruence. } }
   Qed.
 
   Theorem exprD'_mentionsU_strengthen_multi : forall tu e,
@@ -536,8 +553,8 @@ Section mentionsU.
           , ExprD.exprD' tu tg e t
       with
         | None , None => True
-        | Some l , Some r => forall vs,
-                               l vs = r vs
+        | Some l , Some r => forall us us' vs,
+                               l (hlist_app us us') vs = r us vs
         | _ , _ => False
       end.
   Proof.
@@ -549,23 +566,31 @@ Section mentionsU.
   Theorem exprD_mentionsU_strength_multi : forall tu e,
     (forall n, length tu <= n -> mentionsU n e = false) ->
     forall tg t tu',
-      ExprD.exprD (tu ++ tu') tg e t = ExprD.exprD tu tg e t.
+      exprD (Expr := @Expr_expr ts _ _) (tu ++ tu') tg e t =
+      exprD (Expr := @Expr_expr ts _ _) tu tg e t.
   Proof.
-    intros; unfold ExprD.exprD.
-    destruct (split_env tg).
-    generalize (exprD'_mentionsU_strengthen_multi tu e H x t tu').
-    intros;
-    repeat match goal with
-               | _ : match ?X with _ => _ end |- _ =>
-                 destruct X; intuition
-             end.
-    f_equal. eapply H0.
+    intros; unfold exprD.
+    rewrite split_env_app.
+    destruct (split_env tg); destruct (split_env tu').
+    consider (split_env tu); intros.
+    simpl.
+    cutrewrite (length tu = length x1) in H.
+    { generalize (exprD'_mentionsU_strengthen_multi _ e H x t x0).
+      intros;
+        repeat match goal with
+                 | _ : match ?X with _ => _ end |- _ =>
+                   destruct X; intuition
+               end.
+      f_equal. eapply H1. }
+    { rewrite split_env_length. rewrite H0. reflexivity. }
   Qed.
 
 End mentionsU.
 
 
-(** TODO: This is generic to [expr] **)
+(** TODO:
+ ** This is a lot like [pull]
+ **)
 Section getInstantiation.
   Require Import MirrorCore.ExprI.
   Require Import MirrorCore.Ext.ExprD.
@@ -661,7 +686,7 @@ Section getInstantiation.
     cutrewrite (length us + n - length us = n) in H4; try omega.
     rewrite H2 in *. intuition; inv_all; subst.
     unfold Safe_expr in *; simpl in *.
-    red in H8.
+    admit. (*
     rewrite typeof_expr_mentionsU_strengthen_multi in H8.
     eapply H8.
     intros.
@@ -673,6 +698,46 @@ Section getInstantiation.
       { rewrite app_length in H7; omega. }
       { eapply lookup_normalized; try eassumption.
         replace (length us + (n0 - length us)) with n0 in H9 by omega.
-        intuition eauto. } }
+        intuition eauto. } } *)
   Qed.
 End getInstantiation.
+
+(** TODO: This should respect better abstraction
+Section funced.
+  Variable func : Type.
+
+(*
+  Definition instantiate : (uvar -> option (expr func)) -> expr func -> expr func :=
+    fun z => ExprSubst.instantiate z 0.
+*)
+
+  Fixpoint get_mentions (e : expr func) (acc : pset) : pset :=
+    match e with
+      | Var _
+      | Inj _ => acc
+      | App l r => get_mentions l (get_mentions r acc)
+      | Abs _ e => get_mentions e acc
+      | UVar u => PositiveMap.add (to_key u) tt acc
+    end.
+
+  Definition get_mentions_instantiate (i : uvar -> option (expr func)) (e : expr func)
+  : pset * expr func :=
+    let e' := instantiate i e in
+    (get_mentions e' (PositiveMap.empty _), e').
+
+(*
+  Definition l := @fast_subst_lookup (expr func).
+  Definition e := @fast_subst_empty (expr func).
+  Definition s := @fast_subst_set (expr func) get_mentions_instantiate instantiate.
+  Definition d := @fast_subst_pull (expr func).
+
+  Require Import ExtLib.Structures.Monad.
+  Require Import ExtLib.Data.Monads.OptionMonad.
+
+  Eval compute in s 0 (UVar 1) e.
+  Eval compute in bind (s 1 (Inj 2) e) (fun x => bind (s 0 (UVar 1) x) (d 1 1)).
+  Eval compute in bind (s 0 (UVar 1) e) (fun x => bind (s 1 (Inj 2) x) (d 0 2)).
+*)
+
+End funced.
+*)

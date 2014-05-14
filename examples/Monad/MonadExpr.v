@@ -320,17 +320,13 @@ Section Demo.
   Qed.
 
   Global Instance Expr_mexpr : Expr typD mexpr :=
-  { exprD := fun _ g e t =>
-               match EnvI.split_env g with
-                 | existT te env =>
-                   match mexprD te e t with
-                     | None => None
-                     | Some f => Some (f env)
-                   end
-               end
-  ; Safe_expr := Safe_mexpr
-  ; acc := acc_mexpr
-  ; wf_acc := well_founded_acc_mexpr
+  { exprD' := fun tus tvs e t =>
+                match mexprD tvs e t with
+                  | None => None
+                  | Some x => Some (fun _ => x)
+                end
+  ; Expr_acc := acc_mexpr
+  ; wf_Expr_acc := well_founded_acc_mexpr
   }.
 
   Context {TypInstance0Ok_nat : TypInstance0_Ok typ_nat}.
@@ -434,8 +430,11 @@ Section Demo.
     Opaque siso.
     constructor.
     { simpl; intros.
+      unfold exprD.
       destruct (EnvI.split_env vs).
+      destruct (EnvI.split_env us).
       unfold Fun.
+      unfold exprD'. simpl.
       unfold_all.
       go.
       eapply P_iff.
@@ -484,7 +483,7 @@ Section Demo.
                  (fun e => match e with
                              | Ret t' v =>
                                @typ0_match _ _ _ ti nil
-                                           (fun _ _ => option { x : vector typ 0 * vector mexpr 1 & ForallV (fun x => acc x (Ret t' v)) (snd x) })
+                                           (fun _ _ => option { x : vector typ 0 * vector mexpr 1 & ForallV (fun x => Expr_acc x (Ret t' v)) (snd x) })
                                            (fun _ => Some (existT _ (Vnil _, Vcons v (Vnil _)) _))
                                            (fun _ => None)
                                            t'
@@ -522,10 +521,10 @@ Section Demo.
                  (fun e => match e with
                              | Bind t1' t2' v v' =>
                                @typ0_match _ _ _ ti1 nil
-                                           (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => acc x (Bind t t2' v v')) (snd x) })
+                                           (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => Expr_acc x (Bind t t2' v v')) (snd x) })
                                            (fun _ =>
                                               @typ0_match _ _ _ ti2 nil
-                                                          (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => acc x (Bind t1 t v v')) (snd x) })
+                                                          (fun t _ => option { x : vector typ 0 * vector mexpr 2 & ForallV (fun x => Expr_acc x (Bind t1 t v v')) (snd x) })
                                                           (fun _ => Some (existT _ (Vnil _, Vcons v (Vcons v' (Vnil _))) _))
                                                           (fun _ => None)
                                                           t2')

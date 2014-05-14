@@ -1,23 +1,21 @@
 Require Import BinPos.
-Require Import List.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.Expr.
-Require Import MirrorCore.Ext.EnvFunc.
+Require Import MirrorCore.Ext.SymEnv.
 
 (** Demo **)
 Section Demo.
-  Definition types' : types.
-  refine ({| Impl := nat ; Eqb := fun _ _ => None |} ::
-          {| Impl := list nat ; Eqb := fun _ _ => None |} :: nil); auto.
-  Defined.
+  Definition types' : types :=
+    list_to_types (@Some Type nat :: @Some Type (list nat) :: nil).
 
   Definition all (T : Type) (P : T -> Prop) : Prop :=
     forall x, P x.
 
   Definition typD := typD types'.
 
-  Let tyNat := tyType 0.
+  Let tyNat := tyType 1.
 
   Definition funcs' : functions types'.
   refine (from_list (
@@ -33,7 +31,7 @@ Section Demo.
           F _ 1
              (tyArr (tyVar 0) (tyArr (tyVar 0) tyProp))
              (fun T : Type => @eq T) ::
-          F types' 0 (tyType 0) 0 ::
+          F types' 0 (tyType 1) 0 ::
           nil)).
   Defined.
 
@@ -41,10 +39,10 @@ Section Demo.
     List.fold_left App args f.
 
   Goal
-    let e := @App_list (Inj (FRef 2%positive (tyType 0 :: nil)))
-                    ((Abs tyNat (@App_list (Inj (FRef 4%positive (tyType 0 :: nil)))
+    let e := @App_list (Inj (FRef 2%positive (tyType 1 :: nil)))
+                    ((Abs tyNat (@App_list (Inj (FRef 4%positive (tyType 1 :: nil)))
                                                 ((Var 0) :: Inj (FRef 5%positive nil) :: nil))) :: nil) in
-    match ExprD.exprD (fs := RSym_func funcs') nil nil e tyProp with
+    match exprD (Expr := Expr_expr (RSym_func funcs')) nil nil e tyProp with
       | None => False
       | Some p => p
     end.

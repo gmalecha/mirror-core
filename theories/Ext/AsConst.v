@@ -1,5 +1,6 @@
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 
@@ -19,26 +20,15 @@ Section as_const.
         match e with
           | UVar _ => None
           | Var v =>
-            (** TODO: multiple lookups **)
-            match nth_error vs v as z
-                  return option (hlist (typD ts nil) vs -> match z with
-                                                      | None => Empty_set
-                                                      | Some x => typD ts nil x
-                                                    end)
-                      -> option (hlist (typD ts nil) vs -> typD ts nil t)
-            with
-              | Some t' => fun get =>
-                             match get with
-                               | Some get =>
-                                 match typ_cast_typ ts nil t' t with
-                                   | Some cast =>
-                                     Some (fun g => cast (fun x => x) (get g))
-                                   | None => None
-                                 end
-                               | None => None (** unreachable **)
-                             end
-              | None => fun _ => None
-            end (@nth_error_hlist_nth _ _ vs v)
+            match nth_error_get_hlist_nth _ vs v with
+              | None => None
+              | Some (existT t' get) =>
+                match typ_cast_typ ts nil t' t with
+                  | Some cast =>
+                    Some (fun g => cast (fun x => x) (get g))
+                  | None => None
+                end
+            end
           | Abs t' e =>
             match t as t
                   return option (hlist (typD ts nil) vs -> typD ts nil t)
@@ -79,23 +69,7 @@ Section as_const.
            match e with
              | UVar _ => None
              | Var v =>
-               (** TODO: multiple lookups **)
-               match nth_error vs v as z
-                     return option (hlist (typD ts nil) vs -> match z with
-                                                                | None => Empty_set
-                                                                | Some x => typD ts nil x
-                                                              end)
-                            -> option { t : typ & hlist (typD ts nil) vs -> typD ts nil t}
-               with
-                 | Some t' => fun get =>
-                                match get with
-                                  | Some get =>
-                                    Some (existT (fun t => hlist (typD ts nil) vs -> typD ts nil t) t' (fun g => get g))
-                                  | None => None (** unreachable **)
-                                end
-                 | None => fun _ => None
-               end (@nth_error_hlist_nth _ _ vs v)
-
+               nth_error_get_hlist_nth _ vs v
              | Abs t e =>
                match as_const_simul e (t :: vs) with
                  | Some (existT t' f) =>

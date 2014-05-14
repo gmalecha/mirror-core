@@ -68,6 +68,29 @@ Section env.
       | TEbranch l _ _ => l
     end.
 
+  Definition types_here (t : types) : option Type :=
+    match t with
+      | TEemp => None
+      | TEbranch _ v _ => v
+    end.
+
+  Fixpoint types_add (n : positive) (v : Type) (t : types) : types :=
+    match n with
+      | xH => TEbranch (types_left t) (Some v) (types_right t)
+      | xI n => TEbranch (types_left t) (types_here t) (types_add n v (types_right t))
+      | xO n => TEbranch (types_add n v (types_left t)) (types_here t) (types_right t)
+    end.
+
+  Fixpoint list_to_types' (ls : list (option Type)) (n : positive) : types -> types :=
+    match ls with
+      | nil => fun x => x
+      | None :: ls => list_to_types' ls (Pos.succ n)
+      | Some v :: ls => fun ts => list_to_types' ls (Pos.succ n) (types_add n v ts)
+    end.
+
+  Definition list_to_types (ls : list (option Type)) : types :=
+    list_to_types' ls 1%positive TEemp.
+
   Fixpoint getType (ts : types) (n : positive) {struct n} : Type :=
     match n with
       | xH => match ts with

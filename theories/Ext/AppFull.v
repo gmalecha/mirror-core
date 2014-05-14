@@ -1,10 +1,11 @@
-Require Import Compare_dec.
+Require Import Coq.Arith.Compare_dec.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 
@@ -85,18 +86,18 @@ Section app_full.
         { destruct t; simpl;
           try solve [
                 rewrite type_of_applys_typeof_None;
-                simpl; Cases.rewrite_all; auto ].
+                simpl; Cases.rewrite_all_goal; auto ].
           match goal with
             | |- context [ match ?X with _ => _ end ] =>
               consider X; intros
           end.
           inv_all. subst.
           { erewrite IHes. reflexivity.
-            simpl; Cases.rewrite_all; simpl.
+            simpl; Cases.rewrite_all_goal; simpl.
             consider (typ_eqb t1 t1); try reflexivity.
             congruence. }
           { rewrite type_of_applys_typeof_None; auto.
-            simpl. Cases.rewrite_all. simpl.
+            simpl. Cases.rewrite_all_goal. simpl.
             consider (typ_eqb t1 t0); auto; intros.
             subst. rewrite typ_cast_typ_refl in H1.
             congruence. } }
@@ -214,7 +215,8 @@ Section app_full.
       intros. unfold apps_sem.
       consider (typeof_expr (typeof_env us) (typeof_env vs) e); intros.
       { eapply typeof_expr_exprD in H.
-        destruct H. rewrite H.
+        destruct H.
+        rewrite H.
         simpl.
         match goal with
           | |- match ?X with _ => _ end = _ =>
@@ -245,7 +247,7 @@ Section app_full.
         { destruct t0; forward.
           simpl.
           consider (typ_eqb t0_1 t1); intros; subst.
-          { red_exprD. Cases.rewrite_all.
+          { red_exprD. Cases.rewrite_all_goal.
             forward. rewrite typ_cast_typ_refl. reflexivity. }
           { forward. exfalso.
             rewrite exprD_type_cast in H3.
@@ -256,41 +258,116 @@ Section app_full.
           rewrite exprD_type_cast in H3. rewrite H0 in *. congruence. } }
     Qed.
 
-(*
-    Check apply_sem.
-
-    Lemma apps_sem_cons : forall tf f t x e es,
-                            @apply_sem tf f (e::es) t = x.
-      simpl.
-                            match tf
-                            match typeof_expr
-                            match exprD us vs f
-
-    Lemma apps_app
-
-    Lemma app_fullD : forall e e' es es' t,
-                        app_full' e es = (e',es' ++ es) ->
-                        apps_sem e' (es' ++ es) t =
-                        match exprD us vs e ? with
-                          | None => None
-                          | Some ed => _
-                        end.
-    Proof.
-      induction e; simpl; intros; inv_all; subst; try rewrite apps_sem_nil; auto.
-      { unfold app_full in *. simpl in *.
-        eapply IHe1 in H.
-        unfold apply_sem. simpl.
-
-    Lemma app_fullD : forall e e' es t,
-                        app_full e = (e',es) ->
-                        exprD us vs e t = apps_sem e' es t.
-    Proof.
-      induction e; simpl; intros; inv_all; subst; try rewrite apps_sem_nil; auto.
-      { unfold app_full in *. simpl in *.
-        eapply IHe1 in H.
-        unfold apply_sem. simpl.
-*)
   End app_sem.
+
+
+  Section app_sem'.
+    Variables us vs : tenv typ.
+
+(*
+    Fixpoint apply' {T U} (x : T) (y : U) (ls : list {t : typ & T -> U -> typD ts nil t}) t {struct ls} :
+      typD ts nil (fold_right tyArr t (map (@projT1 _ _) ls)) ->
+      T -> U -> typD ts nil t :=
+      match ls as ls
+            return typD ts nil (fold_right tyArr t (map (@projT1 _ _) ls)) ->
+                   typD ts nil t
+      with
+        | nil => fun x => x
+        | l :: ls => fun f => apply x ls _ (f (projT2 l x))
+      end.
+*)
+
+    Fixpoint apply_sem'
+             (tf : typ) (e : hlist (typD ts nil) us -> hlist (typD ts nil) vs -> typD ts nil tf)
+             (ls : list (expr sym)) (t : typ)
+             {struct ls}
+    : option (hlist (typD ts nil) us -> hlist (typD ts nil) vs -> typD ts nil t) :=
+      match ls with
+        | nil =>
+          match typ_cast_typ ts nil tf t with
+            | None => None
+            | Some cast => Some (cast (fun x => hlist (typD ts nil) us -> hlist (typD ts nil) vs -> x) e)
+          end
+        | l :: ls =>
+          match tf as tf
+                return (hlist (typD ts nil) us -> hlist (typD ts nil) vs -> typD ts nil tf) -> _
+          with
+            | tyArr a b => fun f =>
+                             match exprD' us vs l a with
+                               | None => None
+                               | Some x => apply_sem' b (fun u g => (f u g) (x u g)) ls t
+                             end
+            | _ => fun _ => None
+          end e
+      end.
+
+    Definition apps_sem'
+               (e : expr sym) (l : list (expr sym)) (t : typ)
+    : option (hlist (typD ts nil) us -> hlist (typD ts nil) vs -> typD ts nil t) :=
+      match typeof_expr us vs e with
+        | None => None
+        | Some tf =>
+          match exprD' us vs e tf with
+            | Some f => apply_sem' _ f l t
+            | None => None
+          end
+      end.
+
+    Lemma apps_sem'_nil : forall e t,
+                           apps_sem' e nil t = exprD' us vs e t.
+    Proof.
+      intros. unfold apps_sem'.
+      consider (typeof_expr us vs e); intros.
+      { eapply typeof_expr_exprD' in H.
+        destruct H.
+        rewrite H.
+        simpl.
+        match goal with
+          | |- match ?X with _ => _ end = _ =>
+            consider X; intros
+        end.
+        { inv_all. subst. auto. }
+        { rewrite exprD'_type_cast in *.
+          forward. inv_all.
+          revert H3. subst. subst; intros.
+          autorewrite with exprD_rw in *. congruence. } }
+      { consider (exprD' us vs e t); auto; intros.
+        exfalso.
+        assert (exists v, exprD' us vs e t = Some v); eauto.
+        eapply typeof_expr_exprD' in H1. red in H1.
+        congruence. }
+    Qed.
+
+    Lemma exprD'_apps : forall es e t,
+      exprD' us vs (apps e es) t = apps_sem' e es t.
+    Proof.
+      induction es; simpl; intros.
+      { unfold apps_sem'.
+        rewrite exprD'_type_cast. forward. simpl.
+        match goal with
+          | |- match ?X with _ => _ end = match _ with Some f => match ?Y with _ => _ end | None => _ end =>
+            change Y with X; consider X
+        end; intros; forward.
+        inv_all. subst. reflexivity. }
+      { rewrite IHes.
+        unfold apps_sem'.
+        simpl. forward.
+        consider (typeof_expr us vs a); intros.
+        { destruct t0; forward.
+          simpl.
+          consider (typ_eqb t0_1 t1); intros; subst.
+          { red_exprD. Cases.rewrite_all_goal.
+            forward. rewrite typ_cast_typ_refl. reflexivity. }
+          { forward. exfalso.
+            rewrite exprD'_type_cast in H3.
+            rewrite H0 in *.
+            rewrite typ_cast_typ_neq in * by auto.
+            congruence. } }
+        { forward. subst.
+          rewrite exprD'_type_cast in H3. rewrite H0 in *. congruence. } }
+    Qed.
+
+  End app_sem'.
 
   (** TODO: This is best phrased in terms of monadic logics, but I don't have
    ** access to ILogic due to circular dependency issues

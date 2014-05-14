@@ -1,7 +1,3 @@
-Require Import List Bool.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.

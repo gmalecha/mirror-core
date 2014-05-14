@@ -1,9 +1,9 @@
 plugin: myocamlbuild.ml
-	ocamlbuild -use-ocamlfind mirror-core.otarget
+	ocamlbuild mirror-core.otarget
 
 clean:
 	@ ocamlbuild -clean
-	@ rm -f myocamlbuild.ml
+	@ rm -f myocamlbuild.ml Makefile.paths
 
 myocamlbuild.ml:
 	@ ln -s $(COQLIB)user-contrib/PluginUtils/myocamlbuild.ml myocamlbuild.ml

@@ -1,12 +1,12 @@
-Require Import List.
-Require Import Relations.
+Require Import Coq.Lists.List.
+Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.Set.ListSet.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.Subst.
+Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -43,7 +43,7 @@ Section sealed.
                    None
              end
   ; lookup := fun u s => lookup u s.(subst)
-  ; empty := {| allowed := fun _ => true ; subst := @Subst.empty _ _ _ |}
+  ; empty := {| allowed := fun _ => true ; subst := @SubstI.empty _ _ _ |}
   }.
 
   Variable typ : Type.

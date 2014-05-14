@@ -1,14 +1,10 @@
-Require Import List Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Core.Type.
-Require Import MirrorCore.Generic.
 Require Import MirrorCore.Iso.
 Require Import MirrorCore.IsoTac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Set Printing Universes.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { type_cast : forall env (a b : typ),

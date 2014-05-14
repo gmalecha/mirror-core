@@ -1,6 +1,6 @@
 <*.ml4>: use_grammar
 <reify_gen.*>: coq
-<reify_ext.*>: coq, package(coq-plugin-utils)
-<reify_Ext_SymEnv.*>: coq, package(coq-plugin-utils)
-<reify_Ext_SymEnv_plugin.*>: coq, package(coq-plugin-utils)
+<reify_ext.*>: coq, coq_plugin_utils
+<reify_Ext_SymEnv.*>: coq, coq_plugin_utils
+<reify_Ext_SymEnv_plugin.*>: coq, coq_plugin_utils
 <reify_Ext_SymEnv_plugin.cmxs>: coq_plugin

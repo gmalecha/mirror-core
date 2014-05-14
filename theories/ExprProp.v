@@ -1,6 +1,6 @@
-Require Import List.
+Require Import Coq.Lists.List.
+Require Import MirrorCore.Iso.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
@@ -16,11 +16,18 @@ Section semantic.
 
   Let tvProp := @typ0 _ _ _ TI_prop.
 
+  Definition Provable_val (val : typD nil tvProp) : Prop :=
+    @soutof _ _ (@typ0_iso _ _ _ TI_prop nil) (fun x => x) val.
+
   Definition Provable uvars vars (e : expr) : Prop :=
-    exists p, exprD uvars vars e tvProp = Some p.
+    match exprD (typD := typD) uvars vars e tvProp with
+      | None => False
+      | Some p => Provable_val p
+    end.
 
   Definition AllProvable uvars vars (es : list expr) :=
     Forall (Provable uvars vars) es.
+
 End semantic.
 
 (*

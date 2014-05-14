@@ -1,72 +1,84 @@
-Require Import List Arith Bool.
-Require Import ExtLib.Structures.EqDep.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Data.HList.
-Require Import MirrorCore.Iso.
+Require Import Coq.Lists.List.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.ExprProp.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 (** Provers that establish [expr]-encoded facts *)
 Section proverI.
-  Context {typ : Type}.
+  Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
   Context {RType_typ : RType typD}.
   Variable expr : Type.
   Context {Expr_expr : Expr typD expr}.
-  Context {typ0_prop : TypInstance0 typD Prop}.
+  Context {ty : typ}.
+  Variable Provable' : typD nil ty -> Prop.
 
-  (** TODO:
-   ** It may be adventageous to have a non-prop prover, to allow
-   ** asking to prove equality facts.
-   ** Additionally, restricting ourselves to goals denoted by
-   ** [expr] implies that you are limited by what you can express.
-   **)
+  Let Provable (us vs : env typD) (e : expr) : Prop :=
+    match exprD us vs e ty with
+      | None => False
+      | Some val => Provable' val
+    end.
 
-  Record ProverT : Type :=
+
+  Record Prover : Type :=
   { Facts : Type
   ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
   ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
   ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
   }.
 
-  Definition ProverCorrect (summary : Type)
+  Definition ProveOk (summary : Type)
     (** Some prover work only needs to be done once per set of hypotheses,
         so we do it once and save the outcome in a summary of this type. *)
     (valid : env typD -> env typD -> summary -> Prop)
     (prover : summary -> tenv typ -> tenv typ -> expr -> bool) : Prop :=
-    forall vars uvars sum,
+    forall uvars vars sum,
       valid uvars vars sum ->
       forall goal,
         prover sum (typeof_env uvars) (typeof_env vars) goal = true ->
-        Safe_expr (typeof_env uvars) (typeof_env vars) goal (@typ0 _ _ _ typ0_prop) ->
-        Provable typ0_prop uvars vars goal.
+        match exprD uvars vars goal ty with
+          | None => True
+          | Some val => Provable' val
+        end.
 
-
-  Record ProverT_correct (P : ProverT) : Type :=
+  Record ProverOk (P : Prover) : Type :=
   { Valid : env typD -> env typD -> Facts P -> Prop
   ; Valid_weaken : forall u g f ue ge,
     Valid u g f -> Valid (u ++ ue) (g ++ ge) f
   ; Summarize_correct : forall (uvars vars : env typD) (hyps : list expr),
-    Forall (Provable (expr := expr) typ0_prop uvars vars) hyps ->
+    Forall (Provable uvars vars) hyps ->
     Valid uvars vars (Summarize P (typeof_env uvars) (typeof_env vars) hyps)
   ; Learn_correct : forall uvars vars facts,
     Valid uvars vars facts -> forall hyps,
-    Forall (Provable typ0_prop uvars vars) hyps ->
+    Forall (Provable uvars vars) hyps ->
     Valid uvars vars (P.(Learn) facts (typeof_env uvars) (typeof_env vars) hyps)
-  ; Prove_correct : ProverCorrect Valid P.(Prove)
+  ; Prove_correct : ProveOk Valid P.(Prove)
   }.
 
+  Theorem Prove_concl P (Pok : ProverOk P)
+  : forall (vars uvars : env typD)
+           (sum : Facts P),
+      Valid Pok uvars vars sum ->
+      forall (goal : expr),
+        Prove P sum (typeof_env uvars) (typeof_env vars) goal = true ->
+        forall val,
+          exprD uvars vars goal ty = Some val ->
+          Provable' val.
+  Proof.
+    intros.
+    specialize (@Pok.(Prove_correct) uvars vars sum H goal H0).
+    rewrite H1. exact (fun x => x).
+  Qed.
 
   (** Composite Prover **)
   Section composite.
-    Variables pl pr : ProverT.
+    Variables pl pr : Prover.
 
-    Definition composite_ProverT : ProverT :=
+    Definition composite_Prover : Prover :=
     {| Facts := Facts pl * Facts pr
      ; Summarize := fun uenv venv hyps =>
          (pl.(Summarize) uenv venv hyps, pr.(Summarize) uenv venv hyps)
@@ -79,22 +91,22 @@ Section proverI.
          else pr.(Prove) fr uenv venv goal
     |}.
 
-    Variable pl_correct : ProverT_correct pl.
-    Variable pr_correct : ProverT_correct pr.
+    Variable pl_correct : ProverOk pl.
+    Variable pr_correct : ProverOk pr.
 
-    Theorem composite_ProverT_correct : ProverT_correct composite_ProverT.
+    Theorem composite_ProverOk : ProverOk composite_Prover.
     Proof.
       refine (
-        {| Valid := fun uvars vars (facts : Facts composite_ProverT) =>
+        {| Valid := fun uvars vars (facts : Facts composite_Prover) =>
              let (fl,fr) := facts in
              Valid pl_correct uvars vars fl /\ Valid pr_correct uvars vars fr
          |});
       (destruct pl_correct; destruct pr_correct; simpl;
        try destruct facts; intuition eauto).
-      unfold ProverCorrect. destruct sum; intuition.
+      unfold ProveOk. destruct sum; intuition.
       consider (Prove pl f (typeof_env uvars) (typeof_env vars) goal); intros.
-      eapply Prove_correct0; eassumption.
-      eapply Prove_correct1; eassumption.
+      { eapply Prove_correct0; eassumption. }
+      { eapply Prove_correct1; eassumption. }
     Qed.
   End composite.
 End proverI.

@@ -1,6 +1,6 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
@@ -45,8 +45,11 @@ Section proverI.
     assumptionValid u g f -> assumptionValid (u ++ ue) (g ++ ge) f.
   Proof.
     unfold assumptionValid. do 5 intro.
-    eapply Forall_impl. intros. destruct H.
-    exists x. eapply exprD_weaken; eauto.
+    eapply Forall_impl. intros.
+    red in H. red.
+    forward.
+    eapply exprD_weaken in H; eauto.
+    rewrite H. assumption.
   Qed.
 
   Lemma assumptionSummarizeCorrect : forall uvars vars hyps,
@@ -73,25 +76,26 @@ Section proverI.
     apply Forall_app; auto.
   Qed.
 
-  Theorem assumptionProverCorrect : ProverCorrect assumptionValid assumptionProve.
+  Theorem assumptionProveOk : ProveOk (Provable_val typ0_prop) assumptionValid assumptionProve.
   Proof.
     red. unfold assumptionValid, assumptionProve.
     induction sum; simpl; intros; try congruence.
     consider (goal ?[ eq ] a); intros; subst.
-    { inversion H; subst; auto. }
-    { inversion H; subst. intros. eauto. }
+    { inversion H; subst; auto.
+      red in H2. forward. }
+    { inversion H; subst. eapply IHsum; eauto. }
   Qed.
 
-  Definition assumptionProver : @ProverT typ expr :=
+  Definition assumptionProver : Prover typ expr :=
   {| Facts := assumption_summary
    ; Summarize := fun _ _ => assumptionSummarize
    ; Learn := fun f _ _ => assumptionLearn f
    ; Prove := assumptionProve
    |}.
 
-  Definition assumptionProver_correct : ProverT_correct assumptionProver.
-  eapply Build_ProverT_correct with (Valid := assumptionValid);
-    eauto using assumptionValid_extensible, assumptionSummarizeCorrect, assumptionLearnCorrect, assumptionProverCorrect.
+  Definition assumptionProver_correct : ProverOk (Provable_val typ0_prop) assumptionProver.
+  eapply Build_ProverOk with (Valid := assumptionValid);
+    eauto using assumptionValid_extensible, assumptionSummarizeCorrect, assumptionLearnCorrect, assumptionProveOk.
   { simpl. intros. eapply assumptionLearnCorrect; eauto. }
   Qed.
 

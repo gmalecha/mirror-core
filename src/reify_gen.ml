@@ -63,12 +63,19 @@ struct
   let reify t = F.map (R.reify t)
 end
 
+module type Checker =
+sig
+  type 'a m
+  val is_eqb : Term.constr -> Term.constr -> bool m
+end
+
 (** Reification based on environments of terms.
  **)
 module ReifyEnvOption
   (M : MONAD)
   (S : STATE with type state = Term.constr option list
              with type 'a m = 'a M.m)
+  (CHK : Checker with type 'a m = 'a M.m)
   : REIFY with type 'a m = 'a M.m
           with type result = int =
 struct
@@ -78,11 +85,12 @@ struct
   let env_get k =
     let rec env_get i x =
       match x with
-	[] -> None
+	[] -> M.ret None
       | Some x :: xs ->
-	if Term.eq_constr x k
-	then Some i
-	else env_get (i+1) xs
+	M.bind (CHK.is_eqb x k) (fun b ->
+	  if b
+	  then M.ret (Some i)
+	  else env_get (i+1) xs)
       | None :: xs ->
 	env_get (i+1) xs
     in env_get 0
@@ -92,18 +100,20 @@ struct
 
   let reify (t : Term.constr) : int m =
     M.bind S.get (fun e ->
-      match env_get t e with
-	Some i -> M.ret i
-      | None ->
-	let (new_e, res) = env_app e t in
-	M.bind (S.put new_e) (fun _ ->
-	  M.ret res))
+      M.bind (env_get t e) (fun res ->
+	match res with
+	  Some i -> M.ret i
+	| None ->
+	  let (new_e, res) = env_app e t in
+	  M.bind (S.put new_e) (fun _ ->
+	    M.ret res)))
 end
 
 module ReifyEnv
   (M : MONAD)
   (S : STATE with type state = Term.constr list
              with type 'a m = 'a M.m)
+  (CHK : Checker with type 'a m = 'a M.m)
   : REIFY with type 'a m = 'a M.m
           with type result = int =
 struct
@@ -113,11 +123,12 @@ struct
   let env_get k =
     let rec env_get i x =
       match x with
-	[] -> None
+	[] -> M.ret None
       | x :: xs ->
-	if Term.eq_constr x k
-	then Some i
-	else env_get (i+1) xs
+	M.bind (CHK.is_eqb x k) (fun b ->
+	  if b
+	  then M.ret (Some i)
+	  else env_get (i+1) xs)
     in env_get 0
 
   let env_app a b =
@@ -125,14 +136,20 @@ struct
 
   let reify (t : Term.constr) : int m =
     M.bind S.get (fun e ->
-      match env_get t e with
-	Some i -> M.ret i
-      | None ->
-	let (new_e, res) = env_app e t in
-	M.bind (S.put new_e) (fun _ ->
-	  M.ret res))
+      M.bind (env_get t e) (fun b ->
+	match b with
+	  Some i -> M.ret i
+	| None ->
+	  let (new_e, res) = env_app e t in
+	  M.bind (S.put new_e) (fun _ ->
+	    M.ret res)))
 end
 
+module CheckEq (M : MONAD) =
+struct
+  type 'a m = 'a M.m
+  let is_eqb x y = M.ret (Term.eq_constr x y)
+end
 
 (** return true if the term is an arrow (as opposed to a product) **)
 let as_arrow t =
@@ -274,12 +291,20 @@ struct
       None -> ([], ls)
     | Some i -> let i = i + 1 in (firstn i ls, skipn i ls)
 
+  let mapi (f : int -> 'a -> 'b) (ls : 'a list) =
+    let rec mapi (ls : 'a list) (i : int) =
+      match ls with
+	[] -> []
+      | l :: ls -> f i l :: mapi ls (i + 1)
+    in
+    mapi ls 0
+
   let build_lambda f ts =
     match ts with
       [] -> f
     | _ ->
       let mx = List.length ts in
-      let app_args = List.mapi (fun n (dep,t,x) ->
+      let app_args = mapi (fun n (dep,t,x) ->
 	if dep then
 	  x
 	else

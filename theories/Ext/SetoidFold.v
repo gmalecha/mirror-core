@@ -1,10 +1,11 @@
-Require Import Relations.
+Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprD.
 Require Import MirrorCore.Ext.ExprTactics.
@@ -18,6 +19,9 @@ Section setoid.
   Variable RSym_sym : RSym (typD ts) sym.
   Variable Rbase : Type. (** Relations **)
   Variable T : Type. (** Result type **)
+
+  Let Expr_expr : Expr (typD ts) (expr sym) := Expr_expr _.
+  Local Existing Instance Expr_expr.
 
   Inductive PR : Type :=
   | PRinj (r : Rbase)
@@ -226,12 +230,10 @@ Section setoid.
       typeof_expr tus tvs e = Some t ->
       instantiates r' r /\
       typeForR r' = t /\
-      forall us,
-        WellTyped_env tus us ->
-        match exprD' us tvs e (typeForR r') with
+        match exprD' tus tvs e (typeForR r') with
           | Some x =>
-            forall vs,
-              TR us (join_env vs) r' result (x vs)
+            forall us vs,
+              TR (join_env us) (join_env vs) r' result (x us vs)
           | None => True
         end.
 
@@ -272,7 +274,7 @@ Section setoid.
     clear.
     induction a; destruct b; simpl; intros; try solve [ inversion H ].
     { inversion H; subst; auto. }
-    { inversion H; subst; auto. Cases.rewrite_all. auto. }
+    { inversion H; subst; auto. Cases.rewrite_all_goal. auto. }
     { inversion H; subst; auto. f_equal; auto. }
   Qed.
 
@@ -308,7 +310,8 @@ Section setoid.
       forward; inv_all; subst.
       edestruct H4; clear H4; eauto.
       { constructor; auto. constructor. }
-      { unfold Monad.bind in *; simpl in *.
+      { unfold Monad.bind in *.
+        simpl in H5.
         apply inv_instantiates_functorial in H. destruct H.
         forward; inv_all; subst.
         destruct H6. inv_all; subst.
@@ -316,24 +319,24 @@ Section setoid.
         destruct H8.
         eapply instantiates_R_to_PR in H6; subst.
         intuition.
-        specialize (H7 _ H6).
-        specialize (H8 _ H6).
         forward. red_exprD. forward; inv_all; subst.
-        assert (t3 = typeForR l).
-        { eapply typeof_expr_exprD_same_type with (us := us) (vs := join_env vs) (e := e2).
-          unfold exprD. rewrite split_env_join_env. rewrite H12. reflexivity.
-          rewrite typeof_env_join_env.
-          apply WellTyped_env_typeof_env in H6; subst; auto. }
-        subst.
-        rewrite H12 in *. rewrite H11 in *.
-        apply WellTyped_env_typeof_env in H6. subst.
-        replace tvs with (typeof_env (join_env vs)) in H5.
+        change ((fix typeForR (r : R) : typ :=
+             match r with
+             | Rinj r0 => typeForRbase r0
+             | Rfunctorial l r0 => tyArr (typeForR l) (typeForR r0)
+             | Rpointwise t r0 => tyArr t (typeForR r0)
+             end)) with typeForR in *.
+        rewrite H11 in H8.
+        rewrite H10 in H7.
+        uip_all.
+        replace tvs with (typeof_env (join_env vs)) in H5 by apply typeof_env_join_env.
+        replace tus with (typeof_env (join_env us)) in H5 by apply typeof_env_join_env.
         specialize (@Happ _ _ _ _ _ _ _ H5).
         eapply Happ; eauto.
         instantiate (1 := e1).
         unfold exprD. rewrite split_env_join_env.
-        rewrite H11. auto.
-        rewrite typeof_env_join_env. auto. } }
+        change ExprD3.EXPR_DENOTE_core.exprD' with exprD'.
+        rewrite split_env_join_env. simpl. rewrite H10. reflexivity. } }
     { destruct r; try_atomic.
       consider (setoid_fold' tus e (t :: tvs) r); intros; try_atomic; intros.
       destruct p. inv_all; subst.
@@ -347,21 +350,17 @@ Section setoid.
       split.
       { f_equal. auto. }
       { intros.
-        specialize (H4 _ H2).
+        simpl.
         red_exprD.
         forward.
-        assert (TR us (join_env vs) (Rpointwise t r0)
-                   result
-                   (fun x : typD ts nil t => t0 (HList.Hcons x vs))).
-        { eapply Habs; eauto.
-          { rewrite typeof_env_join_env.
-            apply WellTyped_env_typeof_env in H2; subst. eauto. }
-          { instantiate (1 := (Abs t e)).
-            unfold exprD. rewrite split_env_join_env.
-            red_exprD.
-            rewrite H4. reflexivity. }
-          { intro. specialize (H6 (HList.Hcons x vs)). auto. } }
-        { apply WellTyped_env_typeof_env in H2. subst. auto. } } }
+        eapply Habs; eauto.
+        { repeat rewrite typeof_env_join_env. eapply H1. }
+        { instantiate (1 := (Abs t e)).
+          unfold exprD. repeat rewrite split_env_join_env.
+          change (@ExprI.exprD' _ _ _ _) with exprD'.
+          red_exprD.
+          rewrite H2. reflexivity. }
+        { intro. specialize (H4 us (HList.Hcons x vs)). auto. } } }
   Qed.
 
   Definition setoid_fold (tus tvs : tenv typ) (e : expr sym) (r : R) : option T :=
@@ -390,23 +389,34 @@ Section setoid.
       eapply WellTyped_env_typeof_env in H1. subst.
       auto. }
     { destruct H4.
-      specialize (H5 _ H0).
       unfold exprD in *.
       consider (split_env vs); intros.
+      consider (split_env us); intros.
+      change ExprD3.EXPR_DENOTE_core.exprD' with exprD' in *.
       forward. inv_all; subst.
       eapply instantiates_R_to_PR in H3; subst.
       cutrewrite (tvs = x0) in H5.
-      rewrite H6 in *. specialize (H5 h).
-      cutrewrite (vs = join_env h). auto.
+      cutrewrite (tus = x1) in H5.
+      unfold Expr_expr in *; simpl in *.
+      rewrite H7 in *. specialize (H5 h0 h).
+      cutrewrite (vs = join_env h).
+      cutrewrite (us = join_env h0); auto.
       eapply split_env_projT2_join_env; eauto.
+      eapply split_env_projT2_join_env; eauto.
+      change x1 with (projT1 (existT (HList.hlist (typD ts nil)) x1 h0)).
+      match goal with
+        | H : _ = ?X |- _ = projT1 ?Y =>
+          change Y with X ; rewrite <- H
+      end.
+      rewrite split_env_projT1.
+      eapply WellTyped_env_typeof_env in H0. apply H0.
       change x0 with (projT1 (existT (HList.hlist (typD ts nil)) x0 h)).
       match goal with
         | H : _ = ?X |- _ = projT1 ?Y =>
-          change Y with X ; rewrite <- H2
+          change Y with X ; rewrite <- H
       end.
       rewrite split_env_projT1.
-      eapply WellTyped_env_typeof_env in H1.
-      subst. reflexivity. }
+      eapply WellTyped_env_typeof_env in H1. apply H1. }
   Qed.
 
 End setoid.
@@ -415,6 +425,9 @@ Section interface.
   Variable ts : types.
   Variable sym : Type. (** Symbols **)
   Variable RSym_sym : RSym (typD ts) sym.
+
+  Let Expr_expr : Expr (typD ts) (expr sym) := Expr_expr _.
+  Local Existing Instance Expr_expr.
 
   Let tc_acc : relation (expr sym) :=
     TransitiveClosure.rightTrans (@expr_acc sym).

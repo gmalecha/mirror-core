@@ -39,12 +39,12 @@ def gather_deps(files):
     return result
 
 def print_dot(deps):
-    print 'digraph dependencies {'
+    print('digraph dependencies {')
     for k in deps.keys():
-        print '\t%s [label="%s"] ;' % (get_ident(k), k)
+        print('\t%s [label="%s"] ;' % (get_ident(k), k))
         for d in deps[k]:
-            print '\t%s -> %s ;' % (get_ident(k), get_ident(d))
-    print '}'
+            print('\t%s -> %s ;' % (get_ident(k), get_ident(d)))
+    print('}')
 
 if __name__ == '__main__':
     args = sys.argv[1:]
@@ -53,9 +53,8 @@ if __name__ == '__main__':
         ex = args.index('--exclude')
         EXCLUDE = EXCLUDE + [re.compile('^%s$' % args[ex+1])]
         args = args[:ex] + args[ex+2:]
-    except ValueError, e:
+    except ValueError:
         pass
 
     deps = gather_deps(sys.argv[1:])
     print_dot(deps)
-    

@@ -1,4 +1,4 @@
-Require Import List.
+Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.Consider.
@@ -7,7 +7,8 @@ Require Import ExtLib.Tactics.EqDep.
 Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Subst.
+Require Import MirrorCore.ExprI.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprT.
@@ -29,6 +30,9 @@ Section typed.
   Variable Subst_subst : Subst subst (expr func).
   Variable SubstOk_subst : SubstOk (Expr_expr RSym_func) Subst_subst.
 
+  Let Expr_expr : Expr (typD types) (expr func) := Expr_expr _.
+  Local Existing Instance Expr_expr.
+
   Section nested.
 
   (** n is the number of binders that we have gone under **)
@@ -43,35 +47,35 @@ Section typed.
       | UVar u1 , UVar u2 =>
         if EqNat.beq_nat u1 u2 then Some s
         else
-          match Subst.lookup u1 s , Subst.lookup u2 s with
+          match lookup u1 s , lookup u2 s with
             | None , None =>
-              match Subst.set u1 (UVar u2) s with
+              match set u1 (UVar u2) s with
                 | None =>
-                  Subst.set u2 (UVar u1) s
+                  set u2 (UVar u1) s
                 | Some s => Some s
               end
             | Some e1' , None =>
-              Subst.set u2 e1' s
+              set u2 e1' s
             | None , Some e2' =>
-              Subst.set u1 e2' s
+              set u1 e2' s
             | Some e1' , Some e2' =>
               exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
           end
       | UVar u1 , _ =>
-        match Subst.lookup u1 s with
+        match lookup u1 s with
           | None =>
             match lower 0 n e2 with
               | None => None
-              | Some e2 => Subst.set u1 e2 s
+              | Some e2 => set u1 e2 s
             end
           | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
         end
       | _ , UVar u2 =>
-        match Subst.lookup u2 s with
+        match lookup u2 s with
           | None =>
             match lower 0 n e1 with
               | None => None
-              | Some e1 => Subst.set u2 e1 s
+              | Some e1 => set u2 e1 s
             end
           | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
         end
@@ -138,6 +142,13 @@ Section typed.
 
   Definition unify_sound := unify_sound_ind.
 
+  Lemma Safe_expr_WellTyped_expr
+  : forall tus tvs e t,
+      Safe_expr tus tvs e t <-> WellTyped_expr tus tvs e t.
+  Proof.
+    intros. rewrite typeof_expr_exprD'. reflexivity.
+  Qed.
+
   Lemma handle_set : forall
     (unify : tenv typ -> tenv typ -> nat -> subst ->
              expr func -> expr func -> typ -> option subst),
@@ -145,18 +156,18 @@ Section typed.
     forall (tu : tenv typ) (tv : list typ) (u : uvar)
            (s s' : subst) (t : typ) (tv' : list typ),
       WellTyped_expr tu (tv' ++ tv) (UVar u) t ->
-      WellTyped_subst tu tv s ->
+      WellTyped_subst (SubstOk := SubstOk_subst) tu tv s ->
       forall e e' : expr func,
         WellTyped_expr tu (tv' ++ tv) e t ->
         lower 0 (length tv') e = Some e' ->
         lookup u s = None ->
         set u e' s = @Some subst s' ->
-        WellTyped_subst tu tv s' /\
+        WellTyped_subst (SubstOk := SubstOk_subst) tu tv s' /\
         (forall u0 v : @env typ (typD types),
            @WellTyped_env types tu u0 ->
            @WellTyped_env types tv v ->
-           substD u0 v s' ->
-           substD u0 v s /\
+           substD (SubstOk := SubstOk_subst) u0 v s' ->
+           substD (SubstOk := SubstOk_subst) u0 v s /\
            (forall v' : @env typ (typD types),
               @WellTyped_env types tv' v' ->
               exprD u0 (v' ++ v) (UVar u) t =
@@ -165,7 +176,8 @@ Section typed.
     intros.
     split.
     { eapply WellTyped_set; eauto.
-      simpl. red. generalize (typeof_expr_lower _ tu e nil tv' tv).
+      simpl. eapply Safe_expr_WellTyped_expr. red.
+      generalize (typeof_expr_lower _ tu e nil tv' tv).
       simpl. intro. rewrite <- H6; eauto. }
     { intros.
       generalize H3. intro. eapply substD_set in H8; eauto.
@@ -173,13 +185,15 @@ Section typed.
       rewrite WellTyped_expr_UVar in H0.
       eapply WellTyped_env_typeof_env in H6. subst.
       unfold typeof_env in H0. rewrite nth_error_map in H0.
+      unfold Expr_expr.
       autorewrite with exprD_rw. unfold lookupAs.
       destruct (nth_error u0 u); try congruence.
       specialize (H10 _ eq_refl).
       inv_all; subst.
       generalize (exprD_lower _ u0 nil v' v e). simpl.
       cutrewrite (length v' = length tv'). intro X; eapply X in H9.
-      etransitivity. 2: symmetry; eassumption. destruct s0; simpl.
+      etransitivity. 2: symmetry; eassumption. destruct s0; simpl in *.
+      simpl in *.
       rewrite typ_cast_typ_refl. eauto.
       eapply WellTyped_env_typeof_env in H11. subst.
       rewrite typeof_env_length. auto. }
@@ -192,7 +206,7 @@ Section typed.
    forall (tu : tenv typ) (tv : list typ) (u : uvar)
      (s s' : subst) (t : typ) (tv' : list typ),
    WellTyped_expr  tu (tv' ++ tv) (UVar u) t ->
-   WellTyped_subst tu tv s ->
+   WellTyped_subst (SubstOk := SubstOk_subst) tu tv s ->
    forall e : expr func,
    WellTyped_expr tu (tv' ++ tv) e t ->
    match lookup u s with
@@ -205,12 +219,12 @@ Section typed.
        | None => @None subst
        end
    end = @Some subst s' ->
-   WellTyped_subst tu tv s' /\
+   WellTyped_subst (SubstOk := SubstOk_subst) tu tv s' /\
    (forall u0 v : @env typ (typD types),
     WellTyped_env tu u0 ->
     WellTyped_env tv v ->
-    substD u0 v s' ->
-    substD u0 v s /\
+    substD (SubstOk := SubstOk_subst) u0 v s' ->
+    substD (SubstOk := SubstOk_subst) u0 v s /\
     (forall v' : @env typ (typD types),
      WellTyped_env tv' v' ->
      exprD u0 (v' ++ v) e t =
@@ -222,6 +236,7 @@ Section typed.
       { destruct H4; split; auto.
         intros. specialize (H5 _ _ H6 H7 H8). destruct H5; split; auto.
         intros. specialize (H9 _ H10).
+        unfold Expr_expr in *.
         autorewrite with exprD_rw.
         unfold lookupAs.
         eapply substD_lookup in H3; eauto.
@@ -243,7 +258,8 @@ Section typed.
         simpl in *. rewrite H0 in *.
         destruct H3. intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. etransitivity; eauto. } }
+        intros. etransitivity; eauto.
+        apply Safe_expr_WellTyped_expr in H6. apply H6. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -261,7 +277,7 @@ Section typed.
    forall (tu : tenv typ) (tv : list typ) (u : uvar)
      (s s' : subst) (t : typ) (tv' : list typ),
    WellTyped_expr tu (tv' ++ tv) (UVar u) t ->
-   WellTyped_subst tu tv s ->
+   WellTyped_subst (SubstOk := SubstOk_subst) tu tv s ->
    forall e : expr func,
    WellTyped_expr tu (tv' ++ tv) e t ->
    match lookup u s with
@@ -274,12 +290,12 @@ Section typed.
        | None => @None subst
        end
    end = @Some subst s' ->
-   WellTyped_subst tu tv s' /\
+   WellTyped_subst (SubstOk := SubstOk_subst) tu tv s' /\
    (forall u0 v : @env typ (typD types),
     WellTyped_env tu u0 ->
     WellTyped_env tv v ->
-    substD u0 v s' ->
-    substD u0 v s /\
+    substD (SubstOk := SubstOk_subst) u0 v s' ->
+    substD (SubstOk := SubstOk_subst) u0 v s /\
     (forall v' : @env typ (typD types),
      WellTyped_env tv' v' ->
      exprD u0 (v' ++ v) (UVar u) t =
@@ -291,6 +307,7 @@ Section typed.
       { destruct H4; split; auto.
         intros. specialize (H5 _ _ H6 H7 H8). destruct H5; split; auto.
         intros. specialize (H9 _ H10).
+        unfold Expr_expr in *.
         autorewrite with exprD_rw.
         unfold lookupAs.
         eapply substD_lookup in H3; eauto.
@@ -313,7 +330,8 @@ Section typed.
         simpl in *. rewrite H0 in *.
         destruct H3; intuition; inv_all; subst.
         generalize (typeof_expr_lift _ tu nil tv' tv e0); simpl.
-        intros. etransitivity; eassumption. } }
+        intros. etransitivity; try eassumption.
+        eapply Safe_expr_WellTyped_expr in H6. eapply H6. } }
     { match goal with
         | _ : match ?X with _ => _ end = _ |- _ =>
           consider X; try congruence; intros
@@ -322,15 +340,16 @@ Section typed.
   Qed.
 
   Lemma WellTyped_from_subst : forall tu tv tv' s e t u,
-    WellTyped_subst tu tv s ->
+    WellTyped_subst (SubstOk := SubstOk_subst) tu tv s ->
     WellTyped_expr tu (tv' ++ tv) (UVar u) t ->
-    Subst.lookup u s = Some e ->
+    lookup u s = Some e ->
     WellTyped_expr tu (tv' ++ tv) (lift 0 (length tv') e) t.
   Proof.
     intros.
     rewrite WellTyped_expr_UVar in H0.
     eapply WellTyped_lookup in H1. 2: eauto.
     rewrite H0 in *. destruct H1; intuition; inv_all; subst.
+    eapply Safe_expr_WellTyped_expr in H3.
     red in H3. simpl in H3.
     red.
     etransitivity.
@@ -339,14 +358,15 @@ Section typed.
   Qed.
 
   Lemma exprD_from_subst : forall us vs vs' s e u t,
-    substD us vs s ->
-    Subst.lookup u s = Some e ->
+    substD (SubstOk := SubstOk_subst) us vs s ->
+    lookup u s = Some e ->
     nth_error (typeof_env us) u = Some t ->
     exprD us (vs' ++ vs) (UVar u) t =
     exprD us (vs' ++ vs) (lift 0 (length vs') e) t.
   Proof.
     intros.
-    rewrite exprD_UVar.
+    unfold Expr_expr in *.
+    autorewrite with exprD_rw.
     unfold lookupAs.
     generalize H0.
     eapply substD_lookup in H0; eauto.
@@ -422,6 +442,7 @@ Section typed.
           assert (tv = typeof_env v) by (eapply WellTyped_env_typeof_env; assumption).
           assert (tv' = typeof_env v') by (eapply WellTyped_env_typeof_env; assumption).
           subst.
+          unfold Expr_expr in *.
           autorewrite with exprD_rw.
           repeat rewrite typeof_env_app in *.
           repeat match goal with
@@ -445,20 +466,19 @@ Section typed.
         assert (tv = typeof_env v) by (eapply WellTyped_env_typeof_env; assumption).
         specialize (H1 u v H6 H7 H8).
         intuition.
-        autorewrite with exprD_rw.
         assert (tv' = typeof_env v') by (eapply WellTyped_env_typeof_env; assumption); subst.
-        gen_refl.
-        generalize (@typeof_expr_eq_exprD_False _ _ _ u t1 (v' ++ v) e1 x).
-        generalize (@typeof_expr_eq_exprD_False _ _ _ u t1 (v' ++ v) e2 x).
+        generalize (@typeof_expr_eq_exprD_False _ _ _ u (v' ++ v) t1 e1 x).
+        generalize (@typeof_expr_eq_exprD_False _ _ _ u (v' ++ v) t1 e2 x).
         unfold typecheck_expr, WellTyped_expr in *.
-        erewrite typeof_env_app. simpl in *.
+        erewrite typeof_env_app.
         rewrite H5. rewrite H4.
-        repeat rewrite rel_dec_eq_true by eauto with typeclass_instances.
-        intros. unfold exprD in *. simpl in *. remember (split_env (v' ++ v)).
+        intros. unfold exprD, ExprI.exprD in *. simpl in *.
+        remember (split_env (v' ++ v)).
         destruct s0.
+        remember (split_env u).
+        destruct s0.
+        autorewrite with exprD_rw.
         simpl in *.
-        repeat rewrite exprD'_Abs.
-        rewrite typ_cast_typ_refl.
         specialize (H9 eq_refl). specialize (H10 eq_refl).
         generalize typeof_expr_exprD'. unfold WellTyped_expr.
         intro XXX. rewrite XXX in H4. rewrite XXX in H5.
@@ -466,8 +486,15 @@ Section typed.
         { rewrite <- typeof_env_app.
           generalize (@split_env_projT1 _ _ (v' ++ v)).
           rewrite <- Heqs0. simpl. intro. symmetry. exact H13. }
+        assert (typeof_env u = x1).
+        { generalize (@split_env_projT1 _ _ u).
+          rewrite <- Heqs1. simpl; intros. symmetry. assumption. }
         subst.
         destruct H4; destruct H5; intuition.
+        repeat match goal with
+                 | H : ?X = _ |- context [ match ?Y with _ => _ end ] =>
+                   change Y with X; rewrite H
+               end.
         rewrite H4 in *. rewrite H5 in *.
         f_equal.
         eapply functional_extensionality; intros.
@@ -503,7 +530,8 @@ Section typed.
               eapply substD_set in H8; eauto.
               intuition.
               erewrite exprD_from_subst; eauto using nth_error_from_WellTyped_UVar.
-              rewrite exprD_UVar.
+              unfold Expr_expr in *.
+              autorewrite with exprD_rw.
               rewrite WellTyped_expr_UVar in *.
               unfold lookupAs.
               eapply WellTyped_env_typeof_env in H10. subst.
@@ -533,7 +561,8 @@ Section typed.
               2: eapply nth_error_from_WellTyped_UVar.
               2: eapply H1. 2: eassumption.
               symmetry.
-              rewrite exprD_UVar.
+              unfold Expr_expr in *.
+              autorewrite with exprD_rw.
               rewrite WellTyped_expr_UVar in *.
               unfold lookupAs.
               eapply WellTyped_env_typeof_env in H10. subst.

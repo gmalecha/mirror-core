@@ -1,30 +1,34 @@
-GENERIC := Iso IsoTac Approx
+GENERIC := Iso IsoTac
+UTIL := Approx Iteration
 PROVERS := ProverTac AssumptionProver
-#  Transitivity
+SUBST   := SealedSubst FastSubst RawSubst2 FMapSubst3
 EXTENSIBLE := Repr Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
-	      ExprFacts \
-	      ExprLift ExprUnifySyntactic \
+	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 ExprUnifySyntactic3 \
 	      ExprSubst LemmaExt \
-	      Expr FMapSubst ExprTactics \
+	      Expr ExprTactics \
 	      SymEnv \
-	      SetoidFold AppFull Red ExprSem AsConst
+	      SetoidFold AppFull Red AsConst \
+	      provers/UnifyEProver
 LAMBDA := ExprCore ExprT ExprDI ExprD3
 MODULES    := Generic \
-	      TypesI EnvI ExprI ExprProp \
+	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \
-	      Prover Subst SealedSubst \
+	      SubstI SubstI2 SubstI3 \
+	      Prover EProver Prover2 EProver2 \
+	      Lemma \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
-
+	      $(SUBST:%=Subst/%) \
+	      $(UTIL:%=Util/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS :=-R . MirrorCore
+ARGS := -R . MirrorCore
 
 .PHONY: coq clean package
 
@@ -35,6 +39,7 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(VS)
+	echo $(ARGS)
 	coq_makefile $(ARGS) $(VS) > Makefile.coq
 
 

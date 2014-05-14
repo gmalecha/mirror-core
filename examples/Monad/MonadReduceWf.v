@@ -1,4 +1,4 @@
-Require Import List Bool.
+Require Import Coq.Lists.List Coq.Bool.Bool.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Vector.
@@ -7,6 +7,7 @@ Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.Util.Approx.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -40,8 +41,8 @@ Section Demo.
                   (Vcons b1 (Vnil _)).
 
   Definition monad_match (R : Type) (e : expr)
-             (caseRet : typ -> forall e' : expr, acc e' e -> R)
-             (caseBind : typ -> typ -> forall e' e'' : expr, acc e' e -> acc e'' e -> R)
+             (caseRet : typ -> forall e' : expr, Expr_acc e' e -> R)
+             (caseBind : typ -> typ -> forall e' e'' : expr, Expr_acc e' e -> Expr_acc e'' e -> R)
              (caseElse : unit -> R) : R.
   refine (
     match sappn_check bind_app e with
@@ -57,8 +58,6 @@ Section Demo.
                 end
     end); repeat (eassumption || apply ForallV_vector_hd || apply ForallV_vector_tl).
   Defined.
-
-  Require Import MirrorCore.Approx.
 
   Definition monad_run' : expr -> nat -> expr * bool :=
     @approx _

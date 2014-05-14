@@ -45,6 +45,7 @@ module ReifyExtTypes
 	       val under_type : bool -> 'a m -> 'a m
 	       val lookup_type : int -> int m
            end)
+  (CHK : Checker with type 'a m = 'a PARAM.m)
   : REIFY with type 'a m = 'a PARAM.m
           with type result = Term.constr
 

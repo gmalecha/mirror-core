@@ -2,13 +2,12 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Tactics.Consider.
-Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.EqDep.
-Require Import ExtLib.Tactics.Cases.
-Require Import MirrorCore.Subst.
+Require Import ExtLib.Tactics.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
+(** TODO: These should be abstracted **)
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprLift.
 Require Import MirrorCore.Ext.ExprSubst.
@@ -19,7 +18,7 @@ Set Strict Implicit.
 (** Temporary **)
 Require Import FunctionalExtensionality.
 
-(** Finite Maps **)
+(** Finite Maps **) 
 Require Import FMapInterface.
 
 Module Make (FM : S with Definition E.t := uvar
@@ -48,6 +47,7 @@ Module Make (FM : S with Definition E.t := uvar
     Definition raw_lookup : uvar -> raw -> option (expr func) :=
        @FM.find _.
 
+    (** this is like instantiate **)
     Section raw_subst.
       Variable s : raw.
 
@@ -66,16 +66,6 @@ Module Make (FM : S with Definition E.t := uvar
             end
         end.
     End raw_subst.
-
-    Fixpoint subst_one (u : uvar) (e' : expr func) (under : nat) (e : expr func)
-    : expr func :=
-      match e with
-        | Var _
-        | Inj _ => e
-        | App l r => App (subst_one u e' under l) (subst_one u e' under r)
-        | Abs t e => Abs t (subst_one u e' (S under) e)
-        | UVar u' => if u ?[ eq ] u' then lift 0 under e' else e
-      end.
 
     Definition raw_set (u : uvar) (e : expr func) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
@@ -189,7 +179,7 @@ Module Make (FM : S with Definition E.t := uvar
       FM.fold (fun k v P =>
                  match nth_error us k with
                    | None => False
-                   | Some (existT T val) => match ExprD.exprD us vs v T with
+                   | Some (existT T val) => match exprD us vs v T with
                                               | Some val' => val = val' /\ P
                                               | None => False
                                             end
@@ -423,7 +413,7 @@ Module Make (FM : S with Definition E.t := uvar
            raw_lookup uv s = Some e ->
            exists v,
              nth_error us uv = Some v /\
-             ExprD.exprD us vs e (projT1 v) = Some (projT2 v)).
+             exprD us vs e (projT1 v) = Some (projT2 v)).
       Proof.
         simpl.
         unfold raw_substD, raw_lookup.
@@ -482,7 +472,7 @@ Module Make (FM : S with Definition E.t := uvar
            lookup uv s = Some e ->
            exists v,
              nth_error us uv = Some v /\
-             ExprD.exprD us vs e (projT1 v) = Some (projT2 v)).
+             exprD us vs e (projT1 v) = Some (projT2 v)).
       Proof.
         destruct s; simpl.
         unfold subst_substD, subst_lookup.
@@ -540,17 +530,19 @@ Module Make (FM : S with Definition E.t := uvar
         subst_substD u v' s ->
         forall v,
           let (tv',vs') := EnvI.split_env v' in
-          match ExprD.exprD' u (v ++ tv') e t ,
-                ExprD.exprD' u (v ++ tv') (subst_subst s (length v) e) t
+          let (tu,us) := EnvI.split_env u in
+          match exprD' tu (v ++ tv') e t ,
+                exprD' tu (v ++ tv') (subst_subst s (length v) e) t
           with
             | Some l , Some r => forall vs,
-                                   l (hlist_app vs vs') = r (hlist_app vs vs')
+                                   l us (hlist_app vs vs') = r us (hlist_app vs vs')
             | None , None => True
             | _ , _ => False
           end.
       Proof.
+(*
         simpl. intros; rewrite substD_sem in *.
-        unfold ExprD.exprD in *.
+        unfold exprD in *.
         destruct (EnvI.split_env v').
         revert t v. induction e; simpl; intros; auto; autorewrite with exprD_rw.
         { match goal with
@@ -631,13 +623,15 @@ Module Make (FM : S with Definition E.t := uvar
             simpl in *.
             destruct (typ_cast_typ ts nil x0 t); auto. } }
       Qed.
+*)
+      Admitted.
 
       Theorem substD_lookup : forall (u v : EnvI.env (typD ts)) s uv e,
         lookup uv s = Some e ->
         subst_substD u v s ->
         exists val : sigT (typD ts nil),
           nth_error u uv = Some val /\
-          ExprD.exprD u v e (projT1 val) = Some (projT2 val).
+          exprD u v e (projT1 val) = Some (projT2 val).
       Proof.
         intros. eapply substD_sem in H0; eauto.
       Qed.
@@ -809,15 +803,7 @@ Module Make (FM : S with Definition E.t := uvar
         destruct H. intuition.
         rewrite nth_error_typeof_env. rewrite H1.
         eexists; split; eauto.
-        eapply ExprD.typeof_expr_exprD'.
-        unfold ExprD.exprD in *.
-        unfold typeof_env. generalize (@split_env_projT1 typ (typD ts) v).
-        destruct (split_env v); simpl in *.
-        intros; subst.
-        match goal with
-          | _ : match ?X with _ => _ end = _ |- _ =>
-            consider X; try congruence
-        end; intros.
+        eapply ExprD.typeof_expr_exprD.
         eauto.
       Qed.
 
@@ -825,18 +811,20 @@ Module Make (FM : S with Definition E.t := uvar
         raw_substD u v s ->
         forall e tv' t,
           let (tv,vs) := EnvI.split_env v in
-          match ExprD.exprD' u (tv' ++ tv) (raw_subst s (length tv') e) t
-              , ExprD.exprD' u (tv' ++ tv) e t
+          let (tu,us) := EnvI.split_env u in
+          match exprD' tu (tv' ++ tv) (raw_subst s (length tv') e) t
+              , exprD' tu (tv' ++ tv) e t
           with
             | Some l , Some r =>
-              forall vs', l (hlist_app vs' vs) = r (hlist_app vs' vs)
+              forall vs', l us (hlist_app vs' vs) = r us (hlist_app vs' vs)
             | None , None => True
             | _ , _ => False
           end.
       Proof.
+(*
         induction e; simpl; intros; consider (split_env v);
         intros; autorewrite with exprD_rw.
-        { change (
+        {(* change (
               let zzz t' (pf : Some t' = nth_error (tv' ++ x) v0)
                       (f : forall F : Type -> Type, F (typD ts nil t') -> F (typD ts nil t)) :=
                   (fun e : hlist (typD ts nil) (tv' ++ x) =>
@@ -921,15 +909,19 @@ Module Make (FM : S with Definition E.t := uvar
             | |- match match ?X with _ => _ end with None => match match ?Y with _ => _ end with _ => _ end | _ => _ end =>
               change Y with X ;
               consider X; try congruence
-          end; auto. }
+          end; auto. *) admit. }
         { repeat match goal with
                    | |- context [ match ?X with _ => _ end ] =>
                      (destruct X; try congruence); [ ]
                  end; auto. }
-        { specialize (raw_substD_raw_WellTyped H); intro.
+        { consider (split_env u); intros.
+          assert (x0 = typeof_env u).
+          { rewrite <- split_env_typeof_env. rewrite H1. reflexivity. }
+          subst.
+          specialize (raw_substD_raw_WellTyped H); intro.
           generalize (@raw_subst_typeof (typeof_env u) e1 x tv' s).
-          cutrewrite (typeof_env v = x) in H1.
-          intro. rewrite H2 by eauto.
+          autorewrite with exprD_rw.
+          intro. rewrite H3.
           destruct (typeof_expr (typeof_env u) (tv' ++ x) e1); auto.
           destruct t0; auto.
           specialize (IHe1 tv' (tyArr t0_1 t0_2)).
@@ -941,8 +933,9 @@ Module Make (FM : S with Definition E.t := uvar
                      consider X; intros; try congruence
                  end; auto.
           { inv_all; subst. rewrite IHe1. f_equal. eauto. }
-          unfold typeof_env.
-          rewrite <- (split_env_projT1 v). rewrite H0. reflexivity. }
+          assert (x = typeof_env v).
+          { rewrite <- split_env_typeof_env. rewrite H0. reflexivity. }
+          subst. auto. }
         { destruct t0; auto.
           specialize (IHe (t :: tv') t0_2). simpl in *.
           repeat match goal with
@@ -989,32 +982,36 @@ Module Make (FM : S with Definition E.t := uvar
               rewrite typ_cast_typ_refl in *. congruence. } }
           { autorewrite with exprD_rw.
             destruct (lookupAs u u0 t); auto. } }
-      Qed.
+      Qed. *)
+      Admitted.
 
       Lemma raw_substD_exprD : forall u v s t e,
         raw_substD u v s ->
-        ExprD.exprD u v (raw_subst s 0 e) t =
-        ExprD.exprD u v e t.
+        exprD u v (raw_subst s 0 e) t =
+        exprD u v e t.
       Proof.
         intros.
         generalize (raw_substD_exprD' H e nil t).
-        unfold ExprD.exprD. simpl.
+        unfold exprD. simpl.
         destruct (split_env v); intros.
         repeat match goal with
                    | _ : match ?X with _ => _ end |- _ =>
                      consider X; intros; try congruence
                end; intuition.
-        specialize (H2 Hnil). simpl in *; f_equal; auto.
-      Qed.
+(*        specialize (H2 Hnil). simpl in *; f_equal; auto.
+      Qed. *)
+      Admitted.
 
+(*
       Lemma raw_subst_exprD_add' : forall uv u v e' s x,
         raw_lookup uv s = None ->
         nth_error u uv = Some x ->
-        ExprD.exprD u v e' (projT1 x) = Some (projT2 x) ->
+        exprD u v e' (projT1 x) = Some (projT2 x) ->
         forall e tv' t,
           let (tv,vs) := EnvI.split_env v in
-          match ExprD.exprD' u (tv' ++ tv) (raw_subst (FM.add uv e' s) (length tv') e) t
-              , ExprD.exprD' u (tv' ++ tv) (raw_subst s (length tv') e) t
+          let (tu,us) := EnvI.split_env v in
+          match exprD' u (tv' ++ tv) (raw_subst (FM.add uv e' s) (length tv') e) t
+              , exprD' u (tv' ++ tv) (raw_subst s (length tv') e) t
           with
             | Some l , Some r =>
               forall vs', l (hlist_app vs' vs) = r (hlist_app vs' vs)
@@ -1128,8 +1125,8 @@ Module Make (FM : S with Definition E.t := uvar
                  end; auto; try congruence.
           inv_all; subst. rewrite IHe1. rewrite IHe2. auto.
           eapply ExprD.lem_typeof_expr_exprD'.
-          unfold ExprD.exprD in *. rewrite H2 in *.
-          destruct (ExprD.exprD' u x0 e' (projT1 x)); try congruence. }
+          unfold exprD in *. rewrite H2 in *.
+          destruct (exprD' u x0 e' (projT1 x)); try congruence. }
         { destruct (split_env v).
           autorewrite with exprD_rw.
           destruct t0; auto.
@@ -1142,7 +1139,7 @@ Module Make (FM : S with Definition E.t := uvar
           eapply functional_extensionality. intros.
           specialize (IHe (Hcons (F := typD ts nil) (p (fun x => x) x1) vs')).
           simpl in *. auto. }
-        { unfold ExprD.exprD in *.
+        { unfold exprD in *.
           destruct (split_env v).
           unfold raw_lookup in *.
           rewrite FACTS.add_o.
@@ -1172,8 +1169,8 @@ Module Make (FM : S with Definition E.t := uvar
                        | _ : context [ match ?X with _ => _ end ] |- _ =>
                          (consider X; intros; try solve [ intuition | congruence ]); [ ]
                      end.
-              assert (ExprD.exprD' u x0 e' t <> None) by congruence.
-              assert (ExprD.exprD' u x0 e' x <> None) by congruence.
+              assert (exprD' u x0 e' t <> None) by congruence.
+              assert (exprD' u x0 e' x <> None) by congruence.
               eapply ExprD.lem_typeof_expr_exprD' in H7.
               eapply ExprD.lem_typeof_expr_exprD' in H8.
               red in H7. red in H8.
@@ -1184,22 +1181,25 @@ Module Make (FM : S with Definition E.t := uvar
                 destruct x
             end; auto. } }
       Qed.
+*)
 
       Lemma raw_subst_exprD_add : forall uv u v e' s x e t,
         raw_lookup uv s = None ->
         nth_error u uv = Some x ->
-        ExprD.exprD u v e' (projT1 x) = Some (projT2 x) ->
-        ExprD.exprD u v (raw_subst (FM.add uv e' s) 0 e) t =
-        ExprD.exprD u v (raw_subst s 0 e) t.
+        exprD u v e' (projT1 x) = Some (projT2 x) ->
+        exprD u v (raw_subst (FM.add uv e' s) 0 e) t =
+        exprD u v (raw_subst s 0 e) t.
       Proof.
+(*
         intros.
         specialize (@raw_subst_exprD_add' uv u v e' s x H H0 H1 e nil t).
-        simpl. unfold ExprD.exprD.
+        simpl. unfold exprD.
         destruct (split_env v).
-        destruct (ExprD.exprD' u x0 (raw_subst (FM.add uv e' s) 0 e) t);
-          destruct (ExprD.exprD' u x0 (raw_subst s 0 e) t); intuition.
+        destruct (exprD' u x0 (raw_subst (FM.add uv e' s) 0 e) t);
+          destruct (exprD' u x0 (raw_subst s 0 e) t); intuition.
         specialize (H2 Hnil). simpl in *. rewrite H2; auto.
-      Qed.
+      Qed. *)
+      Admitted.
 
       Lemma raw_substD_add : forall u v uv e s,
         raw_lookup uv s = None ->
@@ -1207,7 +1207,7 @@ Module Make (FM : S with Definition E.t := uvar
         raw_substD u v s /\
         exists x,
           nth_error u uv = Some x /\
-          ExprD.exprD u v e (projT1 x) = Some (projT2 x).
+          exprD u v e (projT1 x) = Some (projT2 x).
       Proof.
         intros.
         rewrite raw_substD_sem in *.
@@ -1224,8 +1224,8 @@ Module Make (FM : S with Definition E.t := uvar
          (forall uv e x,
             raw_lookup uv s = Some e ->
             nth_error u uv = Some x ->
-            ExprD.exprD u v (f e) (projT1 x) = Some (projT2 x) ->
-            ExprD.exprD u v e (projT1 x) = Some (projT2 x)) ->
+            exprD u v (f e) (projT1 x) = Some (projT2 x) ->
+            exprD u v e (projT1 x) = Some (projT2 x)) ->
          raw_substD u v (FM.map f s) ->
          raw_substD u v s.
       Proof.
@@ -1247,7 +1247,7 @@ Module Make (FM : S with Definition E.t := uvar
         subst_substD u v s /\
         (forall tv : sigT (typD ts nil),
            nth_error u uv = Some tv ->
-           ExprD.exprD u v e (projT1 tv) = Some (projT2 tv)).
+           exprD u v e (projT1 tv) = Some (projT2 tv)).
       Proof.
         simpl. unfold subst_set, subst_lookup.
         intros. revert H1. destruct s; destruct s'; simpl in *.
@@ -1320,7 +1320,7 @@ Module Make (FM : S with Definition E.t := uvar
   End hide_hints.
 End Make.
 
-Require FSets.FMapList.
+Require FSets.FMapAVL.
 
 Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
                                            with Definition eq := @eq uvar.
@@ -1360,5 +1360,5 @@ Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
     end (refl_equal _).
 End UVar_ord.
 
-Module MAP := FMapList.Make UVar_ord.
+Module MAP := FMapAVL.Make UVar_ord.
 Module SUBST := Make MAP.
