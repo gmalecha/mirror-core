@@ -719,7 +719,7 @@ Section vars_to_uvars.
       rewrite <- H0. simpl. reflexivity. }
     { red_exprD.
       forward. inv_all; subst.
-      eapply ExprDI.nth_error_get_hlist_nth_weaken in H0.
+      eapply nth_error_get_hlist_nth_weaken in H0.
       simpl in *. forward_reason.
       rewrite H. rewrite typ_cast_typ_refl.
       eexists; split; eauto. intros. apply H0. }

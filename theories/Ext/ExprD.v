@@ -15,7 +15,6 @@ Include EXPR_DENOTE.
 
 Existing Instance Expr_expr.
 
-(** TODO: Move this **)
 Theorem ExprOk_expr ts func (RSym_func : RSym (typD ts) func)
 : @ExprOk _ _ _ (@Expr_expr ts func RSym_func).
 Proof.

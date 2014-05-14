@@ -6,6 +6,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI3.
 Require Import MirrorCore.EProver2.
 Require Import MirrorCore.Lemma.
+Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.Subst.FastSubst.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprSubst.
@@ -93,47 +94,6 @@ Section parameterized.
     let pattern := vars_to_uvars lem.(concl) 0 (length tus) in
     let fuel := 100 in
     @exprUnify subst _ _ RSym_func Subst_subst SU fuel (tus ++ lem.(vars)) tvs 0 s pattern e tyProp.
-
-  Section iteration.
-    Context (T U : Type) (f : T -> option U).
-
-    Fixpoint first_success  (ls : list T) : option U :=
-      match ls with
-        | nil => None
-        | l :: ls =>
-          match f l with
-            | None => first_success ls
-            | x => x
-          end
-      end.
-
-    Lemma first_success_sound
-    : forall ls val,
-        first_success ls = Some val ->
-        exists l,
-          In l ls /\ f l = Some val.
-    Proof.
-      induction ls; simpl; intros.
-      - congruence.
-      - consider (f a); intros.
-        + exists a. inv_all; subst. auto.
-        + apply IHls in H0. destruct H0. intuition. eauto.
-    Qed.
-
-    Variable (f' : T -> U -> option U).
-
-    Fixpoint all_success (ls : list T) (acc : U)
-    : option U :=
-      match ls with
-        | nil => Some acc
-        | l :: ls =>
-          match f' l acc with
-            | None => None
-            | Some x => all_success ls x
-          end
-      end.
-
-  End iteration.
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> EnvI.tenv typ -> EnvI.tenv typ -> expr func -> subst -> option subst)
@@ -292,16 +252,6 @@ Section parameterized.
                        ]
            end.
 
-(*
-  Theorem vars_to_uvars_exprD' (Z : SymI.RSym (typD ts) func)
-  : forall tus e tvs t tvs' val,
-      exprD' tus (tvs ++ tvs') e t = Some val ->
-      exists val',
-        exprD' (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus)) t = Some val' /\
-        forall us vs' vs, val us (HList.hlist_app vs vs') =
-                          val' (HList.hlist_app us vs') vs.
-*)
-
   Opaque Traversable.mapT impls.
 
   Lemma applicable_sound
@@ -379,100 +329,7 @@ Section parameterized.
     { eapply H6. eapply H11. }
   Qed.
 
-  Lemma typeof_expr_instantiate_Some
-  : forall (lookup : uvar -> option (expr func)) (tu : list typ)
-           (tg : tenv typ),
-      (forall (u : uvar) (e' : expr func) t',
-         lookup u = Some e' ->
-         nth_error tu u = Some t' ->
-         typeof_expr tu tg e' = Some t') ->
-      forall (e : expr func) (tg' : list typ) t,
-        typeof_expr tu (tg' ++ tg) e = Some t ->
-        typeof_expr tu (tg' ++ tg) (instantiate lookup (length tg') e) = Some t.
-  Proof.
-    clear. induction e; simpl; intros; auto; forward.
-    { eapply IHe1 in H0. eapply IHe2 in H1.
-      Cases.rewrite_all_goal. reflexivity. }
-    { inv_all; subst.
-      eapply (IHe (t :: tg')) in H0.
-      simpl in H0. rewrite H0. reflexivity. }
-    { eapply H in H1; eauto.
-      generalize (@typeof_expr_lift _ _ RSym_func tu nil tg' tg e).
-      simpl. congruence. }
-  Qed.
-
-  Lemma exprD'_instantiate
-  : forall tus tvs P fn,
-      (forall u t' e get,
-         nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
-         fn u = Some e ->
-         exists eD,
-           exprD' tus tvs e t' = Some eD /\
-           forall us vs,
-             P us vs ->
-             eD us vs = get us) ->
-      forall e tvs' t eD,
-        exprD' tus (tvs' ++ tvs) e t = Some eD ->
-        exists eD',
-          exprD' tus (tvs' ++ tvs) (instantiate fn (length tvs') e) t = Some eD' /\
-          forall us vs' vs,
-            P us vs ->
-            eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
-  Proof.
-    clear.
-    induction e; simpl; intros; eauto.
-    { red_exprD.
-      forward; inv_all; subst.
-      specialize (IHe1 _ _ _ H2); clear H2.
-      specialize (IHe2 _ _ _ H3); clear H3.
-      eapply typeof_expr_instantiate_Some with (lookup := fn) in H1; eauto.
-      { forward_reason.
-        Cases.rewrite_all_goal.
-        rewrite typ_cast_typ_refl. eexists; split; eauto.
-        simpl. intros.
-        rewrite H4; eauto.
-        rewrite H3; eauto. }
-      { clear - H.
-        intros.
-        specialize (H u t' e').
-        consider (nth_error_get_hlist_nth (typD ts nil) tus u); intros.
-        { destruct s.
-          generalize H.
-          eapply nth_error_get_hlist_nth_Some in H. simpl in *.
-          forward_reason.
-          rewrite x0 in H1. inv_all; subst.
-          intros.
-          specialize (H2 _ H1 H0). destruct H2 as [ ? [ ? ? ] ].
-          clear H H1.
-          rewrite exprD'_type_cast in H2.
-          forward. inv_all; subst. reflexivity. }
-        { exfalso. eapply nth_error_get_hlist_nth_None in H.
-          congruence. } } }
-    { red_exprD.
-      forward; inv_all; subst.
-      specialize (IHe (t :: tvs') t2 _ H2).
-      simpl in IHe.
-      forward_reason.
-      rewrite H0.
-      eexists; split; eauto.
-      simpl. intros.
-      eapply functional_extensionality. intros.
-      exact (H1 us (Hcons x0 vs') vs X). }
-    { consider (fn u); intros.
-      { red_exprD.
-        forward; inv_all; subst.
-        specialize (H _ _ _ _ H2 H1).
-        forward_reason.
-        generalize (@exprD'_lift _ _ RSym_func tus nil tvs' tvs e t).
-        simpl. rewrite H.
-        intros. forward.
-        eexists; split; eauto.
-        intros.
-        erewrite <- H0. symmetry. eapply (H4 us Hnil vs' vs). apply X. }
-      { eauto. } }
-  Qed.
-
-  Lemma exprD'_instantiate_subst
+  Lemma exprD'_instantiate_subst_Some
   : forall tus tvs tvs' sub e t eD sD,
       WellFormed_subst sub ->
       substD tus tvs sub = Some sD ->
@@ -486,8 +343,9 @@ Section parameterized.
     clear.
     intros.
     destruct (fun H =>
-                  @exprD'_instantiate tus tvs sD (fun x => lookup x sub) H
-                                      e tvs' t eD H1) as [ ? [ ? ? ] ].
+                  @exprD'_instantiate_Some _ _ _ (fun x => lookup x sub)
+                                           tus tvs sD H
+                                           e tvs' t eD H1) as [ ? [ ? ? ] ].
     { intros.
       eapply substD_lookup in H3; eauto.
       simpl in H3.
@@ -718,7 +576,7 @@ Section parameterized.
                 destruct (app_nil_r_trans (vars l)).
                 reflexivity. } }
             destruct H14 as [ ? [ ? ? ] ].
-            destruct (@exprD'_instantiate_subst
+            destruct (@exprD'_instantiate_subst_Some
                           (tus ++ vars l)
                           tvs
                           nil

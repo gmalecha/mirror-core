@@ -99,6 +99,19 @@ Section Env.
       { eapply IHve. } }
   Qed.
 
+  Lemma split_env_nth_error_None
+  : forall (ve : env) (v : nat),
+      nth_error ve v = None <->
+      nth_error (projT1 (split_env ve)) v = None.
+  Proof.
+    clear.
+    induction ve; simpl; intros.
+    { destruct v; simpl; intuition. }
+    { destruct v; simpl.
+      { unfold value. intuition congruence. }
+      { rewrite IHve; auto. reflexivity. } }
+  Qed.
+
   Lemma split_env_length : forall (a : env),
     length a = length (projT1 (split_env a)).
   Proof.
@@ -227,6 +240,26 @@ Section nth_error_get_hlist_nth.
       { unfold value. intuition congruence. }
       { specialize (IHls n).
         forward. } }
+  Qed.
+
+  Lemma nth_error_get_hlist_nth_weaken
+  : forall ls ls' n x,
+      nth_error_get_hlist_nth ls n = Some x ->
+      exists z,
+        nth_error_get_hlist_nth (ls ++ ls') n =
+        Some (@existT iT (fun t => hlist F (ls ++ ls') -> F t) (projT1 x) z)
+        /\ forall h h', projT2 x h = z (hlist_app h h').
+  Proof.
+    intros ls ls'. revert ls.
+    induction ls; simpl; intros; try congruence.
+    { destruct n; inv_all; subst.
+      { simpl. eexists; split; eauto.
+        intros. rewrite (hlist_eta h). reflexivity. }
+      { forward. inv_all; subst. simpl.
+        apply IHls in H0. forward_reason.
+        rewrite H. eexists; split; eauto.
+        intros. rewrite (hlist_eta h). simpl in *.
+        auto. } }
   Qed.
 
 End nth_error_get_hlist_nth.

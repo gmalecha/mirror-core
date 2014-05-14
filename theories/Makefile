@@ -1,4 +1,5 @@
-GENERIC := Iso IsoTac Approx
+GENERIC := Iso IsoTac
+UTIL := Approx Iteration
 PROVERS := ProverTac AssumptionProver
 SUBST   := SealedSubst FastSubst RawSubst2 FMapSubst3
 EXTENSIBLE := Repr Types ExprCore \
@@ -20,8 +21,8 @@ MODULES    := Generic \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
-	      $(SUBST:%=Subst/%)
-
+	      $(SUBST:%=Subst/%) \
+	      $(UTIL:%=Util/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

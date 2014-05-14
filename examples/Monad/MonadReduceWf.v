@@ -7,6 +7,7 @@ Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.Util.Approx.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -57,8 +58,6 @@ Section Demo.
                 end
     end); repeat (eassumption || apply ForallV_vector_hd || apply ForallV_vector_tl).
   Defined.
-
-  Require Import MirrorCore.Approx.
 
   Definition monad_run' : expr -> nat -> expr * bool :=
     @approx _

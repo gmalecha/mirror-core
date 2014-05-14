@@ -1,4 +1,4 @@
-Require Import List Bool.
+Require Import Coq.Lists.List Coq.Bool.Bool.
 Require Import ExtLib.Core.Type.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.Fun.
@@ -8,6 +8,7 @@ Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.Util.Approx.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -60,8 +61,6 @@ Section Demo.
                 end
     end); repeat (eassumption || apply ForallV_vector_hd || apply ForallV_vector_tl).
   Defined.
-
-  Require Import MirrorCore.Approx.
 
   Definition monad_red (recur : expr -> expr * bool) (e : expr) : expr * bool :=
     let do_lam e :=

@@ -90,21 +90,6 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         { apply nth_error_get_hlist_nth_None in H0. congruence. } }
     Qed.
 
-    (** TODO: Move to EnvI **)
-    Lemma split_env_nth_error_None
-    : forall (typ : Type) (typD : list Type -> typ -> Type)
-             (ve : env typD) (v : nat),
-        nth_error ve v = None <->
-        nth_error (projT1 (split_env ve)) v = None.
-    Proof.
-      induction ve; simpl; intros.
-      { destruct v; simpl; intuition. }
-      { destruct v; simpl.
-        { unfold value. intuition congruence. }
-        { rewrite IHve; auto. reflexivity. } }
-    Qed.
-
-
     Theorem exprD_Var : forall us ve u (t : typ),
       exprD us ve (Var u) t = lookupAs ve u t.
     Proof.

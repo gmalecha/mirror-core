@@ -14,26 +14,6 @@ Require Import MirrorCore.Ext.ExprT.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Lemma nth_error_get_hlist_nth_weaken
-: forall T F ls ls' n x,
-    nth_error_get_hlist_nth F ls n = Some x ->
-    exists z,
-      nth_error_get_hlist_nth F (ls ++ ls') n =
-      Some (@existT T (fun t => hlist F (ls ++ ls') -> F t) (projT1 x) z)
-      /\ forall h h', projT2 x h = z (hlist_app h h').
-Proof.
-  intros T F ls ls'. revert ls.
-  induction ls; simpl; intros; try congruence.
-  { destruct n; inv_all; subst.
-    { simpl. eexists; split; eauto.
-      intros. rewrite (hlist_eta h). reflexivity. }
-    { forward. inv_all; subst. simpl.
-      apply IHls in H0. forward_reason.
-      rewrite H. eexists; split; eauto.
-      intros. rewrite (hlist_eta h). simpl in *.
-      auto. } }
-Qed.
-
 Module Type ExprDenote_core.
 
   Parameter exprD' : forall {ts : types} {func : Type} {_ : RSym (typD ts) func},
