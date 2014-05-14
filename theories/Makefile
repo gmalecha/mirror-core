@@ -2,7 +2,7 @@ GENERIC := Iso IsoTac
 UTIL := Approx Iteration
 PROVERS := ProverTac AssumptionProver
 SUBST   := SealedSubst FastSubst RawSubst2 FMapSubst3
-EXTENSIBLE := Repr Types ExprCore \
+EXTENSIBLE := Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
 	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 ExprUnifySyntactic3 \
