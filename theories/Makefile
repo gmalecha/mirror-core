@@ -12,6 +12,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
 LAMBDA := ExprCore ExprT ExprDI ExprD3
+POLY := TypeI Ocaml
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \
@@ -19,11 +20,12 @@ MODULES    := Generic \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma \
 	      $(EXTENSIBLE:%=Ext/%) \
-	      $(LAMBDA:%=Lambda/%) \
+	      $(POLY:%=Poly/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%)
 
+#	      $(LAMBDA:%=Lambda/%)
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
