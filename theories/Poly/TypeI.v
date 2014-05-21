@@ -7,10 +7,25 @@ Set Strict Implicit.
 
 Set Printing Universes.
 
+Fixpoint nat_eq (a b : nat) {struct a} : option (a = b) :=
+  match a as a , b as b return option (a = b) with
+    | 0 , 0 => Some eq_refl
+    | S a , S b => match nat_eq a b with
+                     | Some pf =>
+                       Some match pf in _ = t return S a = S t with
+                              | eq_refl => eq_refl
+                            end
+                     | None => None
+                   end
+    | _ , _ => None
+  end.
+
+
 Module Type Context.
   Parameter iT : Type.
   Parameter Denote : iT -> Type.
 
+  (** Contexts are like [->]s **)
   Parameter Ctx : list iT -> Type -> Type.
 
   Parameter eval_Ctx : forall T, Ctx nil T -> T.
@@ -33,6 +48,8 @@ Module Type Context.
   Parameter Use_Ctx
   : forall {ks k} (m : member k ks), Ctx ks (Denote k).
 
+  (** TODO: I need dependent contexts for expressions **)
+
 End Context.
 
 Module Type ContextP.
@@ -45,7 +62,7 @@ Module Type ContextBuilder (P : ContextP)
            with Definition Denote := P.Denote.
 
 Module ContextHList (P : ContextP)
-: Context with Definition iT := P.iT
+<: Context with Definition iT := P.iT
           with Definition Denote := P.Denote.
   Require ExtLib.Data.HList.
 
