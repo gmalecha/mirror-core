@@ -12,7 +12,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
 LAMBDA := ExprCore ExprT ExprDI ExprD3
-POLY := TypeI ML ExprCore
+POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \

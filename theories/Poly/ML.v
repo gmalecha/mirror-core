@@ -4,6 +4,7 @@ Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Poly.TypeI.
+Require Import MirrorCore.Poly.Ctx.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -53,7 +54,7 @@ Module Type MLExt.
   Parameter ext_eq : forall a b : ext, option (a = b).
 End MLExt.
 
-Module ML (Ext : MLExt) (MkCtx : ContextBuilder).
+Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
   Definition skind := kind.
 
   Fixpoint skindD (k : skind) : Ustar :=
@@ -67,7 +68,10 @@ Module ML (Ext : MLExt) (MkCtx : ContextBuilder).
     Definition Denote := skindD.
   End CtxP_skind.
 
-  Module Ctx := MkCtx CtxP_skind.
+  Module Ctx := ContextHList CtxP_skind.
+
+  Existing Instance Ctx.Applicative_Ctx.
+  Existing Instance Ctx.Functor_Ctx.
 
   Definition skindD_to_kindD (k : kind) : option (skindD k -> kindD k) :=
     match k as k return option (skindD k -> kindD k) with
@@ -196,7 +200,7 @@ Module ML (Ext : MLExt) (MkCtx : ContextBuilder).
   Definition Inj_Ctx {ks : list skind} (k : kind) (val : kindD k)
   : Ctx.Ctx ks (kindD k) := pure val.
 
-  Fixpoint nth_mem (ks : list skind) (k : skind) (n : nat) : option (member k ks) :=
+  Fixpoint nth_mem_kind (ks : list skind) (k : skind) (n : nat) : option (member k ks) :=
     match ks as ks return option (member k ks) with
       | nil => None
       | cons k' ks =>
@@ -207,7 +211,7 @@ Module ML (Ext : MLExt) (MkCtx : ContextBuilder).
                                      end
                    | None => None
                  end
-          | S n => match nth_mem ks k n with
+          | S n => match nth_mem_kind ks k n with
                      | Some m => Some (@MN _ _ _ _ m)
                      | None => None
                    end
@@ -240,12 +244,12 @@ Module ML (Ext : MLExt) (MkCtx : ContextBuilder).
       | tApp t t' =>
         let k' := kTy in
         (** NOTE: This is fine since [tPi] only ranges over [*] **)
-        match typD ks t k' , typD ks t (kArr k' k) with
+        match typD ks t' k' , typD ks t (kArr k' k) with
           | Some T , Some F => Some (App_Ctx F T)
           | _ , _ => None
         end
       | tVar v =>
-        match skindD_to_kindD k , nth_mem ks k v with
+        match skindD_to_kindD k , nth_mem_kind ks k v with
           | Some f , Some m => Some (@fmap _ _ _ _ f (Ctx.Use_Ctx m))
           | _ , _ => None
         end
@@ -268,4 +272,53 @@ Module ML (Ext : MLExt) (MkCtx : ContextBuilder).
           | None => fun _ => None
         end (Ext.extD u)
     end.
+
+  Fixpoint typD_weaken ks ks' t {struct t}
+  : match typD ks t kTy , typD (ks ++ ks') t kTy return Type with
+      | Some T , Some T' =>
+        @Ctx.DCtx ks (fun env =>
+           @Ctx.eval_Ctx ks (fun _ => kindD kTy) T env ->
+           @Ctx.DCtx ks' (fun env' =>
+                            @Ctx.eval_Ctx (ks ++ ks') (fun _ => kindD kTy) T'
+                                          (hlist_app env env')))
+
+      | Some _ , None => Empty_set
+      | None , _ => unit
+    end.
+  Proof.
+(*
+    destruct t; simpl.
+    { specialize (typD_weaken (kTy :: ks) ks' t k).
+      simpl in *.
+      destruct k; try solve [ refine (fun x => x) ].
+      destruct (typD (kTy :: ks) t kTy). 2: destruct 1.
+      match goal with
+        | H : context [ match ?X with _ => _ end ]
+          |- context [ match ?Y with _ => _ end ] =>
+          change Y with X ; destruct X
+      end.
+      refine (fun x => x).
+      intro. apply typD_weaken. apply c. }
+    { generalize (typD_weaken ks ks' t1 (kArr kTy k)).
+      generalize (typD_weaken ks ks' t2 kTy).
+      clear.
+      destruct (typD ks t2 kTy). 2: destruct 3.
+      destruct (typD ks t1 (kArr kTy k)). 2: destruct 3.
+      destruct (typD (ks ++ ks') t2 kTy).
+      { destruct (typD (ks ++ ks') t1 (kArr kTy k)); auto. }
+      { auto. } }
+    { destruct k; auto.
+      generalize (typD_weaken ks ks' t1 kTy).
+      generalize (typD_weaken ks ks' t2 kTy).
+      clear.
+      destruct (typD ks t1 kTy);
+      destruct (typD ks t2 kTy);
+      destruct (typD (ks ++ ks') t1 kTy);
+      destruct (typD (ks ++ ks') t2 kTy); auto. }
+    { destruct (skindD_to_kindD k); auto.
+      clear. admit. }
+    { clear. admit. }
+*)
+  Admitted.
+
 End ML.

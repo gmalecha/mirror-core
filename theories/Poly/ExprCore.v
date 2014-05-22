@@ -5,10 +5,32 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Poly.TypeI.
+Require Import MirrorCore.Poly.Ctx.
 Require Import MirrorCore.Poly.ML.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+(** TODO: Move this, or consolidate it! **)
+Section nth_mem.
+  Variable T : Type.
+
+  Fixpoint nth_mem (ls : list T) (n : nat) {struct ls} :
+    option { x : T & member x ls } :=
+    match ls as ls return (option { x : T & member x ls }) with
+      | nil => None
+      | l' :: ls =>
+        match n with
+          | 0 =>
+            Some (@existT _ _ l' (MZ l' ls))
+          | S n =>
+            match nth_mem ls n with
+              | Some m => Some (@existT _ _ (projT1 m) (MN l' (projT2 m)))
+              | None => None
+            end
+        end
+    end.
+End nth_mem.
 
 Module Ext : MLExt.
   Definition ext : Type := Empty_set.
@@ -19,21 +41,11 @@ Module Ext : MLExt.
                                 | None => unit
                               end :=
     match e with end.
+  Definition ext_eq (a b : ext) : option (a = b) :=
+    Some (match a with end).
 End Ext.
 
-Module MLtypes := ML Ext ContextHList.
-
-(*
-Definition ML_typD_def (ks : list kind) (t : MLtypes.typ) (k : kind) : kindD ki
-refine
-  match MLtypes.typD nil t k with
-    | None => Empty_set
-    | Some T => _
-  end.
-SearchAbout MLtypes.Ctx.Ctx.
-SearchAbout kind.
-refine (MLtypes.Ctx.eval_Ctx T).
-*)
+Module MLtypes := ML Ext (* ContextHList *).
 
 (** Definnition of expression extensions **)
 Module Type ExprExt.
@@ -43,7 +55,7 @@ Module Type ExprExt.
   { Typ : MLtypes.typ
   ; Value : match MLtypes.typD nil Typ kTy with
               | None => Empty_set
-              | Some T => MLtypes.Ctx.eval_Ctx T
+              | Some T => MLtypes.Ctx.eval_Ctx T MLtypes.Ctx.Env_nil
             end
   }.
 
@@ -54,7 +66,7 @@ Module Type ExprExt.
                        | Some T =>
                          match MLtypes.typD nil T kTy with
                            | None => Empty_set
-                           | Some T => MLtypes.Ctx.eval_Ctx T
+                           | Some T => MLtypes.Ctx.eval_Ctx T MLtypes.Ctx.Env_nil
                          end
                        | None => unit
                      end.
@@ -77,11 +89,396 @@ Module Expr (EExt : ExprExt).
     Definition Denote (t : typ) :=
       match @typD nil t kTy return Ustar with
         | None => Empty_set
-        | Some T => Ctx.eval_Ctx T
+        | Some T => Ctx.eval_Ctx T MLtypes.Ctx.Env_nil
       end.
   End Env.
 
   Module CtxT := ContextHList Env.
+  Existing Instance CtxT.Applicative_Ctx.
+  Existing Instance CtxT.Functor_Ctx.
+
+  Section typeof_expr.
+    Variable ks : list kind.
+    Fixpoint typeof_expr  (tvs : list typ) (e : expr) : option typ.
+      refine
+        match e with
+          | eApp f x =>
+            match typeof_expr tvs f
+                  , typeof_expr tvs x
+            with
+              | Some (tArr d r) , Some d' =>
+                if typ_eq d d' then Some r else None
+              | _ , _ => None
+            end
+          | eAbs t e =>
+            match typeof_expr (cons t tvs) e with
+              | Some r => Some (tArr t r)
+              | _ => None
+            end
+          | eVar v => List.nth_error tvs v
+          | eTApp e t =>
+            match typeof_expr tvs e with
+              | Some t'' =>
+                match t'' with
+                  | tPi t' =>
+                    match kindof_typ ks t with
+                      | Some k'' =>
+                        match k'' with
+                          | kTy => Some (typ_sub t' 0 t)
+                          | _ => None
+                        end
+                      | None => None
+                    end
+                  | _ => None
+                end
+              | _ => None
+            end
+          | eExt e =>
+            match EExt.typeof_ext e with
+              | Some ty => Some ty
+              | None => None
+            end
+        end.
+    Defined.
+  End typeof_expr.
+
+(*
+  Definition Kenv := hlist (skindD).
+  Definition Kenv_nil : Kenv nil := Hnil.
+
+  Axiom eval_Ctx' : forall (T : Type) ks, Ctx.Ctx ks T -> Kenv ks -> T.
+
+  Axiom typD_weaken : forall ks ks' t,
+                        match typD ks t kTy with
+                          | Some T => forall K : Kenv ks, eval_Ctx' T K
+                          | None => Empty_set
+                        end ->
+                        match typD (ks ++ ks') t kTy with
+                          | Some T => forall K : Kenv (ks ++ ks'), eval_Ctx' T K
+                          | None => Empty_set
+                        end.
+
+  Definition depCtx (ks' : list kind)
+
+    forall x : Kenv ks', T (fun _ ctx => eval_Ctx' ctx x).
+  (*
+    Axiom Tenv : forall ks : list kind, Kenv ks -> list typ -> Type.
+   *)
+*)
+  Section exprD.
+    Variable ks : list kind.
+
+    (** These have a good phase split, but it seems useful to have
+     ** the context immediately to avoid the need to repeatedly destruct the
+     ** types.
+     **)
+    Definition TCtx (ts : list typ) (T : Ctx.Env ks -> Type) : Type :=
+      @Ctx.DCtx ks (fun kenv => CtxT.Ctx ts (T kenv)).
+
+    Definition TCtxT (ts : list typ) (T : typ) :=
+      TCtx ts (fun ctx =>
+                 match typD ks T kTy with
+                   | Some T => Ctx.eval_Ctx T ctx
+                   | None => Empty_set
+                 end).
+
+    Definition Inj_TCtxT {ts t}
+               (val : match typD nil t kTy with
+                        | Some T => Ctx.eval_Ctx T Ctx.Env_nil
+                        | None => Empty_set
+                      end)
+    : TCtxT ts t.
+      red. eapply Ctx.dpure; intro.
+      eapply Applicative.pure.
+      generalize (typD_weaken nil ks t); simpl.
+      revert val.
+      destruct (typD nil t kTy). 2: destruct 1.
+      destruct (typD ks t kTy).
+      { intros. eapply Ctx.dap. 2: eapply X.
+        2: eapply val. clear val.
+        simpl. eapply Ctx.dpure. refine (fun _ x => x). }
+      { destruct 2. }
+    Defined.
+    (**
+    Eval cbv beta iota zeta delta [ Inj_TCtxT Ctx.dpure Ctx.dap Applicative.pure Applicative.ap CtxT.Applicative_Ctx CtxT.dpure CtxT.dap ] in @Inj_TCtxT.
+    **)
+
+    Definition App_TCtxT {tvs t' t} :
+      TCtxT tvs (tArr t' t) ->
+      TCtxT tvs t' ->
+      TCtxT tvs t.
+    Proof.
+      unfold TCtxT. simpl.
+      destruct (typD ks t' kTy).
+      { destruct (typD ks t kTy).
+        { intros.
+          eapply Ctx.dap. 2: eapply X.
+          eapply Ctx.dap. 2: eapply X0.
+          eapply Ctx.dpure.
+          intros.
+          eapply Applicative.ap. 2: eapply X1.
+          eapply Applicative.ap. 2: eapply X2.
+          eapply Applicative.pure.
+          compute. refine (fun x => x). }
+        { refine (fun x _ => x). } }
+      { refine (fun f _ => Ctx.dap _ f).
+        clear.
+        eapply Ctx.dpure. intros.
+        eapply Functor.fmap. eauto with typeclass_instances. 2: eapply X.
+        refine (fun x => match x with end). }
+    Defined.
+
+    Axiom typD_weaken'
+    : forall ks ks' tvs t,
+        Ctx.DCtx
+          (fun x : Ctx.Env ks =>
+             CtxT.Ctx tvs
+                      match typD ks t kTy with
+                        | Some T => Ctx.eval_Ctx T x
+                        | None => Empty_set
+                      end ->
+             Ctx.DCtx (fun y : Ctx.Env ks' =>
+                         CtxT.Ctx tvs
+                                  match typD (ks ++ ks') t kTy with
+                                    | Some T => Ctx.eval_Ctx T (hlist_app x y)
+                                    | None => Empty_set
+                                  end)).
+
+    Definition TApp_TCtxT {tvs t}
+               (F : TCtxT tvs (tPi t))
+               (t' : typ) (** TODO: This must to be a good type! **)
+    : TCtxT tvs (typ_sub t 0 t').
+      red in F. red. simpl in *.
+    Admitted.
+
+    Definition Use_TCtxT {tvs t} (mem : member t tvs)
+    : TCtxT tvs t.
+      red. red.
+      eapply Ctx.dap.
+      2: eapply Ctx.dpure; intros; eapply (CtxT.Use_Ctx mem).
+      simpl.
+      unfold CtxT.Denote, Env.Denote.
+      eapply Ctx.dpure. intro.
+      generalize (typD_weaken nil ks t).
+      simpl.
+      destruct (typD nil t kTy).
+      { destruct (typD ks t kTy).
+        { intro. eapply (fun H => Ctx.eval_Ctx H Ctx.Env_nil) in X.
+          simpl in X.
+          eapply Functor.fmap. eauto with typeclass_instances.
+          intro. specialize (X X0).
+          eapply Ctx.eval_Ctx in X. eapply X. }
+        { destruct 1. } }
+      { intro. eapply CtxT.dap.
+        eapply CtxT.dpure. destruct 2. }
+    Defined.
+
+    Definition Abs_TCtxT {tvs d r}
+    : option (TCtxT (d :: tvs) r -> TCtxT tvs (tArr d r)).
+(*
+      revert val.
+      eapply Ctx.dap. eapply Ctx.dpure. intro.
+      Check CtxT.Quant_Ctx.
+      simpl.
+      unfold CtxT.Ctx. unfold CtxT.DCtx.
+*)
+    Admitted.
+
+
+    Fixpoint exprD (tvs : list typ) (e : expr) (t : typ) {struct e}
+    : option (TCtxT tvs t).
+      refine
+        match e with
+          | eExt x =>
+            match EExt.typeof_ext x as toe
+                  return match toe with
+                           | Some T => match typD nil T kTy with
+                                         | Some T => Ctx.eval_Ctx T Ctx.Env_nil
+                                         | None => Empty_set
+                                       end
+                           | None => unit
+                         end -> _
+            with
+              | Some t' =>
+                match typ_eq t' t with
+                  | Some pf => fun val =>
+                                 Some (match pf in _ = z
+                                             return TCtxT tvs z
+                                       with
+                                         | eq_refl => Inj_TCtxT val
+                                       end)
+                  | None => fun _ => None
+                end
+              | None => fun _ => None
+            end (EExt.extD x)
+          | eApp f x =>
+            match typeof_expr ks tvs x with
+              | Some t' =>
+                match exprD tvs f (tArr t' t) with
+                  | Some f =>
+                    match exprD tvs x t' with
+                      | Some x => Some (App_TCtxT f x)
+                      | None => None
+                    end
+                  | None => None
+                end
+              | None => None
+            end
+          | eAbs t' e =>
+            match t as t return option (TCtxT tvs t) with
+              | tArr d r =>
+                match typ_eq t' d with
+                  | Some pf =>
+                    match exprD (t' :: tvs) e r with
+                      | Some val =>
+                        match @Abs_TCtxT tvs t' r with
+                          | Some abs =>
+                            Some (match pf in _ = z return TCtxT tvs (tArr z r) with
+                                    | eq_refl => abs val
+                                  end)
+                          | None => None
+                        end
+                      | None => None
+                    end
+                  | _ => None
+                end
+              | _ => None
+            end
+          | eVar v =>
+            match ExprCore.nth_mem tvs v with
+              | Some (existT t' m) =>
+                match typ_eq t' t with
+                  | Some pf =>
+                    Some match pf in _ = z return TCtxT tvs z with
+                           | eq_refl =>
+                             Use_TCtxT m
+                         end
+                  | None => None
+                end
+              | None => None
+            end
+          | eTApp e t' =>
+            match typeof_expr ks tvs e with
+              | Some t''' =>
+                match t''' with
+                  | tPi t'' =>
+                    match exprD tvs e (tPi t'') with
+                      | Some L =>
+                        match typ_eq (typ_sub t'' 0 t') t with
+                          | Some pf =>
+                            Some match pf in _ = z return TCtxT tvs z with
+                                   | eq_refl => TApp_TCtxT L _
+                                 end
+                          | None => None
+
+                        end
+                      | None => None
+                    end
+                  | _ => None
+                end
+              | _ => None
+            end
+        end.
+    Defined.
+  End exprD.
+
+  Time Eval simpl in
+      exprD (kTy :: nil) nil (eAbs (tVar 0) (eVar 0)) (tArr (tVar 0) (tVar 0)).
+
+End Expr.
+
+
+(**
+      Fixpoint exprD (tvs : list typ) (e : expr) (t : typ) (k : kind) {struct e}
+      : option (TCtxT tvs t k).
+      refine
+        match e with
+          | eExt x =>
+            match k as k return option (TCtxT tvs t k) with
+              | kTy =>
+                match EExt.typeof_ext x as toe
+                      return match toe with
+                               | Some T => match typD nil T kTy with
+                                             | Some T => Ctx.eval_Ctx T
+                                             | None => Empty_set
+                                           end
+                               | None => unit
+                             end -> _
+                with
+                  | Some t' =>
+                    match typ_eq t' t with
+                      | Some pf => fun val =>
+                                     Some (match pf in _ = z
+                                                 return TCtxT tvs z kTy
+                                           with
+                                             | eq_refl => Inj_TCtxT val
+                                           end)
+                      | None => fun _ => None
+                    end
+                  | None => fun _ => None
+                end (EExt.extD x)
+              | _ => None
+            end
+          | eApp f x =>
+            match typeof_expr ks tvs x with
+              | Some t' =>
+                match exprD tvs f (tArr t' t) kTy with (** TODO **)
+                  | Some f =>
+                    match exprD tvs x t' kTy with
+                      | Some x => _
+                        (*
+                        match CtxD_App tvs t' t with
+                          | Some C => Some (C f x)
+                          | None => None
+                        end
+                         *)
+                      | None => None
+                    end
+                  | None => None
+                end
+              | None => None
+            end
+          | eAbs t' e => _
+          (*
+          match t with
+            | tyArr d r => (** TODO **)
+              match typ_eq t' d with
+                | left pf =>
+                  match exprD (t' :: tvs) e r with
+                    | Some val =>
+                      match CtxD_Abs tvs t' r with
+                        | Some C =>
+                          Some match pf in _ = t
+                                     return CtxD_typ tvs (tyArr t r) with
+                                 | eq_refl => C val
+                               end
+                        | None => None
+                      end
+                    | None => None
+                  end
+                | _ => None
+              end
+            | _ => None
+          end
+           *)
+          | eVar v => _ (* CtxD_Use _ _ v *)
+          | eTApp e t' => _
+        (*
+          match typeof_expr tvs e with
+            | Some (tyPi s t'') => (** TODO **)
+              match exprD tvs e (tyPi s t') with (** TODO **)
+                | Some L =>
+                  match typD ts t' s with
+                    | Some T => _
+                    | None => None
+                  end
+                | None => None
+              end
+            | _ => None
+          end
+         *)
+        end.
+*)
 
 (*
   Section exprD.
@@ -244,360 +641,4 @@ Module Expr (EExt : ExprExt).
               end
           end
       end.
-*)
-
-    Section typeof_expr.
-      Variable ks : list kind.
-      Fixpoint typeof_expr  (tvs : list typ) (e : expr) : option typ.
-        refine
-          match e with
-            | eApp f x =>
-              match typeof_expr tvs f
-                  , typeof_expr tvs x
-              with
-                | Some (tArr d r) , Some d' =>
-                  if typ_eq d d' then Some r else None
-                | _ , _ => None
-              end
-            | eAbs t e =>
-              match typeof_expr (cons t tvs) e with
-                | Some r => Some (tArr t r)
-                | _ => None
-              end
-            | eVar v => List.nth_error tvs v
-            | eTApp e t =>
-              match typeof_expr tvs e with
-                | Some t'' =>
-                  match t'' with
-                    | tPi t' =>
-                      match kindof_typ ks t with
-                        | Some k'' =>
-                          match k'' with
-                            | kTy => Some (typ_sub t' 0 t)
-                            | _ => None
-                          end
-                        | None => None
-                      end
-                    | _ => None
-                  end
-                | _ => None
-              end
-            | eExt e =>
-              match EExt.typeof_ext e with
-                | Some ty => Some ty
-                | None => None
-              end
-          end.
-      Defined.
-    End typeof_expr.
-
-    (** TODO: Move this, or consolidate it! **)
-    Section nth_mem.
-      Variable T : Type.
-
-      Fixpoint nth_mem (ls : list T) (n : nat) {struct ls} :
-        option { x : T & member x ls } :=
-        match ls as ls return (option { x : T & member x ls }) with
-          | nil => None
-          | l' :: ls =>
-            match n with
-              | 0 =>
-                Some (@existT _ _ l' (MZ l' ls))
-              | S n =>
-                match nth_mem ls n with
-                  | Some m => Some (@existT _ _ (projT1 m) (MN l' (projT2 m)))
-                  | None => None
-                end
-            end
-        end.
-    End nth_mem.
-
-    Definition Kenv := hlist (skindD).
-    Definition Kenv_nil : Kenv nil := Hnil.
-
-    Axiom eval_Ctx' : forall (T : Type) ks, Ctx.Ctx ks T -> Kenv ks -> T.
-
-    Axiom typD_weaken : forall ks ks' t,
-                          match typD ks t kTy with
-                            | Some T => forall K : Kenv ks, eval_Ctx' T K
-                            | None => Empty_set
-                          end ->
-                          match typD (ks ++ ks') t kTy with
-                            | Some T => forall K : Kenv (ks ++ ks'), eval_Ctx' T K
-                            | None => Empty_set
-                          end.
-
-    Definition depCtx (ks' : list kind)
-                      (T : (forall T, Ctx.Ctx ks' T -> T) -> Type)
-    : Type :=
-      forall x : Kenv ks', T (fun _ ctx => eval_Ctx' ctx x).
-(*
-    Axiom Tenv : forall ks : list kind, Kenv ks -> list typ -> Type.
-*)
-    Section exprD.
-      Variable ks : list kind.
-
-      Definition Tenv (ls : list typ) (eval : forall T, Ctx.Ctx ks T -> T)
-      : Type :=
-        @hlist typ (fun t => match typD ks t kTy with
-                               | Some T => eval _ T
-                               | None => Empty_set
-                             end) ls.
-
-      Definition TCtxT (ts : list typ) (T : typ) : Type :=
-          @depCtx ks (fun eval =>
-                       match typD ks T kTy with
-                         | Some T => Tenv ts eval -> eval _ T
-                         | None => Empty_set
-                       end).
-
-      Definition Inj_TCtxT {ts t}
-                 (val : match typD nil t kTy with
-                          | Some T => eval_Ctx' T Kenv_nil
-                          | None => Empty_set
-                        end)
-      : (TCtxT ts t).
-        red. red. intros.
-        revert val.
-        generalize (typD_weaken nil ks t); simpl.
-        destruct (typD nil t kTy).
-        { destruct (typD ks t kTy).
-          { intros. eapply X.
-            intros. revert val. clear.
-            rewrite (hlist_eta K). refine (fun x => x). }
-          { intros. eapply X.
-            intros. revert val. clear.
-            rewrite (hlist_eta K). refine (fun x => x). } }
-        { intros. destruct val. }
-      Defined.
-
-      Definition App_TCtxT {tvs t' t} :
-        TCtxT tvs (tArr t' t) ->
-        TCtxT tvs t' ->
-        TCtxT tvs t.
-        unfold TCtxT. simpl. intros.
-        red. red in X. intros.
-        specialize (X x).
-        specialize (X0 x).
-        revert X X0.
-        destruct (typD ks t' kTy).
-        { destruct (typD ks t kTy).
-          { unfold Tenv. intros.
-            
- }
-          { destruct 1. } }
-        { destruct 1. }
-      Defined.
-
-      Definition TApp_TCtxT {tvs t}
-                 (F : TCtxT tvs (tPi t))
-                 (t' : typ) (** TODO: This must to be a good type! **)
-      : TCtxT tvs (typ_sub t 0 t').
-        do 2 red in F. do 2 red.
-        intros. specialize (F x X).
-        simpl in F.
-        revert F.
-        remember (typD (kTy :: ks) t kTy). destruct o.
-        { admit. }
-        { destruct 1. }
-      Defined.
-
-      Definition Use_TCtxT {tvs t} (mem : member t tvs)
-      : TCtxT tvs t.
-      red. red. intros.
-      admit.
-      Defined.
-
-      Definition Abs_TCtxT {tvs d r}
-                 (val : TCtxT (d :: tvs) r)
-      : TCtxT tvs (tArr d r).
-      Admitted.
-
-
-      Fixpoint exprD (tvs : list typ) (e : expr) (t : typ) {struct e}
-      : option (TCtxT tvs t).
-      refine
-        match e with
-          | eExt x =>
-            match EExt.typeof_ext x as toe
-                  return match toe with
-                           | Some T => match typD nil T kTy with
-                                         | Some T => Ctx.eval_Ctx T
-                                         | None => Empty_set
-                                       end
-                           | None => unit
-                         end -> _
-            with
-              | Some t' =>
-                match typ_eq t' t with
-                  | Some pf => fun val =>
-                                 Some (match pf in _ = z
-                                             return TCtxT tvs z
-                                       with
-                                         | eq_refl => Inj_TCtxT val
-                                       end)
-                  | None => fun _ => None
-                end
-              | None => fun _ => None
-            end (EExt.extD x)
-          | eApp f x =>
-            match typeof_expr ks tvs x with
-              | Some t' =>
-                match exprD tvs f (tArr t' t) with
-                  | Some f =>
-                    match exprD tvs x t' with
-                      | Some x => Some (App_TCtxT f x)
-                      | None => None
-                    end
-                  | None => None
-                end
-              | None => None
-            end
-          | eAbs t' e =>
-            match t as t return option (TCtxT tvs t) with
-              | tArr d r =>
-                match typ_eq t' d with
-                  | Some pf =>
-                    match exprD (t' :: tvs) e r with
-                      | Some val =>
-                        Some match pf in _ = z return TCtxT tvs (tArr z r) with
-                               | eq_refl => Abs_TCtxT val
-                             end
-                      | None => None
-                    end
-                  | _ => None
-                end
-              | _ => None
-            end
-          | eVar v =>
-            match nth_mem tvs v with
-              | Some (existT t' m) =>
-                match typ_eq t' t with
-                  | Some pf =>
-                    Some match pf in _ = z return TCtxT tvs z with
-                           | eq_refl =>
-                             Use_TCtxT m
-                         end
-                  | None => None
-                end
-              | None => None
-            end
-          | eTApp e t' =>
-            match typeof_expr ks tvs e with
-              | Some t''' =>
-                match t''' with
-                  | tPi t'' =>
-                    match exprD tvs e (tPi t'') with
-                      | Some L =>
-                        match typ_eq (typ_sub t'' 0 t') t with
-                          | Some pf =>
-                            Some match pf in _ = z return TCtxT tvs z with
-                                   | eq_refl => TApp_TCtxT L _
-                                 end
-                          | None => None
-
-                        end
-                      | None => None
-                    end
-                  | _ => None
-                end
-              | _ => None
-            end
-        end.
-      Defined.
-  End exprD.
-
-End env.
-
-
-(**
-      Fixpoint exprD (tvs : list typ) (e : expr) (t : typ) (k : kind) {struct e}
-      : option (TCtxT tvs t k).
-      refine
-        match e with
-          | eExt x =>
-            match k as k return option (TCtxT tvs t k) with
-              | kTy =>
-                match EExt.typeof_ext x as toe
-                      return match toe with
-                               | Some T => match typD nil T kTy with
-                                             | Some T => Ctx.eval_Ctx T
-                                             | None => Empty_set
-                                           end
-                               | None => unit
-                             end -> _
-                with
-                  | Some t' =>
-                    match typ_eq t' t with
-                      | Some pf => fun val =>
-                                     Some (match pf in _ = z
-                                                 return TCtxT tvs z kTy
-                                           with
-                                             | eq_refl => Inj_TCtxT val
-                                           end)
-                      | None => fun _ => None
-                    end
-                  | None => fun _ => None
-                end (EExt.extD x)
-              | _ => None
-            end
-          | eApp f x =>
-            match typeof_expr ks tvs x with
-              | Some t' =>
-                match exprD tvs f (tArr t' t) kTy with (** TODO **)
-                  | Some f =>
-                    match exprD tvs x t' kTy with
-                      | Some x => _
-                        (*
-                        match CtxD_App tvs t' t with
-                          | Some C => Some (C f x)
-                          | None => None
-                        end
-                         *)
-                      | None => None
-                    end
-                  | None => None
-                end
-              | None => None
-            end
-          | eAbs t' e => _
-          (*
-          match t with
-            | tyArr d r => (** TODO **)
-              match typ_eq t' d with
-                | left pf =>
-                  match exprD (t' :: tvs) e r with
-                    | Some val =>
-                      match CtxD_Abs tvs t' r with
-                        | Some C =>
-                          Some match pf in _ = t
-                                     return CtxD_typ tvs (tyArr t r) with
-                                 | eq_refl => C val
-                               end
-                        | None => None
-                      end
-                    | None => None
-                  end
-                | _ => None
-              end
-            | _ => None
-          end
-           *)
-          | eVar v => _ (* CtxD_Use _ _ v *)
-          | eTApp e t' => _
-        (*
-          match typeof_expr tvs e with
-            | Some (tyPi s t'') => (** TODO **)
-              match exprD tvs e (tyPi s t') with (** TODO **)
-                | Some L =>
-                  match typD ts t' s with
-                    | Some T => _
-                    | None => None
-                  end
-                | None => None
-              end
-            | _ => None
-          end
-         *)
-        end.
 *)

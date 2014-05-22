@@ -10,6 +10,7 @@ Module Type Context.
   Parameter Denote : iT -> Type.
 
   Parameter Env : list iT -> Type.
+  Parameter Env_nil : Env nil.
 
   (** Dependent contexts are like [Pi]s **)
   Parameter DCtx : forall ts : list iT, (Env ts -> Type) -> Type.
@@ -50,6 +51,33 @@ Module Type Context.
              (F : Denote k -> Type) (ret : forall v, F v),
       @DCtx ks (fun e => F (Env_get m e)).
 
+  (** Contexts **)
+  Definition Ctx ts T : Type :=
+    @DCtx ts (fun _ => T).
+
+  Definition Applicative_Ctx {ks} : Applicative (Ctx ks) :=
+  {| pure := fun _ X => dpure _ (fun _ : Env ks => X)
+   ; ap := fun (A B : Type) (f : DCtx (fun _ : Env ks => A -> B))
+         (x : DCtx (fun _ : Env ks => A)) => dap _ f x
+   |}.
+
+  Definition Functor_Ctx {ks} : Functor (Ctx ks) :=
+  {| fmap := fun (A B : Type) (X : A -> B) (X0 : Ctx ks A) =>
+         dfmap _ (fun _ : Env ks => X) X0 |}.
+
+  Definition Ctx_weaken ks ks' T (ctx : Ctx ks T) : Ctx (ks ++ ks') T :=
+    @DCtx_weaken ks ks' (fun _ => T) ctx.
+
+  Definition Quant_Ctx (T : Type) {k : iT} {ks : list iT}
+             (Q : (Denote k -> T) -> T)
+             (ctx : Ctx (cons k ks) T)
+  : Ctx ks T :=
+    Quant_DCtx (fun _ : Env ks => Q) ctx.
+
+  Definition Use_Ctx {ks k} (m : member k ks) : Ctx ks (Denote k) :=
+    Use_DCtx' m.
+
+
 (*
   (** Non-dependent contexts are just a specialization of dependent contexts **)
 
@@ -70,14 +98,23 @@ Module Type ContextP.
   Parameter Denote : iT -> Type.
 End ContextP.
 
-Module ContextHList (P : ContextP)
-: Context with Definition iT := P.iT
+Module Type ContextBuilder (P : ContextP)
+:= Context with Definition iT := P.iT
            with Definition Denote := P.Denote.
+
+Module ContextHList (P : ContextP)
+<: Context with Definition iT := P.iT
+          with Definition Denote := P.Denote.
 
   Definition iT : Type := P.iT.
   Definition Denote : iT -> Type := P.Denote.
 
   Definition Env : list iT -> Type := hlist Denote.
+
+  Definition Env_nil : Env nil := Hnil.
+  Definition Env_tl {t ts} : Env (t :: ts) -> Env ts :=
+    @hlist_tl _ _ _ _.
+
 
   (** Dependent contexts are like [Pi]s **)
   Definition DCtx (ts : list iT) (F : Env ts -> Type) : Type :=
@@ -105,9 +142,6 @@ Module ContextHList (P : ContextP)
   Definition Env_weaken {ts ts'} (ctx : Env (ts ++ ts')) : Env ts :=
     fst (hlist_split ts ts' ctx). (** This requires a weakening **)
 
-  Definition Env_tl {t ts} : Env (t :: ts) -> Env ts :=
-    @hlist_tl _ _ _ _.
-
   Definition DCtx_weaken {ts ts' F}
              (ctx : @DCtx ts F)
   : @DCtx (ts ++ ts') (fun x => F (Env_weaken x)) :=
@@ -133,29 +167,30 @@ Module ContextHList (P : ContextP)
   : @DCtx ks (fun e => F (hlist_get m e)) :=
     fun e => ret (Env_get m e).
 
-
   (** Contexts **)
   Definition Ctx ts T : Type :=
     @DCtx ts (fun _ => T).
 
   Definition Applicative_Ctx {ks} : Applicative (Ctx ks) :=
-  {| pure := fun _ val _ => val
-   ; ap := fun _ _ f x vs => f vs (x vs)
+  {| pure := fun _ X => dpure (fun _ : Env ks => X)
+   ; ap := fun (A B : Type) (f : DCtx (fun _ : Env ks => A -> B))
+         (x : DCtx (fun _ : Env ks => A)) => dap f x
    |}.
 
   Definition Functor_Ctx {ks} : Functor (Ctx ks) :=
-  {| fmap := fun _ _ f x => fun vs => f (x vs) |}.
+  {| fmap := fun (A B : Type) (X : A -> B) (X0 : Ctx ks A) =>
+         dfmap (fun _ : Env ks => X) X0 |}.
 
   Definition Ctx_weaken ks ks' T (ctx : Ctx ks T) : Ctx (ks ++ ks') T :=
-    fun vs_vs' => let (vs,_) := HList.hlist_split ks ks' vs_vs' in ctx vs.
+    @DCtx_weaken ks ks' (fun _ => T) ctx.
 
   Definition Quant_Ctx (T : Type) {k : iT} {ks : list iT}
              (Q : (Denote k -> T) -> T)
              (ctx : Ctx (cons k ks) T)
   : Ctx ks T :=
-    fun vs => Q (fun v => ctx (HList.Hcons v vs)).
+    Quant_DCtx (fun _ : Env ks => Q) ctx.
 
-  Fixpoint Use_Ctx {ks k} (m : member k ks) : Ctx ks (Denote k) :=
-    hlist_get m.
+  Definition Use_Ctx {ks k} (m : member k ks) : Ctx ks (Denote k) :=
+    Use_DCtx' m.
 
 End ContextHList.
