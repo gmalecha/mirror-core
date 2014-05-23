@@ -65,7 +65,6 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
 
   Module CtxP_skind <: ContextP.
     Definition iT := skind.
-    Definition Denote := skindD.
   End CtxP_skind.
 
   Module Ctx := ContextHList CtxP_skind.
@@ -181,24 +180,24 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
   Definition Quant_Ctx
   : forall (T : UU) {k : skind} {ks : list skind},
       ((skindD k -> T) -> T) ->
-      Ctx.Ctx (k :: ks) T -> Ctx.Ctx ks T :=
-    Ctx.Quant_Ctx.
+      Ctx.Ctx skindD (k :: ks) T -> Ctx.Ctx skindD ks T :=
+    @Ctx.Quant_Ctx skindD.
 
   (** Arrow **)
-  Definition Arr_Ctx {ks : list skind} (L R : Ctx.Ctx ks (kindD kTy))
-  : Ctx.Ctx ks (kindD kTy) :=
+  Definition Arr_Ctx {ks : list skind} (L R : Ctx.Ctx skindD ks (kindD kTy))
+  : Ctx.Ctx skindD ks (kindD kTy) :=
     ap (ap (pure (fun l r => l -> r)) L) R.
 
   (** Application **)
   Definition App_Ctx {ks : list skind} {k k' : kind}
-             (F : Ctx.Ctx ks (kindD (kArr k' k)))
-             (X : Ctx.Ctx ks (kindD k'))
-  : Ctx.Ctx ks (kindD k) :=
+             (F : Ctx.Ctx skindD ks (kindD (kArr k' k)))
+             (X : Ctx.Ctx skindD ks (kindD k'))
+  : Ctx.Ctx skindD ks (kindD k) :=
     ap (ap (pure (fun f x => f x)) F) X.
 
   (** Injection **)
   Definition Inj_Ctx {ks : list skind} (k : kind) (val : kindD k)
-  : Ctx.Ctx ks (kindD k) := pure val.
+  : Ctx.Ctx skindD ks (kindD k) := pure val.
 
   Fixpoint nth_mem_kind (ks : list skind) (k : skind) (n : nat) : option (member k ks) :=
     match ks as ks return option (member k ks) with
@@ -219,10 +218,10 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
     end.
 
   Fixpoint typD (ks : list skind) (t : typ) (k : kind)
-  : option (Ctx.Ctx ks (kindD k)) :=
+  : option (Ctx.Ctx skindD ks (kindD k)) :=
     match t with
       | tPi t =>
-        match k as k return option (Ctx.Ctx ks (kindD k))
+        match k as k return option (Ctx.Ctx skindD ks (kindD k))
         with
           | kTy =>
             match typD (cons kTy ks) t kTy with
@@ -232,7 +231,7 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
           | _ => None
         end
       | tArr t t' =>
-        match k as k return option (Ctx.Ctx ks (kindD k))
+        match k as k return option (Ctx.Ctx skindD ks (kindD k))
         with
           | kTy =>
             match typD ks t kTy , typD ks t' kTy with
@@ -264,7 +263,7 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
             match kind_eq k' k with
               | Some pf => fun f =>
                 Some (match pf in _ = k
-                            return kindD k' -> Ctx.Ctx ks (kindD k) with
+                            return kindD k' -> Ctx.Ctx skindD ks (kindD k) with
                         | eq_refl => fun v => Inj_Ctx _ v
                       end f)
               | None => fun _ => None
@@ -276,10 +275,10 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
   Fixpoint typD_weaken ks ks' t {struct t}
   : match typD ks t kTy , typD (ks ++ ks') t kTy return Type with
       | Some T , Some T' =>
-        @Ctx.DCtx ks (fun env =>
-           @Ctx.eval_Ctx ks (fun _ => kindD kTy) T env ->
-           @Ctx.DCtx ks' (fun env' =>
-                            @Ctx.eval_Ctx (ks ++ ks') (fun _ => kindD kTy) T'
+        @Ctx.DCtx skindD ks (fun env =>
+           @Ctx.eval_Ctx skindD ks (fun _ => kindD kTy) T env ->
+           @Ctx.DCtx skindD ks' (fun env' =>
+                            @Ctx.eval_Ctx skindD (ks ++ ks') (fun _ => kindD kTy) T'
                                           (hlist_app env env')))
 
       | Some _ , None => Empty_set
