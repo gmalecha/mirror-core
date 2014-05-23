@@ -83,20 +83,6 @@ Module Expr (EExt : ExprExt).
   | eTApp : expr -> typ -> expr
   | eExt  : EExt.ext -> expr.
 
-  (** TODO: Here I need to add contexts for values **)
-  Module Env <: ContextP.
-    Definition iT := typ.
-    Definition Denote (t : typ) :=
-      match @typD nil t kTy return Ustar with
-        | None => Empty_set
-        | Some T => Ctx.eval_Ctx T MLtypes.Ctx.Env_nil
-      end.
-  End Env.
-
-  Module CtxT := ContextHList Env.
-  Existing Instance CtxT.Applicative_Ctx.
-  Existing Instance CtxT.Functor_Ctx.
-
   Section typeof_expr.
     Variable ks : list kind.
     Fixpoint typeof_expr  (tvs : list typ) (e : expr) : option typ.
@@ -142,29 +128,21 @@ Module Expr (EExt : ExprExt).
     Defined.
   End typeof_expr.
 
-(*
-  Definition Kenv := hlist (skindD).
-  Definition Kenv_nil : Kenv nil := Hnil.
+  (** TODO: This needs to be over an arbitrary kind environment **)
+  Module Env <: ContextP.
+    Definition iT := typ.
+    Definition Denote (t : typ) :=
+      match @typD nil t kTy return Ustar with
+        | None => Empty_set
+        | Some T =>  (** TODO: This requires the context of values **)
+          Ctx.eval_Ctx T MLtypes.Ctx.Env_nil
+      end.
+  End Env.
 
-  Axiom eval_Ctx' : forall (T : Type) ks, Ctx.Ctx ks T -> Kenv ks -> T.
+  Module CtxT := ContextHList Env.
+  Existing Instance CtxT.Applicative_Ctx.
+  Existing Instance CtxT.Functor_Ctx.
 
-  Axiom typD_weaken : forall ks ks' t,
-                        match typD ks t kTy with
-                          | Some T => forall K : Kenv ks, eval_Ctx' T K
-                          | None => Empty_set
-                        end ->
-                        match typD (ks ++ ks') t kTy with
-                          | Some T => forall K : Kenv (ks ++ ks'), eval_Ctx' T K
-                          | None => Empty_set
-                        end.
-
-  Definition depCtx (ks' : list kind)
-
-    forall x : Kenv ks', T (fun _ ctx => eval_Ctx' ctx x).
-  (*
-    Axiom Tenv : forall ks : list kind, Kenv ks -> list typ -> Type.
-   *)
-*)
   Section exprD.
     Variable ks : list kind.
 
@@ -244,12 +222,82 @@ Module Expr (EExt : ExprExt).
                                     | None => Empty_set
                                   end)).
 
+    Theorem lift_typ_compose
+    : forall t s n m,
+        lift_typ s n (lift_typ s m t) = lift_typ s (n + m) t.
+    Proof.
+      induction t; simpl; intros.
+      { rewrite <- IHt. reflexivity. }
+      { rewrite <- IHt1. rewrite <- IHt2. reflexivity. }
+      { rewrite <- IHt1. rewrite <- IHt2. reflexivity. }
+      { destruct (n ?[ lt ] s). admit. admit. }
+      { reflexivity. }
+    Defined.
+
+    (** TODO: Universes! **)
+    Require Import MirrorCore.Iso.
+
+    Fixpoint same {k} : kindD k -> kindD k -> Type.
+    refine
+      match k as k return kindD k -> kindD k -> Type with
+        | kTy => fun a b => Iso a b
+        | kArr a b => fun x y =>
+                        forall c d, @same a c d ->
+                                    @same b (x c) (y d)
+      end%type.
+    Defined.
+
+(*
+    Lemma typD_subst k tvs t' A (H : typD tvs t' k = Some A)
+    : forall t k' tvs' B,
+        typD (tvs' ++ k :: tvs) t k' = Some B ->
+        { C : _ &
+          typD (tvs' ++ tvs) (typ_sub t (length tvs') (lift_typ 0 (length tvs') t')) k' = Some C &
+          forall ts,
+            same (Ctx.eval_Ctx C ts)
+                 (let (vs,vs') := hlist_split tvs' tvs ts in
+                  Ctx.eval_Ctx B (hlist_app vs (Hcons (l := k) (Ctx.eval_Ctx A vs') vs'))) }.
+    Proof.
+
+      induction t.
+      { simpl. destruct k'; simpl.
+        { intros. specialize (IHt kTy (kTy :: tvs')).
+          simpl in *.
+          destruct (typD (kTy :: tvs' ++ k :: tvs) t kTy).
+          { unfold Quant_Ctx in H0. unfold Ctx.Quant_Ctx in H0.
+            unfold Ctx.Quant_DCtx in H0.
+            specialize (@IHt _ eq_refl).
+            rewrite lift_typ_compose. destruct IHt.
+            simpl. rewrite e. eexists. reflexivity.
+            intros.
+            unfold Quant_Ctx in *.
+            unfold Ctx.Quant_Ctx in *.
+            unfold Ctx.Quant_DCtx in *.
+            unfold Ctx.eval_Ctx in *. inversion H0. subst.
+            constructor.
+            { intros.
+              remember (hlist_split tvs' tvs ts).
+              destruct p. intro.
+              specialize (i (Hcons (l := kTy) x0 ts)).
+              simpl in i. rewrite <- Heqp in i.
+              specialize (X x0). eapply i in X. apply X. }
+            { 
+            
+  }
+          { exfalso. inversion H0. }
+*)
+
     Definition TApp_TCtxT {tvs t}
                (F : TCtxT tvs (tPi t))
                (t' : typ) (** TODO: This must to be a good type! **)
+(*               (H : typD ks t' kTy <> None) *)
     : TCtxT tvs (typ_sub t 0 t').
       red in F. red. simpl in *.
+      revert F.
+      eapply Ctx.dap. red. intros.
+
     Admitted.
+
 
     Definition Use_TCtxT {tvs t} (mem : member t tvs)
     : TCtxT tvs t.
@@ -273,17 +321,36 @@ Module Expr (EExt : ExprExt).
         eapply CtxT.dpure. destruct 2. }
     Defined.
 
+    Definition Env_hlist : forall d tvs,
+                             Env.Denote d -> CtxT.Env tvs ->
+                             CtxT.Env (d :: tvs).
+      unfold CtxT.Env. do 2 intro. eapply Hcons.
+    Defined.
+
     Definition Abs_TCtxT {tvs d r}
     : option (TCtxT (d :: tvs) r -> TCtxT tvs (tArr d r)).
+      unfold TCtxT. simpl.
+      generalize (@Env_hlist d tvs).
+      unfold Env.Denote.
+      (** TODO: This isn't true because of the configuration of the
+       ** environment, see notes above
+       **)
 (*
-      revert val.
-      eapply Ctx.dap. eapply Ctx.dpure. intro.
+      destruct (typD ks d kTy).
+      { destruct (typD ks r kTy).
+        { apply Some.
+          eapply Ctx.dap. eapply Ctx.dpure. intro.
+          unfold CtxT.Ctx. unfold CtxT.DCtx.
+          unfold Arr_Ctx. simpl. unfold Ctx.dap, Ctx.dpure.
+          unfold Ctx.eval_Ctx.
+        }
+        { exact None. } }
+      { exact None. }
       Check CtxT.Quant_Ctx.
       simpl.
-      unfold CtxT.Ctx. unfold CtxT.DCtx.
+
 *)
     Admitted.
-
 
     Fixpoint exprD (tvs : list typ) (e : expr) (t : typ) {struct e}
     : option (TCtxT tvs t).
@@ -345,7 +412,7 @@ Module Expr (EExt : ExprExt).
               | _ => None
             end
           | eVar v =>
-            match ExprCore.nth_mem tvs v with
+            match nth_mem tvs v with
               | Some (existT t' m) =>
                 match typ_eq t' t with
                   | Some pf =>

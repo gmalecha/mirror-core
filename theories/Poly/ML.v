@@ -114,7 +114,7 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
       | tExt e => tExt e
       | tApp t1 t2 => tApp (lift_typ skip _by t1) (lift_typ skip _by t2)
       | tPi t => tPi (lift_typ (S skip) _by t)
-      | tVar n => tVar (if n ?[ lt ] skip then n + _by else n)
+      | tVar n => tVar (if n ?[ lt ] skip then n else (n + _by))
       | tArr t1 t2 => tArr (lift_typ skip _by t1) (lift_typ skip _by t2)
     end.
 
