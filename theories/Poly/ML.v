@@ -285,6 +285,7 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
       | None , _ => unit
     end.
   Proof.
+    (** TODO: There has got to be a cleaner statement for this **)
 (*
     destruct t; simpl.
     { specialize (typD_weaken (kTy :: ks) ks' t k).

@@ -273,31 +273,70 @@ Module Expr (EExt : ExprExt).
       admit.
     Defined.
 
-    Theorem lift_typ_compose
+    Definition plus_comm_assoc_trans a b c : a + b + c = a + (c + b) :=
+      match NPeano.Nat.eq_dec (a + b + c) (a + (c + b)) with
+        | left pf => pf
+        | right pf =>
+          match pf (match
+                       Plus.plus_comm b c in (_ = y)
+                       return (a + b + c <> a + y -> a + b + c = a + y)
+                     with
+                       | eq_refl =>
+                         fun _ : a + b + c <> a + (b + c) =>
+                           eq_sym (Plus.plus_assoc a b c)
+                     end pf) with end
+      end.
+
+    Lemma lift_typ_compose_sub : forall n s m n0,
+      (if (if n ?[ lt ] s then n else n + m) ?[ lt ] s
+       then if n ?[ lt ] s then n else n + m
+       else (if n ?[ lt ] s then n else n + m) + n0) =
+      (if n ?[ lt ] s then n else n + (n0 + m)).
+      intros.
+      change (let Z := n ?[ lt ] s in
+              let Y := if Z then n else n + m in
+              (if Y ?[ lt ] s then Y else Y + n0) =
+              if Z then n else (n + (n0 + m))).
+      refine (match n ?[ lt ] s as A
+                    return A = n ?[ lt ] s ->
+                           let Z := A in
+                           let Y := if Z then n else n + m in
+                           (if Y ?[ lt ] s then Y else Y + n0) =
+                           (if Z then n else n + (n0 + m))
+              with
+                | true => fun pf =>
+                            match pf in _ = t return (if t then _ else _) = _ with
+                              | eq_refl => eq_refl
+                            end
+                | false => fun pf => _
+              end eq_refl).
+      simpl. rewrite <- not_lt_false; auto. apply plus_comm_assoc_trans.
+    Defined.
+
+    Theorem lift_typ_compose_trans
     : forall t s n m,
-        lift_typ s n (lift_typ s m t) = lift_typ s (m + n) t.
+        lift_typ s n (lift_typ s m t) = lift_typ s (n + m) t.
     Proof.
       induction t; simpl; intros.
       { rewrite <- IHt. reflexivity. }
       { rewrite <- IHt1. rewrite <- IHt2. reflexivity. }
       { rewrite <- IHt1. rewrite <- IHt2. reflexivity. }
-      { remember (n ?[ lt ] s).
-        destruct b.
-        { rewrite <- Heqb. reflexivity. }
-        { rewrite <- not_lt_false.
-          clear. f_equal.
-          induction n. reflexivity. simpl. rewrite IHn. reflexivity.
-          assumption. } }
+      { f_equal. apply lift_typ_compose_sub. }
       { reflexivity. }
     Defined.
 
     (** TODO: Universes! **)
-    Require Import MirrorCore.Iso.
+    (* Require Import MirrorCore.Iso. *)
+
+    Record BigIso (A B : Type) : Type :=
+    { binto : A -> B
+    ; boutof : B -> A
+    }.
 
     Fixpoint same {k} : kindD k -> kindD k -> Type.
     refine
       match k as k return kindD k -> kindD k -> Type with
-        | kTy => fun a b => Iso a b
+        | kTy => fun a b => BigIso a b
         | kArr a b => fun x y =>
                         forall c d, @same a c d ->
                                     @same b (x c) (y d)
@@ -314,8 +353,8 @@ Module Expr (EExt : ExprExt).
             same (Ctx.eval_Ctx C ts)
                  (let (vs,vs') := hlist_split tvs' tvs ts in
                   Ctx.eval_Ctx B (hlist_app vs (Hcons (l := k) (Ctx.eval_Ctx A vs') vs'))) }.
+    Admitted.
     Proof.
-
       induction t.
       { simpl. destruct k'; simpl.
         { intros. specialize (IHt kTy (kTy :: tvs')).
@@ -324,7 +363,7 @@ Module Expr (EExt : ExprExt).
           { unfold Quant_Ctx in H0. unfold Ctx.Quant_Ctx in H0.
             unfold Ctx.Quant_DCtx in H0.
             specialize (@IHt _ eq_refl).
-            rewrite lift_typ_compose. destruct IHt.
+            rewrite lift_typ_compose_trans. destruct IHt.
             simpl. rewrite e. eexists. reflexivity.
             intros.
             unfold Quant_Ctx in *.
@@ -335,13 +374,32 @@ Module Expr (EExt : ExprExt).
             { intros.
               remember (hlist_split tvs' tvs ts).
               destruct p. intro.
-              specialize (i (Hcons (l := kTy) x0 ts)).
-              simpl in i. rewrite <- Heqp in i.
-              specialize (X x0). eapply i in X. apply X. }
-            { 
-            
-  }
-          { exfalso. inversion H0. }
+              specialize (b (Hcons (l := kTy) x0 ts)).
+              simpl in b. rewrite <- Heqp in b.
+              specialize (X x0). eapply b in X. apply X. }
+            { remember (hlist_split tvs' tvs ts).
+              destruct p. intro.
+              intro. specialize (X x0). clear H0.
+              specialize (b (@Hcons _ _ kTy _ x0 ts)).
+              simpl in b. rewrite <- Heqp in b. apply b. apply X. } }
+          { exfalso. inversion H0. } }
+        { inversion 1. } }
+      { simpl. intros.
+        specialize (IHt2 kTy tvs').
+        specialize (IHt1 (kArr kTy k') tvs').
+        destruct (typD (tvs' ++ k :: tvs) t2 kTy). 2: inversion H0.
+        destruct (typD (tvs' ++ k :: tvs) t1 (kArr kTy k')). 2: inversion H0.
+        specialize (IHt1 _ eq_refl).
+        specialize (IHt2 _ eq_refl).
+        destruct IHt1; destruct IHt2.
+        rewrite e. rewrite e0.
+        eexists. reflexivity.
+        simpl. inversion H0; clear H0; subst.
+        intro. specialize (s ts). specialize (s0 ts).
+        clear - s s0.
+        destruct (hlist_split tvs' tvs ts).
+        unfold App_Ctx. simpl. unfold Ctx.dap, Ctx.dpure.
+        admit.
 *)
 
     Definition TApp_TCtxT {tvs t}
@@ -354,7 +412,6 @@ Module Expr (EExt : ExprExt).
       eapply Ctx.dap. red. intro.
       unfold CtxT.Ctx. unfold CtxT.DCtx. unfold typD'. simpl.
     Admitted.
-
 
     Definition Use_TCtxT {tvs t} (mem : member t tvs)
     : TCtxT tvs t.
