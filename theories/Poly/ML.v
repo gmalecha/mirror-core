@@ -96,8 +96,8 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
                        | _ , _ => None
                      end
       | tPi t => match kindof_typ (kTy :: ss) t with
-                   | Some s' => Some kTy
-                   | None => None
+                   | Some kTy => Some kTy
+                   | _ => None
                  end
       | tArr t1 t2 => match kindof_typ ss t1
                           , kindof_typ ss t2
