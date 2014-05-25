@@ -113,11 +113,13 @@ Module Type ExprType.
                         Rty c a /\ Rty b d.
 End ExprType.
 
-Module Type ExprDenote_core.
+Module Type ExprDenote.
   Include ExprType.
 
+  (** TODO: It might be better to make this a real functor! **)
   Section with_func.
     Context {func : Type}.
+    Context {RSym_func : RSym (fun _ => typD) func}.
 
     Definition Rcast_val : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
@@ -191,7 +193,7 @@ Module Type ExprDenote_core.
         | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
       end.
 
-    Context {RSym_func : RSym (fun _ => typD) func}.
+
 
     Definition funcAs (f : func) (t : typ) : option (typD t) :=
       match typeof_sym f as Z
@@ -259,61 +261,113 @@ Module Type ExprDenote_core.
       end.
     End typeof_expr.
 
-    Fixpoint exprD'_simpl (tus tvs : tenv typ) (t : typ) (e : expr typ func)
-    : option (OpenT tus tvs (typD t)) :=
-      match e with
-        | Var v =>
-          bind (m := option)
-               (nth_error_get_hlist_nth typD tvs v)
-               (fun t_get =>
-                  let '(existT t' get) := t_get in
-                  bind (m := option)
-                       (type_cast t' t)
-                       (fun cast =>
-                          ret (fun us vs => Rcast_val cast (get vs))))
-        | Inj f =>
-          bind (m := option)
-               (funcAs f t)
-               (fun val =>
-                  ret (fun _ _ => val))
-        | App f x =>
-          bind (m := option)
-              (typeof_expr tus tvs x)
-              (fun t' =>
-                 bind (exprD'_simpl tus tvs (typ_arr t' t) f)
-                      (fun f =>
-                         bind (exprD'_simpl tus tvs t' x)
-                              (fun x =>
-                                 ret (Open_App f x))))
-        | Abs t' e =>
-          arr_match (fun T => option (OpenT tus tvs T)) t
-                    (fun d r =>
-                       bind (m := option)
-                            (type_cast d t')
-                            (fun cast =>
-                               bind (m := option)
-                                    (exprD'_simpl tus (t' :: tvs) r e)
-                                    (fun val =>
-                                       ret (fun us vs x =>
-                                              val us (Hcons (Rcast_val cast x) vs)))))
-                    None
-        | UVar u =>
-          bind (m := option)
-               (nth_error_get_hlist_nth typD tus u)
-               (fun t_get =>
-                  let '(existT t' get) := t_get in
-                  bind (m := option)
-                       (type_cast t' t)
-                       (fun cast =>
-                          ret (fun us vs => Rcast_val cast (get us))))
-      end.
+    Axiom exprD'_Var
+    : forall tus tvs t v,
+        exprD' tus tvs t (Var v) =
+        bind (m := option)
+             (nth_error_get_hlist_nth typD tvs v)
+             (fun t_get =>
+                let '(existT t' get) := t_get in
+                bind (m := option)
+                     (type_cast t' t)
+                     (fun cast =>
+                        ret (fun us vs => Rcast_val cast (get vs)))).
 
-    Axiom exprD'_exprD'_simpl
-    : forall tus e tvs t,
-        exprD' tus tvs t e = exprD'_simpl tus tvs t e.
+    Axiom exprD'_UVar
+    : forall tus tvs t u,
+        exprD' tus tvs t (UVar u) =
+        bind (m := option)
+             (nth_error_get_hlist_nth typD tus u)
+             (fun t_get =>
+                let '(existT t' get) := t_get in
+                bind (m := option)
+                     (type_cast t' t)
+                     (fun cast =>
+                        ret (fun us vs => Rcast_val cast (get us)))).
+
+    Axiom exprD'_Inj
+    : forall tus tvs t s,
+        exprD' tus tvs t (Inj s) =
+        bind (m := option)
+             (funcAs s t)
+             (fun val =>
+                ret (fun _ _ => val)).
+
+    Axiom exprD'_App
+    : forall tus tvs t f x,
+        exprD' tus tvs t (App f x) =
+        bind (m := option)
+             (typeof_expr tus tvs x)
+             (fun t' =>
+                bind (exprD' tus tvs (typ_arr t' t) f)
+                     (fun f =>
+                        bind (exprD' tus tvs t' x)
+                             (fun x =>
+                                ret (Open_App f x)))).
+
+    Axiom exprD'_Abs
+    : forall tus tvs t t' e,
+        exprD' tus tvs t (Abs t' e) =
+        arr_match (fun T => option (OpenT tus tvs T)) t
+                  (fun d r =>
+                     bind (m := option)
+                          (type_cast d t')
+                          (fun cast =>
+                             bind (m := option)
+                                  (exprD' tus (t' :: tvs) r e)
+                                  (fun val =>
+                                     ret (fun us vs x =>
+                                            val us (Hcons (Rcast_val cast x) vs)))))
+                  None.
+
   End with_func.
 
-End ExprDenote_core.
+End ExprDenote.
+
+Module Type ExprFacts (ED : ExprDenote).
+  Section over_func.
+    Variable func : Type.
+    Variable RSym_func : RSym (fun _ => ED.typD) func.
+
+    Axiom typeof_expr_weaken
+    : forall tus tvs e t tus' tvs',
+        ED.typeof_expr tus tvs e = Some t ->
+        ED.typeof_expr (tus ++ tus') (tvs ++ tvs') e = Some t.
+
+    Axiom exprD'_weaken
+    : forall tus tvs e t val tus' tvs',
+        ED.exprD' tus tvs t e = Some val ->
+        exists val',
+          ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+          forall us vs us' vs',
+            val us vs = val' (hlist_app us us') (hlist_app vs vs').
+
+    Axiom exprD'_type_cast
+    : forall tus tvs e t,
+        ED.exprD' tus tvs t e =
+        match ED.typeof_expr tus tvs e with
+          | None => None
+          | Some t' =>
+            match ED.type_cast t' t with
+              | None => None
+              | Some cast =>
+                match ED.exprD' tus tvs t' e with
+                  | None => None
+                  | Some x =>
+                    Some (fun us gs => ED.Rcast (fun x => x) cast (x us gs))
+                end
+            end
+        end.
+
+    Axiom typeof_expr_exprD'
+    : forall tus tvs e t,
+        ED.typeof_expr tus tvs e = Some t ->
+        exists val,
+          ED.exprD' tus tvs t e = Some val.
+  End over_func.
+End ExprFacts.
+
+
 (*
 Module Type ExprDenote.
   Include ExprType.
