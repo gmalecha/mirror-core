@@ -2,145 +2,339 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import ExtLib.Tactics.EqDep.
-Require Import ExtLib.Tactics.Cases.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.ExprT.
+Require Import MirrorCore.Lambda2.TypesI2.
+Require Import MirrorCore.Lambda2.ExprCore.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Module Type ExprDenote_core.
+Module Type ExprType.
+  Parameter typ : Type.
 
-  Section with_types.
-    Context {typ : Type}.
-    Context {typD : list Type -> typ -> Type}.
-    Context {func : Type}.
+  (** [type_cast] requires that [Rty] is decidable. **)
+  Definition Rty : typ -> typ -> Prop := @eq typ.
+  Definition Rty_refl : Reflexive Rty := @eq_refl typ.
+  Definition Rty_trans : Transitive Rty := @eq_trans typ.
 
-    Parameter exprD' : forall {_ : RType typD} {_ : TypInstance2 typD Fun} {_ : RSym typD func},
-      expr typ func -> forall (u g : tenv typ) (t : typ),
-      option (hlist (typD nil) u -> hlist (typD nil) g -> typD nil t).
+  Parameter type_cast : forall (a b : typ), option (Rty a b).
 
-    Section with_envs.
-      Variable RType_typ : RType typD.
-      Variable TI_Fun : TypInstance2 typD Fun.
-      Variable RSym_func : RSym typD func.
+  Parameter typ_arr : typ -> typ -> typ.
 
-      Axiom exprD'_Abs
-      : RTypeOk RType_typ ->
-        TypInstance2_Ok TI_Fun ->
-        forall us ve t e u,
-          exprD' (Abs t e) us ve u =
-          @typ2_matchW _ _ _ TI_Fun nil u
-                      (fun T => option (hlist (typD nil) us -> hlist (typD nil) ve -> T))
-                      (fun l r =>
-                         match type_cast nil l t
-                             , exprD' e us (t :: ve) r
-                         with
-                           | Some cast , Some f =>
-                             Some (fun u g => fun x =>
-                             f u (Hcons (F := typD nil)
-                                      (cast (fun T => T) x) g))
-                           | _ , _ => None
-                         end)
-                      (fun _ => None).
+  Axiom type_cast_refl : forall x, type_cast x x = Some (Rty_refl _).
+  Axiom type_cast_total : forall x y, type_cast x y = None -> ~Rty x y.
 
-    Axiom exprD'_Var : forall us ve v t,
-      exprD' (Var v) us ve t =
-      match nth_error ve v as z
-            return z = nth_error ve v ->
-                   option (hlist (typD nil) us -> hlist (typD nil) ve -> typD nil t)
-      with
-        | Some z => fun pf =>
-          match type_cast _ z t with
-            | Some cast =>
-              Some (fun _ e => match pf in _ = t''
-                                   return match t'' with
-                                            | Some t => typD nil t
-                                            | None => unit
-                                          end -> typD nil t with
-                               | eq_refl => fun x => cast (fun x => x) x
-                             end (hlist_nth e v))
-            | None => None
-          end
-        | None => fun _ => None
-      end eq_refl.
+  Axiom Rty_typ_arr : forall a b c d,
+                        Rty (typ_arr a b) (typ_arr c d) <->
+                        Rty c a /\ Rty b d.
 
-    Axiom exprD'_UVar : forall us ve v t,
-      exprD' (UVar v) us ve t =
-      match nth_error us v as z
-            return z = nth_error us v ->
-                   option (hlist (typD nil) us -> hlist (typD nil) ve -> typD nil t)
-      with
-        | Some z => fun pf =>
-          match type_cast _ z t with
-            | Some cast =>
-              Some (fun e _ => match pf in _ = t''
-                                   return match t'' with
-                                            | Some t => typD nil t
-                                            | None => unit
-                                          end -> typD nil t with
-                               | eq_refl => fun x => cast (fun x => x) x
-                             end (hlist_nth e v))
-            | None => None
-          end
-        | None => fun _ => None
-      end eq_refl.
+  (** Below this point *requires* typD **)
+  Parameter typD : typ -> Type.
+  Parameter arr_match : forall (T : Type -> Type) t,
+                          (forall a b, T (typD a -> typD b)) ->
+                          T (typD t) ->
+                          T (typD t).
 
-    Axiom exprD'_Sym : forall us ve f t,
-      exprD' (Inj f) us ve t =
-      match symAs f t with
-        | None => None
-        | Some val => Some (fun _ _ => val)
+  Parameter typD_arr : forall a b, typD (typ_arr a b) = (typD a -> typD b).
+
+  Parameter Rcast : forall T {a b} (pf : Rty a b), T (typD a) -> T (typD b).
+
+  Axiom Rcast_refl : forall T x, Rcast T (Rty_refl x) = fun x => x.
+  Axiom Rcast_trans : forall T x y z pf pf' result,
+                            Rcast T (@Rty_trans x y z pf pf') result =
+                            Rcast T pf' (Rcast T pf result).
+
+  Axiom arr_match_case
+  : forall x,
+      (exists d r (pf : Rty x (typ_arr d r)),
+         forall T tr fa,
+           arr_match T x tr fa =
+           match eq_sym pf in _ = t return T (typD t) with
+             | eq_refl => match eq_sym (typD_arr d r) in _ = t return T t with
+                            | eq_refl => tr d r
+                          end
+           end) \/
+      (forall T tr fa, arr_match T x tr fa = fa).
+
+  Axiom arr_match_typ_arr
+  : forall a b T tr fa,
+      arr_match T (typ_arr a b) tr fa =
+      match eq_sym (typD_arr a b) in _ = t return T t with
+        | eq_refl => tr a b
       end.
 
-    Let tyArr_outof : forall ts l r, typD ts (typ2 l r) -> typD ts l -> typD ts r :=
-      fun ts l r => @Iso.soutof _ _ (typ2_iso ts l r) (fun x => x).
-
-    Axiom exprD'_App
-    : RTypeOk RType_typ ->
-      TypInstance2_Ok TI_Fun ->
-      forall us ve t e arg,
-      exprD' (App e arg) us ve t =
-      bind (typeof_expr us ve e)
-           (fun t' =>
-              @typ2_matchW _ _ _ TI_Fun nil t'
-                          (fun T =>
-                             option (hlist (typD nil) us -> hlist (typD nil) ve -> T) ->
-                             option (hlist (typD nil) us -> hlist (typD nil) ve -> typD nil t))
-                          (fun l r => fun f' =>
-                             match f'
-                                 , exprD' arg us ve l
-                                 , type_cast nil r t
-                             with
-                               | Some f , Some x , Some cast =>
-                                 Some (fun (u : hlist (typD nil) us)
-                                           (g : hlist (typD nil) ve) =>
-                                         cast (fun x => x) ((f u g) (x u g)))
-                               | _ , _ , _ =>
-                                 None
-                             end)
-                          (fun _ => fun _ => None)
-                          (exprD' e us ve t')).
-    End with_envs.
-  End with_types.
-
-End ExprDenote_core.
+End ExprType.
 
 Module Type ExprDenote.
-  Include ExprDenote_core.
+  Include ExprType.
+
+  (** TODO: It might be better to make this a real functor! **)
+  Section with_func.
+    Context {func : Type}.
+    Context {RSym_func : RSym (fun _ => typD) func}.
+
+    Definition Rcast_val : forall {a b} (pf : Rty a b), typD a -> typD b :=
+      @Rcast (fun T => T).
+
+    (** TODO: This is abstractable! **)
+    Section OpenT.
+      Variables tus tvs : tenv typ.
+
+      Definition OpenT (T : Type) :=
+        hlist typD tus -> hlist typD tvs -> T.
+
+      Definition Open_UseV (n : nat) : option { t : typ & OpenT (typD t) } :=
+        bind (m := option)
+             (nth_error_get_hlist_nth _ tvs n)
+             (fun t_get =>
+                let '(existT t get) := t_get in
+                ret (@existT _ (fun t => OpenT (typD t)) t
+                             (fun us vs => get vs))).
+
+      Definition Open_UseU (n : nat) : option { t : typ & OpenT (typD t) } :=
+        bind (m := option)
+             (nth_error_get_hlist_nth _ tus n)
+             (fun t_get =>
+                let '(existT t get) := t_get in
+                ret (@existT _ (fun t => OpenT (typD t)) t
+                             (fun us vs => get us))).
+
+      Definition Open_App {t u}
+      : OpenT (typD (typ_arr t u)) -> OpenT (typD t) -> OpenT (typD u) :=
+        match eq_sym (typD_arr t u) in _ = T
+              return OpenT T -> OpenT (typD t) -> OpenT (typD u)
+        with
+          | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
+        end.
+
+      Definition Open_Inj {t} (val : typD t)
+      : OpenT (typD t) :=
+        fun _ _ => val.
+
+
+      (** Auxiliary definitions **)
+      Definition Open_GetUAs (n : nat) (t : typ) :
+        option (OpenT (typD t)) :=
+        bind (m := option)
+             (nth_error_get_hlist_nth typD tus n)
+             (fun t_get =>
+                let '(existT t' get) := t_get in
+                bind (m := option)
+                     (type_cast t' t)
+                     (fun cast =>
+                        ret (fun us vs => Rcast_val cast (get us)))).
+
+      Definition Open_GetVAs (n : nat) (t : typ) :
+        option (OpenT (typD t)) :=
+        bind (m := option)
+             (nth_error_get_hlist_nth typD tvs n)
+             (fun t_get =>
+                let '(existT t' get) := t_get in
+                bind (m := option)
+                     (type_cast t' t)
+                     (fun cast =>
+                        ret (fun us vs => Rcast_val cast (get vs)))).
+
+    End OpenT.
+
+    Definition Open_Abs {tus tvs t u}
+    : OpenT tus (t :: tvs) (typD u) -> OpenT tus tvs (typD (typ_arr t u)) :=
+      match eq_sym (typD_arr t u) in _ = T
+            return OpenT tus (t :: tvs) (typD u) -> OpenT tus tvs T
+      with
+        | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
+      end.
+
+
+
+    Definition funcAs (f : func) (t : typ) : option (typD t) :=
+      match typeof_sym f as Z
+            return Z = typeof_sym f -> option (typD t)
+      with
+        | None => fun _ => None
+        | Some T => fun pf =>
+                      match type_cast T t with
+                        | None => None
+                        | Some cast =>
+                          Rcast option cast
+                                (Some (match pf in _ = Z
+                                             return match Z with
+                                                      | Some t => typD t
+                                                      | None => unit
+                                                    end -> typD _
+                                       with
+                                         | eq_refl => fun x => x
+                                       end (symD f)))
+                      end
+      end eq_refl.
+
+
+    Parameter exprD'
+    : forall {RSym_func : RSym (fun _ => typD) func}
+             (tus tvs : tenv typ) (t : typ) (e : expr typ func),
+        option (OpenT tus tvs (typD t)).
+
+    Axiom exprD'_respects
+    : forall tus tvs t t' e (pf : Rty t' t),
+        exprD' tus tvs t e =
+        Rcast (fun T => option (OpenT tus tvs T)) pf (exprD' tus tvs t' e).
+
+    Section typeof_expr.
+      Variable tus : tenv typ.
+
+      Definition type_of_apply (tv x : typ) : option typ :=
+        arr_match (fun _ => option typ) tv
+                  (fun d r =>
+                     match type_cast d x with
+                       | Some _ => Some r
+                       | None => None
+                     end)
+                  None.
+
+      Fixpoint typeof_expr (tvs : tenv typ) (e : expr typ func)
+      : option typ :=
+        match e with
+        | Var x  => nth_error tvs x
+        | UVar x => nth_error tus x
+        | Inj f => typeof_sym f
+        | App e e' =>
+          match typeof_expr tvs e
+              , typeof_expr tvs e'
+          with
+            | Some tf , Some tx =>
+              type_of_apply tf tx
+            | _ , _ => None
+          end
+        | Abs t e =>
+          match typeof_expr (t :: tvs) e with
+            | None => None
+            | Some t' => Some (typ_arr t t')
+          end
+      end.
+    End typeof_expr.
+
+    Axiom exprD'_Var
+    : forall tus tvs t v,
+        exprD' tus tvs t (Var v) =
+        bind (m := option)
+             (nth_error_get_hlist_nth typD tvs v)
+             (fun t_get =>
+                let '(existT t' get) := t_get in
+                bind (m := option)
+                     (type_cast t' t)
+                     (fun cast =>
+                        ret (fun us vs => Rcast_val cast (get vs)))).
+
+    Axiom exprD'_UVar
+    : forall tus tvs t u,
+        exprD' tus tvs t (UVar u) =
+        bind (m := option)
+             (nth_error_get_hlist_nth typD tus u)
+             (fun t_get =>
+                let '(existT t' get) := t_get in
+                bind (m := option)
+                     (type_cast t' t)
+                     (fun cast =>
+                        ret (fun us vs => Rcast_val cast (get us)))).
+
+    Axiom exprD'_Inj
+    : forall tus tvs t s,
+        exprD' tus tvs t (Inj s) =
+        bind (m := option)
+             (funcAs s t)
+             (fun val =>
+                ret (fun _ _ => val)).
+
+    Axiom exprD'_App
+    : forall tus tvs t f x,
+        exprD' tus tvs t (App f x) =
+        bind (m := option)
+             (typeof_expr tus tvs x)
+             (fun t' =>
+                bind (exprD' tus tvs (typ_arr t' t) f)
+                     (fun f =>
+                        bind (exprD' tus tvs t' x)
+                             (fun x =>
+                                ret (Open_App f x)))).
+
+    Axiom exprD'_Abs
+    : forall tus tvs t t' e,
+        exprD' tus tvs t (Abs t' e) =
+        arr_match (fun T => option (OpenT tus tvs T)) t
+                  (fun d r =>
+                     bind (m := option)
+                          (type_cast d t')
+                          (fun cast =>
+                             bind (m := option)
+                                  (exprD' tus (t' :: tvs) r e)
+                                  (fun val =>
+                                     ret (fun us vs x =>
+                                            val us (Hcons (Rcast_val cast x) vs)))))
+                  None.
+
+  End with_func.
+
+End ExprDenote.
+
+Module Type ExprFacts (ED : ExprDenote).
+  Section over_func.
+    Variable func : Type.
+    Variable RSym_func : RSym (fun _ => ED.typD) func.
+
+    Axiom typeof_expr_weaken
+    : forall tus tvs e t tus' tvs',
+        ED.typeof_expr tus tvs e = Some t ->
+        ED.typeof_expr (tus ++ tus') (tvs ++ tvs') e = Some t.
+
+    Axiom exprD'_weaken
+    : forall tus tvs e t val tus' tvs',
+        ED.exprD' tus tvs t e = Some val ->
+        exists val',
+          ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+          forall us vs us' vs',
+            val us vs = val' (hlist_app us us') (hlist_app vs vs').
+
+    Axiom exprD'_type_cast
+    : forall tus tvs e t,
+        ED.exprD' tus tvs t e =
+        match ED.typeof_expr tus tvs e with
+          | None => None
+          | Some t' =>
+            match ED.type_cast t' t with
+              | None => None
+              | Some cast =>
+                match ED.exprD' tus tvs t' e with
+                  | None => None
+                  | Some x =>
+                    Some (fun us gs => ED.Rcast (fun x => x) cast (x us gs))
+                end
+            end
+        end.
+
+    Axiom typeof_expr_exprD'
+    : forall tus tvs e t,
+        ED.typeof_expr tus tvs e = Some t ->
+        exists val,
+          ED.exprD' tus tvs t e = Some val.
+  End over_func.
+End ExprFacts.
+
+
+(*
+Module Type ExprDenote.
+  Include ExprType.
 
   Section with_types.
     Context {typ : Type}.
     Context {typD : list Type -> typ -> Type}.
     Context {func : Type}.
     Variable RType_typ : RType typD.
-    Variable TI_Fun : TypInstance2 typD Fun.
+(*    Variable TI_Fun : TypInstance2 typD Fun. *)
     Variable RSym_func : RSym typD func.
     Variable us : env typD.
 
@@ -222,6 +416,7 @@ Module Type ExprDenote.
   End with_types.
 
 End ExprDenote.
+*)
 
 (**
 Module Build_ExprDenote (EDc : ExprDenote_core) <:

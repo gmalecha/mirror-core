@@ -1,170 +1,202 @@
+Require Import Coq.Lists.List.
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
+(* Require Import Morphisms. *)
+(* Require Import Relations. *)
+(* Require Import RelationClasses. *)
+(* Require Import ExtLib.Data.HList. *)
+(* Require Import ExtLib.Data.Prop. *)
+(* Require Import ExtLib.Data.Fun. *)
+(* Require Import ExtLib.Tactics. *)
+(* Require Import ExtLib.Tactics.EqDep. *)
+Require Import ExtLib.Data.Positive.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Lambda2.ExprDIm.
+Require Import MirrorCore.Lambda2.TypesI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Module Type M.
-  Parameter m : Type -> Type.
-End M.
+(** This is just a positive map to a fixed type universe
+ ** Literally this is just [positive_map Type]
+ **)
+(** TODO: Move this/replace it with pmap **)
+Inductive types : Type :=
+| TEemp : types
+| TEbranch : types -> option Type -> types -> types.
 
-Module Type TyExt.
-  Parameter ext : Type.
-  Parameter extD : ext -> Type.
+Definition types_left (t : types) : types :=
+  match t with
+    | TEemp => TEemp
+    | TEbranch l _ _ => l
+  end.
 
-  Parameter ext_cast : forall a b : ext, option (a = b).
-  Parameter ext_cast_refl : forall a, ext_cast a a = Some eq_refl.
-  Parameter ext_cast_total : forall a b, ext_cast a b = None -> a <> b.
-End TyExt.
+Definition types_right (t : types) : types :=
+  match t with
+    | TEemp => TEemp
+    | TEbranch l _ _ => l
+  end.
 
-Module MonadTypes (TE : TyExt) (M : M)
-<: ExprType.
-  Inductive typ' : Type :=
-  | tyM : typ' -> typ'
-  | tyExt : TE.ext -> typ'
-  | tyArr : typ' -> typ' -> typ'.
+Definition types_here (t : types) : option Type :=
+  match t with
+    | TEemp => None
+    | TEbranch _ v _ => v
+  end.
 
-  Definition typ := typ'.
+Fixpoint types_add (n : positive) (v : Type) (t : types) : types :=
+  match n with
+    | xH => TEbranch (types_left t) (Some v) (types_right t)
+    | xI n => TEbranch (types_left t) (types_here t) (types_add n v (types_right t))
+    | xO n => TEbranch (types_add n v (types_left t)) (types_here t) (types_right t)
+  end.
 
-  Fixpoint typD (t : typ) : Type :=
-    match t with
-      | tyExt e => TE.extD e
-      | tyArr a b => typD a -> typD b
-      | tyM t => M.m (typD t)
-    end.
+Fixpoint list_to_types' (ls : list (option Type)) (n : positive) : types -> types :=
+  match ls with
+    | nil => fun x => x
+    | None :: ls => list_to_types' ls (Pos.succ n)
+    | Some v :: ls => fun ts => list_to_types' ls (Pos.succ n) (types_add n v ts)
+  end.
 
-  Definition Rty : typ -> typ -> Prop := @eq typ.
-  Definition Rty_refl : Reflexive Rty := @eq_refl _.
-  Definition Rty_trans : Transitive Rty := @eq_trans _.
+Definition list_to_types (ls : list (option Type)) : types :=
+  list_to_types' ls 1%positive TEemp.
 
-  Fixpoint type_cast (a b : typ) : option (Rty a b) :=
-    match a as a , b as b return option (a = b) with
-      | tyExt a , tyExt b =>
-        fmap (@f_equal _ _ tyExt _ _) (TE.ext_cast a b)
-      | tyArr a1 a2 , tyArr b1 b2 =>
-        match type_cast a1 b1 , type_cast a2 b2 with
-          | Some pf1 , Some pf2 =>
-            Some match pf1 in _ = t , pf2 in _ = t'
-                       return tyArr a1 a2 = tyArr t t'
-                 with
-                   | eq_refl , eq_refl => eq_refl
-                 end
-          | _ , _ => None
-        end
-      | tyM a , tyM b => fmap (@f_equal _ _ tyM _ _) (type_cast a b)
-      | _ , _ => None
-    end.
-
-   Definition typ_arr : typ -> typ -> typ := tyArr.
-
-   Definition arr_match (T : Type -> Type) (t : typ)
-     (tr : forall a b : typ, T (typD a -> typD b))
-     : T (typD t) -> T (typD t) :=
-     match t as t return T (typD t) -> T (typD t) with
-       | tyArr a b => fun _ => tr a b
-       | _ => fun x => x
-     end.
-
-   Definition typD_arr (a b : typ) : typD (typ_arr a b) = (typD a -> typD b) :=
-     eq_refl.
-
-   Definition Rcast (T : Type -> Type) (a b : typ) (pf : Rty a b)
-   : T (typD a) -> T (typD b) :=
-     match pf in _ = t return T (typD a) -> T (typD t) with
-       | eq_refl => fun x => x
-     end.
-
-   Definition Rcast_refl (T : Type -> Type) (x : typ)
-   : Rcast T (Rty_refl x) = (fun x0 : T (typD x) => x0) :=
-     eq_refl.
-
-   Definition Rcast_trans (T : Type -> Type) (x y z : typ) (pf : Rty x y)
-       (pf' : Rty y z) (result : T (typD x)) :
-     Rcast T (Rty_trans pf pf') result =
-     Rcast T pf' (Rcast T pf result).
-     destruct pf. destruct pf'. reflexivity.
-   Defined.
-
-   Fixpoint type_cast_refl (x : typ)
-   : type_cast x x = Some (Rty_refl x) :=
-     match x as x return type_cast x x = Some (Rty_refl x) with
-       | tyM t =>
-         match eq_sym (type_cast_refl t) in _ = Z
-               return match Z with
-                        | Some x => Some (f_equal tyM x)
-                        | None => None
-                      end = Some (Rty_refl (tyM t))
-         with
-           | eq_refl => eq_refl
-         end
-       | tyArr a b =>
-         match eq_sym (type_cast_refl a) in _ = Z
-             , eq_sym (type_cast_refl b) in _ = Y
-               return match Z , Y with
-                        | Some x , Some y => Some _
-                        | _ , _ => None
-                      end = Some (Rty_refl (tyArr a b))
-         with
-           | eq_refl , eq_refl => eq_refl
-         end
-       | tyExt e =>
-         match eq_sym (TE.ext_cast_refl e) in _ = Z
-               return match Z with
-                        | Some x => Some (f_equal tyExt x)
-                        | None => None
-                      end = Some (Rty_refl (tyExt e))
-         with
-           | eq_refl => eq_refl
-         end
-     end.
-
-   Definition type_cast_total (x y : typ)
-   : type_cast x y = None -> ~ Rty x y.
-   Proof.
-     induction x; simpl; intros; forward;
-     try congruence; auto.
-     { subst. intro. inversion H; clear H; subst.
-       rewrite type_cast_refl in H0. congruence. }
-     { intro. inversion H0; clear H0; subst.
-       eapply TE.ext_cast_total in H4. congruence. }
-     { intro. inversion H1; clear H1; subst.
-       repeat rewrite type_cast_refl in H0. congruence. }
-   Qed.
-
-   Definition arr_match_case (x : typ)
-   : (exists (d r : typ) (pf : Rty x (typ_arr d r)),
-        forall (T : Type -> Type)
-          (tr : forall a b : typ, T (typD a -> typD b))
-          (fa : T (typD x)),
-        arr_match T x tr fa =
-        match eq_sym pf in (_ = t) return (T (typD t)) with
-        | eq_refl =>
-            match eq_sym (typD_arr d r) in (_ = t) return (T t) with
-            | eq_refl => tr d r
+Fixpoint getType (ts : types) (n : positive) {struct n} : Type :=
+  match n with
+    | xH => match ts with
+              | TEbranch _ (Some T) _ => T
+              | _ => Empty_set
             end
-        end) \/
-     (forall (T : Type -> Type) (tr : forall a b : typ, T (typD a -> typD b))
-        (fa : T (typD x)), arr_match T x tr fa = fa).
-   Proof.
-     destruct x; simpl; auto.
-     { left. exists x1; exists x2; exists eq_refl.
-       simpl. auto. }
-   Defined.
+    | xO n => getType (types_left ts) n
+    | xI n => getType (types_right ts) n
+  end.
 
-   Definition arr_match_typ_arr (a b : typ) (T : Type -> Type)
-              (tr : forall a0 b0 : typ, T (typD a0 -> typD b0))
-              (fa : T (typD (typ_arr a b)))
-   : arr_match T (typ_arr a b) tr fa =
-     match eq_sym (typD_arr a b) in (_ = t) return (T t) with
-     | eq_refl => tr a b
-     end :=
-     eq_refl.
+(** This is the actual monad types **)
+Section types.
+  Variable ts : types.
+  Variable m : Type -> Type.
 
-   Definition Rty_typ_arr (a b c d : typ)
-   : Rty (typ_arr a b) (typ_arr c d) <-> Rty c a /\ Rty b d.
-     split.
-     { inversion 1. split; reflexivity. }
-     { unfold Rty. destruct 1. subst; reflexivity. }
-   Qed.
-End MonadTypes.
+  (** this type requires decidable equality **)
+  Inductive typ : Type :=
+  | tyProp
+  | tyArr : typ -> typ -> typ
+  | tyType : positive -> typ
+  | tyM : typ -> typ.
+
+  Section with_env.
+    Variable env : list Type.
+
+    Fixpoint typD (x : typ) {struct x} : Type :=
+      let _ := env in
+      match x return Type with
+        | tyProp => Prop
+        | tyArr l r => typD l -> typD r
+        | tyType x => getType ts x
+        | tyM x => m (typD x)
+      end.
+
+    Definition Rty (env : list Type) : typ -> typ -> Prop := @eq _.
+    Definition Relim (F : Type -> Type)
+               (to from : typ) (pf : Rty env to from)
+    : F (typD from) -> F (typD to).
+      destruct pf. refine (fun x => x).
+    Defined.
+
+    Fixpoint positive_eq_odec (a b : positive) : option (a = b) :=
+      match a as a , b as b return option (a = b) with
+        | xH , xH => Some (eq_refl _)
+        | xI a , xI b =>
+          match positive_eq_odec a b with
+            | None => None
+            | Some pf => Some (match pf in _ = b' return xI a = xI b' with
+                                 | eq_refl => eq_refl
+                               end)
+          end
+        | xO a , xO b =>
+          match positive_eq_odec a b with
+            | None => None
+            | Some pf => Some (match pf in _ = b' return xO a = xO b' with
+                                 | eq_refl => eq_refl
+                               end)
+          end
+        | _ , _ => None
+      end.
+
+    Fixpoint type_cast (a b : typ) {struct a} : option (Rty env a b) :=
+      match a , b with
+        | tyProp , tyProp => Some eq_refl
+        | tyArr a b , tyArr c d =>
+          match type_cast a c , type_cast b d with
+            | Some pf1 , Some pf2 =>
+              Some match pf1 in _ = t1 , pf2 in _ = t2
+                         return tyArr a b = tyArr t1 t2
+                   with
+                     | eq_refl , eq_refl => eq_refl
+                   end
+            | _ , _ => None
+          end
+        | tyType x , tyType y =>
+          fmap (@f_equal _ _ tyType _ _) (positive_eq_odec x y)
+        | tyM x , tyM y => fmap (@f_equal _ _ tyM _ _) (type_cast x y)
+        | _ , _ => None
+      end.
+
+  End with_env.
+
+  Instance RType_typ : @RType typ typD :=
+  { Rty := Rty
+  ; type_cast := type_cast
+  ; Relim := Relim
+  ; Rrefl := fun _ => @eq_refl _
+  ; Rsym := fun _ x y (pf : @Rty _ y x) => @eq_sym _ y x pf
+  ; Rtrans := fun _ => @eq_trans _
+  ; type_weaken := fun _ _ x => x
+  }.
+
+  Theorem positive_eq_odec_None
+  : forall a b, positive_eq_odec a b = None -> a <> b.
+  Proof.
+    clear; induction a; destruct b; simpl; try congruence.
+    { specialize (IHa b).
+      destruct (positive_eq_odec a b); intros; try congruence.
+      specialize (IHa eq_refl). congruence. }
+    { specialize (IHa b).
+      destruct (positive_eq_odec a b); intros; try congruence.
+      specialize (IHa eq_refl). congruence. }
+  Qed.
+
+  Theorem positive_eq_odec_refl
+  : forall a, positive_eq_odec a a = Some eq_refl.
+  Proof.
+    clear; induction a; simpl; auto; Cases.rewrite_all_goal; auto.
+  Qed.
+
+  Instance RTypeOk_typ : @RTypeOk typ typD RType_typ.
+  constructor; simpl; auto.
+  { destruct pf. reflexivity. }
+  { destruct pf1; destruct pf2; reflexivity. }
+  { induction x; simpl; intros; auto; Cases.rewrite_all_goal; auto.
+    rewrite positive_eq_odec_refl. reflexivity. }
+  { admit. }
+  Qed.
+
+End types.
+
+Instance Typ2Instance_tyArr ts m : @Typ2Instance typ (typD ts m) Fun :=
+{ typ2 := tyArr
+; typ2_cast := fun _ _ _ => eq_refl
+; typ2_match := fun T ts t tr =>
+                  match t as t return T (typD _ _ ts t) -> T (typD _ _ ts t) with
+                    | tyArr a b => fun _ => tr a b
+                    | _ => fun fa => fa
+                  end
+}.
+
+Instance Typ2InstanceOk_tyArr ts m
+: Typ2InstanceOk (RType_typ ts m) (Typ2Instance_tyArr ts m).
+Proof.
+  constructor.
+  { reflexivity. }
+  { destruct x; simpl; try solve [ right; reflexivity ].
+    left. eexists; eexists. exists eq_refl. reflexivity. }
+  { destruct pf. reflexivity. }
+Qed.

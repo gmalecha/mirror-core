@@ -1,5 +1,5 @@
 MONAD   := Expr Demo ReduceApprox Reduce ReduceWf
-MONAD2  := MonadTypes
+MONAD2  := MonadTypes MonadExpr
 MTAC    := Patterns McMatch
 SETOID  := Demo
 AUTO    := AutoProver AutoProver2 # Demo Demo2 -- temporary
