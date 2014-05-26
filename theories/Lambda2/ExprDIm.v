@@ -14,44 +14,6 @@ Require Import MirrorCore.Lambda2.ExprCore.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** TODO: Move to ExtLib, these are like Iso **)
-Lemma eq_CoFunctor
-: forall T (a b : T) (pf : a = b) (F G : T -> Type) val x,
-    match pf in _ = x return F x -> G x with
-      | eq_refl => val
-    end x =
-    match pf in _ = x return G x with
-      | eq_refl => val match eq_sym pf in _ = x return F x with
-                         | eq_refl => x
-                       end
-    end.
-Proof.
-  clear. destruct pf. reflexivity.
-Qed.
-
-Lemma eq_Const
-: forall T (a b : T) (pf : a = b) (R : Type) val,
-    match pf in _ = x return R with
-      | eq_refl => val
-    end = val.
-Proof.
-  clear. destruct pf. reflexivity.
-Qed.
-
-Lemma eq_option
-: forall T (a b : T) (pf : a = b) (F : _ -> Type) val,
-    match pf in _ = x return option (F x) with
-      | eq_refl => val
-    end = match val with
-            | None => None
-            | Some val => Some match pf in _ = x return F x with
-                                 | eq_refl => val
-                               end
-          end.
-Proof.
-  clear. destruct pf. destruct val; reflexivity.
-Qed.
-
 Module Type ExprType.
 (** Parameters & Axioms **)
   Parameter typ : Type.
@@ -87,7 +49,7 @@ Module Type ExprType.
                             Rcast T pf' (Rcast T pf result).
 
   Axiom type_cast_refl : forall x, type_cast x x = Some (Rty_refl _).
-  Axiom type_cast_total : forall x y, type_cast x y = None <-> ~Rty x y.
+  Axiom type_cast_total : forall x y, type_cast x y = None -> ~Rty x y.
 
   Axiom arr_match_case
   : forall x,

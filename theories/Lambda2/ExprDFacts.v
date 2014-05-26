@@ -2,6 +2,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
@@ -84,7 +85,7 @@ Module Make (ED : ExprDenote)
         rewrite H1. eexists; split; eauto.
         unfold ED.Open_App.
         intros.
-        repeat (rewrite eq_CoFunctor; rewrite eq_Const).
+        repeat (rewrite eq_Arr_eq; rewrite eq_Const_eq).
         rewrite <- H3.
         match goal with
           | |- match ?X with _ => _ end _ _ _ = _ =>
@@ -97,9 +98,9 @@ Module Make (ED : ExprDenote)
         { destruct H0 as [ ? [ ? [ ? ? ] ] ].
           rewrite H0 in *; clear H0.
           red in x1. subst. simpl in *.
-          repeat first [ rewrite eq_option in *
-                       | rewrite eq_CoFunctor in *
-                       | rewrite eq_Const in * ].
+          repeat first [ rewrite eq_option_eq in *
+                       | rewrite eq_Arr_eq in *
+                       | rewrite eq_Const_eq in * ].
           forward; inv_all; subst.
           eapply IHe in H1.
           destruct H1 as [ ? [ ? ? ] ].
@@ -107,9 +108,9 @@ Module Make (ED : ExprDenote)
           eexists; split; eauto.
           intros.
           unfold ED.OpenT.
-          repeat first [ rewrite eq_option in *
-                       | rewrite eq_CoFunctor in *
-                       | rewrite eq_Const in * ].
+          repeat first [ rewrite eq_option_eq in *
+                       | rewrite eq_Arr_eq in *
+                       | rewrite eq_Const_eq in * ].
           revert H1. clear. simpl in *.
           destruct (eq_sym (ED.typD_arr x x0)).
           intros. eapply FunctionalExtensionality.functional_extensionality.
