@@ -2,32 +2,12 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Option.
+Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Examples.Monad2.MonadExpr.
 Require Import MirrorCore.Examples.Monad2.Tests.
 
-Fixpoint lower (skip : nat) (_by : nat) (e : mexpr) {struct e} : option mexpr :=
-  match e return option mexpr with
-    | ExprCore.Var v => if v ?[ lt ] skip then Some (ExprCore.Var v)
-                        else if (v - skip) ?[ lt ] _by then None
-                             else Some (ExprCore.Var (v - _by))
-    | ExprCore.Inj f => Some (ExprCore.Inj f)
-    | ExprCore.UVar u => Some (ExprCore.UVar u)
-    | ExprCore.App a b =>
-      ap (ap (pure ExprCore.App) (lower skip _by a)) (lower skip _by b)
-    | ExprCore.Abs t a =>
-      ap (pure (ExprCore.Abs t)) (lower (S skip) _by a)
-  end.
-
-Fixpoint lift (skip : nat) (_by : nat) (e : mexpr) {struct e} : mexpr :=
-  match e return mexpr with
-    | ExprCore.Var v => ExprCore.Var (if v ?[ lt ] skip then v else (v + _by))
-    | ExprCore.Inj f => ExprCore.Inj f
-    | ExprCore.UVar u => ExprCore.UVar u
-    | ExprCore.App a b =>
-      ExprCore.App (lift skip _by a) (lift skip _by b)
-    | ExprCore.Abs t a =>
-      ExprCore.Abs t (lift (S skip) _by a)
-  end.
+Set Implicit Arguments.
+Set Strict Implicit.
 
 Local Notation "'BIND' [ a ,  b ]" := (ExprCore.Inj (inr (MonadSym.mBind a b))) (at level 20).
 Local Notation "'RETURN' [ a ]" := (ExprCore.Inj (inr (MonadSym.mReturn a))) (at level 20).

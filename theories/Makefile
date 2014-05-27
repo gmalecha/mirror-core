@@ -11,7 +11,7 @@ EXTENSIBLE := Repr Types ExprCore \
 	      SymEnv \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
-LAMBDA := TypesI2 ExprCore ExprDI ExprD Expr
+LAMBDA := TypesI2 ExprCore ExprDI ExprD Expr ExprLift
 LAMBDAM :=
 POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
