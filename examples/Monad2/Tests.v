@@ -9,8 +9,8 @@ Set Strict Implicit.
 
 Module demo.
 
-  Let tNat := tyType 1.
-  Let tBool := tyType 2.
+  Definition tNat := tyType 1.
+  Definition tBool := tyType 2.
   Let eBind (a b : typ) : mexpr := ExprCore.Inj (inr (MonadSym.mBind a b)).
   Let eReturn (a : typ) : mexpr := ExprCore.Inj (inr (MonadSym.mReturn a)).
   Let e_ (p : positive) : mexpr := ExprCore.Inj (inl p).
