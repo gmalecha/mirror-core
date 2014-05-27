@@ -10,7 +10,7 @@ Section typed.
   Class RType  : Type :=
   { (** NOTE: This must be decidable if [exprD] will respect it.
      **)
-    Rty : list Type -> typ -> typ -> Prop
+    Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ
   ; type_cast : forall env (a b : typ), option (Rty env a b)
     (** This function gives the appropriate equivalence
      ** relation defined on this type.
@@ -22,9 +22,9 @@ Section typed.
                    (pf : Rty ts to from),
               F (typD ts from) ->
               F (typD ts to)
-  ; Rrefl : forall ts x, Rty ts x x
-  ; Rsym : forall {ts x y}, Rty ts y x -> Rty ts x y
-  ; Rtrans : forall {ts x y z}, Rty ts x y -> Rty ts y z -> Rty ts x z
+  ; Rrefl : forall ts x, Rty ts x x := fun _ => @eq_refl _
+  ; Rsym : forall {ts x y}, Rty ts y x -> Rty ts x y := fun _ x y pf => eq_sym pf
+  ; Rtrans : forall {ts x y z}, Rty ts x y -> Rty ts y z -> Rty ts x z := fun _ => @eq_trans _
   ; type_weaken : forall ts t, typD nil t -> typD ts t
   }.
 
@@ -51,7 +51,7 @@ Section typed.
   Section Typ2.
     Variable F : Type -> Type -> Type.
 
-    Class Typ2Instance : Type :=
+    Class Typ2 : Type :=
     { typ2 : typ -> typ -> typ
     ; typ2_cast : forall ts a b, typD ts (typ2 a b) = F (typD ts a) (typD ts b)
     ; typ2_match : forall (T : Type -> Type) ts t,
@@ -60,7 +60,7 @@ Section typed.
                      T (typD ts t)
     }.
 
-    Class Typ2InstanceOk (TI : Typ2Instance) : Type :=
+    Class Typ2Ok (TI : Typ2) : Type :=
     { typ2_match_zeta
       : forall T ts a b tr fa,
           typ2_match T ts (typ2 a b) tr fa =

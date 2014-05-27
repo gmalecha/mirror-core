@@ -12,7 +12,7 @@ Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Lambda2.TypesI2.
+Require Import MirrorCore.Lambda.TypesI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -143,12 +143,12 @@ Section types.
   End with_env.
 
   Instance RType_typ : @RType typ typD :=
-  { Rty := Rty
-  ; type_cast := type_cast
+  { (* Rty := Rty
+  ; *) type_cast := type_cast
   ; Relim := Relim
-  ; Rrefl := fun _ => @eq_refl _
+(*  ; Rrefl := fun _ => @eq_refl _
   ; Rsym := fun _ x y (pf : @Rty _ y x) => @eq_sym _ y x pf
-  ; Rtrans := fun _ => @eq_trans _
+  ; Rtrans := fun _ => @eq_trans _ *)
   ; type_weaken := fun _ _ x => x
   }.
 
@@ -181,7 +181,7 @@ Section types.
 
 End types.
 
-Instance Typ2Instance_tyArr ts m : @Typ2Instance typ (typD ts m) Fun :=
+Instance Typ2_tyArr ts m : @Typ2 typ (typD ts m) Fun :=
 { typ2 := tyArr
 ; typ2_cast := fun _ _ _ => eq_refl
 ; typ2_match := fun T ts t tr =>
@@ -191,8 +191,8 @@ Instance Typ2Instance_tyArr ts m : @Typ2Instance typ (typD ts m) Fun :=
                   end
 }.
 
-Instance Typ2InstanceOk_tyArr ts m
-: Typ2InstanceOk (RType_typ ts m) (Typ2Instance_tyArr ts m).
+Instance Typ2Ok_tyArr ts m
+: Typ2Ok (RType_typ ts m) (Typ2_tyArr ts m).
 Proof.
   constructor.
   { reflexivity. }

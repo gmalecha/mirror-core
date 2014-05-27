@@ -11,12 +11,12 @@ EXTENSIBLE := Repr Types ExprCore \
 	      SymEnv \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
-LAMBDA := TypesI2 ExprCore
-LAMBDAM := 
+LAMBDA := TypesI2 ExprCore ExprDI ExprD Expr
+LAMBDAM :=
 POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
-	      SymI \
+	      SymI SymEnv \
 	      SubstI SubstI2 SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma \
@@ -27,8 +27,6 @@ MODULES    := Generic \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%)
-
-#	      $(LAMBDA:%=Lambda/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
