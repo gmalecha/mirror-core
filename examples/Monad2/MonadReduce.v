@@ -1,10 +1,12 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Option.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.ExprLift.
+Require Import MirrorCore.SymEnv.
 Require Import MirrorCore.Examples.Monad2.MonadExpr.
-Require Import MirrorCore.Examples.Monad2.Tests.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -33,6 +35,8 @@ The rules are the following
 3) bind x ret = x
 4) bind (bind a b) c = bind a (fun x => bind (b x) c)
 **)
+Print lower.
+
 Fixpoint reduce_arrow (d r : typ) (e : mexpr) {struct e} : mexpr :=
   match e with
     | ExprCore.Abs t (ExprCore.App x (ExprCore.Var 0)) =>
@@ -40,9 +44,9 @@ Fixpoint reduce_arrow (d r : typ) (e : mexpr) {struct e} : mexpr :=
         | None => e
         | Some e => e
       end
-    | ExprCore.Abs _ e' =>
+    | ExprCore.Abs t e' =>
       match r with
-        | tyM m => reduce_m m e'
+        | tyM m => ExprCore.Abs t (reduce_m m e')
         | _ => e
       end
     | _ => e
@@ -73,7 +77,65 @@ Definition reduce (t : typ) (e : mexpr) : mexpr :=
     | _ => e
   end.
 
-
+(*
 Eval compute in reduce (tyM demo.tNat) demo.t1.
 Eval compute in reduce (tyM demo.tNat) demo.t2.
 Eval compute in reduce (tyM demo.tNat) demo.t3.
+*)
+
+Section soundness.
+  Variable m : Type -> Type.
+  Variable Monad_m : Monad m.
+  Variable tys : types.
+  Let typD := typD m tys.
+  Variable fs : functions typD.
+
+  Theorem reduceOk (me : mexpr)
+  : forall us vs t me',
+      reduce t me = me' ->
+      match @exprD m _ tys fs nil us vs t me with
+        | Some val => match @exprD m _ tys fs nil us vs t me' with
+                        | Some val' => val = val'
+                        | None => False
+                      end
+        | None => True
+      end.
+  Admitted.
+
+  Definition Conclusion_reduce_eq us vs t a b : Prop :=
+    match @exprD m _ tys fs nil us vs t a
+        , @exprD m _ tys fs nil us vs t b
+    with
+      | Some val , Some val' => val = val'
+      | _ , _ => True
+    end.
+
+  Definition Premise_reduce_eq us vs t ab : Prop :=
+    match @exprD m _ tys fs nil us vs t (fst ab)
+          , @exprD m _ tys fs nil us vs t (snd ab)
+    with
+      | Some val , Some val' => val = val'
+      | _ , _ => False
+    end.
+
+  Theorem reduce_eq (a b : mexpr)
+  : forall us vs t a'_b',
+      (reduce t a, reduce t b) = a'_b' ->
+      Premise_reduce_eq us vs t a'_b' ->
+      Conclusion_reduce_eq us vs t a b.
+  Proof.
+    red. unfold Premise_reduce_eq.
+    intros. forward. subst. simpl in *.
+    remember (reduce t b). symmetry in Heqm0.
+    remember (reduce t a). symmetry in Heqm1.
+    eapply reduceOk with (us := us) (vs := vs) in Heqm0.
+    eapply reduceOk with (us := us) (vs := vs) in Heqm1.
+    revert Heqm0 Heqm1.
+    repeat match goal with
+             | H : ?X = _ |- context [ ?Y ] =>
+               change Y with X ; rewrite H
+           end.
+    intros; subst; reflexivity.
+  Qed.
+
+End soundness.

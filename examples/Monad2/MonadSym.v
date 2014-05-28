@@ -10,10 +10,12 @@ Require Import MirrorCore.Examples.Monad2.MonadTypes.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+About bind.
+
 Section monad_funcs.
-  Variable ts : types. (** Opaque types **)
   Variable m : Type -> Type.
   Context {Monad_m : Monad m}.
+  Variable ts : types. (** Opaque types **)
 
   Inductive mfunc : Type :=
   | mBind : typ -> typ -> mfunc
@@ -27,10 +29,10 @@ Section monad_funcs.
 
   Definition mfuncD (f : mfunc) : match typeof_mfunc f with
                                     | None => unit
-                                    | Some t => typD ts m nil t
+                                    | Some t => typD m ts nil t
                                   end :=
     match f as f
-          return typD ts m nil
+          return typD m ts nil
                       match f with
                         | mBind a b =>
                           tyArr (tyM a) (tyArr (tyArr a (tyM b)) (tyM b))
@@ -50,7 +52,7 @@ Section monad_funcs.
       | _ , _ => Some false
     end.
 
-  Instance RSym_mfunc : @RSym typ (typD ts m) mfunc :=
+  Instance RSym_mfunc : @RSym typ (typD m ts) mfunc :=
   { typeof_sym := typeof_mfunc
   ; symD := mfuncD
   ; sym_eqb := mfunc_eq

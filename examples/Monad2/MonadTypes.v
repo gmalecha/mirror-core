@@ -1,14 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
-(* Require Import Morphisms. *)
-(* Require Import Relations. *)
-(* Require Import RelationClasses. *)
-(* Require Import ExtLib.Data.HList. *)
-(* Require Import ExtLib.Data.Prop. *)
-(* Require Import ExtLib.Data.Fun. *)
-(* Require Import ExtLib.Tactics. *)
-(* Require Import ExtLib.Tactics.EqDep. *)
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
@@ -72,8 +64,8 @@ Fixpoint getType (ts : types) (n : positive) {struct n} : Type :=
 
 (** This is the actual monad types **)
 Section types.
-  Variable ts : types.
   Variable m : Type -> Type.
+  Variable ts : types.
 
   (** this type requires decidable equality **)
   Inductive typ : Type :=
