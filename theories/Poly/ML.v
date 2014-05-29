@@ -3,32 +3,12 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Member.
 Require Import MirrorCore.Poly.TypeI.
 Require Import MirrorCore.Poly.Ctx.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-(** TODO: Move this! **)
-Section nth_mem.
-  Variable T : Type.
-
-  Fixpoint nth_mem (ls : list T) (n : nat) {struct ls} :
-    option { x : T & member x ls } :=
-    match ls as ls return (option { x : T & member x ls }) with
-      | nil => None
-      | l' :: ls =>
-        match n with
-          | 0 =>
-            Some (@existT _ _ l' (MZ l' ls))
-          | S n =>
-            match nth_mem ls n with
-              | Some m => Some (@existT _ _ (projT1 m) (MN l' (projT2 m)))
-              | None => None
-            end
-        end
-    end.
-End nth_mem.
 
 (** ML-style polymorphism **)
 Definition UU := Type.
@@ -273,7 +253,7 @@ Module ML (Ext : MLExt) (* (MkCtx : ContextBuilder) *).
           | _ => None
         end
       | tVar v =>
-        match nth_mem ks v with
+        match nth_member ks v with
           | Some (existT k' m) =>
             match kind0_eq k' k with
               | Some pf => Some match pf in _ = kk

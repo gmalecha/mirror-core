@@ -1,6 +1,6 @@
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Member.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -89,6 +89,7 @@ End ContextP.
 
 Module ContextHList (P : ContextP)
 <: Context with Definition iT := P.iT.
+  Require Import ExtLib.Data.HList.
 
   Definition iT : Type := P.iT.
 

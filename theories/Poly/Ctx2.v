@@ -1,5 +1,6 @@
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 
 Set Implicit Arguments.

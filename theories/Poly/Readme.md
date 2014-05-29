@@ -1,7 +1,7 @@
 Poly Language
 =============
 
-This language implements a two-universe polymorphism based on the
+This language implements a two-universe polymorphic language based on the
 type system of System Fw. The structure is the following:
 
 (Large Kinds) k1 ::= U1

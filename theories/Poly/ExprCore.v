@@ -4,6 +4,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Member.
 Require Import ExtLib.Structures.Functor.
 Require Import MirrorCore.Poly.TypeI.
 Require Import MirrorCore.Poly.Ctx.
@@ -424,13 +425,13 @@ Module Expr (EExt : ExprExt).
         intros. constructor.
         { intros.
           remember (hlist_split tvs' tvs ts).
-          destruct p. intro. 
+          destruct p. intro.
           specialize (projT2_4 (@Hcons _ kind0D' k _ x ts)).
           simpl in *. rewrite <- Heqp in *.
           specialize (X x). eapply projT2_4 in X. apply X. }
         { remember (hlist_split tvs' tvs ts).
           destruct p. intro.
-          intro. specialize (X x). 
+          intro. specialize (X x).
           specialize (projT2_4 (@Hcons _ _ k _ x ts)).
           simpl in *. rewrite <- Heqp in *. apply projT2_4. apply X. } }
       { simpl.
@@ -591,7 +592,7 @@ Module Expr (EExt : ExprExt).
           | eVar v =>
             match t as t return option (TCtxT1 tvs t) with
               | tLift t =>
-                match nth_mem tvs v with
+                match nth_member tvs v with
                   | Some (existT t' m) =>
                     match typ0_eq t' t with
                       | Some pf =>
