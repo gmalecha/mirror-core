@@ -8,7 +8,6 @@ EXTENSIBLE := Repr Types ExprCore \
 	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 ExprUnifySyntactic3 \
 	      ExprSubst LemmaExt \
 	      Expr ExprTactics \
-	      SymEnv \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
 LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD Expr ExprLift
@@ -16,7 +15,7 @@ LAMBDAM :=
 POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
-	      SymI SymEnv \
+	      SymI SymEnv SymPolyEnv \
 	      SubstI SubstI2 SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma \
