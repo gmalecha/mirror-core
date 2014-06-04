@@ -1,6 +1,8 @@
+Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Nat.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import MirrorCore.Lambda.Expr.
 
@@ -24,6 +26,17 @@ Section types.
       | Abs t a =>
         ap (pure (Abs t)) (lower (S skip) _by a)
     end.
+
+(*
+  Theorem exprD'_lower
+  : forall ts tus tvs tvs' tvs'' e t val,
+      exprD' ts tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
+      exists val',
+        exprD' ts tus (tvs ++ tvs'') t e = Some val' /\
+        forall us vs vs' vs'',
+          val us (hlist_app vs (hlist_app vs' vs'')) =
+          val' us (hlist_app vs vs'').
+*)
 
   Fixpoint lift (skip : nat) (_by : nat) (e : expr typ func) {struct e}
   : expr typ func :=

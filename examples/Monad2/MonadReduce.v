@@ -4,6 +4,7 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.SymEnv.
 Require Import MirrorCore.Examples.Monad2.MonadExpr.
@@ -28,6 +29,12 @@ Definition smart_bind (a b : typ) (c d : mexpr) : mexpr :=
            end
   end.
 
+Lemma bind_smart_bind
+: forall a b c d,
+    BIND [ a , b ] @ c @ d = smart_bind a b c d.
+(** TODO: This is not true, it is only an equivalence! **)
+Admitted.
+
 (**
 The rules are the following
 1) (fun x => f x) = f
@@ -35,7 +42,6 @@ The rules are the following
 3) bind x ret = x
 4) bind (bind a b) c = bind a (fun x => bind (b x) c)
 **)
-Print lower.
 
 Fixpoint reduce_arrow (d r : typ) (e : mexpr) {struct e} : mexpr :=
   match e with
@@ -61,19 +67,19 @@ with reduce_m (t : typ) (e : mexpr) {struct e} : mexpr :=
                  | tyArr a b => reduce_arrow a b e
                  | _ => e
                end in
-      e' @ e
+      smart_app e' e
     | BIND [ t' , _ ] @ (BIND [ t'' , _ ] @ a @ b) @ c =>
       let a := reduce_m t'' a in
       let b := reduce_arrow t'' (tyM t') b in
       let c := reduce_arrow t' (tyM t) c in
-      smart_bind t' t a (ExprCore.Abs t'' (smart_bind t' t (b @ (ExprCore.Var 0)) c))
+      smart_bind t' t a (ExprCore.Abs t'' (smart_bind t' t (smart_app b (ExprCore.Var 0)) c))
     | _ => e
   end.
 
-Definition reduce (t : typ) (e : mexpr) : mexpr :=
+Definition reduce t (e : mexpr) : mexpr :=
   match t with
-    | tyM a => reduce_m a e
-    | tyArr d r => reduce_arrow d r e
+    | tyM z => reduce_m z e
+    | tyArr a b => reduce_arrow a b e
     | _ => e
   end.
 
@@ -89,6 +95,69 @@ Section soundness.
   Variable tys : types.
   Let typD := typD m tys.
   Variable fs : functions typD.
+
+  Let exprD' :=
+    @exprD' _ _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
+
+  Ltac by_refl :=
+    intros;
+    match goal with
+      | |- match ?X with _ => _ end => destruct X; solve [ auto ]
+    end.
+
+  Ltac more_cases :=
+    match goal with
+      | |- context [ exprD' _ _ _ _ match ?X with _ => _ end ] =>
+        destruct X; try by_refl
+    end.
+
+  Lemma reduce_m_arr
+  : forall tus e tvs,
+      (forall tm,
+         match exprD' nil tus tvs (tyM tm) e with
+           | None => True
+           | Some v => match exprD' nil tus tvs (tyM tm) (reduce_m tm e) with
+                         | None => False
+                         | Some v' => forall us vs, v us vs = v' us vs
+                       end
+         end) /\
+      (forall t t',
+         match exprD' nil tus tvs (tyArr t t') e with
+           | None => True
+           | Some v => match exprD' nil tus tvs (tyArr t t') (reduce_arrow t t' e) with
+                         | None => False
+                         | Some v' => forall us vs, v us vs = v' us vs
+                       end
+         end).
+  Proof.
+    Opaque reduce_m.
+    induction e using ExprCore.expr_strong_ind;
+    simpl; intros; try solve [ split; by_refl ].
+    { Transparent reduce_m.
+      split; intros; simpl;
+      match goal with
+        | |- match ?X with _ => _ end =>
+          destruct X; auto
+      end.
+      Opaque reduce_m. }
+    { Transparent reduce_m.
+      split; intros; simpl;
+      match goal with
+        | |- match ?X with _ => _ end =>
+          destruct X; auto
+      end.
+      Opaque reduce_m. }
+    { Transparent reduce_m.
+      split; intros; simpl;
+      match goal with
+        | |- match ?X with _ => _ end =>
+          destruct X; auto
+      end.
+      Opaque reduce_m. }
+    { admit. }
+    { split; auto.
+      admit. }
+  Qed.
 
   Theorem reduceOk (me : mexpr)
   : forall us vs t me',

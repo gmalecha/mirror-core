@@ -12,12 +12,12 @@ Section typed.
      **)
     Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ
   ; type_cast : forall env (a b : typ), option (Rty env a b)
-    (** This function gives the appropriate equivalence
-     ** relation defined on this type.
-     ** ----- Currently Unused -------
-     **)
-(*  ; typeFor : forall ts (t : typ), type (typD ts t) *)
-    (* TODO: I can't make this dependent b/c it exposes badness *)
+    (* TODO: I can't make this dependent b/c it exposes the
+     * underlying syntactic types, which do not have to be equal.
+     *
+     * The solution is to require (in the laws about Relim)
+     * that the function respects [Rty].
+     *)
   ; Relim : forall {ts} (F : Type -> Type) {to from}
                    (pf : Rty ts to from),
               F (typD ts from) ->

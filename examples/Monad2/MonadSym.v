@@ -10,8 +10,6 @@ Require Import MirrorCore.Examples.Monad2.MonadTypes.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-About bind.
-
 Section monad_funcs.
   Variable m : Type -> Type.
   Context {Monad_m : Monad m}.
