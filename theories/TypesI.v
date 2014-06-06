@@ -8,7 +8,7 @@ Set Strict Implicit.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { type_cast : forall env (a b : typ),
-               option (forall F, F (typD env a) -> F (typD env b))
+                option (forall F, F (typD env a) -> F (typD env b))
   (** It would be a little bit more modular to avoid
    ** syntactic equality in favor of semantic equality
    ** which is supported by [type_cast]

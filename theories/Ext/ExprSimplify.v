@@ -1,9 +1,9 @@
-Require Import List.
+Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.Consider.
-Require Import MirrorCore.ExprCore.
-Require Import MirrorCore.ExprT.
-Require Import MirrorCore.ExprSubst.
+Require Import MirrorCore.Ext.ExprCore.
+Require Import MirrorCore.Ext.ExprT.
+Require Import MirrorCore.Ext.ExprSubst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -11,7 +11,7 @@ Set Strict Implicit.
 Section reduce.
   Variable ts : types.
   Variable fs : functions ts.
-  
+
   Fixpoint simplifyHd (e : expr ts) : expr ts :=
     match e with
       | App e nil => simplifyHd e
@@ -45,7 +45,7 @@ Section reduce.
     WellTyped_expr tf u g (App (@App ts f as1) as2) t <->
     WellTyped_expr tf u g (App f (as1 ++ as2)) t.
   Proof.
-    intuition; 
+    intuition;
     repeat match goal with
              | [ H : WellTyped_expr _ _ _ (App _ _) _ |- _ ] =>
                apply WellTyped_expr_App in H
@@ -69,7 +69,7 @@ Section reduce.
     WellTyped_expr tf u g (simplifyHd e) t.
   Proof.
     induction e; simpl; intros; auto.
-    destruct es; eauto. 
+    destruct es; eauto.
     { eapply IHe. apply WellTyped_expr_App in H0.
       destruct H0. destruct H0. intuition.
       inversion H0; clear H0; subst. simpl in *. inversion H3; clear H3; subst.
@@ -81,64 +81,65 @@ Section reduce.
       repeat match goal with
                | [ H : match ?x with _ => _ end = _ |- _ ] =>
                  (consider x; intros; try congruence); [ subst ]
-               | [ H : typ_eqb _ _ = true |- _ ] => 
+               | [ H : typ_eqb _ _ = true |- _ ] =>
                  change typ_eqb with rel_dec in H; rewrite rel_dec_correct in H; subst
                | [ H : _ = _ |- _ ] => rewrite H
                | [ |- exists x, _ ] => do 2 eexists
                | [ |- _ /\ _ ] => split; eauto; simpl
              end ].
-      eapply WellTyped_expr_app_flatten. eapply WellTyped_expr_App. eauto. } 
+      eapply WellTyped_expr_app_flatten. eapply WellTyped_expr_App. eauto. }
   Qed.
 
-      Theorem exprD_App : forall u g e es t,
-        exprD fs u g (@App ts e es) t = 
-        match typeof  fs u (typeof_env g) e with
-          | None => None
-          | Some tf => 
-            match exprD fs u g e tf with
-              | None => None
-              | Some f => 
-                (fix recur tf (f : typD _ _ tf) (es : exprs ts) {struct es} :=
-                   match es as es return _ with
-                     | nil => match typ_eq_odec tf t with
-                                | None => None
-                                | Some pf => 
-                                  Some match pf in _ = t return typD ts nil t with
-                                         | eq_refl => f
-                                       end
-                              end
-                     | e :: es =>
-                       match tf as tf return typD _ _ tf -> _ with 
-                         | tvArr tf tr =>
-                           match exprD fs u g e tf with
-                             | None => fun _ => None
-                             | Some v => fun f => recur tr (f v) es
-                           end
-                         | _ => fun _ => None
-                       end f
-                   end) tf f es
-            end
-        end.
-      Proof.
-        unfold exprD. intros; consider (split_env g); intros.
-        simpl. generalize (split_env_fst_typeof_env g).
-        rewrite H. simpl in *. intros; subst.
-        consider (typeof fs u (typeof_env g) e); intros; auto.
-        consider (exprD' fs u (typeof_env g) e t0); intros; auto.
-        clear. revert t1. revert t0. revert h. revert t. 
-        induction es; simpl; intros.
-        { simpl. destruct (typ_eq_odec t0 t); subst; auto. }
-        { destruct t0; auto.
-          destruct (exprD' fs u (typeof_env g) a t0_1); auto.
-          rewrite IHes. reflexivity. }
-      Qed.
+  Theorem exprD_App
+  : forall u g e es t,
+      exprD fs u g (@App ts e es) t =
+      match typeof  fs u (typeof_env g) e with
+        | None => None
+        | Some tf =>
+          match exprD fs u g e tf with
+            | None => None
+            | Some f =>
+              (fix recur tf (f : typD _ _ tf) (es : exprs ts) {struct es} :=
+                 match es as es return _ with
+                   | nil => match typ_eq_odec tf t with
+                              | None => None
+                              | Some pf =>
+                                Some match pf in _ = t return typD ts nil t with
+                                       | eq_refl => f
+                                     end
+                            end
+                   | e :: es =>
+                     match tf as tf return typD _ _ tf -> _ with
+                       | tvArr tf tr =>
+                         match exprD fs u g e tf with
+                           | None => fun _ => None
+                           | Some v => fun f => recur tr (f v) es
+                         end
+                       | _ => fun _ => None
+                     end f
+                 end) tf f es
+          end
+      end.
+  Proof.
+    unfold exprD. intros; consider (split_env g); intros.
+    simpl. generalize (split_env_fst_typeof_env g).
+    rewrite H. simpl in *. intros; subst.
+    consider (typeof fs u (typeof_env g) e); intros; auto.
+    consider (exprD' fs u (typeof_env g) e t0); intros; auto.
+    clear. revert t1. revert t0. revert h. revert t.
+    induction es; simpl; intros.
+    { simpl. destruct (typ_eq_odec t0 t); subst; auto. }
+    { destruct t0; auto.
+      destruct (exprD' fs u (typeof_env g) a t0_1); auto.
+      rewrite IHes. reflexivity. }
+  Qed.
 
 
   Theorem simplifyHd_exprD : forall e u g t,
     exprD fs u g e t = exprD fs u g (simplifyHd e) t.
   Proof.
     induction e; simpl; intros; auto.
-    destruct es; eauto. 
+    destruct es; eauto.
     { rewrite <- IHe.
       rewrite exprD_App.
       consider (typeof fs u (typeof_env g) e); intros.
@@ -163,7 +164,7 @@ Section reduce.
 
   Fixpoint betaHd (e : expr ts) : expr ts :=
     match e with
-      | App e es => 
+      | App e es =>
         apply_all (simplifyHd e) es
       | e => e
     end.

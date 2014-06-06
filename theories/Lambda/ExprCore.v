@@ -17,6 +17,9 @@ Section env.
   Definition var := nat.
   Definition uvar := nat.
 
+  (** TODO(gmalecha): Putting [typ] and [func] in a module would
+   ** reduce the number of parameters here.
+   **)
   Inductive expr : Type :=
   | Var : var -> expr
   | Inj : func -> expr
@@ -39,7 +42,6 @@ Section env.
     { inversion H; clear H; subst; auto. }
     { inversion H; clear H; subst; auto. }
   Qed.
-
 
   Theorem expr_strong_ind
   : forall (P : expr -> Prop),

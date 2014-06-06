@@ -7,6 +7,9 @@ Set Strict Implicit.
 Section typed.
   Variables (typ : Type) (typD : list Type -> typ -> Type).
 
+  (** TODO(gmalecha): Should [typD] be inside of this?
+   ** - Probably because it will reduce parameters everywhere
+   **)
   Class RType  : Type :=
   { (** NOTE: This must be decidable if [exprD] will respect it.
      **)
