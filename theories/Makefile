@@ -11,7 +11,8 @@ EXTENSIBLE := Repr Types ExprCore \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
 LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD Expr ExprLift \
-	  TypedFoldEager TypedFoldLazy
+	  TypedFoldEager TypedFoldLazy \
+	  WtExpr
 LAMBDAM :=
 POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
