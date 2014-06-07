@@ -11,6 +11,10 @@ Section symbols.
 
   Class RSym : Type :=
   { typeof_sym : func -> option typ
+    (** TODO(gmalecha): This could be problematic if
+     ** any of any [func] denotes to a term that contains
+     ** a unification variable.
+     **)
   ; symD : forall f : func,
              match typeof_sym f with
                | None => unit
@@ -22,7 +26,6 @@ Section symbols.
   Class RSymOk (R : RSym) : Type :=
   { sym_eqbOk : forall a b, match sym_eqb a b with
                               | None => True
-                                (** TODO: These could be more semantic **)
                               | Some true => a = b
                               | Some false => a <> b
                             end

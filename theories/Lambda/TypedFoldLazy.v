@@ -9,12 +9,11 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed_fold.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
   Variable func : Type.
-  Variable RType_typ : RType typD.
+
+  Variable RType_typ : RType.
+  Variable Typ2_Fun : Typ2 _ Fun.
   Variable RSym_func : RSym typD func.
-  Variable Typ2_Fun : Typ2 typD Fun.
 
   Section folderL.
     Definition Lazy (T : Type) := unit -> option T.

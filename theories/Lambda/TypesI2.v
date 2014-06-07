@@ -5,29 +5,34 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
-  Variables (typ : Type) (typD : list Type -> typ -> Type).
+  (** NOTE: This makes fewer universes and therefore fewer constraints **)
 
-  (** TODO(gmalecha): Should [typD] be inside of this?
-   ** - Probably because it will reduce parameters everywhere
+  (** NOTE: Fewer parameters is better, but pulling [typ] to the top
+   ** means that I can modularize the expression langauge and avoid
+   ** type parameters in a lot of places
    **)
-  Class RType  : Type :=
-  { (** NOTE: This must be decidable if [exprD] will respect it.
+  Class RType : Type :=
+  { typ : Type
+  ; typD : list Type -> typ -> Type
+    (** NOTE: This must be decidable if [exprD] will respect it.
      **)
-    Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ
+  ; Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ
   ; type_cast : forall env (a b : typ), option (Rty env a b)
-    (* TODO: I can't make this dependent b/c it exposes the
+    (* NOTE: I can't make this dependent b/c it exposes the
      * underlying syntactic types, which do not have to be equal.
      *
-     * The solution is to require (in the laws about Relim)
-     * that the function respects [Rty].
+     * The solution is to require that the function respects [Rty].
      *)
   ; Relim : forall {ts} (F : Type -> Type) {to from}
                    (pf : Rty ts to from),
               F (typD ts from) ->
               F (typD ts to)
-  ; Rrefl : forall ts x, Rty ts x x := fun _ => @eq_refl _
-  ; Rsym : forall {ts x y}, Rty ts y x -> Rty ts x y := fun _ x y pf => eq_sym pf
-  ; Rtrans : forall {ts x y z}, Rty ts x y -> Rty ts y z -> Rty ts x z := fun _ => @eq_trans _
+  ; Rrefl : forall ts x, Rty ts x x :=
+      fun _ => @eq_refl _
+  ; Rsym : forall {ts x y}, Rty ts y x -> Rty ts x y :=
+      fun _ x y pf => eq_sym pf
+  ; Rtrans : forall {ts x y z}, Rty ts x y -> Rty ts y z -> Rty ts x z :=
+      fun _ => @eq_trans _
   ; type_weaken : forall ts t, typD nil t -> typD ts t
   }.
 

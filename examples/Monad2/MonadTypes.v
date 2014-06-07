@@ -134,9 +134,11 @@ Section types.
 
   End with_env.
 
-  Instance RType_typ : @RType typ typD :=
-  { (* Rty := Rty
-  ; *) type_cast := type_cast
+  Instance RType_typ : RType :=
+  { typ := typ
+  ; typD := typD
+    (* ; Rty := Rty *)
+  ; type_cast := type_cast
   ; Relim := Relim
 (*  ; Rrefl := fun _ => @eq_refl _
   ; Rsym := fun _ x y (pf : @Rty _ y x) => @eq_sym _ y x pf
@@ -162,7 +164,7 @@ Section types.
     clear; induction a; simpl; auto; Cases.rewrite_all_goal; auto.
   Qed.
 
-  Instance RTypeOk_typ : @RTypeOk typ typD RType_typ.
+  Instance RTypeOk_typ : @RTypeOk RType_typ.
   constructor; simpl; auto.
   { destruct pf. reflexivity. }
   { destruct pf1; destruct pf2; reflexivity. }
@@ -173,7 +175,7 @@ Section types.
 
 End types.
 
-Instance Typ2_tyArr ts m : @Typ2 typ (typD ts m) Fun :=
+Instance Typ2_tyArr ts m : @Typ2 (RType_typ ts m) Fun :=
 { typ2 := tyArr
 ; typ2_cast := fun _ _ _ => eq_refl
 ; typ2_match := fun T ts t tr =>
@@ -184,7 +186,7 @@ Instance Typ2_tyArr ts m : @Typ2 typ (typD ts m) Fun :=
 }.
 
 Instance Typ2Ok_tyArr ts m
-: Typ2Ok (RType_typ ts m) (Typ2_tyArr ts m).
+: Typ2Ok (Typ2_tyArr ts m).
 Proof.
   constructor.
   { reflexivity. }

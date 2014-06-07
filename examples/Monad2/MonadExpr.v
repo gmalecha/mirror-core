@@ -28,9 +28,9 @@ Section mext.
   Definition exprD (ts : list Type) (us vs : EnvI.env typD) (t : typ) (e : mexpr) : option (typD ts t) :=
     let (tus,us) := EnvI.split_env us in
     let (tvs,vs) := EnvI.split_env vs in
-    match @exprD' typ typD mext
-                             (RType_typ _ _) _ RSym_mext
-                             ts tus tvs t e
+    match @exprD' mext
+                  (RType_typ _ _) _ RSym_mext
+                  ts tus tvs t e
     with
       | None => None
       | Some val => Some (val us vs)

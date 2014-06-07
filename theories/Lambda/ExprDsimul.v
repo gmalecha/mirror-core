@@ -19,24 +19,21 @@ Set Strict Implicit.
 Module ExprDenote <: ExprDenote.
 
   Section with_types.
-    Context {typ : Type}.
-    Context {typD : list Type -> typ -> Type}.
     Context {func : Type}.
-    Context {RType_typD : RType typD}.
-    Context {Typ2_Fun : Typ2 typD Fun}.
+    Context {RType_typD : RType}.
+    Context {Typ2_Fun : Typ2 _ Fun}.
     Context {RSym_func : RSym typD func}.
 
     (** Reasoning principles **)
-    Context {RTypeOk_typD : @RTypeOk _ typD _}.
-    Context {Typ2Ok_Fun : Typ2Ok _ Typ2_Fun}.
+    Context {RTypeOk_typD : @RTypeOk _}.
+    Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
-
-    Let typ_arr : typ -> typ -> typ := @typ2 _ _ _ _.
-    Let arr_match := @typ2_match _ _ _ _ .
+    Let typ_arr : typ -> typ -> typ := @typ2 _ _ _.
+    Let arr_match := @typ2_match _ _ _.
     Let typD_arr
     : forall ts a b, typD ts (typ_arr a b) = (typD ts a -> typD ts b)
-      := @typ2_cast _ _ _ _.
+      := @typ2_cast _ _ _.
 
 
     Global Instance RelDec_Rty ts : RelDec (Rty ts) :=
@@ -146,7 +143,7 @@ Module ExprDenote <: ExprDenote.
                                                       | None => unit
                                                     end -> typD ts _
                                        with
-                                         | eq_refl => fun x => type_weaken ts x
+                                         | eq_refl => fun x => type_weaken ts _ x
                                        end (symD f)))
                       end
       end eq_refl.
@@ -164,7 +161,7 @@ Module ExprDenote <: ExprDenote.
                                                     | None => unit
                                                   end -> typD ts _
                                      with
-                                       | eq_refl => fun x => type_weaken ts x
+                                       | eq_refl => fun x => type_weaken ts _ x
                                      end (symD f)))
       end eq_refl.
 
@@ -286,7 +283,7 @@ Module ExprDenote <: ExprDenote.
 
     (** Equations **)
     Theorem exprD'_Var
-    : @RTypeOk _ typD _ -> Typ2Ok _ Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t v,
         exprD' ts tus tvs t (Var v) =
         bind (m := option)
@@ -300,7 +297,7 @@ Module ExprDenote <: ExprDenote.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_UVar
-    : @RTypeOk _ typD _ -> Typ2Ok _ Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t u,
         exprD' ts tus tvs t (UVar u) =
         bind (m := option)
@@ -314,7 +311,7 @@ Module ExprDenote <: ExprDenote.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_Inj
-    : @RTypeOk _ typD _ -> Typ2Ok _ Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t s,
         exprD' ts tus tvs t (Inj s) =
         bind (m := option)
@@ -324,7 +321,7 @@ Module ExprDenote <: ExprDenote.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_App
-    : @RTypeOk _ typD _ -> Typ2Ok _ Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t f x,
         exprD' ts tus tvs t (App f x) =
         bind (m := option)
@@ -338,7 +335,7 @@ Module ExprDenote <: ExprDenote.
     Proof. admit. Qed.
 
     Theorem exprD'_Abs
-    : @RTypeOk _ typD _ -> Typ2Ok _ Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t t' e,
         exprD' ts tus tvs t (Abs t' e) =
         arr_match (fun T => option (OpenT ts tus tvs T)) ts t
@@ -355,7 +352,7 @@ Module ExprDenote <: ExprDenote.
       Proof. reflexivity. Qed.
 
       Theorem exprD'_respects
-      : @RTypeOk _ typD _ -> Typ2Ok _ Typ2_Fun -> RSymOk RSym_func ->
+      : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
         forall ts tus tvs t t' e (pf : Rty ts t' t),
           exprD' ts tus tvs t e =
           Rcast (fun T => option (OpenT ts tus tvs T)) pf
