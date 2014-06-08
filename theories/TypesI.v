@@ -8,7 +8,7 @@ Set Strict Implicit.
 
 Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 { type_cast : forall env (a b : typ),
-               option (forall F, F (typD env a) -> F (typD env b))
+                option (forall F, F (typD env a) -> F (typD env b))
   (** It would be a little bit more modular to avoid
    ** syntactic equality in favor of semantic equality
    ** which is supported by [type_cast]
@@ -24,15 +24,21 @@ Class RType (typ : Type) (typD : list Type -> typ -> Type) : Type :=
 Class RTypeOk typ typD (RType_typ : @RType typ typD) : Type :=
 { (** typ_eqb **)
   type_eqb_ok :> RelDec_Correct type_eqb
-  (** typ_cast **)
-; type_cast_iso : forall ts a b f,
+  (** typ_cast induces an equivalence relation **)
+; type_cast_refl : forall ts t,
+                    exists f, type_cast ts t t = Some f /\
+                              (forall F x, f F x = x)
+; type_cast_sym : forall ts a b f,
     type_cast ts a b = Some f ->
     exists g,
       type_cast ts b a = Some g /\
       (forall F x, f F (g F x) = x)
-; type_cast_refl : forall ts t,
-                    exists f, type_cast ts t t = Some f /\
-                              (forall F x, f F x = x)
+; type_cast_trans : forall ts a b c f g,
+    type_cast ts a b = Some f ->
+    type_cast ts b c = Some g ->
+    exists h,
+      type_cast ts a c = Some h /\
+      (forall F x, g F (f F x) = h F x)
 }.
 
 Class RTypeEq (typ : Type) (typD : list Type -> typ -> Type) : Type :=

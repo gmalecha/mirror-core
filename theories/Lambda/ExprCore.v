@@ -1,10 +1,12 @@
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Relations.TransitiveClosure.
+Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
+Require Import MirrorCore.Lambda.TypesI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -15,6 +17,9 @@ Section env.
   Definition var := nat.
   Definition uvar := nat.
 
+  (** TODO(gmalecha): Putting [typ] and [func] in a module would
+   ** reduce the number of parameters here.
+   **)
   Inductive expr : Type :=
   | Var : var -> expr
   | Inj : func -> expr
@@ -36,6 +41,20 @@ Section env.
     try solve [ inversion H ].
     { inversion H; clear H; subst; auto. }
     { inversion H; clear H; subst; auto. }
+  Qed.
+
+  Theorem expr_strong_ind
+  : forall (P : expr -> Prop),
+      (forall v, P (Var v)) ->
+      (forall u, P (UVar u)) ->
+      (forall i, P (Inj i)) ->
+      (forall a b, (forall e, (leftTrans expr_acc) e (App a b) -> P e) -> P (App a b)) ->
+      (forall t a, (forall e, (leftTrans expr_acc) e (Abs t a) -> P e) -> P (Abs t a)) ->
+      forall e, P e.
+  Proof.
+    intros P Hvar Huvar Hinj Happ Habs.
+    eapply Fix. eapply wf_leftTrans. eapply wf_expr_acc.
+    destruct x; auto.
   Qed.
 
   Variable RelDec_eq_typ : RelDec (@eq typ).
@@ -75,11 +94,6 @@ Section env.
                  rewrite rel_dec_correct
              | |- context [ ?X ?[ ?Z ] ?Y ] =>
                rewrite rel_dec_correct
-             | |- context [ type_eqb ?X ?Y ] =>
-               change (type_eqb X Y) with (X ?[ eq ] Y) ;
-                 rewrite rel_dec_correct
-(*             | |- context [ List.list_eq RelDec_eq_typ ?X ?Y ] =>
-               change (List.list_eq RelDec_eq_typ X Y) with (X ?[ eq ] Y) ; *)
              | |- context [ ?X ?[ @eq ?T ]?Y ] =>
                change (X ?[ @eq T ] Y) with (X ?[ eq ] Y) ;
                  rewrite rel_dec_correct

@@ -232,12 +232,12 @@ struct
 	if Term.isProd ty then
 	  let (_,t1,t2) = Term.destProd ty in
 	  if Term.noccurn 1 t2 then
-	    let _ = Format.printf "Non dependent: %a\n" pp_constr t2 in
+(*	    let _ = Format.printf "Non dependent: %a\n" pp_constr t2 in *)
 	    (** non-dependent **)
 	    let (rs,rt) = mark_terms t2 xs in
 	    ((false, t1, x) :: rs, rt)
 	else
-	    let _ = Format.printf "Dependent: %a\n" pp_constr t2 in
+(*	    let _ = Format.printf "Dependent: %a\n" pp_constr t2 in *)
 	    (** dependent **)
 	    let (rs,rt) = mark_terms (Term.subst1 x t2) xs in
 	    ((true, t1, x) :: rs, rt)
@@ -325,24 +325,41 @@ struct
     M.bind V.ask (fun env ->
       M.bind VE.ask (fun evar ->
 	let ty = Typing.type_of env evar t in
-	let (ts,_) = mark_terms env ty (Array.to_list ts) in
-	let (ds,ns) = partition_until ts in
+	let (ds,ns) =
+	  let (ts,_) = mark_terms env ty (Array.to_list ts) in
+	  partition_until ts
+	in
 	if ns = [] then
 	  Lazy.force no_progress
 	else
-	  let _ =
-	    Printf.fprintf stderr "len ds = %d ; len ns = %d\n"
-	      (List.length ds) (List.length ns)
-	  in
-	  let new_t = build_lambda t ds in
-	  let _ = Format.printf "new_t: %a\n" pp_constr new_t in
-	  let new_ts = List.map (fun (_,_,x) -> x)
+	  (** TODO(gmalecha): This doesn't support local variables
+	   ** being applied
+	   **)
+(*	  let _ = Format.printf "head symbol = %a\n" pp_constr t in *)
+	  match Term.kind_of_term t with
+	    Term.Rel n ->
+	      if ds = [] then
+		M.bind (reify_expr t) (fun t ->
+		  M.bind (mapM reify_expr (Array.to_list ts)) (fun ts ->
+		    reify_app t ts))
+	      else
+		assert false
+	  | _ ->
+(*
+	    let _ =
+	      Printf.fprintf stderr "len ds = %d ; len ns = %d\n"
+		(List.length ds) (List.length ns)
+	    in
+*)
+	    let new_t = build_lambda t ds in
+(*	    let _ = Format.printf "new_t: %a\n" pp_constr new_t in *)
+	    let new_ts = List.map (fun (_,_,x) -> x)
 	      (List.filter (fun (x,_,_) -> not x) ds @ ns) in
-	  let _ = Format.printf "args: %a\n" (pp_list pp_constr) new_ts in
-	  (** TODO: I shouldn't call [reify_expr] on [new_t] because
-	   ** I know that there is no way to reify it.
- 	   **)
-	  M.bind (R.reify new_t) (fun t ->
-	    M.bind (mapM reify_expr new_ts) (fun ts ->
-	      reify_app t ts))))
+(*	    let _ = Format.printf "args: %a\n" (pp_list pp_constr) new_ts in *)
+	    (** TODO: I shouldn't call [reify_expr] on [new_t] because
+	     ** I know that there is no way to reify it.
+	     **)
+	    M.bind (R.reify new_t) (fun t ->
+	      M.bind (mapM reify_expr new_ts) (fun ts ->
+		reify_app t ts))))
 end

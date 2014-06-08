@@ -1,5 +1,5 @@
-Lambda
-======
+Modular Lambda
+==============
 
 It is a lambda calculus with unification variables and constants
 typed by an arbitrary type language t which includes an arrow type.

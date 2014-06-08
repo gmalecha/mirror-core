@@ -7,8 +7,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Tactics.Injection.
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.TypesI.
 
@@ -16,18 +15,6 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section env.
-  Fixpoint quant (n : nat) : Type :=
-    match n with
-      | 0 => Type
-      | S n => Type -> quant n
-    end.
-  Fixpoint qapply (n : nat) (ls : list Type) : quant n -> Type :=
-    match n as n , ls return quant n -> Type with
-      | 0 , nil => fun t => t
-      | S n , l :: ls => fun f => @qapply n ls (f l)
-      | _ , _ => fun _ => Empty_set
-    end.
-
   (** Syntax **)
   Record type : Type := Typ {
     Impl : Type ;
@@ -82,11 +69,13 @@ Section env.
       | xO n => TEbranch (types_add n v (types_left t)) (types_here t) (types_right t)
     end.
 
-  Fixpoint list_to_types' (ls : list (option Type)) (n : positive) : types -> types :=
+  Fixpoint list_to_types' (ls : list (option Type)) (n : positive)
+  : types -> types :=
     match ls with
       | nil => fun x => x
       | None :: ls => list_to_types' ls (Pos.succ n)
-      | Some v :: ls => fun ts => list_to_types' ls (Pos.succ n) (types_add n v ts)
+      | Some v :: ls => fun ts =>
+                          list_to_types' ls (Pos.succ n) (types_add n v ts)
     end.
 
   Definition list_to_types (ls : list (option Type)) : types :=
@@ -280,135 +269,6 @@ Section env.
       | _ => None
     end.
 
-  Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
-    match tv with
-      | tyArr l r => tyArr (subst0_typ t l) (subst0_typ t r)
-      | tyVar 0 => t
-      | tyVar (S n) => tyVar n
-      | tyProp
-      | tyType _ => tv
-    end.
-
-  Theorem typD_subst0_typ : forall acc t l,
-    typD (typD acc l :: acc) t = typD acc (subst0_typ l t).
-  Proof.
-    induction t; try reflexivity.
-    { intros. simpl. rewrite IHt1. rewrite IHt2. reflexivity. }
-    { intros. destruct n; simpl; reflexivity. }
-  Defined.
-
-  Definition instantiate_typ (ls : list typ) (tv : typ) : typ :=
-    List.fold_right subst0_typ tv ls.
-
-  Theorem typD_instantiate_typD_cons : forall c t a b,
-    typD (typD b a :: b) (instantiate_typ c t) =
-    typD b (instantiate_typ (a :: c) t).
-  Proof.
-    simpl; intros. rewrite typD_subst0_typ. reflexivity.
-  Defined.
-
-  Fixpoint parametric (n : nat) (acc : list Type) (k : list Type -> Type) : Type :=
-    match n with
-      | 0 => k acc
-      | S n => forall T : Type, parametric n (T :: acc) k
-    end.
-
-  Fixpoint type_apply n ls acc t {struct n} :
-    parametric n acc (fun env => typD env t) ->
-    option (typD acc (instantiate_typ ls t)) :=
-    match n as n , ls as ls
-      return parametric n acc (fun env => typD env t) ->
-             option (typD acc (instantiate_typ ls t))
-      with
-      | 0 , nil => fun X => Some X
-      | S n , l :: ls => fun X =>
-        match @type_apply n ls _ _ (X (typD acc l)) with
-          | None => None
-          | Some res =>
-            Some match @typD_instantiate_typD_cons _ _ _ _ in _ = t
-                   return t with
-                   | eq_refl => res
-                 end
-        end
-      | _ , _ => fun _ => None
-    end.
-
-  Theorem type_apply_length_equal : forall ft ts' n z fd,
-    length ts' = n ->
-    exists r, type_apply n ts' z ft fd = Some r.
-  Proof.
-    induction ts'; simpl in *; intros; subst; simpl; eauto.
-    match goal with
-      | [ |- exists x, match ?X with _ => _ end = _ ] =>
-        consider X
-    end; intros; eauto.
-    destruct (@IHts' (length ts') (typD z a :: z) (fd (typD z a))
-                     eq_refl).
-    simpl in *.
-    match goal with
-      | [ H : ?X = None , H' : ?Y = Some _ |- _ ] =>
-        let H'' := fresh in
-        assert (H'' : X = Y) by reflexivity; congruence
-    end.
-  Qed.
-
-  Theorem type_apply_length_equal' : forall ft ts' n z fd r,
-    type_apply n ts' z ft fd = Some r ->
-    length ts' = n.
-  Proof.
-    induction ts'; simpl in *; intros; subst; simpl; eauto.
-    { destruct n; simpl in *; auto; congruence. }
-    { destruct n; simpl in *; try congruence.
-      f_equal.
-      match goal with
-        | [ H : match ?X with _ => _ end = _ |- _ ] =>
-          consider X; intros; try congruence
-      end.
-      inversion H0; clear H0; subst. eauto. }
-  Qed.
-
-
-(*
-  Definition const_seqb ts' t t' : typD ts' t -> typD ts' t' -> option bool.
-  refine (
-    match t as t , t' as t' return typD ts' t -> typD ts' t' -> option bool with
-      | tyProp , tyProp => fun _ _ => None
-      | tyArr _ _ , tyArr _ _ => fun _ _ => None
-      | tyVar t , tyVar t' => fun _ _ => None (** TODO: is this too weak? **)
-      | tyType x , tyType y =>
-        match nat_eq_odec x y with
-          | None => fun _ _ => Some false
-          | Some pf =>
-            match pf in _ = t
-              return match nth_error ts x with
-                       | None => Empty_set
-                       | Some t => Impl t
-                     end ->
-                     match nth_error ts t with
-                       | None => Empty_set
-                       | Some t => Impl t
-                     end -> option bool with
-              | refl_equal =>
-                match nth_error ts x as ty
-                  return match ty with
-                           | None => Empty_set
-                           | Some t => Impl t
-                         end ->
-                         match ty with
-                           | None => Empty_set
-                           | Some t => Impl t
-                         end -> option bool
-                  with
-                  | None => fun x _ => match x with end
-                  | Some t => @Eqb t
-                end
-            end
-        end
-      | _ , _ => fun _ _ => None (** TODO: is this too weak? **)
-    end).
-  Defined.
-*)
-
   Fixpoint equiv (t : typ) : forall a b : typD nil t, Prop :=
     match t as t return typD nil t -> typD nil t -> Prop with
       | tyArr a b => fun x y => forall a, equiv b (x a) (y a)
@@ -525,13 +385,20 @@ Section env.
   Proof.
     constructor.
     eauto with typeclass_instances.
+    { intros. unfold type_cast; simpl.
+      rewrite typ_cast_typ_refl. eauto. }
     { unfold type_cast. simpl; intros.
       unfold typ_cast_typ in *.
       consider (typ_eq_odec a b); intros; subst.
       inv_all; subst.
       rewrite typ_eq_odec_Some_refl. eauto. congruence. }
-    { intros. unfold type_cast; simpl.
-      rewrite typ_cast_typ_refl. eauto. }
+    { unfold type_cast, typ_cast_typ; simpl.
+      unfold type_cast, typ_cast_typ; simpl.
+      intros.
+      forward.
+      subst.
+      inv_all; subst.
+      rewrite H. eexists; split; eauto. }
   Qed.
 
   Global Instance TypInstance0_tyProp : TypInstance0 typD Prop :=

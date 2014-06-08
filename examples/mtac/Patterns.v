@@ -1,4 +1,3 @@
-Require Import BinPos.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Structures.Traversable.
@@ -9,7 +8,6 @@ Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.Expr.
-Require Import MirrorCore.Ext.SymEnv.
 
 Set Implicit Arguments.
 Set Strict Implicit.

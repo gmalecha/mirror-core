@@ -8,18 +8,23 @@ EXTENSIBLE := Types ExprCore \
 	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 ExprUnifySyntactic3 \
 	      ExprSubst LemmaExt \
 	      Expr ExprTactics \
-	      SymEnv \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
-LAMBDA := ExprCore ExprT ExprDI ExprD3
+LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD Expr ExprLift \
+	  TypedFoldEager TypedFoldLazy TypedFoldApp \
+	  WtExpr
+LAMBDAM :=
+POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
-	      SymI \
+	      SymI SymEnv SymPolyEnv \
 	      SubstI SubstI2 SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma \
 	      $(EXTENSIBLE:%=Ext/%) \
+	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
+	      $(LAMBDAM:%=LambdaM/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%)
