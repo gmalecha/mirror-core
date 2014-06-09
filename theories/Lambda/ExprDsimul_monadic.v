@@ -174,33 +174,29 @@ Module ExprDenote <: ExprDenote.
         match e return option (OpenT ts tus tvs (typD ts t)) with
           | Var v => @Open_GetVAs ts tus tvs v t
           | Inj f =>
-            match @funcAs _ f t with
-              | None => None
-              | Some val =>
-                Some (@Open_Inj ts tus tvs t val)
-            end
+            bind (m := option)
+                 (@funcAs _ f t)
+                 (fun val =>
+                    ret (@Open_Inj ts tus tvs t val))
           | App f x =>
-            match exprD'_simul tvs x with
-              | None => None
-              | Some (existT t' x) =>
-                match exprD' tvs (typ_arr t' t) f with
-                  | None => None
-                  | Some f => Some (@Open_App ts _ _ _ _ f x)
-                end
-            end
+            bind (m := option)
+                 (exprD'_simul tvs x)
+                 (fun t_x =>
+                    let '(existT t' x) := t_x in
+                    bind (m := option)
+                         (exprD' tvs (typ_arr t' t) f)
+                         (fun f => ret (@Open_App ts _ _ _ _ f x)))
           | Abs t' e =>
             arr_match (fun T => option (OpenT ts tus tvs T)) ts t
                       (fun d r =>
-                         match type_cast ts d t' with
-                           | None => None
-                           | Some cast =>
-                             match exprD' (t' :: tvs) r e with
-                               | None => None
-                               | Some val =>
-                                 Some (fun us vs x =>
-                                         val us (Hcons (Rcast_val cast x) vs))
-                             end
-                         end)
+                         bind (m := option)
+                              (type_cast ts d t')
+                              (fun cast =>
+                                 bind (m := option)
+                                      (exprD' (t' :: tvs) r e)
+                                      (fun val =>
+                                         ret (fun us vs x =>
+                                                val us (Hcons (Rcast_val cast x) vs)))))
                       None
           | UVar u => @Open_GetUAs ts tus tvs u t
         end
@@ -209,44 +205,42 @@ Module ExprDenote <: ExprDenote.
              match e return option { t : typ & OpenT ts tus tvs (typD ts t) } with
                | Var v => @Open_UseV ts tus tvs v
                | Inj f =>
-                 match @func_simul _ f with
-                   | None => None
-                   | Some (existT t val) =>
-                     Some (@existT _ (fun t => OpenT ts tus tvs (typD ts t))
-                                   t (fun _ _ => val))
-                 end
+                 bind (@func_simul _ f)
+                      (fun t_val =>
+                         let '(existT t val) := t_val in
+                         ret (@existT _ (fun t => OpenT ts tus tvs (typD ts t))
+                                      t (fun _ _ => val)))
                | App f x =>
-                 match exprD'_simul tvs f with
-                   | None => None
-                   | Some (existT t' f) =>
-                     arr_match (fun T =>
-                                  OpenT ts tus tvs T ->
-                                  option { t : typ & OpenT ts tus tvs (typD ts t) })
-                               ts t'
-                               (fun d r f =>
-                                  match exprD' tvs d x with
-                                    | None => None
-                                    | Some x =>
-                                      Some (@existT _
-                                                    (fun t => OpenT ts tus tvs (typD ts t))
-                                                    r
-                                                    (fun us vs => (f us vs) (x us vs)))
-                                  end)
-                               (fun _ => None)
-                               f
-                 end
+                 bind (m := option)
+                      (exprD'_simul tvs f)
+                      (fun t_f =>
+                         let '(existT t' f) := t_f in
+                         arr_match (fun T =>
+                                      OpenT ts tus tvs T ->
+                                      option { t : typ & OpenT ts tus tvs (typD ts t) })
+                                   ts t'
+                                   (fun d r f =>
+                                      bind (m := option)
+                                           (exprD' tvs d x)
+                                           (fun x =>
+                                              ret (@existT _
+                                                           (fun t => OpenT ts tus tvs (typD ts t))
+                                                           r
+                                                           (fun us vs => (f us vs) (x us vs)))))
+                                   (fun _ => None)
+                                   f)
                | Abs t e =>
-                 match exprD'_simul (t :: tvs) e with
-                   | None => None
-                   | Some (existT t' f) =>
-                     Some (@existT _ (fun t => OpenT ts tus tvs (typD ts t))
-                                   (typ_arr t t')
-                                   match eq_sym (typD_arr ts t t') in _ = T
-                                         return OpenT ts tus tvs T
-                                   with
-                                     | eq_refl => fun us vs x => f us (Hcons x vs)
-                                   end)
-                 end
+                 bind (m := option)
+                      (exprD'_simul (t :: tvs) e)
+                      (fun t_val =>
+                         let '(existT t' f) := t_val in
+                         ret (@existT _ (fun t => OpenT ts tus tvs (typD ts t))
+                                      (typ_arr t t')
+                                      match eq_sym (typD_arr ts t t') in _ = T
+                                            return OpenT ts tus tvs T
+                                      with
+                                        | eq_refl => fun us vs x => f us (Hcons x vs)
+                                      end))
                | UVar u => @Open_UseU ts tus tvs u
              end.
     End exprD'.
@@ -491,8 +485,9 @@ Module ExprDenote <: ExprDenote.
       { rewrite exprD'_App' in *. simpl in *.
         forward. inv_all; subst.
         specialize (IHe1 _ _ _ _ _ H2 H1).
-        eapply typ2_inj in IHe1; eauto. destruct IHe1.
-        destruct H3. reflexivity. }
+        admit. (* TODO(gmalecha): this is a problem...
+        eapply Rty_typ_arr in IHe1. destruct IHe1.
+        destruct H3. reflexivity. *) }
       { rewrite exprD'_Abs in *; eauto.
         destruct (typ2_match_case ts t1).
         { destruct (typ2_match_case ts t2).
@@ -514,7 +509,7 @@ Module ExprDenote <: ExprDenote.
         forward; inv_all; subst. }
     Qed.
 
-    (** NOTE: These are requiring decidable equality **)
+    (** TODO: These are requiring decidable equality **)
     Local Instance RelDec_eq_typ : RelDec (@eq typ) := RelDec_Rty nil.
     Local Instance RelDecCorrect_eq_typ : RelDec_Correct RelDec_eq_typ :=
       _.
