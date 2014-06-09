@@ -1,9 +1,10 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Member.
-Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.TypesI2.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprD.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -231,4 +232,58 @@ Section ways_to_do_terms.
                                  WellTyped_expr tus tvs r (App f x)
   | WT_Abs : forall tvs d r e, WellTyped_expr tus (d :: tvs) r e ->
                                WellTyped_expr tus tvs (typ2 d r) (Abs d e).
+
+  (** exprD' tus tvs e t = Some ->
+   ** WellTyped_expr tus tvs t e
+   **)
+
+  Require Import ExtLib.Data.HList.
+
+  Fixpoint exprD'_wt ts tus tvs t e (wt : WellTyped_expr tus tvs t e)
+  : HList.hlist (typD ts) tus -> HList.hlist (typD ts) tvs -> typD ts t :=
+    match wt in WellTyped_expr _ tvs t e
+          return HList.hlist (typD ts) tus -> HList.hlist (typD ts) tvs -> typD ts t
+    with
+      | WT_Var tvs t v pf => fun _ vs =>
+        match pf in _ = t return match t with
+                                   | Some t => _
+                                   | None => unit
+                                 end with
+          | eq_refl => hlist_nth vs v
+        end
+      | WT_UVar tvs t u pf => fun us _ =>
+        match pf in _ = t return match t with
+                                   | Some t => _
+                                   | None => unit
+                                 end with
+          | eq_refl => hlist_nth us u
+        end
+      | WT_Inj tvs t f pf => fun _ _ =>
+        type_weaken _ _ match pf in _ = t return match t with
+                                                   | Some t => typD nil t
+                                                   | None => unit
+                                                 end with
+                          | eq_refl => symD f
+                        end
+      | WT_App tvs d r _ _ wtf wtx =>
+        let f := match typ2_cast ts d r in _ = t return _ -> _ -> t with
+                   | eq_refl => @exprD'_wt ts _ _ _ _ wtf
+                 end in
+        let x := @exprD'_wt ts _ _ _ _ wtx in
+        fun us vs =>
+          (f us vs) (x us vs)
+      | WT_Abs tvs d r e wte =>
+        let e := @exprD'_wt ts _ _ _ _ wte in
+        match eq_sym (typ2_cast ts d r) in _ = t return _ -> _ -> t with
+          | eq_refl => fun us vs x => e us (Hcons x vs)
+        end
+    end.
+
+(*
+  Lemma exprD'_exprD_wt
+  : forall ts tus tvs e t wt,
+    exprD' ts tus tvs e t = Some (@exprD'_wt ts tus tvs e t wt).
+  Proof.
+*)
+
 End ways_to_do_terms.

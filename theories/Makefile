@@ -10,7 +10,8 @@ EXTENSIBLE := Repr Types ExprCore \
 	      Expr ExprTactics \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
-LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD Expr ExprLift \
+LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
+	  Expr ExprLift \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp \
 	  WtExpr
 LAMBDAM :=

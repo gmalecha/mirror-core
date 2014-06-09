@@ -16,6 +16,8 @@ Section typed.
   ; typD : list Type -> typ -> Type
     (** NOTE: This must be decidable if [exprD] will respect it.
      **)
+  ; type_weaken : forall ts t, typD nil t -> typD ts t
+    (** NOTE: Everything below here is fixed! **)
   ; Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ
   ; type_cast : forall env (a b : typ), option (Rty env a b)
     (* NOTE: I can't make this dependent b/c it exposes the
@@ -26,14 +28,17 @@ Section typed.
   ; Relim : forall {ts} (F : Type -> Type) {to from}
                    (pf : Rty ts to from),
               F (typD ts from) ->
-              F (typD ts to)
+              F (typD ts to) :=
+      fun ts F to from pf =>
+        match pf in _ = t return F (typD ts t) -> F (typD ts to) with
+          | eq_refl => fun x => x
+        end
   ; Rrefl : forall ts x, Rty ts x x :=
       fun _ => @eq_refl _
   ; Rsym : forall {ts x y}, Rty ts y x -> Rty ts x y :=
       fun _ x y pf => eq_sym pf
   ; Rtrans : forall {ts x y z}, Rty ts x y -> Rty ts y z -> Rty ts x z :=
       fun _ => @eq_trans _
-  ; type_weaken : forall ts t, typD nil t -> typD ts t
   }.
 
   Variable RType_typ : RType.
@@ -75,6 +80,10 @@ Section typed.
           match eq_sym (typ2_cast ts a b) in _ = t return T t with
             | eq_refl => tr a b
           end
+    ; typ2_inj
+      : forall ts a b c d,
+          Rty ts (typ2 a b) (typ2 c d) ->
+          Rty ts a c /\ Rty ts b d
     ; typ2_match_case
       : forall ts x,
           (exists d r (pf : Rty ts x (typ2 d r)),
