@@ -243,7 +243,7 @@ Section beta.
         beta_all (beta_all nil vars e'' :: args) vars e'
       | Abs t e' =>
         match args with
-          | nil => Abs t (beta_all nil (None :: vars) e')
+          | nil => Abs t (beta_all nil (None :: vars) e') (** args = nil **)
           | a :: args => beta_all args (Some a :: vars) e'
         end
       | Var v =>
@@ -252,8 +252,7 @@ Section beta.
           | Some None => fold_left App args (Var v)
           | None => fold_left App args (Var (v - length vars))
         end
-      | e =>
-        fold_left App args e
+      | e => fold_left App args e
     end.
 
 End beta.
