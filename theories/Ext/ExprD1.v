@@ -4,6 +4,7 @@ Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.Cases.
 Require Import ExtLib.Tactics.Injection.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
@@ -26,10 +27,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
 
   Section with_envs.
     Variable ts : types.
-    Variable fs : functions ts.
+    Variable func : Type.
+    Variable RSym_func : RSym (typD ts) func.
     Variable us : env (typD ts).
 
-  Fixpoint typeof (var_env : tenv typ) (e : expr) {struct e} : option typ :=
+  Fixpoint typeof (var_env : tenv typ) (e : expr func) {struct e} : option typ :=
     match e with
       | Var x => nth_error var_env x
       | UVar x =>
@@ -37,15 +39,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | None => None
           | Some tv => Some (projT1 tv)
         end
-      | Func f ts =>
-        match func_lookup fs f with
-          | None => None
-          | Some r =>
-          if EqNat.beq_nat (length ts) (fenv r) then
-            Some (instantiate_typ ts (ftype r))
-          else
-            None
-        end
+      | Inj f => typeof_sym f
       | App e e' =>
         Monad.bind (typeof var_env e) (fun ft =>
         Monad.bind (typeof var_env e') (fun xt =>
@@ -53,46 +47,21 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
       | Abs t e =>
         match typeof (t :: var_env) e with
           | None => None
-          | Some t' => Some (tvArr t t')
-        end
-      | Equal t e1 e2 =>
-        match typeof var_env e1 with
-          | None => None
-          | Some t' => match typeof var_env e2 with
-                         | None => None
-                         | Some t'' => if t ?[ eq ] t' then
-                                         if t' ?[ eq ] t'' then Some tvProp
-                                         else None
-                                       else None
-                       end
-        end
-      | Not e =>
-        match typeof var_env e with
-          | None => None
-          | Some tvProp => Some tvProp
-          | Some _ => None
+          | Some t' => Some (tyArr t t')
         end
     end.
 
   Lemma typeof_typeof_expr : forall e ve,
-    typeof_expr (typeof_funcs fs) (typeof_env us) ve e = typeof ve e.
+    typeof_expr (typeof_env us) ve e = typeof ve e.
   Proof.
     induction e; simpl; intros;
     repeat match goal with
              | H : _ |- _ => rewrite H
            end; auto.
-    { rewrite lookup_typeof_funcs.
-      forward. }
     { rewrite nth_error_typeof_env. auto. }
-    { change typ_eqb with (@rel_dec _ (@eq typ) _).
-      destruct (typeof ve e1); auto.
-      destruct (typeof ve e2); auto.
-      consider (t ?[ eq ] t0); auto; intros; subst; auto.
-      destruct (t ?[ eq ] t0); auto. }
-    { destruct (typeof ve e); auto. destruct t; auto. }
   Qed.
 
-  Fixpoint exprD' (var_env : tenv typ) (e : expr) (t : typ) {struct e} :
+  Fixpoint exprD' (var_env : tenv typ) (e : expr func) (t : typ) {struct e} :
     option (hlist (typD ts nil) var_env -> typD ts nil t) :=
     match e as e return option (hlist (typD ts nil) var_env -> typD ts nil t) with
       | Var x =>
@@ -119,23 +88,15 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           | None => None
           | Some v => Some (fun _ => v)
         end
-      | Func f ts' =>
-        match func_lookup fs f with
+      | Inj f =>
+        match symAs f t with
           | None => None
-          | Some f =>
-            match type_apply _ _ ts' _ _ f.(fdenote) with
-              | None => None
-              | Some t' =>
-                match @typ_cast_val _ nil (instantiate_typ ts' (ftype f)) t t' with
-                  | Some v => Some (fun _ => v)
-                  | None => None
-                end
-            end
+          | Some v => fun _ => v
         end
       | Abs t' e =>
         match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t)
         with
-          | tvArr lt rt =>
+          | tyArr lt rt =>
             match typ_cast_typ ts (fun x => x) nil lt t' with
               | None => None
               | Some cast =>
@@ -148,35 +109,14 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         end
       | App f x =>
         match typeof var_env f with
-          | Some (tvArr l r) =>
-            match exprD' var_env f (tvArr l r)
+          | Some (tyArr l r) =>
+            match exprD' var_env f (tyArr l r)
                 , exprD' var_env x l
                 , typ_cast_typ _ (fun x => x) nil r t
             with
               | Some f , Some x , Some cast =>
                 Some (fun v => cast ((f v) (x v)))
               | _ , _ , _ => None
-            end
-          | _ => None
-        end
-      | Equal t' e1 e2 =>
-        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t) with
-          | tvProp =>
-            match exprD' var_env e1 t' , exprD' var_env e2 t' with
-              | Some l , Some r =>
-                Some (fun g => (l g) = (r g))
-              (* equal (type := typeFor (typD := typD ts) nil t') *)
-              | _ , _ => None
-            end
-          | _ => None
-        end
-      | Not e =>
-        match t as t return option (hlist (typD ts nil) var_env -> typD ts nil t)
-        with
-          | tvProp =>
-            match exprD' var_env e tvProp with
-              | Some P => Some (fun g => not (P g))
-              | _ => None
             end
           | _ => None
         end
