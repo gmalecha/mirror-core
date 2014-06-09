@@ -49,7 +49,9 @@ Module Make (ED : ExprDenote).
     Theorem exprD'_ind
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall (P : forall ts tus tvs, _ -> forall t, option (ED.OpenT _ tus tvs (typD ts t)) -> Prop) ts tus
-        (Hnone : forall ts tus tvs e t, P ts tus tvs e t None)
+        (Hnone : forall tvs e t,
+                   ED.exprD' ts tus tvs t e = None ->
+                   P ts tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty ts t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P ts tus tvs (Var v) t
@@ -81,21 +83,23 @@ Module Make (ED : ExprDenote).
         forall tvs e t,
         P ts tus tvs e t (ED.exprD' ts tus tvs t e).
     Proof.
-      intros P ts tus Pnone Hvar Huvar Hinj Happ Habs tvs e; revert tvs;
+      intros P ts tus Pnone Hvar Huvar Hinj Happ Habs tvs e; revert tvs.
+      generalize (fun tvs => Pnone tvs e). intro.
       induction e;
-      intros; autorewrite with exprD_rw in *; simpl in *;
+      intros; generalize (H tvs t);
+      autorewrite with exprD_rw in *; simpl in *;
       repeat match goal with
                | |- context [ match ?X with _ => _ end ] =>
                  (consider X; intros; auto); [ ]
              end.
       { subst. clear Happ Habs Huvar Hinj Pnone.
-        specialize (@Hvar _ _ _ _ _ (Rsym r) H0).
+        specialize (@Hvar _ _ _ _ _ (Rsym r) H1).
         unfold ED.Rcast_val, ED.Rcast, Relim in *.
         generalize dependent (P ts tus tvs (Var v) t); clear.
         destruct r.
         auto. }
       { clear Habs Happ Huvar Hvar.
-        unfold ED.funcAs in H.
+        unfold ED.funcAs in *.
         specialize (Hinj tvs f).
         generalize dependent (symD f).
         destruct (typeof_sym f); intros.
@@ -105,16 +109,18 @@ Module Make (ED : ExprDenote).
           simpl. unfold ED.Rcast in H0. simpl in H0.
           inv_all; subst. auto. }
         { exfalso; congruence. } }
-      { clear Habs Hinj Huvar Hvar Pnone.
-        eapply Happ; eauto. rewrite <- H0. auto.
-        rewrite <- H1. auto. }
+      { clear Habs Hinj Huvar Hvar.
+        eapply Happ; eauto.
+        rewrite <- H1. auto.
+        rewrite <- H2. auto. }
       { clear Hinj Huvar Hvar Happ.
         destruct (@typ2_match_case _ Fun _ _ ts t0).
-        { do 3 destruct H. rewrite H; clear H.
+        { specialize (H tvs t0). autorewrite with exprD_rw in *.
+          (do 3 destruct H0); rewrite H0 in *; clear H0.
           consider (type_cast ts x t); intros.
-          { specialize (IHe (t :: tvs) x0).
-            destruct (ED.exprD' ts tus (t :: tvs) x0 e).
-            { eapply Habs in IHe.
+          { specialize (fun H => IHe H (t :: tvs) x0).
+            consider (ED.exprD' ts tus (t :: tvs) x0 e); intros.
+            { eapply Habs in IHe; eauto.
               revert IHe. unfold ED.Open_Abs.
               destruct r.
               match goal with
@@ -122,26 +128,28 @@ Module Make (ED : ExprDenote).
                      _ _ _ _ _ _ (Relim _ _ match ?Y with _ => _ end) =>
                   change Y with X ; generalize X
               end.
-              destruct x1.
+              clear H2. destruct x1.
               simpl. generalize (P ts tus tvs (Abs x e) t0).
               destruct e0. auto. }
-            { clear - Pnone.
-              match goal with
+            { match goal with
                 | |- context [ match ?X with _ => _ end ] =>
-                  generalize X
+                  generalize dependent X
               end.
               destruct x1. simpl.
-              intros. rewrite eq_option_eq. apply Pnone. } }
-          { clear - Pnone.
+              intros. rewrite eq_option_eq. eapply H3.
+              clear. rewrite eq_option_eq. reflexivity. } }
+          { clear - H0.
             match goal with
               | |- context [ match ?X with _ => _ end ] =>
-                generalize X
+                generalize dependent X
             end.
             destruct x1. simpl.
-            intros. rewrite eq_option_eq. apply Pnone. } }
-        { rewrite H. apply Pnone. } }
+            intros. rewrite eq_option_eq. apply H0.
+            rewrite eq_option_eq. reflexivity. } }
+        { specialize (H tvs t0). autorewrite with exprD_rw in H.
+          rewrite H0 in *. intros; apply H. reflexivity. } }
       { subst. clear Happ Habs Hvar Hinj Pnone.
-        specialize (@Huvar tvs _ _ _ _ (Rsym r) H0).
+        specialize (@Huvar tvs _ _ _ _ (Rsym r) H1).
         unfold ED.Rcast_val, ED.Rcast, Relim in *.
         generalize dependent (P ts tus tvs (UVar u) t); clear.
         destruct r.

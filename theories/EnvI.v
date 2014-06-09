@@ -262,6 +262,59 @@ Section nth_error_get_hlist_nth.
         auto. } }
   Qed.
 
+  Lemma nth_error_get_hlist_nth_appL
+  : forall tvs' tvs n,
+      n < length tvs ->
+      exists x,
+        nth_error_get_hlist_nth (tvs ++ tvs') n = Some x /\
+        exists y,
+          nth_error_get_hlist_nth tvs n = Some (@existT _ _ (projT1 x) y) /\
+          forall vs vs',
+            (projT2 x) (hlist_app vs vs') = y vs.
+  Proof.
+    clear. induction tvs; simpl; intros.
+    { exfalso; inversion H. }
+    { destruct n.
+      { clear H IHtvs.
+        eexists; split; eauto. eexists; split; eauto.
+        simpl. intros. rewrite (hlist_eta vs). reflexivity. }
+      { apply Lt.lt_S_n in H.
+        { specialize (IHtvs _ H).
+          forward_reason.
+          rewrite H0. rewrite H1.
+          forward. subst. simpl in *.
+          eexists; split; eauto.
+          eexists; split; eauto. simpl.
+          intros. rewrite (hlist_eta vs). simpl. auto. } } }
+  Qed.
+
+  Lemma nth_error_get_hlist_nth_appR
+  : forall tvs' tvs n x,
+      n >= length tvs ->
+      nth_error_get_hlist_nth (tvs ++ tvs') n = Some x ->
+      exists y,
+        nth_error_get_hlist_nth tvs' (n - length tvs) = Some (@existT _ _ (projT1 x) y) /\
+        forall vs vs',
+          (projT2 x) (hlist_app vs vs') = y vs'.
+  Proof.
+    clear. induction tvs; simpl; intros.
+    { cutrewrite (n - 0 = n); [ | omega ].
+      rewrite H0. destruct x. simpl.
+      eexists; split; eauto. intros.
+      rewrite (hlist_eta vs). reflexivity. }
+    { destruct n.
+      { inversion H. }
+      { assert (n >= length tvs) by omega. clear H.
+        { forward. inv_all; subst. simpl in *.
+          specialize (IHtvs _ _ H1 H0).
+          simpl in *.
+          forward_reason.
+          rewrite H.
+          eexists; split; eauto.
+          intros. rewrite (hlist_eta vs). simpl. auto. } } }
+  Qed.
+
+
 End nth_error_get_hlist_nth.
 
 Arguments join_env {_ _ _} _.

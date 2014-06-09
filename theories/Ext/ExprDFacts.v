@@ -683,58 +683,6 @@ Module Build_ExprDenote (EDc : ExprDenote_core) <:
         simpl; intros. rewrite <- H0. reflexivity. }
     Qed.
 
-    Lemma nth_error_get_hlist_nth_appL
-    : forall t (F : t -> Type) tvs' tvs n,
-        n < length tvs ->
-        exists x,
-          nth_error_get_hlist_nth F (tvs ++ tvs') n = Some x /\
-          exists y,
-            nth_error_get_hlist_nth F tvs n = Some (@existT _ _ (projT1 x) y) /\
-            forall vs vs',
-              (projT2 x) (hlist_app vs vs') = y vs.
-    Proof.
-      clear. induction tvs; simpl; intros.
-      { exfalso; inversion H. }
-      { destruct n.
-        { clear H IHtvs.
-          eexists; split; eauto. eexists; split; eauto.
-          simpl. intros. rewrite (hlist_eta vs). reflexivity. }
-        { apply Lt.lt_S_n in H.
-          { specialize (IHtvs _ H).
-            forward_reason.
-            rewrite H0. rewrite H1.
-            forward. subst. simpl in *.
-            eexists; split; eauto.
-            eexists; split; eauto. simpl.
-            intros. rewrite (hlist_eta vs). simpl. auto. } } }
-    Qed.
-
-    Lemma nth_error_get_hlist_nth_appR
-    : forall t (F : t -> Type) tvs' tvs n x,
-        n >= length tvs ->
-        nth_error_get_hlist_nth F (tvs ++ tvs') n = Some x ->
-        exists y,
-          nth_error_get_hlist_nth F tvs' (n - length tvs) = Some (@existT _ _ (projT1 x) y) /\
-          forall vs vs',
-            (projT2 x) (hlist_app vs vs') = y vs'.
-    Proof.
-      clear. induction tvs; simpl; intros.
-      { cutrewrite (n - 0 = n); [ | omega ].
-        rewrite H0. destruct x. simpl.
-        eexists; split; eauto. intros.
-        rewrite (hlist_eta vs). reflexivity. }
-      { destruct n.
-        { inversion H. }
-        { assert (n >= length tvs) by omega. clear H.
-          { forward. inv_all; subst. simpl in *.
-            specialize (IHtvs _ _ H1 H0).
-            simpl in *.
-            forward_reason.
-            rewrite H.
-            eexists; split; eauto.
-            intros. rewrite (hlist_eta vs). simpl. auto. } } }
-    Qed.
-
     Theorem exprD'_Var_App_L : forall tus tvs' t tvs v,
       v < length tvs ->
       match exprD' tus (tvs ++ tvs') (Var v) t , exprD' tus tvs (Var v) t with
