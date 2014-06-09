@@ -278,7 +278,8 @@ Module Type ExprFacts (ED : ExprDenote).
     Axiom exprD'_ind
     : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall (P : forall ts tus tvs, _ -> forall t, option (ED.OpenT _ tus tvs (typD ts t)) -> Prop) ts tus
-        (Hnone : forall ts tus tvs e t, P ts tus tvs e t None)
+        (Hnone : forall ts tus tvs e t,
+                   ED.exprD' ts tus tvs t e = None -> P ts tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty ts t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P ts tus tvs (Var v) t
