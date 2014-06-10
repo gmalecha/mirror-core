@@ -43,15 +43,15 @@ Section raw_types.
         Abs t (lift (S skip) _by a)
     end.
 
-  Fixpoint vars_to_uvars (e : expr typ func) (skip add : nat) : expr typ func :=
+  Fixpoint vars_to_uvars (skip add : nat) (e : expr typ func) : expr typ func :=
     match e with
       | Var v =>
         if v ?[ lt ] skip then Var v
         else UVar (v - skip + add)
       | UVar _
       | Inj _ => e
-      | App l r => App (vars_to_uvars l skip add) (vars_to_uvars r skip add)
-      | Abs t e => Abs t (vars_to_uvars e (S skip) add)
+      | App l r => App (vars_to_uvars skip add l) (vars_to_uvars skip add r)
+      | Abs t e => Abs t (vars_to_uvars (S skip) add e)
     end.
 
 End raw_types.
@@ -257,7 +257,7 @@ Section types.
   Theorem vars_to_uvars_typeof_expr
   : forall ts tus e tvs tvs' t,
       typeof_expr ts tus (tvs ++ tvs') e = Some t ->
-      typeof_expr ts (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus))
+      typeof_expr ts (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
       = Some t.
   Proof.
     induction e; simpl; intros; auto.

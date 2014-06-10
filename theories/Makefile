@@ -14,7 +14,8 @@ LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  Expr ExprLift Red \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp \
 	  WtExpr \
-	  ExprUnify ExprUnify_simul
+	  ExprUnify ExprUnify_simul \
+	  ExprSubst
 LAMBDAM :=
 POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \
