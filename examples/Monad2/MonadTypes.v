@@ -139,7 +139,7 @@ Section types.
   ; typD := typD
     (* ; Rty := Rty *)
   ; type_cast := type_cast
-  ; Relim := Relim
+(*  ; Relim := Relim *)
 (*  ; Rrefl := fun _ => @eq_refl _
   ; Rsym := fun _ x y (pf : @Rty _ y x) => @eq_sym _ y x pf
   ; Rtrans := fun _ => @eq_trans _ *)
@@ -190,6 +190,8 @@ Instance Typ2Ok_tyArr ts m
 Proof.
   constructor.
   { reflexivity. }
+  { unfold TypesI2.Rty. simpl.
+    inversion 2. auto. }
   { destruct x; simpl; try solve [ right; reflexivity ].
     left. eexists; eexists. exists eq_refl. reflexivity. }
   { destruct pf. reflexivity. }

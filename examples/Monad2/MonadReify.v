@@ -1,7 +1,7 @@
 Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.Lambda.ExprD.
-Require Import MirrorCore.Examples.Monad2.MonadExpr.
-Require Import MirrorCore.Examples.Monad2.MonadReduce.
+Require Import McExamples.Monad2.MonadExpr.
+Require Import McExamples.Monad2.MonadReduce.
 
 Add ML Path "../src".
 Add ML Path "../../src".

@@ -3,7 +3,7 @@ Add ML Path "../../src".
 Add ML Path "../src".
 
 Require Import ExtLib.Structures.Monad.
-Require Import MirrorCore.Examples.Monad2.MonadReify.
+Require Import McExamples.Monad2.MonadReify.
 
 Section with_monad.
   Variable m : Type -> Type.

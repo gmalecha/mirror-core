@@ -18,7 +18,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require MirrorCore.Subst.SealedSubst.
-Require Import MirrorCore.Examples.mtac.Patterns.
+Require Import McExamples.mtac.Patterns.
 
 (** This is just a default. Most users won't want/want
  ** to chnage this, but if there is a better substitution

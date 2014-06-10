@@ -7,7 +7,7 @@ Require Import MirrorCore.Ext.Expr.
 Require Import MirrorCore.Util.Iteration.
 
 (** TODO: Move [applicable] to a common place **)
-Require Import MirrorCore.Examples.Auto.AutoProver2.
+Require Import McExamples.Auto.AutoProver2.
 
 Set Implicit Arguments.
 Set Strict Implicit.

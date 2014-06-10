@@ -9,7 +9,7 @@ Require Import MirrorCore.Ext.ExprUnifySyntactic.
 Require Import MirrorCore.Ext.SymEnv.
 Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.Subst.FMapSubst.
-Require Import MirrorCore.Examples.Auto.AutoProver.
+Require Import McExamples.Auto.AutoProver.
 
 Set Implicit Arguments.
 Set Strict Implicit.

@@ -2,7 +2,7 @@ Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Examples.Monad2.MonadExpr.
+Require Import McExamples.Monad2.MonadExpr.
 
 Set Implicit Arguments.
 Set Strict Implicit.

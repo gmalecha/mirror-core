@@ -7,7 +7,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.SymEnv.
-Require Import MirrorCore.Examples.Monad2.MonadExpr.
+Require Import McExamples.Monad2.MonadExpr.
 
 Set Implicit Arguments.
 Set Strict Implicit.
