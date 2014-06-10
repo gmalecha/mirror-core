@@ -45,11 +45,13 @@ Section Demo.
                   ((Abs tyNat (@App_list (Inj (FRef 4%positive (tyType 1 :: nil)))
                                          ((Var 0) :: Inj (FRef 5%positive nil) :: nil))) :: nil)
     in
-    match exprD (Expr := Expr_expr (RSym_func funcs')) nil nil e tyProp with
+    let rsym := RSym_func _ funcs' instantiate_typ (@type_apply _) (@type_apply_length_equal _) in
+    match exprD (Expr := Expr_expr rsym) nil nil e tyProp with
       | None => False
       | Some p => p
     end.
   Proof.
     simpl. exists 0. reflexivity.
   Qed.
+
 End Demo.

@@ -1,7 +1,7 @@
-Require Import Morphisms.
-Require Import Relations.
-Require Import RelationClasses.
-Require Import List Bool.
+Require Import Coq.Classes.Morphisms.
+Require Import Coq.Relations.Relations.
+Require Import Coq.Classes.RelationClasses.
+Require Import Coq.Lists.List Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
@@ -10,6 +10,7 @@ Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Tactics.EqDep.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.Generic.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -370,6 +371,90 @@ Section env.
       | tyType i => type_libniz _ (** TODO: This should be a lookup **)
       | tyVar v => type_libniz _ (** TODO: This should be a lookup **)
     end.
+
+Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
+    match tv with
+      | tyArr l r => tyArr (subst0_typ t l) (subst0_typ t r)
+      | tyVar 0 => t
+      | tyVar (S n) => tyVar n
+      | tyProp
+      | tyType _ => tv
+    end.
+
+  Theorem typD_subst0_typ : forall acc t l,
+    typD (typD acc l :: acc) t = typD acc (subst0_typ l t).
+  Proof.
+    induction t; try reflexivity.
+    { intros. simpl. rewrite IHt1. rewrite IHt2. reflexivity. }
+    { intros. destruct n; simpl; reflexivity. }
+  Defined.
+
+  (** TODO: I want this **)
+  Definition instantiate_typ (ls : list typ) (tv : typ) : typ :=
+    List.fold_right subst0_typ tv ls.
+
+  Theorem typD_instantiate_typD_cons : forall c t a b,
+    typD (typD b a :: b) (instantiate_typ c t) =
+    typD b (instantiate_typ (a :: c) t).
+  Proof.
+    simpl; intros. rewrite typD_subst0_typ. reflexivity.
+  Defined.
+
+  Require Import ExtLib.Generic.Func.
+
+  Fixpoint type_apply n ls acc t {struct n} :
+    parametric n acc (fun env => typD env t) ->
+    option (typD acc (instantiate_typ ls t)) :=
+    match n as n , ls as ls
+      return parametric n acc (fun env => typD env t) ->
+             option (typD acc (instantiate_typ ls t))
+      with
+      | 0 , nil => fun X => Some X
+      | S n , l :: ls => fun X =>
+        match @type_apply n ls _ _ (X (typD acc l)) with
+          | None => None
+          | Some res =>
+            Some match @typD_instantiate_typD_cons _ _ _ _ in _ = t
+                   return t with
+                   | eq_refl => res
+                 end
+        end
+      | _ , _ => fun _ => None
+    end.
+
+  Theorem type_apply_length_equal : forall ft ts' n z fd,
+    length ts' = n ->
+    exists r, type_apply n ts' z ft fd = Some r.
+  Proof.
+    induction ts'; simpl in *; intros; subst; simpl; eauto.
+    match goal with
+      | [ |- exists x, match ?X with _ => _ end = _ ] =>
+        consider X
+    end; intros; eauto.
+    destruct (@IHts' (length ts') (typD z a :: z) (fd (typD z a))
+                     eq_refl).
+    simpl in *.
+    match goal with
+      | [ H : ?X = None , H' : ?Y = Some _ |- _ ] =>
+        let H'' := fresh in
+        assert (H'' : X = Y) by reflexivity; congruence
+    end.
+  Qed.
+
+  Theorem type_apply_length_equal' : forall ft ts' n z fd r,
+    type_apply n ts' z ft fd = Some r ->
+    length ts' = n.
+  Proof.
+    induction ts'; simpl in *; intros; subst; simpl; eauto.
+    { destruct n; simpl in *; auto; congruence. }
+    { destruct n; simpl in *; try congruence.
+      f_equal.
+      match goal with
+        | [ H : match ?X with _ => _ end = _ |- _ ] =>
+          consider X; intros; try congruence
+      end.
+      inversion H0; clear H0; subst. eauto. }
+  Qed.
 
   Global Instance RType_typ : RType typD :=
   { type_cast := typ_cast_typ
