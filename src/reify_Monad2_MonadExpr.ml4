@@ -13,10 +13,10 @@ let resolve_symbol = Std.resolve_symbol
 let to_positive = Std.to_positive
 
 (** Reification of MirrorCore.Ext.SymEnv **)
-let sym_env_pkg = ["MirrorCore";"Examples";"Monad2";"MonadExpr"]
-let types_pkg = ["MirrorCore";"Examples";"Monad2";"MonadTypes"]
-let tm_typ = lazy (resolve_symbol ["MirrorCore";"Examples";"Monad2";"MonadTypes"] "typ")
-let tm_typD = lazy (resolve_symbol ["MirrorCore";"Examples";"Monad2";"MonadTypes"] "typD")
+let sym_env_pkg = ["McExamples";"Monad2";"MonadExpr"]
+let types_pkg = ["McExamples";"Monad2";"MonadTypes"]
+let tm_typ = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "typ")
+let tm_typD = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "typD")
 
 let func = lazy (resolve_symbol sym_env_pkg "mext")
 
@@ -179,7 +179,7 @@ module ReifyMonadTypesF
 		 (CHK))
        (struct
 	 type result = Term.constr
-	 let typ_ref = lazy (resolve_symbol ["MirrorCore";"Examples";"Monad2";"MonadTypes"] "tyType")
+	 let typ_ref = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "tyType")
 	 let map x = PARAM.bind x (fun x ->
 	   PARAM.ret (Term.mkApp (Lazy.force typ_ref, [| to_positive (1 + x) |])))
 	end))
@@ -222,7 +222,7 @@ module REIFY_ENV_FUNC =
       type result = Term.constr
       let expr_fref = lazy (resolve_symbol ["MirrorCore";"Lambda";"ExprCore"] "Inj")
 
-      let monad_sym_pkg = ["MirrorCore";"Examples";"Monad2";"MonadSym"]
+      let monad_sym_pkg = ["McExamples";"Monad2";"MonadSym"]
       let env_sym_pkg = ["MirrorCore";"SymEnv"]
 
       let sym_mfunc = lazy (resolve_symbol monad_sym_pkg "mfunc")
@@ -277,7 +277,7 @@ struct
   let tm_bind = lazy (resolve_symbol ["ExtLib";"Structures";"Monad"] "bind")
   let tm_ret = lazy (resolve_symbol ["ExtLib";"Structures";"Monad"] "ret")
 
-  let monad_sym_pkg = ["MirrorCore";"Examples";"Monad2";"MonadSym"]
+  let monad_sym_pkg = ["McExamples";"Monad2";"MonadSym"]
   let env_sym_pkg = ["MirrorCore";"SymEnv"]
 
   let expr_bind = lazy (resolve_symbol monad_sym_pkg "mBind")
@@ -365,8 +365,8 @@ module ReifyMonad =
 ;;
 
 (** extract the values from an environment **)
-let types_empty = lazy (resolve_symbol ["MirrorCore";"Examples";"Monad2";"MonadTypes"] "TEemp")
-let types_branch = lazy (resolve_symbol ["MirrorCore";"Examples";"Monad2";"MonadTypes"] "TEbranch")
+let types_empty = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "TEemp")
+let types_branch = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "TEbranch")
 
 let mapM (f : 'a -> 'b REIFY_MONAD.m) =
   let rec mapM (ls : 'a list) : 'b list REIFY_MONAD.m =

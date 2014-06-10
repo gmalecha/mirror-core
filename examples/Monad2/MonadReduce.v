@@ -97,7 +97,7 @@ Section soundness.
   Variable fs : functions typD.
 
   Let exprD' :=
-    @exprD' _ _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
+    @exprD' _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
 
   Ltac by_refl :=
     intros;

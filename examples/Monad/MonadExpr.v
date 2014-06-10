@@ -2,6 +2,7 @@ Require Import Coq.Lists.List Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.Fun.
+Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.Fin.
