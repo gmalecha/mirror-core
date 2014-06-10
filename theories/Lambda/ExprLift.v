@@ -42,6 +42,18 @@ Section raw_types.
       | Abs t a =>
         Abs t (lift (S skip) _by a)
     end.
+
+  Fixpoint vars_to_uvars (e : expr typ func) (skip add : nat) : expr typ func :=
+    match e with
+      | Var v =>
+        if v ?[ lt ] skip then Var v
+        else UVar (v - skip + add)
+      | UVar _
+      | Inj _ => e
+      | App l r => App (vars_to_uvars l skip add) (vars_to_uvars r skip add)
+      | Abs t e => Abs t (vars_to_uvars e (S skip) add)
+    end.
+
 End raw_types.
 
 Section types.
@@ -240,6 +252,57 @@ Section types.
         revert IHe. simpl. Cases.rewrite_all_goal.
         auto. }
       { rewrite H1 in *. congruence. } }
+  Qed.
+
+  Theorem vars_to_uvars_typeof_expr
+  : forall ts tus e tvs tvs' t,
+      typeof_expr ts tus (tvs ++ tvs') e = Some t ->
+      typeof_expr ts (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus))
+      = Some t.
+  Proof.
+    induction e; simpl; intros; auto.
+    { consider (v ?[ lt ] length tvs); intros.
+      { simpl. rewrite ListNth.nth_error_app_L in H; auto. }
+      { simpl. rewrite ListNth.nth_error_app_R in H; auto. 2: omega.
+        rewrite ListNth.nth_error_app_R; try omega.
+        replace (v - length tvs + length tus - length tus) with (v - length tvs)
+          by omega.
+        auto. } }
+    { forward. erewrite IHe1; eauto. erewrite IHe2; eauto. }
+    { forward. eapply (IHe (t :: tvs) tvs') in H.
+      simpl in *.
+      rewrite H in *. auto. }
+    { apply ListNth.nth_error_weaken; auto. }
+  Qed.
+
+  Lemma nth_error_get_hlist_nth_rwR
+  : forall {T} (F : T -> _) tus tvs' n,
+      n >= length tus ->
+      match nth_error_get_hlist_nth F tvs' (n - length tus) with
+        | None => True
+        | Some (existT t v) =>
+          exists val,
+          nth_error_get_hlist_nth F (tus ++ tvs') n = Some (@existT _ _ t val) /\
+          forall a b,
+            v a = val (hlist_app b a)
+      end.
+  Proof.
+    clear. intros.
+    forward. subst.
+    consider (nth_error_get_hlist_nth F (tus ++ tvs') n).
+    { intros.
+      eapply nth_error_get_hlist_nth_appR in H; eauto.
+      destruct s. simpl in *. rewrite H1 in *.
+      destruct H as [ ? [ ? ? ] ]. inv_all; subst.
+      eexists; split; eauto. }
+    { intros.
+      exfalso.
+      eapply nth_error_get_hlist_nth_Some in H1.
+      eapply nth_error_get_hlist_nth_None in H0.
+      forward_reason. simpl in *.
+      eapply ListNth.nth_error_length_ge in H0.
+      clear H1. eapply ListNth.nth_error_length_lt in x0.
+      rewrite app_length in H0. omega. }
   Qed.
 
 End types.

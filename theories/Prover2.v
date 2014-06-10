@@ -1,6 +1,6 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Tactics.
 Require Import ExtLib.Structures.Traversable.
+Require Import ExtLib.Data.List.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.

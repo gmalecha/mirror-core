@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
