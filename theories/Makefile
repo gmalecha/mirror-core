@@ -13,7 +13,8 @@ EXTENSIBLE := Types ExprCore \
 LAMBDA := TypesI2 ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  Expr ExprLift Red \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp \
-	  WtExpr
+	  WtExpr \
+	  ExprUnify ExprUnify_simul
 LAMBDAM :=
 POLY :=  Ctx Ctx2 TypeI ML ExprCore
 MODULES    := Generic \

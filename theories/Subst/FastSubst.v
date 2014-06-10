@@ -494,14 +494,14 @@ Section parametric.
       the_update_function' up i mu mb mm o = Some (Mapped e' d') ->
       match o with
         | Some (Mapped e d) =>
-          mb = true /\ mm = false /\ i e = e' /\ mu d = d'
+          (mm = false /\ mb = false) \/
+          (mb = true /\ mm = false /\ i e = e' /\ mu d = d')
         | _ => False
       end.
   Proof.
     clear. unfold the_update_function'; intros.
     destruct mb; destruct mm; destruct o; forward; try congruence.
-    inv_all; subst.
-  Admitted.
+  Qed.
 
 (*
   Axiom DEAD : ExprData.
