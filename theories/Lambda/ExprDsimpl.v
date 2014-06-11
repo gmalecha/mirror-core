@@ -1,5 +1,7 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
+Require Import ExtLib.Structures.Applicative.
+Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Eq.
@@ -57,45 +59,28 @@ Module ExprDenote <: ExprDenote.
     : forall {ts a b} (pf : Rty ts a b), typD ts a -> typD ts b :=
       @Rcast (fun T => T).
 
+    Definition OpenT ts := ResType.OpenT (typD ts).
+    Definition Open_UseV := ResType.Open_UseV.
+    Definition Open_UseU := ResType.Open_UseU.
+    Definition Open_Inj ts tus tvs := Eval simpl in @pure (OpenT ts tus tvs) _.
+
+    Definition Open_App {ts tus tvs t u}
+    : OpenT ts tus tvs (typD ts (typ_arr t u)) -> OpenT ts tus tvs (typD ts t) -> OpenT ts tus tvs (typD ts u) :=
+      match eq_sym (typD_arr ts t u) in _ = T
+            return OpenT ts tus tvs T ->
+                   OpenT ts tus tvs (typD ts t) ->
+                   OpenT ts tus tvs (typD ts u)
+      with
+        | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
+      end.
+
     Section OpenT.
       Variable ts : list Type.
       Variables tus tvs : tenv typ.
 
-      Definition OpenT (T : Type) :=
-        hlist (typD ts) tus -> hlist (typD ts) tvs -> T.
-
-      Definition Open_UseV (n : nat) : option { t : typ & OpenT (typD ts t) } :=
-        bind (m := option)
-             (nth_error_get_hlist_nth _ tvs n)
-             (fun t_get =>
-                let '(existT t get) := t_get in
-                ret (@existT _ (fun t => OpenT (typD ts t)) t
-                             (fun us vs => get vs))).
-
-      Definition Open_UseU (n : nat) : option { t : typ & OpenT (typD ts t) } :=
-        bind (m := option)
-             (nth_error_get_hlist_nth _ tus n)
-             (fun t_get =>
-                let '(existT t get) := t_get in
-                ret (@existT _ (fun t => OpenT (typD ts t)) t
-                             (fun us vs => get us))).
-
-      Definition Open_App {t u}
-      : OpenT (typD ts (typ_arr t u)) -> OpenT (typD ts t) -> OpenT (typD ts u) :=
-        match eq_sym (typD_arr ts t u) in _ = T
-              return OpenT T -> OpenT (typD ts t) -> OpenT (typD ts u)
-        with
-          | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
-        end.
-
-      Definition Open_Inj {t} (val : typD ts t)
-      : OpenT (typD ts t) :=
-        fun _ _ => val.
-
-
       (** Auxiliary definitions **)
       Definition Open_GetUAs (n : nat) (t : typ) :
-        option (OpenT (typD ts t)) :=
+        option (OpenT ts tus tvs (typD ts t)) :=
         bind (m := option)
              (nth_error_get_hlist_nth (typD ts) tus n)
              (fun t_get =>
@@ -106,7 +91,7 @@ Module ExprDenote <: ExprDenote.
                         ret (fun us vs => Rcast_val cast (get us)))).
 
       Definition Open_GetVAs (n : nat) (t : typ) :
-        option (OpenT (typD ts t)) :=
+        option (OpenT ts tus tvs (typD ts t)) :=
         bind (m := option)
              (nth_error_get_hlist_nth (typD ts) tvs n)
              (fun t_get =>
@@ -195,7 +180,7 @@ Module ExprDenote <: ExprDenote.
             bind (m := option)
                  (@funcAs _ f t)
                  (fun val =>
-                    ret (@Open_Inj ts tus tvs t val))
+                    ret (@Open_Inj ts tus tvs _ val))
           | App f x =>
             bind (m := option)
                  (typeof_expr ts tus tvs x)

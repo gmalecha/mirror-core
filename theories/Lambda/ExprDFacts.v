@@ -229,7 +229,7 @@ Module Make (ED : ExprDenote).
         repeat rewrite eq_Const_eq.
         rewrite <- H6.
         clear - H7.
-        unfold ED.OpenT.
+        unfold ED.OpenT, ResType.OpenT.
         repeat (rewrite eq_Const_eq || rewrite eq_Arr_eq).
         rewrite <- H7. reflexivity. }
       { intros. forward_reason; inv_all; subst.
@@ -243,7 +243,7 @@ Module Make (ED : ExprDenote).
         rewrite eq_option_eq. eexists; split; eauto.
         intros.
         clear - H3.
-        unfold ED.Open_Abs, ED.OpenT.
+        unfold ED.Open_Abs, ED.OpenT, ResType.OpenT.
         repeat (rewrite eq_Const_eq || rewrite eq_Arr_eq).
         match goal with
           | |- match ?X with _ => _ end = match ?Y with _ => _ end =>

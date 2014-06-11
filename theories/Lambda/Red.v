@@ -216,7 +216,7 @@ Section beta.
       forward; inv_all; subst.
       { split; auto. unfold Open_App.
         intros.
-        unfold OpenT.
+        unfold OpenT, ResType.OpenT.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
         rewrite H5. reflexivity. }
       { split; auto.
