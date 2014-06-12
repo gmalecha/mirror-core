@@ -36,7 +36,7 @@ Section proverI.
   : assumption_summary :=
     hyps ++ sum.
 
-  Definition assumptionValid (uvars vars : env) (sum : assumption_summary)
+  Definition assumptionValid (uvars vars : env nil) (sum : assumption_summary)
   : Prop :=
     AllProvable typ0_prop uvars vars sum.
 

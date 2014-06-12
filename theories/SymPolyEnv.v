@@ -77,11 +77,11 @@ Section typed.
                        Some false
                  end
   ; typeof_sym := func_typeof_sym
-  ; symD := fun f =>
+  ; symD := fun ts f =>
                match f as f
                      return match func_typeof_sym f with
                               | None => unit
-                              | Some t => typD nil t
+                              | Some t => typD ts t
                             end
                with
                  | FRef i ts' =>
@@ -95,7 +95,7 @@ Section typed.
                          | None => None
                        end
                      with
-                       | Some t => typD nil t
+                       | Some t => typD ts t
                        | None => unit
                      end
                    with
@@ -110,23 +110,25 @@ Section typed.
                                                             ftype)
                                        else None)
                                     with
-                                      | Some t => typD nil t
+                                      | Some t => typD ts t
                                       | None => unit
                                     end
                        with
-                         | true => fun pf =>
+                         | true => fun pf => _ (*
                            match type_apply _ ts' nil _ fd as xx
                                  return type_apply _ ts' nil _ fd = xx -> _
                            with
                              | None => fun pf' => match _ : False with end
                              | Some z => fun _ => z
-                           end eq_refl
+                           end eq_refl *)
                          | false => fun pf => tt
                        end eq_refl
                      | None => tt
                    end
                end
   }.
+  (** TODO(gmalecha): How worthwhile is the list of types? **)
+  admit. (*
   abstract (rewrite rel_dec_correct in pf;
             destruct (type_apply_length_equal ftype0 _ nil fd (eq_sym pf));
             match type of H with
@@ -135,7 +137,7 @@ Section typed.
                   | ?Y = _ =>
                     change Y with X in pf' ; congruence
                 end
-            end).
+            end). *)
   Defined.
 
   Definition from_list {T} (ls : list T) : PositiveMap.t T :=

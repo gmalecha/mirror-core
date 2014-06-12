@@ -260,12 +260,12 @@ Section ways_to_do_terms.
           | eq_refl => hlist_nth us u
         end
       | WT_Inj tvs t f pf => fun _ _ =>
-        type_weaken _ _ match pf in _ = t return match t with
-                                                   | Some t => typD nil t
-                                                   | None => unit
-                                                 end with
-                          | eq_refl => symD f
-                        end
+        match pf in _ = t return match t with
+                                   | Some t => typD ts t
+                                   | None => unit
+                                 end with
+          | eq_refl => symD ts f
+        end
       | WT_App tvs d r _ _ wtf wtx =>
         let f := match typ2_cast ts d r in _ = t return _ -> _ -> t with
                    | eq_refl => @exprD'_wt ts _ _ _ _ wtf

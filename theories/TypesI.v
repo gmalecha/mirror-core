@@ -11,10 +11,13 @@ Section typed.
    ** type parameters in a lot of places
    **)
   Class RType : Type :=
-  { typD : list Type -> typ -> Type
-    (** NOTE: This must be decidable if [exprD] will respect it.
+  { (** NOTE: This must be decidable if [exprD] will respect it.
      **)
+    typD : list Type -> typ -> Type
+(*
+    (** NOTE: weakening is not implementable unless types are strongly typed **)
   ; type_weaken : forall ts t, typD nil t -> typD ts t
+*)
   ; tyAcc : typ -> typ -> Prop
     (** NOTE: Everything below here is fixed! **)
   ; Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ

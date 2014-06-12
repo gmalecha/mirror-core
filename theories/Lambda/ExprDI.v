@@ -80,12 +80,12 @@ Module Type ExprDenote.
                           Rcast option cast
                                 (Some (match pf in _ = Z
                                              return match Z with
-                                                      | Some t => typD nil t
+                                                      | Some t => typD ts t
                                                       | None => unit
                                                     end -> typD ts _
                                        with
-                                         | eq_refl => fun x => type_weaken ts _ x
-                                       end (symD f)))
+                                         | eq_refl => fun x => x
+                                       end (symD ts f)))
                       end
       end eq_refl.
 
@@ -235,13 +235,13 @@ Module Type ExprFacts (ED : ExprDenote).
                 (pf' : Rty ts t' t),
                   P ts tus tvs (Inj i) t'
                     (Some (Relim (ED.OpenT ts tus tvs) pf' (fun _ _ =>
-                             type_weaken ts _ match pf in _ = t
-                                                    return match t with
-                                                             | Some t => typD nil t
-                                                             | None => unit
-                                                           end with
-                                                | eq_refl => symD i
-                                              end))))
+                             (match pf in _ = t
+                                    return match t with
+                                             | Some t => typD ts t
+                                             | None => unit
+                                           end with
+                                | eq_refl => symD ts i
+                              end)))))
         (Happ : forall tvs d r f x fval xval,
                   ED.typeof_expr ts tus tvs x = Some d ->
                   P ts tus tvs f (typ2 d r) (Some fval) ->

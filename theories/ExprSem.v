@@ -49,7 +49,7 @@ Section sem.
     { intuition. }
   Qed.
 
-  Definition Sem_equiv (t : typ) (R : relation (typD nil t)) (us vs : env)
+  Definition Sem_equiv (t : typ) (R : relation (typD nil t)) (us vs : env nil)
   : relation expr :=
     fun x y =>
       match exprD us vs x t , exprD us vs y t with

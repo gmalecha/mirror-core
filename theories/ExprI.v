@@ -58,7 +58,7 @@ Section Expr.
       exists val, exprD' us vs e t = Some val.
   Proof. reflexivity. Qed.
 
-  Definition exprD {E : Expr} (uvar_env var_env : env) (e : expr) (t : typ)
+  Definition exprD {E : Expr} (uvar_env var_env : env nil) (e : expr) (t : typ)
   : option (typD nil t) :=
     let (tus,us) := split_env uvar_env in
     let (tvs,vs) := split_env var_env in

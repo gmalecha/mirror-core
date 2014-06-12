@@ -472,7 +472,7 @@ Section lem.
     etransitivity. eapply H0. eapply H1.
   Qed.
 
-  Definition lemmaD (us vs : env) (l : lemma) : Prop :=
+  Definition lemmaD (us vs : env nil) (l : lemma) : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
     match lemmaD' tus tvs l with

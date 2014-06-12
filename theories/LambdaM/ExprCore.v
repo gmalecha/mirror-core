@@ -169,12 +169,12 @@ Module Type Expr.
                           Rcast option cast
                                 (Some (match pf in _ = Z
                                              return match Z with
-                                                      | Some t => typD nil t
+                                                      | Some t => typD ts t
                                                       | None => unit
                                                     end -> typD ts _
                                        with
-                                         | eq_refl => fun x => type_weaken ts _ x
-                                       end (symD f)))
+                                         | eq_refl => fun x => x
+                                       end (symD ts f)))
                       end
       end eq_refl.
 

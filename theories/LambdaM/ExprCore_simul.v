@@ -181,12 +181,12 @@ Module Make (P : Params) <: Expr with Definition typ := P.typ
                           Rcast option cast
                                 (Some (match pf in _ = Z
                                              return match Z with
-                                                      | Some t => typD nil t
+                                                      | Some t => typD ts t
                                                       | None => unit
                                                     end -> typD ts _
                                        with
-                                         | eq_refl => fun x => type_weaken ts _ x
-                                       end (symD f)))
+                                         | eq_refl => fun x =>  x
+                                       end (symD ts f)))
                       end
       end eq_refl.
 
@@ -220,13 +220,13 @@ Module Make (P : Params) <: Expr with Definition typ := P.typ
                                 Some (Relim (OpenT ts tus tvs) cast
                                             (match pf in _ = Z
                                                    return match Z with
-                                                            | Some t => typD nil t
+                                                            | Some t => typD ts t
                                                             | None => unit
                                                           end -> OpenT ts tus tvs (typD ts _)
                                              with
                                                | eq_refl => fun x =>
-                                                              (@Open_Inj _ _ _ _ (type_weaken ts _ x))
-                                             end (symD f)))
+                                                 (@Open_Inj _ _ _ _ x)
+                                             end (symD ts f)))
                             end
             end eq_refl
           | App f x =>
@@ -277,13 +277,13 @@ Module Make (P : Params) <: Expr with Definition typ := P.typ
                 Some (@existT _ _ T
                               (match pf in _ = Z
                                      return match Z with
-                                              | Some t => typD nil t
+                                              | Some t => typD ts t
                                               | None => unit
                                             end -> OpenT ts tus tvs (typD ts _)
                                with
                                  | eq_refl => fun x =>
-                                   Open_Inj ts tus tvs _ (type_weaken ts _ x)
-                               end (symD f)))
+                                   Open_Inj ts tus tvs _ x
+                               end (symD ts f)))
             end eq_refl
           | App f x =>
             match exprD'_simul tvs f with

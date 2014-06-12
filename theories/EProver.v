@@ -36,7 +36,7 @@ Section proverI.
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
              (SsubstOk : @SubstOk subst expr typ _ _ _)
-    (valid : env -> env -> summary -> Prop)
+    (valid : env nil -> env nil -> summary -> Prop)
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst) : Prop :=
     forall uvars vars sum,
       valid uvars vars sum ->
@@ -50,10 +50,10 @@ Section proverI.
         end.
 
   Record EProverOk (P : EProver) : Type :=
-  { Valid : env -> env -> Facts P -> Prop
+  { Valid : env nil -> env nil -> Facts P -> Prop
   ; Valid_weaken : forall u g f ue ge,
     Valid u g f -> Valid (u ++ ue) (g ++ ge) f
-  ; Summarize_correct : forall (uvars vars : env) (hyps : list expr),
+  ; Summarize_correct : forall (uvars vars : env nil) (hyps : list expr),
     Forall (Provable uvars vars) hyps ->
     Valid uvars vars (Summarize P (typeof_env uvars) (typeof_env vars) hyps)
   ; Learn_correct : forall uvars vars facts,
@@ -68,7 +68,7 @@ Section proverI.
   Theorem Prove_concl P (Pok : EProverOk P)
   : forall subst (Ssubst : Subst subst expr)
            (Sok : SubstOk _ _)
-           (vars uvars : env)
+           (vars uvars : env nil)
            (sum : Facts P),
       Valid Pok uvars vars sum ->
       forall (goal : expr) (sub sub' : subst),

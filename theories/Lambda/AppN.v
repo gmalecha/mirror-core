@@ -313,7 +313,7 @@ Section app_full_proofs.
 
   (** TODO: Does this actually get used? *)
   Section exprD_app.
-    Variables us vs : env.
+    Variables us vs : env nil.
 
     Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD nil t}) t {struct ls} :
       typD nil (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
@@ -356,14 +356,22 @@ Section app_full_proofs.
     Proof.
       intros. unfold apps_sem.
       unfold exprD.
-      forward. rewrite apps_sem'_nil. reflexivity.
+      repeat match goal with
+               | |- (let (_,_) := ?X in _) = (let (_,_) := ?Y in _) =>
+                 change Y with X; destruct X
+             end.
+      rewrite apps_sem'_nil. simpl. reflexivity.
     Qed.
 
     Lemma exprD_apps : forall es e t,
       exprD us vs (apps e es) t = apps_sem e es t.
     Proof.
       unfold apps_sem, exprD.
-      intros. forward.
+      intros.
+      repeat match goal with
+               | |- (let (_,_) := ?X in _) = (let (_,_) := ?Y in _) =>
+                 change Y with X; destruct X
+             end.
       simpl. rewrite exprD'_apps. reflexivity.
     Qed.
 

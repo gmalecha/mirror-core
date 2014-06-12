@@ -177,7 +177,7 @@ Section substitute.
           rewrite x5 in x3. congruence. } } }
     { simpl. autorewrite with exprD_rw.
       unfold funcAs in *.
-      generalize dependent (symD f).
+      generalize dependent (symD ts f).
       destruct (typeof_sym f).
       { intros.
         forward. destruct r.
@@ -282,7 +282,7 @@ Section beta.
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       rewrite type_cast_refl; eauto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
-      unfold funcAs. generalize (symD i).
+      unfold funcAs. generalize (symD ts i).
       Cases.rewrite_all_goal.
       rewrite type_cast_refl; eauto. simpl. auto. }
     { simpl. destruct f;

@@ -114,12 +114,12 @@ Module ExprDenote <: ExprDenote.
                           Rcast option cast
                                 (Some (match pf in _ = Z
                                              return match Z with
-                                                      | Some t => typD nil t
+                                                      | Some t => typD ts t
                                                       | None => unit
                                                     end -> typD ts _
                                        with
-                                         | eq_refl => fun x => type_weaken ts _ x
-                                       end (symD f)))
+                                         | eq_refl => fun x => x
+                                       end (symD ts f)))
                       end
       end eq_refl.
 
@@ -132,12 +132,12 @@ Module ExprDenote <: ExprDenote.
                       Some (@existT _ _ T
                                     (match pf in _ = Z
                                            return match Z with
-                                                    | Some t => typD nil t
+                                                    | Some t => typD ts t
                                                     | None => unit
                                                   end -> typD ts _
                                      with
-                                       | eq_refl => fun x => type_weaken ts _ x
-                                     end (symD f)))
+                                       | eq_refl => fun x => x
+                                     end (symD ts f)))
       end eq_refl.
 
     Section exprD'.
@@ -397,7 +397,7 @@ Module ExprDenote <: ExprDenote.
         eapply nth_error_get_hlist_nth_Some in H0; destruct H0; simpl in *; auto.
         red in r. subst. auto. }
       { unfold exprD', exprD'_simul, func_simul, funcAs in *; simpl in *.
-        generalize dependent (symD f).
+        generalize dependent (symD ts f).
         destruct (typeof_sym f).
         { destruct 1. forward. inv_all; subst. auto. }
         { destruct 2; congruence. } }
@@ -460,7 +460,7 @@ Module ExprDenote <: ExprDenote.
         forward; inv_all; subst. }
       { unfold exprD' in *; simpl in *. forward; inv_all; subst.
         unfold funcAs in *.
-        generalize dependent (symD f).
+        generalize dependent (symD ts f).
         destruct (typeof_sym f); intros; try congruence.
         forward. }
       { rewrite exprD'_App' in *. simpl in *.
@@ -512,7 +512,7 @@ Module ExprDenote <: ExprDenote.
           rewrite type_cast_refl in H1; eauto. inv_all; subst.
           eauto. } }
       { unfold exprD', exprD'_simul,func_simul, funcAs. simpl in *; intros.
-        generalize (symD f).
+        generalize (symD ts f).
         destruct (typeof_sym f).
         { split; intros; forward; inv_all; subst; simpl.
           { rewrite type_cast_refl; eauto. }

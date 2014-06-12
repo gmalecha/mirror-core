@@ -16,10 +16,10 @@ Section symbols.
      ** any of any [func] denotes to a term that contains
      ** a unification variable.
      **)
-  ; symD : forall f : func,
+  ; symD : forall ts (f : func),
              match typeof_sym f with
                | None => unit
-               | Some t => typD nil t
+               | Some t => typD ts t
              end
   ; sym_eqb : func -> func -> option bool
   }.
@@ -34,32 +34,32 @@ Section symbols.
 
   Context {RSym_func : RSym}.
 
-  Definition symAs (f : func) (t : typ) : option (typD nil t) :=
+  Definition symAs ts (f : func) (t : typ) : option (typD ts t) :=
     match typeof_sym f as ft
           return match ft with
                    | None => unit
-                   | Some t => typD nil t
-                 end -> option (typD nil t)
+                   | Some t => typD ts t
+                 end -> option (typD ts t)
     with
       | None => fun _ => None
       | Some ft => fun val =>
-        match type_cast nil t ft with
+        match type_cast ts t ft with
           | None => None
           | Some pf => Some (Relim (fun x => x) pf val)
         end
-    end (symD f).
+    end (symD ts f).
 
-  Theorem symAs_Some : forall f t (pf : typeof_sym f = Some t),
-    symAs f t =
+  Theorem symAs_Some : forall ts f t (pf : typeof_sym f = Some t),
+    symAs ts f t =
     Some match pf in _ = z return match z with
                                     | None => unit
-                                    | Some z => typD nil z
+                                    | Some z => typD ts z
                                   end with
-           | eq_refl => symD f
+           | eq_refl => symD ts f
          end.
   Proof.
     intros. unfold symAs.
-    generalize (symD f).
+    generalize (symD ts f).
     rewrite pf. intros.
     rewrite (type_cast_refl); eauto.
   Qed.
@@ -70,25 +70,25 @@ Section symbols.
    ** be done independently of determining the denotation function.
    **)
   Definition RSym_from
-             (fd : func -> option {t : typ & typD nil t})
+             (fd : func -> option {t : typ & forall ts, typD ts t})
              (eqb : func -> func -> option bool) : RSym :=
   {| typeof_sym := fun f =>
                     match fd f with
                       | None => None
                       | Some (existT t _) => Some t
                     end
-   ; symD := fun f =>
+   ; symD := fun ts f =>
                match fd f as F return match match F with
                                               | None => None
                                               | Some (existT t _) => Some t
                                             end
                                       with
                                         | None => unit
-                                        | Some t => typD nil t
+                                        | Some t => typD ts t
                                       end
                with
                  | None => tt
-                 | Some (existT t d) => d
+                 | Some (existT t d) => d ts
                end
    ; sym_eqb := eqb
    |}.
@@ -108,18 +108,18 @@ Section symbols_sum.
                              | inl f => typeof_sym f
                              | inr f => typeof_sym f
                            end
-  ; symD := fun f => match f as f
-                           return match match f with
-                                          | inl f => typeof_sym f
-                                          | inr f => typeof_sym f
-                                        end with
-                                    | None => unit
-                                    | Some t => typD nil t
-                                  end
-                     with
-                       | inl f => symD f
-                       | inr f => symD f
-                    end
+  ; symD := fun ts f => match f as f
+                              return match match f with
+                                             | inl f => typeof_sym f
+                                             | inr f => typeof_sym f
+                                           end with
+                                       | None => unit
+                                       | Some t => typD ts t
+                                     end
+                        with
+                          | inl f => symD ts f
+                          | inr f => symD ts f
+                        end
   ; sym_eqb := fun x y =>
                  match x , y with
                    | inl x , inl y => sym_eqb x y

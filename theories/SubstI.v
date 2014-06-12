@@ -30,7 +30,7 @@ Section subst.
   Variable Expr_expr : Expr _ expr.
 
   Class SubstOk (S : Subst) : Type :=
-  { substD : env -> env -> T -> Prop
+  { substD : env nil -> env nil -> T -> Prop
   ; WellTyped_subst : tenv typ -> tenv typ -> T -> Prop
   ; substD_empty : forall u v, substD u v empty
   ; WellTyped_empty : forall u v, WellTyped_subst u v empty

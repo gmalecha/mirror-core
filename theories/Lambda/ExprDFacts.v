@@ -65,13 +65,13 @@ Module Make (ED : ExprDenote).
                 (pf' : Rty ts t' t),
                   P ts tus tvs (Inj i) t'
                     (Some (Relim (ED.OpenT ts tus tvs) pf' (fun _ _ =>
-                             type_weaken ts _ match pf in _ = t
-                                                    return match t with
-                                                             | Some t => typD nil t
-                                                             | None => unit
-                                                           end with
-                                                | eq_refl => symD i
-                                              end))))
+                             match pf in _ = t
+                                   return match t with
+                                            | Some t => typD ts t
+                                            | None => unit
+                                          end with
+                               | eq_refl => symD ts i
+                             end))))
         (Happ : forall tvs d r f x fval xval,
                   ED.typeof_expr ts tus tvs x = Some d ->
                   P ts tus tvs f (typ2 d r) (Some fval) ->
@@ -102,7 +102,7 @@ Module Make (ED : ExprDenote).
       { clear Habs Happ Huvar Hvar.
         unfold ED.funcAs in *.
         specialize (Hinj tvs f).
-        generalize dependent (symD f).
+        generalize dependent (symD ts f).
         destruct (typeof_sym f); intros.
         { forward. specialize (Hinj _ t eq_refl (Rsym r)).
           generalize dependent (P ts tus tvs (Inj f) t).
@@ -211,7 +211,7 @@ Module Make (ED : ExprDenote).
       { intros; inv_all; subst.
         autorewrite with exprD_rw. simpl.
         unfold ED.funcAs.
-        generalize (symD i). rewrite pf.
+        generalize (symD ts i). rewrite pf.
         destruct pf'.
         rewrite type_cast_refl; eauto. simpl.
         eexists; split; eauto. }
@@ -271,7 +271,7 @@ Module Make (ED : ExprDenote).
           rewrite type_cast_refl; eauto. }
         { rewrite nth_error_get_hlist_nth_None in H3. congruence. } }
       { unfold ED.funcAs.
-        generalize (symD f). rewrite H2.
+        generalize (symD ts f). rewrite H2.
         rewrite type_cast_refl; eauto.
         simpl. eauto. }
       { forward.
@@ -338,7 +338,7 @@ Module Make (ED : ExprDenote).
       { intros; inv_all; subst.
         autorewrite with exprD_rw in *; simpl in *.
         unfold ED.funcAs in *.
-        generalize dependent (symD i).
+        generalize dependent (symD ts i).
         rewrite pf.
         destruct pf'.
         destruct (type_cast ts t' t'0).
@@ -404,12 +404,12 @@ Module Make (ED : ExprDenote).
           destruct r. eapply nth_error_get_hlist_nth_Some in H0.
           destruct H0. assumption. } }
       { split; intros.
-        { unfold ED.funcAs. generalize (symD f).
+        { unfold ED.funcAs. generalize (symD ts f).
           rewrite H. rewrite type_cast_refl; eauto.
           simpl. eauto. }
         { forward_reason; forward.
           unfold ED.funcAs in H.
-          generalize dependent (symD f).
+          generalize dependent (symD ts f).
           destruct (typeof_sym f); try congruence.
           intros. forward. } }
       { split; intros.
