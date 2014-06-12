@@ -7,7 +7,7 @@ Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.

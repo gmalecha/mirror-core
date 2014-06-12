@@ -25,7 +25,8 @@ Global Instance RelDec_eq_func : RelDec (@eq func) := _.
 Global Instance RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func := _.
 
 Section RSym.
-  Variable RType_typ : RType.
+  Variable typ : Type.
+  Variable RType_typ : RType typ.
 
   Record function := F
   { ftype : typ

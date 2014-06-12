@@ -8,7 +8,7 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI3.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
@@ -21,17 +21,18 @@ Set Strict Implicit.
 
 Section typed.
   Variable subst : Type.
+  Variable typ : Type.
   Variable func : Type.
-  Variable RType_typ : RType.
+  Variable RType_typ : RType typ.
   Variable Typ2_arr : Typ2 _ Fun.
-  Variable RSym_func : RSym typD func.
+  Variable RSym_func : RSym func.
   Variable RSymOk_func : RSymOk RSym_func.
   Variable Subst_subst : Subst subst (expr typ func).
   Variable SubstUpdate_subst : SubstUpdate subst (expr typ func).
   Variable SubstOk_subst : SubstOk (Expr_expr) Subst_subst.
   Variable SubstUpdateOk_subst
   : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
-  Local Instance Expr_expr : Expr typD (expr typ func) := Expr_expr.
+  Local Instance Expr_expr : Expr _ (expr typ func) := Expr_expr.
 
   Local Instance RelDec_Rty ts : RelDec (Rty ts) :=
   { rel_dec := fun a b => match type_cast ts a b with
@@ -142,14 +143,14 @@ Section typed.
                     (t : typ), option subst) : Prop :=
     forall tu tv e1 e2 s s' t tv',
       unify (@nil Type) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
-      WellFormed_subst (typD := @typD RType_typ) (expr := expr (@typ RType_typ) func) s ->
-      WellFormed_subst (typD := @typD RType_typ) (expr := expr (@typ RType_typ) func) s' /\
+      WellFormed_subst (expr := expr typ func) s ->
+      WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
         exprD' nil tu (tv' ++ tv) t e1 = Some v1 ->
         exprD' nil tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
-             substD (typD := @typD RType_typ) (expr := expr (@typ RType_typ) func) tu tv s' = Some sD'
+             substD (expr := expr typ func) tu tv s' = Some sD'
           /\ forall us vs,
                sD' us vs ->
                sD us vs /\
@@ -706,5 +707,3 @@ Section typed.
   Qed.
 
 End typed.
-
-

@@ -2,7 +2,7 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Member.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 
@@ -17,9 +17,10 @@ Set Strict Implicit.
  ** Their denotation functions should be simpler as well.
  **)
 Section ways_to_do_terms.
+  Variable typ : Type.
   Variable func : Type.
-  Variable RT : RType.
-  Variable RSym_func : RSym typD func.
+  Variable RT : RType typ.
+  Variable RSym_func : RSym func.
   Variable Typ2_Fun : Typ2 _ Fun.
 
   (** A guaranteed well-typed expr **)

@@ -6,12 +6,13 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section semantic.
-  Context {RType_typ : RType}.
+  Variable typ : Type.
+  Context {RType_typ : RType typ}.
   Variable TI_prop : Typ0 _ Prop.
   Variable expr : Type.
   Context {Expr_expr : Expr _ expr}.
 
-  Let tvProp := @typ0 _ _ TI_prop.
+  Let tvProp := @typ0 _ _ _ TI_prop.
 
   Definition Provable_val (val : typD nil tvProp) : Prop :=
     match typ0_cast nil in _ = t return t with

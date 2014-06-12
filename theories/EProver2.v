@@ -14,10 +14,9 @@ Set Strict Implicit.
  **)
 Section proverI.
   Context {typ : Type}.
-  Variable typD : list Type -> typ -> Type.
-  Context {RType_typ : RType typD}.
+  Context {RType_typ : RType typ}.
   Variable expr : Type.
-  Context {Expr_expr : Expr typD expr}.
+  Context {Expr_expr : Expr _ expr}.
   Context {ty : typ}.
   Variable Provable' : typD nil ty -> Prop.
 
@@ -37,8 +36,8 @@ Section proverI.
 
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : @SubstOk subst typ typD expr _ _)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType typD tus tvs Prop)
+             (SsubstOk : @SubstOk subst typ _ expr _ _)
+    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
     forall tus tvs sum (goal : expr) (sub sub' : subst),
@@ -59,7 +58,7 @@ Section proverI.
              Provable' (goalD us vs)).
 
   Record EProverOk (P : EProver) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType typD tus tvs Prop
+  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
   ; factsD_weakenU
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->

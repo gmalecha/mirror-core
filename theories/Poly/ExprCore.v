@@ -352,8 +352,6 @@ Module Expr (EExt : ExprExt).
       { f_equal. apply lift_typ0_compose_trans. }
     Defined.
 
-    Require Import MirrorCore.Iso.
-
     Record BigIso (A B : Type) : Type :=
     { binto : A -> B
     ; boutof : B -> A

@@ -4,14 +4,14 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
+  Variable typ : Type.
 
   (** NOTE: Fewer parameters is better, but pulling [typ] to the top
    ** means that I can modularize the expression langauge and avoid
    ** type parameters in a lot of places
    **)
   Class RType : Type :=
-  { typ : Type
-  ; typD : list Type -> typ -> Type
+  { typD : list Type -> typ -> Type
     (** NOTE: This must be decidable if [exprD] will respect it.
      **)
   ; type_weaken : forall ts t, typD nil t -> typD ts t
@@ -149,3 +149,5 @@ Section typed.
   End Typ2.
 
 End typed.
+
+Arguments RTypeOk {typ _} : rename.

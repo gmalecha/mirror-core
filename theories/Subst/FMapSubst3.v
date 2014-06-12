@@ -8,6 +8,7 @@ Require Import MirrorCore.SubstI3.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -25,9 +26,9 @@ Module Make (FM : S with Definition E.t := uvar
 
   Section exprs.
     Variable typ : Type.
-    Variable typD : list Type -> typ -> Type.
+    Context {RType_typ : RType typ}.
     Variable expr : Type.
-    Variable Expr_expr : Expr typD expr.
+    Variable Expr_expr : Expr _ expr.
     Variable ExprOk_expr : ExprOk Expr_expr.
 
     Variable mentionsU : uvar -> expr -> bool.

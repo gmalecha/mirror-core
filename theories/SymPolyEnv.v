@@ -16,8 +16,9 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
-  Variable RType_typ : RType.
-  Variable RTypeOk_typD : RTypeOk _.
+  Variable typ : Type.
+  Variable RType_typ : RType typ.
+  Variable RTypeOk_typD : RTypeOk.
 
   Inductive func : Type :=
   | FRef (fi : positive) (ts : list typ).

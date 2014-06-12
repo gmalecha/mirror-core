@@ -7,7 +7,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.AppN.
@@ -18,12 +18,13 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section substitute.
+  Context {typ : Type}.
   Context {sym : Type}.
-  Context {RT : RType}
+  Context {RT : RType typ}
           {T2 : Typ2 _ PreFun.Fun}
-          {RS : RSym typD sym}.
+          {RS : RSym sym}.
 
-  Context {RTOk : RTypeOk RT}
+  Context {RTOk : RTypeOk}
           {T2Ok : Typ2Ok T2}
           {RSOk : RSymOk RS}.
 
@@ -220,12 +221,13 @@ Section substitute.
 End substitute.
 
 Section beta.
+  Context {typ : Type}.
   Context {sym : Type}.
-  Context {RT : RType}
+  Context {RT : RType typ}
           {T2 : Typ2 _ PreFun.Fun}
-          {RS : RSym typD sym}.
+          {RS : RSym sym}.
 
-  Context {RTOk : RTypeOk RT}
+  Context {RTOk : RTypeOk}
           {T2Ok : Typ2Ok T2}
           {RSOk : RSymOk RS}.
 
@@ -261,7 +263,7 @@ Section beta.
           [ intuition | ]
     end.
     revert tvs e t.
-    refine (@ExprFacts.exprD'_ind _ _ _ _ _ _ _
+    refine (@ExprFacts.exprD'_ind _ _ _ _ _ _ _ _
                                       (fun ts tus tvs e t val =>
                                          exprD' ts tus tvs t e = val /\
                                       match val with

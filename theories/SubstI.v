@@ -25,12 +25,13 @@ Section subst.
   ; empty : T
   }.
 
-  Variable RType_type : RType.
+  Variable typ : Type.
+  Variable RType_type : RType typ.
   Variable Expr_expr : Expr _ expr.
 
   Class SubstOk (S : Subst) : Type :=
   { substD : env -> env -> T -> Prop
-  ; WellTyped_subst : tenv -> tenv -> T -> Prop
+  ; WellTyped_subst : tenv typ -> tenv typ -> T -> Prop
   ; substD_empty : forall u v, substD u v empty
   ; WellTyped_empty : forall u v, WellTyped_subst u v empty
   ; WellTyped_lookup : forall u v s uv e,
@@ -45,7 +46,7 @@ Section subst.
       exists val,
         nth_error u uv = Some val /\
         exprD u v e (projT1 val) = Some (projT2 val)
-  ; WellTyped_set : forall uv e s s' (u v : tenv) t,
+  ; WellTyped_set : forall uv e s s' (u v : tenv typ) t,
       WellTyped_subst u v s ->
       nth_error u uv = Some t ->
       Safe_expr u v e t ->

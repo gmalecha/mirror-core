@@ -11,7 +11,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 
@@ -21,36 +21,22 @@ Set Strict Implicit.
 Module ExprDenote <: ExprDenote.
 
   Section with_types.
+    Context {typ : Type}.
     Context {func : Type}.
-    Context {RType_typD : RType}.
+    Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ Fun}.
-    Context {RSym_func : RSym typD func}.
+    Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
-    Context {RTypeOk_typD : @RTypeOk _}.
+    Context {RTypeOk_typD : RTypeOk}.
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
-    Let typ_arr : typ -> typ -> typ := @typ2 _ _ _.
-    Let arr_match := @typ2_match _ _ _.
+    Let typ_arr : typ -> typ -> typ := @typ2 _ _ _ _.
+    Let arr_match := @typ2_match _ _ _ _.
     Let typD_arr
     : forall ts a b, typD ts (typ_arr a b) = (typD ts a -> typD ts b)
-      := @typ2_cast _ _ _.
-
-
-    Global Instance RelDec_Rty ts : RelDec (Rty ts) :=
-    { rel_dec := fun a b => match type_cast ts a b with
-                              | Some _ => true
-                              | None => false
-                            end }.
-
-    Global Instance RelDec_Correct_Rty ts : @RelDec_Correct _ (Rty ts) _.
-    Proof.
-      constructor. unfold rel_dec; simpl.
-      intros; consider (type_cast ts x y); intros.
-      split; auto. apply type_cast_total in H; eauto with typeclass_instances.
-      intuition.
-    Qed.
+      := @typ2_cast _ _ _ _.
 
     Definition Rcast T {ts a b} (pf : Rty ts a b) : T (typD ts a) -> T (typD ts b) :=
       Relim T (Rsym pf).
@@ -278,7 +264,7 @@ Module ExprDenote <: ExprDenote.
 
     (** Equations **)
     Theorem exprD'_Var
-    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t v,
         exprD' ts tus tvs t (Var v) =
         bind (m := option)
@@ -292,7 +278,7 @@ Module ExprDenote <: ExprDenote.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_UVar
-    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t u,
         exprD' ts tus tvs t (UVar u) =
         bind (m := option)
@@ -306,7 +292,7 @@ Module ExprDenote <: ExprDenote.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_Inj
-    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t s,
         exprD' ts tus tvs t (Inj s) =
         bind (m := option)
@@ -383,7 +369,7 @@ Module ExprDenote <: ExprDenote.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_Abs
-    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t t' e,
         exprD' ts tus tvs t (Abs t' e) =
         arr_match (fun T => option (OpenT ts tus tvs T)) ts t
@@ -504,7 +490,7 @@ Module ExprDenote <: ExprDenote.
     Qed.
 
     (** NOTE: These are requiring decidable equality **)
-    Local Instance RelDec_eq_typ : RelDec (@eq typ) := RelDec_Rty nil.
+    Local Instance RelDec_eq_typ : RelDec (@eq typ) := RelDec_Rty _ nil.
     Local Instance RelDecCorrect_eq_typ : RelDec_Correct RelDec_eq_typ :=
       _.
 
@@ -679,7 +665,7 @@ Module ExprDenote <: ExprDenote.
 
 
     Theorem exprD'_respects
-    : RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t t' e (pf : Rty ts t' t),
         exprD' ts tus tvs t e =
         Rcast (fun T => option (OpenT ts tus tvs T)) pf

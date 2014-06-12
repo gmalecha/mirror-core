@@ -2,18 +2,19 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed_fold.
+  Variable typ : Type.
   Variable func : Type.
 
-  Variable RType_typ : RType.
+  Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ Fun.
-  Variable RSym_func : RSym typD func.
+  Variable RSym_func : RSym func.
 
   Section folderL.
     Definition Lazy (T : Type) := unit -> option T.

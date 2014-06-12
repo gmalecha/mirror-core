@@ -10,7 +10,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ResType.
 Require Import MirrorCore.Lambda.ExprCore.
 
@@ -20,21 +20,22 @@ Set Strict Implicit.
 Module Type ExprDenote.
 
   Section with_types.
+    Context {typ : Type}.
     Context {func : Type}.
-    Context {RType_typD : RType}.
+    Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 RType_typD Fun}.
-    Context {RSym_func : RSym typD func}.
+    Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
-    Context {RTypeOk_typD : @RTypeOk _}.
+    Context {RTypeOk_typD : @RTypeOk _ _}.
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
-    Let typ_arr : typ -> typ -> typ := @typ2 _ _ _.
-    Let arr_match := @typ2_match _ _ _.
+    Let typ_arr : typ -> typ -> typ := @typ2 _ _ _ _.
+    Let arr_match := @typ2_match _ _ _ _.
     Let typD_arr
     : forall ts a b, typD ts (typ_arr a b) = (typD ts a -> typD ts b)
-      := @typ2_cast _ _ _.
+      := @typ2_cast _ _ _ _.
 
     Definition Rcast T {ts a b} (pf : Rty ts a b) : T (typD ts a) -> T (typD ts b) :=
       Relim T (Rsym pf).
@@ -90,12 +91,12 @@ Module Type ExprDenote.
 
     Parameter exprD'
     : forall {Typ2_Fun : Typ2 _ Fun}
-             {RSym_func : RSym typD func}
+             {RSym_func : RSym func}
              ts (tus tvs : tenv typ) (t : typ) (e : expr typ func),
         option (OpenT ts tus tvs (typD ts t)).
 
     Axiom exprD'_respects
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t t' e (pf : Rty ts t' t),
         exprD' ts tus tvs t e =
         Rcast (fun T => option (OpenT ts tus tvs T)) pf (exprD' ts tus tvs t' e).
@@ -136,7 +137,7 @@ Module Type ExprDenote.
     End typeof_expr.
 
     Axiom exprD'_Var
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t v,
         exprD' ts tus tvs t (Var v) =
         bind (m := option)
@@ -149,7 +150,7 @@ Module Type ExprDenote.
                         ret (fun us vs => Rcast_val cast (get vs)))).
 
     Axiom exprD'_UVar
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t u,
         exprD' ts tus tvs t (UVar u) =
         bind (m := option)
@@ -162,7 +163,7 @@ Module Type ExprDenote.
                         ret (fun us vs => Rcast_val cast (get us)))).
 
     Axiom exprD'_Inj
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t s,
         exprD' ts tus tvs t (Inj s) =
         bind (m := option)
@@ -171,7 +172,7 @@ Module Type ExprDenote.
                 ret (fun _ _ => val)).
 
     Axiom exprD'_App
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t f x,
         exprD' ts tus tvs t (App f x) =
         bind (m := option)
@@ -184,7 +185,7 @@ Module Type ExprDenote.
                                 ret (Open_App f x)))).
 
     Axiom exprD'_Abs
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs t t' e,
         exprD' ts tus tvs t (Abs t' e) =
         arr_match (fun T => option (OpenT ts tus tvs T)) ts t
@@ -206,18 +207,19 @@ End ExprDenote.
 Module Type ExprFacts (ED : ExprDenote).
 
   Section with_types.
-    Context {RType_typD : RType}.
+    Context {typ : Type}.
+    Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ Fun}.
     Context {func : Type}.
-    Context {RSym_func : RSym typD func}.
+    Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
-    Context {RTypeOk_typD : @RTypeOk _}.
+    Context {RTypeOk_typD : RTypeOk}.
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
     Axiom exprD'_ind
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall (P : forall ts tus tvs, _ -> forall t, option (ED.OpenT _ tus tvs (typD ts t)) -> Prop) ts tus
         (Hnone : forall ts tus tvs e t,
                    ED.exprD' ts tus tvs t e = None -> P ts tus tvs e t None)
@@ -253,13 +255,13 @@ Module Type ExprFacts (ED : ExprDenote).
         P ts tus tvs e t (ED.exprD' ts tus tvs t e).
 
     Axiom typeof_expr_weaken
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs e t tus' tvs',
         ED.typeof_expr ts tus tvs e = Some t ->
         ED.typeof_expr ts (tus ++ tus') (tvs ++ tvs') e = Some t.
 
     Axiom exprD'_weaken
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs (e : expr typ func) t val tus' tvs',
         ED.exprD' ts tus tvs t e = Some val ->
         exists val',
@@ -268,13 +270,13 @@ Module Type ExprFacts (ED : ExprDenote).
             val us vs = val' (hlist_app us us') (hlist_app vs vs').
 
     Axiom exprD'_type_cast
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs e t,
         ED.exprD' ts tus tvs t e =
         match ED.typeof_expr ts tus tvs e with
           | None => None
           | Some t' =>
-            match @type_cast _ ts t' t with
+            match type_cast ts t' t with
               | None => None
               | Some cast =>
                 match ED.exprD' ts tus tvs t' e with
@@ -286,7 +288,7 @@ Module Type ExprFacts (ED : ExprDenote).
         end.
 
     Axiom typeof_expr_exprD'
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs e t,
         ED.typeof_expr ts tus tvs e = Some t ->
         exists val,

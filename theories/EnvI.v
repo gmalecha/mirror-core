@@ -8,7 +8,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section Env.
-  Context {RType_typ : RType}.
+  Variable typ : Type.
+  Context {RType_typ : RType typ}.
 
   (** Environments **)
   Definition tenv : Type := list typ.
@@ -318,4 +319,6 @@ Section nth_error_get_hlist_nth.
 
 End nth_error_get_hlist_nth.
 
-Arguments join_env {_ _} _.
+Arguments env {typ _} : rename.
+Arguments join_env {_ _ _} _.
+Arguments split_env {_ _} _.

@@ -12,16 +12,12 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section Expr.
-  Variable RType_typ : RType.
-(*
   Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-*)
+  Variable RType_typ : RType typ.
 
   Variable expr : Type.
 
-  Definition ResType (us vs : tenv) (T : Type) : Type :=
-    option (hlist (typD nil) us -> hlist (typD nil) vs -> T).
+  Definition ResType (us vs : tenv typ) (T : Type) : Type :=    option (hlist (typD nil) us -> hlist (typD nil) vs -> T).
 
   (** TODO:
    ** - Right now this is intensionally weak, but it should probably include
@@ -32,8 +28,9 @@ Section Expr.
    ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
-  { exprD' : forall (us vs : tenv), expr -> forall (t : typ),
-                                                  ResType us vs (typD nil t)
+  { exprD' : forall (us vs : tenv typ),
+               expr -> forall (t : typ),
+                         ResType us vs (typD nil t)
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
   }.
@@ -51,7 +48,7 @@ Section Expr.
     destruct pfu. destruct pfv. reflexivity.
   Qed.
 
-  Definition Safe_expr {E : Expr} (tus tvs : tenv) (e : expr) (t : typ)
+  Definition Safe_expr {E : Expr} (tus tvs : tenv typ) (e : expr) (t : typ)
   : Prop :=
     exists val, exprD' tus tvs e t = Some val.
 
@@ -325,6 +322,7 @@ Section Expr.
 
 End Expr.
 
-Arguments Safe_expr {_ _ Expr} _ _ _ _ : rename.
-Arguments exprD' {_ _ Expr} _ _ _ _ : rename.
-Arguments exprD {_ _ Expr} _ _ _ _ : rename.
+Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
+Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
+Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
+Arguments ResType {_ RType} _ _ _ : rename.

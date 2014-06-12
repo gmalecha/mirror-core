@@ -8,12 +8,13 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section sem.
-  Variable RType_typ : RType.
+  Variable typ : Type.
+  Variable RType_typ : RType typ.
   Variable expr : Type.
   Variable Expr_expr : Expr _ expr.
 
   Definition Sem_equiv' (t : typ) (R : relation (typD nil t))
-             (tus tvs : tenv)
+             (tus tvs : tenv typ)
   : relation expr :=
     fun x y =>
         match exprD' tus tvs x t , exprD' tus tvs y t with

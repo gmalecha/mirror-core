@@ -1,17 +1,18 @@
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.TypesI2.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Ltac arrow_case ts t :=
   let H := fresh in
-  destruct (@typ2_match_case _ _ _ _ ts t) as [ [ ? [ ? [ ? H ] ] ] | H ];
+  destruct (@typ2_match_case _ _ _ _ _ ts t) as [ [ ? [ ? [ ? H ] ] ] | H ];
     ( try rewrite H in * ).
 
 Section lemmas.
-  Variable RType_typ : RType.
-  Variable RTypeOk : RTypeOk _.
+  Variable typ : Type.
+  Variable RType_typ : RType typ.
+  Variable RTypeOk : RTypeOk.
 
   Theorem Relim_const
   : forall T ts a b (pf : Rty ts a b),

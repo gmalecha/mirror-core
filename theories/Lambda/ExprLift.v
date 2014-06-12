@@ -8,7 +8,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 
 Set Implicit Arguments.
@@ -57,13 +57,14 @@ Section raw_types.
 End raw_types.
 
 Section types.
+  Context {typ : Type}.
   Context {func : Type}.
-  Context {RType_typD : RType}.
+  Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD Fun}.
-  Context {RSym_func : RSym typD func}.
+  Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
-  Context {RTypeOk_typD : @RTypeOk _}.
+  Context {RTypeOk_typD : RTypeOk}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
 

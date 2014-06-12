@@ -9,7 +9,8 @@ Set Strict Implicit.
 
 (** Provers that establish [expr]-encoded facts *)
 Section proverI.
-  Variable RType_type : RType.
+  Variable typ : Type.
+  Variable RType_type : RType typ.
   Variable expr : Type.
   Context {Expr_expr : Expr _ expr}.
   Context {ty : typ}.
@@ -24,16 +25,16 @@ Section proverI.
 
   Record Prover : Type :=
   { Facts : Type
-  ; Summarize : tenv -> tenv -> list expr -> Facts
-  ; Learn : Facts -> tenv -> tenv -> list expr -> Facts
-  ; Prove : Facts -> tenv -> tenv -> expr -> bool
+  ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
+  ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
+  ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
   }.
 
   Definition ProveOk (summary : Type)
     (** Some prover work only needs to be done once per set of hypotheses,
         so we do it once and save the outcome in a summary of this type. *)
     (valid : env -> env -> summary -> Prop)
-    (prover : summary -> tenv -> tenv -> expr -> bool) : Prop :=
+    (prover : summary -> tenv typ -> tenv typ -> expr -> bool) : Prop :=
     forall uvars vars sum,
       valid uvars vars sum ->
       forall goal,

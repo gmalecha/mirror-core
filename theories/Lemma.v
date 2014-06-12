@@ -4,6 +4,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -31,9 +32,9 @@ Proof. reflexivity. Qed.
 
 Section lem.
   Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Variable RType_typ : RType typ.
   Variable expr : Type.
-  Variable Expr_expr : Expr typD expr.
+  Variable Expr_expr : Expr _ expr.
   Hypothesis ExprOk_expr : ExprOk Expr_expr.
   Variable conclusion : Type.
 
@@ -43,7 +44,7 @@ Section lem.
   ;  concl : conclusion
   }.
 
-  Variable conclusionD : forall us vs, conclusion -> ResType typD us vs Prop.
+  Variable conclusionD : forall us vs, conclusion -> ResType us vs Prop.
 
   Context {tyProp : typ}.
   Variable Provable' : typD nil tyProp -> Prop.
@@ -115,7 +116,7 @@ Section lem.
   Qed.
 
   Definition lemmaD' (tus tvs : tenv typ) (l : lemma)
-  : ResType typD tus tvs Prop :=
+  : ResType tus tvs Prop :=
     match
         Traversable.mapT (T := list) (F := option)
                          (fun e : expr => exprD' tus (vars l ++ tvs) e tyProp)
@@ -471,7 +472,7 @@ Section lem.
     etransitivity. eapply H0. eapply H1.
   Qed.
 
-  Definition lemmaD (us vs : env typD) (l : lemma) : Prop :=
+  Definition lemmaD (us vs : env) (l : lemma) : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
     match lemmaD' tus tvs l with

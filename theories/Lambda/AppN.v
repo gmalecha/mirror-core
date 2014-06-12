@@ -9,7 +9,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 
@@ -48,12 +48,13 @@ Section app_full.
 End app_full.
 
 Section app_full_proofs.
+  Variable typ : Type.
   Variable sym : Type.
-  Variable RType_typ : RType.
+  Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ Fun.
-  Variable RSym_sym : RSym typD sym.
+  Variable RSym_sym : RSym sym.
 
-  Variable RTypeOk : RTypeOk _.
+  Variable RTypeOk : RTypeOk.
   Variable Typ2Ok_Fun : Typ2Ok _.
   Variable RSymOk_sym : RSymOk _.
 
@@ -194,10 +195,10 @@ Section app_full_proofs.
     Variables tus tvs : tenv typ.
 
     Fixpoint apply' {T} (x : T) (ls : list {t : typ & T -> typD ts t}) t {struct ls} :
-      typD ts (fold_right (@typ2 _ Fun _) t (map (@projT1 _ _) ls)) ->
+      typD ts (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
       typD ts t :=
       match ls as ls
-            return typD ts (fold_right (@typ2 _ Fun _) t (map (@projT1 _ _) ls)) ->
+            return typD ts (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
                    typD ts t
       with
         | nil => fun x => x
@@ -312,13 +313,13 @@ Section app_full_proofs.
 
   (** TODO: Does this actually get used? *)
   Section exprD_app.
-    Variables us vs : env typD.
+    Variables us vs : env.
 
     Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD nil t}) t {struct ls} :
-      typD nil (fold_right (@typ2 _ Fun _) t (map (@projT1 _ _) ls)) ->
+      typD nil (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
       typD nil t :=
       match ls as ls
-            return typD nil (fold_right (@typ2 _ Fun _) t (map (@projT1 _ _) ls)) ->
+            return typD nil (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
                    typD nil t
       with
         | nil => fun x => x
@@ -338,7 +339,7 @@ Section app_full_proofs.
         | Some f => Some (f us vs)
       end.
 
-    Local Instance Expr_expr : Expr (typD) (expr typ sym) := Expr_expr.
+    Local Instance Expr_expr : Expr _ (expr typ sym) := Expr_expr.
 
     Definition apps_sem
                (e : expr typ sym) (l : list (expr typ sym)) (t : typ)

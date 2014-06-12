@@ -6,16 +6,17 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Nat.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed_fold.
+  Variable typ : Type.
   Variable func : Type.
-  Variable RType_typ : RType.
-  Variable RSym_func : RSym typD func.
+  Variable RType_typ : RType typ.
+  Variable RSym_func : RSym func.
   Variable Typ2_Fun : Typ2 _ Fun.
 
   Section folder.

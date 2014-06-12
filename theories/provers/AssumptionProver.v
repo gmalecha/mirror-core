@@ -15,11 +15,10 @@ Set Strict Implicit.
 
 Section proverI.
   Context {typ : Type}.
-  Variable typD : list Type -> typ -> Type.
-  Context {RType_typ : RType typD}.
+  Context {RType_typ : RType typ}.
   Variable expr : Type.
-  Context {Expr_expr : Expr typD expr}.
-  Context {typ0_prop : TypInstance0 typD Prop}.
+  Context {Expr_expr : Expr _ expr}.
+  Context {typ0_prop : Typ0 _ Prop}.
   Variable RD_expr : RelDec (@eq expr).
   Variable RDC_expr : RelDec_Correct RD_expr.
   Context {ExprOk_expr : ExprOk Expr_expr}.
@@ -37,7 +36,7 @@ Section proverI.
   : assumption_summary :=
     hyps ++ sum.
 
-  Definition assumptionValid (uvars vars : env typD) (sum : assumption_summary)
+  Definition assumptionValid (uvars vars : env) (sum : assumption_summary)
   : Prop :=
     AllProvable typ0_prop uvars vars sum.
 

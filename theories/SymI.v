@@ -5,8 +5,9 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section symbols.
-  Context {RType_typ : RType}.
-  Context {RTypeOk_typ : RTypeOk _}.
+  Variable typ : Type.
+  Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Variable func : Type.
 
   Class RSym : Type :=
@@ -95,7 +96,8 @@ Section symbols.
 End symbols.
 
 Section symbols_sum.
-  Variable RType_typ : RType.
+  Variable typ : Type.
+  Variable RType_typ : RType typ.
   Variable func1 func2 : Type.
 
   Variable RSym_func1 : RSym func1.

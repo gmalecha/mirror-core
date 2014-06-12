@@ -9,7 +9,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 
@@ -21,13 +21,14 @@ Module Make (ED : ExprDenote).
   Hint Rewrite @ED.exprD'_Var @ED.exprD'_UVar @ED.exprD'_Inj @ED.exprD'_Abs @ED.exprD'_App using (eauto with typeclass_instances) : exprD_rw.
 
   Section with_types.
-    Context {RType_typD : RType}.
+    Context {typ : Type}.
+    Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ Fun}.
     Context {func : Type}.
-    Context {RSym_func : RSym typD func}.
+    Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
-    Context {RTypeOk_typD : @RTypeOk _}.
+    Context {RTypeOk_typD : RTypeOk}.
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
@@ -40,7 +41,7 @@ Module Make (ED : ExprDenote).
     Local Instance RelDecCorrect_eq_typ : @RelDec_Correct _ (@eq typ) _.
     Proof.
       constructor. split; intros.
-      { generalize (@type_cast_total _ _ nil x y). unfold rel_dec in H.
+      { generalize (@type_cast_total _ _ _ nil x y). unfold rel_dec in H.
         simpl in *.
         destruct (type_cast nil x y). auto. congruence. }
       { subst. unfold rel_dec; simpl. rewrite type_cast_refl; auto. }
@@ -114,7 +115,7 @@ Module Make (ED : ExprDenote).
         rewrite <- H1. auto.
         rewrite <- H2. auto. }
       { clear Hinj Huvar Hvar Happ.
-        destruct (@typ2_match_case _ Fun _ _ ts t0).
+        destruct (@typ2_match_case _ _ Fun _ _ ts t0).
         { specialize (H tvs t0). autorewrite with exprD_rw in *.
           (do 3 destruct H0); rewrite H0 in *; clear H0.
           consider (type_cast ts x t); intros.
@@ -157,7 +158,7 @@ Module Make (ED : ExprDenote).
     Qed.
 
     Theorem typeof_expr_weaken
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs e t tus' tvs',
         ED.typeof_expr ts tus tvs e = Some t ->
         ED.typeof_expr ts (tus ++ tus') (tvs ++ tvs') e = Some t.
@@ -172,7 +173,7 @@ Module Make (ED : ExprDenote).
     Qed.
 
     Theorem exprD'_weaken
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs (e : expr typ func) t val tus' tvs',
         ED.exprD' ts tus tvs t e = Some val ->
         exists val',
@@ -255,7 +256,7 @@ Module Make (ED : ExprDenote).
     Qed.
 
     Theorem typeof_expr_exprD'
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs e t,
         ED.typeof_expr ts tus tvs e = Some t ->
         exists val,
@@ -462,13 +463,13 @@ Module Make (ED : ExprDenote).
     Qed.
 
     Theorem exprD'_type_cast
-    : @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall ts tus tvs e t,
         ED.exprD' ts tus tvs t e =
         match ED.typeof_expr ts tus tvs e with
           | None => None
           | Some t' =>
-            match @type_cast _ ts t' t with
+            match @type_cast _ _ ts t' t with
               | None => None
               | Some cast =>
                 match ED.exprD' ts tus tvs t' e with
