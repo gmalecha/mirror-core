@@ -18,7 +18,7 @@ LAMBDA := ResType \
 	  WtExpr \
 	  ExprUnify ExprUnify_simul \
 	  ExprSubst AppN
-LAMBDAM :=
+LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
 STAC := Core Repeat Apply First Repeat Try STac
 MODULES    := Generic \
