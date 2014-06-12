@@ -49,3 +49,4 @@ Dependencies
 ------------
 
 - coq-ext-lib (https://github.com/coq-ext-lib/coq-ext-lib)
+- coq-plugin-utils (https://github.com/gmalecha/coq-plugin-utils) (to build the plugin)
