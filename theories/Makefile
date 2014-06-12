@@ -1,4 +1,4 @@
-GENERIC := Iso IsoTac
+GENERIC := 
 UTIL := Approx Iteration
 PROVERS := ProverTac AssumptionProver
 SUBST   := SealedSubst FastSubst RawSubst2 FMapSubst3
