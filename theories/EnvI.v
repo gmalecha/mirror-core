@@ -8,9 +8,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section Env.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Context {RType_typ : RType typD}.
+  Context {RType_typ : RType}.
 
   (** Environments **)
   Definition tenv : Type := list typ.
@@ -19,12 +17,14 @@ Section Env.
   Definition typeof_env (e : env) : tenv :=
     map (@projT1 _ _) e.
 
-  Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD nil ty) :=
+  Variable ts : list Type.
+
+  Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD ts ty) :=
     match nth_error e n with
       | None => None
       | Some (existT t v) =>
-        match type_cast nil t ty with
-          | Some f => Some (f (fun x => x) v)
+        match type_cast ts ty t with
+          | Some pf => Some (Relim (fun x => x) pf (type_weaken ts t v))
           | None => None
         end
     end.
@@ -318,4 +318,4 @@ Section nth_error_get_hlist_nth.
 
 End nth_error_get_hlist_nth.
 
-Arguments join_env {_ _ _} _.
+Arguments join_env {_ _} _.

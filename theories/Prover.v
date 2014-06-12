@@ -9,15 +9,13 @@ Set Strict Implicit.
 
 (** Provers that establish [expr]-encoded facts *)
 Section proverI.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Context {RType_typ : RType typD}.
+  Variable RType_type : RType.
   Variable expr : Type.
-  Context {Expr_expr : Expr typD expr}.
+  Context {Expr_expr : Expr _ expr}.
   Context {ty : typ}.
   Variable Provable' : typD nil ty -> Prop.
 
-  Let Provable (us vs : env typD) (e : expr) : Prop :=
+  Let Provable (us vs : env) (e : expr) : Prop :=
     match exprD us vs e ty with
       | None => False
       | Some val => Provable' val
@@ -26,16 +24,16 @@ Section proverI.
 
   Record Prover : Type :=
   { Facts : Type
-  ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
-  ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
-  ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
+  ; Summarize : tenv -> tenv -> list expr -> Facts
+  ; Learn : Facts -> tenv -> tenv -> list expr -> Facts
+  ; Prove : Facts -> tenv -> tenv -> expr -> bool
   }.
 
   Definition ProveOk (summary : Type)
     (** Some prover work only needs to be done once per set of hypotheses,
         so we do it once and save the outcome in a summary of this type. *)
-    (valid : env typD -> env typD -> summary -> Prop)
-    (prover : summary -> tenv typ -> tenv typ -> expr -> bool) : Prop :=
+    (valid : env -> env -> summary -> Prop)
+    (prover : summary -> tenv -> tenv -> expr -> bool) : Prop :=
     forall uvars vars sum,
       valid uvars vars sum ->
       forall goal,
@@ -46,10 +44,10 @@ Section proverI.
         end.
 
   Record ProverOk (P : Prover) : Type :=
-  { Valid : env typD -> env typD -> Facts P -> Prop
+  { Valid : env -> env -> Facts P -> Prop
   ; Valid_weaken : forall u g f ue ge,
     Valid u g f -> Valid (u ++ ue) (g ++ ge) f
-  ; Summarize_correct : forall (uvars vars : env typD) (hyps : list expr),
+  ; Summarize_correct : forall (uvars vars : env) (hyps : list expr),
     Forall (Provable uvars vars) hyps ->
     Valid uvars vars (Summarize P (typeof_env uvars) (typeof_env vars) hyps)
   ; Learn_correct : forall uvars vars facts,
@@ -60,7 +58,7 @@ Section proverI.
   }.
 
   Theorem Prove_concl P (Pok : ProverOk P)
-  : forall (vars uvars : env typD)
+  : forall (vars uvars : env)
            (sum : Facts P),
       Valid Pok uvars vars sum ->
       forall (goal : expr),

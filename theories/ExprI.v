@@ -5,7 +5,6 @@ Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.Generic.
-Require Import MirrorCore.Iso.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 
@@ -13,12 +12,15 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section Expr.
+  Variable RType_typ : RType.
+(*
   Variable typ : Type.
   Variable typD : list Type -> typ -> Type.
+*)
 
   Variable expr : Type.
 
-  Definition ResType (us vs : tenv typ) (T : Type) : Type :=
+  Definition ResType (us vs : tenv) (T : Type) : Type :=
     option (hlist (typD nil) us -> hlist (typD nil) vs -> T).
 
   (** TODO:
@@ -30,7 +32,7 @@ Section Expr.
    ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
-  { exprD' : forall (us vs : tenv typ), expr -> forall (t : typ),
+  { exprD' : forall (us vs : tenv), expr -> forall (t : typ),
                                                   ResType us vs (typD nil t)
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
@@ -49,7 +51,7 @@ Section Expr.
     destruct pfu. destruct pfv. reflexivity.
   Qed.
 
-  Definition Safe_expr {E : Expr} (tus tvs : tenv typ) (e : expr) (t : typ)
+  Definition Safe_expr {E : Expr} (tus tvs : tenv) (e : expr) (t : typ)
   : Prop :=
     exists val, exprD' tus tvs e t = Some val.
 
@@ -59,7 +61,7 @@ Section Expr.
       exists val, exprD' us vs e t = Some val.
   Proof. reflexivity. Qed.
 
-  Definition exprD {E : Expr} (uvar_env var_env : env typD) (e : expr) (t : typ)
+  Definition exprD {E : Expr} (uvar_env var_env : env) (e : expr) (t : typ)
   : option (typD nil t) :=
     let (tus,us) := split_env uvar_env in
     let (tvs,vs) := split_env var_env in
@@ -163,6 +165,7 @@ Section Expr.
     rewrite H. rewrite <- H0. reflexivity.
   Qed.
 
+(*
   Class FuncInstance0 (T : Type) (F : T) : Type :=
   { typ0_witness : TypInstance0 typD T
   ; ctor0 : expr
@@ -318,9 +321,10 @@ Section Expr.
                  (fun f (args : vector expr 2) => app1 (app1 f (vector_hd args)) (vector_hd (vector_tl args)))).
   Defined.
 *)
+*)
 
 End Expr.
 
-Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
-Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
-Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
+Arguments Safe_expr {_ _ Expr} _ _ _ _ : rename.
+Arguments exprD' {_ _ Expr} _ _ _ _ : rename.
+Arguments exprD {_ _ Expr} _ _ _ _ : rename.

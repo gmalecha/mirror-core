@@ -1,11 +1,9 @@
-(*Require Import ExtLib.Core.RelDec. *)
-(*Require Import ExtLib.Core.Type. *)
+Require Import ExtLib.Core.RelDec.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
-  (** NOTE: This makes fewer universes and therefore fewer constraints **)
 
   (** NOTE: Fewer parameters is better, but pulling [typ] to the top
    ** means that I can modularize the expression langauge and avoid
@@ -62,6 +60,51 @@ Section typed.
   ; type_cast_total : forall env x y,
                         type_cast env x y = None -> ~Rty env x y
   }.
+
+  Global Instance RelDec_Rty ts : RelDec (Rty ts) :=
+  { rel_dec := fun l r => match type_cast ts l r with
+                            | None => false
+                            | Some _ => true
+                          end }.
+
+  Global Instance RelDec_Correct_Rty {RTO : RTypeOk} ts
+  : @RelDec_Correct _ (Rty ts) _.
+  Proof.
+    constructor. unfold rel_dec; simpl.
+    intros. generalize (@type_cast_total _ ts x y).
+    destruct (type_cast ts x y); intros.
+    split; auto. intuition congruence.
+  Qed.
+
+  Section Typ0.
+    Variable F : Type.
+
+    Class Typ0 : Type :=
+    { typ0 : typ
+    ; typ0_cast : forall ts, typD ts typ0 = F
+    ; typ0_match : forall (T : Type -> Type) ts t,
+                     T (typD ts typ0) ->
+                     T (typD ts t) ->
+                     T (typD ts t)
+    }.
+
+    Class Typ0Ok (TI : Typ0) : Type :=
+    { typ0_match_zeta
+      : forall T ts tr fa,
+          typ0_match T ts typ0 tr fa = tr
+    ; typ0_match_case
+      : forall ts x,
+          (exists (pf : Rty ts x typ0),
+             forall T tr fa,
+               typ0_match T ts x tr fa =
+               Relim T pf tr) \/
+          (forall T tr fa, typ0_match T ts x tr fa = fa)
+    ; typ0_match_Proper
+      : forall T ts t t' (pf : Rty ts t' t) tr fa,
+          typ0_match T ts t tr fa =
+          Relim T (Rsym pf) (typ0_match T ts t' tr (Relim T pf fa))
+    }.
+  End Typ0.
 
   Section Typ2.
     Variable F : Type -> Type -> Type.

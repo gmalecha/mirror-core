@@ -6,12 +6,14 @@
  ** NOTE
  **  It is not generic because it builds on top of Ext.Types
  **)
-Require Import BinPos Coq.Lists.List.
+Require Import Coq.PArith.BinPos.
+Require Import Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -23,8 +25,7 @@ Global Instance RelDec_eq_func : RelDec (@eq func) := _.
 Global Instance RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func := _.
 
 Section RSym.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Variable RType_typ : RType.
 
   Record function := F
   { ftype : typ
@@ -60,7 +61,7 @@ Section RSym.
       | None => tt
     end.
 
-  Global Instance RSym_func : RSym typD func :=
+  Global Instance RSym_func : RSym func :=
   { sym_eqb := fun l r => Some (l ?[ eq ] r)
   ; typeof_sym := func_typeof_sym
   ; symD := funcD

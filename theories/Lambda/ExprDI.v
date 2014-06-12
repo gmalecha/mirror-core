@@ -36,21 +36,6 @@ Module Type ExprDenote.
     : forall ts a b, typD ts (typ_arr a b) = (typD ts a -> typD ts b)
       := @typ2_cast _ _ _.
 
-
-    Global Instance RelDec_Rty ts : RelDec (Rty ts) :=
-    { rel_dec := fun a b => match type_cast ts a b with
-                              | Some _ => true
-                              | None => false
-                            end }.
-
-    Global Instance RelDec_Correct_Rty ts : @RelDec_Correct _ (Rty ts) _.
-    Proof.
-      constructor. unfold rel_dec; simpl.
-      intros; consider (type_cast ts x y); intros.
-      split; auto. apply type_cast_total in H; eauto with typeclass_instances.
-      intuition.
-    Qed.
-
     Definition Rcast T {ts a b} (pf : Rty ts a b) : T (typD ts a) -> T (typD ts b) :=
       Relim T (Rsym pf).
 

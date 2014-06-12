@@ -16,36 +16,19 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Variable RType_typD : RType typD.
-  Variable RTypeOk_typD : RTypeOk RType_typD.
+  Variable RType_typ : RType.
+  Variable RTypeOk_typD : RTypeOk _.
 
   Inductive func : Type :=
   | FRef (fi : positive) (ts : list typ).
 
-  Global Instance RelDec_eq_func : RelDec (@eq func) :=
-  { rel_dec := fun l r =>
-                 match l , r with
-                   | FRef l ls , FRef r rs =>
-                     if l ?[ eq ] r then ls ?[ eq ] rs else false
-                 end
-  }.
-
-  Local Instance RelDec_typ : RelDec (@eq typ) := _.
-
-  Global Instance RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func.
-  Proof.
-    constructor.
-    destruct x; destruct y; simpl; try rewrite rel_dec_correct.
-    split; intros.
-    { consider (fi ?[ eq ] fi0); intros.
-      rewrite rel_dec_correct in H0.
-      f_equal; assumption. }
-    { inversion H; clear H; subst.
-      rewrite rel_dec_eq_true; eauto with typeclass_instances.
-      apply rel_dec_eq_true; eauto with typeclass_instances. }
-  Qed.
+  Fixpoint list_Rty (x y : list typ) : bool :=
+    match x , y with
+      | nil , nil => true
+      | x :: xs , y :: ys =>
+        if x ?[ Rty nil ] y then list_Rty xs ys else false
+      | _ , _ => false
+    end.
 
   Record function := F
   { fenv : nat
@@ -83,8 +66,15 @@ Section typed.
   (** TODO: This is pretty ugly, it is because it doesn't
    ** match up well with [func_typeof_func].
    **)
-  Global Instance RSym_func : RSym typD func :=
-  { sym_eqb := fun l r => Some (l ?[ eq ] r)
+  Global Instance RSym_func : RSym func :=
+  { sym_eqb := fun l r =>
+                 match l , r with
+                   | FRef il al , FRef ir ar =>
+                     if il ?[ eq ] ir then
+                       Some (list_Rty al ar)
+                     else
+                       Some false
+                 end
   ; typeof_sym := func_typeof_sym
   ; symD := fun f =>
                match f as f

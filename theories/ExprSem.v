@@ -1,17 +1,19 @@
-Require Import Coq.Classes.Morphisms Coq.Relations.Relations.
+Require Import Coq.Classes.Morphisms.
+Require Import Coq.Relations.Relations.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section sem.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Variable RType_typ : RType.
   Variable expr : Type.
-  Variable Expr_expr : Expr typD expr.
+  Variable Expr_expr : Expr _ expr.
 
-  Definition Sem_equiv' (t : typ) (R : relation (typD nil t)) (tus tvs : tenv typ)
+  Definition Sem_equiv' (t : typ) (R : relation (typD nil t))
+             (tus tvs : tenv)
   : relation expr :=
     fun x y =>
         match exprD' tus tvs x t , exprD' tus tvs y t with
@@ -46,7 +48,7 @@ Section sem.
     { intuition. }
   Qed.
 
-  Definition Sem_equiv (t : typ) (R : relation (typD nil t)) (us vs : env (typD))
+  Definition Sem_equiv (t : typ) (R : relation (typD nil t)) (us vs : env)
   : relation expr :=
     fun x y =>
       match exprD us vs x t , exprD us vs y t with

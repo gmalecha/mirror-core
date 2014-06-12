@@ -1,4 +1,4 @@
-GENERIC := 
+GENERIC :=
 UTIL := Approx Iteration
 PROVERS := ProverTac AssumptionProver
 SUBST   := SealedSubst FastSubst RawSubst2 FMapSubst3
@@ -10,7 +10,7 @@ EXTENSIBLE := Types ExprCore \
 	      Expr ExprTactics \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
-LAMBDA := TypesI2 ResType \
+LAMBDA := ResType \
 	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
 	  Expr ExprLift Red \
@@ -24,18 +24,17 @@ STAC := Core Repeat Apply First Repeat Try STac
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI SymEnv SymPolyEnv \
-	      SubstI SubstI2 SubstI3 \
+	      SubstI SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma LemmaApply \
 	      $(EXTENSIBLE:%=Ext/%) \
+	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(LAMBDAM:%=LambdaM/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(STAC:%=STac/%)
-
-# 	      $(POLY:%=Poly/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

@@ -66,10 +66,9 @@ Qed.
 Section subst.
   Variable T : Type.
   (** the [expr] type requires a notion of unification variable **)
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Variable RType_type : RType.
   Variable expr : Type.
-  Variable Expr_expr : Expr typD expr.
+  Variable Expr_expr : Expr _ expr.
 
   Let uvar : Type := nat.
 
@@ -86,7 +85,7 @@ Section subst.
 
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
-  ; substD : forall (tus tvs : tenv typ), T -> ResType typD tus tvs Prop
+  ; substD : forall (tus tvs : tenv), T -> ResType tus tvs Prop
   ; substD_weaken
     : forall tus tvs tus' tvs' s sD,
         substD tus tvs s = Some sD ->

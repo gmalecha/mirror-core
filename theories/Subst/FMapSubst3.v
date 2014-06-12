@@ -9,9 +9,6 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 
-(** TODO: Move the lemmas related to nth_error_get_hlist_nth **)
-Require Import MirrorCore.Ext.ExprDI.
-
 Set Implicit Arguments.
 Set Strict Implicit.
 

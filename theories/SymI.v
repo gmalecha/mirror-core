@@ -5,8 +5,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section symbols.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Context {RType_typ : RType}.
+  Context {RTypeOk_typ : RTypeOk _}.
   Variable func : Type.
 
   Class RSym : Type :=
@@ -31,7 +31,6 @@ Section symbols.
                             end
   }.
 
-  Context {RType_typ : RType typD}.
   Context {RSym_func : RSym}.
 
   Definition symAs (f : func) (t : typ) : option (typD nil t) :=
@@ -43,13 +42,11 @@ Section symbols.
     with
       | None => fun _ => None
       | Some ft => fun val =>
-        match type_cast nil ft t with
+        match type_cast nil t ft with
           | None => None
-          | Some cast => Some (cast (fun x => x) val)
+          | Some pf => Some (Relim (fun x => x) pf val)
         end
     end (symD f).
-
-  Context {RTypeOk_typ : RTypeOk RType_typ}.
 
   Theorem symAs_Some : forall f t (pf : typeof_sym f = Some t),
     symAs f t =
@@ -63,13 +60,7 @@ Section symbols.
     intros. unfold symAs.
     generalize (symD f).
     rewrite pf. intros.
-    destruct (type_cast_refl nil t).
-    intuition.
-    match goal with
-      | H : ?Y = _ |- match ?X with _ => _ end = _ =>
-        change X with Y ; rewrite H
-    end; intros.
-    f_equal. rewrite H1. reflexivity.
+    rewrite (type_cast_refl); eauto.
   Qed.
 
   (** This helper function makes it a little bit easier to construct
@@ -104,14 +95,13 @@ Section symbols.
 End symbols.
 
 Section symbols_sum.
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Variable RType_typ : RType.
   Variable func1 func2 : Type.
 
-  Variable RSym_func1 : RSym typD func1.
-  Variable RSym_func2 : RSym typD func2.
+  Variable RSym_func1 : RSym func1.
+  Variable RSym_func2 : RSym func2.
 
-  Instance RSym_sum : RSym typD (func1 + func2) :=
+  Instance RSym_sum : RSym (func1 + func2) :=
   { typeof_sym := fun f => match f with
                              | inl f => typeof_sym f
                              | inr f => typeof_sym f
