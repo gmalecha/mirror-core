@@ -12,6 +12,7 @@ EXTENSIBLE := Types ExprCore \
 	      provers/UnifyEProver
 LAMBDA := TypesI2 ResType \
 	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
+	  ExprTac \
 	  Expr ExprLift Red \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp \
 	  WtExpr \
