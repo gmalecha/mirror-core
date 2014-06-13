@@ -10,47 +10,12 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.TypesI2.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
+Require Import MirrorCore.Lambda.AppN.
 
 Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Section app_full.
-  Context {sym : Type}.
-  Context {RT : RType}
-          {T2 : Typ2 _ PreFun.Fun}
-          {RS : RSym typD sym}.
-
-  Context {RTOk : RTypeOk RT}
-          {T2Ok : Typ2Ok T2}
-          {RSOk : RSymOk RS}.
-
-  Fixpoint apps (e : expr typ sym) (ls : list (expr typ sym)) :=
-    match ls with
-      | nil => e
-      | l :: ls => apps (App e l) ls
-    end.
-
-  Fixpoint app_full' (e : expr typ sym) (acc : list (expr typ sym)) : expr typ sym * list (expr typ sym) :=
-    match e with
-      | App l r =>
-        app_full' l (r :: acc)
-      | _ =>
-        (e, acc)
-    end.
-
-  Definition app_full (e : expr typ sym) := app_full' e nil.
-
-  Lemma apps_app_full'
-  : forall e e' ls ls',
-      app_full' e ls = (e', ls') ->
-      apps e ls = apps e' ls'.
-  Proof.
-    induction e; simpl; intros; inv_all; subst; auto.
-    eapply IHe1 in H. auto.
-  Qed.
-End app_full.
 
 Section substitute.
   Context {sym : Type}.
@@ -246,6 +211,9 @@ Section beta_all.
           {T2Ok : Typ2Ok T2}
           {RSOk : RSymOk RS}.
 
+  (** NOTE: I should extend [delta] with [vars]
+   ** - that means that its specification is exactly the same as [beta_all]
+   **)
   Variable delta : expr typ sym -> list (expr typ sym) -> expr typ sym.
 
   Fixpoint beta_all
@@ -261,11 +229,11 @@ Section beta_all.
           | a :: args => beta_all args (Some a :: vars) e'
         end
       | Var v =>
-        match nth_error vars v with
-          | Some (Some val) => delta (lift 0 v val) args
-          | Some None => delta (Var v) args
-          | None => delta (Var (v - length vars)) args
-        end
+        delta match nth_error vars v with
+                | Some (Some val) => lift 0 v val
+                | Some None => Var v
+                | None => Var (v - length vars)
+              end args
       | e => delta e args
     end.
 
@@ -273,14 +241,70 @@ Section beta_all.
   Definition delta_sound
   := forall e es ts tus tvs t val,
        exprD' ts tus tvs t (apps e es) = Some val ->
-       exprD' ts tus tvs t (delta e es) = Some val.
+       exists val',
+         exprD' ts tus tvs t (delta e es) = Some val' /\
+         forall us vs,
+           val us vs = val' us vs.
 
   Hypothesis deltaOk : delta_sound.
 
+  Variable ts : list Type.
+
+  Inductive EnvForall {A} (R : A -> forall t : typ, typD ts t -> Prop)
+  : list A -> forall tvs, hlist (typD ts) tvs -> Prop :=
+  | EnvForall_nil : EnvForall R nil Hnil
+  | EnvForall_cons : forall e es t ts v vs,
+                       R e t v ->
+                       @EnvForall A R es ts vs ->
+                       @EnvForall A R (e :: es) (t :: ts) (Hcons v vs).
+
+(*
+  Lemma beta_all_respectful
+  : forall args args' vars vars' e e',
+      Forall
+      beta_all args vars e =
+      beta_all args' vars' e'
+*)
+
   Theorem beta_all_sound
-  : forall ts tus e tvs t val args vars,
+  : forall tus e tvs t val args vars,
+      Forall2 (fun t e => match e with
+                            | None => True
+                            | Some e =>
+                              exists val, exprD' ts tus tvs t e = Some val
+                          end) tvs vars ->
       exprD' ts tus tvs t (apps e args) = Some val ->
-      exprD' ts tus tvs t (beta_all args vars e) = Some val.
+      exists val',
+        exprD' ts tus tvs t (beta_all args vars e) = Some val' /\
+        forall us vs,
+          EnvForall (fun e t v =>
+                       match e with
+                         | None => True
+                         | Some e =>
+                           exists val, exprD' ts tus tvs t e = Some val /\
+                           val us vs = v
+                       end) vars vs ->
+          val us vs = val' us vs.
   Proof.
-  Admitted.
+    induction e; simpl; intros.
+    { admit. }
+    { eapply deltaOk in H0.
+      destruct H0 as [ ? [ ? ? ] ].
+      eexists; split; eauto. }
+    { generalize H0.
+      rewrite exprD'_apps in H0; eauto.
+      unfold apps_sem' in H0.
+      forward.
+      autorewrite with exprD_rw in *; simpl in *; forward.
+      change e2 with (apps e2 nil) in H5.
+      eapply IHe2 with (vars := vars) in H5; eauto.
+      forward_reason.
+      change (apps (App e1 e2) args)
+        with (apps e1 (e2 :: args)) in H2.
+      eapply IHe1 in H2; eauto.
+      revert deltaOk. admit. }
+    { admit. }
+    { eapply deltaOk in H0.
+      forward_reason. eauto. }
+  Qed.
 End beta_all.
