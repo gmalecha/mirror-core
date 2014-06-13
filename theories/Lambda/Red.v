@@ -234,6 +234,20 @@ Section beta.
       rewrite eq_option_eq. reflexivity. }
   Qed.
 
+End beta.
+
+Section beta_all.
+  Context {sym : Type}.
+  Context {RT : RType}
+          {T2 : Typ2 _ PreFun.Fun}
+          {RS : RSym typD sym}.
+
+  Context {RTOk : RTypeOk _}
+          {T2Ok : Typ2Ok T2}
+          {RSOk : RSymOk RS}.
+
+  Variable delta : expr typ sym -> list (expr typ sym) -> expr typ sym.
+
   Fixpoint beta_all
            (args : list (expr typ sym))
            (vars : list (option (expr typ sym)))
@@ -248,11 +262,25 @@ Section beta.
         end
       | Var v =>
         match nth_error vars v with
-          | Some (Some val) => fold_left App args (lift 0 v val)
-          | Some None => fold_left App args (Var v)
-          | None => fold_left App args (Var (v - length vars))
+          | Some (Some val) => delta (lift 0 v val) args
+          | Some None => delta (Var v) args
+          | None => delta (Var (v - length vars)) args
         end
-      | e => fold_left App args e
+      | e => delta e args
     end.
 
-End beta.
+  (** default ext is apps **)
+  Definition delta_sound
+  := forall e es ts tus tvs t val,
+       exprD' ts tus tvs t (apps e es) = Some val ->
+       exprD' ts tus tvs t (delta e es) = Some val.
+
+  Hypothesis deltaOk : delta_sound.
+
+  Theorem beta_all_sound
+  : forall ts tus e tvs t val args vars,
+      exprD' ts tus tvs t (apps e args) = Some val ->
+      exprD' ts tus tvs t (beta_all args vars e) = Some val.
+  Proof.
+  Admitted.
+End beta_all.
