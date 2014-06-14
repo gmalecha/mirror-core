@@ -81,9 +81,6 @@ Module Type ExprDenote_core.
         | Some val => Some (fun _ _ => val)
       end.
 
-    Check Relim.
-
-
     Axiom exprD'_App : forall tvs t e arg,
       exprD' tus tvs (App e arg) t =
       match typeof_expr tus tvs e with

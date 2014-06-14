@@ -187,8 +187,10 @@ Section typed.
       exfalso. omega. f_equal. rewrite NPeano.Nat.sub_add. auto. omega. }
   Qed.
 
-  Variable RSym_func : RSym (typD ts) func.
-  Let Expr_expr : Expr (typD ts) (expr func) := Expr_expr _.
+  Let RType_typ := RType_typ ts.
+  Local Existing Instance RType_typ.
+  Variable RSym_func : RSym func.
+  Let Expr_expr : Expr _ (expr func) := Expr_expr _.
   Local Existing Instance Expr_expr.
 
   Lemma typeof_expr_lift : forall us vs vs' vs'' e,
@@ -328,7 +330,7 @@ Section typed.
                    change Y with X in H' ; rewrite H in H'
                end.
         forward. simpl in *. inv_all; subst.
-        forward. f_equal.
+        forward. destruct e; simpl.
         rewrite H6. apply H7. }
       { assert (v >= length vs) by omega.
         assert (v - length vs' >= length vs) by omega.
@@ -386,9 +388,10 @@ Section typed.
       repeat match goal with
                | _ : match ?X with _ => _ end |- _ =>
                  destruct X
-             end; destruct (typ_cast_typ ts nil t0_2 t); auto.
+             end; destruct (typ_cast_typ nil t t0_2); auto.
       intros.
-      f_equal. rewrite IHe1. f_equal. auto. }
+      f_equal. subst.
+      simpl in *. intros. rewrite IHe1. f_equal. auto. }
     { destruct t0; auto.
       repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
@@ -403,8 +406,9 @@ Section typed.
       intros.
       apply functional_extensionality; intros.
       simpl in *.
-      apply (IHe US (Hcons (F := typD ts nil) (p (fun x => x) x) VS) VS' VS''). }
-    { forward. }
+      apply (IHe US (Hcons (F := typD ts nil) (TypesI.Relim (fun x => x) e0 x) VS) VS' VS''). }
+    { forward.
+      destruct e. reflexivity. }
     Transparent exprD exprD'.
   Qed.
 
@@ -540,8 +544,8 @@ Section typed.
                | _ : match ?X with _ => _ end |- _ =>
                  destruct X; intuition
              end; eauto.
-      destruct (typ_cast_typ ts nil t0_2 t); auto.
-      intros. rewrite IHe1. rewrite IHe2. reflexivity. }
+      destruct (typ_cast_typ nil t t0_2); auto.
+      intros. destruct e; simpl. rewrite IHe1. f_equal. apply IHe2. }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
                  (destruct x; auto); [ ]
@@ -555,13 +559,16 @@ Section typed.
                  destruct X; intuition
              end; eauto.
       eapply functional_extensionality.
-      intros. eapply (IHe US (Hcons (F := typD ts nil) (p (fun x=>x) x) VS)). }
+      intros. eapply (IHe US (Hcons (F := typD ts nil)
+                                    (TypesI.Relim (fun x0 : Type => x0) e0 x)
+                                    VS)). }
     { repeat match goal with
                | |- match match ?x with _ => _ end with _ => _ end =>
                  (destruct x; auto); [ ]
                | |- match match ?x with _ => _ end with _ => _ end =>
                  solve [ destruct x; auto ]
-             end. }
+             end.
+      destruct e. reflexivity. }
     Transparent exprD exprD'.
   Qed.
 
@@ -596,6 +603,9 @@ Section vars_to_uvars.
   Variable ts : types.
   Variable func : Type.
 
+  Let RType_typ := RType_typ ts.
+  Local Existing Instance RType_typ.
+
   Fixpoint vars_to_uvars (e : expr func) (skip add : nat) : expr func :=
     match e with
       | Var v =>
@@ -607,7 +617,7 @@ Section vars_to_uvars.
       | Abs t e => Abs t (vars_to_uvars e (S skip) add)
     end.
 
-  Theorem vars_to_uvars_typeof_expr (Z : SymI.RSym (typD ts) func)
+  Theorem vars_to_uvars_typeof_expr (Z : SymI.RSym func)
   : forall tus e tvs tvs' t,
       typeof_expr tus (tvs ++ tvs') e = Some t ->
       typeof_expr (tus ++ tvs') tvs (vars_to_uvars e (length tvs) (length tus))
@@ -658,7 +668,7 @@ Section vars_to_uvars.
       rewrite app_length in H0. omega. }
   Qed.
 
-  Theorem vars_to_uvars_exprD' (Z : SymI.RSym (typD ts) func)
+  Theorem vars_to_uvars_exprD' (Z : SymI.RSym func)
   : forall tus e tvs t tvs' val,
       exprD' tus (tvs ++ tvs') e t = Some val ->
       exists val',
@@ -679,16 +689,20 @@ Section vars_to_uvars.
         simpl in H1.
         forward_reason.
         assert (v - length tvs + length tus >= length tus) by omega.
-        eapply nth_error_get_hlist_nth_rwR
-        with (F := typD ts nil) in H2.
-        replace (v - length tvs + length tus - length tus)
-        with (v - length tvs) in H2 by omega.
-        revert H2. instantiate (1 := tvs').
+        generalize (@nth_error_get_hlist_nth_rwR _ (typD ts nil) tvs tvs' v).
         match goal with
           | H : ?X = _ |- context [ ?Y ] =>
             change Y with X; rewrite H
         end.
-        destruct 1 as [ ? [ ? ? ] ].
+        destruct 1 as [ ? [ ? ? ] ]. omega.
+        generalize (@nth_error_get_hlist_nth_rwR _ (typD ts nil) tus tvs' (v - length tvs + length tus)).
+        replace (v - length tvs + length tus - length tus) with
+                (v - length tvs) by omega.
+        match goal with
+          | H : ?X = _ |- context [ ?Y ] =>
+            change Y with X; rewrite H
+        end.
+        destruct 1 as [ ? [ ? ? ] ]. omega.
         match goal with
           | H : ?X = _ |- context [ ?Y ] =>
             change Y with X; rewrite H
@@ -706,24 +720,23 @@ Section vars_to_uvars.
       eapply IHe1 in H1.
       eapply IHe2 in H2. forward_reason.
       Cases.rewrite_all_goal.
-      rewrite typ_cast_typ_refl.
       eexists; split; eauto.
-      intros.
-      rewrite H2. rewrite H3. reflexivity. }
+      intros. simpl.
+      rewrite H2. rewrite H4. reflexivity. }
     { red_exprD.
       forward. inv_all; subst.
-      destruct (IHe (t :: tvs) _ _ _ H1) as [ ? [ ? ? ] ].
+      destruct (IHe (t1 :: tvs) _ _ _ H1) as [ ? [ ? ? ] ].
       simpl in *. rewrite H.
       eexists; eauto; split; eauto.
       intros. simpl.
       eapply functional_extensionality. intros.
-      rewrite <- H0. simpl. reflexivity. }
+      rewrite <- H2. simpl. reflexivity. }
     { red_exprD.
       forward. inv_all; subst.
       eapply nth_error_get_hlist_nth_weaken in H0.
       simpl in *. forward_reason.
       rewrite H. rewrite typ_cast_typ_refl.
-      eexists; split; eauto. intros. apply H0. }
+      eexists; split; eauto. }
   Qed.
 
 End vars_to_uvars.

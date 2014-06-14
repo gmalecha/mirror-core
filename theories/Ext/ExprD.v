@@ -15,11 +15,11 @@ Include EXPR_DENOTE.
 
 Existing Instance Expr_expr.
 
-Theorem ExprOk_expr ts func (RSym_func : RSym (typD ts) func)
+Theorem ExprOk_expr ts func (RSym_func : RSym func)
 : @ExprOk _ _ _ (@Expr_expr ts func RSym_func).
 Proof.
   constructor.
-  { eapply EXPR_DENOTE.exprD'_weaken. }
+  { simpl. eapply EXPR_DENOTE.exprD'_weaken. }
 Qed.
 
 Create HintDb exprD_rw discriminated.

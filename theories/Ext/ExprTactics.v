@@ -18,20 +18,6 @@ Global Instance Injective_tyType a b : Injective (tyType a = tyType b) :=
 { result := a = b }.
 Proof. abstract (inversion 1; intuition). Defined.
 
-Global Instance Injective_typ_cast_typ_hetero_Some ts a b c p
-: Injective (typ_cast_typ ts a b c = Some p) :=
-{ result := exists pf : b = c,
-              (fun f => match pf in _ = t
-                             return f (typD ts a b) -> f (typD ts a t)
-                       with
-                         | eq_refl => fun x => x
-                       end) = p }.
-Proof.
-  abstract (intros; exists (typ_cast_typ_eq _ _ _ _ H);
-                           uip_all;
-                           subst; rewrite typ_cast_typ_refl in H; f_equal; inv_all; auto).
-Defined.
-
 (** TODO: solve expr_acc trans as a type class *)
 Ltac solve_expr_acc_trans :=
   match goal with

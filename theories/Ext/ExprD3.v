@@ -10,6 +10,7 @@ Require Import ExtLib.Tactics.Cases.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprDI.
@@ -25,7 +26,9 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RSym_func : RSym (typD ts) func.
+    Let RType_typ := RType_typ ts.
+    Local Existing Instance RType_typ.
+    Variable RSym_func : RSym func.
 
     Let res_type (tus tvs : tenv typ) (t : typ) : Type :=
       hlist (typD ts nil) tus -> hlist (typD ts nil) tvs -> typD ts nil t.
@@ -56,7 +59,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
             | Some ft => fun val =>
                            Some (existT (res_type uvar_env var_env)
                                         ft (fun _ _ => val))
-          end (symD f)
+          end (symD nil f)
         | Abs t' e =>
           match exprD_simul' uvar_env (t' :: var_env) e with
             | None => None
@@ -77,67 +80,74 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
           end
       end
     with exprD' (uvar_env var_env : tenv typ) (e : expr func) (t : typ) {struct e}
-         : option (res_type uvar_env var_env t) :=
-           match e with
-             | Var x =>
-               match @nth_error_get_hlist_nth _ _ var_env x with
-                 | None => None
-                 | Some (existT t' get) =>
-                   match typ_cast_typ ts _ t' t with
-                     | None => None
-                     | Some cast =>
-                       Some (fun (_ : hlist (typD ts nil) uvar_env)
-                                 (vs : hlist (typD ts nil) var_env) =>
-                               cast (fun x => x) (get vs))
-                   end
-               end
-             | UVar x =>
-               match @nth_error_get_hlist_nth _ _ uvar_env x with
-                 | None => None
-                 | Some (existT t' get) =>
-                   match typ_cast_typ ts _ t' t with
-                     | None => None
-                     | Some cast =>
-                       Some (fun (us : hlist (typD ts nil) uvar_env)
-                                 (_ : hlist (typD ts nil) var_env) =>
-                               cast (fun x => x) (get us))
-                   end
-               end
-             | Inj f =>
-               match symAs f t with
-                 | None => None
-                 | Some val => Some (fun _ _ => val)
-               end
-             | Abs t' e =>
-               match t as t return option (res_type uvar_env var_env t)
-               with
-                 | tyArr lt rt =>
-                   match typ_cast_typ ts nil lt t' with
-                     | None => None
-                     | Some cast =>
-                       match @exprD' uvar_env (t' :: var_env) e rt with
-                         | None => None
-                         | Some a => Some (fun u x y =>
-                                             a u (@Hcons _ (typD ts nil) _ _
-                                                         (cast (fun x => x) y) x))
-                       end
-                   end
-                 | _ => None
-               end
-             | App f x =>
-               match exprD_simul' uvar_env var_env f with
-                 | Some (existT (tyArr l r) f) =>
-                   match exprD' uvar_env var_env x l with
-                     | None => None
-                     | Some x =>
-                       match typ_cast_typ ts _ r t with
-                         | None => None
-                         | Some cast => Some (fun u v => cast (fun x => x) ((f u v) (x u v)))
-                       end
-                   end
-                 | _ => None
-               end
-           end.
+    : option (res_type uvar_env var_env t) :=
+      match e with
+        | Var x =>
+          match @nth_error_get_hlist_nth _ _ var_env x with
+            | None => None
+            | Some (existT t' get) =>
+              match typ_cast_typ nil t t' with
+                | None => None
+                | Some cast =>
+                  Some (Relim (fun t => _ -> _ -> t) cast
+                              (fun (_ : hlist (typD ts nil) uvar_env)
+                                   (vs : hlist (typD ts nil) var_env) =>
+                                 get vs))
+              end
+          end
+        | UVar x =>
+          match @nth_error_get_hlist_nth _ _ uvar_env x with
+            | None => None
+            | Some (existT t' get) =>
+              match typ_cast_typ nil t t' with
+                | None => None
+                | Some cast =>
+                  Some (Relim (fun t => _ -> _ -> t) cast
+                              (fun (us : hlist (typD ts nil) uvar_env)
+                                   (_ : hlist (typD ts nil) var_env) =>
+                                 get us))
+              end
+          end
+        | Inj f =>
+          match symAs nil f t with
+            | None => None
+            | Some val => Some (fun _ _ => val)
+          end
+        | Abs t' e =>
+          match t as t return option (res_type uvar_env var_env t)
+          with
+            | tyArr lt rt =>
+              match typ_cast_typ nil lt t' with
+                | None => None
+                | Some cast =>
+                  match @exprD' uvar_env (t' :: var_env) e rt with
+                    | None => None
+                    | Some a =>
+                      Some (Relim (fun t => _ -> _ -> t -> _) cast
+                                  (fun u x y =>
+                                     a u (@Hcons _ (typD ts nil) _ _
+                                                 y x)))
+                  end
+              end
+            | _ => None
+          end
+        | App f x =>
+          match exprD_simul' uvar_env var_env f with
+            | Some (existT (tyArr l r) f) =>
+              match exprD' uvar_env var_env x l with
+                | None => None
+                | Some x =>
+                  match typ_cast_typ nil t r with
+                    | None => None
+                    | Some cast =>
+                      let _ : _ -> _ -> typD ts nil l -> typD ts nil r := f in
+                      Some (Relim (fun t => _ -> _ -> t) cast
+                                  (fun u v => (f u v) (x u v)))
+                  end
+              end
+            | _ => None
+          end
+      end.
 
     Theorem split_env_nth_error : forall ve v tv,
       nth_error ve v = Some tv <->
@@ -225,12 +235,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         exprD' tus tvs (Var v) t =
         match nth_error_get_hlist_nth (typD ts nil) tvs v with
           | Some (existT t' get) =>
-            match typ_cast_typ ts nil t' t with
-              | Some cast =>
-                Some
-                  (fun (_ : hlist (typD ts nil) tus) (vs : hlist (typD ts nil) tvs) =>
-                     cast (fun x : Type => x) (get vs))
+            match typ_cast_typ nil t t' with
               | None => None
+              | Some cast =>
+                Some (Relim (fun t => _ -> _ -> t)
+                            cast (fun (_ : hlist (typD ts nil) tus) => get))
             end
           | None => None
         end.
@@ -241,12 +250,13 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         exprD' tus tvs (UVar u) t =
         match nth_error_get_hlist_nth (typD ts nil) tus u with
           | Some (existT t' get) =>
-            match typ_cast_typ ts nil t' t with
-              | Some cast =>
-                Some
-                  (fun (us : hlist (typD ts nil) tus) (_ : hlist (typD ts nil) tvs) =>
-                     cast (fun x : Type => x) (get us))
+            match typ_cast_typ nil t t' with
               | None => None
+              | Some cast =>
+                Some (Relim (fun t => _ -> _ -> t)
+                            cast (fun (us : hlist (typD ts nil) tus)
+                                      (_ : hlist (typD ts nil) tvs) =>
+                                    get us))
             end
           | None => None
         end.
@@ -256,21 +266,30 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        exprD' tus tvs (Abs t e) u =
        match u as u return option (res_type tus tvs u) with
          | tyArr l r =>
-           match typ_cast_typ _ _ l t
+           match typ_cast_typ nil t l
                , exprD' tus (t :: tvs) e r
            with
              | Some cast , Some f =>
-               Some (fun u g => fun x => f u (Hcons (F := typD ts nil)
-                                                    (cast (fun x => x) x) g))
+               Some (fun u g => fun x =>
+                                  f u (Hcons (F := typD ts nil)
+                                             (Relim (fun x => x) cast x) g))
              | _ , _ => None
            end
          | _ => None
        end.
-    Proof. reflexivity. Qed.
+    Proof.
+      simpl; intros. forward.
+      subst.
+      consider (typ_cast_typ nil t0 t).
+      { intros; subst.
+        repeat rewrite typ_cast_typ_refl. forward. }
+      { intro. eapply typ_cast_typ_neq' in H.
+        repeat rewrite typ_cast_typ_neq by auto. reflexivity. }
+    Qed.
 
     Theorem exprD'_Sym : forall tus tvs f t,
       exprD' tus tvs (@Inj func f) t =
-      match symAs f t with
+      match symAs nil f t with
         | None => None
         | Some val => Some (fun _ _ => val)
       end.
@@ -288,7 +307,10 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        forward. subst. inv_all; subst.
        rewrite typ_cast_typ_refl. subst. reflexivity. }
      { unfold symAs.
-       generalize dependent (symD f).
+       match goal with
+          | H : _ ?X = _ |- context [ @symD ?A ?B ?C ?D ?E ?F ] =>
+            change (@symD A B C D E F) with X ; generalize dependent X
+        end.
        destruct (typeof_sym f); try congruence; intros.
        inv_all; subst. subst. subst.
        simpl. rewrite typ_cast_typ_refl. reflexivity. }
@@ -316,15 +338,15 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
      { forward; subst; inv_all; subst.
        apply nth_error_get_hlist_nth_Some in H0.
        simpl in *.
-       destruct H0; auto.
-       apply typ_cast_typ_eq in H1. subst; auto. }
+       destruct H0; auto. }
      { unfold symAs in *.
-       generalize dependent (symD f).
+       match goal with
+         | H : context [ @symD ?A ?B ?C ?D ?E ?F ] |- _ =>
+           generalize dependent (@symD A B C D E F)
+       end.
        destruct (typeof_sym f); try congruence; intros.
        simpl in *.
-       forward.
-       generalize (typ_cast_typ_eq _ _ _ _ H); intros.
-       congruence. }
+       forward. }
      { specialize (IHe1 tvs).
        consider (exprD_simul' tus tvs e1); try congruence; intros.
        destruct s. destruct x; try congruence.
@@ -338,23 +360,55 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        match goal with
          | H : match ?X with _ => _ end = _ |- _ =>
            consider X; intros; try congruence
-       end.
-       generalize (@typ_cast_typ_eq _ _ _ _ _ H0). congruence. }
+       end. }
      { destruct t0; try congruence.
        specialize (IHe (t :: tvs) t0_2).
        match goal with
          | H : match ?X with _ => _ end = _ |- _ =>
            consider X; intros; try congruence
        end.
-       generalize (@typ_cast_typ_eq _ _ _ _ _ H); intro; subst.
+       generalize (@typ_cast_typ_eq _ _ _ _ H); intro; subst.
        destruct (exprD' tus (t :: tvs) e t0_2); try congruence.
        erewrite IHe; eauto. }
      { forward; subst; inv_all; subst.
        apply nth_error_get_hlist_nth_Some in H0.
        simpl in *.
-       destruct H0; auto.
-       apply typ_cast_typ_eq in H1. subst; auto. }
+       destruct H0; auto. }
    Qed.
+
+   Ltac generalize_symD :=
+     match goal with
+       | |- context [ @symD ?A ?B ?C ?D ?E ?F ] =>
+         let it := constr:(@symD A B C D E F) in
+         repeat match goal with
+                  | |- context [ @symD ?A ?B ?C ?D ?E ?F ] =>
+                    let Z := constr:(@symD A B C D E F) in
+                    match Z with
+                      | it => fail 1
+                      | _ => change Z with it
+                    end
+                end ;
+           repeat match goal with
+                    | H : context [ @symD ?A ?B ?C ?D ?E ?F ] |- _ =>
+                      let Z := constr:(@symD A B C D E F) in
+                      match Z with
+                        | it => fail 1
+                        | _ => change Z with it in H ; revert H
+                      end
+                  end ;
+           generalize dependent it
+       | H : context [ @symD ?A ?B ?C ?D ?E ?F ] |- _ =>
+         let it := constr:(@symD A B C D E F) in
+         repeat match goal with
+                  | H : context [ @symD ?A ?B ?C ?D ?E ?F ] |- _ =>
+                    let Z := constr:(@symD A B C D E F) in
+                    match Z with
+                      | it => fail 1
+                      | _ => change Z with it in H ; revert H
+                    end
+                end ;
+         generalize dependent it
+     end.
 
    Lemma exprD_simul'_None : forall e tus tvs,
      match exprD_simul' tus tvs e with
@@ -370,7 +424,8 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        { apply nth_error_get_hlist_nth_Some in H.
          forward. subst. simpl in *. destruct H0; auto. }
        { apply nth_error_get_hlist_nth_None in H. auto. } }
-     { generalize (symD f). forward. }
+     { generalize_symD.
+       forward. }
      { specialize (IHe1 tus tvs). specialize (IHe2 tus tvs).
        destruct (exprD_simul' tus tvs e1).
        { destruct s; simpl in *.
@@ -421,7 +476,7 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
        { apply nth_error_get_hlist_nth_None in H.
          congruence. } }
      { unfold symAs in *.
-       generalize dependent (symD f).
+       generalize_symD.
        destruct (typeof_sym f); try congruence.
        intros. intro. inv_all; subst.
        simpl in *.
@@ -486,10 +541,11 @@ Module EXPR_DENOTE_core <: ExprDenote_core.
         | Some (tyArr l r) =>
           match exprD' tus tvs e (tyArr l r)
               , exprD' tus tvs arg l
-              , typ_cast_typ _ _ r t
+              , typ_cast_typ nil t r
           with
             | Some f , Some x , Some cast =>
-              Some (fun u g => cast (fun x => x) ((f u g) (x u g)))
+              Some (Relim (fun t => _ -> _ -> t) cast
+                          (fun u g => (f u g) (x u g)))
             | _ , _ , _ => None
           end
         | _ => None
