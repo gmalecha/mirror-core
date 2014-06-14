@@ -7,6 +7,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 Require Import MirrorCore.Ext.ExprT.
@@ -16,27 +17,30 @@ Set Strict Implicit.
 
 Module Type ExprDenote_core.
 
-  Parameter exprD' : forall {ts : types} {func : Type} {_ : RSym (typD ts) func},
+  Parameter exprD' : forall {ts : types} {func : Type}
+                            {_ : @RSym _ (RType_typ ts) func},
     forall (tus tvs : tenv typ), expr func -> forall (t : typ),
     option (hlist (typD ts nil) tus -> hlist (typD ts nil) tvs -> typD ts nil t).
 
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RSym_func : RSym (typD ts) func.
+    Let RType_typ := RType_typ ts.
+    Local Existing Instance RType_typ.
+    Variable RSym_func : RSym func.
     Variable tus : tenv typ.
 
     Axiom exprD'_Abs : forall tvs t e u,
        exprD' tus tvs (Abs t e) u =
        match u as u return option (hlist (typD ts nil) tus -> hlist (typD ts nil) tvs -> typD ts nil u) with
          | tyArr l r =>
-           match typ_cast_typ _ _ l t
+           match typ_cast_typ nil t l
                , exprD' tus (t :: tvs) e r
            with
              | Some cast , Some f =>
                Some (fun u g => fun x =>
                                   f u (Hcons (F := typD ts nil)
-                                             (cast (fun x => x) x) g))
+                                             (Relim (fun x => x) cast x) g))
              | _ , _ => None
            end
          | _ => None
@@ -47,12 +51,11 @@ Module Type ExprDenote_core.
       match @nth_error_get_hlist_nth _ _ tvs v with
         | None => None
         | Some (existT t' get) =>
-          match typ_cast_typ ts _ t' t with
+          match typ_cast_typ nil t t' with
             | None => None
             | Some cast =>
-              Some (fun (_ : hlist (typD ts nil) tus)
-                        (vs : hlist (typD ts nil) tvs) =>
-                      cast (fun x => x) (get vs))
+              Some (Relim (fun t => _ -> _ -> t)
+                          cast (fun (_ : hlist (typD ts nil) tus) => get))
           end
       end.
 
@@ -61,21 +64,25 @@ Module Type ExprDenote_core.
       match @nth_error_get_hlist_nth _ _ tus u with
         | None => None
         | Some (existT t' get) =>
-          match typ_cast_typ ts _ t' t with
+          match typ_cast_typ nil t t' with
             | None => None
             | Some cast =>
-              Some (fun (us : hlist (typD ts nil) tus)
-                        (_ : hlist (typD ts nil) tvs) =>
-                      cast (fun x => x) (get us))
+              Some (Relim (fun t => _ -> _ -> t)
+                          cast (fun (us : hlist (typD ts nil) tus)
+                                    (_ : hlist (typD ts nil) tvs) =>
+                                  get us))
           end
       end.
 
     Axiom exprD'_Sym : forall tvs f t,
       exprD' tus tvs (Inj f) t =
-      match symAs f t with
+      match symAs nil f t with
         | None => None
         | Some val => Some (fun _ _ => val)
       end.
+
+    Check Relim.
+
 
     Axiom exprD'_App : forall tvs t e arg,
       exprD' tus tvs (App e arg) t =
@@ -83,10 +90,12 @@ Module Type ExprDenote_core.
         | Some (tyArr l r) =>
           match exprD' tus tvs e (tyArr l r)
               , exprD' tus tvs arg l
-              , typ_cast_typ _ _ r t
+              , typ_cast_typ nil t r
           with
             | Some f , Some x , Some cast =>
-              Some (fun u g => cast (fun x => x) ((f u g) (x u g)))
+              let _ : _ -> _ -> typD ts nil l -> typD ts nil r := f in
+              Some (Relim (ts := nil) (fun t => _ -> _ -> t)
+                          cast (fun u g => (f u g) (x u g)))
             | _ , _ , _ => None
           end
         | _ => None
@@ -124,16 +133,18 @@ Module Type ExprDenote.
   Section with_envs.
     Variable ts : types.
     Variable func : Type.
-    Variable RSym_func : RSym (typD ts) func.
+    Let RType_typ := RType_typ ts.
+    Local Existing Instance RType_typ.
+    Variable RSym_func : RSym func.
 
     Axiom typeof_expr_exprD' : forall tus tvs e t,
       WellTyped_expr tus tvs e t <->
       exists v, exprD' tus tvs e t = Some v.
 
-    Variables us vs : env (typD ts).
+    Variables us vs : env nil.
 
-    Instance Expr_expr : @Expr typ (typD ts) (expr func) :=
-      @Build_Expr _ (typD ts) (expr func)
+    Instance Expr_expr : @Expr typ _ (expr func) :=
+      @Build_Expr _ _ (expr func)
                   exprD'
                   _
                   (@wf_expr_acc func).
@@ -145,7 +156,7 @@ Module Type ExprDenote.
       exprD us vs (UVar u) t = lookupAs us u t.
 
     Axiom exprD_Sym : forall f t,
-      exprD us vs (Inj f) t = symAs f t.
+      exprD us vs (Inj f) t = symAs nil f t.
 
     Axiom exprD_Abs_is_arr : forall e t t',
       exprD us vs (Abs t' e) t =
@@ -182,10 +193,11 @@ Module Type ExprDenote.
         | Some (tyArr l r) =>
           match exprD us vs e (tyArr l r)
               , exprD us vs arg l
-              , typ_cast_typ _ _ r t
+              , typ_cast_typ nil t r
           with
             | Some f , Some x , Some cast =>
-              Some (cast (fun x => x) (f x))
+              let _ : typD ts nil l -> typD ts nil r := f in
+              Some (Relim (fun x => x) cast (f x))
             | _ , _ , _ => None
           end
         | _ => None
@@ -236,13 +248,15 @@ Module Type ExprDenote.
         match typeof_expr tus tvs e with
           | None => None
           | Some t' =>
-            match TypesI.type_cast nil t' t with
+            match typ_cast_typ nil t t' with
               | None => None
               | Some cast =>
                 match exprD' tus tvs e t' with
                   | None => None
                   | Some x =>
-                    Some (fun us gs => cast (fun x => x) (x us gs))
+                    let _ : _ -> _ -> typD ts nil t' := x in
+                    Some (Relim (fun t => _ -> _ -> t)
+                                cast x)
                 end
             end
         end.
@@ -253,13 +267,13 @@ Module Type ExprDenote.
         match typeof_expr (typeof_env us) (typeof_env vs) e with
           | None => None
           | Some t' =>
-            match TypesI.type_cast nil t' t with
+            match TypesI.type_cast nil t t' with
               | None => None
               | Some cast =>
                 match exprD us vs e t' with
                   | None => None
                   | Some x =>
-                    Some (cast (fun x => x) x)
+                    Some (Relim (fun x => x) cast x)
                 end
             end
         end.

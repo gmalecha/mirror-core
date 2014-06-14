@@ -1,6 +1,7 @@
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Ext.Types.
 Require Import MirrorCore.Ext.ExprCore.
 
@@ -10,7 +11,9 @@ Set Strict Implicit.
 Section as_const.
   Variable ts : types.
   Variable func : Type.
-  Variable RSym_func : RSym (typD ts) func.
+  Let RType_typ := RType_typ ts.
+  Local Existing Instance RType_typ.
+  Variable RSym_func : RSym func.
 
   Section as_const.
     Variable as_const_func : func -> option (sigT (typD ts nil)).
@@ -23,9 +26,10 @@ Section as_const.
             match nth_error_get_hlist_nth _ vs v with
               | None => None
               | Some (existT t' get) =>
-                match typ_cast_typ ts nil t' t with
+                match type_cast nil t t' with
                   | Some cast =>
-                    Some (fun g => cast (fun x => x) (get g))
+                    Some (Relim (fun t => hlist (typD ts nil) vs -> t)
+                                cast get)
                   | None => None
                 end
             end
@@ -44,9 +48,11 @@ Section as_const.
           | Inj f =>
             match as_const_func f with
               | Some (existT t' f) =>
-                match typ_cast_typ ts nil t' t with
+                match typ_cast_typ nil t t' with
                   | None => None
-                  | Some cast => Some (fun _ => cast (fun x => x) f)
+                  | Some cast =>
+                    Some (Relim (fun t => hlist (typD ts nil) vs -> t)
+                                cast (fun _ => f))
                 end
               | None => None
             end
@@ -55,8 +61,10 @@ Section as_const.
               | Some (existT (tyArr dt rt) f) =>
                 match as_const e vs dt with
                   | Some e =>
-                    match typ_cast_typ ts nil rt t with
-                      | Some cast => Some (fun g => cast (fun x => x) ((f g) (e g)))
+                    match type_cast nil t rt with
+                      | Some cast =>
+                        Some (Relim (fun t => hlist (typD ts nil) vs -> t)
+                                    cast (fun g => (f g) (e g)))
                       | None => None
                     end
                   | None => None

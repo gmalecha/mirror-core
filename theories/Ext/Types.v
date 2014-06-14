@@ -292,17 +292,11 @@ Section env.
   Qed.
 
   Definition typ_cast_typ (env : list Type) (a b : typ)
-  : option (forall F, F (typD env a) -> F (typD env b)) :=
-    match typ_eq_odec a b with
-      | None => None
-      | Some pf => Some (fun F =>
-                           match pf in _ = t return F (typD env a) -> F (typD env t) with
-                             | eq_refl => fun x => x
-                           end)
-    end.
+  : option (a = b) :=
+    typ_eq_odec a b.
 
   Theorem typ_cast_typ_refl : forall env t,
-                                typ_cast_typ env t t = Some (fun F x => x).
+                                typ_cast_typ env t t = Some eq_refl.
   Proof.
     unfold typ_cast_typ; simpl; intros.
     rewrite typ_eq_odec_Some_refl. reflexivity.
@@ -316,7 +310,7 @@ Section env.
                               typ_cast_typ ts t t' = Some v -> t = t'.
   Proof.
     clear. unfold typ_cast_typ; simpl; intros.
-    destruct (typ_eq_odec t t'); auto. congruence.
+    destruct (typ_eq_odec t t'); auto.
   Qed.
 
   Lemma typ_cast_typ_neq : forall env t t',
@@ -325,7 +319,7 @@ Section env.
   Proof.
     intros.
     consider (typ_cast_typ env t t'); auto; intros.
-    exfalso. generalize (typ_cast_typ_eq _ _ _ H0). auto.
+    exfalso. auto.
   Qed.
 
   Lemma typ_cast_typ_neq' : forall env t t',
@@ -341,7 +335,9 @@ Section env.
   : option (typD ts b) :=
     match typ_cast_typ ts a b with
       | None => None
-      | Some f => Some (f (fun x => x) v)
+      | Some f => Some (match f in _ = t return typD ts t with
+                          | eq_refl => v
+                        end)
     end.
 
   Lemma typ_cast_val_eq : forall ts a b v v',
@@ -372,7 +368,7 @@ Section env.
       | tyVar v => type_libniz _ (** TODO: This should be a lookup **)
     end.
 
-Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
+  Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
     match tv with
       | tyArr l r => tyArr (subst0_typ t l) (subst0_typ t r)
       | tyVar 0 => t
@@ -456,59 +452,59 @@ Fixpoint subst0_typ (t : typ) (tv : typ) : typ :=
       inversion H0; clear H0; subst. eauto. }
   Qed.
 
-  Global Instance RType_typ : RType typD :=
-  { type_cast := typ_cast_typ
-  ; type_eqb := _
-  ; typeFor := typ_typeFor
-(*
-  ; instantiate_typ := instantiate_typ
-  ; type_of_apply := type_of_apply
-*)
+  Global Instance RType_typ : RType typ :=
+  { typD := typD
+  ; type_cast := @typ_cast_typ
   }.
 
-  Global Instance RTypeOk_typ : RTypeOk RType_typ.
+  Global Instance RTypeOk_typ : RTypeOk.
   Proof.
     constructor.
-    eauto with typeclass_instances.
+    { eauto with typeclass_instances. }
     { intros. unfold type_cast; simpl.
-      rewrite typ_cast_typ_refl. eauto. }
-    { unfold type_cast. simpl; intros.
-      unfold typ_cast_typ in *.
-      consider (typ_eq_odec a b); intros; subst.
-      inv_all; subst.
-      rewrite typ_eq_odec_Some_refl. eauto. congruence. }
-    { unfold type_cast, typ_cast_typ; simpl.
-      unfold type_cast, typ_cast_typ; simpl.
-      intros.
-      forward.
-      subst.
-      inv_all; subst.
-      rewrite H. eexists; split; eauto. }
+      destruct pf. reflexivity. }
+    { destruct pf1. destruct pf2. reflexivity. }
+    { apply typ_cast_typ_refl. }
+    { eapply typ_cast_typ_neq'. }
   Qed.
 
-  Global Instance TypInstance0_tyProp : TypInstance0 typD Prop :=
+  Global Instance Typ0_tyProp : Typ0 _ Prop :=
   { typ0 := tyProp
-  ; typ0_iso := fun ts => Iso.Equiv_ident _
-  ; typ0_match := fun _ _ caseType caseElse t =>
-                    match t with
-                      | tyProp => caseType tt
-                      | x => caseElse x
+  ; typ0_cast := fun ts => eq_refl
+  ; typ0_match := fun T ts t tr =>
+                    match t as t' return T (typD ts t') -> T (typD ts t')  with
+                      | tyProp => fun _ => tr
+                      | _ => fun x => x
                     end
   }.
 
-  Global Instance TypInstance2_tyArr : TypInstance2 typD Fun :=
+  Global Instance Typ0Ok_tyProp : Typ0Ok Typ0_tyProp.
+  Proof.
+    constructor.
+    { reflexivity. }
+    { destruct x; try solve [ right ; reflexivity ].
+      { left. exists eq_refl. reflexivity. } }
+    { destruct pf. reflexivity. }
+  Qed.
+
+  Global Instance Typ2_tyArr : Typ2 _ Fun :=
   { typ2 := tyArr
-  ; typ2_iso := fun ts t1 t2 => Iso.Equiv_ident _
-  ; typ2_match := fun _ t _ caseType caseElse =>
-                    match t with
-                      | tyArr l r => caseType l r
-                      | x => caseElse x
+  ; typ2_cast := fun ts a b => eq_refl
+  ; typ2_match := fun T ts t tr =>
+                    match t as t' return T (typD ts t') -> T (typD ts t') with
+                      | tyArr a b => fun _ => tr a b
+                      | _ => fun x => x
                     end
-  ; typ2_matchW := fun ts t R caseType caseElse =>
-                    match t as t' return (unit -> R (typD ts t')) -> R (typD ts t') with
-                      | tyArr l r => fun _ => caseType l r
-                      | x => fun caseElse => caseElse tt
-                    end caseElse
   }.
+
+  Global Instance Typ2Ok_tyProp : Typ2Ok Typ2_tyArr.
+  Proof.
+    constructor.
+    { reflexivity. }
+    { inversion 1. split; reflexivity. }
+    { destruct x; try solve [ right ; reflexivity ].
+      { left. do 2 eexists; exists eq_refl. reflexivity. } }
+    { destruct pf. reflexivity. }
+  Qed.
 
 End env.

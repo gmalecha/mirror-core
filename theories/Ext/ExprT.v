@@ -26,8 +26,10 @@ Module PMAP_PROPS := FMapFacts.Properties PositiveMap.
 Section typed.
   Variable types : types.
   Variable func : Type.
+  Let RType_typ := RType_typ types.
+  Local Existing Instance RType_typ.
 
-  Definition  WellTyped_env (tes : tenv typ) (es : env (typD types)) : Prop :=
+  Definition  WellTyped_env (tes : tenv typ) (es : env nil) : Prop :=
     Forall2 (fun x y => x = projT1 y) tes es.
 
   Theorem WellTyped_env_typeof_env : forall e te,
@@ -39,16 +41,16 @@ Section typed.
       eapply IHe; eauto. constructor; auto. eapply IHe. auto. }
   Qed.
 
-  Context {RSym_func : RSym (typD types) func}.
+  Context {RSym_func : RSym func}.
 
-  Lemma typeof_env_app : forall ts (a b : EnvI.env (typD ts)),
+  Lemma typeof_env_app : forall ts (a b : env ts),
     EnvI.typeof_env (a ++ b) = EnvI.typeof_env a ++ EnvI.typeof_env b.
   Proof.
     unfold EnvI.typeof_env; intros.
     rewrite map_app. reflexivity.
   Qed.
 
-  Lemma typeof_env_length : forall ts (a : EnvI.env (typD ts)),
+  Lemma typeof_env_length : forall ts (a : EnvI.env ts),
     length (EnvI.typeof_env a) = length a.
   Proof.
     unfold EnvI.typeof_env; intros.
@@ -136,7 +138,7 @@ Section typed.
 *)
   End typeof_expr.
 
-  Theorem nth_error_typeof_env : forall (fs : env (typD types)) n,
+  Theorem nth_error_typeof_env : forall (fs : env nil) n,
     nth_error (typeof_env fs) n = match nth_error fs n with
                                     | None => None
                                     | Some x => Some (projT1 x)
