@@ -64,24 +64,33 @@ Inductive step : state -> imp -> imp -> state -> Prop :=
 | SWriteFail : forall s v a,
                  denote_aexpr s a = None ->
                  step s (Write v a) Fail s
-| SSeq1 : forall s c1 c2 c1' s',
-            step s c1 c1' s' ->
-            step s (Seq c1 c2) (Seq c1' c2) s'
 | SSeqFail : forall s c,
                step s (Seq Fail c) Fail s
 | SSeqSkip : forall s c,
                step s (Seq Skip c) c s
-| SIfFail : forall s b tr fa,
-              denote_bexpr s b = None ->
-              step s (If b tr fa) Fail s
+| SSeq1 : forall s c1 c2 c1' s',
+            step s c1 c1' s' ->
+            step s (Seq c1 c2) (Seq c1' c2) s'
 | SIfTrue : forall s b tr fa,
               denote_bexpr s b = Some true ->
               step s (If b tr fa) tr s
 | SIfFalse : forall s b tr fa,
                denote_bexpr s b = Some false ->
                step s (If b tr fa) fa s
+| SIfFail : forall s b tr fa,
+              denote_bexpr s b = None ->
+              step s (If b tr fa) Fail s
 | SLoop : forall s b i,
             step s (Loop b i) (If b (Seq i (Loop b i)) Skip) s.
+
+Ltac take_step :=
+  first [ eapply SWrite ; [ reflexivity ]
+        | eapply SSeqSkip
+        | eapply SSeq1 ; [ take_step ]
+        | eapply SIfTrue ; [ reflexivity ]
+        | eapply SIfFalse ; [ reflexivity ]
+        | eapply SLoop
+        ].
 
 Inductive steps : state -> imp -> imp -> state -> Prop :=
 | SSRefl : forall s a, steps s a a s
@@ -90,11 +99,64 @@ Inductive steps : state -> imp -> imp -> state -> Prop :=
               steps s' c' c'' s'' ->
               steps s c c'' s''.
 
+
+
+(** Examples **)
+Module Demo.
+  Delimit Scope aexpr_scope with aexpr.
+  Delimit Scope bexpr_scope with bexpr.
+  Delimit Scope imp_scope with imp.
+
+  Local Notation "a ;; b" := (Seq a b) (at level 30) : imp_scope.
+  Local Notation "'_If' a 'Then' b 'Else' c" := (If a%bexpr b%imp c%imp) (at level 40) : imp_scope.
+  Local Notation "'_While' b '{{' c '}}'" := (Loop b%bexpr c%imp) (at level 40) : imp_scope.
+  Local Notation "x <- e" := (Write x%string e%aexpr) (at level 20, e at level 10) : imp_scope.
+  Local Notation "! x" := (Read x%string) (at level 0) : aexpr_scope.
+  Local Notation "x < y" := (Lt x%aexpr y%aexpr) (at level 70) : bexpr_scope.
+  Local Notation "x = y" := (Eq x%aexpr y%aexpr) (at level 70) : bexpr_scope.
+  Local Notation "x + y" := (Op Plus x%aexpr y%aexpr) (at level 50, left associativity) : aexpr_scope.
+  Local Notation "x - y" := (Op Minus x%aexpr y%aexpr) (at level 50, left associativity) : aexpr_scope.
+
+
+  Bind Scope imp_scope with imp.
+  Bind Scope aexpr_scope with aexpr.
+  Bind Scope bexpr_scope with bexpr.
+
+  Coercion Const : nat >-> aexpr.
+  Coercion Read : var >-> aexpr.
+  Let Read' : string -> aexpr := Read.
+  Coercion Read' : string >-> aexpr.
+
+  Definition empty_state : state := fun _ => None.
+
+  Goal exists s',
+         steps empty_state ("x" <- (Const 1) ;; "y" <- ! "x")%imp Skip s'.
+    eexists.
+    repeat first [ apply SSRefl
+                 | eapply SSTrans; [ take_step | ] ].
+  Qed.
+
+  Goal exists s',
+         steps empty_state ("x" <- (Const 1) ;;
+                            "y" <- (Const 1) ;;
+                            _While (!"x" < 3) {{
+                              "y" <- (!"y" + Const 1) ;;
+                              "x" <- (!"x" + Const 1)
+                           }})%imp Skip s'.
+    eexists.
+    repeat first [ apply SSRefl
+                 | eapply SSTrans; [ take_step | ] ].
+  Qed.
+End Demo.
+
+
 Definition triple (P : state -> Prop) (c : imp) (Q : state -> Prop) : Prop :=
   forall s,
     P s ->
        (~exists s', steps s c Fail s')
     /\ (forall s', steps s c Skip s' -> Q s').
+
+Notation "|- { P } c { Q }" := (triple P c Q) (at level 30).
 
 Theorem HConseq : forall (P P' Q Q' : state -> Prop) c,
                     (forall s, P s -> P' s) ->
@@ -128,13 +190,13 @@ Proof.
   { subst. congruence. }
   { intros; subst.
     inversion H; clear H; subst.
+    { left. eauto. }
+    { right. do 2 eexists. split. eapply SSRefl. eassumption. }
     { specialize (IHsteps eq_refl _ _ eq_refl). intuition.
       { destruct H. left. exists x. eapply SSTrans; eauto. }
       { do 3 destruct H.
         right. exists x. exists x0.
-        split. eapply SSTrans; eauto. assumption. } }
-    { left. eauto. }
-    { right. do 2 eexists. split. eapply SSRefl. eassumption. } }
+        split. eapply SSTrans; eauto. assumption. } } }
 Qed.
 
 Lemma Seq_Skip : forall s a b s',
@@ -148,14 +210,14 @@ Proof.
   { subst. congruence. }
   { intros; subst.
     inversion H; clear H; subst.
-    { specialize (IHsteps eq_refl _ _ eq_refl). intuition.
-      destruct IHsteps. destruct H.
-      eexists. split. eapply SSTrans; eauto. eauto. }
     { inversion H0. subst. inversion H. }
     { inversion H0; clear H0; subst.
       { eexists; split; eauto using SSRefl. }
       { eexists; split; eauto using SSRefl.
-        eapply SSTrans; eauto. } } }
+        eapply SSTrans; eauto. } }
+    { specialize (IHsteps eq_refl _ _ eq_refl). intuition.
+      destruct IHsteps. destruct H.
+      eexists. split. eapply SSTrans; eauto. eauto. } }
 Qed.
 
 Theorem HSeq : forall (P Q R : state -> Prop) c1 c2,
@@ -204,9 +266,9 @@ Proof.
     { destruct (H1 s'); eauto. } }
   { inversion H3; clear H3; subst.
     inversion H4; clear H4; subst; eauto.
-    { exfalso; eauto. }
     { destruct (H0 s'0); eauto. }
-    { destruct (H1 s'0); eauto. } }
+    { destruct (H1 s'0); eauto. }
+    { exfalso; eauto. } }
 Qed.
 
 Theorem HWrite : forall (P : state -> Prop) v e,
