@@ -2,6 +2,7 @@ MONAD   := Expr Demo ReduceApprox Reduce ReduceWf
 MONAD2  := MonadTypes MonadSym MonadExpr Tests MonadReify MonadReduce Demo
 MTAC    := Patterns McMatch
 SETOID  := Demo
+IMP     := Imp Wp
 AUTO    := AutoProver AutoProver2 # Demo Demo2 -- temporary
 AUTORW  := SetoidRewrite AutoRewriteLambda
 MODULES := ExprDemo \
@@ -10,7 +11,8 @@ MODULES := ExprDemo \
 	      $(MTAC:%=mtac/%) \
 	      $(SETOID:%=setoid/%) \
 	      $(AUTO:%=Auto/%) \
-	      $(AUTORW:%=AutoRewrite/%)
+	      $(AUTORW:%=AutoRewrite/%) \
+	      $(IMP:%=Imp/%)
 TESTS   :=
 VS      := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS     := $(TESTS:%=%.v)
