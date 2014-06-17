@@ -25,7 +25,7 @@ MODULES    := Generic \
 	      SymI SymEnv SymPolyEnv \
 	      SubstI SubstI2 SubstI3 \
 	      Prover EProver Prover2 EProver2 \
-	      Lemma \
+	      Lemma LemmaApply \
 	      $(EXTENSIBLE:%=Ext/%) \
 	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
