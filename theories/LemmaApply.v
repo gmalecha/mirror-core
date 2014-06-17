@@ -1,4 +1,6 @@
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI3.
@@ -43,7 +45,7 @@ Section lemma_apply.
 
   Hypothesis Hunify : unify_sound unify.
 
-  Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
+  Definition eapplicable (s : subst) (tus tvs : EnvI.tenv typ)
              (lem : lemma typ expr expr) (e : expr)
   : option subst :=
     let pattern := vars_to_uvars 0 (length tus) lem.(concl) in
@@ -125,8 +127,6 @@ Section lemma_apply.
                        ]
            end.
 
-  Require Import ExtLib.Data.Eq.
-
   Hypothesis vars_to_uvars_exprD'
      : forall (tus : tenv typ) (e : expr) (tvs : list typ)
          (t : typ) (tvs' : list typ)
@@ -142,9 +142,9 @@ Section lemma_apply.
             (vs' : hlist (typD nil) tvs') (vs : hlist (typD nil) tvs),
           val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
-  Lemma applicable_sound
+  Lemma eapplicable_sound
   : forall s tus tvs l0 g s1,
-      applicable s tus tvs l0 g = Some s1 ->
+      eapplicable s tus tvs l0 g = Some s1 ->
       WellFormed_subst s ->
       WellFormed_subst s1 /\
       forall lD sD gD,
@@ -168,10 +168,10 @@ Section lemma_apply.
             Some (gD us vs)
             /\ sD us vs.
   Proof.
-    unfold applicable.
+    unfold eapplicable.
     intros.
     eapply (@Hunify (tus ++ vars l0) tvs _ _ _ _ _ nil) in H; auto.
-    Require Import ExtLib.Tactics.
+
     forward_reason.
     split; eauto. intros.
     simpl in *.
@@ -181,11 +181,6 @@ Section lemma_apply.
     generalize (@exprD'_conv _ _ _ Expr_expr nil nil _ _ (concl l0) tyProp eq_refl (eq_sym (app_nil_r (vars l0)))).
     simpl. intro. rewrite H7 in H5; clear H7.
     clear l H2.
-(*
-    Require Import ExtLib.Data.Eq.
-    unfold ResType in H5.
-    rewrite eq_option_eq in H5.
- *)
     assert (exprD' nil (vars l0) (concl l0) tyProp =
             Some match eq_sym (tyPropD nil) in _ = t
                        return _ -> _ -> t
