@@ -77,17 +77,6 @@ Section parameterized.
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
 
-(*
-  (** TODO: Move this to [LemmaApply].v **)
-  Definition applicable (s : subst) (tus tvs : EnvI.tenv typ)
-             (lem : lemma typ (expr func) (expr func)) (e : expr func)
-  : option subst :=
-    let pattern := vars_to_uvars lem.(concl) 0 (length tus) in
-    let fuel := 100 in
-    @exprUnify subst _ _ RSym_func Subst_subst SU fuel (tus ++ lem.(vars)) tvs 0 s pattern e tyProp.
-*)
-  Check eapplicable.
-
   Definition fuel := 100.
   Let eapplicable :=
     @eapplicable typ (expr func) tyProp subst
