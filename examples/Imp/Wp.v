@@ -41,7 +41,7 @@ Fixpoint wp (e : imp) (P : sexpr) : sexpr :=
       wp a (wp b P)
     | Fail => Abs tyState (lfalse : sexpr)
     | Skip => P
-    | Write v e =>
+    | Assign v e =>
       Abs tyState (land @ (leq @ lget v @ aexpr_to_expr e (Var 0))
                         @ (P @ (lupd v @ aexpr_to_expr e (Var 0))))
     | If b t f =>
@@ -66,4 +66,4 @@ Fixpoint wp (e : imp) (P : sexpr) : sexpr :=
                                            @ (wpl @ (Var 0))))))
   end.
 
-Eval compute in wp (Write "x"%string (Const 3)) (Abs tyState (ltrue : sexpr)).
+Eval compute in wp (Assign "x"%string (Const 3)) (Abs tyState (ltrue : sexpr)).

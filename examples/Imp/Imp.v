@@ -21,7 +21,7 @@ Inductive bexpr :=
 | Lt : aexpr -> aexpr -> bexpr.
 
 Inductive imp :=
-| Write : var -> aexpr -> imp
+| Assign : var -> aexpr -> imp
 | Seq   : imp -> imp -> imp
 | If    : bexpr -> imp -> imp -> imp
 | Loop  : bexpr -> imp -> imp
@@ -58,12 +58,12 @@ Section with_state.
 End with_state.
 
 Inductive step : state -> imp -> imp -> state -> Prop :=
-| SWrite : forall s v a val,
+| SAssign : forall s v a val,
              denote_aexpr s a = Some val ->
-             step s (Write v a) Skip (state_upd v val s)
-| SWriteFail : forall s v a,
+             step s (Assign v a) Skip (state_upd v val s)
+| SAssignFail : forall s v a,
                  denote_aexpr s a = None ->
-                 step s (Write v a) Fail s
+                 step s (Assign v a) Fail s
 | SSeqFail : forall s c,
                step s (Seq Fail c) Fail s
 | SSeqSkip : forall s c,
@@ -84,7 +84,7 @@ Inductive step : state -> imp -> imp -> state -> Prop :=
             step s (Loop b i) (If b (Seq i (Loop b i)) Skip) s.
 
 Ltac take_step :=
-  first [ eapply SWrite ; [ reflexivity ]
+  first [ eapply SAssign ; [ reflexivity ]
         | eapply SSeqSkip
         | eapply SSeq1 ; [ take_step ]
         | eapply SIfTrue ; [ reflexivity ]
@@ -110,7 +110,7 @@ Module Demo.
   Local Notation "a ;; b" := (Seq a b) (at level 30) : imp_scope.
   Local Notation "'_If' a 'Then' b 'Else' c" := (If a%bexpr b%imp c%imp) (at level 40) : imp_scope.
   Local Notation "'_While' b '{{' c '}}'" := (Loop b%bexpr c%imp) (at level 40) : imp_scope.
-  Local Notation "x <- e" := (Write x%string e%aexpr) (at level 20, e at level 10) : imp_scope.
+  Local Notation "x <- e" := (Assign x%string e%aexpr) (at level 20, e at level 10) : imp_scope.
   Local Notation "! x" := (Read x%string) (at level 0) : aexpr_scope.
   Local Notation "x < y" := (Lt x%aexpr y%aexpr) (at level 70) : bexpr_scope.
   Local Notation "x = y" := (Eq x%aexpr y%aexpr) (at level 70) : bexpr_scope.
@@ -271,13 +271,13 @@ Proof.
     { exfalso; eauto. } }
 Qed.
 
-Theorem HWrite : forall (P : state -> Prop) v e,
+Theorem HAssign : forall (P : state -> Prop) v e,
                    (forall s, P s -> denote_aexpr s e <> None) ->
-                   triple P (Write v e) (fun s =>
-                                           exists s' val,
-                                             P s' /\
-                                             denote_aexpr s' e = Some val /\
-                                             s = state_upd v val s').
+                   triple P (Assign v e) (fun s =>
+                                            exists s' val,
+                                              P s' /\
+                                              denote_aexpr s' e = Some val /\
+                                              s = state_upd v val s').
 Proof.
   red. intros. intuition.
   { destruct H1. inversion H1; clear H1; subst.
