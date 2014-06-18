@@ -1,5 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
@@ -24,6 +25,43 @@ Fixpoint hlist_build {T U} (F : T -> Type) (f : forall x : T, U -> option (F x))
       end
     | _ , _ => None
   end.
+
+Lemma hlist_build_app_if
+: forall A T {ed : @EqDec _ (@eq T) _} (F : T -> Type) G a b c d e f,
+    @length T a = @length A c ->
+    hlist_build F G (a ++ b) (c ++ d) = Some (hlist_app e f) ->
+    hlist_build F G a c = Some e /\
+    hlist_build F G b d = Some f.
+Proof.
+  clear.
+  induction a; simpl; intros.
+  { intuition; destruct c; simpl in *; try congruence.
+    rewrite (hlist_eta e). reflexivity.
+    rewrite (hlist_eta e) in H0. simpl in H0. assumption. }
+  { destruct c; simpl in *; try congruence.
+    inversion H; clear H; subst.
+    forward. inv_all.
+    rewrite (hlist_eta e) in *.
+    simpl in *.
+    assert (h = hlist_app (hlist_tl e) f).
+    { inversion H1. inv_all. assumption. }
+    subst.
+    destruct (@IHa _ _ _ _ _ H2 H); clear IHa.
+    rewrite H3. intuition. inversion H1; inv_all. subst; reflexivity. }
+Qed.
+
+Lemma hlist_build_app_only_if
+: forall A T (F : T -> Type) G a b (c : list A) d e f,
+    hlist_build F G a c = Some e ->
+    hlist_build F G b d = Some f ->
+    hlist_build F G (a ++ b) (c ++ d) = Some (hlist_app e f).
+Proof.
+  induction a; simpl; intros; forward.
+  { rewrite (hlist_eta e). simpl. auto. }
+  { inv_all; subst.
+    simpl. eapply IHa in H0; eauto. rewrite H0. rewrite H2. reflexivity. }
+Qed.
+
 
 Section subst.
   Variable T : Type.

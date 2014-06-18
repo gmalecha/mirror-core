@@ -27,12 +27,13 @@ MODULES    := Generic \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma LemmaApply \
 	      $(EXTENSIBLE:%=Ext/%) \
-	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(LAMBDAM:%=LambdaM/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%)
+
+# 	      $(POLY:%=Poly/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
