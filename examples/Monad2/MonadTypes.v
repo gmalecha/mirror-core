@@ -134,11 +134,17 @@ Section types.
 
   End with_env.
 
+  Inductive tyAcc_typ : typ -> typ -> Prop :=
+  | acc_tyArrL : forall a b, tyAcc_typ a (tyArr a b)
+  | acc_tyArrR : forall a b, tyAcc_typ a (tyArr b a)
+  | acc_tyM    : forall a, tyAcc_typ a (tyM a).
+
   Instance RType_typ : RType :=
   { typ := typ
   ; typD := typD
     (* ; Rty := Rty *)
   ; type_cast := type_cast
+  ; tyAcc := tyAcc_typ
 (*  ; Relim := Relim *)
 (*  ; Rrefl := fun _ => @eq_refl _
   ; Rsym := fun _ x y (pf : @Rty _ y x) => @eq_sym _ y x pf
@@ -166,6 +172,11 @@ Section types.
 
   Instance RTypeOk_typ : @RTypeOk RType_typ.
   constructor; simpl; auto.
+  { red.
+    induction a; simpl; intros; constructor; intros;
+    try solve [ inversion H ].
+    { inversion H; clear H; subst; auto. }
+    { inversion H; clear H; subst; auto. } }
   { destruct pf. reflexivity. }
   { destruct pf1; destruct pf2; reflexivity. }
   { induction x; simpl; intros; auto; Cases.rewrite_all_goal; auto.
@@ -190,6 +201,8 @@ Instance Typ2Ok_tyArr ts m
 Proof.
   constructor.
   { reflexivity. }
+  { eapply acc_tyArrL. }
+  { eapply acc_tyArrR. }
   { unfold TypesI2.Rty. simpl.
     inversion 2. auto. }
   { destruct x; simpl; try solve [ right; reflexivity ].
