@@ -201,9 +201,13 @@ Section types.
         | Some val =>
           match exprD' ts tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
             | None => False
-            | Some val' => True
+            | Some val' =>
+              forall us vs vs' vs'',
+                val us (hlist_app vs vs'') =
+                val' us (hlist_app vs (hlist_app vs' vs''))
           end
       end.
+(*
   Proof.
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
@@ -253,6 +257,8 @@ Section types.
         auto. }
       { rewrite H1 in *. congruence. } }
   Qed.
+*)
+  Admitted.
 
   Theorem vars_to_uvars_typeof_expr
   : forall ts tus e tvs tvs' t,
