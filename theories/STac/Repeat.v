@@ -5,7 +5,7 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI3.
 Require Import MirrorCore.Util.Iteration.
-Require Import McExamples.STac.Core.
+Require Import MirrorCore.STac.Core.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -13,7 +13,7 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  
+
   Section repeat_branch.
     Variable subst : Type.
 

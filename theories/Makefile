@@ -19,7 +19,8 @@ LAMBDA := TypesI2 ResType \
 	  ExprUnify ExprUnify_simul \
 	  ExprSubst AppN
 LAMBDAM :=
-POLY :=  Ctx Ctx2 TypeI ML ExprCore
+POLY := Ctx Ctx2 TypeI ML ExprCore
+STAC := Core Repeat Apply First Repeat Try STac
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI SymEnv SymPolyEnv \
@@ -31,7 +32,8 @@ MODULES    := Generic \
 	      $(LAMBDAM:%=LambdaM/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
-	      $(UTIL:%=Util/%)
+	      $(UTIL:%=Util/%) \
+	      $(STAC:%=STac/%)
 
 # 	      $(POLY:%=Poly/%)
 

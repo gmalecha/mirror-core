@@ -8,7 +8,7 @@ Require Import MirrorCore.EProver2.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.Subst.FastSubst.
-Require Import McExamples.STac.Core.
+Require Import MirrorCore.STac.Core.
 
 Set Implicit Arguments.
 Set Strict Implicit.
