@@ -17,6 +17,7 @@ Section typed.
     (** NOTE: This must be decidable if [exprD] will respect it.
      **)
   ; type_weaken : forall ts t, typD nil t -> typD ts t
+  ; tyAcc : typ -> typ -> Prop
     (** NOTE: Everything below here is fixed! **)
   ; Rty : list Type -> typ -> typ -> Prop := fun _ => @eq typ
   ; type_cast : forall env (a b : typ), option (Rty env a b)
@@ -47,6 +48,7 @@ Section typed.
   { Relim_refl
     : forall ts t F (val : F (typD ts t)),
         Relim F (Rrefl ts t) val = val
+  ; wf_tyAcc : well_founded tyAcc
   ; Relim_sym
     : forall ts t u (pf : Rty ts t u) F (val : F (typD ts t)),
         Relim F (Rsym pf) val =
@@ -80,6 +82,8 @@ Section typed.
           match eq_sym (typ2_cast ts a b) in _ = t return T t with
             | eq_refl => tr a b
           end
+    ; tyAcc_typ2L : forall a b, tyAcc a (typ2 a b)
+    ; tyAcc_typ2R : forall a b, tyAcc a (typ2 b a)
     ; typ2_inj
       : forall ts a b c d,
           Rty ts (typ2 a b) (typ2 c d) ->

@@ -139,48 +139,55 @@ Section app_full_proofs.
 
   End apps_type.
 
-(*
   Theorem tyArr_circ_L : forall a b, a = typ2 a b -> False.
-  Proof. Admitted.
+  Proof.
+    refine ((@Fix _ _ (@wf_tyAcc _ _)
+                  (fun x => forall b, x = typ2 x b -> False)
+                  (fun a rec b pf =>
+                     rec a match eq_sym pf in (_ = t) return (tyAcc a t) with
+                             | eq_refl => tyAcc_typ2L a b
+                           end b pf))).
+  Qed.
   Theorem tyArr_circ_R : forall a b, a = typ2 b a -> False.
-  Proof. Admitted.
+  Proof.
+    refine ((@Fix _ _ (@wf_tyAcc _ _)
+                  (fun x => forall b, x = typ2 b x -> False)
+                  (fun a rec b pf =>
+                     rec a match eq_sym pf in (_ = t) return (tyAcc a t) with
+                             | eq_refl => tyAcc_typ2R a b
+                           end b pf))).
+  Qed.
 
-  Fixpoint typ_size (t : typ) : nat :=
-    match t with
-      | tyProp => 1
-      | tyType _ => 1
-      | tyArr a b => typ_size a + typ_size b + 1
-      | tyVar _ => 1
-    end.
+  Require Import ExtLib.Relations.TransitiveClosure.
+  Require Import ExtLib.Recur.Facts.
 
   Lemma type_of_applys_circle_False_lem
-  : forall tus tvs ls t t',
-      type_of_applys tus tvs t ls = Some t' ->
-      typ_size t >= typ_size t'.
+  : forall ts tus tvs ls t t',
+      type_of_applys ts tus tvs t ls = Some t' ->
+      leftTrans tyAcc t t' ->
+      False.
   Proof.
-    clear.
-    induction ls; intros.
-    { simpl in *. inv_all. subst.
-      omega. }
-    { simpl in *. forward. subst.
-      inv_all. subst.
-      eapply IHls in H2. simpl. omega. }
+    induction ls; simpl in *; intros.
+    { inv_all. subst.
+      eapply (@irreflexivity _ _ (@wf_anti_sym _ _ (Relation.wf_leftTrans (@wf_tyAcc _ _)))) in H0.
+      assumption. }
+    { forward. arrow_case ts t.
+      { rewrite Relim_const in *.
+        rewrite eq_Const_eq in *. forward.
+        clear H2. destruct r. symmetry in x1. destruct x1.
+        eapply IHls in H3. auto.
+        eapply LTStep. 2: eapply H0.
+        eapply tyAcc_typ2R; eauto. }
+      { congruence. } }
   Qed.
 
   Lemma type_of_applys_circle_False
   : forall ts tus tvs ls t t',
       type_of_applys ts tus tvs t ls = Some (typ2 t' t) -> False.
   Proof.
-    induction ls; simpl in *; intros.
-    { inv_all. admit. }
-    { forward.
-      arrow_case ts t.
-      rewrite Relim_const in H0.
-      rewrite eq_Const_eq in *. forward.
-      destruct r. admit.
-      admit. }
+    intros. eapply type_of_applys_circle_False_lem.
+    eassumption. constructor. eapply tyAcc_typ2R; eauto.
   Qed.
-*)
 
   Section exprD'_app.
     Variable ts : list Type.
@@ -242,24 +249,16 @@ Section app_full_proofs.
     Proof.
       intros. unfold apps_sem'.
       consider (typeof_expr ts tus tvs e); intros.
-      { (* exprD'_typeof_expr. typeof_expr_exprD in H.
-        destruct H.
-        rewrite H.
-        simpl.
-        match goal with
-          | |- match ?X with _ => _ end = _ =>
-            consider X; intros
-        end.
-        { inv_all. subst. auto. }
-        { rewrite exprD_type_cast in *.
-          forward. inv_all.
-          revert H3. subst. subst; intros.
-          autorewrite with exprD_rw in *. congruence. } *) admit. }
+      { symmetry.
+        rewrite ExprFacts.exprD'_type_cast; eauto.
+        rewrite H. simpl.
+        destruct (type_cast ts t0 t).
+        { forward. destruct r. reflexivity. }
+        { forward. } }
       { consider (exprD' ts tus tvs t e); auto; intros.
         exfalso.
         assert (exists v, exprD' ts tus tvs t e = Some v); eauto.
-        (*eapply exprD'_typeof_expr in H1. red in H1.
-        congruence. *) admit. }
+        eapply ExprFacts.exprD'_typeof_expr in H1. congruence. }
     Qed.
 
     Lemma exprD'_apps : forall es e t,
