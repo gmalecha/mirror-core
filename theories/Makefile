@@ -1,6 +1,6 @@
 GENERIC :=
 UTIL := Approx Iteration
-PROVERS := ProverTac AssumptionProver
+PROVERS := ProverTac AssumptionProver DefaultProver
 SUBST   := SealedSubst FMapSubst3 # RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
 	      ExprT \
