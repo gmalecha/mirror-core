@@ -22,19 +22,21 @@ LAMBDA := ResType \
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
 STAC := Core Repeat Apply First Repeat Try STac
+SYMS := SymEnv SymPolyEnv SymSum
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
-	      SymI SymEnv SymPolyEnv \
+	      SymI \
 	      SubstI SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma LemmaApply \
 	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(LAMBDAM:%=LambdaM/%) \
-	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
-	      $(STAC:%=STac/%)
+	      $(STAC:%=STac/%) \
+	      $(SYMS:%=syms/%) \
+	      $(PROVERS:%=provers/%)
 
 #	      $(EXTENSIBLE:%=Ext/%)
 
