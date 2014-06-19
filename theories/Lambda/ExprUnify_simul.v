@@ -97,7 +97,7 @@ Section typed.
         | App e1 e1' , App e2 e2' =>
           match exprUnify_simul' us vs n s e1' e2' with
             | Some (d,s') =>
-              exprUnify us vs n s' e1 e2 (typ2 d t)
+              exprUnify' us vs n s' e1 e2 (typ2 d t)
             | None => None
           end
         | Abs t1 e1 , Abs t2 e2 =>
@@ -155,7 +155,7 @@ Section typed.
                 | None => None
                 | Some e2 =>
                   match typeof_expr ts tus tvs (UVar u1)
-                        , typeof_expr ts tus tvs e2
+                      , typeof_expr ts tus tvs e2
                   with
                     | Some t1 , Some t2 =>
                       if t1 ?[ Rty ts ] t2 then
@@ -170,7 +170,7 @@ Section typed.
               end
             | Some e1' =>
               match typeof_expr ts tus tvs (UVar u1)
-                    , typeof_expr ts tus tvs e2
+                  , typeof_expr ts tus tvs e2
               with
                 | Some t1 , Some t2 =>
                   if t1 ?[ Rty ts ] t2 then
@@ -220,7 +220,7 @@ Section typed.
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then
             match typeof_expr ts tus tvs (Var v1)
-                  , typeof_expr ts tus tvs (Var v2)
+                , typeof_expr ts tus tvs (Var v2)
             with
               | Some t1 , Some t2 =>
                 if t1 ?[ Rty ts ] t2 then Some (t1,s) else None
