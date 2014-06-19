@@ -7,7 +7,7 @@ Makefile.paths
 *~
 .dir-locals.el
 deps.*
-#*
+\#*
 .#*
 mirror-core.tgz
 coq-ext-lib
