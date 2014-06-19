@@ -114,8 +114,9 @@ Section app_full_proofs.
                 erewrite type_cast_sym_Some; eauto. } }
           { rewrite type_of_applys_typeof_None.
             rewrite eq_Const_eq; reflexivity.
-            simpl. Cases.rewrite_all_goal.
-            unfold type_of_apply.
+            simpl. rewrite H0. rewrite H.
+
+            unfold type_of_apply. red in x1. subst.
             rewrite typ2_match_zeta; eauto.
             rewrite type_cast_sym_None; eauto.
             rewrite eq_Const_eq. reflexivity. } }
