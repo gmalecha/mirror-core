@@ -43,10 +43,12 @@ End substU.
 Section instantiate.
   Variable ts : types.
   Variable func : Type.
-  Variable RSym_func : RSym (typD ts) func.
+  Let RType_typ := RType_typ ts.
+  Local Existing Instance RType_typ.
+  Variable RSym_func : RSym func.
   Variable lookup : uvar -> option (expr func).
 
-  Let Expr_expr : Expr (typD ts) (expr func) := Expr_expr _.
+  Let Expr_expr : Expr _ (expr func) := Expr_expr _.
   Local Existing Instance Expr_expr.
 
   Local Hint Immediate RSym_func : typeclass_instances.
@@ -124,7 +126,9 @@ Section instantiate.
                  | |- context [ match ?X with _ => _ end ] =>
                    consider X; try congruence; intros
                end; auto.
-        inv_all; subst. rewrite IHe2. rewrite IHe1. reflexivity. }
+        simpl in *.
+        inv_all; subst. simpl in *.
+        rewrite IHe2. rewrite IHe1. reflexivity. }
       { clear - Hlookup Hsplit_env.
         intros. specialize (Hlookup _ _ H).
         destruct Hlookup. intuition.

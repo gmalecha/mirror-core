@@ -1,6 +1,4 @@
 Require Import Coq.Lists.List.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.STac.Core.
 
 Set Implicit Arguments.

@@ -452,15 +452,23 @@ Section env.
       inversion H0; clear H0; subst. eauto. }
   Qed.
 
+  Inductive tyAcc_typ : typ -> typ -> Prop :=
+  | tyAcc_tyArrL : forall a b, tyAcc_typ a (tyArr a b)
+  | tyAcc_tyArrR : forall a b, tyAcc_typ a (tyArr b a).
+
   Global Instance RType_typ : RType typ :=
   { typD := typD
   ; type_cast := @typ_cast_typ
+  ; tyAcc := tyAcc_typ
   }.
 
   Global Instance RTypeOk_typ : RTypeOk.
   Proof.
     constructor.
     { eauto with typeclass_instances. }
+    { induction a; simpl; intros; constructor; intros;
+      try solve [ inversion H ].
+      { inversion H; clear H; subst; auto. } }
     { intros. unfold type_cast; simpl.
       destruct pf. reflexivity. }
     { destruct pf1. destruct pf2. reflexivity. }
@@ -501,6 +509,8 @@ Section env.
   Proof.
     constructor.
     { reflexivity. }
+    { constructor. }
+    { constructor. }
     { inversion 1. split; reflexivity. }
     { destruct x; try solve [ right ; reflexivity ].
       { left. do 2 eexists; exists eq_refl. reflexivity. } }

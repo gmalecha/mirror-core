@@ -5,11 +5,12 @@ SUBST   := SealedSubst FMapSubst3 # RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
-	      ExprLift ExprUnifySyntactic ExprUnifySyntactic2 ExprUnifySyntactic3 \
+	      ExprLift ExprUnifySyntactic3 \
 	      ExprSubst LemmaExt \
 	      Expr ExprTactics \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
+# ExprUnifySyntactic ExprUnifySyntactic2
 LAMBDA := ResType \
 	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
@@ -27,7 +28,6 @@ MODULES    := Generic \
 	      SubstI SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma LemmaApply \
-	      $(EXTENSIBLE:%=Ext/%) \
 	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(LAMBDAM:%=LambdaM/%) \
@@ -35,6 +35,8 @@ MODULES    := Generic \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(STAC:%=STac/%)
+
+#	      $(EXTENSIBLE:%=Ext/%)
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

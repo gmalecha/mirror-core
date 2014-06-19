@@ -142,7 +142,7 @@ Section app_full_proofs.
 
   Theorem tyArr_circ_L : forall a b, a = typ2 a b -> False.
   Proof.
-    refine ((@Fix _ _ (@wf_tyAcc _ _)
+    refine ((@Fix _ _ (@wf_tyAcc _ _ _)
                   (fun x => forall b, x = typ2 x b -> False)
                   (fun a rec b pf =>
                      rec a match eq_sym pf in (_ = t) return (tyAcc a t) with
@@ -151,7 +151,7 @@ Section app_full_proofs.
   Qed.
   Theorem tyArr_circ_R : forall a b, a = typ2 b a -> False.
   Proof.
-    refine ((@Fix _ _ (@wf_tyAcc _ _)
+    refine ((@Fix _ _ (@wf_tyAcc _ _ _)
                   (fun x => forall b, x = typ2 b x -> False)
                   (fun a rec b pf =>
                      rec a match eq_sym pf in (_ = t) return (tyAcc a t) with
@@ -165,12 +165,12 @@ Section app_full_proofs.
   Lemma type_of_applys_circle_False_lem
   : forall ts tus tvs ls t t',
       type_of_applys ts tus tvs t ls = Some t' ->
-      leftTrans tyAcc t t' ->
+      leftTrans (@tyAcc _ _) t t' ->
       False.
   Proof.
     induction ls; simpl in *; intros.
     { inv_all. subst.
-      eapply (@irreflexivity _ _ (@wf_anti_sym _ _ (Relation.wf_leftTrans (@wf_tyAcc _ _)))) in H0.
+      eapply (@irreflexivity _ _ (@wf_anti_sym _ _ (Relation.wf_leftTrans (@wf_tyAcc _ _ _)))) in H0.
       assumption. }
     { forward. arrow_case ts t.
       { rewrite Relim_const in *.

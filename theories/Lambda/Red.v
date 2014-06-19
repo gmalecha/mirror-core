@@ -11,6 +11,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.AppN.
+Require Import MirrorCore.Lambda.ExprTac.
 
 Require Import FunctionalExtensionality.
 
@@ -314,11 +315,12 @@ End beta.
 
 Section beta_all.
   Context {sym : Type}.
-  Context {RT : RType}
+  Context {typ : Type}.
+  Context {RT : RType typ}
           {T2 : Typ2 _ PreFun.Fun}
-          {RS : RSym typD sym}.
+          {RS : RSym sym}.
 
-  Context {RTOk : RTypeOk _}
+  Context {RTOk : RTypeOk}
           {T2Ok : Typ2Ok T2}
           {RSOk : RSymOk RS}.
 
@@ -454,7 +456,7 @@ Section beta_all.
     rewrite eq_option_eq in H0.
     forward. inv_all; subst.
     destruct r.
-    generalize (@substitute'_sound _ _ _ _ _ _ _ _ ts0 tus e nil ex _ eq_refl tvs t1 t0).
+    generalize (@substitute'_sound _ _ _ _ _ _ _ _ _ ts0 tus e nil ex _ eq_refl tvs t1 t0).
     simpl. Cases.rewrite_all_goal.
     intros. forward.
     f_equal. unfold Open_App.
@@ -529,7 +531,6 @@ Section beta_all.
     { destruct args.
       { simpl in *.
         autorewrite with exprD_rw in *; simpl in *.
-        Require Import MirrorCore.Lambda.ExprTac.
         arrow_case ts t0.
         { clear H1. red in x1. subst. simpl in *.
           rewrite eq_option_eq in *.

@@ -2,6 +2,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI3.
 Require Import MirrorCore.Lemma.
@@ -11,9 +12,9 @@ Set Strict Implicit.
 
 Section lemma_apply.
   Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
+  Variable RType_typ : RType typ.
   Variable expr : Type.
-  Variable Expr_expr : Expr typD expr.
+  Variable Expr_expr : Expr _ expr.
   Variable ExprOk_expr : ExprOk Expr_expr.
   Variable tyProp : typ.
   Variable tyPropD : forall ts, typD ts tyProp = Prop.
@@ -150,7 +151,7 @@ Section lemma_apply.
       forall lD sD gD,
         @lemmaD' _ _ _ _ _
                  (fun tus tvs g =>
-                    match tyPropD nil in _ = t return ResType typD tus tvs t with
+                    match tyPropD nil in _ = t return ResType tus tvs t with
                       | eq_refl => exprD' tus tvs g tyProp
                     end)
                  tyProp
