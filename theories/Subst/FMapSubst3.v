@@ -18,8 +18,8 @@ Require Import FMapInterface.
 
 Let uvar : Type := nat.
 
-Module Make (FM : S with Definition E.t := uvar
-                    with Definition E.eq := @eq uvar).
+Module Make (FM : WS with Definition E.t := uvar
+                     with Definition E.eq := @eq uvar).
 
   Module FACTS := FMapFacts.WFacts FM.
   Module PROPS := FMapFacts.WProperties FM.
@@ -33,6 +33,9 @@ Module Make (FM : S with Definition E.t := uvar
 
     Variable mentionsU : uvar -> expr -> bool.
 
+    (** TODO(gmalecha): I have to eliminate the proofs here!
+     ** The FMapInterface does not support this!
+     **)
     Definition raw : Type := FM.t expr.
 
     Definition normalized (this : raw) (e : expr) : Prop :=
@@ -1080,45 +1083,6 @@ Module Make (FM : S with Definition E.t := uvar
   End exprs.
 End Make.
 
-Require FSets.FMapAVL.
+Require MirrorCore.Subst.UVarMap.
 
-Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
-                                           with Definition eq := @eq uvar.
-  Definition t := uvar.
-  Definition eq := @eq uvar.
-  Definition lt := @lt.
-
-  Theorem eq_refl : forall x, eq x x.
-  Proof. reflexivity. Qed.
-
-  Theorem eq_sym : forall a b, eq a b -> eq b a.
-  Proof. intros; symmetry; auto. Qed.
-
-  Theorem eq_trans : forall a b c, eq a b -> eq b c -> eq a c.
-  Proof. intros; etransitivity; eauto. Qed.
-
-  Theorem lt_trans : forall a b c, lt a b -> lt b c -> lt a c.
-  Proof. eapply Lt.lt_trans. Qed.
-
-  Theorem lt_not_eq : forall a b, lt a b -> ~(eq a b).
-  Proof. eapply NPeano.Nat.lt_neq. Qed.
-
-  Definition compare (x y : t) : OrderedType.Compare lt eq x y :=
-    match Compare_dec.nat_compare x y as r return
-      Compare_dec.nat_compare x y = r -> OrderedType.Compare lt eq x y
-      with
-      | Lt => fun pf => OrderedType.LT (lt:=lt) (Compare_dec.nat_compare_Lt_lt _ _ pf)
-      | Eq => fun pf => OrderedType.EQ (lt:=lt) (Compare_dec.nat_compare_eq _ _ pf)
-      | Gt => fun pf => OrderedType.GT (lt:=lt) (Compare_dec.nat_compare_Gt_gt _ _ pf)
-    end (refl_equal _).
-
-  Definition eq_dec (x y : nat) : {x = y} + {x <> y} :=
-    match EqNat.beq_nat x y as r return
-      EqNat.beq_nat x y = r -> {x = y} + {x <> y} with
-      | true => fun pf => left (EqNat.beq_nat_true _ _ pf)
-      | false => fun pf => right (EqNat.beq_nat_false _ _ pf)
-    end (refl_equal _).
-End UVar_ord.
-
-Module MAP := FMapAVL.Make UVar_ord.
-Module SUBST := Make MAP.
+Module SUBST := Make UVarMap.MAP.
