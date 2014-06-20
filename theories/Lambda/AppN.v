@@ -340,7 +340,8 @@ Section app_full_proofs.
         | Some f => Some (f us vs)
       end.
 
-    Local Instance Expr_expr : Expr _ (expr typ sym) := Expr_expr.
+    Let Expr_expr : Expr _ (expr typ sym) := Expr_expr.
+    Local Existing Instance Expr_expr.
 
     Definition apps_sem
                (e : expr typ sym) (l : list (expr typ sym)) (t : typ)
