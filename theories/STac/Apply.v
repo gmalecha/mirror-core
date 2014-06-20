@@ -21,23 +21,23 @@ Section parameterized.
   Section solve_but_last.
     Variable Subst_subst : Subst subst expr.
     Variables tus tvs : list typ.
-    Variable tac : @EProver typ expr.
+    Variable tac : stac typ expr subst.
 
     Fixpoint solve_all_but_last
              (es : list expr)
-             (sub : subst)
-             (facts : Facts tac) {struct es}
+             (sub : subst) {struct es}
     : Result typ expr subst.
     refine match es with
              | nil => @Solve _ _ _ sub
              | e :: es =>
-               match @Prove _ _ tac subst _ facts tus tvs sub e with
-                 | None =>
+               match tac e sub tus tvs with
+                 | Solve sub' => solve_all_but_last es sub'
+                 | Progress e sub tus tvs =>
                    match es with
                      | nil => Progress e sub tus tvs
                      | _ => @Fail _ _ _
                    end
-                 | Some sub' => solve_all_but_last es sub' facts
+                 | Fail => @Fail _ _ _
                end
            end.
     Defined.
@@ -63,7 +63,7 @@ Section parameterized.
      **)
     Definition eapply_other
                (lem : lemma typ expr expr)
-               (tac : @EProver typ expr)
+               (tac : stac typ expr subst)
     : stac typ expr subst :=
       let len_vars := length lem.(vars) in
       fun e sub tus tvs =>
@@ -71,11 +71,9 @@ Section parameterized.
         | None => @Fail _ _ _
         | Some sub' =>
           let premises := nil in
-          let facts := Summarize _ (tus ++ lem.(vars)) tvs nil in
           match
-            solve_all_but_last _ (tus ++ lem.(vars)) tvs tac
+            solve_all_but_last (tus ++ lem.(vars)) tvs tac
                                premises sub'
-                               facts
           with
             | Fail => @Fail _ _ _
             | Solve sub'' =>
