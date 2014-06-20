@@ -14,12 +14,12 @@ Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
 
-  Section repeat_branch.
+  Section repeat_stac.
     Variable subst : Type.
 
-    Definition REPEAT (max : nat) (br : branch typ expr subst)
-    : branch typ expr  subst :=
-      (fix DO (n : nat) : branch typ expr  subst :=
+    Definition REPEAT (max : nat) (br : stac typ expr subst)
+    : stac typ expr  subst :=
+      (fix DO (n : nat) : stac typ expr  subst :=
          match n with
            | 0 => @Progress _ _ _
            | S n =>
@@ -30,6 +30,6 @@ Section parameterized.
                  | Solve s => @Solve _ _ _ s
                end
          end) max.
-  End repeat_branch.
+  End repeat_stac.
 
 End parameterized.

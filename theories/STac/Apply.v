@@ -64,7 +64,7 @@ Section parameterized.
     Definition eapply_other
                (lem : lemma typ expr expr)
                (tac : @EProver typ expr)
-    : branch typ expr subst :=
+    : stac typ expr subst :=
       let len_vars := length lem.(vars) in
       fun e sub tus tvs =>
       match eapplicable sub tus tvs lem e with

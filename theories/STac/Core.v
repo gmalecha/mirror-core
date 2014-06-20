@@ -19,7 +19,7 @@ Section parameterized.
   | Solve : subst -> Result
   | Progress : expr -> subst -> list typ -> list typ -> Result.
 
-  Definition branch : Type :=
+  Definition stac : Type :=
     expr -> subst -> list typ -> list typ ->
     Result.
 

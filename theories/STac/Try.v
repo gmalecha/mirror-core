@@ -8,7 +8,7 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Definition TRY (b : branch typ expr subst) : branch typ expr subst :=
+  Definition TRY (b : stac typ expr subst) : stac typ expr subst :=
     fun e sub tus tvs =>
       match b e sub tus tvs with
         | Fail => Progress e sub tus tvs
