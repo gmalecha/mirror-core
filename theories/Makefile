@@ -15,7 +15,7 @@ LAMBDA := ResType \
 	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
 	  Expr ExprLift Red \
-	  TypedFoldEager TypedFoldLazy TypedFoldApp \
+	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp \
 	  WtExpr \
 	  ExprUnify ExprUnify_simul \
 	  ExprSubst AppN
