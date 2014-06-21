@@ -80,16 +80,14 @@ Section parameterized.
           with
             | Fail => @Fail _ _ _
             | Solve sub'' =>
-              let from := length tus in
-              match pull (expr := expr) from len_vars sub'' with
+              match pull (expr := expr) len_uvars len_vars sub'' with
                 | None => @Fail _ _ _
                 | Some sub''' => @Solve _ _ _ sub'''
               end
             | Progress e sub'' tus tvs =>
-              let from := length tus in
-              match pull (expr := expr) from len_vars sub'' with
+              match pull (expr := expr) len_uvars len_vars sub'' with
                 | None => @Fail _ _ _
-                | Some sub''' => Progress e sub''' tus tvs
+                | Some sub''' => Progress e sub''' (firstn len_uvars tus) tvs
               end
           end
       end.
