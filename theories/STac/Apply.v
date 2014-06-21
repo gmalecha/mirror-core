@@ -85,6 +85,9 @@ Section parameterized.
                 | Some sub''' => @Solve _ _ _ sub'''
               end
             | Progress e sub'' tus tvs =>
+              (** TODO: In this case it is not necessary to pull everything
+               ** I could leave unification variables in place
+               **)
               match pull (expr := expr) len_uvars len_vars sub'' with
                 | None => @Fail _ _ _
                 | Some sub''' => Progress e sub''' (firstn len_uvars tus) tvs
