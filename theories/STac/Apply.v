@@ -18,6 +18,10 @@ Section parameterized.
   Variable subst : Type.
   Variable tyProp : typ.
 
+  Variable vars_to_uvars : nat -> nat -> expr -> expr.
+  Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+
   Section solve_but_last.
     Variable Subst_subst : Subst subst expr.
     Variables tus tvs : list typ.
@@ -30,6 +34,7 @@ Section parameterized.
     refine match es with
              | nil => @Solve _ _ _ sub
              | e :: es =>
+               let e := instantiate (fun u => lookup u sub) 0 e in
                match tac e sub tus tvs with
                  | Solve sub' => solve_all_but_last es sub'
                  | Progress e sub tus tvs =>
@@ -42,9 +47,6 @@ Section parameterized.
            end.
     Defined.
   End solve_but_last.
-
-  Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
 
   Section eapply_other.
     Variable Subst_subst : Subst subst expr.
@@ -70,9 +72,10 @@ Section parameterized.
       match eapplicable sub tus tvs lem e with
         | None => @Fail _ _ _
         | Some sub' =>
-          let premises := nil in
+          let len_uvars := length tus in
+          let premises := map (vars_to_uvars 0 len_uvars) lem.(premises) in
           match
-            solve_all_but_last (tus ++ lem.(vars)) tvs tac
+            solve_all_but_last _ (tus ++ lem.(vars)) tvs tac
                                premises sub'
           with
             | Fail => @Fail _ _ _
