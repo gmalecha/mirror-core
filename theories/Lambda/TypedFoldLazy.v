@@ -25,7 +25,7 @@ Section typed_fold.
 
     Variable do_var : var -> typ -> Lazy T.
     Variable do_uvar : var -> typ -> Lazy T.
-    Variable do_inj : func -> typ -> Lazy T.
+    Variable do_opaque : expr typ func -> typ -> Lazy T.
     Variable do_app : list typ -> list typ -> typ -> typ -> Lazy T -> Lazy T -> Lazy T.
     Variable do_abs : list typ -> list typ -> typ -> typ -> Lazy T -> Lazy T.
 
@@ -35,7 +35,7 @@ Section typed_fold.
       match e with
         | Var v => success (fun z => do_var v t z)
         | UVar u => success (fun z => do_uvar u t z)
-        | Inj f => success (fun z => do_inj f t z)
+        | Inj f => success (fun z => do_opaque e t z)
         | Abs t' e =>
           typ2_match (F := Fun)
                      (fun _ => R)
@@ -73,7 +73,7 @@ Section typed_fold.
         | Inj f =>
           match typeof_sym f with
             | None => failure
-            | Some t => success t (fun z => do_inj f t z)
+            | Some t => success t (fun z => do_opaque e t z)
           end
         | Abs d e =>
           typed_mfold_infer_cpsL tus (d :: tvs) e
