@@ -331,6 +331,23 @@ Section beta_all.
    **)
   Variable delta : expr typ sym -> list (expr typ sym) -> expr typ sym.
 
+  Fixpoint get_var (v : nat) (ls : list (option (expr typ sym))) (acc : nat)
+  : expr typ sym :=
+    match ls with
+      | nil => Var (acc + v)
+      | None :: ls =>
+        match v with
+          | 0 => Var acc
+          | S v => get_var v ls (S acc)
+        end
+      | Some e :: ls =>
+        match v with
+          | 0 => lift 0 acc e
+          | S v => get_var v ls acc
+        end
+    end.
+
+
   Fixpoint beta_all
            (args : list (expr typ sym))
            (vars : list (option (expr typ sym)))
@@ -344,11 +361,7 @@ Section beta_all.
           | a :: args => beta_all args (Some a :: vars) e'
         end
       | Var v =>
-        delta match nth_error vars v with
-                | Some (Some val) => lift 0 v val
-                | Some None => Var v
-                | None => Var (v - length vars)
-              end args
+        delta (get_var v vars 0) args
       | e => delta e args
     end.
 
@@ -492,12 +505,9 @@ Section beta_all.
           val us vs = val' us vs.
   Proof.
     induction e; simpl; intros.
-    { (*consider (nth_error vars v).
-       { destruct o; intros.
-        {           eapply Forall2_sem2 in H1; eauto. simpl in *.
-
-
-        *) admit. }
+    { consider (nth_error vars v).
+      { admit. }
+      { admit. } }
     { eapply deltaOk in H0.
       destruct H0 as [ ? [ ? ? ] ].
       eexists; split; eauto. }
