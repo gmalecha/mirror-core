@@ -5,6 +5,7 @@ SETOID  := Demo
 IMP     := Imp Wp
 AUTO    := AutoProver AutoProver2 # Demo Demo2 -- temporary
 AUTORW  := SetoidRewrite AutoRewriteLambda
+SIMPLE  := Simple
 MODULES := ExprDemo \
 	      $(MONAD:%=Monad/Monad%) \
 	      $(MONAD2:%=Monad2/%) \
@@ -12,7 +13,8 @@ MODULES := ExprDemo \
 	      $(SETOID:%=setoid/%) \
 	      $(AUTO:%=Auto/%) \
 	      $(AUTORW:%=AutoRewrite/%) \
-	      $(IMP:%=Imp/%)
+	      $(IMP:%=Imp/%) \
+	      $(SIMPLE:%=Simple/%)
 
 TESTS   :=
 VS      := $(GENERIC:%=%.v) $(MODULES:%=%.v)
