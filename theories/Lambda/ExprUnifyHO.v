@@ -26,6 +26,35 @@ Require Import MirrorCore.Lambda.Red.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(**
+ ** Using application and abstraction might be sub-optimal for
+ ** higher-order unification.
+ ** - the problem is that these are really substitutions and as such you
+ **   don't require the arguments that are not used!
+ ** - this is a problem when you find a unification variable that can be
+ **   instantiated with another, e.g.
+ **       ?1 = S ?2
+ **   subject to
+ **       x     |- ?1
+ **       x , y |- ?2
+ **   here, I should not be able to instantiate but only if I restrict the
+ **   environment of ?2. In the application style, the above is represented by
+ **       ?1 x = S (?2 x y)
+ **   and patterning gives you:
+ **       ?1 = \ x . S (?2 x y)
+ **   which mentions [y] free and is therefore ill-typed!
+ ** What should really happen here?
+ ** - Maintain a substitution with each unification variable
+ **   Note that I can only drop the end of environments since things
+ **   are introduced lexically!
+ **   So, this substitution is really a number of variables (a list of types).
+ **   - How do I lookup terms? e.g.
+ **       x |- ?1
+ **     * lookup 1 s -- This doesn't communicate the environment correctly
+ **     * lookup 1 n s -- [n] is the number of binders since the
+ **                       substitution context.
+ **)
+
 Section typed.
   Variable subst : Type.
   Variable typ : Type.
@@ -61,7 +90,6 @@ Section typed.
              (l : expr typ func) (al : list (typ * expr typ func))
              (r : expr typ func) (ar : list (typ * expr typ func)),
         typ -> option subst.
-    
 
     Fixpoint pattern' (under : nat) (p : expr typ func) (e : expr typ func)
              {struct e}
