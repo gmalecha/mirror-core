@@ -6,14 +6,15 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section cascade_subst.
-  Variable Lsubst : Type.
-  Variable Usubst : Type.
   Variable expr : Type.
-
-  Variable Subst_Lsubst : Subst Lsubst expr.
-  Variable SubstUpdate_Lsubst : SubstUpdate Lsubst expr.
+  (** These are really more like a functor **)
+  Variable Usubst : Type.
   Variable Subst_Usubst : Subst Usubst expr.
   Variable SubstUpdate_Usubst : SubstUpdate Usubst expr.
+
+  Variable Lsubst : Type.
+  Variable Subst_Lsubst : Subst Lsubst expr.
+  Variable SubstUpdate_Lsubst : SubstUpdate Lsubst expr.
 
   Variable lift : nat -> expr -> expr.
   Variable lower : nat -> expr -> option expr.
@@ -129,7 +130,7 @@ Let update_above :=
                                    (@mentionsU typ func)
                                    (@instantiate typ func)).
 Let Subst_subst : Subst (CascadeSubst _ _) (expr typ func) :=
-  @Subst_CascadeSubst _ _ _ (FMapSubst3.SUBST.Subst_subst _) (FMapSubst3.SUBST.Subst_subst _) (@lift _ _ 0).
+  @Subst_CascadeSubst _ _ (FMapSubst3.SUBST.Subst_subst _) _ (FMapSubst3.SUBST.Subst_subst _) (@lift _ _ 0).
 
 Section inst_2.
   Variables typ func : Type.
@@ -162,9 +163,10 @@ Section inst_2.
 End inst_2.
 
 Let SubstUpdate_subst : SubstUpdate (CascadeSubst _ _) (expr typ func) :=
-  @SubstUpdate_CascadeSubst _ _ _
-                            update_above
+  @SubstUpdate_CascadeSubst _ _
                             (FMapSubst3.SUBST.Subst_subst _)
+                            update_above
+                            _
                             update_above
                             (@lift _ _ 0)
                             (@lower _ _ 0)
