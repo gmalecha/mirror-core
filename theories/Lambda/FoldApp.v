@@ -62,3 +62,35 @@ Section app_full.
     end.
 
 End app_full.
+
+Section with_args.
+  Variable typ : Type.
+  Variable sym : Type.
+
+  Variable T : expr typ sym -> Type. (** The return type **)
+
+  Unset Elimination Schemes.
+
+  Record AppFullArgs : Type :=
+  { do_var : forall v : var, Lazy (T (Var v))
+  ; do_uvar : forall u : uvar, Lazy (T (UVar u))
+  ; do_opaque : forall s : sym, Lazy (T (Inj s))
+  ; do_app : forall f : expr typ sym, Lazy (T f) ->
+                                      forall args : list { e : expr typ sym & Lazy (T e) },
+                                        Lazy (T (apps f (map (@projT1 _ _) args)))
+  ; do_abs : forall (t : typ) (e : expr typ sym),
+               Lazy (T e) -> Lazy (T (Abs t e))
+  }.
+
+  Set Elimination Schemes.
+
+  Definition app_fold_args (args : AppFullArgs) : forall e, Lazy (T e) :=
+    match args with
+      | {| do_var := do_var
+         ; do_uvar := do_uvar
+         ; do_opaque := do_opaque
+         ; do_app := do_app
+         ; do_abs := do_abs |} =>
+        @mfold_app typ sym T do_var do_uvar do_opaque do_app do_abs
+    end.
+End with_args.

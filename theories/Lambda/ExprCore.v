@@ -42,7 +42,7 @@ Section env.
     try solve [ inversion H ].
     { inversion H; clear H; subst; auto. }
     { inversion H; clear H; subst; auto. }
-  Qed.
+  Defined.
 
   Theorem expr_strong_ind
   : forall (P : expr -> Prop),
