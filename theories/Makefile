@@ -21,7 +21,7 @@ LAMBDA := ResType \
 	  ExprSubst AppN
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
-STAC := Core Repeat Apply First Repeat Try Idtac Rec Simplify STac
+STAC := Core Repeat Apply First Repeat Try Idtac Rec Simplify Solve Then STac
 SYMS := SymEnv SymPolyEnv SymSum
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
