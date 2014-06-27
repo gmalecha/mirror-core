@@ -56,6 +56,27 @@ Module MAP <: WS with Definition E.t := uvar
   Definition from_key : positive -> uvar :=
     fun p => pred (Pos.to_nat p).
 
+  Theorem from_key_to_key : forall x, from_key (to_key x) = x.
+    unfold from_key, to_key.
+    intros. rewrite Pnat.SuccNat2Pos.id_succ. reflexivity.
+  Qed.
+
+  Theorem to_key_from_key : forall x, to_key (from_key x) = x.
+    unfold from_key, to_key.
+    intros.
+    rewrite <- (Pnat.Pos2Nat.id x) at 2.
+    assert (Pos.to_nat x <> 0).
+    { generalize (Pnat.Pos2Nat.is_pos x). omega. }
+    destruct (Pos.to_nat x); try congruence.
+    rewrite Pos.of_nat_succ. reflexivity.
+  Qed.
+
+  Lemma to_key_inj : forall a b, to_key a = to_key b -> a = b.
+  Proof.
+    clear. unfold to_key.
+    eapply Pnat.SuccNat2Pos.inj_iff.
+  Qed.
+
   Definition key := uvar.
   Hint Transparent key.
 
@@ -67,75 +88,75 @@ Module MAP <: WS with Definition E.t := uvar
     Variable elt:Type.
 
     Definition empty : t elt :=
-      Eval red in PositiveMap.empty _.
+      PositiveMap.empty _.
     (** The empty map. *)
 
     Definition is_empty : t elt -> bool :=
-      Eval red in @PositiveMap.is_empty _.
+      @PositiveMap.is_empty _.
     (** Test whether a map is empty or not. *)
 
     Definition add (k : key) : elt -> t elt -> t elt :=
-      Eval red in PositiveMap.add (to_key k).
+      PositiveMap.add (to_key k).
     (** [add x y m] returns a map containing the same bindings as [m],
 	plus a binding of [x] to [y]. If [x] was already bound in [m],
 	its previous binding disappears. *)
 
     Definition find (k : key) : t elt -> option elt :=
-      Eval red in PositiveMap.find (to_key k).
+      PositiveMap.find (to_key k).
     (** [find x m] returns the current binding of [x] in [m],
 	or [None] if no such binding exists. *)
 
     Definition remove (k : key) : t elt -> t elt :=
-      Eval red in PositiveMap.remove (to_key k).
+      PositiveMap.remove (to_key k).
     (** [remove x m] returns a map containing the same bindings as [m],
 	except for [x] which is unbound in the returned map. *)
 
     Definition mem (k : key) : t elt -> bool :=
-      Eval red in PositiveMap.mem (to_key k).
+      PositiveMap.mem (to_key k).
     (** [mem x m] returns [true] if [m] contains a binding for [x],
 	and [false] otherwise. *)
 
     Variable elt' elt'' : Type.
 
     Definition map : (elt -> elt') -> t elt -> t elt' :=
-      Eval red in @PositiveMap.map _ _.
+      @PositiveMap.map _ _.
     (** [map f m] returns a map with same domain as [m], where the associated
 	value a of all bindings of [m] has been replaced by the result of the
 	application of [f] to [a]. Since Coq is purely functional, the order
         in which the bindings are passed to [f] is irrelevant. *)
 
     Definition mapi (f : key -> elt -> elt') : t elt -> t elt' :=
-      Eval red in @PositiveMap.mapi _ _ (fun k v => f (from_key k) v).
+      @PositiveMap.mapi _ _ (fun k v => f (from_key k) v).
     (** Same as [map], but the function receives as arguments both the
 	key and the associated value for each binding of the map. *)
 
     Definition map2 :
      (option elt -> option elt' -> option elt'') -> t elt -> t elt' ->  t elt'' :=
-      Eval red in @PositiveMap.map2 _ _ _.
+      @PositiveMap.map2 _ _ _.
     (** [map2 f m m'] creates a new map whose bindings belong to the ones
         of either [m] or [m']. The presence and value for a key [k] is
         determined by [f e e'] where [e] and [e'] are the (optional) bindings
         of [k] in [m] and [m']. *)
 
     Definition elements (m : t elt) : list (key*elt) :=
-      Eval red in List.map (fun kv => let '(k,v) := kv in
-                                      (from_key k, v)) (PositiveMap.elements m).
+       List.map (fun kv => let '(k,v) := kv in
+                           (from_key k, v)) (PositiveMap.elements m).
     (** [elements m] returns an assoc list corresponding to the bindings
         of [m], in any order. *)
 
     Definition cardinal : t elt -> nat :=
-      Eval red in @PositiveMap.cardinal _.
+      @PositiveMap.cardinal _.
     (** [cardinal m] returns the number of bindings in [m]. *)
 
     Definition fold (A: Type) (f : key -> elt -> A -> A) : t elt -> A -> A :=
-      Eval red in @PositiveMap.fold _ A (fun k => f (from_key k)).
-      
+      @PositiveMap.fold _ A (fun k => f (from_key k)).
+
     (** [fold f m a] computes [(f kN dN ... (f k1 d1 a)...)],
 	where [k1] ... [kN] are the keys of all bindings in [m]
 	(in any order), and [d1] ... [dN] are the associated data. *)
 
     Definition equal : (elt -> elt -> bool) -> t elt -> t elt -> bool :=
-      Eval red in @PositiveMap.equal _.
+      @PositiveMap.equal _.
     (** [equal cmp m1 m2] tests whether the maps [m1] and [m2] are equal,
       that is, contain equal keys and associate them with equal data.
       [cmp] is the equality predicate used to compare the data associated
@@ -159,69 +180,166 @@ Module MAP <: WS with Definition E.t := uvar
       Definition eq_key_elt (p p':key*elt) :=
           E.eq (fst p) (fst p') /\ (snd p) = (snd p').
 
-    (** Specification of [MapsTo] *)
+      (** Specification of [MapsTo] *)
       Theorem MapsTo_1 : E.eq x y -> MapsTo x e m -> MapsTo y e m.
-      Admitted.
+        unfold MapsTo, E.eq; intros. subst.
+        eapply PositiveMap.MapsTo_1; eauto. reflexivity.
+      Qed.
 
-    (** Specification of [mem] *)
+      (** Specification of [mem] *)
       Theorem mem_1 : In x m -> mem x m = true.
-      Admitted.
+        unfold In, MapsTo, mem.
+        intros. change (PositiveMap.mem (to_key x) m = true).
+        eapply PositiveMap.mem_1. eapply H.
+      Qed.
+
       Theorem mem_2 : mem x m = true -> In x m.
-      Admitted.
+        unfold mem.
+        change (PositiveMap.mem (to_key x) m = true -> In x m).
+        eapply PositiveMap.mem_2.
+      Qed.
 
-    (** Specification of [empty] *)
+      (** Specification of [empty] *)
       Theorem empty_1 : Empty empty.
-      Admitted.
+        generalize (@PositiveMap.empty_1 elt).
+        red. unfold MapsTo, PositiveMap.Empty, PositiveMap.MapsTo.
+        eauto.
+      Qed.
 
-    (** Specification of [is_empty] *)
+      (** Specification of [is_empty] *)
       Theorem is_empty_1 : Empty m -> is_empty m = true.
-      Admitted.
+        unfold Empty, is_empty, MapsTo.
+        generalize (@PositiveMap.is_empty_1 elt).
+        intros. change (PositiveMap.is_empty m = true).
+        eapply H. red.
+        intros. intro. eapply H0.
+        instantiate (2 := from_key a).
+        instantiate (1 := e0).
+        rewrite to_key_from_key. assumption.
+      Qed.
       Theorem is_empty_2 : is_empty m = true -> Empty m.
-      Admitted.
+        unfold is_empty, Empty.
+        intros. eapply PositiveMap.is_empty_2 in H.
+        red in H. unfold MapsTo. eauto.
+      Qed.
 
-    (** Specification of [add] *)
+      (** Specification of [add] *)
       Theorem add_1 : E.eq x y -> MapsTo y e (add x e m).
-      Admitted.
+        unfold E.eq, MapsTo, add; intros; subst.
+        eapply PositiveMap.add_1. reflexivity.
+      Qed.
       Theorem add_2 : ~ E.eq x y -> MapsTo y e m -> MapsTo y e (add x e' m).
-      Admitted.
+        unfold E.eq, MapsTo, add.
+        intros. eapply PositiveMap.add_2; eauto.
+        intro. red in H1.
+        eapply to_key_inj in H1. auto.
+      Qed.
       Theorem add_3 : ~ E.eq x y -> MapsTo y e (add x e' m) -> MapsTo y e m.
-      Admitted.
+        unfold MapsTo, E.eq, add.
+        intros. eapply PositiveMap.add_3; eauto.
+        unfold PositiveMap.E.eq. intro.
+        eapply to_key_inj in H1. auto.
+      Qed.
 
     (** Specification of [remove] *)
       Theorem remove_1 : E.eq x y -> ~ In y (remove x m).
-      Admitted.
+        unfold E.eq, In, remove.
+        intros. eapply PositiveMap.remove_1. red.
+        subst; reflexivity.
+      Qed.
       Theorem remove_2 : ~ E.eq x y -> MapsTo y e m -> MapsTo y e (remove x m).
-      Admitted.
+        unfold E.eq, MapsTo, remove; intros.
+        eapply PositiveMap.remove_2; eauto.
+        unfold PositiveMap.E.eq. intro.
+        eapply to_key_inj in H1. auto.
+      Qed.
       Theorem remove_3 : MapsTo y e (remove x m) -> MapsTo y e m.
-      Admitted.
+        unfold remove, MapsTo. intros.
+        eapply PositiveMap.remove_3. eauto.
+      Qed.
 
     (** Specification of [find] *)
       Theorem find_1 : MapsTo x e m -> find x m = Some e.
-      Admitted.
+        eapply PositiveMap.find_1.
+      Qed.
       Theorem find_2 : find x m = Some e -> MapsTo x e m.
-      Admitted.
+        eapply PositiveMap.find_2.
+      Qed.
 
-    (** Specification of [elements] *)
+      (** Specification of [elements] *)
       Theorem elements_1 :
         MapsTo x e m -> InA eq_key_elt (x,e) (elements m).
-      Admitted.
+      Proof.
+        unfold MapsTo, eq_key_elt, elements. intros.
+        eapply PositiveMap.elements_1 in H.
+        induction H.
+        { simpl. constructor. simpl.
+          destruct H. simpl in *. subst.
+          destruct y0; simpl; split; eauto.
+          red in H. simpl in *. red.
+          subst. rewrite from_key_to_key. reflexivity. }
+        { simpl. eapply InA_cons_tl. eauto. }
+      Qed.
       Theorem elements_2 :
         InA eq_key_elt (x,e) (elements m) -> MapsTo x e m.
-      Admitted.
+        intros. eapply PositiveMap.elements_2.
+        unfold elements in H.
+        revert H. clear. revert x. revert e.
+        induction (PositiveMap.elements m).
+        { simpl. inversion 1. }
+        { intros. simpl in H. inversion H; eauto.
+          { subst. left. destruct a; simpl in *.
+            red in H1. intuition. unfold E.eq in *. simpl in *; subst.
+            rewrite to_key_from_key. reflexivity. } }
+      Qed.
       (** When compared with ordered maps, here comes the only
          property that is really weaker: *)
       Theorem elements_3w : NoDupA eq_key (elements m).
-      Admitted.
+        unfold elements.
+        generalize (PositiveMap.elements_3w m).
+        induction 1. constructor.
+        simpl. constructor; eauto.
+        intro. eapply H.
+        clear - H1. destruct x0; simpl in *.
+        induction l; inversion H1; clear H1; subst.
+        { left. destruct a. red in H0. red in H0. simpl in *.
+          red. red. simpl.
+          Lemma from_key_inj : forall a b, from_key a = from_key b -> a = b.
+            unfold from_key. intros.
+            destruct (Pnat.Pos2Nat.is_succ a).
+            destruct (Pnat.Pos2Nat.is_succ b).
+            rewrite H0 in *. rewrite H1 in *. simpl in *.
+            subst. rewrite <- H1 in H0.
+            eapply Pnat.Pos2Nat.inj_iff in H0. auto.
+          Qed.
+          eapply from_key_inj in H0. auto. }
+        { right. auto. }
+      Qed.
 
-    (** Specification of [cardinal] *)
+      (** Specification of [cardinal] *)
       Theorem cardinal_1 : cardinal m = length (elements m).
-      Admitted.
+        unfold elements. rewrite map_length.
+        eapply PositiveMap.cardinal_1.
+      Qed.
 
-    (** Specification of [fold] *)
+      (** Specification of [fold] *)
       Theorem fold_1 :
 	forall (A : Type) (i : A) (f : key -> elt -> A -> A),
         fold f m i = fold_left (fun a p => f (fst p) (snd p) a) (elements m) i.
-      Admitted.
+        unfold fold, elements.
+        Lemma fold_left_map : forall {T U V : Type}
+                                     (f : T -> U) (g : V -> U -> V) ls a,
+                                fold_left g (List.map f ls) a =
+                                fold_left (fun a b => g a (f b)) ls a.
+        Proof.
+          clear. induction ls; simpl; intros; auto.
+        Qed.
+        intros. rewrite fold_left_map.
+        rewrite PositiveMap.fold_1.
+        revert i.
+        induction (PositiveMap.elements m); simpl; auto; intros.
+        rewrite IHl. f_equal. destruct a. reflexivity.
+      Qed.
 
     (** Equality of maps *)
 
@@ -249,35 +367,80 @@ Module MAP <: WS with Definition E.t := uvar
      Variable cmp : elt -> elt -> bool.
 
      Theorem equal_1 : Equivb cmp m m' -> equal cmp m m' = true.
-     Admitted.
+       unfold Equivb, equal, Equiv.
+       intros. eapply PositiveMap.equal_1.
+       red. red. split.
+       { intros. destruct H. specialize (H (from_key k)).
+         clear - H. unfold In, PositiveMap.In, MapsTo in *.
+         rewrite to_key_from_key in *. assumption. }
+       { intros. destruct H. specialize (@H2 (from_key k) e0 e'0).
+         unfold MapsTo in *. rewrite to_key_from_key in *.
+         eauto. }
+     Qed.
      Theorem equal_2 : equal cmp m m' = true -> Equivb cmp m m'.
-     Admitted.
+       unfold Equivb, equal, Equiv. intros.
+       eapply PositiveMap.equal_2  in H.
+       red in H. red in H.
+       unfold In, MapsTo. split.
+       { destruct H. intros. eapply H. }
+       { destruct H. intros. eapply H0; eauto. }
+     Qed.
 
     End Spec.
    End Types.
 
-    (** Specification of [map] *)
-      Parameter map_1 : forall (elt elt':Type)(m: t elt)(x:key)(e:elt)(f:elt->elt'),
-        MapsTo x e m -> MapsTo x (f e) (map f m).
-      Parameter map_2 : forall (elt elt':Type)(m: t elt)(x:key)(f:elt->elt'),
-        In x (map f m) -> In x m.
+  (** Specification of [map] *)
+  Theorem map_1
+  : forall (elt elt':Type)(m: t elt)(x:key)(e:elt)(f:elt->elt'),
+      MapsTo x e m -> MapsTo x (f e) (map f m).
+  Proof.
+    unfold MapsTo,map. intros; eapply PositiveMap.map_1; eauto.
+  Qed.
+  Theorem map_2
+  : forall (elt elt':Type)(m: t elt)(x:key)(f:elt->elt'),
+      In x (map f m) -> In x m.
+  Proof.
+    unfold In, MapsTo, map; intros;
+    eapply PositiveMap.map_2; eauto.
+  Qed.
 
-    (** Specification of [mapi] *)
-      Parameter mapi_1 : forall (elt elt':Type)(m: t elt)(x:key)(e:elt)
-        (f:key->elt->elt'), MapsTo x e m ->
-        exists y, E.eq y x /\ MapsTo x (f y e) (mapi f m).
-      Parameter mapi_2 : forall (elt elt':Type)(m: t elt)(x:key)
-        (f:key->elt->elt'), In x (mapi f m) -> In x m.
+  (** Specification of [mapi] *)
+  Theorem mapi_1
+  : forall (elt elt':Type)(m: t elt)(x:key)(e:elt)
+           (f:key->elt->elt'), MapsTo x e m ->
+                               exists y, E.eq y x /\ MapsTo x (f y e) (mapi f m).
+  Proof.
+    intros. eapply PositiveMap.mapi_1 with (f := fun a b => f (from_key a) b) in H.
+    destruct H as [ y ? ]; exists (from_key y).
+    unfold E.eq, MapsTo. destruct H.
+    unfold PositiveMap.E.eq in *. subst.
+    rewrite from_key_to_key in *. eauto.
+  Qed.
+  Theorem mapi_2
+  : forall (elt elt':Type)(m: t elt)(x:key)
+           (f:key->elt->elt'), In x (mapi f m) -> In x m.
+  Proof.
+    unfold In, mapi, MapsTo; intros.
+    eapply PositiveMap.mapi_2. eassumption.
+  Qed.
 
-    (** Specification of [map2] *)
-      Parameter map2_1 : forall (elt elt' elt'':Type)(m: t elt)(m': t elt')
-	(x:key)(f:option elt->option elt'->option elt''),
-	In x m \/ In x m' ->
-        find x (map2 f m m') = f (find x m) (find x m').
+  (** Specification of [map2] *)
+  Theorem map2_1
+  : forall (elt elt' elt'':Type)(m: t elt)(m': t elt')
+	   (x:key)(f:option elt->option elt'->option elt''),
+      In x m \/ In x m' ->
+      find x (map2 f m m') = f (find x m) (find x m').
+  Proof.
+    intros; eapply PositiveMap.map2_1; eauto.
+  Qed.
 
-     Parameter map2_2 : forall (elt elt' elt'':Type)(m: t elt)(m': t elt')
-	(x:key)(f:option elt->option elt'->option elt''),
-        In x (map2 f m m') -> In x m \/ In x m'.
+  Theorem map2_2
+  : forall (elt elt' elt'':Type)(m: t elt)(m': t elt')
+	   (x:key)(f:option elt->option elt'->option elt''),
+      In x (map2 f m m') -> In x m \/ In x m'.
+  Proof.
+    intros. eapply PositiveMap.map2_2. eauto.
+  Qed.
 End MAP.
 
 Require Coq.FSets.FMapAVL.
