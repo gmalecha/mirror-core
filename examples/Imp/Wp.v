@@ -1,6 +1,6 @@
 (** Weakest Pre-condition for Imp **)
 Require Import Coq.Strings.String.
-Require Import MirrorCore.SymEnv.
+Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import McExamples.Imp.Imp.

@@ -4,7 +4,7 @@ Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -139,17 +139,10 @@ Section types.
   | acc_tyArrR : forall a b, tyAcc_typ a (tyArr b a)
   | acc_tyM    : forall a, tyAcc_typ a (tyM a).
 
-  Instance RType_typ : RType :=
-  { typ := typ
-  ; typD := typD
-    (* ; Rty := Rty *)
+  Instance RType_typ : RType typ :=
+  { typD := typD
   ; type_cast := type_cast
   ; tyAcc := tyAcc_typ
-(*  ; Relim := Relim *)
-(*  ; Rrefl := fun _ => @eq_refl _
-  ; Rsym := fun _ x y (pf : @Rty _ y x) => @eq_sym _ y x pf
-  ; Rtrans := fun _ => @eq_trans _ *)
-  ; type_weaken := fun _ _ x => x
   }.
 
   Theorem positive_eq_odec_None
@@ -170,7 +163,7 @@ Section types.
     clear; induction a; simpl; auto; Cases.rewrite_all_goal; auto.
   Qed.
 
-  Instance RTypeOk_typ : @RTypeOk RType_typ.
+  Instance RTypeOk_typ : @RTypeOk _ RType_typ.
   constructor; simpl; auto.
   { red.
     induction a; simpl; intros; constructor; intros;
@@ -186,7 +179,7 @@ Section types.
 
 End types.
 
-Instance Typ2_tyArr ts m : @Typ2 (RType_typ ts m) Fun :=
+Instance Typ2_tyArr ts m : @Typ2 _ (RType_typ ts m) Fun :=
 { typ2 := tyArr
 ; typ2_cast := fun _ _ _ => eq_refl
 ; typ2_match := fun T ts t tr =>
@@ -203,7 +196,7 @@ Proof.
   { reflexivity. }
   { eapply acc_tyArrL. }
   { eapply acc_tyArrR. }
-  { unfold TypesI2.Rty. simpl.
+  { unfold TypesI.Rty. simpl.
     inversion 2. auto. }
   { destruct x; simpl; try solve [ right; reflexivity ].
     left. eexists; eexists. exists eq_refl. reflexivity. }

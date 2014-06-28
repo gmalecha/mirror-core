@@ -2,7 +2,7 @@ Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 Require Import McExamples.Monad2.MonadTypes.
@@ -25,10 +25,10 @@ Section monad_funcs.
            | mReturn a => tyArr a (tyM a)
          end.
 
-  Definition mfuncD (f : mfunc) : match typeof_mfunc f with
-                                    | None => unit
-                                    | Some t => typD m ts nil t
-                                  end :=
+  Definition mfuncD ts' (f : mfunc) : match typeof_mfunc f with
+                                       | None => unit
+                                       | Some t => typD m ts ts' t
+                                     end :=
     match f as f
           return typD m ts nil
                       match f with
@@ -50,10 +50,9 @@ Section monad_funcs.
       | _ , _ => Some false
     end.
 
-  Instance RSym_mfunc : @RSym typ (typD m ts) mfunc :=
+  Instance RSym_mfunc : @RSym typ (RType_typ m ts) mfunc :=
   { typeof_sym := typeof_mfunc
   ; symD := mfuncD
   ; sym_eqb := mfunc_eq
   }.
 End monad_funcs.
-

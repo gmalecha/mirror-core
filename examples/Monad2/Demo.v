@@ -3,6 +3,8 @@ Add ML Path "../../src".
 Add ML Path "../src".
 
 Require Import ExtLib.Structures.Monad.
+Require Import McExamples.Monad2.MonadExpr.
+Require Import McExamples.Monad2.MonadReduce.
 Require Import McExamples.Monad2.MonadReify.
 
 Section with_monad.

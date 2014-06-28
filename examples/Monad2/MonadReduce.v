@@ -6,7 +6,7 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
-Require Import MirrorCore.SymEnv.
+Require Import MirrorCore.syms.SymEnv.
 Require Import McExamples.Monad2.MonadExpr.
 
 Set Implicit Arguments.
@@ -93,11 +93,10 @@ Section soundness.
   Variable m : Type -> Type.
   Variable Monad_m : Monad m.
   Variable tys : types.
-  Let typD := typD m tys.
-  Variable fs : functions typD.
+  Variable fs : functions (RType_typ m tys).
 
   Let exprD' :=
-    @exprD' _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
+    @exprD' _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
 
   Ltac by_refl :=
     intros;

@@ -5,7 +5,7 @@ open Reify_gen
 open Reify_lambda
 open Plugin_utils.Term_match
 
-let contrib_name = "reify_MirrorCore.Examples.Monad2.MonadReify"
+let contrib_name = "reify_McExamples.Monad2.MonadReify"
 
 module Std = Plugin_utils.Coqstd.Std (struct let contrib_name = contrib_name end)
 
@@ -16,7 +16,8 @@ let to_positive = Std.to_positive
 let sym_env_pkg = ["McExamples";"Monad2";"MonadExpr"]
 let types_pkg = ["McExamples";"Monad2";"MonadTypes"]
 let tm_typ = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "typ")
-let tm_typD = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "typD")
+let tm_RType = lazy (resolve_symbol ["McExamples";"Monad2";"MonadTypes"] "RType_typ")
+let tm_typD = lazy (resolve_symbol ["MirrorCore";"TypesI"] "typD")
 
 let func = lazy (resolve_symbol sym_env_pkg "mext")
 
@@ -223,7 +224,7 @@ module REIFY_ENV_FUNC =
       let expr_fref = lazy (resolve_symbol ["MirrorCore";"Lambda";"ExprCore"] "Inj")
 
       let monad_sym_pkg = ["McExamples";"Monad2";"MonadSym"]
-      let env_sym_pkg = ["MirrorCore";"SymEnv"]
+      let env_sym_pkg = ["MirrorCore";"syms";"SymEnv"]
 
       let sym_mfunc = lazy (resolve_symbol monad_sym_pkg "mfunc")
       let sym_func = lazy (resolve_symbol env_sym_pkg "func")
@@ -278,7 +279,7 @@ struct
   let tm_ret = lazy (resolve_symbol ["ExtLib";"Structures";"Monad"] "ret")
 
   let monad_sym_pkg = ["McExamples";"Monad2";"MonadSym"]
-  let env_sym_pkg = ["MirrorCore";"SymEnv"]
+  let env_sym_pkg = ["MirrorCore";"syms";"SymEnv"]
 
   let expr_bind = lazy (resolve_symbol monad_sym_pkg "mBind")
   let expr_ret = lazy (resolve_symbol monad_sym_pkg "mReturn")
@@ -388,7 +389,7 @@ let extract_types (ls : Term.constr option list) =
     (fun x -> x) ls
 ;;
 
-let mkFunction = lazy (resolve_symbol ["MirrorCore";"SymEnv"] "F")
+let mkFunction = lazy (resolve_symbol ["MirrorCore";"syms";"SymEnv"] "F")
 
 (** reify ML-style function types **)
 let reify_function_scheme reify_type =
@@ -416,8 +417,12 @@ let build_functions evar env : (Term.constr -> Term.constr) option list REIFY_MO
       let tf = Typing.type_of env evar f in
       REIFY_MONAD.bind (reify_function_scheme ReifyMonadTypes.reify tf) (fun (n, rft) ->
 	REIFY_MONAD.ret (Some (fun ctor ->
-	  Term.mkApp (ctor, [| rft ; f |])))) (*Lazy.force mkFunction,
-		      [| Lazy.force tm_typ ; _ ; rft ; f |])))) *)
+	  Term.mkApp (ctor, [| rft
+			     ; Term.mkLambda (Names.Anonymous,
+					      Std.list_of (Lazy.force rtype), f)
+			     |]))))
+  (*Lazy.force mkFunction,
+    [| Lazy.force tm_typ ; _ ; rft ; f |])))) *)
   in
   REIFY_MONAD.bind REIFY_MONAD.get_funcs (mapM do_func)
 
@@ -436,7 +441,7 @@ let ctor_leaf =
   lazy (resolve_symbol ["Coq";"FSets";"FMapPositive";"PositiveMap"] "Leaf")
 
 let e_function =
-  lazy (resolve_symbol ["MirrorCore";"SymEnv"] "function")
+  lazy (resolve_symbol ["MirrorCore";"syms";"SymEnv"] "function")
 
 let mapM f =
   let rec mapM es =
@@ -475,14 +480,15 @@ TACTIC EXTEND reify_Monad2_MonadExpr_reify_expr
 	    REIFY_MONAD.runM cmd i_types i_funcs i_uvars env evar_map in
 	  (res, r_types, r_funcs, r_uvars)
 	in
-	let _ = Format.printf "Done Reification\n" in 
+	let _ = Format.printf "Done Reification\n" in
 	let r_types = extract_types r_types in
 	let _ = Format.printf "Done types\n" in
 	let _ = Format.printf "types = %a\n" pp_constr r_types in
 	Plugin_utils.Use_ltac.pose "types" r_types (fun r_types ->
+	  let the_rtype = Term.mkApp (Lazy.force tm_RType, [| m ; r_types |]) in
 	  let ary_args = [| Lazy.force tm_typ
-			 ; Term.mkApp (Lazy.force tm_typD, [| m ; r_types |])
-			 |] in
+			  ; the_rtype
+			  |] in
 	  let typ = Term.mkApp (Lazy.force e_function, ary_args) in
 	  let leaf = Term.mkApp (Lazy.force ctor_leaf, [| typ |]) in
 	  let func_ctor =
@@ -495,12 +501,12 @@ TACTIC EXTEND reify_Monad2_MonadExpr_reify_expr
 	    (fun f -> match f with
 	      None -> None
 	    | Some f -> Some (f func_ctor)) r_funcs in
-(*	  let _ = Format.printf "Done funcs\n" in
-	  let _ = Format.printf "funcs = %a\n" pp_constr r_funcs in *)
+	  let _ = Format.printf "Done funcs\n" in
+	  let _ = Format.printf "funcs = %a\n" pp_constr r_funcs in
 	  Plugin_utils.Use_ltac.pose "funcs" r_funcs (fun r_funcs ->
 	    let typD = Term.mkApp (Lazy.force tm_typD,
-				   [| m
-				    ; r_types
+				   [| Lazy.force tm_typ
+				    ; the_rtype
 				    ; Std.to_list (Lazy.force rtype) [] |]) in
 	    let params = [| Lazy.force tm_typ ; typD |] in
 	    let env_typ = Term.mkApp (Lazy.force Std.sigT_ctor, params) in

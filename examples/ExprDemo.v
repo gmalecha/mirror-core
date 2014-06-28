@@ -1,9 +1,7 @@
 Require Import Coq.PArith.BinPos.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
-Require Import MirrorCore.Ext.Types.
-Require Import MirrorCore.Ext.Expr.
-Require Import MirrorCore.SymPolyEnv.
+Require Import MirrorCore.syms.SymPolyEnv.
 
 (** Demo **)
 Section Demo.

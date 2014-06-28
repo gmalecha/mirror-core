@@ -19,7 +19,7 @@ Ltac reify_left m :=
                             (@eq_refl _ _)) ;
           let H := fresh in
           intro H ;
-          cbv beta iota zeta delta [ ts fs us exprD EnvI.split_env exprD' func_simul Open_App Open_Inj eq_sym TypesI2.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymI.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc TypesI2.type_weaken RType_typ SymI.symD MonadSym.mfuncD TypesI2.typ2_match funcAs SymEnv.RSym_func SymEnv.func_typeof_sym Open_GetVAs Open_GetUAs SymEnv.ftype TypesI2.type_cast Rcast type_cast TypesI2.Relim TypesI2.Rsym OptionMonad.Monad_option EnvI.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI2.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl ] in H ;
+          cbv beta iota zeta delta [ ts fs us exprD EnvI.split_env exprD' func_simul Open_App Open_Inj eq_sym TypesI.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymSum.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc RType_typ SymI.symD MonadSym.mfuncD TypesI.typ2_match funcAs SymEnv.RSym_func SymEnv.func_typeof_sym Open_GetVAs Open_GetUAs SymEnv.ftype TypesI.type_cast Rcast type_cast TypesI.Relim TypesI.Rsym OptionMonad.Monad_option EnvI.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl ] in H ;
           simpl in H ;
           clear ts fs us
       in
@@ -39,7 +39,7 @@ Ltac reduce_monads m :=
           cut (@MonadReduce.Premise_reduce_eq m Monad_m ts fs us nil t result'V) ;
           [ refine (@reduce_eq m Monad_m ts fs el er us nil t result'V
                                (@eq_refl _ result'V <: result = result'V))
-          | cbv beta iota zeta delta [ ts fs us result'V exprD EnvI.split_env exprD' func_simul Open_App Open_Inj eq_sym TypesI2.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymI.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc TypesI2.type_weaken RType_typ SymI.symD MonadSym.mfuncD TypesI2.typ2_match funcAs SymEnv.RSym_func SymEnv.func_typeof_sym Open_GetVAs Open_GetUAs SymEnv.ftype TypesI2.type_cast Rcast type_cast TypesI2.Relim TypesI2.Rsym OptionMonad.Monad_option EnvI.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI2.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl MonadReduce.Premise_reduce_eq fst snd ] ;
+          | cbv beta iota zeta delta [ ts fs us result'V exprD EnvI.split_env exprD' func_simul Open_App Open_Inj eq_sym TypesI.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymSum.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc RType_typ SymI.symD MonadSym.mfuncD TypesI.typ2_match funcAs SymEnv.RSym_func SymEnv.func_typeof_sym Open_GetVAs Open_GetUAs SymEnv.ftype TypesI.type_cast Rcast type_cast TypesI.Relim TypesI.Rsym OptionMonad.Monad_option EnvI.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl MonadReduce.Premise_reduce_eq fst snd ] ;
           simpl ;
           clear ts fs us result'V ]
       in
