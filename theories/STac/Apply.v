@@ -32,14 +32,14 @@ Section parameterized.
              (sub : subst) {struct es}
     : Result typ expr subst.
     refine match es with
-             | nil => @Solve _ _ _ sub
+             | nil => @Solved _ _ _ sub
              | e :: es =>
                let e := instantiate (fun u => lookup u sub) 0 e in
-               match tac e sub tus tvs with
-                 | Solve sub' => solve_all_but_last es sub'
-                 | Progress e sub tus tvs =>
+               match tac tus tvs sub e with
+                 | Solved sub' => solve_all_but_last es sub'
+                 | More e sub tus tvs =>
                    match es with
-                     | nil => Progress e sub tus tvs
+                     | nil => More e sub tus tvs
                      | _ => @Fail _ _ _
                    end
                  | Fail => @Fail _ _ _
@@ -68,7 +68,7 @@ Section parameterized.
                (tac : stac typ expr subst)
     : stac typ expr subst :=
       let len_vars := length lem.(vars) in
-      fun e sub tus tvs =>
+      fun tus tvs sub e =>
       match eapplicable sub tus tvs lem e with
         | None => @Fail _ _ _
         | Some sub' =>
@@ -79,18 +79,18 @@ Section parameterized.
                                premises sub'
           with
             | Fail => @Fail _ _ _
-            | Solve sub'' =>
+            | Solved sub'' =>
               match pull (expr := expr) len_uvars len_vars sub'' with
                 | None => @Fail _ _ _
-                | Some sub''' => @Solve _ _ _ sub'''
+                | Some sub''' => @Solved _ _ _ sub'''
               end
-            | Progress e sub'' tus tvs =>
+            | More tus tvs sub'' e =>
               (** TODO: In this case it is not necessary to pull everything
                ** I could leave unification variables in place
                **)
               match pull (expr := expr) len_uvars len_vars sub'' with
                 | None => @Fail _ _ _
-                | Some sub''' => Progress e sub''' (firstn len_uvars tus) tvs
+                | Some sub''' => More (firstn len_uvars tus) tvs sub''' e
               end
           end
       end.

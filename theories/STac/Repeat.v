@@ -13,23 +13,34 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
+  Variable subst : Type.
 
-  Section repeat_stac.
-    Variable subst : Type.
+  Definition REPEAT (max : nat) (br : stac typ expr subst)
+  : stac typ expr  subst :=
+    (fix DO (n : nat) : stac typ expr  subst :=
+       match n with
+         | 0 => @More _ _ _
+         | S n =>
+           fun tus tvs sub e =>
+             match br tus tvs sub e with
+               | Fail => More tus tvs sub e (** Never fails **)
+               | More e sub tus tvs => DO n e sub tus tvs
+               | Solved s => @Solved _ _ _ s
+             end
+       end) max.
 
-    Definition REPEAT (max : nat) (br : stac typ expr subst)
-    : stac typ expr  subst :=
-      (fix DO (n : nat) : stac typ expr  subst :=
-         match n with
-           | 0 => @Progress _ _ _
-           | S n =>
-             fun e sub tus tvs =>
-               match br e sub tus tvs with
-                 | Fail => Progress e sub tus tvs (** Never fails **)
-                 | Progress e sub tus tvs => DO n e sub tus tvs
-                 | Solve s => @Solve _ _ _ s
-               end
-         end) max.
-  End repeat_stac.
+  Theorem REPEAT_sound
+  : forall br, stac_sound br ->
+               forall n,
+                 stac_sound (REPEAT n br).
+  Proof.
+    induction n; simpl.
+    { red. auto. }
+    { red. intros.
+      specialize (H tus tvs s g).
+      destruct (br tus tvs s g); auto.
+      red in IHn. specialize (IHn l l0 s0 e).
+      destruct (REPEAT n br l l0 s0 e); auto. }
+  Qed.
 
 End parameterized.

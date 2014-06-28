@@ -12,9 +12,19 @@ Section parameterized.
     fun e sub tus tvs =>
       let res := a e sub tus tvs in
       match res with
-        | Solve s => @Solve _ _ _ s
-        | Progress e sub tus tvs => b e sub tus tvs
+        | Solved s => @Solved _ _ _ s
+        | More e sub tus tvs => b e sub tus tvs
         | Fail => res
       end.
+
+  Theorem THEN_sound
+  : forall a b, stac_sound a -> stac_sound b -> stac_sound (THEN a b).
+  Proof.
+    unfold stac_sound, THEN; intros.
+    specialize (H tus tvs s g).
+    destruct (a tus tvs s g); auto.
+    specialize (H0 l l0 s0 e).
+    destruct (b l l0 s0 e); auto.
+  Qed.
 
 End parameterized.

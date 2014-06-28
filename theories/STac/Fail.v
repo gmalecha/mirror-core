@@ -12,4 +12,9 @@ Section parameterized.
     fun _ _ _ _ =>
       @Fail _ _ _.
 
+  Theorem FAIL_sound : stac_sound FAIL.
+  Proof.
+    red. simpl. auto.
+  Qed.
+
 End parameterized.

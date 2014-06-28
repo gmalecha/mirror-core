@@ -19,4 +19,13 @@ Section parameterized.
                       e sub tus tvs
        end) n.
 
+  Theorem REC_sound
+  : forall b l, (forall t, stac_sound t -> stac_sound (b t)) ->
+                stac_sound l ->
+                forall n,
+                  stac_sound (REC n b l).
+  Proof.
+    induction n; simpl; intros; eauto.
+  Qed.
+
 End parameterized.

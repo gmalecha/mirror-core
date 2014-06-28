@@ -10,15 +10,27 @@ Section parameterized.
   Variable subst : Type.
 
   Definition FIRST (brs : list (stac typ expr subst)) : stac typ expr subst :=
-    fun e sub tus tvs =>
+    fun tus tvs sub e =>
       (fix FIRST (brs : list (stac typ expr subst)) : Result typ expr subst :=
          match brs with
            | nil => @Fail _ _ _
            | br :: brs =>
-             match br e sub tus tvs with
+             match br tus tvs sub e with
                | Fail => FIRST brs
                | x => x
              end
          end) brs.
+
+  Theorem FIRST_sound
+  : forall brs, Forall (@stac_sound _ _ _) brs ->
+                stac_sound (FIRST brs).
+  Proof.
+    induction 1.
+    { red. simpl. auto. }
+    { red. simpl. intros.
+      specialize (H tus tvs s g).
+      destruct (x tus tvs s g); eauto.
+      eapply IHForall. }
+  Qed.
 
 End parameterized.

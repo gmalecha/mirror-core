@@ -8,8 +8,11 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Definition IDTAC : stac typ expr subst :=
-    fun e sub tus tvs =>
-      Progress e sub tus tvs.
+  Definition IDTAC : stac typ expr subst := @More _ _ _.
+
+  Theorem IDTAC_sound : stac_sound IDTAC.
+  Proof.
+    red; intros; simpl; auto.
+  Qed.
 
 End parameterized.
