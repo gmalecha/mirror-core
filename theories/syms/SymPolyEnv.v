@@ -34,7 +34,7 @@ Section typed.
   Record function := F
   { fenv : nat
   ; ftype : typ
-  ; fdenote : parametric fenv nil (fun env => typD env ftype)
+  ; fdenote : forall ts, parametric fenv ts (fun env => typD env ftype)
   }.
 
   Definition functions := PositiveMap.t function.
@@ -114,13 +114,14 @@ Section typed.
                                       | None => unit
                                     end
                        with
-                         | true => fun pf => _ (*
-                           match type_apply _ ts' nil _ fd as xx
-                                 return type_apply _ ts' nil _ fd = xx -> _
+                         | true => fun pf =>
+                           match type_apply _ ts' ts _ (fd ts) as xx
+                                 return type_apply _ ts' ts _ (fd ts) = xx ->
+                                        typD ts (instantiate_typ ts' ftype)
                            with
                              | None => fun pf' => match _ : False with end
                              | Some z => fun _ => z
-                           end eq_refl *)
+                           end eq_refl
                          | false => fun pf => tt
                        end eq_refl
                      | None => tt
@@ -128,16 +129,15 @@ Section typed.
                end
   }.
   (** TODO(gmalecha): How worthwhile is the list of types? **)
-  admit. (*
   abstract (rewrite rel_dec_correct in pf;
-            destruct (type_apply_length_equal ftype0 _ nil fd (eq_sym pf));
+            destruct (type_apply_length_equal ftype0 _ ts (fd ts) (eq_sym pf));
             match type of H with
               | ?X = _ =>
                 match type of pf' with
                   | ?Y = _ =>
                     change Y with X in pf' ; congruence
                 end
-            end). *)
+            end). 
   Defined.
 
   Definition from_list {T} (ls : list T) : PositiveMap.t T :=
