@@ -12,6 +12,12 @@ Section parameterized.
     fun _ _ _ _ =>
       @Fail _ _ _.
 
+  Variable RType_typ : RType typ.
+  Variable Expr_expr : Expr RType_typ expr.
+  Variable Typ0_Prop : Typ0 _ Prop.
+  Variable Subst_subst : Subst subst expr.
+  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+
   Theorem FAIL_sound : stac_sound FAIL.
   Proof.
     red. simpl. auto.

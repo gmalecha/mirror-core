@@ -19,6 +19,13 @@ Section parameterized.
                       e sub tus tvs
        end) n.
 
+  Variable RType_typ : RType typ.
+  Variable Expr_expr : Expr RType_typ expr.
+  Variable ExprOk_expr : ExprOk Expr_expr.
+  Variable Typ0_Prop : Typ0 _ Prop.
+  Variable Subst_subst : Subst subst expr.
+  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+
   Theorem REC_sound
   : forall b l, (forall t, stac_sound t -> stac_sound (b t)) ->
                 stac_sound l ->

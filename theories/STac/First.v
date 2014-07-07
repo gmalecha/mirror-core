@@ -21,8 +21,15 @@ Section parameterized.
              end
          end) brs.
 
+  Variable RType_typ : RType typ.
+  Variable Expr_expr : Expr RType_typ expr.
+  Variable ExprOk_expr : ExprOk Expr_expr.
+  Variable Typ0_Prop : Typ0 _ Prop.
+  Variable Subst_subst : Subst subst expr.
+  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+
   Theorem FIRST_sound
-  : forall brs, Forall (@stac_sound _ _ _) brs ->
+  : forall brs, Forall stac_sound brs ->
                 stac_sound (FIRST brs).
   Proof.
     induction 1.
