@@ -208,7 +208,6 @@ Section types.
                 val' us (hlist_app vs (hlist_app vs' vs''))
           end
       end.
-(*
   Proof.
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
@@ -216,50 +215,58 @@ Section types.
       { generalize H.
         eapply nth_error_get_hlist_nth_appL with (tvs' := tvs' ++ tvs'') (F := typD ts) in H; eauto with typeclass_instances.
         intro.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs'') (F := typD ts) in H3; eauto with typeclass_instances.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs'') (F := typD ts)
+          in H2; eauto with typeclass_instances.
         forward_reason.
         revert H2. Cases.rewrite_all_goal. destruct x1.
-        simpl in *.
-        destruct r. rewrite H6 in *. rewrite H0 in *.
+        simpl in *. intros.
+        destruct r. rewrite H5 in *.
         inv_all; subst. simpl in *.
-        rewrite type_cast_refl; eauto. congruence. }
+        rewrite type_cast_refl; eauto.
+        intros.
+        rewrite H4. rewrite H6. auto. }
       { eapply nth_error_get_hlist_nth_appR in H0; [ simpl in * | omega ].
         forward_reason.
         consider (nth_error_get_hlist_nth (typD ts) (tvs ++ tvs' ++ tvs'')
            (v + length tvs')); intros.
         { destruct s. forward.
-          eapply nth_error_get_hlist_nth_appR in H2; [ simpl in * | omega ].
+          eapply nth_error_get_hlist_nth_appR in H3; [ simpl in * | omega ].
           forward_reason.
-          eapply nth_error_get_hlist_nth_appR in H2; [ simpl in * | omega ].
+          eapply nth_error_get_hlist_nth_appR in H3; [ simpl in * | omega ].
           forward_reason.
           replace (v + length tvs' - length tvs - length tvs')
-             with (v - length tvs) in H2 by omega.
-          rewrite H0 in *. inv_all; subst. congruence. }
-        { rewrite nth_error_get_hlist_nth_None in H2.
+             with (v - length tvs) in H3 by omega.
+          rewrite H0 in *. inv_all; subst.
+          rewrite H1. congruence. }
+        { rewrite nth_error_get_hlist_nth_None in H3.
           eapply nth_error_get_hlist_nth_Some in H0. destruct H0.
           clear H0. simpl in *.
-          repeat rewrite ListNth.nth_error_app_R in H2 by omega.
+          repeat rewrite ListNth.nth_error_app_R in H3 by omega.
           replace (v + length tvs' - length tvs - length tvs')
-             with (v - length tvs) in H2 by omega.
+             with (v - length tvs) in H3 by omega.
           congruence. } } }
-    { revert H3. rewrite typeof_expr_lift. rewrite H.
+    { rewrite typeof_expr_lift. rewrite H.
       specialize (IHe1 tvs tvs' tvs'' (typ2 t0 t)).
       specialize (IHe2 tvs tvs' tvs'' t0).
-      forward. }
+      forward. inv_all. subst.
+      unfold Open_App.
+      unfold OpenT, ResType.OpenT.
+      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
     { destruct (typ2_match_case ts t0).
-      { destruct H1 as [ ? [ ? [ ? ? ] ] ].
-        rewrite H1 in *; clear H1.
+      { destruct H0 as [ ? [ ? [ ? ? ] ] ].
+        rewrite H0 in *; clear H0.
         generalize dependent (typ2_cast ts x x0).
         destruct x1. simpl.
         intros. rewrite eq_option_eq in *.
         forward. inv_all; subst.
         specialize (IHe (t :: tvs) tvs' tvs'' x0).
         revert IHe. simpl. Cases.rewrite_all_goal.
-        auto. }
-      { rewrite H1 in *. congruence. } }
+        intros; forward.
+        eapply FunctionalExtensionality.functional_extensionality.
+        intros. eapply (IHe us (Hcons x1 vs)). }
+      { rewrite H0 in *. congruence. } }
   Qed.
-*)
-  Admitted.
 
   Theorem vars_to_uvars_typeof_expr
   : forall ts tus e tvs tvs' t,

@@ -17,8 +17,9 @@ LAMBDA := ResType \
 	  Expr ExprLift Red \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
-	  ExprUnify ExprUnify_simul ExprUnifyHO \
+	  ExprUnify ExprUnify_simul \
 	  ExprSubst AppN
+# ExprUnifyHO 
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
 STAC := Core Repeat Apply First Repeat Try Idtac Rec Simplify Solve Then Fail STac
