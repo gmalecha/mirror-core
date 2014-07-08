@@ -40,8 +40,8 @@ Section lem.
 
   Record lemma : Type := Build_lemma
   { vars : list typ
-  ;  premises : list expr
-  ;  concl : conclusion
+  ; premises : list expr
+  ; concl : conclusion
   }.
 
   Variable conclusionD : forall us vs, conclusion -> ResType us vs Prop.
