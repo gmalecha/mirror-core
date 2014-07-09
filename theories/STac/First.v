@@ -37,7 +37,7 @@ Section parameterized.
     { red. simpl. intros.
       specialize (H tus tvs s g).
       destruct (x tus tvs s g); eauto.
-      eapply IHForall. }
+      eapply IHForall. auto. }
   Qed.
 
 End parameterized.

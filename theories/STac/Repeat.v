@@ -51,56 +51,58 @@ Section parameterized.
                  stac_sound (REPEAT n br).
   Proof.
     induction n; simpl.
-    { red; intros. eapply IDTAC_sound. }
+    { red; intros. eapply IDTAC_sound; auto. }
     { red. intros.
       specialize (H tus tvs s g).
       destruct (br tus tvs s g); auto.
-      { eapply More_sound. }
+      { split; auto. eapply More_sound. }
       { specialize (IHn (tus ++ l) (tvs ++ l0) s0 e).
         destruct (REPEAT n br (tus ++ l) (tvs ++ l0) s0 e); auto.
-        { forward.
+        { forward_reason. split; auto.
+          forward.
           match goal with
             | |- match ?X with _ => _ end =>
               consider X; intros
           end.
-          { destruct H6 as [ ? [ ? ? ] ].
-            eapply H3; clear H3.
+          { destruct H10 as [ ? [ ? ? ] ].
+            eapply H7; clear H7.
             exists (fst (HList.hlist_split _ _ x)).
             exists (fst (HList.hlist_split _ _ x0)).
             apply and_comm.
-            apply IHn; clear IHn.
+            apply H8; clear H8.
             exists (snd (HList.hlist_split _ _ x)).
             exists (snd (HList.hlist_split _ _ x0)).
             do 2 rewrite hlist_app_assoc.
             do 2 rewrite hlist_app_hlist_split.
             destruct (eq_sym (app_ass_trans tus l l1)).
             destruct (eq_sym (app_ass_trans tvs l0 l2)).
-            rewrite H4 in *. inv_all; subst. assumption. }
-        { clear - H4 H5.
+            rewrite H9 in *. inv_all; subst. assumption. }
+        { clear - H9 H6.
           generalize dependent P3.
           do 2 rewrite app_ass. intros. congruence. } }
-        { forward.
+        { forward_reason. split; auto.
+          forward.
           repeat match goal with
                    | |- match ?X with _ => _ end =>
                      consider X; intros
                  end.
-          { destruct H8 as [ ? [ ? ? ] ].
-            eapply H3; clear H3.
+          { destruct H12 as [ ? [ ? ? ] ].
+            eapply H7; clear H7.
             exists (fst (HList.hlist_split _ _ x)).
             exists (fst (HList.hlist_split _ _ x0)).
             apply and_comm.
-            apply IHn; clear IHn.
+            apply H9; clear H9.
             exists (snd (HList.hlist_split _ _ x)).
             exists (snd (HList.hlist_split _ _ x0)).
             do 2 rewrite hlist_app_assoc.
             do 2 rewrite hlist_app_hlist_split.
             destruct (eq_sym (app_ass_trans tus l l1)).
             destruct (eq_sym (app_ass_trans tvs l0 l2)).
-            rewrite H4 in *. rewrite H5 in *.
+            rewrite H10 in *. rewrite H11 in *.
             inv_all. subst; tauto. }
-          { revert H7 H5.
+          { revert H8 H11.
             clear. revert P4. do 2 rewrite app_ass. congruence. }
-          { revert H4 H6. clear. revert P3.
+          { revert H6 H10. clear. revert P3.
             do 2 rewrite app_ass. congruence. } } } }
   Qed.
 

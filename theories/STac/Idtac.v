@@ -19,7 +19,7 @@ Section parameterized.
 
   Theorem IDTAC_sound : stac_sound IDTAC.
   Proof.
-    intros. unfold IDTAC. red. eapply More_sound.
+    intros. unfold IDTAC. red. intros. split; auto. eapply More_sound.
   Qed.
 
 End parameterized.

@@ -43,9 +43,11 @@ Section parameterized.
 
   Definition stac_sound (tac : stac) : Prop
   := forall tus tvs s (g : expr),
+       WellFormed_subst s ->
        match tac tus tvs s g with
          | Fail => True
          | Solved tus' tvs' s' =>
+           WellFormed_subst s' /\
            match goalD tus tvs g
                , substD tus tvs s
            with
@@ -61,6 +63,7 @@ Section parameterized.
              | _ , _ => True
            end
          | More tus' tvs' s' g' =>
+           WellFormed_subst s' /\
            match goalD tus tvs g
                , substD tus tvs s
            with

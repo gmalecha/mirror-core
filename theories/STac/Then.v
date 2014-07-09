@@ -39,17 +39,18 @@ Section parameterized.
     destruct (a tus tvs s g); auto.
     specialize (H0 (tus ++ l) (tvs ++ l0) s0 e).
     destruct (b (tus ++ l) (tvs ++ l0) s0 e); auto.
-    { forward.
+    { forward_reason. split; auto.
+      forward.
       match goal with
         | |- match ?X with _ => _ end =>
           consider X; intros
       end.
-      { destruct H7 as [ ? [ ? ? ] ].
-        eapply H4; clear H4.
+      { forward_reason.
+        eapply H7; clear H7.
         exists (fst (HList.hlist_split _ _ x)).
         exists (fst (HList.hlist_split _ _ x0)).
         eapply and_comm.
-        eapply H5; clear H5.
+        eapply H8; clear H8.
         exists (snd (HList.hlist_split _ _ x)).
         exists (snd (HList.hlist_split _ _ x0)).
         do 2 rewrite HList.hlist_app_assoc.
@@ -58,32 +59,33 @@ Section parameterized.
                  | |- context [ match ?X with _ => _ end ] =>
                    destruct X
                end.
-        rewrite H3 in *. inv_all; subst. assumption. }
-      { intros. revert H3 H6.
+        rewrite H6 in *. inv_all; subst. assumption. }
+      { intros. revert H9 H6.
         clear - P3. revert P3.
         do 2 rewrite app_ass. intros. congruence. } }
-    { forward.
+    { forward_reason. split; auto.
+      forward.
       repeat match goal with
                | |- match ?X with _ => _ end =>
                  consider X; intros
              end.
       { forward_reason.
-        eapply H4; clear H4.
+        eapply H7; clear H7.
         exists (fst (HList.hlist_split _ _ x)).
         exists (fst (HList.hlist_split _ _ x0)).
         eapply and_comm.
-        eapply H6; clear H6.
+        eapply H9; clear H9.
         exists (snd (HList.hlist_split _ _ x)).
         exists (snd (HList.hlist_split _ _ x0)).
         do 2 rewrite HList.hlist_app_assoc.
         do 2 rewrite HList.hlist_app_hlist_split.
         destruct (eq_sym (HList.app_ass_trans tus l l1)).
         destruct (eq_sym (HList.app_ass_trans tvs l0 l2)).
-        rewrite H3 in *. rewrite H8 in *. inv_all; subst.
+        rewrite H11 in *. rewrite H6 in *. inv_all; subst.
         split; assumption. }
-      { revert H5 H8. clear. revert P4.
+      { revert H11 H8. clear. revert P4.
         do 2 rewrite app_ass. congruence. }
-      { revert H7 H3. clear. revert P3.
+      { revert H10 H6. clear. revert P3.
         do 2 rewrite app_ass. congruence. } }
   Qed.
 

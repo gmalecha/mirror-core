@@ -25,6 +25,7 @@ Section parameterized.
   Theorem SIMPLIFY_sound
   : forall f,
       (forall tus tvs s e e',
+         WellFormed_subst s ->
          f tus tvs s e = e' ->
          match @goalD _ _ _ Expr_expr _ tus tvs e
              , @substD _ _ _ _ Expr_expr _ _ tus tvs s
@@ -42,8 +43,9 @@ Section parameterized.
   Proof.
     intros. unfold stac_sound, SIMPLIFY.
     intros.
-    specialize (H tus tvs s g _ eq_refl).
+    specialize (H tus tvs s g _ H0 eq_refl).
     forward.
+    split; auto. clear H0.
     repeat match goal with
              | |- match ?X with _ => _ end =>
                consider X; intros
@@ -52,15 +54,15 @@ Section parameterized.
       rewrite (HList.hlist_eta x) in *.
       rewrite (HList.hlist_eta x0) in *.
       do 2 rewrite HList.hlist_app_nil_r in H5.
-      specialize (H2 us vs).
+      specialize (H3 us vs).
       destruct (eq_sym (HList.app_nil_r_trans tus)).
       destruct (eq_sym (HList.app_nil_r_trans tvs)).
       rewrite H4 in *.
-      rewrite H3 in *. inv_all; subst.
+      rewrite H2 in *. inv_all; subst.
       intuition. }
-    { clear - H4 H0.
+    { clear - H4 H1.
       do 2 rewrite List.app_nil_r in *. congruence. }
-    { clear - H3 H1.
+    { clear - H2 H0.
       do 2 rewrite List.app_nil_r in *. congruence. }
   Qed.
 

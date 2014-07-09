@@ -27,7 +27,8 @@ Section parameterized.
     unfold stac_sound; intros.
     specialize (H tus tvs s g). unfold TRY.
     destruct (b tus tvs s g); auto.
-    eapply More_sound.
+    split; auto.
+    apply More_sound.
   Qed.
 
 End parameterized.
