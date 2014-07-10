@@ -130,6 +130,7 @@ Section subst.
   ; set_sound
     : forall uv e s s',
         set uv e s = Some s' ->
+        lookup uv s = None ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
         (forall tus tvs t val sD,
@@ -157,6 +158,9 @@ Section subst.
           u = length tus ->
           n = length tus' ->
           substD (tus ++ tus') tvs s = Some sD ->
+          (forall u' t,
+             nth_error tus' u' = Some t ->
+             exists e, lookup (u + u') s = Some e) /\
           exists sD',
             substD tus tvs s' = Some sD' /\
             exists eus' : list expr,
@@ -170,6 +174,32 @@ Section subst.
 
   Variable Subst_subst : Subst.
   Variable SubstOk_subst : SubstOk Subst_subst.
+  Variable SubstUpdate_subst : SubstUpdate.
+  Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
+
+  Theorem pull_sound_sem
+  : forall s s' u n,
+        pull u n s = Some s' ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        forall tus tus' tvs sD,
+          u = length tus ->
+          n = length tus' ->
+          substD (tus ++ tus') tvs s = Some sD ->
+          exists sD',
+            substD tus tvs s' = Some sD' /\
+            exists eus' : list expr,
+              exists us' : hlist (fun t => hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t) tus',
+                @hlist_build _ _ _ (fun t e => exprD' tus tvs e t) tus' eus' = Some us' /\
+                forall us vs,
+                  let us' := hlist_map (fun t (x : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t) => x us vs) us' in
+                  sD' us vs ->
+                  sD (hlist_app us us') vs.
+  Proof.
+    intros. eapply pull_sound in H; eauto.
+    intuition. specialize (H2 _ _ _ _ H H3 H4).
+    tauto.
+  Qed.
 
   Definition Subst_Extends (a b : T) : Prop :=
     forall tus tvs P Q,
