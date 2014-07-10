@@ -1,4 +1,3 @@
-Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
