@@ -78,8 +78,8 @@ admit:
 
 depgraph: Makefile.coq
 	@ echo Generating dependency graph to ../deps.pdf
-	@ ./../tools/deps.py $(MODULES:%=%.v.d) > ../deps.dot
-	@ ./../tools/deps.py $(MODULES:%=%.v.d) | dot -Tpdf -o ../deps.pdf
+	@ ./../tools/deps.py $(MODULES:%=%.v.d) | sed '/coq_ext_lib/d' > ../deps.dot
+	@ cat ../deps.dot | dot -Tpdf -o ../deps.pdf
 
 toplevel: coq
 	coqtop.opt $(ARGS)
