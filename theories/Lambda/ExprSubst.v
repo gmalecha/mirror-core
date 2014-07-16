@@ -2,17 +2,19 @@
  ** (i.e. substituting and finding) unification variables
  **)
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Fun.
+Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Bool.
-Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.ListNth.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
-Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -41,6 +43,32 @@ Section substU.
     end.
 End substU.
 
+Section mentionsU.
+  Variable typ : Type.
+  Variable func : Type.
+
+  Section param.
+    Variable u : uvar.
+
+    Fixpoint mentionsU (e : expr typ func) : bool :=
+      match e with
+        | Var _
+        | Inj _ => false
+        | UVar u' => EqNat.beq_nat u u'
+        | App f e => if mentionsU f then true else mentionsU e
+        | Abs _ e => mentionsU e
+      end.
+  End param.
+
+  Lemma mentionsU_lift : forall u e a b,
+    mentionsU u (lift a b e) = mentionsU u e.
+  Proof.
+    induction e; simpl; intros; intuition;
+    Cases.rewrite_all_goal; intuition.
+  Qed.
+
+End mentionsU.
+
 Section instantiate.
   Variable typ : Type.
   Variable func : Type.
@@ -58,7 +86,118 @@ Section instantiate.
           | Some e => lift 0 under e
         end
     end.
+
+  Definition instantiates (u : uvar) : Prop :=
+    lookup u <> None /\
+    forall u' e, lookup u' = Some e ->
+                 mentionsU u e = false.
+
+  Lemma instantiate_instantiates
+  : forall u,
+      instantiates u ->
+      forall e under,
+        mentionsU u (instantiate under e) = false.
+  Proof.
+    induction e; simpl; intros; auto.
+    { rewrite IHe1. auto. }
+    { destruct H.
+      consider (u ?[ eq ] u0).
+      { intros; subst.
+        specialize (H0 u0).
+        destruct (lookup u0).
+        { rewrite mentionsU_lift. auto. }
+        { congruence. } }
+      { intros.
+        consider (lookup u0); intros.
+        { rewrite mentionsU_lift. eauto. }
+        { simpl. consider (EqNat.beq_nat u u0); try congruence. } } }
+  Qed.
+
 End instantiate.
+
+Section strengthen.
+  Context {typ : Type}.
+  Context {func : Type}.
+  Context {RType_typD : RType typ}.
+  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {RSym_func : RSym func}.
+
+  (** Reasoning principles **)
+  Context {RTypeOk_typD : RTypeOk}.
+  Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
+  Context {RSymOk_func : RSymOk RSym_func}.
+
+  Lemma typeof_expr_strengthen
+  : forall ts tus tu (e : expr typ func) tvs (t : typ),
+      mentionsU (length tus) e = false ->
+      typeof_expr ts (tus ++ tu :: nil) tvs e = Some t ->
+      typeof_expr ts tus tvs e = Some t.
+  Proof.
+    induction e; simpl; intros; forward; inv_all; subst; auto.
+    { erewrite H3; eauto.
+      erewrite IHe2; eauto. }
+    { erewrite IHe; eauto. }
+    { rewrite nth_error_app_L in H0; auto.
+      eapply nth_error_length_lt in H0.
+      rewrite app_length in H0.
+      simpl in *.
+      consider (EqNat.beq_nat (length tus) u); try congruence.
+      intros. omega. }
+  Qed.
+
+  Lemma exprD'_strengthen
+  : forall ts tus tu (e : expr typ func) tvs (t : typ) eD,
+      mentionsU (length tus) e = false ->
+      exprD' ts (tus ++ tu :: nil) tvs t e = Some eD ->
+      exists eD',
+        exprD' ts tus tvs t e = Some eD' /\
+        forall us u vs,
+          eD (hlist_app us (Hcons u Hnil)) vs = eD' us vs.
+  Proof.
+    induction e; simpl; intros;
+    autorewrite with exprD_rw in *; simpl in *; forward; inv_all; subst; eauto.
+    { erewrite typeof_expr_strengthen by eauto.
+      eapply IHe2 in H5; eauto.
+      eapply H4 in H1; eauto.
+      forward_reason.
+      Cases.rewrite_all_goal.
+      eexists; split; eauto. intros.
+      unfold Open_App. simpl.
+      unfold OpenT, ResType.OpenT.
+      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      rewrite H5. rewrite H6. reflexivity. }
+    { destruct (typ2_match_case ts t0) as [ [ ? [ ? [ ? ? ] ] ] | ? ].
+      { rewrite H1 in *.
+        unfold Relim in *.
+        red in x1. subst.
+        repeat first [ rewrite eq_Const_eq in *
+                     | rewrite eq_option_eq in *
+                     | rewrite eq_Arr_eq  in * ].
+        forward. inv_all; subst.
+        eapply IHe in H3; eauto.
+        forward_reason. rewrite H2. eexists; split; eauto.
+        intros. unfold OpenT, ResType.OpenT.
+        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        clear - H3.
+        destruct (eq_sym (typ2_cast ts x x0)).
+        eapply functional_extensionality.
+        eauto. }
+      { rewrite H1 in *. congruence. } }
+    { cut (u < length tus).
+      { intro.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := tu :: nil) (F := typD ts) in H0.
+        rewrite H1 in H0.
+        forward_reason. inv_all; subst. simpl in *.
+        rewrite H3. rewrite H2. eexists; split; eauto.
+        simpl. intros. rewrite H4. eauto. }
+      { eapply nth_error_get_hlist_nth_Some in H1.
+        destruct H1. clear H0. simpl in *.
+        eapply nth_error_length_lt in x0.
+        rewrite app_length in x0.
+        consider (EqNat.beq_nat (length tus) u); try congruence.
+        intros. simpl in *. omega. } }
+  Qed.
+End strengthen.
 
 (*
   Theorem typeof_expr_instantiate : forall tu tg,
@@ -285,33 +424,7 @@ End instantiate.
 End instantiate.
 *)
 
-Section mentionsU.
-  Variable typ : Type.
-  Variable func : Type.
-
-  Section param.
-    Variable u : uvar.
-
-    Fixpoint mentionsU (e : expr typ func) : bool :=
-      match e with
-        | Var _
-        | Inj _ => false
-        | UVar u' => EqNat.beq_nat u u'
-        | App f e => if mentionsU f then true else mentionsU e
-        | Abs _ e => mentionsU e
-      end.
-  End param.
-
-End mentionsU.
 (*
-  Lemma mentionsU_lift : forall u e a b,
-    mentionsU u (lift a b e) = mentionsU u e.
-  Proof.
-    induction e; simpl; intros; rewrite lift_lift'; simpl; intuition;
-    repeat rewrite <- lift_lift' in *; intuition.
-    { destruct (NPeano.ltb v a); auto. }
-    { rewrite IHe1. rewrite IHe2. auto. }
-  Qed.
 
   Theorem mentionsU_substU : forall u u' e' e under,
     mentionsU u (substU u' e under e') =
