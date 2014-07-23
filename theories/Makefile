@@ -19,7 +19,7 @@ LAMBDA := ResType \
 	  WtExpr \
 	  ExprUnify ExprUnify_simul \
 	  ExprSubst AppN
-# ExprUnifyHO 
+# ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
 STAC := Core Repeat Apply First Repeat Try Idtac Rec Simplify Solve Then Fail STac
@@ -30,9 +30,7 @@ MODULES    := Generic \
 	      SubstI SubstI3 \
 	      Prover EProver Prover2 EProver2 \
 	      Lemma LemmaApply \
-	      $(POLY:%=Poly/%) \
 	      $(LAMBDA:%=Lambda/%) \
-	      $(LAMBDAM:%=LambdaM/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(STAC:%=STac/%) \
@@ -40,6 +38,9 @@ MODULES    := Generic \
 	      $(PROVERS:%=provers/%)
 
 #	      $(EXTENSIBLE:%=Ext/%)
+#	      $(POLY:%=Poly/%)
+#	      $(LAMBDAM:%=LambdaM/%)
+
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
