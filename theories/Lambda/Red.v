@@ -226,7 +226,8 @@ Section beta.
   Context {sym : Type}.
   Context {RT : RType typ}
           {T2 : Typ2 _ PreFun.Fun}
-          {RS : RSym sym}.
+          {RS : RSym sym}
+          {TD : EqDec _ (@eq typ)}.
 
   Context {RTOk : RTypeOk}
           {T2Ok : Typ2Ok T2}
@@ -298,8 +299,20 @@ Section beta.
       { split; auto.
         clear H5. unfold Open_App.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-        generalize (@substitute'_sound).
-        admit. } }
+        generalize (@substitute'_sound _ _ _ _ _ _ _ _ _ ts tus f nil x _ eq_refl tvs d r).
+        autorewrite with exprD_rw in H0. simpl in H0.
+        rewrite typ2_match_zeta in H0; eauto.
+        rewrite eq_option_eq in H0.
+        forward. inv_all; subst.
+        simpl in *. destruct r0.
+        rewrite H1 in H5. rewrite H6 in H5.
+        forward.
+        unfold OpenT, ResType.OpenT, Rcast_val, Rcast, Relim.
+        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        simpl. specialize (H5 us Hnil vs).
+        simpl in *. etransitivity; [ | eassumption ].
+        rewrite match_eq_sym_eq'.
+        reflexivity. } }
     { intros. forward_reason.
       forward. simpl.
       cutrewrite (exprD' ts tus tvs (typ2 d r) (Abs d e) = Some (Open_Abs fval)); auto.
@@ -346,6 +359,29 @@ Section beta_all.
           | S v => get_var v ls acc
         end
     end.
+
+(*
+  Lemma get_var_ok
+  : forall n ls v e,
+      get_var n ls v =
+      (e = Var (n + v)) \/
+      True.
+  Proof.
+    induction n; simpl.
+    - destruct ls; simpl; intros.
+      + left. rewrite Plus.plus_0_r in H. auto.
+      + destruct o.
+        * admit.
+        * left. auto.
+    - destruct ls; simpl; do 2 intro.
+      + rewrite <- plus_n_Sm. rewrite Plus.plus_comm.
+        left; auto.
+      + destruct o.
+        * specialize (IHn ls (S v) _ eq_refl).
+
+             *
+*)
+
 
 
   Fixpoint beta_all
@@ -438,6 +474,7 @@ Section beta_all.
       beta_all args' vars' e'
 *)
 
+  (** TODO: Move some of these **)
   Lemma eq_sym_eq_sym : forall T (a b : T) (pf : a = b),
                           eq_sym (eq_sym pf) = pf.
   Proof.
@@ -484,6 +521,24 @@ Section beta_all.
     rewrite eq_sym_eq_sym. rewrite eq_eq_sym. auto.
   Qed.
 
+  Lemma Forall2i_nth_snd
+  : forall T U (P : nat -> T -> U -> Prop) i xs ys,
+      Forall2i P i xs ys ->
+      forall n y,
+        nth_error ys n = Some y ->
+        exists x, nth_error xs n = Some x /\
+                  P (i + n) x y.
+  Proof.
+    induction 1.
+    - intros ? ?; rewrite nth_error_nil. congruence.
+    - destruct n0; simpl; intros.
+      + eexists; split; eauto.
+        rewrite Plus.plus_0_r. inv_all.
+        subst. assumption.
+      + rewrite <- plus_n_Sm.
+        simpl in *. auto.
+  Qed.
+
   Theorem beta_all_sound
   : forall tus e tvs t val args vars,
       Forall2i (fun n t e => match e with
@@ -505,8 +560,12 @@ Section beta_all.
           val us vs = val' us vs.
   Proof.
     induction e; simpl; intros.
-    { consider (nth_error vars v).
-      { admit. }
+    { rewrite exprD'_apps in H0; eauto.
+      unfold apps_sem' in H0. forward.
+      autorewrite with exprD_rw in H1. simpl in H1.
+      forward. inv_all; subst.
+      simpl in H0. destruct r.
+      clear H4. unfold Rcast_val, Rcast, Relim, Rsym in H2. simpl in H2.
       { admit. } }
     { eapply deltaOk in H0.
       destruct H0 as [ ? [ ? ? ] ].
