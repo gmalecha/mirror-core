@@ -10,12 +10,12 @@ Section parameterized.
   Variable subst : Type.
 
   Definition FIRST (brs : list (stac typ expr subst)) : stac typ expr subst :=
-    fun tus tvs sub e =>
+    fun tus tvs sub hs e =>
       (fix FIRST (brs : list (stac typ expr subst)) : Result typ expr subst :=
          match brs with
            | nil => @Fail _ _ _
            | br :: brs =>
-             match br tus tvs sub e with
+             match br tus tvs sub hs e with
                | Fail => FIRST brs
                | x => x
              end
@@ -35,8 +35,8 @@ Section parameterized.
     induction 1.
     { red. simpl. auto. }
     { red. simpl. intros.
-      specialize (H tus tvs s g).
-      destruct (x tus tvs s g); eauto.
+      specialize (H tus tvs s hs g).
+      destruct (x tus tvs s hs g); eauto.
       eapply IHForall. auto. }
   Qed.
 

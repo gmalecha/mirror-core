@@ -9,7 +9,7 @@ Section parameterized.
   Variable subst : Type.
 
   Definition IDTAC : stac typ expr subst :=
-    fun _ _ sub e => @More _ _ _ nil nil sub e.
+    fun _ _ => @More _ _ _ nil nil.
 
   Variable RType_typ : RType typ.
   Variable Expr_expr : Expr RType_typ expr.
@@ -19,7 +19,8 @@ Section parameterized.
 
   Theorem IDTAC_sound : stac_sound IDTAC.
   Proof.
-    intros. unfold IDTAC. red. intros. split; auto. eapply More_sound.
+    intros. unfold IDTAC.
+    red. intros. split; auto. eapply More_sound.
   Qed.
 
 End parameterized.

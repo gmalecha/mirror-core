@@ -12,8 +12,8 @@ Section parameterized.
   Definition SIMPLIFY
              (f : list typ -> list typ -> subst -> expr -> expr)
   : stac typ expr subst :=
-    fun tus tvs s e =>
-      More nil nil s (f tus tvs s e).
+    fun tus tvs s hs e =>
+      More nil nil s hs (f tus tvs s e).
 
   Variable RType_typ : RType typ.
   Variable Expr_expr : Expr RType_typ expr.
@@ -50,19 +50,21 @@ Section parameterized.
              | |- match ?X with _ => _ end =>
                consider X; intros
            end.
-    { destruct H5 as [ ? [ ? ? ] ].
+    { forward_reason.
       rewrite (HList.hlist_eta x) in *.
       rewrite (HList.hlist_eta x0) in *.
-      do 2 rewrite HList.hlist_app_nil_r in H5.
-      specialize (H3 us vs).
+      do 2 rewrite HList.hlist_app_nil_r in H7.
+      specialize (H4 us vs).
       destruct (eq_sym (HList.app_nil_r_trans tus)).
       destruct (eq_sym (HList.app_nil_r_trans tvs)).
-      rewrite H4 in *.
+      rewrite H6 in *. rewrite H3 in *.
       rewrite H2 in *. inv_all; subst.
       intuition. }
-    { clear - H4 H1.
+    { clear - H6 H1.
       do 2 rewrite List.app_nil_r in *. congruence. }
-    { clear - H2 H0.
+    { clear - H5 H2.
+      do 2 rewrite List.app_nil_r in *. congruence. }
+    { clear - H0 H3.
       do 2 rewrite List.app_nil_r in *. congruence. }
   Qed.
 

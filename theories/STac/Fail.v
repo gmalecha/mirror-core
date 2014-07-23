@@ -9,7 +9,7 @@ Section parameterized.
   Variable subst : Type.
 
   Definition FAIL : stac typ expr subst :=
-    fun _ _ _ _ =>
+    fun _ _ _ _ _ =>
       @Fail _ _ _.
 
   Variable RType_typ : RType typ.

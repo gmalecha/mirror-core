@@ -11,14 +11,16 @@ Section parameterized.
   Variable subst : Type.
 
   Definition THEN (a b : stac typ expr subst) : stac typ expr subst :=
-    fun tus tvs sub e =>
-      let res := a tus tvs sub e in
+    fun tus tvs sub hs e =>
+      let res := a tus tvs sub hs e in
       match res with
         | Solved tus tvs s => @Solved _ _ _ tus tvs s
-        | More tus' tvs' sub e =>
-          match b (tus ++ tus') (tvs ++ tvs') sub e with
-            | Solved tus'' tvs'' sub => @Solved _ _ _ (tus' ++ tus'') (tvs' ++ tvs'') sub
-            | More tus'' tvs'' sub e => More (tus' ++ tus'') (tvs' ++ tvs'') sub e
+        | More tus' tvs' sub hs e =>
+          match b (tus ++ tus') (tvs ++ tvs') sub hs e with
+            | Solved tus'' tvs'' sub =>
+              @Solved _ _ _ (tus' ++ tus'') (tvs' ++ tvs'') sub
+            | More tus'' tvs'' sub hs e =>
+              More (tus' ++ tus'') (tvs' ++ tvs'') sub hs e
             | Fail => @Fail _ _ _
           end
         | Fail => res
@@ -35,10 +37,10 @@ Section parameterized.
   : forall a b, stac_sound a -> stac_sound b -> stac_sound (THEN a b).
   Proof.
     unfold stac_sound, THEN; intros.
-    specialize (H tus tvs s g).
-    destruct (a tus tvs s g); auto.
-    specialize (H0 (tus ++ l) (tvs ++ l0) s0 e).
-    destruct (b (tus ++ l) (tvs ++ l0) s0 e); auto.
+    specialize (H tus tvs s hs g).
+    destruct (a tus tvs s hs g); auto.
+    specialize (H0 (tus ++ l) (tvs ++ l0) s0 l1 e).
+    destruct (b (tus ++ l) (tvs ++ l0) s0 l1 e); auto.
     { forward_reason. split; auto.
       forward.
       match goal with
@@ -46,11 +48,12 @@ Section parameterized.
           consider X; intros
       end.
       { forward_reason.
-        eapply H7; clear H7.
+        eapply H9; clear H9; eauto.
         exists (fst (HList.hlist_split _ _ x)).
         exists (fst (HList.hlist_split _ _ x0)).
+        intro.
         eapply and_comm.
-        eapply H8; clear H8.
+        eapply H10; clear H10; eauto.
         exists (snd (HList.hlist_split _ _ x)).
         exists (snd (HList.hlist_split _ _ x0)).
         do 2 rewrite HList.hlist_app_assoc.
@@ -59,8 +62,8 @@ Section parameterized.
                  | |- context [ match ?X with _ => _ end ] =>
                    destruct X
                end.
-        rewrite H6 in *. inv_all; subst. assumption. }
-      { intros. revert H9 H6.
+        rewrite H8 in *. inv_all; subst. assumption. }
+      { intros. revert H11 H8.
         clear - P3. revert P3.
         do 2 rewrite app_ass. intros. congruence. } }
     { forward_reason. split; auto.
@@ -70,22 +73,28 @@ Section parameterized.
                  consider X; intros
              end.
       { forward_reason.
-        eapply H7; clear H7.
+        eapply H9; clear H9; auto.
         exists (fst (HList.hlist_split _ _ x)).
         exists (fst (HList.hlist_split _ _ x0)).
+        intro.
         eapply and_comm.
-        eapply H9; clear H9.
+        eapply H12; clear H12; eauto.
         exists (snd (HList.hlist_split _ _ x)).
         exists (snd (HList.hlist_split _ _ x0)).
         do 2 rewrite HList.hlist_app_assoc.
         do 2 rewrite HList.hlist_app_hlist_split.
-        destruct (eq_sym (HList.app_ass_trans tus l l1)).
-        destruct (eq_sym (HList.app_ass_trans tvs l0 l2)).
-        rewrite H11 in *. rewrite H6 in *. inv_all; subst.
-        split; assumption. }
-      { revert H11 H8. clear. revert P4.
+        destruct (eq_sym (HList.app_ass_trans tus l l2)).
+        destruct (eq_sym (HList.app_ass_trans tvs l0 l3)).
+        repeat match goal with
+                 | H : _ = _ , H' : _ = _ |- _ =>
+                   rewrite H in H'
+               end.
+        inv_all; subst. auto. }
+      { revert H11 H15. clear. revert P4.
         do 2 rewrite app_ass. congruence. }
-      { revert H10 H6. clear. revert P3.
+      { revert H10 H14. clear. revert l7.
+        do 2 rewrite app_ass. congruence. }
+      { revert H13 H8. clear. revert P3.
         do 2 rewrite app_ass. congruence. } }
   Qed.
 

@@ -23,17 +23,17 @@ Section parameterized.
        match n with
          | 0 => @IDTAC _ _ _
          | S n =>
-           fun tus tvs sub e =>
+           fun tus tvs sub hs e =>
              (** This is like THEN, but lazier **)
-             match br tus tvs sub e with
-               | Fail => More nil nil sub e (** Never fails **)
-               | More tus' tvs' sub e =>
-                 match DO n (tus ++ tus') (tvs ++ tvs') sub e with
-                   | More tus'' tvs'' sub e =>
-                     More (tus' ++ tus'') (tvs' ++ tvs'') sub e
+             match br tus tvs sub hs e with
+               | Fail => More nil nil sub hs e (** Never fails **)
+               | More tus' tvs' sub hs e =>
+                 match DO n (tus ++ tus') (tvs ++ tvs') sub hs e with
+                   | More tus'' tvs'' sub hs' e =>
+                     More (tus' ++ tus'') (tvs' ++ tvs'') sub hs' e
                    | Solved tus'' tvs'' sub =>
                      @Solved _ _ _ (tus' ++ tus'') (tvs' ++ tvs'') sub
-                   | Fail => More tus' tvs' sub e
+                   | Fail => More tus' tvs' sub hs e
                  end
                | Solved tus tvs s => @Solved _ _ _ tus tvs s
              end
@@ -53,31 +53,32 @@ Section parameterized.
     induction n; simpl.
     { red; intros. eapply IDTAC_sound; auto. }
     { red. intros.
-      specialize (H tus tvs s g).
-      destruct (br tus tvs s g); auto.
+      specialize (H tus tvs s hs g).
+      destruct (br tus tvs s hs g); auto.
       { split; auto. eapply More_sound. }
-      { specialize (IHn (tus ++ l) (tvs ++ l0) s0 e).
-        destruct (REPEAT n br (tus ++ l) (tvs ++ l0) s0 e); auto.
+      { specialize (IHn (tus ++ l) (tvs ++ l0) s0 l1 e).
+        destruct (REPEAT n br (tus ++ l) (tvs ++ l0) s0 l1 e); auto.
         { forward_reason. split; auto.
           forward.
           match goal with
             | |- match ?X with _ => _ end =>
               consider X; intros
           end.
-          { destruct H10 as [ ? [ ? ? ] ].
-            eapply H7; clear H7.
+          { destruct H12 as [ ? [ ? ? ] ].
+            eapply H9; auto; clear H9.
             exists (fst (HList.hlist_split _ _ x)).
             exists (fst (HList.hlist_split _ _ x0)).
+            simpl. intro.
             apply and_comm.
-            apply H8; clear H8.
+            apply H10; auto; clear H10.
             exists (snd (HList.hlist_split _ _ x)).
             exists (snd (HList.hlist_split _ _ x0)).
             do 2 rewrite hlist_app_assoc.
             do 2 rewrite hlist_app_hlist_split.
-            destruct (eq_sym (app_ass_trans tus l l1)).
-            destruct (eq_sym (app_ass_trans tvs l0 l2)).
-            rewrite H9 in *. inv_all; subst. assumption. }
-        { clear - H9 H6.
+            destruct (eq_sym (app_ass_trans tus l l2)).
+            destruct (eq_sym (app_ass_trans tvs l0 l3)).
+            rewrite H8 in *. inv_all; subst. assumption. }
+        { clear - H8 H11.
           generalize dependent P3.
           do 2 rewrite app_ass. intros. congruence. } }
         { forward_reason. split; auto.
@@ -86,23 +87,29 @@ Section parameterized.
                    | |- match ?X with _ => _ end =>
                      consider X; intros
                  end.
-          { destruct H12 as [ ? [ ? ? ] ].
-            eapply H7; clear H7.
+          { destruct H16 as [ ? [ ? ? ] ].
+            eapply H9; auto; clear H9.
             exists (fst (HList.hlist_split _ _ x)).
             exists (fst (HList.hlist_split _ _ x0)).
+            simpl. intro.
             apply and_comm.
-            apply H9; clear H9.
+            apply H12; auto; clear H12.
             exists (snd (HList.hlist_split _ _ x)).
             exists (snd (HList.hlist_split _ _ x0)).
             do 2 rewrite hlist_app_assoc.
             do 2 rewrite hlist_app_hlist_split.
-            destruct (eq_sym (app_ass_trans tus l l1)).
-            destruct (eq_sym (app_ass_trans tvs l0 l2)).
-            rewrite H10 in *. rewrite H11 in *.
+            destruct (eq_sym (app_ass_trans tus l l2)).
+            destruct (eq_sym (app_ass_trans tvs l0 l3)).
+            rewrite H10 in *. rewrite H11 in *. rewrite H13 in *.
             inv_all. subst; tauto. }
-          { revert H8 H11.
-            clear. revert P4. do 2 rewrite app_ass. congruence. }
-          { revert H6 H10. clear. revert P3.
+          { clear - H15 H11.
+            generalize dependent P4.
+            do 2 rewrite app_ass. congruence. }
+          { clear - H14 H10.
+            generalize dependent l7.
+            do 2 rewrite app_ass. congruence. }
+          { clear - H13 H8.
+            generalize dependent P3.
             do 2 rewrite app_ass. congruence. } } } }
   Qed.
 

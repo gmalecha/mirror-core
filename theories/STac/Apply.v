@@ -32,19 +32,19 @@ Section parameterized.
     Variable tac : stac typ expr subst.
 
     Fixpoint solve_all_but_last
-             (es : list expr)
+             (hs : list expr) (es : list expr)
              (sub : subst) {struct es}
     : Result typ expr subst :=
       match es with
         | nil => @Solved _ _ _ nil nil sub
         | e :: es =>
           let e := instantiate (fun u => lookup u sub) 0 e in
-          match tac tus tvs sub e with
+          match tac tus tvs sub hs e with
             | Solved nil nil sub' =>
-              solve_all_but_last es sub'
-            | More tus tvs sub e =>
+              solve_all_but_last hs es sub'
+            | More tus tvs sub hs e =>
               match es with
-                | nil => More tus tvs sub e
+                | nil => More tus tvs sub hs e
                 | _ => @Fail _ _ _
               end
             | _ => @Fail _ _ _
@@ -53,7 +53,7 @@ Section parameterized.
 
   End solve_but_last.
 
-  Section eapply_other.
+  Section apply_other.
     Variable Subst_subst : Subst subst expr.
     Variable SU : SubstUpdate subst expr.
 
@@ -62,44 +62,34 @@ Section parameterized.
       @eapplicable typ expr tyProp subst vars_to_uvars
                    exprUnify.
 
-    (** This of this like:
-     **   eapply lem ; [ solve [ tac ] | solve [ tac ] | .. | try solve [ tac ] ]
-     ** i.e. first eapply the lemma and then require that all side-conditions
+    (** Think of this like:
+     **   apply lem ; [ solve [ tac ] | solve [ tac ] | .. | try solve [ tac ] ]
+     ** i.e. first apply the lemma and then require that all side-conditions
      ** except the last are solved by the prover [tac], currently with
      ** empty facts.
      **)
-    Definition eapply_other
+    Definition apply_other
                (lem : lemma typ expr expr)
                (tac : stac typ expr subst)
     : stac typ expr subst :=
       let len_vars := length lem.(vars) in
-      fun tus tvs sub e =>
+      fun tus tvs sub hs e =>
       match eapplicable sub tus tvs lem e with
         | None => @Fail _ _ _
         | Some sub' =>
           let len_uvars := length tus in
-          let premises := map (vars_to_uvars 0 len_uvars) lem.(premises) in
-          match
-            solve_all_but_last _ (tus ++ lem.(vars)) tvs tac
-                               premises sub'
-          with
-            | Fail => @Fail _ _ _
-            | Solved tus' tvs' sub'' =>
-              match pull (expr := expr) len_uvars len_vars sub'' with
-                | None => @Fail _ _ _
-                | Some sub''' => @Solved _ _ _ nil nil sub'''
-              end
-            | More tus tvs sub'' e =>
-              (** TODO: In this case it is not necessary to pull everything
-               ** I could leave unification variables in place
-               **)
-              match pull (expr := expr) len_uvars len_vars sub'' with
-                | None => @Fail _ _ _
-                | Some sub''' => More (firstn len_uvars tus) tvs sub''' e
-              end
+          match pull (expr := expr) len_uvars len_vars sub' with
+            | Some sub'' =>
+              let premises :=
+                  map (fun e => instantiate (fun u => lookup u sub') 0
+                                            (vars_to_uvars 0 len_uvars e))
+                      lem.(premises)
+              in
+              solve_all_but_last _ tus tvs tac hs premises sub''
+            | None => @Fail _ _ _
           end
       end.
-  End eapply_other.
+  End apply_other.
 
   Variable Expr_expr : Expr RType_typ expr.
   Variable ExprOk_expr : ExprOk Expr_expr.
@@ -165,11 +155,13 @@ Section parameterized.
       eexists; split; eauto. }
   Qed.
 
+  (** TODO: This is not correct anymore **)
+(*
   Theorem solve_all_but_last_sound
-  : forall tus tvs (tac : stac typ expr subst) (prems : list expr) (sub : subst),
+  : forall tus tvs (tac : stac typ expr subst) (hs prems : list expr) (sub : subst),
       stac_sound tac ->
       WellFormed_subst sub ->
-      match solve_all_but_last _ tus tvs tac prems sub with
+      match solve_all_but_last _ tus tvs tac hs prems sub with
         | Fail => True
         | Solved tus' tvs' s' =>
           WellFormed_subst s' /\
@@ -192,7 +184,7 @@ Section parameterized.
               end
             | None => True
           end
-        | More tus' tvs' s' g' =>
+        | More tus' tvs' s' hs' g' =>
           WellFormed_subst s' /\
           match mapT (F := option) (T := list) (goalD Expr_expr Typ0_Prop tus tvs) prems with
             | Some Gs =>
@@ -336,6 +328,7 @@ Section parameterized.
             rewrite H3; auto. } } } }
     Transparent mapT.
   Qed.
+*)
 
   Lemma mapT_map : forall T U V (f : U -> option V) (g : T -> U) ls,
                      mapT f (map g ls) = mapT (fun x => f (g x)) ls.
@@ -402,177 +395,25 @@ Section parameterized.
                         end)
               nil nil lem ->
       stac_sound tac ->
-      stac_sound (eapply_other _ _ lem tac).
+      stac_sound (apply_other _ _ lem tac).
   Proof.
-(*
     intros. red. intros.
-    unfold eapply_other.
+    unfold apply_other.
     consider (eapplicable tyProp vars_to_uvars exprUnify s tus tvs lem g); auto; intros.
-    eapply (@eapplicable_sound _ _ _ _ _ tyProp (@typ0_cast _ _ _ _)) in H1; eauto.
-    destruct H1.
+    eapply (@eapplicable_sound _ _ _ _ _ tyProp (@typ0_cast _ _ _ _)) in H2; eauto.
+    destruct H2.
     red in H. simpl in H. forward.
-    generalize (@solve_all_but_last_sound (tus ++ vars lem) tvs tac
-                                          (map (vars_to_uvars 0 (length tus)) (premises lem))
-                                          s0 H0 H1).
-    match goal with
-      | |- match ?X with _ => _ end -> match match ?Y with _ => _ end with _ => _ end =>
-        change Y with X; consider X; intros
-    end; auto.
-    { forward_reason. forward.
-      eapply pull_sound in H8; eauto.
-      forward_reason. split; auto.
-      forward.
-      assert (lemmaD' Expr_expr
-                        (fun (tus0 tvs0 : tenv typ) (g0 : expr) =>
-                           match typ0_cast nil in (_ = t) return (ResType tus0 tvs0 t) with
-                             | eq_refl => exprD' tus0 tvs0 g0 tyProp
-                           end)
-                        (fun x : typD nil tyProp =>
-                           match typ0_cast nil in (_ = t) return t with
-                             | eq_refl => x
-                           end) nil nil lem = Some P).
-      { clear - H.
-        unfold lemmaD', goalD in *.
-        match goal with
-          | H : match ?X with _ => _ end = _ |- match ?Y with _ => _ end = _ =>
-            change Y with X; consider X; try congruence; intros
-        end.
-        unfold ResType.
-        rewrite eq_option_eq.
-        eauto. }
-      unfold goalD in *. forward. inv_all; subst.
-      eapply H11 in H12; clear H11; eauto.
-      forward_reason.
-      rewrite H11 in *.
-      unfold lemmaD' in H. forward. inv_all; subst.
-      specialize (fun Z Z' => H9 _ _ Z Z' eq_refl eq_refl).
-      assert (exists ZZ,
-        mapT
-          (fun goal : expr =>
-             match exprD' (Expr := Expr_expr) (tus ++ vars lem) tvs goal (typ0 (F:=Prop)) with
-               | Some val =>
-                 Some
-                   match
-                     typ0_cast nil in (_ = T)
-                     return
-                     (hlist (typD nil) (tus ++ vars lem) ->
-                      hlist (typD nil) tvs -> T)
-                   with
-                     | eq_refl => val
-                   end
-               | None => None
-             end) (map (vars_to_uvars 0 (length tus)) (premises lem)) = Some ZZ /\
-        forall us vs ls,
-          x (hlist_app us ls) vs ->
-          Forall2 (fun x y =>
-                     match typ0_cast nil in _ = T return T with
-                       | eq_refl => x Hnil (hlist_app ls Hnil)
-                     end <-> y (hlist_app us ls) vs) l1 ZZ).
-      { admit. (*clear H7 H5 H9.
-        generalize dependent l1.
-        induction (premises lem).
-        { simpl. intros. inv_all; subst.
-          eexists; split; eauto. }
-        { Opaque mapT. clear l.
-          simpl. do 2 rewrite list_mapT_cons.
-          intros. forward. inv_all; subst.
-          specialize (IHl1 _ eq_refl).
-          forward_reason.
-          rewrite H6; clear H6.
-          eapply exprD'_weakenU with (tus' := tus) in H; eauto. simpl in H.
-          destruct H as [ ? [ ? ? ] ].
-          eapply vars_to_uvars_sound with (tvs0 := nil) (tus0 := tus) in H.
-          forward_reason.
-          eapply exprD'_weakenV with (tvs' := tvs) in H; eauto. simpl in H.
-          destruct H as [ ? [ ? ? ] ].
-          consider (exprD' (tus ++ vars lem) tvs (vars_to_uvars 0 (length tus) a)
-                           (typ0 (F:=Prop))).
-          { intros. eexists; split; eauto.
-            intros. admit. }
-          { intros. exfalso.
-            clear - H H15.
-            assert (tus ++ vars lem ++ nil = tus ++ vars lem).
-            { rewrite app_nil_r. reflexivity. }
-            rewrite <- H0 in H15. congruence. } } *) }
-      { destruct H14 as [ ? [ ? ? ] ].
-        match goal with
-          | H : ?X = _ , H' : match ?Y with _ => _ end |- _ =>
-            change Y with X in H' ; rewrite H in H'
-        end.
-        forward.
-        assert (l = nil /\ l0 = nil).
-        { admit. }
-        admit. } }
-    { forward. forward_reason.
-      eapply pull_sound in H7; eauto.
-      forward_reason.
-      split; auto. unfold goalD in *.
-      forward. inv_all; subst.
-      assert (lemmaD' Expr_expr
-                        (fun (tus0 tvs0 : tenv typ) (g0 : expr) =>
-                           match typ0_cast nil in (_ = t) return (ResType tus0 tvs0 t) with
-                             | eq_refl => exprD' tus0 tvs0 g0 tyProp
-                           end)
-                        (fun x : typD nil tyProp =>
-                           match typ0_cast nil in (_ = t) return t with
-                             | eq_refl => x
-                           end) nil nil lem = Some P).
-      { clear - H.
-        unfold lemmaD', goalD in *.
-        match goal with
-          | H : match ?X with _ => _ end = _ |- match ?Y with _ => _ end = _ =>
-            change Y with X; consider X; try congruence; intros
-        end.
-        unfold ResType.
-        rewrite eq_option_eq.
-        eauto. }
-      eapply H12 in H11; eauto; clear H12.
-      forward_reason.
-      rewrite H11 in *; clear H11.
-      unfold lemmaD' in H. forward.
-      inv_all; subst.
-      assert (exists ZZ,
-        mapT
-          (fun goal : expr =>
-             match exprD' (Expr := Expr_expr) (tus ++ vars lem) tvs goal (typ0 (F:=Prop)) with
-               | Some val =>
-                 Some
-                   match
-                     typ0_cast nil in (_ = T)
-                     return
-                     (hlist (typD nil) (tus ++ vars lem) ->
-                      hlist (typD nil) tvs -> T)
-                   with
-                     | eq_refl => val
-                   end
-               | None => None
-             end) (map (vars_to_uvars 0 (length tus)) (premises lem)) = Some ZZ /\
-        forall us vs ls,
-          x (hlist_app us ls) vs ->
-          Forall2 (fun x y =>
-                     match typ0_cast nil in _ = T return T with
-                       | eq_refl => x Hnil (hlist_app ls Hnil)
-                     end <-> y (hlist_app us ls) vs) l1 ZZ).
-      { admit. }
-      forward_reason.
-      match goal with
-        | H : ?X = _ , H' : match ?Y with _ => _ end |- _ =>
-          change Y with X in H' ; rewrite H in H' ; clear H
-      end.
-      forward. inv_all; subst.
-
-           
-          
-        
-        
-      
-                
-      
-
-
-
-split; auto.
-        red in H. simpl in H. forward.
+    eapply pull_sound in H5; eauto.
+    destruct H5.
+(*
+    generalize (@solve_all_but_last_sound tus tvs tac
+                                          (map (fun e : expr =>
+                                                  instantiate (fun u : nat => lookup u s0) 0
+                                                              (vars_to_uvars 0 (length tus) e)) (premises lem))
+                                          s1 H0 H5).
+    consider (substD tus tvs s).
+    { consider (goalD Expr_expr Typ0_Prop tus tvs g).
+      { intros.
         assert (lemmaD' Expr_expr
                         (fun (tus0 tvs0 : tenv typ) (g0 : expr) =>
                            match typ0_cast nil in (_ = t) return (ResType tus0 tvs0 t) with
@@ -593,202 +434,137 @@ split; auto.
           eauto. }
         clear H.
         unfold goalD in *. forward.
-        specialize (H11 _ _ _ H12 eq_refl H).
+        specialize (H8 _ _ _ H10 eq_refl H).
         forward_reason.
-        inv_all; subst.
-        unfold lemmaD' in H12. forward. inv_all; subst.
-        specialize (@H5 _ _ _ _ eq_refl eq_refl H11).
-        forward_reason.
-        rewrite <- map_mapT in H8.
-        rewrite mapT_map in H8.
-        assert (exists zz,
-                  mapT (T := list) (F := option)
-                       (fun x : expr =>
-                          exprD' tus tvs
-                                 (instantiate (fun u : nat => lookup u s0) 0
-                                              (vars_to_uvars 0 (length tus) x))
-                                 (typ0 (F:=Prop))) (premises lem) = Some zz /\
-                  forall us vs,
-                    P1 us vs ->
-                    Forall2 (fun a b =>
-                       match typ0_cast (F := Prop) nil in _ = T return T with
-                         | eq_refl =>
-                           a Hnil (hlist_app (hlist_map (fun t (x : hlist _ tus -> hlist _ tvs -> typD nil t) => x us vs) x2) Hnil)
-                       end <->
-                       match typ0_cast nil in _ = T return T with
-                         | eq_refl => b us vs
-                       end) l1 zz).
-          { clear H9 H8 H6.
-            revert H10. revert l1.
-            induction (premises lem).
-            { simpl. eexists; split; eauto.
-              simpl in H10. inv_all; subst. intros. constructor. }
-            { intros.
-              rewrite list_mapT_cons in H10.
-              rewrite list_mapT_cons.
-              forward. inv_all. subst.
-              eapply exprD'_weakenU with (tus' := tus) in H6; eauto.
-              simpl in H6.
-              destruct H6 as [ ? [ ? ? ] ].
-              eapply vars_to_uvars_sound with (tvs0 := nil) in H6.
-              specialize (IHl1 _ eq_refl).
-              forward_reason. rewrite H10.
-              eapply exprD'_weakenV with (tvs' := tvs) in H6; eauto.
-              forward_reason. simpl in *.
-              assert (exists Z,
-                        substD (tus ++ vars lem ++ nil) tvs s0 = Some Z /\
-                        forall A B C,
-                          Z (hlist_app A (hlist_app B Hnil)) C <-> x (hlist_app A B) C).
-              { clear - H11.
-                exists (match eq_sym (app_nil_r_trans (vars lem)) in _ = T return hlist _ (tus ++ T) -> _ with
-                          | eq_refl => x
-                        end).
-                split.
-                { destruct (eq_sym (app_nil_r_trans (vars lem))). auto. }
-                { intros.
-                  repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-                  rewrite hlist_app_nil_r.
-                  generalize (app_nil_r_trans (vars lem)).
-                  generalize dependent (vars lem).
-                  intros. generalize dependent (l ++ nil). intros. subst.
-                  reflexivity. } }
-              destruct H19 as [ ? [ ? ? ] ].
-              eapply exprD'_instantiate_substD with (s := s0) in H6; eauto.
-              destruct H6 as [ ? [ ? ? ] ].
-              
-
-
-
-} }
-
-
-        eapply lemmaD'_weaken with (tus' := tus) (tvs' := tvs) in H12; eauto.
-        { simpl in H12.
-          forward_reason.
-          unfold lemmaD' in H10. forward. inv_all; subst.
-          rewrite <- map_mapT in H8.
-          rewrite mapT_map in H8.
-
-          forward_reason.
-          rewrite H5 in *.
-          destruct H17 as [ ? [ ? ? ] ].
-          rewrite H17 in *.
-          forward.
-          specialize (H19 _ _ H20).
-          specialize (H16 us vs).
-          specialize (H13 us (HList.hlist_map (fun t (x : hlist _ tus -> hlist _ tvs -> typD nil t) => x us vs) x2) vs).
-          specialize (H12 Hnil us Hnil vs).
-          specialize (H18 us vs).
-          forward_reason.
-          split; auto.
-          revert H13 H14.
-          unfold exprD.
-          rewrite split_env_join_env.
-          rewrite join_env_app. rewrite split_env_join_env.
-          generalize (exprD' tus (vars lem ++ tvs) (concl lem) tyProp).
-          intros; forward.
-          subst.
-          unfold ResType in H23. rewrite eq_option_eq in H23.
-          inv_all; subst.
-          do 2 rewrite eq_Arr_eq. do 2 rewrite eq_Const_eq.
-          rewrite <- H14; clear H14.
-          eapply H12 in H9; clear H12.
-          rewrite foralls_sem in H9.
-          specialize (H9 (HList.hlist_map (fun t (x : hlist _ tus -> hlist _ tvs -> typD nil t) => x us vs) x2)).
-          eapply impls_sem in H9.
-          { revert H9.
-            do 2 rewrite eq_Arr_eq. do 2 rewrite eq_Const_eq.
-            simpl. auto. }
-          { revert H19.
-            repeat rewrite Forall_map. simpl.
-            revert H18. clear. induction 1.
-            { intros. constructor. }
-            { intros.
-              inversion H0; subst.
-              constructor; eauto.
-              { revert H3. revert H.
-                clear.
-                repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-                match goal with
-                  | |- (match ?X with eq_refl => ?T end <-> match ?Y with eq_refl => ?U end) -> 
-                       match ?Z with eq_refl => ?V end ->
-                       match ?A with eq_refl => ?W end =>
-                    change Y with X ; change Z with X ; change A with X ; generalize X ;
-                    change T with W ; generalize W ;
-                    change U with V ; generalize V
-                end.
-                clear.
-                match goal with
-                  | |- forall (x : ?Z) (y : _) (pf : ?W = _), _ =>
-                    change W with Z ; generalize Z
-                end.
-                intros; subst. intuition. } } } }
-        { clear - ExprOk_expr.
-          intros.
-          unfold ResType in H. rewrite eq_option_eq in H. forward.
-          inv_all. subst.
-          destruct (@exprD'_weakenU _ _ _ _ ExprOk_expr tus tus' tvs l tyProp _ H).
-          unfold ResType. rewrite eq_option_eq.
-          destruct H0. rewrite H0. eexists; split; eauto.
-          intros.
-          repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-          rewrite <- H1. reflexivity. }
-        { clear - ExprOk_expr.
-          intros.
-          unfold ResType in H. rewrite eq_option_eq in H. forward.
-          inv_all. subst.
-          destruct (@exprD'_weakenV _ _ _ _ ExprOk_expr tus tvs tvs' l tyProp _ H).
-          unfold ResType. rewrite eq_option_eq.
-          destruct H0. rewrite H0. eexists; split; eauto.
-          intros.
+        specialize (H6 _ _ _ _ eq_refl eq_refl H8).
+        forward_reason. inv_all. subst.
+        eapply lemmaD'_weakenU with (tus' := tus) in H10; eauto.
+        { forward_reason.
+          unfold lemmaD' in H3. Opaque mapT. simpl in H3.
+          unfold ResType in H3. rewrite eq_option_eq in H3.
+          forward. inv_all; subst.
+          assert (exists ZZ,
+                    mapT (T:=list) (F:=option)
+                         (fun goal : expr =>
+                            match exprD' (Expr := Expr_expr) tus tvs goal (typ0 (F:=Prop)) with
+                              | Some val =>
+                                Some
+                                  match
+                                    typ0_cast nil in (_ = T)
+                                    return
+                                    (hlist (typD nil) tus -> hlist (typD nil) tvs -> T)
+                                  with
+                                    | eq_refl => val
+                                  end
+                              | None => None
+                            end)
+                         (map
+                            (fun e : expr =>
+                               instantiate (fun u : nat => lookup u s0) 0
+                                           (vars_to_uvars 0 (length tus) e)) 
+                            (premises lem)) = Some ZZ /\
+                    forall us vs ls,
+                      x (hlist_app us ls) vs ->
+                      Forall2 (fun x y =>
+                                 match typ0_cast nil in _ = T return T with
+                                   | eq_refl => x us (hlist_app ls Hnil)
+                                 end <-> y us vs) l ZZ).
+        { clear H17 H10.
+          rewrite mapT_map.
+          rewrite <- map_mapT.
+          revert H3. revert l.
+          induction (premises lem).
+          { do 2 rewrite list_mapT_nil. simpl.
+            intros. inv_all. subst. eexists; split; eauto. }
+          { do 2 rewrite list_mapT_cons. intros.
+            forward; inv_all; subst.
+            specialize (IHl _ eq_refl). forward_reason.
+            forward.
+            eapply vars_to_uvars_sound with (tvs0 := nil) in H3.
+            forward_reason.
+            assert (substD (tus ++ vars lem ++ nil) tvs s0 =
+                    Some match eq_sym (app_nil_r_trans (vars lem)) in _ = T
+                               return hlist _ (tus ++ T) -> hlist _ tvs -> Prop
+                         with
+                           | eq_refl => x
+                         end).
+            { revert H8. clear.
+              destruct (eq_sym (app_nil_r_trans (vars lem))). auto. }
+            eapply exprD'_weakenV with (tvs' := tvs) in H3; eauto.
+            destruct H3 as [ ? [ ? ? ] ]. simpl in H3.
+            eapply exprD'_instantiate_substD with (s := s0) in H3; eauto.
+            destruct H3 as [ ? [ ? ? ] ].
+            admit. } }
+        { destruct H12 as [ ? [ ? ? ] ].
+          match goal with
+            | H : context [ ?X ] , H' : ?Y = _ |- _ =>
+              change X with Y in H ; rewrite H' in H
+          end.
+          match goal with
+            | H : match ?X with _ => _ end |- match ?Y with _ => _ end =>
+              change Y with X ; consider X; auto
+          end; intros; forward.
+          { forward_reason; split; auto.
+            intros. eapply H19 in H20; clear H19.
+            forward_reason.
+            eapply H13 in H20; clear H13. (*
+            specialize (H15 _ _ _ H20).
+            specialize (H11 _ _ _ H20); clear H20.
+            forward_reason. split; auto.
+            unfold exprD in H11.
+            rewrite join_env_app in H11.
+            repeat rewrite split_env_join_env in H11.
+            forward. inv_all; subst.
+            repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+            rewrite <- H20; clear H20.
+            specialize (H10 Hnil us Hnil).
+            eapply H10 in H4; clear H10. simpl in H4.
+            rewrite foralls_sem in H4.
+            specialize (H4 (hlist_map
+               (fun (t2 : typ)
+                  (x4 : hlist (typD nil) tus ->
+                        hlist (typD nil) tvs -> typD nil t2) => 
+                x4 us vs) x2)).
+            repeat first [ rewrite eq_Const_eq in H4 | rewrite eq_Arr_eq in H4 ].
+            eapply exprD'_weakenV with (tvs' := tvs) in H14; eauto.
+            destruct H14 as [ ? [ ? ? ] ].
+            assert (x4 = match eq_sym (app_nil_r (vars lem)) in _ = T
+                               return hlist _ tus -> hlist _ (T ++ tvs) -> _
+                         with
+                           | eq_refl => t1
+                         end).
+            { generalize dependent (concl lem).
+              clear. destruct (eq_sym (app_nil_r (vars lem))).
+              congruence. }
+            subst.
+            specialize (H14 us (hlist_app (hlist_map
+               (fun (t2 : typ)
+                  (x4 : hlist (typD nil) tus ->
+                        hlist (typD nil) tvs -> typD nil t2) => 
+                x4 us vs) x2) Hnil) vs). *)
+            admit. }
+          { admit. } } }
+        { clear - ExprOk_expr. unfold ResType. intros.
+          repeat rewrite eq_option_eq in *.
+          forward. eapply exprD'_weakenU with (tus' := tus') in H; eauto.
+          destruct H as [ ? [ ? ? ] ].
+          rewrite H. eexists; split; eauto.
+          intros. inv_all; subst.
           repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
           rewrite <- H1. reflexivity. } }
-      { admit. (** Big **) } }
-    { generalize (@solve_all_but_last_sound (tus ++ vars lem) tvs tac
-                                            (map (vars_to_uvars 0 (length tus)) (premises lem))
-                                            s0 H0 H1).
-      match goal with
-        | |- match ?X with _ => _ end -> match match ?Y with _ => _ end with _ => _ end =>
-          change Y with X; consider X; intros
-      end; auto.
-      { admit. (** Big **) }
-      { forward.
-        destruct H6.
-        eapply pull_sound in H7; eauto. destruct H7.
-        split; auto.
-        red in H. simpl in H.
-        forward.
-        unfold goalD in *. forward.
-        inv_all. subst.
-        subst tyProp.
-        assert (lemmaD' Expr_expr
-                        (fun (tus0 tvs0 : tenv typ) (g0 : expr) =>
-                           match typ0_cast nil in (_ = t) return (ResType tus0 tvs0 t) with
-                             | eq_refl => exprD' tus0 tvs0 g0 (typ0 (F:=Prop))
-                           end)
-                        (fun x : typD nil (typ0 (F:=Prop)) =>
-                           match typ0_cast nil in (_ = t) return t with
-                             | eq_refl => x
-                           end) nil nil lem = Some P).
-        { revert H. clear.
-          unfold lemmaD'. forward.
-          inv_all; subst.
-          unfold ResType.
-          rewrite eq_option_eq. reflexivity. }
-        clear H.
-        specialize (H12 _ _ _ H13 eq_refl H11).
-        forward_reason.
+      { intros. revert H9.
         match goal with
-          | H : match ?X with _ => _ end |- _ =>
-            consider X; intros
-        end.
-        { admit. }
-        { unfold lemmaD' in H13.
-          exfalso.
-          forward.
-          admit. } } }
+          | |- match ?X with _ => _ end -> match ?Y with _ => _ end =>
+            change Y with X; consider X; intros
+        end; auto;
+        forward_reason; split; auto; forward. } }
+    { intros. revert H8.
+      match goal with
+        | |- match ?X with _ => _ end -> match ?Y with _ => _ end =>
+          change Y with X; consider X; intros
+      end; auto;
+      forward_reason; split; auto; forward. }
 *)
-  Abort.
-
+  Admitted.
 
 End parameterized.
