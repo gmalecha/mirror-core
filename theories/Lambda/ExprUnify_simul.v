@@ -14,6 +14,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
+Require Import MirrorCore.Lambda.ExprTac.
 
 Require Import FunctionalExtensionality.
 
@@ -890,37 +891,6 @@ intros.
     destruct e1; try reflexivity.
   Defined.
 
-  Lemma exprD_typeof_not_None
-  : forall ts tus tvs e t val,
-      exprD' ts tus tvs t e = Some val ->
-      typeof_expr ts tus tvs e <> None.
-  Proof.
-    intros.
-    generalize (exprD'_typeof_expr _ (or_introl H)).
-    congruence.
-  Qed.
-
-  Lemma exprD_typeof_Some
-  : forall ts tus tvs e t val,
-      exprD' ts tus tvs t e = Some val ->
-      typeof_expr ts tus tvs e = Some t.
-  Proof.
-    intros.
-    generalize (exprD'_typeof_expr _ (or_introl H)).
-    congruence.
-  Qed.
-
-  Lemma exprD_typeof_eq
-  : forall ts tus tvs e t t' val,
-      exprD' ts tus tvs t e = Some val ->
-      typeof_expr ts tus tvs e = Some t' ->
-      t = t'.
-  Proof.
-    intros.
-    generalize (exprD'_typeof_expr _ (or_introl H)).
-    congruence.
-  Qed.
-
   Lemma Open_App_equal
   : forall ts tus tvs t u f f' x x' A B,
       f A B = f' A B ->
@@ -1129,16 +1099,6 @@ intros.
       split; eauto. }
   Qed.
 
-  Ltac expr_det :=
-    match goal with
-      | H : exprD' _ _ _ ?T ?X = _ , H' : exprD' _ _ _ ?T' ?X = _ |- _ =>
-        match T with
-          | T' => fail 1
-          | _ =>
-            generalize (@exprD'_deterministic typ func _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H'); inv_all; subst
-        end
-    end.
-
   Lemma exprUnify'_sound_mutual
   : forall (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
                            (l r : expr typ func)
@@ -1244,12 +1204,7 @@ intros.
             intros; forward.
             eapply H0 in H7; eauto using exprD_typeof_not_None.
             forward_reason.
-            expr_det.
-            intro XXX. eapply typ2_inj in XXX; eauto.
-            destruct XXX as [ X' X'' ]; destruct X'; destruct X''.
-            expr_det.
-            intro XXX. eapply typ2_inj in XXX; eauto.
-            destruct XXX as [ X' X'' ]; destruct X'. clear X''.
+            forward_exprD.
             specialize (H4 _ _ _ H12 H9 H15).
             forward_reason.
             eexists; split; eauto.
@@ -1284,8 +1239,7 @@ intros.
                      | H : ?X = _ |- context [ ?Y ] =>
                        change Y with X ; rewrite H
                    end.
-            generalize (exprD_typeof_eq _ _ H7 H5).
-            generalize (exprD_typeof_eq _ _ H10 H3).
+            forward_exprD.
             intros; subst.
             unfold type_of_apply in *.
             rewrite typ2_match_zeta in * by eauto.
@@ -1313,7 +1267,6 @@ intros.
     { (** Abs **)
       split.
       { simpl; destruct e2; intros; try solve [ congruence | eapply handle_uvar; eauto ].
-        Require Import MirrorCore.Lambda.ExprTac.
         match goal with
           | H : typ2_match _ ?Ts ?t _ _ = _ |- _ =>
             arrow_case Ts t; try congruence
@@ -1364,8 +1317,8 @@ intros.
         simpl in H0.
         eapply H0 in H4; try congruence.
         forward_reason.
-        generalize (exprD_typeof_eq _ _ H4 H2).
-        generalize (exprD_typeof_eq _ _ H7 H3).
+        generalize (exprD_typeof_eq _ _ _ _ _ H4 H2).
+        generalize (exprD_typeof_eq _ _ _ _ _ H7 H3).
         intros; subst. subst.
         autorewrite with exprD_rw. simpl.
         repeat rewrite typ2_match_zeta by eauto.
