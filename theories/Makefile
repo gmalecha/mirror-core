@@ -48,7 +48,7 @@ TVS        := $(TESTS:%=%.v)
 
 ARGS := -R . MirrorCore
 
-.PHONY: coq clean package
+.PHONY: coq clean package optimize
 
 coq: Makefile.coq
 	$(MAKE) -f Makefile.coq
@@ -84,5 +84,8 @@ depgraph: Makefile.coq
 
 toplevel: coq
 	coqtop.opt $(ARGS)
+
+optimize:
+	for x in $(VS); do echo $$x ; python ./../tools/opt-import.py $(ARGS) $$x ; done
 
 -include ../Makefile.paths
