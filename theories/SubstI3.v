@@ -1,5 +1,9 @@
 Require Import Coq.Lists.List.
+Require Import ExtLib.Data.Pair.
+Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
@@ -62,7 +66,6 @@ Proof.
     simpl. eapply IHa in H0; eauto. rewrite H0. rewrite H2. reflexivity. }
 Qed.
 
-
 Section subst.
   Variable T : Type.
   Variable typ : Type.
@@ -73,6 +76,11 @@ Section subst.
 
   Let uvar : Type := nat.
 
+  (** TODO:
+   ** Should [mentionsU] be part of [Expr]?
+   **)
+  Variable mentionsU : uvar -> expr -> bool.
+
   Class Subst :=
   { lookup : uvar -> T -> option expr
   ; domain : T -> list uvar
@@ -80,7 +88,7 @@ Section subst.
 
   Class SubstUpdate :=
   { set : uvar -> expr -> T -> option T (** TODO: Should this be typed? **)
-  ; pull : uvar -> nat -> T -> option T
+  ; drop : uvar -> T -> option T
   ; empty : T
   }.
 
@@ -149,24 +157,22 @@ Section subst.
                                with
                                  | eq_refl => val us vs
                                end)
-  ; pull_sound
-    : forall s s' u n,
-        pull u n s = Some s' ->
+  ; drop_sound
+    : forall s s' u,
+        drop u s = Some s' ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        forall tus tus' tvs sD,
+        forall tus tu tvs sD,
           u = length tus ->
-          n = length tus' ->
-          substD (tus ++ tus') tvs s = Some sD ->
-          (forall u' t,
-             nth_error tus' u' = Some t ->
-             exists e, lookup (u + u') s = Some e) /\
-            exists sD',
-              substD tus tvs s' = Some sD' /\
+          substD (tus ++ tu :: nil) tvs s = Some sD ->
+          exists sD',
+            substD tus tvs s' = Some sD' /\
+            exists e eD,
+              lookup u s = Some e /\
+              exprD' tus tvs e tu = Some eD /\
               forall us vs,
                 sD' us vs ->
-                exists us',
-                  sD (hlist_app us us') vs
+                sD (hlist_app us (Hcons (eD us vs) Hnil)) vs
   }.
 
   Variable Subst_subst : Subst.
@@ -174,16 +180,21 @@ Section subst.
   Variable SubstUpdate_subst : SubstUpdate.
   Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
 
+  (** This is the "obvious" extension of [drop] **)
+  Fixpoint pull (from : uvar) (len : nat) (s : T) : option T :=
+    match len with
+      | 0 => Some s
+      | S len' => match pull (S from) len' s with
+                   | None => None
+                   | Some s' => drop from s'
+                  end
+    end.
+
   Definition Subst_Extends (a b : T) : Prop :=
     forall tus tvs P Q,
       substD tus tvs b = Some P ->
       substD tus tvs a = Some Q ->
       forall us vs, P us vs -> Q us vs.
-
-  (** TODO:
-   ** Should [mentionsU] be part of [Expr]?
-   **)
-  Variable mentionsU : uvar -> expr -> bool.
 
   Class NormalizedSubstOk : Type :=
   { lookup_normalized : forall s e u,
@@ -193,118 +204,6 @@ Section subst.
         lookup u' s = Some e' ->
         mentionsU u' e = false
   }.
-
-  Fixpoint get_pull f l s : option (list expr) :=
-    match l with
-      | 0 => Some nil
-      | S l => match lookup f s with
-                 | None => None
-                 | Some e => match get_pull (S f) l s with
-                               | None => None
-                               | Some es => Some (e :: es)
-                             end
-               end
-    end.
-
-  Lemma list_ind_end
-  : forall T (P : list T -> Prop),
-      P nil ->
-      (forall x xs, P xs -> P (xs ++ x :: nil)) ->
-      forall xs, P xs.
-  Proof.
-    clear.
-    intros. rewrite <- rev_involutive.
-    induction (rev xs).
-    { simpl. assumption. }
-    { simpl. eauto. }
-  Qed.
-
-(*
-  Theorem pull_sound_sem
-  : forall s s' u n,
-        pull u n s = Some s' ->
-        WellFormed_subst s ->
-        WellFormed_subst s' /\
-        forall tus tus' tvs sD,
-          u = length tus ->
-          n = length tus' ->
-          substD (tus ++ tus') tvs s = Some sD ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            exists eus' : list expr,
-              exists us' : hlist (fun t => hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t) tus',
-                @hlist_build _ _ _ (fun t e => exprD' tus tvs e t) tus' eus' = Some us' /\
-                forall us vs,
-                  let us' := hlist_map (fun t (x : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t) => x us vs) us' in
-                  sD' us vs ->
-                  sD (hlist_app us us') vs.
-  Proof.
-    intros. eapply pull_sound in H; eauto.
-    forward_reason. split; auto. intros.
-    specialize (H1 _ _ _ _ H2 H3 H4).
-    subst.
-    destruct H1. destruct H2 as [ ? [ ? ? ] ].
-    eexists; split; eauto.
-    consider (get_pull (length tus) (length tus') s).
-    { intros.
-      exists l.
-      Lemma get_pull_hlist_build
-      : forall s tus tus' tvs l,
-          get_pull (length tus) (length tus') s = Some l ->
-          exists us',
-            hlist_build (fun t : typ =>
-                           hlist (typD nil) (tus ++ tus') -> hlist (typD nil) tvs -> typD nil t)
-                        (fun (t : typ) (e : expr) => exprD' (tus ++ tus') tvs e t) tus' l =
-            Some us'.
-      Proof.
-        induction tus'; simpl.
-        { intros; inv_all; subst. inversion H0. }
-        { intros. forward.
-          inv_all. subst.
-          destruct n.
-          { rewrite Plus.plus_comm. simpl; congruence. }
-          { eapply IHt in H1. 2: instantiate (1 := n); omega.
-            replace (f + S n) with (S f + n) by omega. assumption. } }
-      Qed.
-      
-
-
-          eauto.
-        intro.
-        intros tus tus'.
-        eapply list_ind_end with (xs := tus').
-        { simpl. admit. }
-        { intros.
-          rewrite app_length in H1. simpl in H1. rewrite Plus.plus_comm in H1.
-          simpl in H1. forward.
-          inv_all; subst.
-          specialize (H0 
-        
-          
-
-induction tus'.
-        { simpl. admit. }
-        { 
-
-
-
- }
-    { intro Hx. exfalso. clear - SubstOk_subst H H0 Hx.
-      generalize dependent (length tus).
-      induction tus'; simpl in *.
-      { congruence. }
-      { intros. specialize (IHtus' (S n)).
-        destruct (get_pull (S n) (length tus') s).
-        { forward.
-          specialize (H 0 a eq_refl).
-          destruct H. rewrite Plus.plus_0_r in H.
-          congruence. }
-        { eapply IHtus'; auto.
-          intros. specialize (H (S u') t H1).
-          replace (S n + u') with (n + S u') by omega.
-          assumption. } } }
-  Qed.
-*)
 
   Lemma substD_weakenU
   : forall tus tvs tus' s sD,
@@ -363,41 +262,3 @@ induction tus'.
   Qed.
 
 End subst.
-
-
-(*
-
-    revert H2. revert H4. revert sD.
-    eapply rev_ind with (l := tus').
-    { simpl; intros.
-      clear H.
-      destruct H2 as [ ? [ ? ? ] ].
-      eexists; split; eauto.
-      exists nil. eexists; split; eauto.
-      intros. eapply H2 in H3.
-      destruct H3.
-      simpl. admit. }
-    { simpl; intros.
-      forward_reason.
-      eexists; split; eauto.
-      assert (nth_error (l ++ x :: nil) (length l) = Some x).
-      { rewrite ListNth.nth_error_app_R; eauto.
-        rewrite Minus.minus_diag. reflexivity. }
-      eapply H3 in H6.
-      destruct H6.
-      assert (exists sD', substD (tus ++ l) tvs s = Some sD'
-              /\ exists x,
-                   forall us us' vs,
-                     sD (hlist_app us (hlist_app us' (Hcons (x (hlist_app us us') vs) Hnil))) vs <->
-                     sD' (hlist_app us us') vs).
-      { admit. }
-      { forward_reason.
-        eapply H in H7; eauto.
-        { forward_reason.
-          exists (x5 ++ x1 :: nil).
-          eapply substD_lookup in H6; eauto.
-          forward_reason.
-          exists (hlist_app x6 (Hcons x8 Hnil)).
-
-  Qed.
-*)
