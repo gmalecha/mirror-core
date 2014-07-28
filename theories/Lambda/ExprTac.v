@@ -1,3 +1,4 @@
+Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.

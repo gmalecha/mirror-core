@@ -1,14 +1,9 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.

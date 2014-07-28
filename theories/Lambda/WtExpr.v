@@ -1,10 +1,8 @@
-Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Member.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.ExprD.
 
 Set Implicit Arguments.
 Set Strict Implicit.

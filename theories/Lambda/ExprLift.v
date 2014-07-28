@@ -1,7 +1,5 @@
-Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.

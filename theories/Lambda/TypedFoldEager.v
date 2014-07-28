@@ -1,10 +1,4 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Nat.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.

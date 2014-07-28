@@ -3,11 +3,6 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Tactics.Consider.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.

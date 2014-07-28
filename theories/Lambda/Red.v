@@ -1,17 +1,13 @@
 Require Import Coq.Arith.Compare_dec.
-Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
-Require Import MirrorCore.Lambda.AppN.
-Require Import MirrorCore.Lambda.ExprTac.
 
 Require Import FunctionalExtensionality.
 

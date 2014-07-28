@@ -1,10 +1,7 @@
 Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
-Require Import Classes.RelationClasses.
 Require Import ExtLib.Tactics.
-Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.HList.
-Require Import MirrorCore.Generic.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 

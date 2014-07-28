@@ -1,5 +1,3 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
