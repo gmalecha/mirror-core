@@ -93,9 +93,9 @@ Section cascade_subst.
                            ; upperSubst := sub'
                            |}
                  end
-  ; pull  := fun from count sub =>
+  ; drop  := fun from sub =>
                if from ?[ ge ] sub.(belowVars) then
-                 match pull from count sub.(upperSubst) with
+                 match drop from sub.(upperSubst) with
                    | None => None
                    | Some sub' =>
                      Some {| belowVars := sub.(belowVars)
