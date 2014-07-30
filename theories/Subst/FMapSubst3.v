@@ -378,11 +378,7 @@ Module Make (FM : WS with Definition E.t := uvar
         | |- fold_left _ _ (Some ?X) = _ -> ?G =>
           match G with
             | context [ fold_left _ _ (Some ?Y) ] =>
-              remember X ; remember Y (*;
-              assert (forall us vs us' vs',
-                X us vs <-> Y (hlist_app us us') (hlist_app vs vs')) by reflexivity ;
-              generalize dependent X ; generalize dependent Y
- *)
+              remember X ; remember Y
           end
       end.
       assert (forall us vs us' vs',
@@ -1130,7 +1126,7 @@ Module Make (FM : WS with Definition E.t := uvar
                  lookup u s = Some e /\
                  exprD' tus tvs e tu = Some eD /\
                  (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
-                    sD' us vs -> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs))).
+                    sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs))).
     Proof.
       simpl. unfold raw_drop.
       intros; forward.
@@ -1160,12 +1156,13 @@ Module Make (FM : WS with Definition E.t := uvar
             do 2 eexists.
             split; [ eassumption | ].
             split; [ eassumption | ].
-            intros. rewrite <- H7 with (val := x1 us vs) in H9; clear H7.
+            intros.
+            rewrite <- H7 with (val := x1 us vs); clear H7.
             rewrite H3; clear H3.
             rewrite H6; clear H6.
-            split; auto.
-            rewrite H8. simpl. symmetry.
-            eapply H5. }
+            rewrite H8; clear H8.
+            simpl. rewrite H5.
+            intuition. }
           { do 2 red in H0.
             consider (mentionsU (length tus) e); try congruence.
             intro. exfalso.
@@ -1190,11 +1187,64 @@ Module Make (FM : WS with Definition E.t := uvar
           clear. intuition. } }
     Qed.
 
+    Theorem substD_drop'
+    : forall (s s' : raw) (u : nat),
+        drop u s = Some s' ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        (exists e : expr,
+           lookup u s = Some e /\
+           lookup u s' = None /\
+           (forall u' : nat, u' <> u -> lookup u' s = lookup u' s') /\
+           (forall (tus : list typ) (tu : typ) (tvs : tenv typ)
+                   (sD : hlist (typD nil) (tus ++ tu :: nil) ->
+                         hlist (typD nil) tvs -> Prop),
+              u = length tus ->
+              substD (tus ++ tu :: nil) tvs s = Some sD ->
+              exists sD' : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+                substD tus tvs s' = Some sD' /\
+                (exists
+                    eD : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil tu,
+                    exprD' tus tvs e tu = Some eD /\
+                    (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+                       sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs)))).
+    Proof.
+      simpl. unfold raw_drop.
+      intros; forward.
+      inv_all; subst.
+      split.
+      { eapply WellFormed_remove; assumption. }
+      { intros. subst.
+        exists e.
+        split; [ apply H | ].
+        split.
+        { unfold raw_lookup.
+          rewrite FACTS.remove_o.
+          destruct (FM.E.eq_dec u u); auto.
+          exfalso. apply n; reflexivity. }
+        split.
+        { unfold raw_lookup.
+          intros. rewrite FACTS.remove_o.
+          destruct (FM.E.eq_dec u u'); auto.
+          exfalso; auto. }
+        { generalize (@substD_drop s (FM.remove u s) u).
+          simpl. unfold raw_drop. rewrite H.
+          intro XXX; specialize (XXX eq_refl H0).
+          forward_reason; auto.
+          intros.
+          eapply H2 in H4; clear H2; eauto.
+          forward_reason.
+          eexists; split; eauto.
+          unfold raw_lookup in H4.
+          rewrite H in H4. inv_all; subst.
+          eexists; split; eauto. } }
+    Qed.
+
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| WellFormed_empty := WellFormed_empty
      ; substD_empty := substD_empty
      ; set_sound := substD_set
-     ; drop_sound := substD_drop
+     ; drop_sound := substD_drop'
      |}.
 
   End exprs.
