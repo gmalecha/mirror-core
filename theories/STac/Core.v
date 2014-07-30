@@ -143,9 +143,71 @@ Section parameterized.
       congruence. }
   Qed.
 
+  Lemma stac_sound_Solved (tac : stac) (Htac : stac_sound tac)
+  : forall tus tvs sub hs g tus' tvs' sub',
+      tac tus tvs sub hs g = Solved tus' tvs' sub' ->
+      WellFormed_subst sub ->
+      WellFormed_subst sub' /\
+      match goalD tus tvs g
+          , mapT (F:=option) (T:=list) (goalD tus tvs) hs
+          , substD tus tvs sub
+      with
+        | Some G , Some Hs , Some sV =>
+          match substD (tus ++ tus') (tvs ++ tvs') sub' with
+            | None => False
+            | Some s'V =>
+              forall (us : HList.hlist _ tus) (vs : HList.hlist _ tvs),
+                (exists us' vs',
+                   s'V (HList.hlist_app us us') (HList.hlist_app vs vs')) ->
+                Forall (fun P => P us vs) Hs ->
+                G us vs /\ sV us vs
+          end
+        | _ , _ , _ => True
+      end.
+  Proof.
+    intros.
+    specialize (Htac tus tvs sub hs g).
+    rewrite H in Htac. eauto.
+  Qed.
+
+  Lemma stac_sound_More (tac : stac) (Htac : stac_sound tac)
+  : forall tus tvs sub hs g tus' tvs' sub' hs' g',
+      tac tus tvs sub hs g = More tus' tvs' sub' hs' g'->
+      WellFormed_subst sub ->
+      WellFormed_subst sub' /\
+      match goalD tus tvs g
+          , mapT (F:=option) (T:=list) (goalD tus tvs) hs
+          , substD tus tvs sub
+      with
+        | Some G , Some Hs , Some sV =>
+          match goalD (tus ++ tus') (tvs ++ tvs') g'
+              , mapT (F:=option) (T:=list) (goalD (tus ++ tus') (tvs ++ tvs')) hs'
+              , substD (tus ++ tus') (tvs ++ tvs') sub'
+          with
+            | Some G' , Some Hs' , Some s'V =>
+              forall us vs,
+                (exists us' vs',
+                   let us := HList.hlist_app us us' in
+                   let vs := HList.hlist_app vs vs' in
+                   Forall (fun P => P us vs) Hs' ->
+                   s'V us vs
+                   /\ G' us vs) ->
+                Forall (fun P => P us vs) Hs ->
+                G us vs /\ sV us vs
+            | _ , _ , _ => False
+          end
+        | _ , _ , _ => True
+      end.
+  Proof.
+    intros.
+    specialize (Htac tus tvs sub hs g).
+    rewrite H in Htac. eauto.
+  Qed.
+
 End parameterized.
 
 Arguments stac_sound {typ expr subst _ _ _ _ _} _.
+Arguments goalD {typ expr RType Expr Typ0} tus tvs e : rename.
 
 Export MirrorCore.EnvI.
 Export MirrorCore.SymI.
