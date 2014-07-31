@@ -84,7 +84,8 @@ Section parameterized.
                          (fun P : hlist (typD nil) (tus ++ tus') ->
                                   hlist (typD nil) (tvs ++ tvs') -> Prop =>
                             P us vs) hD' ->
-                       gD' us vs /\ sD' us vs) ->
+                          sD' us vs
+                       /\ gD' us vs) ->
                     Forall
                       (fun P : hlist (typD nil) tus ->
                                hlist (typD nil) tvs -> Prop =>

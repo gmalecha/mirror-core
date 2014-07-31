@@ -407,6 +407,7 @@ Module Make (FM : WS with Definition E.t := uvar
         erewrite H4; clear H4. reflexivity. }
     Qed.
 
+    (** TODO(gmalecha): Move this + refactor **)
     Definition sem_preserves_if ts tus tvs
                (P : hlist _ tus -> hlist _ tvs -> Prop)
                (R : forall t, relation (typD ts t))

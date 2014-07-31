@@ -1,4 +1,7 @@
 Require Import Coq.Lists.List.
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Traversable.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
@@ -325,11 +328,6 @@ Section subst.
       | S len => start :: seq (S start) len
     end.
 
-
-
-  Require Import ExtLib.Structures.Traversable.
-  Require Import ExtLib.Data.List.
-
   Lemma list_mapT_cons
   : forall T U (F : T -> option U) ls a,
       Traversable.mapT F (a :: ls) =
@@ -537,6 +535,235 @@ Section subst.
                    end.
             forward. inv_all. subst.
             rewrite H1; auto. rewrite H. reflexivity. } } } }
+  Qed.
+(*
+  Hypothesis exprD'_strengthen_last
+  : forall tus tvs e t t' val,
+      mentionsU (length tus) e = false ->
+      exprD' (tus ++ t :: nil) tvs e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs u,
+          val (hlist_app us (Hcons u Hnil)) vs = val' us vs.
+*)
+
+  Lemma list_rev_ind
+  : forall T (P : list T -> Prop),
+      P nil ->
+      (forall l ls, P ls -> P (ls ++ l :: nil)) ->
+      forall ls, P ls.
+  Proof.
+    clear. intros. rewrite <- rev_involutive.
+    induction (rev ls).
+    apply H.
+    simpl. auto.
+  Qed.
+
+  Theorem exprD'_strengthen_multi
+  : forall tus tvs e  t' tus' val,
+      (forall u, u < length tus' ->
+                 mentionsU (length tus + u) e = false) ->
+      exprD' (tus ++ tus') tvs e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs us',
+          val (hlist_app us us') vs = val' us vs.
+  Proof.
+    clear - exprD'_mentionsU_strengthen.
+    intros tus tvs e t'.
+    refine (@list_rev_ind _ _ _ _).
+    { simpl. intros.
+      rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
+      rewrite H0.
+      unfold ResType. rewrite eq_option_eq.
+      eexists; split; eauto.
+      intros. rewrite (hlist_eta us').
+      rewrite hlist_app_nil_r.
+      clear.
+      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      reflexivity. }
+    { intros.
+      rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
+      unfold ResType in H1. rewrite eq_option_eq in H1.
+      forward.
+      eapply exprD'_mentionsU_strengthen in H1.
+      + forward_reason.
+        eapply H in H1.
+        - forward_reason.
+          eexists; split; eauto.
+          intros. inv_all; subst.
+          clear - H3 H4.
+          specialize (H4 us vs (fst (hlist_split _ _ us'))).
+          specialize (H3 (hlist_app us (fst (hlist_split _ _ us')))
+                         (hlist_hd (snd (hlist_split _ _ us'))) vs).
+          rewrite <- H4; clear H4.
+          rewrite <- H3; clear H3.
+          repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
+          f_equal.
+          rewrite hlist_app_assoc.
+          apply match_eq_match_eq.
+          f_equal.
+          etransitivity.
+          symmetry.
+          eapply (hlist_app_hlist_split _ _ us').
+          f_equal.
+          rewrite (hlist_eta (snd (hlist_split _ _ _))).
+          simpl. f_equal.
+          rewrite (hlist_eta (hlist_tl _)). reflexivity.
+        - intros.
+          eapply H0. rewrite app_length. simpl. omega.
+      + rewrite app_length.
+        apply H0. rewrite app_length. simpl. omega. }
+  Qed.
+
+  Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
+
+  Definition sem_preserves_if tus tvs
+               (P : hlist _ tus -> hlist _ tvs -> Prop)
+               (f : uvar -> option expr) : Prop :=
+      forall u e t get,
+        f u = Some e ->
+        nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
+        exists eD,
+          exprD' tus tvs e t = Some eD /\
+          forall us vs,
+            P us vs ->
+            get us = eD us vs.
+
+  Hypothesis exprD'_instantiate
+  : forall tus tvs f e tvs' t eD P,
+      @sem_preserves_if tus tvs P f ->
+      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exists eD',
+        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        forall us vs vs',
+          P us vs ->
+          eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
+
+  Hypothesis instantiate_mentionsU
+  : forall f n e u,
+      mentionsU u (instantiate f n e) = true <->
+      (   (f u = None /\ mentionsU u e = true)
+       \/ exists u' e',
+            f u' = Some e' /\
+            mentionsU u' e = true/\
+            mentionsU u e' = true).
+
+  Lemma mapT_success
+  : forall T U (f : T -> option U) ls ls',
+      mapT f ls = Some ls' ->
+      forall x, In x ls ->
+                exists y, f x = Some y /\ In y ls'.
+  Proof.
+    clear. induction ls.
+    { rewrite list_mapT_nil. intros.
+      inv_all; subst. destruct H0. }
+    { rewrite list_mapT_cons.
+      intros. forward. inv_all; subst.
+      destruct H0.
+      { subst. eexists; split; eauto. left. reflexivity. }
+      { eapply IHls in H0; [ | reflexivity ].
+        forward_reason. eexists; split; eauto.
+        right. assumption. } }
+  Qed.
+  Lemma In_seq : forall a c b,
+                   In a (seq b c) <-> (b <= a /\ a < b + c).
+  Proof.
+    clear.
+    induction c; simpl; intros.
+    { split. destruct 1. intros. omega. }
+    { split; intros.
+      { destruct H. subst. omega. eapply IHc in H. omega. }
+      { consider (b ?[ eq ] a).
+        { intros. subst; auto. }
+        { right. eapply IHc. omega. } } }
+  Qed.
+
+  Variable EqDec_eq_typ : EqDec typ (@eq typ).
+
+  Lemma sem_preserves_if_substD
+  : forall tus tvs s sD,
+      WellFormed_subst s ->
+      substD tus tvs s = Some sD ->
+      @sem_preserves_if tus tvs sD (fun u => lookup u s).
+  Proof.
+    red. intros.
+    eapply substD_lookup in H1; eauto.
+    eapply nth_error_get_hlist_nth_Some in H2.
+    forward_reason. simpl in *.
+    assert (x = t) by congruence.
+    subst.
+    eexists; split; eauto. intros.
+    rewrite H2.
+    specialize (H3 us vs H4). clear H4.
+    simpl in *.
+    change_rewrite H3.
+    clear - EqDec_eq_typ.
+    destruct x1. rewrite (UIP_refl x2). reflexivity.
+  Qed.
+
+  Theorem pull_for_instantiate_sound
+  : forall (Hnormalized : NormalizedSubstOk) tus tus' tvs s s',
+      pull (length tus) (length tus') s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      forall sD,
+        substD (tus ++ tus') tvs s = Some sD ->
+        exists sD',
+          substD tus tvs s' = Some sD' /\
+          (forall e t eD,
+             exprD' (tus ++ tus') tvs e t = Some eD ->
+             exists eD',
+               exprD' tus tvs (instantiate (fun u => lookup u s) 0 e) t = Some eD' /\
+               forall us vs us',
+                 sD (hlist_app us us') vs ->
+                 eD (hlist_app us us') vs = eD' us vs) /\
+          forall us vs,
+            exists us',
+              sD' us vs <->
+              sD (hlist_app us us') vs.
+  Proof.
+    intros.
+    eapply pull_sound in H; eauto.
+    forward_reason; split; auto.
+    intros. specialize (H1 _ _ _ _ eq_refl eq_refl H2).
+    forward_reason.
+    eexists; split; eauto.
+    split.
+    { intros.
+      eapply exprD'_instantiate with (tvs' := nil) in H8.
+      revert H8.
+      instantiate (1 := sD).
+      instantiate (1 := (fun u : uvar => lookup u s)).
+      simpl. intros.
+      forward_reason.
+      eapply exprD'_strengthen_multi in H8.
+      { forward_reason.
+        eexists; split; eauto.
+        intros.
+        specialize (H10 us vs us').
+        specialize (H9 (hlist_app us us') vs Hnil).
+        simpl in H9.
+        etransitivity; [ | eassumption ].
+        auto. }
+      { intros.
+        match goal with
+          | |- ?X = _ => consider X; auto
+        end.
+        intros. exfalso.
+        rewrite instantiate_mentionsU in H11.
+        eapply mapT_success with (x := length tus + u) in H1.
+        { forward_reason.
+          destruct H11.
+          { forward_reason; congruence. }
+          { forward_reason.
+            eapply Hnormalized in H0.
+            2: eapply H11.
+            2: eapply H1.
+            congruence. } }
+        { eapply In_seq. omega. } }
+      { eapply sem_preserves_if_substD; eauto. } }
+    { intros. eauto. }
   Qed.
 
 End subst.

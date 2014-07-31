@@ -140,10 +140,16 @@ Section parameterized.
           destruct (eq_sym (app_nil_r_trans tvs)).
           intuition. } }
       { destruct gs; auto.
+        clear IHgs.
         eapply stac_sound_More in H0; eauto.
         forward_reason; split; auto.
         forward.
-        admit. } }
+        rewrite list_mapT_cons in H3.
+        rewrite list_mapT_nil in H3.
+        forward.
+        inv_all; subst.
+        eapply H8 in H9; auto.
+        forward_reason; auto. } }
   Qed.
 
 End parameterized.
