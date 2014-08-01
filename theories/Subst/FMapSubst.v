@@ -81,17 +81,6 @@ Module Make (FM : WS with Definition E.t := uvar
     Hint Resolve -> raw_lookup_MapsTo.
     Hint Resolve -> raw_lookup_In.
 
-    Hypothesis instantiate_not_mentionsU
-    : forall (f f' : uvar -> option expr) n e u',
-        (forall u, u <> u' -> f u = f u) ->
-        mentionsU u' e = false ->
-        instantiate f n e = instantiate f' n e.
-
-    Hypothesis instantiate_noop
-    : forall (f : uvar -> option expr) e n,
-        (forall u, mentionsU u e = true -> f u = None) ->
-        instantiate f n e = e.
-
     Hypothesis instantiate_mentionsU
     : forall f n e u,
         mentionsU u (instantiate f n e) = true <->
@@ -152,17 +141,6 @@ Module Make (FM : WS with Definition E.t := uvar
       repeat (   (rewrite FACTS.add_eq_o by intuition)
               || (rewrite FACTS.add_neq_o by intuition)).
 
-
-    Lemma raw_subst_add_not_mentions : forall k e e' s n,
-      mentionsU k e = false ->
-      raw_subst (FM.add k e' s) n  e = raw_subst s n e.
-    Proof.
-      unfold raw_subst. intros.
-      eapply instantiate_not_mentionsU in H. eapply H.
-      intros. simpl.
-      unfold raw_lookup. rewrite FACTS.add_neq_o; auto.
-    Qed.
-
     Definition raw_substD (tus tvs : list typ) (sub : raw)
     : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop) :=
       FM.fold (fun k v P =>
@@ -196,31 +174,6 @@ Module Make (FM : WS with Definition E.t := uvar
         intuition. subst. exists x. intuition. }
     Qed.
 
-    Lemma raw_subst_normalized : forall r e n,
-      normalized r e ->
-      raw_subst r n e = e.
-    Proof.
-      unfold normalized, raw_subst. intros.
-      eapply instantiate_noop.
-      intros. eapply H in H0.
-      unfold raw_lookup.
-      eapply FACTS.not_find_in_iff. assumption.
-    Qed.
-
-    Lemma raw_subst_idem : forall e b c d,
-      WellFormed c ->
-      raw_subst c b (raw_subst c d e) = raw_subst c d e.
-    Proof.
-      intros.
-      erewrite raw_subst_normalized; auto using wf_instantiate_normalized.
-    Qed.
-
-    Hypothesis instantiate_only_mentions
-    : forall f g n e,
-        (forall u, mentionsU u e = true -> f u = g u) ->
-        instantiate f n e = instantiate g n e.
-
-
     Lemma mentionsU_subst : forall s u x n,
       mentionsU u (raw_subst s n x) = true <->
       (mentionsU u x = true /\ ~FM.In u s \/
@@ -238,20 +191,6 @@ Module Make (FM : WS with Definition E.t := uvar
       { right. forward_reason. do 2 eexists.
         intuition eauto.
         apply FACTS.find_mapsto_iff. assumption. }
-    Qed.
-
-    Lemma mentionsU_add_normalized : forall u e s x n,
-      normalized s x ->
-      raw_subst (FM.add u e s) n x =
-      raw_subst (FM.add u e (FM.empty _)) n x.
-    Proof.
-      unfold normalized, raw_subst; intros.
-      eapply instantiate_only_mentions.
-      unfold raw_lookup. intros.
-      repeat rewrite FACTS.add_o.
-      destruct (FM.E.eq_dec u u0); auto.
-      rewrite FACTS.empty_o.
-      rewrite <- FACTS.not_find_in_iff; eauto.
     Qed.
 
     Ltac go :=
