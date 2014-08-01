@@ -1,7 +1,7 @@
 GENERIC :=
 UTIL := Approx Iteration
 PROVERS := ProverTac AssumptionProver DefaultProver
-SUBST   := UVarMap SealedSubst FMapSubst3 CascadeSubst # RawSubst2 FastSubst
+SUBST   := UVarMap FMapSubst3 CascadeSubst # SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \
@@ -27,8 +27,8 @@ SYMS := SymEnv SymPolyEnv SymSum
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \
-	      SubstI SubstI3 \
-	      Prover EProver Prover2 EProver2 \
+	      SubstI3 \
+	      Prover2 EProver2 \
 	      Lemma LemmaApply \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(SUBST:%=Subst/%) \

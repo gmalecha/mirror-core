@@ -1,10 +1,11 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.Prover.
+Require Import MirrorCore.Prover2.
 Require Import MirrorCore.provers.ProverTac.
 Require Import MirrorCore.ExprProp.
 
@@ -36,26 +37,36 @@ Section proverI.
   : assumption_summary :=
     hyps ++ sum.
 
-  Definition assumptionValid (uvars vars : env nil) (sum : assumption_summary)
-  : Prop :=
-    AllProvable typ0_prop uvars vars sum.
+  Definition assumptionValid (tus tvs : list typ) (sum : assumption_summary)
+  : ResType tus tvs Prop :=
+    AllProvable tus tvs sum.
 
-  Lemma assumptionValid_extensible : forall u g f ue ge,
-    assumptionValid u g f -> assumptionValid (u ++ ue) (g ++ ge) f.
+  Lemma assumptionValid_extensible
+  : forall u g f gD,
+      assumptionValid u g f = Some gD ->
+      forall ue ge,
+      exists gD',
+        assumptionValid (u ++ ue) (g ++ ge) f = Some gD'
+        /\ forall us vs us' vs',
+             gD us vs <-> gD' (HList.hlist_app us us') (HList.hlist_app vs vs').
   Proof.
-    unfold assumptionValid. do 5 intro.
-    eapply Forall_impl. intros.
-    red in H. red.
-    forward.
-    eapply exprD_weaken in H; eauto.
-    rewrite H. assumption.
+    intros.
+    eapply AllProvable_weaken with (tus' := ue) (tvs' := ge) in H; eauto.
+    forward_reason.
+    eexists; split; eauto.
   Qed.
 
-  Lemma assumptionSummarizeCorrect : forall uvars vars hyps,
-    AllProvable typ0_prop uvars vars hyps ->
-    assumptionValid uvars vars (assumptionSummarize hyps).
-  Proof. auto. Qed.
+  Lemma assumptionSummarizeCorrect : forall uvars vars hyps premD,
+    AllProvable uvars vars hyps = Some premD ->
+    exists premD',
+      assumptionValid uvars vars (assumptionSummarize hyps) = Some premD'
+      /\ forall us vs, premD us vs -> premD' us vs.
+  Proof.
+    unfold assumptionValid, assumptionSummarize. eauto.
+  Qed.
 
+  (** TODO: Move **)
+(*
   Theorem Forall_app : forall T (P : T -> Prop) ls ls',
     Forall P (ls ++ ls') <->
     Forall P ls /\ Forall P ls'.
@@ -65,35 +76,50 @@ Section proverI.
     { intuition. inversion H2; subst. constructor; auto.
       eapply IHls; intuition. }
   Qed.
+*)
 
-  Lemma assumptionLearnCorrect : forall uvars vars sum,
-    assumptionValid uvars vars sum -> forall hyps,
-    AllProvable typ0_prop uvars vars hyps ->
-    assumptionValid uvars vars (assumptionLearn sum hyps).
+  Lemma assumptionLearnCorrect : forall uvars vars sum sD,
+    assumptionValid uvars vars sum = Some sD ->
+    forall hyps hD,
+      AllProvable uvars vars hyps = Some hD ->
+      exists sD',
+        assumptionValid uvars vars (assumptionLearn sum hyps) = Some sD' /\
+        forall us vs,
+          hD us vs -> sD us vs -> sD' us vs.
   Proof.
     unfold assumptionLearn, assumptionValid. intuition.
-    apply Forall_app; auto.
+    eapply AllProvable_app in H; eauto.
+    forward_reason.
+    eexists; split; eauto.
+    intros. eapply H1. intuition.
   Qed.
 
-  Theorem assumptionProveOk : ProveOk (Provable_val typ0_prop) assumptionValid assumptionProve.
+  Theorem assumptionProveOk
+  : ProveOk assumptionValid assumptionProve.
   Proof.
     red. unfold assumptionValid, assumptionProve.
     induction sum; simpl; intros; try congruence.
     consider (goal ?[ eq ] a); intros; subst.
-    { inversion H; subst; auto.
-      red in H2. forward. }
-    { inversion H; subst. eapply IHsum; eauto. }
+    { eapply AllProvable_cons in H0.
+      forward_reason.
+      rewrite H1 in *. inv_all; subst.
+      eapply H3 in H2. intuition. }
+    { eapply AllProvable_cons in H0.
+      forward_reason.
+      specialize (IHsum _ H3 _ _ H4 H1).
+      eapply H5 in H2.
+      eapply IHsum. intuition. }
   Qed.
 
-  Definition assumptionProver : Prover typ expr :=
+  Definition assumptionProver : @Prover typ expr :=
   {| Facts := assumption_summary
    ; Summarize := fun _ _ => assumptionSummarize
    ; Learn := fun f _ _ => assumptionLearn f
    ; Prove := assumptionProve
    |}.
 
-  Definition assumptionProver_correct : ProverOk (Provable_val typ0_prop) assumptionProver.
-  eapply Build_ProverOk with (Valid := assumptionValid);
+  Definition assumptionProver_correct : ProverOk assumptionProver.
+  eapply Build_ProverOk with (factsD := assumptionValid);
     eauto using assumptionValid_extensible, assumptionSummarizeCorrect, assumptionLearnCorrect, assumptionProveOk.
   { simpl. intros. eapply assumptionLearnCorrect; eauto. }
   Qed.

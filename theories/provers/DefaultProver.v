@@ -12,8 +12,7 @@ Section default_prover.
   Context {RType_typ : RType typ}.
   Variable expr : Type.
   Context {Expr_expr : Expr _ expr}.
-  Context {ty : typ}.
-  Variable Provable' : typD nil ty -> Prop.
+  Context {Typ0_Prop : Typ0 _ Prop}.
 
   Definition DefaultProver : @Prover typ expr :=
   {| Facts := unit
@@ -22,12 +21,10 @@ Section default_prover.
    ; Prove := fun _ _ _ _ => false
    |}.
 
-  Theorem DefaultProverOk : @ProverOk typ _ _ _ ty Provable' DefaultProver.
+  Theorem DefaultProverOk : ProverOk DefaultProver.
   Proof.
   refine
     {| factsD := fun _ _ _ => Some (fun _ _ => True) |}.
-  { intros. inv_all; subst. eexists; split; eauto.
-    simpl. intuition. }
   { intros. inv_all; subst. eexists; split; eauto.
     simpl. intuition. }
   { intros. inv_all; subst. eexists; split; eauto.

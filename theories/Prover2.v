@@ -1,10 +1,8 @@
-Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.ExprProp.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -17,14 +15,7 @@ Section proverI.
   Context {RType_typ : RType typ}.
   Variable expr : Type.
   Context {Expr_expr : Expr _ expr}.
-  Context {ty : typ}.
-  Variable Provable' : typD nil ty -> Prop.
-
-  Let Provable us vs e :=
-    match exprD us vs e ty with
-      | None => False
-      | Some p => Provable' p
-    end.
+  Context {Typ0_Prop : Typ0 _ Prop}.
 
   Record Prover : Type :=
   { Facts : Type
@@ -41,81 +32,44 @@ Section proverI.
       prover sum tus tvs goal = true ->
       (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
-         exprD' tus tvs goal ty = Some goalD ->
+         Provable tus tvs goal = Some goalD ->
          forall (us : HList.hlist (typD nil) tus)
                 (vs : HList.hlist (typD nil) tvs),
            sumD us vs ->
-           Provable' (goalD us vs)).
+           goalD us vs).
 
   Record ProverOk (P : Prover) : Type :=
   { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
-  ; factsD_weakenU
+  ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->
-        forall tus',
+        forall tus' tvs',
         exists sumD',
-             factsD (tus ++ tus') tvs f = Some sumD'
-          /\ forall us vs us',
+             factsD (tus ++ tus') (tvs ++ tvs') f = Some sumD'
+          /\ forall us vs us' vs',
                sumD us vs <->
-               sumD' (HList.hlist_app us us') vs
-  ; factsD_weakenV
-    : forall tus tvs f sumD,
-        factsD tus tvs f = Some sumD ->
-        forall tvs',
-        exists sumD',
-             factsD tus (tvs ++ tvs') f = Some sumD'
-          /\ forall us vs vs',
-               sumD us vs <->
-               sumD' us (HList.hlist_app vs vs')
+               sumD' (HList.hlist_app us us') (HList.hlist_app vs vs')
   ; Summarize_sound
     : forall tus tvs hyps premD,
-        mapT (T := list) (F := option) (fun e => exprD' tus tvs e ty) hyps = Some premD ->
+        AllProvable tus tvs hyps = Some premD ->
         exists sumD,
           factsD tus tvs (Summarize P tus tvs hyps) = Some sumD /\
           forall us vs,
-            Forall (fun x => Provable' (x us vs)) premD ->
+            premD us vs ->
             sumD us vs
   ; Learn_sound
     : forall tus tvs hyps premD sum sumD,
         factsD tus tvs sum = Some sumD ->
-        mapT (T := list) (F := option) (fun e => exprD' tus tvs e ty) hyps = Some premD ->
+        AllProvable tus tvs hyps = Some premD ->
         exists sumD',
           factsD tus tvs (Learn P sum tus tvs hyps) = Some sumD' /\
           forall us vs,
-            Forall (fun x => Provable' (x us vs)) premD ->
+            premD us vs ->
             sumD us vs ->
             sumD' us vs
   ; Prove_sound
     : ProveOk factsD (@Prove P)
   }.
-
-(*
-  Theorem Prove_concl P (Pok : EProverOk P)
-  : forall subst (Ssubst : Subst subst expr)
-           (Sok : SubstOk _ _)
-           (vars uvars : env typD)
-           (sum : Facts P),
-      forall (goal : expr) (sub sub' : subst),
-        Prove P sum (typeof_env uvars) (typeof_env vars) sub goal = Some sub' ->
-        WellFormed_subst sub ->
-        WellFormed_subst sub' /\
-        (Valid Pok uvars vars sum ->
-         WellTyped_subst (typeof_env uvars) (typeof_env vars) sub ->
-         WellTyped_subst (typeof_env uvars) (typeof_env vars) sub' /\
-         (substD uvars vars sub' ->
-          forall val,
-            exprD uvars vars goal ty = Some val ->
-            Provable' val /\ substD uvars vars sub)).
-  Proof.
-    intros.
-    destruct (@Pok.(Prove_correct) Sok uvars vars sum goal sub H H0).
-    split; auto.
-    intros. forward_reason. 
-    split; auto.
-    intros. forward_reason.
-    rewrite H7 in *. assumption.
-  Qed.
-*)
 
   (** Composite Prover **)
   Section composite.
@@ -137,8 +91,6 @@ Section proverI.
     Variable pl_correct : ProverOk pl.
     Variable pr_correct : ProverOk pr.
 
-    Opaque mapT.
-
     Theorem composite_ProverT_correct : ProverOk composite_Prover.
     Proof.
       refine (
@@ -152,17 +104,11 @@ Section proverI.
              end
          |}).
       { intros. forward. inv_all; subst.
-        eapply factsD_weakenU with (tus' := tus') in H0.
-        eapply factsD_weakenU with (tus' := tus') in H1.
+        eapply factsD_weaken with (tus' := tus') (tvs' := tvs') in H0.
+        eapply factsD_weaken with (tus' := tus') (tvs' := tvs') in H1.
         forward_reason. Cases.rewrite_all_goal.
         eexists; split; eauto. intros. simpl.
         rewrite <- H2. rewrite H1. reflexivity. }
-      { intros. forward. inv_all; subst.
-        eapply factsD_weakenV with (tvs' := tvs') in H0.
-        eapply factsD_weakenV with (tvs' := tvs') in H1.
-        forward_reason. Cases.rewrite_all_goal.
-        eexists; split; eauto. intros. simpl.
-        rewrite <- H2. rewrite <- H1. reflexivity. }
       { simpl; intros.
         specialize (@Summarize_sound _ pl_correct _ _ _ _ H).
         specialize (@Summarize_sound _ pr_correct _ _ _ _ H).
