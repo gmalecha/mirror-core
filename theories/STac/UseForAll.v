@@ -1,8 +1,10 @@
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
@@ -56,21 +58,6 @@ Section parameterized.
   Definition apply_to_all : stac typ expr subst -> stac_cont typ expr subst :=
     apply_to_all'.
 
-  Lemma mapT_nil
-  : forall (T U : Type) (F : T -> option U),
-      mapT F nil = Some nil.
-  Proof. reflexivity. Defined.
-
-  Lemma mapT_cons
-  : forall T U (F : T -> option U) l ls,
-      mapT F (l :: ls) = match F l , mapT F ls with
-                           | Some l , Some ls => Some (l :: ls)
-                           | _ , _ => None
-                         end.
-  Proof.
-    simpl. intros. destruct (F l); reflexivity.
-  Qed.
-
   Theorem apply_to_all_sound
   : forall tac, stac_sound tac ->
                 stac_cont_sound (apply_to_all tac).
@@ -93,7 +80,7 @@ Section parameterized.
       destruct (eq_sym (app_nil_r_trans tvs)).
       destruct (eq_sym (app_nil_r_trans tus)).
       intuition.
-      rewrite mapT_nil in H1.
+      rewrite list_mapT_nil in H1.
       inv_all; subst. constructor. }
     { consider (tac tus tvs sub hyps a); auto; intros.
       { eapply stac_sound_Solved in H0; eauto.
@@ -105,7 +92,7 @@ Section parameterized.
           forward_reason.
           split; auto.
           forward.
-          rewrite mapT_cons in H6.
+          rewrite list_mapT_cons in H6.
           forward. inv_all; subst.
           erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
                                     (pfu := eq_sym (app_nil_r_trans tus)) in H8.
@@ -124,7 +111,7 @@ Section parameterized.
           rewrite H1 in IHgs.
           forward_reason; split; auto.
           forward.
-          rewrite mapT_cons in *.
+          rewrite list_mapT_cons in *.
           forward. inv_all; subst.
           erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
                                     (pfu := eq_sym (app_nil_r_trans tus)) in H8.

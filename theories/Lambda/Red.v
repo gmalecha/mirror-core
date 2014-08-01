@@ -1,4 +1,5 @@
 Require Import Coq.Arith.Compare_dec.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Eq.

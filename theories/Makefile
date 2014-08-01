@@ -1,6 +1,6 @@
 GENERIC :=
-UTIL := Approx Iteration
-PROVERS := ProverTac AssumptionProver DefaultProver
+UTIL := Approx Iteration ListMapT
+PROVERS := ProverTac AssumptionProver DefaultProver # AutoProver -- TODO
 SUBST   := UVarMap FMapSubst CascadeSubst # SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
 	      ExprT \
@@ -29,6 +29,7 @@ MODULES    := Generic \
 	      SymI \
 	      SubstI \
 	      ProverI EProverI \
+	      InstantiateI \
 	      Lemma LemmaApply \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(SUBST:%=Subst/%) \

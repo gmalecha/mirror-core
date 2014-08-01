@@ -6,6 +6,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
@@ -29,12 +30,13 @@ Module Make (FM : WS with Definition E.t := uvar
     Variable typ : Type.
     Context {RType_typ : RType typ}.
     Variable expr : Type.
-    Variable Expr_expr : Expr _ expr.
-    Variable ExprOk_expr : ExprOk Expr_expr.
+    Context {Expr_expr : Expr _ expr}.
+    Context {ExprOk_expr : ExprOk Expr_expr}.
+    Context {EqDec_eq_typ : EqDec typ (@eq typ)}.
 
-    Variable mentionsU : uvar -> expr -> bool.
-
-    Variable EqDec_eq_typ : EqDec typ (@eq typ).
+    Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
+    Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
+    Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
 
     Definition raw : Type := FM.t expr.
 
@@ -48,8 +50,6 @@ Module Make (FM : WS with Definition E.t := uvar
 
     Definition raw_lookup : uvar -> raw -> option expr :=
        @FM.find _.
-
-    Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
 
     Definition raw_subst (s : raw) : nat -> expr -> expr :=
       instantiate (fun x => raw_lookup x s).
@@ -81,23 +81,6 @@ Module Make (FM : WS with Definition E.t := uvar
     Hint Resolve -> raw_lookup_MapsTo.
     Hint Resolve -> raw_lookup_In.
 
-    Hypothesis instantiate_mentionsU
-    : forall f n e u,
-        mentionsU u (instantiate f n e) = true <->
-        (   (f u = None /\ mentionsU u e = true)
-         \/ exists u' e',
-              f u' = Some e' /\
-              mentionsU u' e = true/\
-              mentionsU u e' = true).
-
-    Hypothesis exprD'_strengthen_last
-    : forall tus tvs e t t' val,
-        mentionsU (length tus) e = false ->
-        exprD' (tus ++ t :: nil) tvs e t' = Some val ->
-        exists val',
-          exprD' tus tvs e t' = Some val' /\
-          forall us vs u,
-            val (hlist_app us (Hcons u Hnil)) vs = val' us vs.
 
     (* normalized and instantiate *)
     Lemma wf_instantiate_normalized : forall s e n,
@@ -113,33 +96,6 @@ Module Make (FM : WS with Definition E.t := uvar
         eapply H. 2: eassumption.
         eapply FACTS.find_mapsto_iff. eapply H0. }
     Qed.
-
-    Local Ltac think :=
-      unfold raw_lookup in *; simpl in *; intros;
-      repeat (match goal with
-                | [ H : _ && _ = true |- _ ] =>
-                  apply andb_true_iff in H; destruct H
-                | [ H : _ || _ = false |- _ ] =>
-                  apply orb_false_iff in H; destruct H
-                | [ H : _ |- _ ] =>
-                  rewrite H in * by auto
-                | [ H : Some _ = Some _ |- _ ] =>
-                  inversion H; clear H; subst
-                | [ H : context [ if ?X then _ else _ ] |- _ ] =>
-                  consider X; intros; (solve [ try congruence ] || (try congruence; [ ]))
-                | [ |- context [ if ?X then _ else _ ] ] =>
-                  consider X; intros; (solve [ try congruence ] || (try congruence; [ ]))
-                | [ H : ?X = ?X |- _ ] => clear H
-                | [ |- _ ] => progress ( simpl in * )
-              end
-              || rewrite FACTS.add_o in *
-              || rewrite FACTS.map_o in *
-              || rewrite FACTS.remove_o in * ); try congruence.
-
-    Ltac reducer :=
-      unfold raw_lookup ;
-      repeat (   (rewrite FACTS.add_eq_o by intuition)
-              || (rewrite FACTS.add_neq_o by intuition)).
 
     Definition raw_substD (tus tvs : list typ) (sub : raw)
     : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop) :=
@@ -182,7 +138,9 @@ Module Make (FM : WS with Definition E.t := uvar
          mentionsU u' x = true /\
          mentionsU u e' = true).
     Proof.
-      intros. unfold raw_subst. rewrite instantiate_mentionsU.
+      intros. unfold raw_subst.
+      red in instantiate_mentionsU.
+      rewrite instantiate_mentionsU.
       unfold raw_lookup.
       rewrite <- FACTS.not_find_in_iff.
       intuition.
@@ -192,12 +150,6 @@ Module Make (FM : WS with Definition E.t := uvar
         intuition eauto.
         apply FACTS.find_mapsto_iff. assumption. }
     Qed.
-
-    Ltac go :=
-      repeat match goal with
-               | H : exists x, _ |- _ =>
-                 destruct H
-             end.
 
     Theorem raw_set_WellFormed : forall u e s s',
       raw_set u e s = Some s' ->
@@ -244,13 +196,6 @@ Module Make (FM : WS with Definition E.t := uvar
               eapply FM.find_2 in H2.
               eapply H0 in H2. red in H2.
               eapply H2 in H7. auto. }
-    Qed.
-
-    Lemma wf_empty : WellFormed (FM.empty expr).
-    Proof.
-      red. red. intros.
-      intro.
-      apply FACTS.empty_in_iff in H1. auto.
     Qed.
 
     Instance Subst_subst : Subst raw expr :=
@@ -345,30 +290,6 @@ Module Make (FM : WS with Definition E.t := uvar
         erewrite H; clear H. erewrite H3; clear H3.
         erewrite H4; clear H4. reflexivity. }
     Qed.
-
-    (** TODO(gmalecha): Move this + refactor **)
-    Definition sem_preserves_if ts tus tvs
-               (P : hlist _ tus -> hlist _ tvs -> Prop)
-               (R : forall t, relation (typD ts t))
-               (f : uvar -> option expr) : Prop :=
-      forall u e t get,
-        f u = Some e ->
-        nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
-        exists eD,
-          exprD' tus tvs e t = Some eD /\
-          forall us vs,
-            P us vs ->
-            get us = eD us vs.
-
-    Hypothesis exprD'_instantiate
-    : forall tus tvs f e tvs' t eD P,
-        @sem_preserves_if nil tus tvs P (fun t => @eq _) f ->
-        exprD' tus (tvs' ++ tvs) e t = Some eD ->
-        exists eD',
-          exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
-          forall us vs vs',
-            P us vs ->
-            eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
 
     Definition eq_option_A tus tvs
         (x y : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop))
@@ -568,10 +489,9 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Lemma sem_preserves_if_raw_substD
-    : forall ts tus tvs s sD,
+    : forall tus tvs s sD,
         raw_substD tus tvs s = Some sD ->
-        @sem_preserves_if ts tus tvs sD (fun _ => @eq _)
-                          (fun u => raw_lookup u s).
+        sem_preserves_if tus tvs sD (fun u => raw_lookup u s).
     Proof.
       clear - EqDec_eq_typ. intros.
       red. intros.
@@ -695,26 +615,9 @@ Module Make (FM : WS with Definition E.t := uvar
           eapply H5; clear H5. } }
     Qed.
 
-    Inductive Roption {T} (R : T -> T -> Prop) : option T -> option T -> Prop :=
-    | Roption_None : Roption R None None
-    | Roption_Some : forall a b, R a b -> Roption R (Some a) (Some b).
-
-    Instance Equivalence_Roption A (R : A -> _) : Equivalence R -> Equivalence (Roption R).
-    Proof.
-      clear.
-      intros.
-      constructor; red; intros.
-      { destruct x; first [ apply Roption_None | apply Roption_Some ].
-        reflexivity. }
-      { inversion H0. apply Roption_None. subst.
-        constructor. symmetry. assumption. }
-      { destruct H0. inversion H1. constructor.
-        inversion H1. subst. constructor. etransitivity; eauto. }
-    Qed.
-
     Lemma raw_substD_instantiate
     : forall tus tvs s sD f P,
-        @sem_preserves_if nil tus tvs P (fun t => @eq _) f ->
+        sem_preserves_if tus tvs P f ->
         raw_substD tus tvs s = Some sD ->
         exists sD',
           raw_substD tus tvs (FM.map (instantiate f 0) s) = Some sD' /\
@@ -777,6 +680,7 @@ Module Make (FM : WS with Definition E.t := uvar
           specialize (H5 _ eq_refl).
           forward_reason. subst.
           change_rewrite H3.
+          red in exprD'_instantiate.
           eapply exprD'_instantiate with (tvs' := nil) in H4; eauto.
           forward_reason. simpl in *.
           change_rewrite H1.
@@ -861,6 +765,7 @@ Module Make (FM : WS with Definition E.t := uvar
           { apply nth_error_get_hlist_nth_Some in H4. simpl in *.
             forward_reason. congruence. }
           subst.
+          red in exprD'_instantiate.
           eapply exprD'_instantiate with (tvs' := nil) (tvs := tvs) in H3.
           2: eapply sem_preserves_if_raw_substD; eassumption.
           simpl in H3.
@@ -1026,7 +931,7 @@ Module Make (FM : WS with Definition E.t := uvar
         inv_all; subst.
         specialize (H6 _ eq_refl).
         forward_reason. subst.
-        eapply exprD'_strengthen_last in H5; eauto.
+        eapply exprD'_strengthenU_single in H5; eauto.
         forward_reason.
         assert (k < length tus).
         { eapply nth_error_get_hlist_nth_Some in H4. simpl in *.
@@ -1091,7 +996,7 @@ Module Make (FM : WS with Definition E.t := uvar
           replace (length tus - length tus) with 0 in H5.
           forward_reason; inv_all; subst.
           subst.
-          eapply exprD'_strengthen_last in H4.
+          eapply exprD'_strengthenU_single in H4; try eassumption.
           { forward_reason.
             do 2 eexists.
             split; [ eassumption | ].

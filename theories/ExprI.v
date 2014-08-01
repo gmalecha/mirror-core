@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Option.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 
@@ -16,7 +17,7 @@ Section Expr.
 
   Definition ResType (us vs : tenv typ) (T : Type) : Type :=    option (hlist (typD nil) us -> hlist (typD nil) vs -> T).
 
-  (** TODO:
+  (** NOTE:
    ** - Right now this is intensionally weak, but it should probably include
    **   a few more operations given that it is already specialized for both
    **   [UVar] and [Var].
@@ -30,6 +31,8 @@ Section Expr.
                          ResType us vs (typD nil t)
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
+  ; mentionsU : nat -> expr -> bool
+  ; mentionsV : nat -> expr -> bool
   }.
 
   Theorem exprD'_conv (E : Expr)
@@ -73,6 +76,22 @@ Section Expr.
              exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
           /\ forall us vs us' vs',
                val us vs = val' (hlist_app us us') (hlist_app vs vs')
+  ; exprD'_strengthenU_single
+    : forall tus tvs e t t' val,
+      mentionsU (length tus) e = false ->
+      exprD' (tus ++ t :: nil) tvs e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs u,
+          val (hlist_app us (Hcons u Hnil)) vs = val' us vs
+  ; exprD'_strengthenV_single
+    : forall tus tvs e t t' val,
+      mentionsV (length tvs) e = false ->
+      exprD' tus (tvs ++ t :: nil) e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs u,
+          val us (hlist_app vs (Hcons u Hnil)) = val' us vs
   }.
 
   Context {Expr_expr : Expr}.
@@ -159,163 +178,132 @@ Section Expr.
     rewrite H. rewrite <- H0. reflexivity.
   Qed.
 
-(*
-  Class FuncInstance0 (T : Type) (F : T) : Type :=
-  { typ0_witness : TypInstance0 typD T
-  ; ctor0 : expr
-  ; ctor0_match : forall (R : expr -> Type)
-      (caseCtor : unit -> R ctor0)
-      (caseElse : forall e, R e)
-      (e : expr), R e
-  }.
+  Lemma list_rev_ind
+  : forall T (P : list T -> Prop),
+      P nil ->
+      (forall l ls, P ls -> P (ls ++ l :: nil)) ->
+      forall ls, P ls.
+  Proof.
+    clear. intros. rewrite <- rev_involutive.
+    induction (rev ls).
+    apply H.
+    simpl. auto.
+  Qed.
 
-  Class FuncInstance0Ok (T : Type) (F : T) (FI : @FuncInstance0 T F) : Type :=
-  { ctor0_iso : forall us vs P,
-      match exprD us vs ctor0 (@typ0 _ _ _ typ0_witness) with
-        | None => False
-        | Some G =>  P F <-> P (soutof (iso := typ0_iso nil) (fun x => x) G)
-      end
-  ; ctor0_match_ctor0 : forall R caseCtor caseElse,
-                          @ctor0_match _ _ FI R caseCtor caseElse ctor0 = caseCtor tt
-  }.
+  Require Import ExtLib.Data.Eq.
 
-  (** I think something is missing for the iso **)
-  Class FuncInstance1 (T : Type -> Type) (F : forall x, T x) : Type :=
-  { typ1_witness : TypInstance1 typD T
-  ; ctor1 : typ -> expr
-  ; ctor1_match : forall (R : expr -> Type)
-      (caseCtor : forall t, R (ctor1 t))
-      (caseElse : forall e, R e)
-      (e : expr), R e
-  }.
-
-  Class FuncInstance1Ok T F (FI : @FuncInstance1 T F) : Type :=
-  { ctor1_iso : forall us vs t P,
-      match exprD us vs (ctor1 t) (@typ1 _ _ _ typ1_witness t) with
-        | None => False
-        | Some G =>
-          P (F (typD nil t)) <-> P (soutof (iso := typ1_iso nil t) (fun x => x) G)
-      end
-  }.
-
-  Class FuncInstance2 (T : Type -> Type -> Type) (F : forall x y, T x y) : Type :=
-  { typ2_witness : TypInstance2 typD T
-  ; ctor2 : typ -> typ -> expr
-  ; ctor2_iso : forall us vs t u P,
-      match exprD us vs (ctor2 t u) (typ2 t u) with
-        | None => False
-        | Some G =>
-          P (F (typD nil t) (typD nil u)) <-> P (soutof (iso := typ2_iso nil t u) (fun x => x) G)
-      end
-  ; ctor2_match : forall (R : expr -> Type)
-      (caseCtor : forall t1 t2, R (ctor2 t1 t2))
-      (caseElse : forall e, R e)
-      (e : expr), R e
-  }.
-
-  (** This represents a function application **)
-  Class AppInstance (TF TD TR : typ) : Type :=
-  { fun_iso : forall ts, Iso (typD ts TF) (typD ts TD -> typD ts TR)
-  ; sapp : forall ts, typD ts TF -> typD ts TD -> typD ts TR
-  ; app1 : expr -> expr -> expr
-  ; app1_check : forall e : expr, option { x : expr * expr & Expr_acc (fst x) e /\ Expr_acc (snd x) e }
-  }.
-
-  Class AppInstanceOk d r f (AI : @AppInstance f d r) : Type :=
-  { app1_iso : forall us vs a b x y,
-                 exprD us vs a f = Some x ->
-                 exprD us vs b d = Some y ->
-                 exprD us vs (app1 a b) r = Some (sapp x y)
-  }.
-
-  (** Generic application **)
-  Record AppN (ft : typ) (dom : list typ) (ran : typ) : Type := mkAppN
-  { appn : expr -> vector expr (length dom) -> expr
-  ; appn_check : forall e : expr,
-                   option { x : expr * vector expr (length dom) & Expr_acc (fst x) e /\ ForallV (fun x => Expr_acc x e) (snd x) }
-  }.
-
-(*
-  Definition App0 A : AppN A nil A :=
-    mkAppN A nil A (fun f _ => f).
-
-  Definition AppS AS A R R' F (AI : @AppInstance F A R) (AI2 : @AppN R AS R') : AppN F (A :: AS) R'.
-  refine (mkAppN F (A :: AS) R'
-                 (fun f (args : vector expr (S (length AS))) =>
-                    appn AI2 (app1 f (vector_hd args)) (vector_tl args))).
-  Defined.
-*)
-
-  (** Application of a special symbol **)
-  Section exp.
-    Variable T : Type.
-
-    Fixpoint exp (n : nat) : Type :=
-      match n with
-        | 0 => T
-        | S n => T -> exp n
-      end.
-
-    Fixpoint app (n : nat) : exp n -> vector T n -> T :=
-      match n with
-        | 0 => fun x _ => x
-        | S n => fun x v => app (x (vector_hd v)) (vector_tl v)
-      end.
-
-  End exp.
+  Theorem exprD'_strengthenU_multi (EOk : ExprOk Expr_expr)
+  : forall tus tvs e  t' tus' val,
+      (forall u, u < length tus' ->
+                 mentionsU (length tus + u) e = false) ->
+      exprD' (tus ++ tus') tvs e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs us',
+          val (hlist_app us us') vs = val' us vs.
+  Proof.
+    intros tus tvs e t'.
+    refine (@list_rev_ind _ _ _ _).
+    { simpl. intros.
+      rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
+      rewrite H0.
+      unfold ResType. rewrite eq_option_eq.
+      eexists; split; eauto.
+      intros. rewrite (hlist_eta us').
+      rewrite hlist_app_nil_r.
+      clear.
+      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      reflexivity. }
+    { intros.
+      rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
+      unfold ResType in H1. rewrite eq_option_eq in H1.
+      forward.
+      eapply exprD'_strengthenU_single in H1.
+      + forward_reason.
+        eapply H in H1.
+        - forward_reason.
+          eexists; split; eauto.
+          intros. inv_all; subst.
+          clear - H3 H4.
+          specialize (H4 us vs (fst (hlist_split _ _ us'))).
+          specialize (H3 (hlist_app us (fst (hlist_split _ _ us')))
+                         vs (hlist_hd (snd (hlist_split _ _ us')))).
+          rewrite <- H4; clear H4.
+          rewrite <- H3; clear H3.
+          repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
+          f_equal.
+          rewrite hlist_app_assoc.
+          apply match_eq_match_eq.
+          f_equal.
+          etransitivity.
+          symmetry.
+          eapply (hlist_app_hlist_split _ _ us').
+          f_equal.
+          rewrite (hlist_eta (snd (hlist_split _ _ _))).
+          simpl. f_equal.
+          rewrite (hlist_eta (hlist_tl _)). reflexivity.
+        - intros.
+          eapply H0. rewrite app_length. simpl. omega.
+      + rewrite app_length.
+        apply H0. rewrite app_length. simpl. omega. }
+  Qed.
 
 
-  Record SymAppN (n : nat) (dom : list (vector typ n -> typ)) (ran : exp typ n) : Type := mkSymAppN
-  { sappn : vector typ n -> vector expr (length dom) -> expr
-  ; sappn_check : forall e : expr, option { x : vector typ n * vector expr (length dom) & ForallV (fun x => Expr_acc x e) (snd x) }
-  }.
-
-  Definition SymApp0_0 T F `(FI : @FuncInstance0 T F) : @SymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI)).
-  refine (@mkSymAppN 0 nil (@typ0 _ _ _ (@typ0_witness _ _ FI))
-                    (fun _ _ => @ctor0 _ _ FI)
-                    (fun e => @ctor0_match _ _ FI _ (fun x => Some (existT _ (Vnil _, Vnil _) _)) (fun e => None) e));
-  constructor.
-  Defined.
-
-  Definition SymApp1_0 T F `(FI : @FuncInstance1 T F) : @SymAppN 1 nil (@typ1 _ _ _ (@typ1_witness _ _ FI)).
-  refine (@mkSymAppN 1 nil (@typ1 _ _ _ (@typ1_witness _ _ FI))
-                    (fun vs _ => @ctor1 _ _ FI (vector_hd vs))
-                    (fun e => @ctor1_match _ _ FI _ (fun x => Some (existT _ (Vcons x (Vnil _), Vnil _) _)) (fun e => None) e));
-  constructor.
-  Defined.
-
-
-  Definition SymAppS n A AS F R `(FI : forall ts, @AppInstance (app F ts) (A ts) (app R ts)) (Ap : @SymAppN n AS F)
-  : @SymAppN n (A :: AS) R.
-  refine (@mkSymAppN n (A :: AS) R
-                    (fun ts args => @app1 _ _ _ (FI ts) (sappn Ap ts (vector_tl args)) (vector_hd args))
-                    (fun e =>
-                       match sappn_check Ap e with
-                         | None => None
-                         | Some (existT (ts_es) pf) =>
-                           match @app1_check _ _ _ (FI (fst ts_es)) e with
-                             | None => None
-                             | Some (existT (e_e') pf') =>
-                               let npf := @ForallV_cons _ (fun x => Expr_acc x e) _ _ _ (proj2 pf') pf in
-                               Some (existT _ (fst ts_es, Vcons (snd e_e') (snd ts_es)) npf)
-                           end
-                       end)).
-  Defined.
-
-  (** Binder **)
-  Record Lambda : Type :=
-  { lambda : typ -> expr -> expr
-  ; lambda_check : forall e : expr, option { x : typ * expr & Expr_acc (snd x) e }
-  ; subst0 : expr -> expr -> expr
-  }.
-
-(*
-  Definition App2 A B C D (AI : @AppInstance A B C) (AI2 : @AppInstance B D C) : AppN D (A :: B :: nil) C.
-  refine (mkAppN D (A :: B :: nil) C
-                 (fun f (args : vector expr 2) => app1 (app1 f (vector_hd args)) (vector_hd (vector_tl args)))).
-  Defined.
-*)
-*)
+  Theorem exprD'_strengthenV_multi (EOk : ExprOk Expr_expr)
+  : forall tus tvs e  t' tvs' val,
+      (forall v, v < length tvs' ->
+                 mentionsV (length tvs + v) e = false) ->
+      exprD' tus (tvs ++ tvs') e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs vs',
+          val us (hlist_app vs vs') = val' us vs.
+  Proof.
+    intros tus tvs e t'.
+    refine (@list_rev_ind _ _ _ _).
+    { simpl. intros.
+      rewrite exprD'_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
+      rewrite H0.
+      unfold ResType. rewrite eq_option_eq.
+      eexists; split; eauto.
+      intros. rewrite (hlist_eta vs').
+      rewrite hlist_app_nil_r.
+      clear.
+      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      reflexivity. }
+    { intros.
+      rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil)) (pfu := eq_refl) in H1.
+      unfold ResType in H1. rewrite eq_option_eq in H1.
+      forward.
+      eapply exprD'_strengthenV_single in H1.
+      + forward_reason.
+        eapply H in H1.
+        - forward_reason.
+          eexists; split; eauto.
+          intros. inv_all; subst.
+          clear - H3 H4.
+          specialize (H4 us vs (fst (hlist_split _ _ vs'))).
+          specialize (H3 us (hlist_app vs (fst (hlist_split _ _ vs')))
+                         (hlist_hd (snd (hlist_split _ _ vs')))).
+          rewrite <- H4; clear H4.
+          rewrite <- H3; clear H3.
+          repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
+          f_equal.
+          rewrite hlist_app_assoc.
+          apply match_eq_match_eq.
+          f_equal.
+          etransitivity.
+          symmetry.
+          eapply (hlist_app_hlist_split _ _ vs').
+          f_equal.
+          rewrite (hlist_eta (snd (hlist_split _ _ _))).
+          simpl. f_equal.
+          rewrite (hlist_eta (hlist_tl _)). reflexivity.
+        - intros.
+          eapply H0. rewrite app_length. simpl. omega.
+      + rewrite app_length.
+        apply H0. rewrite app_length. simpl. omega. }
+  Qed.
 
 End Expr.
 
@@ -323,3 +311,5 @@ Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments ResType {_ RType} _ _ _ : rename.
+Arguments mentionsU {_ RType _ Expr} _ _ : rename.
+Arguments mentionsV {_ RType _ Expr} _ _ : rename.

@@ -79,6 +79,15 @@ Section Env.
     exact split_env_projT1.
   Qed.
 
+  Lemma join_env_app
+  : forall a b (ax : hlist _ a) (bx : hlist _ b),
+      join_env ax ++ join_env bx = join_env (hlist_app ax bx).
+  Proof.
+    clear.
+    induction ax; simpl; intros; auto.
+    f_equal. auto.
+  Qed.
+
   Theorem split_env_nth_error : forall (ve : env) v tv,
     nth_error ve v = Some tv <->
     match nth_error (projT1 (split_env ve)) v as t

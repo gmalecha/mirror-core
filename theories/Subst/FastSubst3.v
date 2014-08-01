@@ -667,6 +667,28 @@ Section parametric.
       | Some ls => Some (fun us vs => Forall (fun P => P us vs) ls)
     end.
 
+  Lemma xelements_xmapi
+  : forall T U (f : positive -> T -> U) x p,
+      xelements (xmapi f x p) p =
+      map (fun kv => (fst kv,
+                      f (fst kv) (snd kv))) (xelements x p).
+  Proof.
+    induction x; simpl; intros.
+    { reflexivity. }
+    { destruct o; simpl; rewrite IHx1; rewrite IHx2.
+      { rewrite map_app. reflexivity. }
+      { rewrite map_app. reflexivity. } }
+  Qed.
+
+  Lemma elements_mapi
+  : forall T U (f : positive -> T -> U) x,
+      elements (mapi f x) =
+      map (fun kv => (fst kv,
+                      f (fst kv) (snd kv))) (elements x).
+  Proof.
+    unfold elements, mapi. intros. apply xelements_xmapi.
+  Qed.
+
   Theorem substD_fast_subst_substD_fast_subst'
   : forall tus tvs s,
       match substD_fast_subst tus tvs s , substD_fast_subst' tus tvs s with
@@ -677,35 +699,7 @@ Section parametric.
   Proof.
     intros.
     unfold substD_fast_subst, substD_fast_subst_list, substD_fast_subst'.
-    Lemma xelements_xmapi
-    : forall T U (f : positive -> T -> U) x p,
-        xelements (xmapi f x p) p =
-        map (fun kv => (fst kv,
-                        f (fst kv) (snd kv))) (xelements x p).
-    Proof.
-      induction x; simpl; intros.
-      { reflexivity. }
-      { destruct o; simpl; rewrite IHx1; rewrite IHx2.
-        { rewrite map_app. reflexivity. }
-        { rewrite map_app. reflexivity. } }
-    Qed.
-    Lemma elements_mapi
-    : forall T U (f : positive -> T -> U) x,
-        elements (mapi f x) =
-        map (fun kv => (fst kv,
-                        f (fst kv) (snd kv))) (elements x).
-    Proof.
-      unfold elements, mapi. intros. apply xelements_xmapi.
-    Qed.
     rewrite elements_mapi.
-    Lemma mapT_map
-    : forall T U V (f : T -> U) (g : U -> option V) x,
-        mapT g (map f x) = 
-        mapT (fun x => g (f x)) x.
-    Proof.
-      induction x; simpl in *; auto.
-      { rewrite IHx. reflexivity. }
-    Qed.
     rewrite mapT_map.
     rewrite fold_1.
     simpl.

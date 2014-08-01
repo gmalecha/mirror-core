@@ -1,5 +1,6 @@
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.TypesI.

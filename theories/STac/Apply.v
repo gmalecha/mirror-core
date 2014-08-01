@@ -1,13 +1,16 @@
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
+Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.STac.Core.
 Require Import MirrorCore.STac.Continuation.
 
@@ -26,7 +29,6 @@ Section parameterized.
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
-  Variable mentionsU : nat -> expr -> bool.
 
   Section apply.
     Variable Subst_subst : Subst subst expr.
@@ -72,6 +74,7 @@ Section parameterized.
   Variable SubstUpdate_subst : SubstUpdate subst expr.
   Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
   Variable UnifySound_exprUnify : unify_sound _ exprUnify.
+  Variable NormalizedSubst : NormalizedSubstOk SubstOk_subst.
 
   Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
      (t : typ) (tvs' : list typ)
@@ -87,36 +90,9 @@ Section parameterized.
         (vs : hlist (typD nil) tvs0),
       val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
-  Hypothesis exprD'_instantiate
-  : forall tus tvs f e tvs' t eD P,
-      @sem_preserves_if _ _ _ Expr_expr tus tvs P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
-      exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
-        forall us vs vs',
-          P us vs ->
-          eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
+  Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
 
-  Hypothesis exprD'_strengthen
-  : forall tus tu (e : expr) tvs (t : typ) eD,
-      mentionsU (length tus) e = false ->
-      exprD' (tus ++ tu :: nil) tvs e t = Some eD ->
-      exists eD',
-        exprD' tus tvs e t = Some eD' /\
-        forall us u vs,
-          eD (hlist_app us (Hcons u Hnil)) vs = eD' us vs.
-
-  Hypothesis instantiate_mentionsU
-  : forall f n e u,
-      mentionsU u (instantiate f n e) = true <->
-      (   (f u = None /\ mentionsU u e = true)
-       \/ exists u' e',
-            f u' = Some e' /\
-            mentionsU u' e = true/\
-            mentionsU u e' = true).
-
-  Hypothesis NormalizedSubst : NormalizedSubstOk mentionsU SubstOk_subst.
-
+  Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
 
   Lemma exprD'_instantiate_substD
   : forall s tus tvs e t P val,
@@ -130,6 +106,7 @@ Section parameterized.
           val us vs = val' us vs.
   Proof.
     intros.
+    red in exprD'_instantiate.
     eapply exprD'_instantiate
       with (tvs' := nil) (f := fun u => lookup u s) (P:=P)
       in H1.
@@ -155,41 +132,6 @@ Section parameterized.
       rewrite (UIP_refl x2). reflexivity. }
   Qed.
 
-  Lemma mapT_map : forall T U V (f : U -> option V) (g : T -> U) ls,
-                     mapT f (map g ls) = mapT (fun x => f (g x)) ls.
-  Proof.
-    clear. induction ls; try solve [ simpl; auto ].
-    simpl map. do 2 rewrite list_mapT_cons.
-    destruct (f (g a)); auto.
-    rewrite IHls. reflexivity.
-  Qed.
-
-  Lemma map_mapT : forall T U V (f : T -> option U) (g : U -> V) ls,
-                     match mapT f ls with
-                       | None => None
-                       | Some x => Some (map g x)
-                     end = mapT (fun x => match f x with
-                                            | None => None
-                                            | Some x => Some (g x)
-                                          end) ls.
-  Proof.
-    clear. induction ls; auto.
-    do 2 rewrite list_mapT_cons.
-    destruct (f a); auto.
-    rewrite <- IHls.
-    destruct (mapT f ls); auto.
-  Qed.
-
-  Lemma mapT_ext : forall T U (f g : T -> option U),
-                     (forall x, f x = g x) ->
-                     forall (ls : list T),
-                       mapT f ls = mapT g ls.
-  Proof.
-    clear. induction ls; auto; intros.
-    do 2 rewrite list_mapT_cons.
-    rewrite H. rewrite IHls. destruct (g a); auto.
-  Qed.
-
   Lemma join_env_app
   : forall ts a b (ax : hlist _ a) (bx : hlist _ b),
       join_env ax ++ join_env (ts := ts) bx = join_env (hlist_app ax bx).
@@ -208,11 +150,6 @@ Section parameterized.
     { split; inversion 1; intros; subst; constructor; auto.
       apply IHls. auto. apply IHls. auto. }
   Qed.
-
-  Let provable P :=
-    match typ0_cast nil in _ = T return T with
-      | eq_refl => P
-    end.
 
   Lemma lemmaD'_convert
   : forall tyProp concl lem F G H tus tvs P,
@@ -281,8 +218,7 @@ Section parameterized.
         specialize (H0 A B C D E)
     end.
     eapply pull_for_instantiate_sound
-      with (instantiate := instantiate) (mentionsU := mentionsU)
-           (tvs := tvs) in H4; eauto.
+      with (instantiate := instantiate) (tvs := tvs) in H4; eauto.
     forward_reason.
     { do 3 match goal with
              | |- context [ match ?X with Some _ => _ | None => True end ] =>

@@ -3,7 +3,7 @@ MONAD2  := MonadTypes MonadSym MonadExpr Tests MonadReify MonadReduce
 MTAC    := Patterns McMatch
 SETOID  := Demo
 IMP     := Imp Wp
-AUTO    := AutoProver # Demo Demo2 -- temporary
+AUTO    := # Demo Demo2 -- temporary
 AUTORW  := SetoidRewrite AutoRewriteLambda
 SIMPLE  := Simple
 MODULES := $(MONAD2:%=Monad2/%) \

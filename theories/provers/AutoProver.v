@@ -6,8 +6,9 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SubstI3.
-Require Import MirrorCore.EProver2.
+Require Import MirrorCore.SubstI.
+Require Import MirrorCore.EProverI.
+Require Import MirrorCore.ExprProp.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.Util.Iteration.
@@ -63,7 +64,7 @@ Section parameterized.
 
   Record HintsOk (h : Hints) : Type :=
   { ApplyOk : Forall (lemmaD nil nil) h.(Apply)
-  ; ExternOk : @EProverOk _ RType_typ expr _ tyProp provable h.(Extern)
+  ; ExternOk : EProverOk h.(Extern)
   }.
 
   (** TODO: This is essentially [filter_map] **)
@@ -162,13 +163,13 @@ Section parameterized.
        forall fD sD gD,
          factsD Hok.(ExternOk) tus tvs facts = Some fD ->
          substD tus tvs s = Some sD ->
-         exprD' tus tvs g tyProp = Some gD ->
+         Provable tus tvs g = Some gD ->
          exists sD',
            substD tus tvs s' = Some sD' /\
            forall us vs,
              fD us vs ->
              sD' us vs ->
-             provable (gD us vs) /\ sD us vs.
+             sD us vs /\ gD us vs.
 
   Lemma get_applicable_sound
   : forall g app lems,
@@ -355,14 +356,9 @@ Section parameterized.
         consider X; intros; inv_all; subst; auto
     end.
     { (** Extern **)
-      eapply (@Prove_sound _ _ _ _ _ _ _ Hok.(ExternOk)) in H0.
+      eapply (Prove_sound Hok.(ExternOk)) in H0.
       forward_reason.
-      split; auto. intros.
-      specialize (H2 _ _ _ H3 H4 H5).
-      forward_reason.
-      eexists; split; eauto.
-      intros.
-      specialize (H6 _ _ H7). intuition. }
+      split; auto. }
     { (** Apply **)
       clear H0.
       eapply first_success_sound in H2.
@@ -383,7 +379,7 @@ Section parameterized.
           (forall fD sD gD,
               factsD (ExternOk Hok) tus tvs facts = Some fD ->
               substD (tus ++ vars l) tvs s0 = Some sD ->
-              exprD' tus (vars l ++ tvs) (concl l) tyProp = Some gD ->
+              Provable tus (vars l ++ tvs) (concl l) = Some gD ->
               exists sD',
                 substD (tus ++ vars l) tvs s1 = Some sD' /\
                 (forall (us : hlist (typD nil) tus)
@@ -393,9 +389,9 @@ Section parameterized.
                    sD' (hlist_app us vs') vs ->
                       (impls
                          (map (fun x => provable (x Hnil (hlist_app vs' Hnil))) l0)
-                         (provable (gD us (hlist_app vs' vs))) ->
-                       provable (gD us (hlist_app vs' vs)))
-                   /\ sD (hlist_app us vs') vs))).
+                         (gD us (hlist_app vs' vs)) ->
+                      sD (hlist_app us vs') vs
+                   /\ gD us (hlist_app vs' vs))))).
       { (** This is actually applying the lemma **)
         clear H3 H5 H recurse H0.
         intros.
@@ -404,9 +400,9 @@ Section parameterized.
         forward_reason.
         split; auto. intros. progress fill_holes.
         assert (exists y,
-                  exprD' tus (vars l ++ tvs) (concl l) tyProp = Some y /\
+                  Provable tus (vars l ++ tvs) (concl l) = Some y /\
                   forall a b c,
-                    P0 Hnil (hlist_app a Hnil) <-> provable (y b (hlist_app a c))).
+                    P0 Hnil (hlist_app a Hnil) <-> y b (hlist_app a c)).
         { unfold ResType in H8. rewrite eq_option_eq in H8.
           forward.
           eapply (@ExprI.exprD'_weaken _ _ _ Expr_expr)
@@ -414,17 +410,19 @@ Section parameterized.
           simpl in H8. destruct H8 as [ ? [ ? ? ] ].
           generalize (@exprD'_conv _ _ _ Expr_expr tus tus (vars l ++ tvs) ((vars l ++ nil) ++ tvs) (concl l) tyProp eq_refl (app_ass_trans _ _ _)).
           simpl.
-          rewrite H8. intro XXX; rewrite XXX; clear XXX.
+          rewrite H8.
+          unfold Provable.
+          intro XXX; change_rewrite XXX; clear XXX.
           unfold ResType. rewrite eq_option_eq.
           eexists; split; eauto. inv_all.
           subst.
           intros. repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-          erewrite H13.
+          erewrite H12.
           instantiate (1 := c). instantiate (1 := b).
           simpl.
           rewrite hlist_app_assoc. simpl. reflexivity. }
-        destruct H12 as [ ? [ ? ? ] ].
-        progress fill_holes.
+        destruct H11 as [ ? [ ? ? ] ].
+(*        progress fill_holes. *)
         repeat match goal with
                  | H : _ |- _ => specialize (H us vs)
                end.

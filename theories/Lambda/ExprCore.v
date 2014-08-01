@@ -109,6 +109,30 @@ Section env.
     constructor. eapply expr_eq_dec_eq.
   Qed.
 
+  Section mentionsU.
+    Variable u : uvar.
+
+    Fixpoint mentionsU (e : expr) : bool :=
+      match e with
+        | Var _
+        | Inj _ => false
+        | UVar u' => EqNat.beq_nat u u'
+        | App f e => if mentionsU f then true else mentionsU e
+        | Abs _ e => mentionsU e
+      end.
+  End mentionsU.
+
+  Section mentionsV.
+    Fixpoint mentionsV (v : var) (e : expr) : bool :=
+      match e with
+        | Var v' => v ?[ eq ] v'
+        | Inj _
+        | UVar _ => false
+        | App a b => if mentionsV v a then true else mentionsV v b
+        | Abs _ e => mentionsV (S v) e
+      end.
+  End mentionsV.
+
 End env.
 
 Arguments Var {typ func} _.
@@ -116,3 +140,5 @@ Arguments Inj {typ func} _.
 Arguments UVar {typ func} _.
 Arguments App {typ func} _ _.
 Arguments Abs {typ func} _ _.
+Arguments mentionsU {typ func} _ _.
+Arguments mentionsV {typ func} _ _.

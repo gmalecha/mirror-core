@@ -5,6 +5,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Bool.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
@@ -13,35 +14,14 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Require Import FunctionalExtensionality.
-
-Section substU.
-  Variable typ : Type.
-  Variable func : Type.
-  Variable u : uvar.
-  Variable e' : expr typ func.
-
-  (** This replaces [UVar under] with [e] doing the appropriate
-   ** lifing.
-   **)
-  Fixpoint substU (under : nat) (e : expr typ func) : expr typ func :=
-    match e with
-      | Var _ => e
-      | Inj _ => e
-      | App l r => App (substU under l) (substU under r)
-      | Abs t e => Abs t (substU (S under) e)
-      | UVar u' =>
-        if u ?[ eq ] u' then
-          lift 0 under e'
-        else UVar u'
-    end.
-End substU.
 
 Section mentionsU.
   Variable typ : Type.
@@ -810,4 +790,28 @@ Section getInstantiation.
         intuition eauto. } } *)
   Qed.
 End getInstantiation.
+*)
+
+(*
+Section substU.
+  Variable typ : Type.
+  Variable func : Type.
+  Variable u : uvar.
+  Variable e' : expr typ func.
+
+  (** This replaces [UVar under] with [e] doing the appropriate
+   ** lifing.
+   **)
+  Fixpoint substU (under : nat) (e : expr typ func) : expr typ func :=
+    match e with
+      | Var _ => e
+      | Inj _ => e
+      | App l r => App (substU under l) (substU under r)
+      | Abs t e => Abs t (substU (S under) e)
+      | UVar u' =>
+        if u ?[ eq ] u' then
+          lift 0 under e'
+        else UVar u'
+    end.
+End substU.
 *)

@@ -3,6 +3,7 @@ Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Fun.
