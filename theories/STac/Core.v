@@ -7,7 +7,7 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -213,4 +213,4 @@ Export MirrorCore.EnvI.
 Export MirrorCore.SymI.
 Export MirrorCore.ExprI.
 Export MirrorCore.TypesI.
-Export MirrorCore.SubstI3.
+Export MirrorCore.SubstI.

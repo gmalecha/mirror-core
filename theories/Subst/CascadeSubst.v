@@ -1,6 +1,6 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Nat.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
 Set Strict Implicit.

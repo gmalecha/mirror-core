@@ -5,7 +5,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.Prover2.
+Require Import MirrorCore.ProverI.
 Require Import MirrorCore.provers.ProverTac.
 Require Import MirrorCore.ExprProp.
 

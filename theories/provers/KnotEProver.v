@@ -1,7 +1,7 @@
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SubstI3.
-Require Import MirrorCore.EProver2.
+Require Import MirrorCore.SubstI.
+Require Import MirrorCore.EProver.
 
 Set Implicit Arguments.
 Set Strict Implicit.

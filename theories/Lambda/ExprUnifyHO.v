@@ -15,7 +15,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
@@ -848,7 +848,7 @@ Let testit tus tvs (e1 e2 : expr typ func) (t : typ) :=
                               (@FMapSubst3.SUBST.SubstUpdate_subst _
                                  (@mentionsU _ _)
                                  (@instantiate _ _))
-                              _ 100 nil tus tvs (length tvs) (@SubstI3.empty _ (expr typ func) (@FMapSubst3.SUBST.SubstUpdate_subst _
+                              _ 100 nil tus tvs (length tvs) (@SubstI.empty _ (expr typ func) (@FMapSubst3.SUBST.SubstUpdate_subst _
                                  (@mentionsU _ _)
                                  (@instantiate _ _))) e1 nil e2 nil t.
 

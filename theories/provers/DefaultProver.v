@@ -2,7 +2,7 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Prover2.
+Require Import MirrorCore.ProverI.
 
 Set Implicit Arguments.
 Set Strict Implicit.

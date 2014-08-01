@@ -3,9 +3,9 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprProp.
-Require Import MirrorCore.Prover2.
+Require Import MirrorCore.ProverI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -168,11 +168,11 @@ Section proverI.
 
     Definition from_Prover : EProver :=
       @Build_EProver
-        p.(Prover2.Facts)
-        p.(Prover2.Summarize)
-        p.(Prover2.Learn)
+        p.(ProverI.Facts)
+        p.(ProverI.Summarize)
+        p.(ProverI.Learn)
         (fun subst Subst facts uenv venv s goal =>
-           if p.(Prover2.Prove) facts uenv venv goal then Some s else None).
+           if p.(ProverI.Prove) facts uenv venv goal then Some s else None).
 
     Variable p_correct : ProverOk p.
 
@@ -180,14 +180,14 @@ Section proverI.
     Proof.
       refine (
           @Build_EProverOk from_Prover
-                                  p_correct.(Prover2.factsD) _ _ _ _);
+                                  p_correct.(ProverI.factsD) _ _ _ _);
       try solve [ destruct p_correct; simpl; intuition eauto ].
       unfold EProveOk, ProveOk in *.
       intros. simpl in H0.
       simpl in H. forward. inv_all; subst.
       split; auto. intros.
       eexists; split; eauto. intros. split; auto.
-      eapply Prover2.Prove_sound in H; eauto.
+      eapply ProverI.Prove_sound in H; eauto.
       eapply H; eauto.
     Qed.
   End non_eprover.

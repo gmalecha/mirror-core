@@ -5,7 +5,7 @@ Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.

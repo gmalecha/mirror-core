@@ -5,7 +5,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.STac.Core.
 
 Set Implicit Arguments.
