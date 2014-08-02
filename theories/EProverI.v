@@ -1,4 +1,5 @@
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
@@ -85,6 +86,76 @@ Section proverI.
              (Sok : SubstOk _ _),
         EProveOk Sok factsD (@Prove P subst Ssubst)
   }.
+
+  Lemma factsD_conv P (Pok : EProverOk P)
+  : forall tus tvs tus' tvs' f (pfu : tus' = tus) (pfv : tvs' = tvs),
+      Pok.(factsD) tus tvs f =
+      match pfu in _ = u' return ResType u' _ Prop with
+        | eq_refl =>
+          match pfv in _ = v' return ResType _ v' Prop with
+            | eq_refl => Pok.(factsD) tus' tvs' f
+          end
+      end.
+  Proof.
+    destruct pfu. destruct pfv. reflexivity.
+  Qed.
+
+  Lemma factsD_weakenU P (Pok : EProverOk P)
+  : forall tus tvs f sumD,
+      Pok.(factsD) tus tvs f = Some sumD ->
+      forall tus',
+      exists sumD',
+           Pok.(factsD) (tus ++ tus') tvs f = Some sumD'
+        /\ forall us vs us',
+             sumD us vs <->
+             sumD' (HList.hlist_app us us') vs.
+  Proof.
+    intros.
+    eapply factsD_weaken with (tus' := tus') (tvs' := nil) in H.
+    forward_reason.
+    rewrite factsD_conv with (pfu := eq_refl) (pfv := HList.app_nil_r_trans tvs).
+    rewrite H. unfold ResType.
+    rewrite eq_option_eq.
+    eexists; split; eauto.
+    intros. rewrite (H0 us vs us' HList.Hnil).
+    rewrite HList.hlist_app_nil_r.
+    clear.
+    match goal with
+      | |- _ _ match eq_sym ?X with _ => _ end <-> match ?Y with _ => _ end _ _ =>
+        change Y with X; generalize X
+    end.
+    generalize dependent (tvs ++ nil).
+    intros; subst. reflexivity.
+  Qed.
+
+  Lemma factsD_weakenV P (Pok : EProverOk P)
+  : forall tus tvs f sumD,
+      Pok.(factsD) tus tvs f = Some sumD ->
+      forall tvs',
+      exists sumD',
+           Pok.(factsD) tus (tvs ++ tvs') f = Some sumD'
+        /\ forall us vs vs',
+             sumD us vs <->
+             sumD' us (HList.hlist_app vs vs').
+  Proof.
+    intros.
+    eapply factsD_weaken with (tvs' := tvs') (tus' := nil) in H.
+    forward_reason.
+    rewrite factsD_conv with (pfv := eq_refl) (pfu := HList.app_nil_r_trans tus).
+    rewrite H. unfold ResType.
+
+    rewrite eq_option_eq.
+    eexists; split; eauto.
+    intros. rewrite (H0 us vs HList.Hnil vs').
+    rewrite HList.hlist_app_nil_r.
+    clear.
+    match goal with
+      | |- _ match eq_sym ?X with _ => _ end _ <-> match ?Y with _ => _ end _ _ =>
+        change Y with X; generalize X
+    end.
+    generalize dependent (tus ++ nil).
+    intros; subst. reflexivity.
+  Qed.
 
   (** Composite Prover **)
   Section composite.

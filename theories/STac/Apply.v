@@ -24,7 +24,6 @@ Section parameterized.
   Variable RType_typ : RType typ.
   Variable Typ0_Prop : Typ0 _ Prop.
   Let tyProp : typ := @typ0 _ _ _ _.
-  Variable EqDec_eq_typ : EqDec typ (@eq typ).
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -39,7 +38,7 @@ Section parameterized.
                    exprUnify.
 
     (** Think of this like:
-     **   apply lem ; [ solve [ tac ] | solve [ tac ] | .. | try solve [ tac ] ]
+     **   apply lem ; cont
      ** i.e. first apply the lemma and then require that all side-conditions
      ** except the last are solved by the prover [tac], currently with
      ** empty facts.
@@ -93,63 +92,6 @@ Section parameterized.
   Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
 
   Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
-
-  Lemma exprD'_instantiate_substD
-  : forall s tus tvs e t P val,
-      WellFormed_subst s ->
-      substD tus tvs s = Some P ->
-      exprD' tus tvs e t = Some val ->
-      exists val',
-        exprD' tus tvs (instantiate (fun u => lookup u s) 0 e) t = Some val' /\
-        forall us vs,
-          P us vs ->
-          val us vs = val' us vs.
-  Proof.
-    intros.
-    red in exprD'_instantiate.
-    eapply exprD'_instantiate
-      with (tvs' := nil) (f := fun u => lookup u s) (P:=P)
-      in H1.
-    { clear - H H0 H1. simpl in *.
-      forward_reason. eexists; split; eauto.
-      intros. specialize (H2 us vs Hnil).
-      apply H2; auto. }
-    { red. intros.
-      eapply substD_lookup in H2; eauto.
-      eapply nth_error_get_hlist_nth_Some in H3.
-      simpl in *.
-      forward_reason.
-      assert (x = t0).
-      { clear - x2 x1. rewrite <- x1 in x2.
-        inv_all; auto. }
-      subst.
-      eexists; split; eauto.
-      intros. eapply H4 in H5; clear H4.
-      rewrite H3.
-      rewrite H5.
-      clear - EqDec_eq_typ.
-      destruct x1.
-      rewrite (UIP_refl x2). reflexivity. }
-  Qed.
-
-  Lemma join_env_app
-  : forall ts a b (ax : hlist _ a) (bx : hlist _ b),
-      join_env ax ++ join_env (ts := ts) bx = join_env (hlist_app ax bx).
-  Proof.
-    clear.
-    induction ax; simpl; intros; auto.
-    f_equal. auto.
-  Qed.
-
-  Lemma Forall_map
-  : forall T U (f : T -> U) P ls,
-      Forall P (List.map f ls) <-> Forall (fun x => P (f x)) ls.
-  Proof.
-    induction ls; simpl.
-    { split; intros; constructor. }
-    { split; inversion 1; intros; subst; constructor; auto.
-      apply IHls. auto. apply IHls. auto. }
-  Qed.
 
   Lemma lemmaD'_convert
   : forall tyProp concl lem F G H tus tvs P,

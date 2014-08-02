@@ -1,6 +1,6 @@
 GENERIC :=
 UTIL := Approx Iteration ListMapT Forwardy
-PROVERS := ProverTac AssumptionProver DefaultProver # AutoProver -- TODO
+PROVERS := ProverTac AssumptionProver DefaultProver AutoProver
 SUBST   := UVarMap FMapSubst CascadeSubst # SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
 	      ExprT \
@@ -17,7 +17,7 @@ LAMBDA := ResType \
 	  Expr ExprLift Red \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
-	  ExprUnify ExprUnify_simul \
+	  ExprUnify_common ExprUnify ExprUnify_simul \
 	  ExprSubst AppN
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
@@ -82,6 +82,9 @@ depgraph: Makefile.coq
 	@ echo Generating dependency graph to ../deps.pdf
 	@ ./../tools/deps.py $(MODULES:%=%.v.d) | sed '/coq_ext_lib/d' > ../deps.dot
 	@ cat ../deps.dot | dot -Tpdf -o ../deps.pdf
+
+wc:
+	@ wc $(VS)
 
 toplevel: coq
 	coqtop.opt $(ARGS)

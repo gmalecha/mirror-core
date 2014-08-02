@@ -13,9 +13,11 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprUnify_common.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
+Require Import MirrorCore.Util.Forwardy.
 
 Require Import FunctionalExtensionality.
 
@@ -44,7 +46,6 @@ Section typed.
                             | Some _ => true
                             | None => false
                           end }.
-  Variable EqDec_typ : EqDec typ (@eq typ).
 
   Section nested.
     Variable ts : list Type.
@@ -286,33 +287,11 @@ Section typed.
   Existing Instance SubstUpdate_subst.
   Existing Instance SubstOk_subst.
 
-  Definition unify_sound_ind
-    (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
-                    (l r : expr typ func)
-                    (t : typ), option subst) : Prop :=
-    forall tu tv e1 e2 s s' t tv',
-      unify (@nil Type) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
-      WellFormed_subst (expr := expr typ func) s ->
-      WellFormed_subst (expr := expr typ func) s' /\
-      forall v1 v2 sD,
-        exprD' nil tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' nil tu (tv' ++ tv) t e2 = Some v2 ->
-        substD tu tv s = Some sD ->
-        exists sD',
-             substD (expr := expr typ func) tu tv s' = Some sD'
-          /\ forall us vs,
-               sD' us vs ->
-               sD us vs /\
-               forall vs',
-                 v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs).
-
-  Definition unify_sound := unify_sound_ind.
-
   Definition unify_sound_mutual
     (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
                     (l r : expr typ func)
                     (t : typ), option subst) : Prop :=
-    unify_sound unify ->
+    unify_sound _ unify ->
     forall tu tv e1 e2 s s' t tv',
       (exprUnify' (@nil Type) (@unify nil) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
@@ -362,343 +341,6 @@ Section typed.
                end
            end.
 
-  Lemma lookup_lift
-  : forall u s e tu tv tv' t sD v1,
-      lookup u s = Some e ->
-      WellFormed_subst s ->
-      substD tu tv s = Some sD ->
-      exprD' nil tu (tv' ++ tv) t (UVar u) = Some v1 ->
-      exists v1',
-        exprD' nil tu (tv' ++ tv) t (lift 0 (length tv') e) = Some v1' /\
-        forall us vs vs',
-          sD us vs ->
-          v1 us (hlist_app vs' vs) = v1' us (hlist_app vs' vs).
-  Proof.
-    intros.
-    eapply substD_lookup in H; eauto.
-    simpl in *. forward_reason.
-    generalize (@exprD'_lift typ func RType_typ Typ2_arr _ _ _ _
-                             nil tu e nil tv' tv x).
-    simpl. change_rewrite H.
-    intros; forward.
-    autorewrite with exprD_rw in H2. simpl in H2.
-    forward.
-    inv_all. subst. destruct r.
-    eapply nth_error_get_hlist_nth_Some in H6. simpl in H6.
-    forward_reason.
-    assert (x2 = x) by congruence.
-    subst.
-    eexists; split; eauto.
-    intros.
-    unfold Rcast_val,Rcast,Relim; simpl.
-    rewrite H2; clear H2.
-    eapply H3 in H6. change_rewrite H6.
-    specialize (H5 us Hnil vs' vs). simpl in H5.
-    change_rewrite H5.
-    match goal with
-      | |- match _ with eq_refl => match _ with eq_refl => ?X end end = ?Y =>
-        change Y with X ; generalize X
-    end.
-    clear - EqDec_typ.
-    destruct x1.
-    rewrite (UIP_refl x3). reflexivity.
-  Qed.
-
-  Lemma handle_set
-  : forall (e0 : expr typ func) (u : uvar) (s s' : subst),
-      set u e0 s = Some s' ->
-      lookup u s = None ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      forall (tu : tenv typ) (tv : list typ)
-             (t : typ) (tv' : list typ),
-        (forall
-            (v1 : _)
-            (v2 : hlist (typD nil) tu ->
-                    hlist (typD nil) (tv' ++ tv) -> typD nil t)
-            (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-            exprD' nil tu tv t e0 = Some v1 ->
-            exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 ->
-            substD tu tv s = Some sD ->
-            exists
-              sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
-              substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu)
-                      (vs : hlist (typD nil) tv),
-                 sD' us vs ->
-                 sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
-                    v1 us vs = v2 us (hlist_app vs' vs)))).
-  Proof.
-    intros.
-    eapply set_sound in H; eauto.
-    forward_reason; split; eauto.
-    intros.
-    autorewrite with exprD_rw in *. simpl in *.
-    forward; inv_all; subst.
-    destruct r.
-    eapply nth_error_get_hlist_nth_Some in H6.
-    forward_reason.
-    simpl in *.
-    specialize (H2 tu tv x _ _ H5 (eq_sym x0) H3).
-    forward_reason.
-    eexists; split; eauto.
-    intros. specialize (H6 _ _ H8).
-    forward_reason.
-    split; auto. intros.
-    unfold Rcast_val, Rcast, Relim. simpl.
-    rewrite H4.
-    match goal with
-      | H : ?X = _ |- context [ ?Y ] =>
-        change Y with X ; rewrite H
-    end.
-    rewrite match_eq_sym_eq. reflexivity.
-  Qed.
-
-  Lemma handle_set_lower
-  : forall (e0 : expr typ func)
-           (u : uvar) (s s' : subst),
-      set u e0 s = Some s' ->
-      forall (NoUVar : lookup u s = None),
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      forall (tu : tenv typ) (tv : list typ)
-             (t : typ) (tv' : list typ) (e : expr typ func),
-        lower 0 (length tv') e = Some e0 ->
-        (forall
-            (v1
-               v2 : hlist (typD nil) tu ->
-                    hlist (typD nil) (tv' ++ tv) -> typD nil t)
-            (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-            exprD' nil tu (tv' ++ tv) t e = Some v1 ->
-            exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 ->
-            substD tu tv s = Some sD ->
-            exists
-              sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
-              substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu)
-                      (vs : hlist (typD nil) tv),
-                 sD' us vs ->
-                 sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
-                    v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
-  Proof.
-    intros.
-    eapply set_sound in H; eauto.
-    forward_reason; split; eauto.
-    intros.
-    autorewrite with exprD_rw in *. simpl in *.
-    forward; inv_all; subst.
-    eapply nth_error_get_hlist_nth_Some in H6.
-    forward_reason.
-    simpl in *.
-    eapply exprD'_lower with (ts := nil) (tus := tu) (tvs := nil) (tvs'' := tv) in H2; eauto.
-    simpl in *.
-    forward_reason.
-    destruct r.
-    eapply H1 in H5; eauto.
-    forward_reason. eexists; split; eauto.
-    intros. eapply H8 in H9.
-    forward_reason; split; auto.
-    intros. rewrite H4.
-    change_rewrite H10. instantiate (1 := eq_sym x0).
-    unfold Rcast_val, Rcast, Relim. simpl.
-    rewrite match_eq_sym_eq.
-    exact (H6 us Hnil vs' vs).
-  Qed.
-
-  Lemma handle_uvar
-  : forall
-        unify : list Type -> tenv typ ->
-                tenv typ ->
-                nat -> subst -> expr typ func -> expr typ func -> typ -> option subst,
-        unify_sound_ind unify ->
-        forall (tu : tenv typ) (tv : list typ) e
-               (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
-          match lookup u s with
-            | Some e2' =>
-              unify nil tu (tv' ++ tv) (length tv') s e
-                    (lift 0 (length tv') e2') t
-            | None =>
-              match lower 0 (length tv') e with
-                | Some e1 => set u e1 s
-                | None => None
-              end
-          end = Some s' ->
-          WellFormed_subst s ->
-          WellFormed_subst s' /\
-          (forall
-              (v1
-                 v2 : hlist (typD nil) tu ->
-                      hlist (typD nil) (tv' ++ tv) -> typD nil t)
-              (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-              exprD' nil tu (tv' ++ tv) t e = Some v1 ->
-              exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 ->
-              substD tu tv s = Some sD ->
-              exists
-                sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
-                substD tu tv s' = Some sD' /\
-                (forall (us : hlist (typD nil) tu)
-                        (vs : hlist (typD nil) tv),
-                   sD' us vs ->
-                   sD us vs /\
-                   (forall vs' : hlist (typD nil) tv',
-                      v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
-  Proof.
-    intros.
-    consider (lookup u s); intros.
-    { eapply H in H2.
-      forward_reason.
-      split; eauto; intros.
-      assert (exists v2',
-                exprD' nil tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
-                /\ forall us vs vs',
-                     sD us vs ->
-                     v2 us (hlist_app vs' vs) = v2' us (hlist_app vs' vs)).
-      { eapply substD_lookup in H0; eauto.
-        forward_reason.
-        simpl in *.
-        autorewrite with exprD_rw in H5. simpl in H5.
-        forward. inv_all; subst.
-        eapply nth_error_get_hlist_nth_Some in H8.
-        simpl in *. forward_reason.
-        generalize (@exprD'_lift typ func RType_typ Typ2_arr _ _ _ _
-                                 nil tu e0 nil tv' tv x).
-        simpl.
-        match goal with
-          | H : ?X = _ |- match ?Y with _ => _ end -> _ =>
-            change Y with X ; rewrite H
-        end.
-        intros; forward.
-        assert (t = x) by congruence.
-        subst.
-        eexists; split; [ eassumption | ].
-        intros. eapply H7 in H11.
-        unfold Rcast_val, Rcast, Relim.
-        destruct r. simpl.
-        rewrite H5; clear H5.
-        match goal with
-          | H : ?X = _ |- context [ ?Y ] =>
-            change Y with X ; rewrite H ; clear H
-        end.
-        specialize (H10 us Hnil vs' vs). simpl in H10.
-        rewrite H10.
-        match goal with
-          | |- match _ with eq_refl => match _ with eq_refl => ?X end end = ?Y =>
-            change Y with X ; generalize X
-        end.
-        clear - EqDec_typ.
-        destruct x1.
-        rewrite (UIP_refl x3). reflexivity. }
-      { forward_reason.
-        specialize (H3 _ _ _ H4 H7 H6).
-        forward_reason.
-        eexists; split; eauto.
-        intros. specialize (H9 _ _ H10).
-        forward_reason. split; intros; eauto.
-        rewrite H11. rewrite H8; eauto. } }
-    { forward.
-      eapply handle_set_lower in H3; eauto.
-      forward_reason.
-      split; auto; intros.
-      eapply H4 in H2; eauto. }
-  Qed.
-
-  Lemma handle_uvar'
-  : forall
-      unify : list Type -> tenv typ ->
-                tenv typ ->
-                nat -> subst -> expr typ func -> expr typ func -> typ -> option subst,
-        unify_sound_ind unify ->
-        forall (tu : tenv typ) (tv : list typ) e
-               (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
-          match lookup u s with
-            | Some e2' =>
-              unify nil tu (tv' ++ tv) (length tv') s
-                    (lift 0 (length tv') e2') e t
-            | None =>
-              match lower 0 (length tv') e with
-                | Some e1 => set u e1 s
-                | None => None
-              end
-          end = Some s' ->
-          WellFormed_subst s ->
-          WellFormed_subst s' /\
-          (forall
-              (v1
-                 v2 : hlist (typD nil) tu ->
-                      hlist (typD nil) (tv' ++ tv) -> typD nil t)
-              (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-              exprD' nil tu (tv' ++ tv) t (UVar u) = Some v1 ->
-              exprD' nil tu (tv' ++ tv) t e = Some v2 ->
-              substD tu tv s = Some sD ->
-              exists
-                sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
-                substD tu tv s' = Some sD' /\
-                (forall (us : hlist (typD nil) tu)
-                        (vs : hlist (typD nil) tv),
-                   sD' us vs ->
-                   sD us vs /\
-                   (forall vs' : hlist (typD nil) tv',
-                      v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
-  Proof.
-intros.
-    consider (lookup u s); intros.
-    { eapply H in H2.
-      forward_reason.
-      split; eauto; intros.
-      assert (exists v2',
-                exprD' nil tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
-                /\ forall us vs vs',
-                     sD us vs ->
-                     v1 us (hlist_app vs' vs) = v2' us (hlist_app vs' vs)).
-      { eapply substD_lookup in H0; eauto.
-        forward_reason.
-        simpl in *.
-        autorewrite with exprD_rw in H4. simpl in H4.
-        forward. inv_all; subst.
-        eapply nth_error_get_hlist_nth_Some in H8.
-        simpl in *. forward_reason.
-        generalize (@exprD'_lift typ func RType_typ Typ2_arr _ _ _ _
-                                 nil tu e0 nil tv' tv x).
-        simpl.
-        match goal with
-          | H : ?X = _ |- _ => change_rewrite H
-        end.
-        intros; forward.
-        assert (t = x) by congruence.
-        subst.
-        eexists; split; [ eassumption | ].
-        intros.
-        destruct r.
-        unfold Rcast_val, Rcast, Relim; simpl.
-        rewrite H4; clear H4.
-        eapply H7 in H11. change_rewrite H11; clear H11.
-        etransitivity; [ | exact (H10 us Hnil vs' vs) ].
-        simpl.
-        match goal with
-          | |- match _ with eq_refl => match _ with eq_refl => ?X end end = ?Y =>
-            change Y with X ; generalize X
-        end.
-        clear - EqDec_typ.
-        destruct x1.
-        rewrite (UIP_refl x3). reflexivity. }
-      { forward_reason.
-        specialize (H3 _ _ _ H7 H5 H6).
-        forward_reason.
-        eexists; split; eauto.
-        intros. specialize (H9 _ _ H10).
-        forward_reason. split; intros; eauto.
-        rewrite <- H11. rewrite H8; eauto. } }
-    { forward.
-      eapply handle_set_lower in H3; eauto.
-      forward_reason.
-      split; auto; intros.
-      eapply H4 in H2. 2: eauto. 2: eauto. 2: eauto.
-      forward_reason. eexists; split; eauto.
-      intros. eapply H8 in H9.
-      destruct H9; split; auto. }
-  Qed.
 
   Lemma exprD_from_subst : forall tus tvs tvs' s e u t sD eD,
     WellFormed_subst s ->
@@ -717,22 +359,14 @@ intros.
     destruct r.
     eapply substD_lookup in H1; eauto.
     forward_reason.
-    simpl in H1.
-    eapply nth_error_get_hlist_nth_Some in H3.
-    simpl in H3. forward_reason.
-    assert (x = x0) by congruence. subst.
-    generalize (exprD'_lift nil tus e nil tvs' tvs x0).
-    simpl. change_rewrite H1.
-    forward. eexists; split; eauto.
-    intros. eapply H2 in H7; clear H2.
-    unfold Rcast_val, Rcast, Relim. simpl.
-    etransitivity. eapply H3.
-    specialize (H6 us Hnil vs' vs).
-    simpl in H6. etransitivity; [ | eapply H6 ].
-    change_rewrite H7.
-    clear - EqDec_typ.
-    destruct x2.
-    rewrite (UIP_refl x3). reflexivity.
+    change_rewrite H3 in H1.
+    inv_all; subst.
+    generalize (exprD'_lift nil tus e nil tvs' tvs x).
+    simpl. change_rewrite H2.
+    intro.
+    forwardy. eexists; split; eauto.
+    intros.
+    etransitivity; [ eapply H5; eauto | eapply (H6 us Hnil vs' vs) ].
   Qed.
 
   (** NOTE: The exact statement of exprUnify_simul' prevents Coq from
@@ -913,8 +547,8 @@ intros.
   Qed.
 
   Lemma handle_uvar_simul
-  : forall u s s' t e tv tu tv' unify
-           (unifyOk : unify_sound unify),
+  : forall u s s' t (e : expr typ func) tv tu tv' unify
+           (unifyOk : unify_sound _ unify),
       match lookup u s with
         | Some e2' =>
           match typeof_expr nil tu (tv' ++ tv) e with
@@ -982,9 +616,9 @@ intros.
              |- _ =>
              change Y with X in H ; consider X; intros; forward
          end.
-    generalize (fun e => handle_uvar unifyOk tu tv e u s).
+    generalize (fun e => handle_uvar _ _ _ _ unifyOk tu tv e u s).
     consider (lookup u s); intros.
-    { forward. inv_all. subst.
+    { forwardy. inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
@@ -994,7 +628,8 @@ intros.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
-      forward. inv_all; subst.
+      forwardy. inv_all; subst.
+      change_rewrite H4 in H5.
       forward_reason.
       split; eauto.
       intros.
@@ -1007,8 +642,8 @@ intros.
   Qed.
 
   Lemma handle_uvar_simul'
-  : forall u s s' t e tv tu tv' unify
-           (unifyOk : unify_sound unify),
+  : forall u s s' t (e : expr typ func) tv tu tv' unify
+           (unifyOk : unify_sound _ unify),
       match lookup u s with
         | Some e2' =>
           match typeof_expr nil tu (tv' ++ tv) (UVar u) with
@@ -1076,9 +711,9 @@ intros.
              |- _ =>
              change Y with X in H ; consider X; intros; forward
          end.
-    generalize (fun e => handle_uvar' unifyOk tu tv e u s).
+    generalize (fun e => handle_uvar' _ _ _ _ unifyOk tu tv e u s).
     consider (lookup u s); intros.
-    { forward. inv_all. subst.
+    { forwardy. inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
@@ -1088,7 +723,8 @@ intros.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
-      forward. inv_all; subst.
+      forwardy. inv_all; subst.
+      change_rewrite H4 in H5.
       forward_reason.
       split; eauto.
       intros.
@@ -1104,7 +740,7 @@ intros.
   : forall (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
                            (l r : expr typ func)
                            (t : typ), option subst)
-           (unifyOk : unify_sound unify),
+           (unifyOk : unify_sound _ unify),
     forall tu tv e1 e2 s s' t tv',
       (exprUnify' (@nil Type) (@unify nil) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
@@ -1366,54 +1002,31 @@ intros.
             eapply substD_lookup in H1; eauto.
             forward_reason. simpl in *.
             autorewrite with exprD_rw in H4. simpl in H4.
-            forward.
-            destruct r. inv_all; subst.
-            eapply nth_error_get_hlist_nth_Some in H8. simpl in *.
+            change_rewrite H1 in H4.
+            forwardy.
+            destruct y.
+            specialize (H3 _ _ _ _ _ _ _ H7 H5 H6).
             forward_reason.
-            assert (x2 = x) by congruence.
-            subst.
-            eapply H3 in H1; eauto.
-            forward_reason; eexists; split; eauto.
-            intros. eapply H8 in H10; clear H8.
+            eexists; split; eauto.
+            intros. eapply H10 in H11; clear H10.
             forward_reason; split; eauto.
-            unfold Rcast_val, Rcast, Relim. simpl.
-            intros. rewrite H4; clear H4.
-            eapply H7 in H8; clear H7; change_rewrite H8.
-            rewrite <- H10.
-            match goal with
-              | |- match _ with eq_refl => match _ with eq_refl => ?X end end = ?Y =>
-                change Y with X ; generalize X
-            end.
-            clear - EqDec_typ.
-            destruct x1.
-            rewrite (UIP_refl x3). reflexivity. }
+            intros. inv_all; subst.
+            etransitivity; [ eapply H8 ; eauto | eapply H11 ]. }
           { eapply handle_set in H2; eauto.
             forward_reason; split; auto; intros.
             eapply substD_lookup in H; eauto.
             forward_reason. simpl in *.
             autorewrite with exprD_rw in H5. simpl in H5.
             forward.
-            destruct r. inv_all; subst.
-            eapply nth_error_get_hlist_nth_Some in H8. simpl in *.
+            change_rewrite H9 in H5. inv_all; subst.
+            destruct r.
+            specialize (H3 _ _ _ _ _ _ _ H7 H4 H6).
             forward_reason.
-            assert (x2 = x) by congruence.
-            subst.
-            eapply H3 in H; eauto.
-            forward_reason; eexists; split; eauto.
-            intros. eapply H8 in H10; clear H8.
-            forward_reason; split; eauto.
-            unfold Rcast_val, Rcast, Relim. simpl.
-            intros. rewrite H5; clear H5.
-            eapply H7 in H8; clear H7; change_rewrite H8.
-            rewrite <- H10.
-            symmetry.
-            match goal with
-              | |- match _ with eq_refl => match _ with eq_refl => ?X end end = ?Y =>
-                change Y with X ; generalize X
-            end.
-            clear - EqDec_typ.
-            destruct x1.
-            rewrite (UIP_refl x3). reflexivity. }
+            eexists; split; eauto.
+            intros.
+            eapply H3 in H5; forward_reason; split; eauto.
+            intros. symmetry.
+            etransitivity; [ eapply H8; eauto | eapply H11 ]. }
           { consider (set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H2; eauto.
@@ -1492,23 +1105,15 @@ intros.
             forward_reason.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H3; eauto. forward_reason.
-            simpl in H3.
             autorewrite with exprD_rw in H; simpl in H.
-            forward. inv_all; subst. destruct r.
-            apply nth_error_get_hlist_nth_Some in H7. simpl in H7.
+            change_rewrite H3 in H.
+            forwardy. inv_all; subst; destruct y.
+            specialize (H5 _ _ _ _ _ _ _ H6 H0 H8).
             forward_reason.
-            assert (x1 = x4) by congruence. subst.
-            eapply H5 in H3; eauto.
-            forward_reason. eexists; split; eauto.
-            intros. eapply H7 in H10.
-            forward_reason; split; auto.
-            intros. unfold Rcast_val, Rcast, Relim. simpl.
-            rewrite H.
-            eapply H6 in H10; clear H6.
-            change_rewrite H10.
-            rewrite <- H11.
-            clear - EqDec_typ. destruct x3.
-            rewrite (UIP_refl x). reflexivity. }
+            eexists; split; eauto.
+            intros. eapply H9 in H10; forward_reason; split; eauto.
+            intros.
+            etransitivity; [ eapply H7; eauto | eapply H11 ]. }
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
             clear H6 H7.
@@ -1519,21 +1124,15 @@ intros.
             eapply substD_lookup in H2; eauto. forward_reason.
             simpl in H2.
             autorewrite with exprD_rw in H0; simpl in H0.
-            forward. inv_all; subst. destruct r.
-            apply nth_error_get_hlist_nth_Some in H7. simpl in H7.
+            change_rewrite H2 in H0.
+            forwardy; inv_all; subst. destruct y.
+            specialize (H5 _ _ _ _ _ _ _ H6 H H8).
             forward_reason.
-            assert (x1 = x4) by congruence. subst.
-            eapply H5 in H8; eauto.
-            forward_reason. eexists; split; eauto.
-            intros. eapply H8 in H10.
-            forward_reason; split; auto.
-            intros. unfold Rcast_val, Rcast, Relim. simpl.
-            rewrite H0.
-            eapply H6 in H10; clear H6.
-            change_rewrite H10.
-            rewrite <- H11.
-            clear - EqDec_typ. destruct x3.
-            rewrite (UIP_refl x0). reflexivity. }
+            eexists; split; eauto.
+            intros. eapply H9 in H10.
+            forward_reason; split; eauto.
+            intros. symmetry.
+            etransitivity; [ eapply H7; eauto | eapply H11 ]. }
           { consider (set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H4; eauto.
@@ -1576,8 +1175,8 @@ intros.
 
   Theorem exprUnify'_sound
   : forall unify,
-      unify_sound_ind unify ->
-      unify_sound_ind (fun ts => exprUnify' ts (unify ts)).
+      unify_sound_ind _ unify ->
+      unify_sound_ind _ (fun ts => exprUnify' ts (unify ts)).
   Proof.
     intros.
     red. intros.
@@ -1586,7 +1185,7 @@ intros.
     eauto.
   Qed.
 
-  Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify fuel).
+  Theorem exprUnify_sound : forall fuel, unify_sound _ (exprUnify fuel).
   Proof.
     induction fuel; simpl; intros; try congruence.
     eapply exprUnify'_sound. eassumption.
