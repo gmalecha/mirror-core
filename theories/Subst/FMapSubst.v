@@ -11,6 +11,7 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -239,7 +240,14 @@ Module Make (FM : WS with Definition E.t := uvar
           end) l None = None.
     Proof.
       clear. induction l; simpl; auto.
-      forward.
+      match goal with
+        | |- _ _ _ ?X = _ =>
+          cutrewrite (X = None); [ assumption | ]
+      end.
+      repeat match goal with
+               | |- match ?X with _ => _ end = _ =>
+                 destruct X; try reflexivity
+             end.
     Qed.
 
     Lemma substD_weaken
@@ -278,11 +286,10 @@ Module Make (FM : WS with Definition E.t := uvar
           | H : fold_left _ _ ?X = Some _ |- _ =>
             consider X; intros ; try solve [ rewrite None_becomes_None in *; congruence ]
         end.
-        forward. inv_all; subst.
-
-        eapply nth_error_get_hlist_nth_weaken with (ls' := tus') in H2.
+        forwardy. inv_all; subst.
+        eapply nth_error_get_hlist_nth_weaken with (ls' := tus') in H0.
         simpl in *.
-        eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H3; eauto with typeclass_instances.
+        eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H2; eauto with typeclass_instances.
         forward_reason.
         Cases.rewrite_all_goal.
         eapply IHl in H1; eauto with typeclass_instances.
@@ -439,25 +446,26 @@ Module Make (FM : WS with Definition E.t := uvar
           { red in e1. intros; inv_all; subst.
             change_rewrite H3 in H1.
             red in H1.
-            progress forward.
+            forwardy.
+(*            progress forward. *)
             inv_all; subst.
-            eapply nth_error_get_hlist_nth_Some in H4; simpl in *;
+            eapply nth_error_get_hlist_nth_Some in H1; simpl in *;
             forward_reason.
             do 3 eexists; split; eauto.
             instantiate (1 := eq_sym x0).
-            intros. eapply H2 in H4; clear H2.
-            destruct H4.
+            intros. eapply H2 in H6; clear H2.
+            destruct H6.
             rewrite <- H2. rewrite H1. clear.
             destruct x0. reflexivity. }
           { intro.
             change_rewrite H3 in H1.
             red in H1.
-            forward; inv_all; subst.
-            specialize (H H2 _ _ H7); clear H2 H7.
+            forwardy; inv_all; subst.
+            specialize (H H2 _ _ H6); clear H2 H6.
             forward_reason.
             do 3 eexists; split; eauto.
-            intros. eapply H1.
-            apply H4 in H2; intuition. } } }
+            intros. eapply H2.
+            apply H4 in H6; intuition. } } }
     Qed.
 
     Lemma substD_lookup
@@ -663,7 +671,7 @@ Module Make (FM : WS with Definition E.t := uvar
         intro XXX.
         red in XXX.
         change_rewrite H1 in XXX.
-        forward.
+        forwardy.
         eexists; split; eauto.
         intros. etransitivity; eauto. }
       { revert H0. revert sD.
@@ -676,18 +684,18 @@ Module Make (FM : WS with Definition E.t := uvar
           eexists; split; eauto.
           simpl. reflexivity. }
         { intros.
-          forward. inv_all; subst.
-          specialize (H5 _ eq_refl).
+          forwardy. inv_all; subst.
+          specialize (H1 _ eq_refl).
           forward_reason. subst.
-          change_rewrite H3.
+          change_rewrite H2.
           red in exprD'_instantiate.
-          eapply exprD'_instantiate with (tvs' := nil) in H4; eauto.
+          eapply exprD'_instantiate with (tvs' := nil) in H3; eauto.
           forward_reason. simpl in *.
           change_rewrite H1.
           eexists; split; [ reflexivity | ].
-          simpl. intros. rewrite H2 by eauto.
-          specialize (H4 us vs Hnil H5).
-          simpl in *. rewrite H4. reflexivity. } }
+          simpl. intros. rewrite H4 by eauto.
+          specialize (H3 us vs Hnil H5).
+          simpl in *. rewrite H3. reflexivity. } }
     Qed.
 
     Lemma raw_substD_add
@@ -718,10 +726,10 @@ Module Make (FM : WS with Definition E.t := uvar
       change_rewrite H1 in XXX.
       change_rewrite H2 in XXX.
       unfold eq_option_A in XXX.
-      forward.
+      forwardy.
       eexists; split. eapply H4.
-      intros. rewrite XXX; clear XXX.
-      clear. split; intuition.
+      intros. rewrite H5; clear H5.
+      clear. tauto.
     Qed.
 
     Lemma substD_set
@@ -878,7 +886,8 @@ Module Make (FM : WS with Definition E.t := uvar
                                       (@Transpose_substD _ _) s k v A H)
       end.
       change_rewrite H0.
-      simpl. intros; forward.
+      simpl. intros.
+      forwardy.
       do 4 eexists.
       split; [ eassumption | ].
       split; [ eassumption | ].

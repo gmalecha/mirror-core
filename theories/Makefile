@@ -1,5 +1,5 @@
 GENERIC :=
-UTIL := Approx Iteration ListMapT
+UTIL := Approx Iteration ListMapT Forwardy
 PROVERS := ProverTac AssumptionProver DefaultProver # AutoProver -- TODO
 SUBST   := UVarMap FMapSubst CascadeSubst # SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
