@@ -14,7 +14,7 @@ EXTENSIBLE := Types ExprCore \
 LAMBDA := ResType \
 	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
-	  Expr ExprLift Red \
+	  Expr ExprLift Red RedAll \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
