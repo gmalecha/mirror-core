@@ -1,3 +1,4 @@
+Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
@@ -130,36 +131,42 @@ Section lemma_apply.
            end.
 
   Hypothesis vars_to_uvars_exprD'
-     : forall (tus : tenv typ) (e : expr) (tvs : list typ)
-         (t : typ) (tvs' : list typ)
-         (val : hlist (typD  nil) tus ->
-                hlist (typD nil) (tvs ++ tvs') -> typD nil t),
-       exprD' tus (tvs ++ tvs') e t = Some val ->
-       exists
-         val' : hlist (typD nil) (tus ++ tvs') ->
-                hlist (typD nil) tvs -> typD nil t,
-         exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
-           t = Some val' /\
-         (forall (us : hlist (typD nil) tus)
-            (vs' : hlist (typD nil) tvs') (vs : hlist (typD nil) tvs),
-          val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
+  : forall (tus : tenv typ) (e : expr) (tvs : list typ)
+           (t : typ) (tvs' : list typ)
+           (val : hlist (typD  nil) tus ->
+                  hlist (typD nil) (tvs ++ tvs') -> typD nil t),
+      exprD' tus (tvs ++ tvs') e t = Some val ->
+      exists
+        val' : hlist (typD nil) (tus ++ tvs') ->
+               hlist (typD nil) tvs -> typD nil t,
+        exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
+               t = Some val' /\
+        (forall (us : hlist (typD nil) tus)
+                (vs' : hlist (typD nil) tvs') (vs : hlist (typD nil) tvs),
+           val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
+
+  Let propD tus tvs g :=
+    match tyPropD nil in _ = t return ResType tus tvs t with
+      | eq_refl => exprD' tus tvs g tyProp
+    end.
 
   Lemma eapplicable_sound
   : forall s tus tvs l0 g s1,
       eapplicable s tus tvs l0 g = Some s1 ->
       WellFormed_subst s ->
       WellFormed_subst s1 /\
-      forall lD sD gD,
-        @lemmaD' _ _ _ _ _
-                 (fun tus tvs g =>
-                    match tyPropD nil in _ = t return ResType tus tvs t with
-                      | eq_refl => exprD' tus tvs g tyProp
-                    end)
-                 tyProp
-                 (fun x => match tyPropD nil in _ = t return t with
-                             | eq_refl => x
-                           end)
-                 nil nil l0 = Some lD ->
+      forall sD gD,
+        (exists lD,
+          @lemmaD' _ _ _ _ _
+                   (fun tus tvs g =>
+                      match tyPropD nil in _ = t return ResType tus tvs t with
+                        | eq_refl => exprD' tus tvs g tyProp
+                      end)
+                   tyProp
+                   (fun x => match tyPropD nil in _ = t return t with
+                               | eq_refl => x
+                             end)
+                   nil nil l0 = Some lD) ->
         substD tus tvs s = Some sD ->
         exprD' tus tvs g tyProp = Some gD ->
         exists s1D,
@@ -175,7 +182,7 @@ Section lemma_apply.
     eapply (@Hunify (tus ++ vars l0) tvs _ _ _ _ _ nil) in H; auto.
 
     forward_reason.
-    split; eauto. intros.
+    split; eauto. destruct 1. intros.
     simpl in *.
     unfold lemmaD' in H2. forward. inv_all; subst.
     eapply substD_weakenU with (tus' := vars l0) in H3.
@@ -239,4 +246,32 @@ Section lemma_apply.
       eassumption. }
     { eapply H6. eapply H11. }
   Qed.
+
+  Variable substitute_all : (nat -> option expr) -> nat -> expr -> expr.
+
+  (** NOTE: Will I ever do partial evaluation? **)
+  Definition apply_lemma (lem : lemma typ expr expr) (es : list expr)
+  : option (list expr * expr) :=
+    let subst := substitute_all (nth_error es) 0 in
+    Some (map subst lem.(premises), subst lem.(concl)).
+
+  Theorem apply_lemma_sound
+  : forall (lem : lemma typ expr expr) (es : list expr) tus tvs l_prem l_conc lD,
+      Forall2 (fun t e => exprD' tus tvs e t = None -> False) (lem.(vars)) es ->
+      @lemmaD' _ _ _ _ _
+               propD tyProp
+               (fun x => match tyPropD nil in _ = t return t with
+                           | eq_refl => x
+                         end) tus tvs lem = Some lD ->
+      apply_lemma lem es = Some (l_prem, l_conc) ->
+      exists lpD lcD,
+        mapT (F:=option)(T:=list) (propD tus tvs) l_prem = Some lpD /\
+        propD tus tvs l_conc = Some lcD /\
+        forall us vs,
+          lD us vs ->
+          (   Forall (fun x => x us vs) lpD
+           -> lcD us vs).
+  Proof.
+  Admitted.
+
 End lemma_apply.
