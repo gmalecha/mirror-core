@@ -85,6 +85,7 @@ Section parameterized.
     { consider (tac tus tvs sub hyps a); auto; intros.
       { eapply stac_sound_Solved in H0; eauto.
         forward_reason.
+        unfold stateD in *.
         forward. subst.
         consider (apply_to_all tac tus tvs s hyps gs); auto; intros.
         { specialize (IHgs _ H0).
@@ -110,6 +111,7 @@ Section parameterized.
         { specialize (IHgs _ H0).
           rewrite H1 in IHgs.
           forward_reason; split; auto.
+          unfold stateD in *.
           forward.
           rewrite list_mapT_cons in *.
           forward. inv_all; subst.
@@ -130,12 +132,13 @@ Section parameterized.
         clear IHgs.
         eapply stac_sound_More in H0; eauto.
         forward_reason; split; auto.
+        unfold stateD in *.
         forward.
         rewrite list_mapT_cons in H3.
         rewrite list_mapT_nil in H3.
         forward.
         inv_all; subst.
-        eapply H8 in H9; auto.
+        eapply H6 in H10; auto.
         forward_reason; auto. } }
   Qed.
 

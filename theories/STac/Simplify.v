@@ -27,9 +27,9 @@ Section parameterized.
       (forall tus tvs s e e',
          WellFormed_subst s ->
          f tus tvs s e = e' ->
-         match @goalD _ _ _ Expr_expr _ tus tvs e
+         match @propD _ _ _ Expr_expr _ tus tvs e
              , @substD _ _ _ _ Expr_expr _ _ tus tvs s
-             , @goalD _ _ _ _ _ tus tvs e'
+             , @propD _ _ _ _ _ tus tvs e'
          with
            | None , _ , _ => True
            | _ , None , _ => True
@@ -46,26 +46,34 @@ Section parameterized.
     specialize (H tus tvs s g _ H0 eq_refl).
     forward.
     split; auto. clear H0.
-    repeat match goal with
-             | |- match ?X with _ => _ end =>
-               consider X; intros
-           end.
+    unfold stateD in *.
+    forward.
+    match goal with
+      | |- match ?X with _ => _ end =>
+        consider X; intros
+    end.
     { forward_reason.
+      forward. inv_all; subst.
       rewrite (HList.hlist_eta x) in *.
       rewrite (HList.hlist_eta x0) in *.
-      do 2 rewrite HList.hlist_app_nil_r in H7.
-      specialize (H4 us vs).
+      do 2 rewrite HList.hlist_app_nil_r in H6.
       destruct (eq_sym (HList.app_nil_r_trans tus)).
       destruct (eq_sym (HList.app_nil_r_trans tvs)).
-      rewrite H6 in *. rewrite H3 in *.
-      rewrite H2 in *. inv_all; subst.
-      intuition. }
-    { clear - H6 H1.
-      do 2 rewrite List.app_nil_r in *. congruence. }
-    { clear - H5 H2.
-      do 2 rewrite List.app_nil_r in *. congruence. }
-    { clear - H0 H3.
-      do 2 rewrite List.app_nil_r in *. congruence. }
+      rewrite H2 in *. rewrite H8 in *. rewrite H7 in *.
+      inv_all; subst.
+      intuition. apply H4; auto. }
+    { revert H5.
+      rewrite propD_conv
+         with (pfu := eq_sym (HList.app_nil_r_trans tus))
+              (pfv := eq_sym (HList.app_nil_r_trans tvs)).
+      rewrite substD_conv
+         with (pfu := eq_sym (HList.app_nil_r_trans tus))
+              (pfv := eq_sym (HList.app_nil_r_trans tvs)).
+      autorewrite with eq_rw.
+      Cases.rewrite_all_goal.
+      destruct (eq_sym (HList.app_nil_r_trans tus)).
+      destruct (eq_sym (HList.app_nil_r_trans tvs)).
+      rewrite H1. congruence. }
   Qed.
 
 End parameterized.

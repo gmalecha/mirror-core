@@ -36,7 +36,11 @@ Section parameterized.
   Theorem THEN_sound
   : forall a b, stac_sound a -> stac_sound b -> stac_sound (THEN a b).
   Proof.
-    unfold stac_sound, THEN; intros.
+    intros.
+    apply stac_sound_stac_sound_old in H.
+    apply stac_sound_stac_sound_old in H0.
+    apply stac_sound_stac_sound_old.
+    unfold stac_sound_old, THEN in *; intros.
     specialize (H tus tvs s hs g).
     destruct (a tus tvs s hs g); auto.
     specialize (H0 (tus ++ l) (tvs ++ l0) s0 l1 e).

@@ -118,7 +118,7 @@ Section parameterized.
 
   Theorem EAPPLY_sound
   : forall lem tacC,
-      @lemmaD typ _ expr _ expr (@goalD _ _ _ _ _ ) (@typ0 _ _ _ _)
+      @lemmaD typ _ expr _ expr (@propD _ _ _ _ _ ) (@typ0 _ _ _ _)
               (fun P => match typ0_cast nil in _ = T return T
                         with
                           | eq_refl => P
