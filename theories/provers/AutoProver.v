@@ -302,6 +302,7 @@ Section parameterized.
     intros. unfold eapplicable in H.
     eapply eapplicable_sound with (tyProp := tyProp) in H;
       eauto with typeclass_instances.
+    forward_reason. split; eauto.
   Qed.
 
   Opaque Traversable.mapT impls.
