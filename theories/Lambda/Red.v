@@ -28,7 +28,46 @@ Section substitute.
 
   Context {ED_typ : EqDec _ (@eq typ)}.
 
-  Fixpoint substitute' (v : var) (w : expr typ sym) (e : expr typ sym)
+  Section substitute_all.
+    Variable lookup : var -> option (expr typ sym).
+
+    Fixpoint remainder (a b : nat) : option nat :=
+      match a , b with
+        | 0 , S _ => None
+        | a , 0 => Some a
+        | S a , S b => remainder a b
+      end.
+
+    Theorem remainder_ok : forall a b c,
+                             remainder a b = Some c ->
+                             a >= b /\ a - b = c.
+    Proof.
+      clear.
+      induction a; destruct b; simpl; intros; inv_all; subst; auto; try congruence.
+      split; auto. omega.
+      eapply IHa in H. intuition.
+    Qed.
+
+    Fixpoint substitute_all (under : nat) (e : expr typ sym) : expr typ sym :=
+      match e with
+        | Var v' =>
+          match remainder v' under with
+            | None => Var v'
+            | Some v =>
+              match lookup v with
+                | None => Var v'
+                | Some e =>
+                  lift 0 under e
+              end
+          end
+        | UVar u => UVar u
+        | Inj i => Inj i
+        | App l' r' => App (substitute_all under l') (substitute_all under r')
+        | Abs t e => Abs t (substitute_all (S under) e)
+      end.
+  End substitute_all.
+
+  Fixpoint substitute_one (v : var) (w : expr typ sym) (e : expr typ sym)
   : expr typ sym :=
     match e with
       | Var v' =>
@@ -39,15 +78,15 @@ Section substitute.
         end
       | UVar u => UVar u
       | Inj i => Inj i
-      | App l' r' => App (substitute' v w l') (substitute' v w r')
-      | Abs t e => Abs t (substitute' (S v) (lift 0 1 w) e)
+      | App l' r' => App (substitute_one v w l') (substitute_one v w r')
+      | Abs t e => Abs t (substitute_one (S v) (lift 0 1 w) e)
     end.
 
-  Theorem substitute'_typed
+  Theorem substitute_one_typed
   : forall ts tus t e w tvs' tvs t',
       typeof_expr ts tus (tvs ++ tvs') w = Some t ->
       typeof_expr ts tus (tvs ++ t :: tvs') e = Some t' ->
-      typeof_expr ts tus (tvs ++ tvs') (substitute' (length tvs) w e) = Some t'.
+      typeof_expr ts tus (tvs ++ tvs') (substitute_one (length tvs) w e) = Some t'.
   Proof.
     induction e; simpl; intros;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
@@ -74,9 +113,9 @@ Section substitute.
       intro. rewrite H1. assumption. }
   Qed.
 
-  Theorem substitute'_sound
+  Theorem substitute_one_sound
   : forall ts tus e tvs w e',
-      substitute' (length tvs) w e = e' ->
+      substitute_one (length tvs) w e = e' ->
       forall tvs' (t t' : typ),
         match exprD' ts tus (tvs ++ tvs') t w
             , exprD' ts tus (tvs ++ t :: tvs') t' e
@@ -182,7 +221,7 @@ Section substitute.
         simpl in *. unfold Rcast in H1. simpl in *. inv_all; subst; auto. }
       { congruence. } }
     { autorewrite with exprD_rw. simpl.
-      erewrite substitute'_typed; eauto.
+      erewrite substitute_one_typed; eauto.
       { specialize (IHe2 tvs w _ eq_refl tvs' t t0).
         specialize (IHe1 tvs w _ eq_refl tvs' t (typ2 t0 t')).
         revert IHe1 IHe2.
@@ -237,7 +276,7 @@ Section beta.
   Fixpoint beta (e : expr typ sym) : expr typ sym :=
     match e with
       | App (Abs t e') e'' =>
-        substitute' 0 e'' e'
+        substitute_one 0 e'' e'
       | App a x =>
         App (beta a) x
       | e => e
@@ -296,7 +335,7 @@ Section beta.
       { split; auto.
         clear H5. unfold Open_App.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-        generalize (@substitute'_sound _ _ _ _ _ _ _ _ _ ts tus f nil x _ eq_refl tvs d r).
+        generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ ts tus f nil x _ eq_refl tvs d r).
         autorewrite with exprD_rw in H0. simpl in H0.
         rewrite typ2_match_zeta in H0; eauto.
         rewrite eq_option_eq in H0.

@@ -167,7 +167,7 @@ Section beta_all.
   Lemma exprD'_App_Abs
   : forall ts tus tvs t t0 e ex val,
       exprD' ts tus tvs t0 (App (Abs t e) ex) = Some val ->
-      exprD' ts tus tvs t0 (substitute' 0 ex e) = Some val.
+      exprD' ts tus tvs t0 (substitute_one 0 ex e) = Some val.
   Proof.
     intros.
     autorewrite with exprD_rw in *; simpl in *.
@@ -178,7 +178,7 @@ Section beta_all.
     rewrite eq_option_eq in H0.
     forward. inv_all; subst.
     destruct r.
-    generalize (@substitute'_sound _ _ _ _ _ _ _ _ _ ts0 tus e nil ex _ eq_refl tvs t1 t0).
+    generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ ts0 tus e nil ex _ eq_refl tvs t1 t0).
     simpl. Cases.rewrite_all_goal.
     intros. forward.
     f_equal. unfold Open_App.
