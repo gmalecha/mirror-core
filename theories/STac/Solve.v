@@ -30,3 +30,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments SOLVE {_ _ _} tac _ _ _ _ _ : rename.

@@ -399,6 +399,9 @@ End parameterized.
 
 Arguments stac_sound {typ expr subst _ _ _ _ _} _.
 Arguments propD {typ expr RType Expr Typ0} tus tvs e : rename.
+Arguments Fail {typ expr subst}.
+Arguments Solved {typ expr subst} _ _ _.
+Arguments More {typ expr subst} _ _ _ _ _.
 
 Export MirrorCore.EnvI.
 Export MirrorCore.SymI.
