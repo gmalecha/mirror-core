@@ -32,3 +32,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments TRY {_ _ _} tac1 tac2 _ _ _ _ : rename.

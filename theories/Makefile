@@ -14,7 +14,7 @@ EXTENSIBLE := Types ExprCore \
 LAMBDA := ResType \
 	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
-	  Expr ExprLift Red \
+	  Expr ExprLift Red RedAll \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
@@ -22,7 +22,7 @@ LAMBDA := ResType \
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
-STAC := Core Repeat Apply First Repeat Try Idtac Rec Simplify Solve Then Fail Continuation UseForAll STac
+STAC := Core Repeat Apply EApply First Repeat Try Idtac Rec Simplify Solve Then Fail Continuation UseForAll UseList STac
 SYMS := SymEnv SymPolyEnv SymSum
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \

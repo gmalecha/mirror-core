@@ -29,20 +29,19 @@ Section parameterized.
   Variable SubstUpdate_subst : SubstUpdate subst expr.
   Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
 
-  Section apply_to_all.
-    Variable tac : stac typ expr subst.
-    Variables tus tvs : list typ.
+  Section use_list.
+    Variables (tus tvs : list typ) (hs : list expr).
 
-    Fixpoint apply_to_all'
-             (sub : subst) (hs : list expr) (es : list expr)
+    Fixpoint use_list' (tacs : list (stac typ expr subst))
+             (sub : subst) (es : list expr)
              {struct es}
     : Result typ expr subst :=
-      match es with
-        | nil => @Solved _ _ _ nil nil sub
-        | e :: es =>
+      match es , tacs with
+        | nil , nil => @Solved _ _ _ nil nil sub
+        | e :: es , tac :: tacs =>
           match tac tus tvs sub hs e with
             | Solved nil nil sub' =>
-              apply_to_all' sub' hs es
+              use_list' tacs sub' es
             | More tus tvs sub hs e =>
               match es with
                 | nil => More tus tvs sub hs e
@@ -51,21 +50,24 @@ Section parameterized.
               end
             | _ => @Fail _ _ _
           end
+        | _ , _ => @Fail _ _ _
       end.
 
-  End apply_to_all.
+  End use_list.
 
-  Definition apply_to_all : stac typ expr subst -> stac_cont typ expr subst :=
-    apply_to_all'.
+  Definition use_list (tacs : list (stac typ expr subst))
+  : stac_cont typ expr subst :=
+    fun tus tvs sub hs es =>
+      use_list' tus tvs hs tacs sub es.
 
-  Theorem apply_to_all_sound
-  : forall tac, stac_sound tac ->
-                stac_cont_sound (apply_to_all tac).
+  Theorem use_list_sound
+  : forall tacs, Forall stac_sound tacs ->
+                stac_cont_sound (use_list tacs).
   Proof.
     Opaque mapT.
     red.
-    intros tac Htac tus tvs sub hyps gs; revert sub.
-    induction gs; simpl; intros; auto.
+    intros tacs Htacs tus tvs sub hyps gs; revert sub; revert Htacs; revert tacs.
+    induction gs; destruct 1; simpl; intros; auto.
     { split; auto.
       forward.
       erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
@@ -82,13 +84,15 @@ Section parameterized.
       intuition.
       rewrite list_mapT_nil in H1.
       inv_all; subst. constructor. }
-    { consider (tac tus tvs sub hyps a); auto; intros.
+    { rename H into Htac.
+      rename H0 into H.
+      consider (x tus tvs sub hyps a); auto; intros.
       { eapply stac_sound_Solved in H0; eauto.
         forward_reason.
         unfold stateD in *.
         forward. subst.
-        consider (apply_to_all tac tus tvs s hyps gs); auto; intros.
-        { specialize (IHgs _ H0).
+        consider (use_list l tus tvs s hyps gs); auto; intros.
+        { specialize (IHgs _ Htacs _ H0).
           rewrite H1 in IHgs.
           forward_reason.
           split; auto.
@@ -98,7 +102,7 @@ Section parameterized.
           erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
                                     (pfu := eq_sym (app_nil_r_trans tus)) in H8.
           unfold ResType in H8.
-          repeat rewrite eq_option_eq in H8.
+          autorewrite with eq_rw in H8.
           forward. inv_all; subst.
           eapply H11 in H12; clear H11; eauto.
           eapply H9 in H13; clear H9; eauto.
@@ -108,7 +112,7 @@ Section parameterized.
           destruct (eq_sym (app_nil_r_trans tus)).
           destruct (eq_sym (app_nil_r_trans tvs)).
           intuition. }
-        { specialize (IHgs _ H0).
+        { specialize (IHgs _ Htacs _ H0).
           rewrite H1 in IHgs.
           forward_reason; split; auto.
           unfold stateD in *.

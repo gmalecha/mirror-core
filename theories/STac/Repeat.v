@@ -51,65 +51,81 @@ Section parameterized.
   Proof.
     induction n; simpl.
     { red; intros. eapply IDTAC_sound; auto. }
-    { red. intros.
+    { red. intros. unfold stateD in *.
       specialize (H tus tvs s hs g).
       destruct (br tus tvs s hs g); auto.
       { split; auto. eapply More_sound. }
       { specialize (IHn (tus ++ l) (tvs ++ l0) s0 l1 e).
         destruct (REPEAT n br (tus ++ l) (tvs ++ l0) s0 l1 e); auto.
         { forward_reason. split; auto.
-          forward.
+          unfold stateD in *.
+          forward. inv_all; subst.
           match goal with
             | |- match ?X with _ => _ end =>
               consider X; intros
           end.
-          { destruct H12 as [ ? [ ? ? ] ].
-            eapply H9; auto; clear H9.
+          { forward_reason. intros.
+            inv_all; subst.
+            eapply H5; auto; clear H5.
             exists (fst (HList.hlist_split _ _ x)).
             exists (fst (HList.hlist_split _ _ x0)).
-            simpl. intro.
-            apply and_comm.
-            apply H10; auto; clear H10.
+            simpl. eapply H6.
             exists (snd (HList.hlist_split _ _ x)).
             exists (snd (HList.hlist_split _ _ x0)).
             do 2 rewrite hlist_app_assoc.
             do 2 rewrite hlist_app_hlist_split.
-            destruct (eq_sym (app_ass_trans tus l l2)).
-            destruct (eq_sym (app_ass_trans tvs l0 l3)).
-            rewrite H8 in *. inv_all; subst. assumption. }
-        { clear - H8 H11.
-          generalize dependent P3.
+            rewrite substD_conv
+               with (pfu := app_ass_trans tus l l2)
+                    (pfv := app_ass_trans tvs l0 l3)
+              in H9.
+            rewrite H4 in H9.
+            unfold ResType in H9. autorewrite with eq_rw in H9.
+            inv_all; subst.
+            generalize dependent (hlist_app us x).
+            generalize dependent (hlist_app vs x0).
+            clear.
+            destruct (app_ass_trans tus l l2).
+            destruct (app_ass_trans tvs l0 l3).
+            intros. apply H12. }
+        { clear - H4 H9.
+          generalize dependent P1.
           do 2 rewrite app_ass. intros. congruence. } }
-        { forward_reason. split; auto.
+        { forward_reason. split; auto. unfold stateD in *.
           forward.
           repeat match goal with
                    | |- match ?X with _ => _ end =>
                      consider X; intros
                  end.
-          { destruct H16 as [ ? [ ? ? ] ].
-            eapply H9; auto; clear H9.
+          { destruct H17 as [ ? [ ? ? ] ].
+            inv_all; subst.
+            eapply H5; auto; clear H5.
             exists (fst (HList.hlist_split _ _ x)).
             exists (fst (HList.hlist_split _ _ x0)).
-            simpl. intro.
-            apply and_comm.
-            apply H12; auto; clear H12.
+            intro. apply H6; clear H6; auto.
             exists (snd (HList.hlist_split _ _ x)).
             exists (snd (HList.hlist_split _ _ x0)).
             do 2 rewrite hlist_app_assoc.
             do 2 rewrite hlist_app_hlist_split.
             destruct (eq_sym (app_ass_trans tus l l2)).
             destruct (eq_sym (app_ass_trans tvs l0 l3)).
-            rewrite H10 in *. rewrite H11 in *. rewrite H13 in *.
-            inv_all. subst; tauto. }
-          { clear - H15 H11.
-            generalize dependent P4.
-            do 2 rewrite app_ass. congruence. }
-          { clear - H14 H10.
-            generalize dependent l7.
-            do 2 rewrite app_ass. congruence. }
-          { clear - H13 H8.
-            generalize dependent P3.
-            do 2 rewrite app_ass. congruence. } } } }
+            rewrite H7 in H16; clear H7.
+            rewrite H8 in H16; clear H8.
+            rewrite H4 in H16; clear H4.
+            inv_all; subst. assumption. }
+          { revert H16.
+            clear - H7 H8 H4.
+            rewrite propD_conv
+               with (pfu := app_ass_trans tus l l2)
+                    (pfv := app_ass_trans tvs l0 l3).
+            rewrite substD_conv
+               with (pfu := app_ass_trans tus l l2)
+                    (pfv := app_ass_trans tvs l0 l3).
+            rewrite H8.
+            autorewrite with eq_rw.
+            rewrite H4.
+            destruct (app_ass_trans tus l l2).
+            destruct (app_ass_trans tvs l0 l3).
+            rewrite H7. congruence. } } } }
   Qed.
 
 End parameterized.

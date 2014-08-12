@@ -24,3 +24,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments FAIL {_ _ _} _ _ _ _ _.

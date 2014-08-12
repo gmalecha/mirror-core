@@ -102,7 +102,7 @@ Section parameterized.
     clear.
     destruct lem. intros. revert H1. Opaque mapT.
     unfold lemmaD'. simpl.
-    unfold goalD. unfold ResType.
+    unfold propD. unfold ResType.
     repeat rewrite eq_option_eq.
     match goal with
       | |- match ?X with _ => _ end = _ -> match ?Y with _ => _ end = _ =>
@@ -113,32 +113,9 @@ Section parameterized.
     destruct (G tus (vars ++ tvs) concl0); try congruence.
   Qed.
 
-  Lemma goalD_weakenU
-  : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist (typD nil) tus0 -> hlist (typD nil) tvs0 -> Prop),
-      goalD tus0 tvs0 l0 = Some lD ->
-      forall tus' : list typ,
-      exists
-        lD' : hlist (typD nil) (tus0 ++ tus') -> hlist (typD nil) tvs0 -> Prop,
-        goalD (tus0 ++ tus') tvs0 l0 = Some lD' /\
-        (forall (us : hlist (typD nil) tus0) (us' : hlist (typD nil) tus')
-                (vs : hlist (typD nil) tvs0), lD us vs <-> lD' (hlist_app us us') vs).
-  Proof.
-    unfold goalD. clear - ExprOk_expr.
-    intros. forward. inv_all; subst.
-    eapply exprD'_weakenU with (tus' := tus') in H; eauto.
-    forward_reason. rewrite H.
-    eexists; split; eauto. intros.
-    repeat first [ rewrite eq_Const_eq in *
-                 | rewrite eq_option_eq in *
-                 | rewrite eq_Arr_eq in * ].
-    rewrite <- H0.
-    reflexivity.
-  Qed.
-
   Theorem APPLY_sound
   : forall lem tacC,
-      @lemmaD typ _ expr _ expr (@goalD _ _ _ _ _ ) (@typ0 _ _ _ _)
+      @lemmaD typ _ expr _ expr (@propD _ _ _ _ _ ) (@typ0 _ _ _ _)
               (fun P => match typ0_cast nil in _ = T return T
                         with
                           | eq_refl => P
@@ -147,7 +124,7 @@ Section parameterized.
       stac_cont_sound tacC ->
       stac_sound (APPLY _ _ lem tacC).
   Proof.
-    intros. red. intros.
+    intros. apply stac_sound_stac_sound_old. red. intros.
     unfold APPLY.
     consider (eapplicable tyProp vars_to_uvars exprUnify s tus tvs lem g); auto; intros.
     eapply (@eapplicable_sound _ _ _ _ _ tyProp (@typ0_cast _ _ _ _)) in H2; eauto.
@@ -166,17 +143,17 @@ Section parameterized.
              | |- context [ match ?X with Some _ => _ | None => True end ] =>
                consider X ; [ intros | solve [ intuition forward ] ]
            end.
-      unfold goalD in H6.
+      unfold propD in H6.
       forward.
       eapply H8 in H6; clear H8; eauto.
       { forward_reason.
-        eapply lemmaD'_weakenU with (tus' := tus) in H; eauto using goalD_weakenU.
+        eapply lemmaD'_weakenU with (tus' := tus) in H; eauto using propD_weakenU.
         specialize (H5 _ H6).
         forward_reason.
         rewrite H5 in *.
         unfold lemmaD' in H. forward.
         assert (exists ZZ,
-                  mapT (T:=list) (F:=option) (goalD tus tvs)
+                  mapT (T:=list) (F:=option) (propD tus tvs)
                        (map
                           (fun e : expr =>
                              instantiate (fun u : nat => lookup u s0) 0
@@ -190,7 +167,7 @@ Section parameterized.
                                end <-> y us vs) l0 ZZ).
         { clear H14 H15 H7.
           rewrite mapT_map.
-          unfold goalD.
+          unfold propD.
           rewrite <- map_mapT.
           revert H. revert l0.
           induction (premises lem).
@@ -276,7 +253,7 @@ Section parameterized.
             rewrite Forall_map in H10.
             cut (P2 us (hlist_app x0 Hnil)).
             { revert H8 H14. simpl. clear - ExprOk_expr.
-              unfold goalD. intros; forward.
+              unfold propD. intros; forward.
               inv_all; subst.
               eapply exprD'_weakenV with (tvs' := tvs) in H0; eauto.
               forward_reason.
@@ -341,7 +318,7 @@ Section parameterized.
             cut (P2 us (hlist_app x0 Hnil)).
             { (** TODO(gmalech): This is definitely abstractable **)
               revert H8 H14. simpl. clear - ExprOk_expr.
-              unfold goalD. intros; forward.
+              unfold propD. intros; forward.
               inv_all; subst.
               eapply exprD'_weakenV with (tvs' := tvs) in H0; eauto.
               forward_reason.
@@ -383,8 +360,9 @@ Section parameterized.
                 constructor; auto.
                 eapply H. assumption. } } } } }
       { clear - H.
+        eexists.
         eapply lemmaD'_convert; [ | eassumption ].
-        unfold goalD. simpl.
+        unfold propD. simpl.
         intros; forward.
         inv_all; subst.
         unfold tyProp.

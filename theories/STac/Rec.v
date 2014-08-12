@@ -36,3 +36,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments REC {_ _ _} n f last _ _ _ _ _ : rename.

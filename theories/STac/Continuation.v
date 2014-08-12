@@ -41,8 +41,8 @@ Section parameterized.
         | Fail => True
         | Solved tus' tvs' sub' =>
           WellFormed_subst sub' /\
-          match mapT (T:=list) (F:=option) (goalD (Expr:=Expr_expr) tus tvs) hyps
-              , mapT (T:=list) (F:=option) (goalD tus tvs) gs
+          match mapT (T:=list) (F:=option) (propD (Expr:=Expr_expr) tus tvs) hyps
+              , mapT (T:=list) (F:=option) (propD tus tvs) gs
               , substD tus tvs sub
           with
             | Some hD , Some gD , Some sD =>
@@ -64,13 +64,13 @@ Section parameterized.
           end
         | More tus' tvs' sub' hyps' g' =>
           WellFormed_subst sub' /\
-          match mapT (T:=list) (F:=option) (goalD (Expr:=Expr_expr) tus tvs) hyps
-              , mapT (T:=list) (F:=option) (goalD tus tvs) gs
+          match mapT (T:=list) (F:=option) (propD (Expr:=Expr_expr) tus tvs) hyps
+              , mapT (T:=list) (F:=option) (propD tus tvs) gs
               , substD tus tvs sub
           with
             | Some hD , Some gD , Some sD =>
-              match mapT (T:=list) (F:=option) (goalD (tus ++ tus') (tvs ++ tvs')) hyps'
-                  , goalD (tus ++ tus') (tvs ++ tvs') g'
+              match mapT (T:=list) (F:=option) (propD (tus ++ tus') (tvs ++ tvs')) hyps'
+                  , propD (tus ++ tus') (tvs ++ tvs') g'
                   , substD (tus ++ tus') (tvs ++ tvs') sub'
               with
                 | Some hD' , Some gD' , Some sD' =>
