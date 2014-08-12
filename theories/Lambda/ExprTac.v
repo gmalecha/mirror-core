@@ -84,6 +84,12 @@ Ltac arrow_case ts t :=
   destruct (@typ2_match_case _ _ _ _ _ ts t) as [ [ ? [ ? [ ? H ] ] ] | H ];
     ( try rewrite H in * ).
 
+Ltac arrow_case_any :=
+  match goal with
+    | H : appcontext [ @typ2_match _ _ _ _ _ ?X ?Y ] |- _ =>
+      arrow_case X Y
+  end.
+
 Section lemmas.
   Variable typ : Type.
   Variable RType_typ : RType typ.
