@@ -9,6 +9,7 @@ Require Export MirrorCore.STac.Fail.
 Require Export MirrorCore.STac.Rec.
 Require Export MirrorCore.STac.Apply.
 Require Export MirrorCore.STac.EApply.
+Require Export MirrorCore.STac.Rewrite.
 Require Export MirrorCore.STac.Simplify.
 Require Export MirrorCore.STac.Assumption.
 Require Export MirrorCore.STac.UseForAll.
