@@ -5,6 +5,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
@@ -12,22 +13,23 @@ Set Strict Implicit.
 
 Section semantic.
   Variable typ : Type.
-  Variable expr : Type.
+  Variable expr : tenv typ -> tenv typ -> typ -> Type.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr _ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
   Context {ExprOk_expr : ExprOk _}.
 
-  Let tvProp := @typ0 _ _ _ Typ0_Prop.
+  Let tyProp := @typ0 _ _ _ Typ0_Prop.
 
-  Definition Provable_val (val : typD nil tvProp) : Prop :=
+  Definition Provable_val (val : typD nil tyProp) : Prop :=
     match typ0_cast nil in _ = t return t with
       | eq_refl => val
     end.
 
-  Definition Provable tus tvs (e : expr) : ResType tus tvs Prop :=
-    match exprD' tus tvs e tvProp with
+  Definition Provable tus tvs (e : expr tus tvs tyProp)
+  : ResType tus tvs Prop :=
+    match exprD' tus tvs tyProp e with
       | None => None
       | Some p => Some (match typ0_cast nil in _ = t
                               return HList.hlist _ tus -> HList.hlist _ tvs -> t
@@ -35,12 +37,13 @@ Section semantic.
                           | eq_refl => p
                         end)
     end.
+  Arguments Provable tus tvs e.
 
   Theorem Provable_weaken
   : forall tus tus' tvs tvs' e eD,
-      Provable tus tvs e = Some eD ->
+      @Provable tus tvs e = Some eD ->
       exists eD',
-        Provable (tus ++ tus') (tvs ++ tvs') e = Some eD' /\
+        @Provable (tus ++ tus') (tvs ++ tvs') (weaken tus' tvs' e) = Some eD' /\
         forall us us' vs vs',
           eD us vs <-> eD' (hlist_app us us') (hlist_app vs vs').
   Proof.
@@ -54,15 +57,16 @@ Section semantic.
     rewrite <- H0. reflexivity.
   Qed.
 
-  Definition AllProvable tus tvs (es : list expr) : ResType tus tvs Prop :=
-    match mapT (T:=list) (F:=option) (Provable tus tvs) es with
+  Definition AllProvable tus tvs (es : list (expr tus tvs tyProp))
+  : ResType tus tvs Prop :=
+    match mapT (T:=list) (F:=option) (@Provable tus tvs) es with
       | None => None
       | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)
     end.
 
   Theorem AllProvable_nil
   : forall tus tvs, exists eD,
-      AllProvable tus tvs nil = Some eD /\
+      @AllProvable tus tvs nil = Some eD /\
       forall us vs, eD us vs.
   Proof.
     compute. intros. eexists; split; auto.
@@ -71,7 +75,7 @@ Section semantic.
 
   Theorem AllProvable_nil_Some
   : forall tus tvs eD,
-      AllProvable tus tvs nil = Some eD ->
+      @AllProvable tus tvs nil = Some eD ->
       forall us vs, eD us vs.
   Proof.
     compute. intros; inv_all; subst. constructor.
@@ -79,10 +83,10 @@ Section semantic.
 
   Theorem AllProvable_cons
   : forall tus tvs p ps PD,
-      AllProvable tus tvs (p :: ps) = Some PD ->
+      @AllProvable tus tvs (p :: ps) = Some PD ->
       exists pD psD,
-        Provable tus tvs p = Some pD /\
-        AllProvable tus tvs ps = Some psD /\
+        @Provable tus tvs p = Some pD /\
+        @AllProvable tus tvs ps = Some psD /\
         forall us vs,
           PD us vs <-> (pD us vs /\ psD us vs).
   Proof.
@@ -99,10 +103,10 @@ Section semantic.
 
   Theorem AllProvable_cons'
   : forall tus tvs p ps pD psD,
-      Provable tus tvs p = Some pD ->
-      AllProvable tus tvs ps = Some psD ->
+      @Provable tus tvs p = Some pD ->
+      @AllProvable tus tvs ps = Some psD ->
       exists PD,
-        AllProvable tus tvs (p :: ps) = Some PD /\
+        @AllProvable tus tvs (p :: ps) = Some PD /\
         forall us vs,
           PD us vs <-> (pD us vs /\ psD us vs).
   Proof.
@@ -118,9 +122,9 @@ Section semantic.
 
   Theorem AllProvable_weaken
   : forall tus tus' tvs tvs' ps psD,
-      AllProvable tus tvs ps = Some psD ->
+      @AllProvable tus tvs ps = Some psD ->
       exists psD',
-        AllProvable (tus ++ tus') (tvs ++ tvs') ps = Some psD' /\
+        @AllProvable (tus ++ tus') (tvs ++ tvs') (map (weaken tus' tvs') ps) = Some psD' /\
         forall us us' vs vs',
           psD us vs <-> psD' (HList.hlist_app us us') (HList.hlist_app vs vs').
   Proof.
@@ -146,10 +150,10 @@ Section semantic.
 
   Theorem AllProvable_app
   : forall tus tvs p ps pD psD,
-      AllProvable tus tvs p = Some pD ->
-      AllProvable tus tvs ps = Some psD ->
+      @AllProvable tus tvs p = Some pD ->
+      @AllProvable tus tvs ps = Some psD ->
       exists PD,
-        AllProvable tus tvs (p ++ ps) = Some PD /\
+        @AllProvable tus tvs (p ++ ps) = Some PD /\
         forall us vs,
           PD us vs <-> (pD us vs /\ psD us vs).
   Proof.

@@ -10,14 +10,14 @@ Set Strict Implicit.
 Section sem.
   Variable typ : Type.
   Variable RType_typ : RType typ.
-  Variable expr : Type.
+  Variable expr : tenv typ -> tenv typ -> typ -> Type.
   Variable Expr_expr : Expr _ expr.
 
   Definition Sem_equiv' (t : typ) (R : relation (typD nil t))
              (tus tvs : tenv typ)
-  : relation expr :=
+  : relation (expr tus tvs t) :=
     fun x y =>
-        match exprD' tus tvs x t , exprD' tus tvs y t with
+        match exprD' tus tvs t x , exprD' tus tvs t y with
           | None , None => True
           | Some l , Some r =>
             forall us vs, R (l us vs) (r us vs)
@@ -27,30 +27,30 @@ Section sem.
   Instance Reflexive_Sem_equiv' t Rt (Refl_Rt : Reflexive Rt) tus tvs
   : Reflexive (@Sem_equiv' t Rt tus tvs).
   Proof.
-    red. red; intros. destruct (exprD' tus tvs x t); auto.
+    red. red; intros. destruct (exprD' tus tvs t x); auto.
   Qed.
 
   Instance Symmetric_Sem_equiv' t Rt (Refl_Rt : Symmetric Rt) tus tvs
   : Symmetric (@Sem_equiv' t Rt tus tvs).
   Proof.
     red. unfold Sem_equiv'. intros.
-    destruct (exprD' tus tvs x t);
-    destruct (exprD' tus tvs y t); intuition.
+    destruct (exprD' tus tvs t x);
+    destruct (exprD' tus tvs t y); intuition.
   Qed.
 
   Instance Transitive_Sem_equiv' t Rt (Refl_Rt : Transitive Rt) tus tvs
   : Transitive (@Sem_equiv' t Rt tus tvs).
   Proof.
     red. unfold Sem_equiv'; simpl; intros.
-    destruct (exprD' tus tvs x t);
-      destruct (exprD' tus tvs y t);
-      destruct (exprD' tus tvs z t); auto.
+    destruct (exprD' tus tvs t x);
+      destruct (exprD' tus tvs t y);
+      destruct (exprD' tus tvs t z); auto.
     { intros. etransitivity. eapply H. eauto. }
     { intuition. }
   Qed.
-
+(*
   Definition Sem_equiv (t : typ) (R : relation (typD nil t)) (us vs : env nil)
-  : relation expr :=
+  : relation (expr :=
     fun x y =>
       match exprD us vs x t , exprD us vs y t with
         | None , None => True
@@ -92,11 +92,11 @@ Section sem.
         | Some val => P val
         | None => Q
       end.
-
+*)
   Definition Sem_ext' (t : typ) (P : typD nil t -> Prop) (Q : Prop) tus tvs
-  : expr -> Prop :=
+  : expr tus tvs t -> Prop :=
     fun e =>
-        match exprD' tus tvs e t with
+        match exprD' tus tvs t e with
           | Some val =>
             forall us vs, P (val us vs)
           | None => Q

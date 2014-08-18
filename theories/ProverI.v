@@ -13,23 +13,26 @@ Set Strict Implicit.
 Section proverI.
   Context {typ : Type}.
   Context {RType_typ : RType typ}.
-  Variable expr : Type.
-  Context {Expr_expr : Expr _ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Variable expr : tenv typ -> tenv typ -> typ -> Type.
+  Context {Expr_expr : Expr _ expr}.
+
+  Let tyProp := @typ0 _ _ _ Typ0_Prop.
 
   Record Prover : Type :=
-  { Facts : Type
-  ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
-  ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
-  ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
+  { Facts : tenv typ -> tenv typ -> Type
+  ; Facts_weaken : forall tus tvs tus' tvs', Facts tus tvs -> Facts (tus ++ tus') (tvs ++ tvs')
+  ; Summarize : forall tus tvs : tenv typ, list (expr tus tvs tyProp) -> Facts tus tvs
+  ; Learn : forall tus tvs : tenv typ, Facts tus tvs -> list (expr tus tvs tyProp) -> Facts tus tvs
+  ; Prove : forall tus tvs : tenv typ, Facts tus tvs -> expr tus tvs tyProp -> bool
   }.
 
-  Definition ProveOk (summary : Type)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
-    (prover : summary -> tenv typ -> tenv typ -> expr -> bool)
+  Definition ProveOk (summary : tenv typ -> tenv typ -> Type)
+    (Valid : forall tus tvs : tenv typ, summary tus tvs -> ResType tus tvs Prop)
+    (prover : forall tus tvs : tenv typ, summary tus tvs -> expr tus tvs tyProp -> bool)
   : Prop :=
-    forall tus tvs sum (goal : expr),
-      prover sum tus tvs goal = true ->
+    forall tus tvs sum (goal : expr tus tvs tyProp),
+      prover tus tvs sum goal = true ->
       (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
          Provable tus tvs goal = Some goalD ->
@@ -39,13 +42,13 @@ Section proverI.
            goalD us vs).
 
   Record ProverOk (P : Prover) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
+  { factsD : forall tus tvs : tenv typ, P.(Facts) tus tvs -> ResType tus tvs Prop
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->
         forall tus' tvs',
         exists sumD',
-             factsD (tus ++ tus') (tvs ++ tvs') f = Some sumD'
+             factsD (tus ++ tus') (tvs ++ tvs') (P.(Facts_weaken) tus tvs tus' tvs' f) = Some sumD'
           /\ forall us vs us' vs',
                sumD us vs <->
                sumD' (HList.hlist_app us us') (HList.hlist_app vs vs')
@@ -53,7 +56,7 @@ Section proverI.
     : forall tus tvs hyps premD,
         AllProvable tus tvs hyps = Some premD ->
         exists sumD,
-          factsD tus tvs (Summarize P tus tvs hyps) = Some sumD /\
+          factsD tus tvs (P.(Summarize) hyps) = Some sumD /\
           forall us vs,
             premD us vs ->
             sumD us vs
@@ -62,13 +65,13 @@ Section proverI.
         factsD tus tvs sum = Some sumD ->
         AllProvable tus tvs hyps = Some premD ->
         exists sumD',
-          factsD tus tvs (Learn P sum tus tvs hyps) = Some sumD' /\
+          factsD tus tvs (P.(Learn) sum hyps) = Some sumD' /\
           forall us vs,
             premD us vs ->
             sumD us vs ->
             sumD' us vs
   ; Prove_sound
-    : ProveOk factsD (@Prove P)
+    : ProveOk P.(Facts) factsD (@Prove P)
   }.
 
   (** Composite Prover **)
@@ -76,17 +79,21 @@ Section proverI.
     Variables pl pr : Prover.
 
     Definition composite_Prover : Prover :=
-    {| Facts := Facts pl * Facts pr
+    {| Facts := fun tus tvs => pl.(Facts) tus tvs * pr.(Facts) tus tvs
+     ; Facts_weaken := fun tus tvs tus' tvs' facts =>
+         let (fl,fr) := facts in
+         (pl.(Facts_weaken) tus tvs tus' tvs' fl,
+          pr.(Facts_weaken) tus tvs tus' tvs' fr)
      ; Summarize := fun uenv venv hyps =>
-         (pl.(Summarize) uenv venv hyps, pr.(Summarize) uenv venv hyps)
-     ; Learn := fun facts uenv venv hyps =>
+         (pl.(Summarize) hyps, pr.(Summarize) hyps)
+     ; Learn := fun uenv venv facts hyps =>
          let (fl,fr) := facts in
-         (pl.(Learn) fl uenv venv hyps, pr.(Learn) fr uenv venv hyps)
-     ; Prove := fun facts uenv venv goal =>
+         (pl.(Learn) fl hyps, pr.(Learn) fr hyps)
+     ; Prove := fun uenv venv facts goal =>
          let (fl,fr) := facts in
-         if @Prove pl fl uenv venv goal then true
-         else @Prove pr fr uenv venv goal
-    |}.
+         if pl.(Prove) fl goal then true
+         else pr.(Prove) fr goal
+    |}%type.
 
     Variable pl_correct : ProverOk pl.
     Variable pr_correct : ProverOk pr.
@@ -94,7 +101,7 @@ Section proverI.
     Theorem composite_ProverT_correct : ProverOk composite_Prover.
     Proof.
       refine (
-        {| factsD := fun uvars vars (facts : Facts composite_Prover) =>
+        {| factsD := fun uvars vars (facts : Facts composite_Prover uvars vars) =>
              let (fl,fr) := facts in
              match factsD pl_correct uvars vars fl
                  , factsD pr_correct uvars vars fr
@@ -103,7 +110,7 @@ Section proverI.
                | _ , _ => None
              end
          |}).
-      { intros. forward. inv_all; subst.
+      { simpl. intros. forward. inv_all; subst.
         eapply factsD_weaken with (tus' := tus') (tvs' := tvs') in H0.
         eapply factsD_weaken with (tus' := tus') (tvs' := tvs') in H1.
         forward_reason. Cases.rewrite_all_goal.
@@ -125,7 +132,7 @@ Section proverI.
         simpl. intuition. }
       { red. simpl. intros.
         forward. subst.
-        consider (Prove pl f tus tvs goal).
+        consider (Prove pl f goal).
         { intros; inv_all; subst.
           specialize (@Prove_sound _ pl_correct _ _ _ _ H _ _ H3 H1).
           intros; forward_reason; eauto. }
@@ -137,5 +144,5 @@ Section proverI.
 
 End proverI.
 
-Arguments Prover typ expr.
-Arguments composite_Prover {typ} {expr} _ _.
+Arguments Prover typ {RType} {Typ0} expr : rename.
+Arguments composite_Prover {typ} {RType} {Typ0} {expr} _ _ : rename.

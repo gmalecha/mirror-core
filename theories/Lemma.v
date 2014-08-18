@@ -2,33 +2,13 @@ Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Lemma list_mapT_cons
-: forall T U (F : T -> option U) ls a,
-    Traversable.mapT F (a :: ls) =
-    match match F a with
-            | Some x => Some (cons x)
-            | None => None
-          end with
-      | Some f =>
-        match Traversable.mapT F ls with
-          | Some x => Some (f x)
-          | None => None
-        end
-      | None => None
-    end.
-Proof. reflexivity. Qed.
-
-Lemma list_mapT_nil
-: forall T U (F : T -> option U),
-    Traversable.mapT F nil = Some nil.
-Proof. reflexivity. Qed.
 
 Section lem.
   Variable typ : Type.
@@ -119,7 +99,7 @@ Section lem.
   : ResType tus tvs Prop :=
     match
         Traversable.mapT (T := list) (F := option)
-                         (fun e : expr => exprD' tus (vars l ++ tvs) e tyProp)
+                         (fun e : expr => exprD' tus (vars l ++ tvs) tyProp e)
                          (premises l)
       , conclusionD tus (vars l ++ tvs) (concl l)
     with
@@ -253,7 +233,7 @@ Section lem.
                   @mapT_compose' _ _
                                  (fun e v =>
                                     exists v',
-                                      exprD' (tus ++ tus') (vars l ++ tvs) e tyProp = Some v' /\
+                                      exprD' (tus ++ tus') (vars l ++ tvs) tyProp e = Some v' /\
                                       forall a b c,
                                         v a b = v' (hlist_app a c) b)
                    _
@@ -271,13 +251,13 @@ Section lem.
     eapply mapT_success
     with (P := fun e =>
                  exists v,
-                   exprD' tus (vars l ++ tvs) e tyProp = Some v) in H.
+                   exprD' tus (vars l ++ tvs) tyProp e = Some v) in H.
     generalize H.
     eapply mapT_compose''
       with (R :=
               fun e v' =>
                 forall v,
-                  exprD' tus (vars l ++ tvs) e tyProp = Some v ->
+                  exprD' tus (vars l ++ tvs) tyProp e  = Some v ->
                   forall us vs us',
                     v us vs = v' (hlist_app us us') vs)in H.
     destruct H as [ ? [ ? ? ] ].
@@ -329,7 +309,7 @@ Section lem.
                   @mapT_compose' _ _
                                  (fun e v =>
                                     exists v',
-                                      exprD' tus (vars l ++ tvs ++ tvs') e tyProp = Some v' /\
+                                      exprD' tus (vars l ++ tvs ++ tvs') tyProp e = Some v' /\
                                       forall a b c d,
                                         v a (hlist_app b c) = v' a (hlist_app b (hlist_app c d)))
                    _
@@ -373,14 +353,14 @@ Section lem.
     eapply mapT_success
     with (P := fun e =>
                  exists v,
-                   exprD' tus (vars l ++ tvs) e tyProp = Some v) in H.
+                   exprD' tus (vars l ++ tvs) tyProp e = Some v) in H.
     generalize H.
     eapply mapT_compose''
-      with (f := fun e : expr => exprD' tus (vars l ++ tvs ++ tvs') e tyProp)
+      with (f := fun e : expr => exprD' tus (vars l ++ tvs ++ tvs') tyProp e)
            (R :=
               fun e v' =>
                 forall v,
-                  exprD' tus (vars l ++ tvs) e tyProp = Some v ->
+                  exprD' tus (vars l ++ tvs) tyProp e = Some v ->
                   forall us vs vs' vs'',
                     v us (hlist_app vs vs') = v' us  (hlist_app vs (hlist_app vs' vs''))) in H.
     { destruct H as [ ? [ ? ? ] ].

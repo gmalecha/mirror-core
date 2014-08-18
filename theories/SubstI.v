@@ -70,35 +70,36 @@ Proof.
 Qed.
 
 Section subst.
-  Variable T : Type.
   Variable typ : Type.
+  Variable T : tenv typ -> tenv typ -> Type.
   (** the [expr] type requires a notion of unification variable **)
   Variable RType_type : RType typ.
-  Variable expr : Type.
+  Variable expr : tenv typ -> tenv typ -> typ -> Type.
   Variable Expr_expr : Expr _ expr.
   Variable ExprOk_expr : ExprOk _.
 
   Let uvar : Type := nat.
 
   Class Subst :=
-  { lookup : uvar -> T -> option expr
-  ; domain : T -> list uvar
+  { lookup : forall tus tvs t, uvar -> T tus tvs -> option (expr tus tvs t)
+  ; weaken : forall tus tvs tus' tvs', T tus tvs -> T (tus ++ tus') (tvs ++ tvs')
+  ; domain : forall tus tvs, T tus tvs -> list uvar
   }.
 
   Class SubstUpdate :=
-  { set : uvar -> expr -> T -> option T
-  ; drop : uvar -> T -> option T
-  ; empty : T
+  { set : forall tus tvs t, uvar -> expr tus tvs t -> T tus tvs -> option (T tus tvs)
+  ; drop : forall tus tvs t', T (tus ++ t' :: nil) tvs -> option (T tus tvs)
+  ; empty : forall tus tvs, T tus tvs
   }.
 
   Class SubstOk (S : Subst) : Type :=
-  { WellFormed_subst : T -> Prop
-  ; substD : forall (tus tvs : tenv typ), T -> ResType tus tvs Prop
+  { WellFormed_subst : forall tus tvs, T tus tvs -> Prop
+  ; substD : forall (tus tvs : tenv typ), T tus tvs -> ResType tus tvs Prop
   ; substD_weaken
-    : forall tus tvs tus' tvs' s sD,
-        substD tus tvs s = Some sD ->
+    : forall tus tvs tus' tvs' (s : T tus tvs) sD,
+        substD s = Some sD ->
         exists sD',
-          substD (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
+          substD (weaken tus' tvs' s) = Some sD' /\
           forall us us' vs vs',
             sD us vs <-> sD' (hlist_app us us') (hlist_app vs vs')
   ; substD_lookup
