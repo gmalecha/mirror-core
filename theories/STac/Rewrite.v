@@ -100,12 +100,12 @@ Section parameterized.
   Section rewrite.
     Variable rw : RW.
 
-    Definition rewrite_any (tus tvs : tenv typ) (t : typ) (hyps : list expr)
+    Definition rewrite_here (tus tvs : tenv typ) (t : typ) (hyps : list expr)
                (e : expr) (s : subst) (under : nat)
     : option (expr * subst) :=
       let lem := rw.(lem) in
       let '(lem_t, lem_l, lem_r) := lem.(concl) in
-      if t ?[ Rty nil ] lem_t then
+      if t ?[ Rty nil ] lem_t then (** TODO: This could be ensured outside **)
         let len_tus := length tus in
         let open_leml := vars_to_uvars 0 len_tus lem_l in
         match exprUnify tus tvs under e open_leml t s with
@@ -121,7 +121,7 @@ Section parameterized.
                 match pull len_tus len_new_tus s'' with
                   | None => None
                   | Some s''' =>
-                    Some (instantiate (fun u => lookup u s'') under lem_r, s''')
+                    Some (instantiate (fun u => lookup u s'') under (vars_to_uvars 0 len_tus lem_r), s''')
                 end
               | _ => None
             end
@@ -131,10 +131,34 @@ Section parameterized.
   End rewrite.
 
   (** I need a fold to actually rewrite **)
-  Variable fold_expr
-  : (tenv typ -> tenv typ -> typ -> expr -> nat ->
-     (stac typ expr subst -> Result typ expr subst) ->
-     option (expr * subst)) -> expr -> option (expr * subst).
+  Variable rewriter_fold
+  : (tenv typ -> tenv typ -> typ -> expr -> nat -> subst -> option (expr * subst))
+    -> tenv typ -> tenv typ -> typ -> expr -> subst -> option (expr * subst).
+
+  Section rewrite_with_all.
+    Definition RWs := typ -> list RW.
+    Variable rws : RWs.
+
+    Definition rewrite_bottom_up : stac typ expr subst.
+      red.
+      refine (
+      fun tus tvs sub hyps goal =>
+        match
+          rewriter_fold
+            (fun tus' tvs' t e under s =>
+               let the_hyps := hyps in
+               first_success
+                 (fun rw =>
+                    rewrite_here rw tus' tvs' t the_hyps e s under)
+                 (rws t))
+            tus tvs tyProp goal sub
+        with
+          | None => Fail
+          | Some (sub',goal') => More tus tvs goal' hyps sub'
+        end).
+    Defined.
+  End rewrite_with_all.
+
 
 (*
   Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)

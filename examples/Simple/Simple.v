@@ -14,18 +14,27 @@ Set Strict Implicit.
 
 Inductive typ :=
 | tyArr : typ -> typ -> typ
-| tyNat | tyBool.
+| tyNat | tyBool
+| tyProp.
 
 Fixpoint typD (ts : list Type) (t : typ) : Type :=
   match t with
     | tyNat => nat
     | tyBool => bool
+    | tyProp => Prop
     | tyArr a b => typD ts a -> typD ts b
   end.
 
 Definition typ_eq_dec : forall a b : typ, {a = b} + {a <> b}.
   decide equality.
 Defined.
+
+Instance RelDec_eq_typ : RelDec (@eq typ) :=
+{ rel_dec := fun a b =>
+               match typ_eq_dec a b with
+                 | left _ => true
+                 | right _ => false
+               end }.
 
 Instance RType_typ : RType typ :=
 { typD := typD
@@ -47,14 +56,27 @@ Instance Typ2_tyArr : Typ2 _ Fun :=
       end
 }.
 
+Instance Typ0_tyProp : Typ0 _ Prop :=
+{| typ0 := tyProp
+ ; typ0_cast := fun _ => eq_refl
+ ; typ0_match := fun T ts t =>
+                   match t as t
+                         return T Prop -> T (TypesI.typD ts t) -> T (TypesI.typD ts t)
+                   with
+                     | tyProp => fun tr _ => tr
+                     | _ => fun _ fa => fa
+                   end
+ |}.
+
 Inductive func :=
-| Lt | Plus | N : nat -> func.
+| Lt | Plus | N : nat -> func | Eq : typ -> func.
 
 Definition typeof_func (f : func) : option typ :=
   Some match f with
          | Lt => tyArr tyNat (tyArr tyNat tyBool)
          | Plus => tyArr tyNat (tyArr tyNat tyNat)
          | N _ => tyNat
+         | Eq t => tyArr t (tyArr t tyProp)
        end.
 
 Definition funcD (ts : list Type) (f : func)
@@ -70,6 +92,7 @@ Definition funcD (ts : list Type) (f : func)
     | Lt => NPeano.ltb
     | Plus => plus
     | N n => n
+    | Eq t => @eq _
   end.
 
 Instance RelDec_func_eq : RelDec (@eq func) :=
@@ -78,6 +101,7 @@ Instance RelDec_func_eq : RelDec (@eq func) :=
                  | Plus , Plus => true
                  | Lt , Lt => true
                  | N a , N b => a ?[ eq ] b
+                 | Eq a , Eq b => a ?[ eq ] b
                  | _ , _ => false
                end
 }.
@@ -85,4 +109,5 @@ Instance RelDec_func_eq : RelDec (@eq func) :=
 Instance RSym_func : RSym func :=
 { typeof_sym := typeof_func
 ; symD := funcD
-; sym_eqb := fun a b => Some (a ?[ eq ] b) }.
+; sym_eqb := fun a b => Some (a ?[ eq ] b)
+}.
