@@ -39,7 +39,7 @@ Section typed.
   Variable SubstOk_subst : SubstOk (Expr_expr) Subst_subst.
   Variable SubstUpdateOk_subst
   : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
-  Local Instance Expr_expr : Expr _ (expr typ func) := Expr_expr.
+  Local Existing Instance Expr_expr.
 
   Local Instance RelDec_Rty ts : RelDec (Rty ts) :=
   { rel_dec := fun a b => match type_cast ts a b with
