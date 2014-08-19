@@ -76,7 +76,6 @@ Section Expr.
   (** NOTE:
    ** - An alternative is to generalize it monadically and eliminate the
    **   specialized variable environments.
-   ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
   { exprD' : forall (tus tvs : tenv typ) (t : typ),
@@ -97,6 +96,10 @@ Section Expr.
     : forall (tus tvs : tenv typ) (t : typ)
              (tus' tvs' : tenv typ),
         expr (tus ++ tus') (tvs ++ tvs') t -> option (expr tus tvs t)
+  ; conv : forall (tus tvs tus' tvs' : tenv typ)
+                  (pfu : unit -> tus = tus')
+                  (pfv : unit -> tvs = tvs'),
+             forall t, expr tus tvs t -> expr tus' tvs' t
   }.
   Arguments exprD' {Expr} tus tvs t e : rename.
 
@@ -208,6 +211,20 @@ Section Expr.
         exprD' tus tvs t' e' = Some val' /\
         forall us vs u,
           val us (hlist_app vs (Hcons u Hnil)) = val' us vs
+  ; conv_sound
+    : forall tus tvs tus' tvs'
+             (pfu : unit -> tus = tus') (pfv : unit -> tvs = tvs') t
+             (e : expr tus tvs t) eD,
+        exprD' tus tvs t e = Some eD ->
+        exists eD',
+          exprD' tus' tvs' t (conv pfu pfv e) = Some eD' /\
+          forall us vs,
+            eD us vs = eD match pfu tt with
+                            | eq_refl => us
+                          end
+                          match pfv tt with
+                            | eq_refl => vs
+                          end
   }.
 
   Context {Expr_expr : Expr}.

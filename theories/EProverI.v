@@ -16,35 +16,38 @@ Set Strict Implicit.
  **)
 Section proverI.
   Context {typ : Type}.
-  Variable expr : Type.
   Context {RType_typ : RType typ}.
+  Variable expr : tenv typ -> tenv typ -> typ -> Type.
   Context {Expr_expr : Expr _ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
+  Let tyProp : typ := @typ0 _ _ _ _.
+
   Record EProver : Type :=
-  { Facts : Type
-  ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
-  ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
-  ; Prove : forall (subst : Type) {S : Subst subst expr},
-              Facts -> tenv typ -> tenv typ -> subst -> expr -> option subst
+  { Facts : tenv typ -> tenv typ -> Type
+  ; Weaken : forall tus tvs tus' tvs', Facts tus tvs -> Facts (tus ++ tus') (tvs ++ tvs')
+  ; Summarize : forall tus tvs : tenv typ, list (expr tus tvs tyProp) -> Facts tus tvs
+  ; Learn : forall tus tvs, list (expr tus tvs tyProp) -> Facts tus tvs -> Facts tus tvs
+  ; Prove : forall (subst : tenv typ -> tenv typ -> Type) {S : Subst subst expr},
+              forall tus tvs : tenv typ, Facts tus tvs -> subst tus tvs -> expr tus tvs tyProp -> option (subst tus tvs)
   }.
 
-  Definition EProveOk (summary : Type)
-             (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : @SubstOk subst typ _ expr _ _)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
-    (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
+  Definition EProveOk (summary : tenv typ -> tenv typ -> Type)
+             (subst : tenv typ -> tenv typ -> Type) (Ssubst : Subst subst expr)
+             (SsubstOk : @SubstOk typ subst _ expr _ _)
+    (Valid : forall tus tvs : tenv typ, summary tus tvs -> ResType tus tvs Prop)
+    (prover : forall tus tvs : tenv typ, summary tus tvs -> subst tus tvs -> expr tus tvs tyProp -> option (subst tus tvs))
   : Prop :=
-    forall tus tvs sum (goal : expr) (sub sub' : subst),
-      prover sum tus tvs sub goal = Some sub' ->
+    forall tus tvs sum (goal : expr tus tvs tyProp) (sub sub' : subst tus tvs),
+      prover tus tvs sum sub goal = Some sub' ->
       WellFormed_subst sub ->
       WellFormed_subst sub' /\
       (forall sumD subD goalD,
          Valid tus tvs sum = Some sumD ->
-         substD tus tvs sub = Some subD ->
+         substD  sub = Some subD ->
          Provable tus tvs goal = Some goalD ->
          exists subD',
-           substD tus tvs sub' = Some subD' /\
+           substD sub' = Some subD' /\
            forall (us : HList.hlist (typD nil) tus)
                   (vs : HList.hlist (typD nil) tvs),
              sumD us vs ->
@@ -53,21 +56,21 @@ Section proverI.
              goalD us vs).
 
   Record EProverOk (P : EProver) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
+  { factsD : forall tus tvs : tenv typ, P.(Facts) tus tvs -> ResType tus tvs Prop
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->
         forall tus' tvs',
         exists sumD',
-             factsD (tus ++ tus') (tvs ++ tvs') f = Some sumD'
+             factsD (tus ++ tus') (tvs ++ tvs') (P.(Weaken) _ _ tus' tvs' f) = Some sumD'
           /\ forall us vs us' vs',
                sumD us vs <->
                sumD' (HList.hlist_app us us') (HList.hlist_app vs vs')
   ; Summarize_sound
-    : forall tus tvs hyps premD,
+    : forall tus tvs (hyps : list (expr tus tvs tyProp)) premD,
         AllProvable tus tvs hyps = Some premD ->
         exists sumD,
-          factsD tus tvs (Summarize P tus tvs hyps) = Some sumD /\
+          factsD tus tvs (P.(Summarize) hyps) = Some sumD /\
           forall us vs,
             premD us vs ->
             sumD us vs
@@ -76,7 +79,7 @@ Section proverI.
         factsD tus tvs sum = Some sumD ->
         AllProvable tus tvs hyps = Some premD ->
         exists sumD',
-          factsD tus tvs (Learn P sum tus tvs hyps) = Some sumD' /\
+          factsD tus tvs (P.(Learn) hyps sum) = Some sumD' /\
           forall us vs,
             premD us vs ->
             sumD us vs ->
@@ -84,22 +87,20 @@ Section proverI.
   ; Prove_sound
     : forall subst (Ssubst : Subst subst expr)
              (Sok : SubstOk _ _),
-        EProveOk Sok factsD (@Prove P subst Ssubst)
+        EProveOk _ Sok factsD (@Prove P subst Ssubst)
   }.
 
   Lemma factsD_conv P (Pok : EProverOk P)
   : forall tus tvs tus' tvs' f (pfu : tus' = tus) (pfv : tvs' = tvs),
       Pok.(factsD) tus tvs f =
-      match pfu in _ = u' return ResType u' _ Prop with
-        | eq_refl =>
-          match pfv in _ = v' return ResType _ v' Prop with
-            | eq_refl => Pok.(factsD) tus' tvs' f
-          end
-      end.
+      match pfu in _ = u' , pfv in _ = v' return P.(Facts) u' v' -> ResType u' v' Prop with
+        | eq_refl , eq_refl => Pok.(factsD) tus' tvs'
+      end f.
   Proof.
     destruct pfu. destruct pfv. reflexivity.
   Qed.
 
+(*
   Lemma factsD_weakenU P (Pok : EProverOk P)
   : forall tus tvs f sumD,
       Pok.(factsD) tus tvs f = Some sumD ->
@@ -156,25 +157,29 @@ Section proverI.
     generalize dependent (tus ++ nil).
     intros; subst. reflexivity.
   Qed.
+*)
 
   (** Composite Prover **)
   Section composite.
     Variables pl pr : EProver.
 
     Definition composite_EProver : EProver :=
-    {| Facts := Facts pl * Facts pr
+    {| Facts := fun tus tvs => pl.(Facts) tus tvs * pr.(Facts) tus tvs
+     ; Weaken := fun tus tvs tus' tvs' facts =>
+         let (fl,fr) := facts in
+         (pl.(Weaken) _ _ tus' tvs' fl, pr.(Weaken) _ _ tus' tvs' fr)
      ; Summarize := fun uenv venv hyps =>
-         (pl.(Summarize) uenv venv hyps, pr.(Summarize) uenv venv hyps)
-     ; Learn := fun facts uenv venv hyps =>
+         (pl.(Summarize) hyps, pr.(Summarize) hyps)
+     ; Learn := fun uenv venv hyps facts =>
          let (fl,fr) := facts in
-         (pl.(Learn) fl uenv venv hyps, pr.(Learn) fr uenv venv hyps)
-     ; Prove := fun subst Subst facts uenv venv s goal =>
+         (pl.(Learn) hyps fl, pr.(Learn) hyps fr)
+     ; Prove := fun subst Subst uenv venv facts s goal =>
          let (fl,fr) := facts in
-         match @Prove pl subst Subst fl uenv venv s goal with
+         match @Prove pl subst Subst uenv venv fl s goal with
            | Some s' => Some s'
-           | None => @Prove pr subst Subst fr uenv venv s goal
+           | None => @Prove pr subst Subst uenv venv fr s goal
          end
-    |}.
+    |}%type.
 
     Variable pl_correct : EProverOk pl.
     Variable pr_correct : EProverOk pr.
@@ -182,7 +187,7 @@ Section proverI.
     Theorem composite_ProverT_correct : EProverOk composite_EProver.
     Proof.
       refine (
-        {| factsD := fun uvars vars (facts : Facts composite_EProver) =>
+        {| factsD := fun uvars vars (facts : composite_EProver.(Facts) uvars vars) =>
              let (fl,fr) := facts in
              match factsD pl_correct uvars vars fl
                  , factsD pr_correct uvars vars fr
@@ -191,7 +196,7 @@ Section proverI.
                | _ , _ => None
              end
          |}).
-      { intros. forward. inv_all; subst.
+      { simpl; intros. forward. inv_all; subst.
         eapply factsD_weaken with (tus' := tus') (tvs' := tvs') in H0.
         eapply factsD_weaken with (tus' := tus') (tvs' := tvs') in H1.
         forward_reason. Cases.rewrite_all_goal.
@@ -213,7 +218,7 @@ Section proverI.
         simpl. intuition. }
       { red. simpl. intros.
         forward. subst.
-        consider (Prove pl f tus tvs sub goal).
+        consider (Prove pl f sub goal).
         { intros; inv_all; subst.
           specialize (@Prove_sound _ pl_correct _ _ _ _ _ _ _ _ _ H H0).
           intros; forward_reason.
@@ -235,11 +240,12 @@ Section proverI.
 
   (** From non-EProvers **)
   Section non_eprover.
-    Variables p : @Prover typ expr.
+    Variables p : @Prover typ _ _ expr.
 
     Definition from_Prover : EProver :=
       @Build_EProver
         p.(ProverI.Facts)
+        p.(ProverI.Weaken)
         p.(ProverI.Summarize)
         p.(ProverI.Learn)
         (fun subst Subst facts uenv venv s goal =>
@@ -265,6 +271,6 @@ Section proverI.
 
 End proverI.
 
-Arguments EProver typ expr.
-Arguments composite_EProver {typ} {expr} _ _.
-Arguments from_Prover {typ} {expr} _.
+Arguments EProver typ {RType TyProp} expr : rename.
+Arguments composite_EProver {typ} {RType TyProp} {expr} _ _ : rename.
+Arguments from_Prover {typ} {RType TyProp} {expr} _ : rename.

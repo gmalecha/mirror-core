@@ -3,6 +3,7 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implict.
@@ -90,7 +91,7 @@ Section mapT_facts.
     rewrite H. rewrite IHls. destruct (g a); auto.
   Qed.
 
-  Lemma mapT_success
+  Lemma mapT_sound
   : forall (f : T -> option U) ls ls',
       mapT f ls = Some ls' ->
       forall x, In x ls ->
@@ -106,6 +107,64 @@ Section mapT_facts.
       { eapply IHls in H0; [ | reflexivity ].
         forward_reason. eexists; split; eauto.
         right. assumption. } }
+  Qed.
+
+  Lemma mapT_Forall
+  : forall (T V : Type)
+           (P : T -> Prop)
+           (f : T -> option V),
+      (forall x a, f x = Some a -> P x) ->
+      forall ls ls',
+        mapT f ls = Some ls' ->
+        Forall P ls.
+  Proof.
+    clear.
+    induction ls; intros.
+    { simpl in H0. inv_all; subst; auto. }
+    { rewrite list_mapT_cons in H0.
+      forwardy.
+      apply H in H0. inv_all; subst.
+      specialize (IHls _ H1).
+      constructor; auto. }
+  Qed.
+
+  Lemma mapT_compose'
+  : forall (T V : Type)
+           (R : T -> V -> Prop)
+           (f : T -> option V),
+      (forall x a,
+         f x = Some a -> R x a) ->
+      forall (ls : list T) a,
+        mapT f ls = Some a ->
+        Forall2 R ls a.
+  Proof.
+    induction ls.
+    { simpl. intros.
+      inv_all; subst. constructor. }
+    { intros. rewrite list_mapT_cons in H0.
+      forward. inv_all; subst.
+      specialize (IHls _ eq_refl). apply H in H0.
+      constructor; auto. }
+  Qed.
+
+  Lemma mapT_compose''
+  : forall (T V : Type)
+           (P : T -> Prop)
+           (R : T -> V -> Prop)
+           (f : T -> option V),
+      (forall x, P x -> exists a, f x = Some a /\ R x a) ->
+      forall ls,
+        Forall P ls ->
+        exists ls',
+          mapT f ls = Some ls' /\
+          Forall2 R ls ls'.
+  Proof.
+    clear. induction 2; intros.
+    { exists nil. rewrite list_mapT_nil. eauto. }
+    { eapply H in H0.
+      forward_reason.
+      rewrite list_mapT_cons. rewrite H0. rewrite H2.
+      eauto. }
   Qed.
 
 End mapT_facts.

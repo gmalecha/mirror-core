@@ -21,9 +21,9 @@ Section proverI.
 
   Record Prover : Type :=
   { Facts : tenv typ -> tenv typ -> Type
-  ; Facts_weaken : forall tus tvs tus' tvs', Facts tus tvs -> Facts (tus ++ tus') (tvs ++ tvs')
+  ; Weaken : forall tus tvs tus' tvs', Facts tus tvs -> Facts (tus ++ tus') (tvs ++ tvs')
   ; Summarize : forall tus tvs : tenv typ, list (expr tus tvs tyProp) -> Facts tus tvs
-  ; Learn : forall tus tvs : tenv typ, Facts tus tvs -> list (expr tus tvs tyProp) -> Facts tus tvs
+  ; Learn : forall tus tvs : tenv typ, list (expr tus tvs tyProp) -> Facts tus tvs -> Facts tus tvs
   ; Prove : forall tus tvs : tenv typ, Facts tus tvs -> expr tus tvs tyProp -> bool
   }.
 
@@ -48,7 +48,7 @@ Section proverI.
         factsD tus tvs f = Some sumD ->
         forall tus' tvs',
         exists sumD',
-             factsD (tus ++ tus') (tvs ++ tvs') (P.(Facts_weaken) tus tvs tus' tvs' f) = Some sumD'
+             factsD (tus ++ tus') (tvs ++ tvs') (P.(Weaken) tus tvs tus' tvs' f) = Some sumD'
           /\ forall us vs us' vs',
                sumD us vs <->
                sumD' (HList.hlist_app us us') (HList.hlist_app vs vs')
@@ -65,7 +65,7 @@ Section proverI.
         factsD tus tvs sum = Some sumD ->
         AllProvable tus tvs hyps = Some premD ->
         exists sumD',
-          factsD tus tvs (P.(Learn) sum hyps) = Some sumD' /\
+          factsD tus tvs (P.(Learn) hyps sum) = Some sumD' /\
           forall us vs,
             premD us vs ->
             sumD us vs ->
@@ -80,15 +80,15 @@ Section proverI.
 
     Definition composite_Prover : Prover :=
     {| Facts := fun tus tvs => pl.(Facts) tus tvs * pr.(Facts) tus tvs
-     ; Facts_weaken := fun tus tvs tus' tvs' facts =>
+     ; Weaken := fun tus tvs tus' tvs' facts =>
          let (fl,fr) := facts in
-         (pl.(Facts_weaken) tus tvs tus' tvs' fl,
-          pr.(Facts_weaken) tus tvs tus' tvs' fr)
+         (pl.(Weaken) tus tvs tus' tvs' fl,
+          pr.(Weaken) tus tvs tus' tvs' fr)
      ; Summarize := fun uenv venv hyps =>
          (pl.(Summarize) hyps, pr.(Summarize) hyps)
-     ; Learn := fun uenv venv facts hyps =>
+     ; Learn := fun uenv venv hyps facts =>
          let (fl,fr) := facts in
-         (pl.(Learn) fl hyps, pr.(Learn) fr hyps)
+         (pl.(Learn) hyps fl, pr.(Learn) hyps fr)
      ; Prove := fun uenv venv facts goal =>
          let (fl,fr) := facts in
          if pl.(Prove) fl goal then true
