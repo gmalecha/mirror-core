@@ -64,6 +64,22 @@ Section typed.
                         type_cast env x y = None -> ~Rty env x y
   }.
 
+  Definition makeRTypeOk
+             (wf : well_founded tyAcc)
+             (tc : forall (env : list Type) (x : typ), type_cast env x x = Some (Rrefl env x))
+             (tc' : forall (env : list Type) (x y : typ),
+                      type_cast env x y = None -> ~ Rty env x y)
+  : RTypeOk.
+  Proof.
+    constructor; simpl.
+    { reflexivity. }
+    { assumption. }
+    { destruct pf. reflexivity. }
+    { destruct pf1; destruct pf2; reflexivity. }
+    { assumption. }
+    { assumption. }
+  Qed.
+
   Global Instance RelDec_Rty ts : RelDec (Rty ts) :=
   { rel_dec := fun l r => match type_cast ts l r with
                             | None => false

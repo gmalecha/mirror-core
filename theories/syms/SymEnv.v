@@ -68,6 +68,13 @@ Section RSym.
   ; symD := funcD
   }.
 
+  Global Instance RSymOk_func : RSymOk RSym_func.
+  Proof.
+    constructor.
+    unfold sym_eqb; simpl.
+    intros; consider (a ?[ eq ] b); auto.
+  Qed.
+
   Definition from_list {T} (ls : list T) : PositiveMap.t T :=
     (fix from_list ls : positive -> PositiveMap.t T :=
        match ls with

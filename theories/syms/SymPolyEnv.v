@@ -137,8 +137,40 @@ Section typed.
                   | ?Y = _ =>
                     change Y with X in pf' ; congruence
                 end
-            end). 
+            end).
   Defined.
+
+  Lemma list_Rty_eq : forall a b, list_Rty a b = true <-> a = b.
+  Proof.
+    induction a; destruct b; simpl.
+    { intuition. }
+    { intuition congruence. }
+    { intuition congruence. }
+    { specialize (IHa b).
+      match goal with
+        | |- ((if ?X then _ else _) = _) <-> _ =>
+          consider X; intros
+      end.
+      { red in H. subst. rewrite IHa.
+        split. intros; subst; reflexivity.
+        inversion 1; auto. }
+      { unfold Rty in *.
+        split; intros; congruence. } }
+  Qed.
+
+
+  Global Instance RSymOk_func : RSymOk RSym_func.
+  Proof.
+    constructor.
+    unfold sym_eqb. simpl.
+    destruct a; destruct b.
+    consider (fi ?[ eq ] fi0); intros; subst; try congruence.
+    generalize (list_Rty_eq ts ts0).
+    destruct (list_Rty ts ts0).
+    clear. intuition. f_equal; auto.
+    clear. intuition.
+    inversion H0. apply H2 in H3. congruence.
+  Qed.
 
   Definition from_list {T} (ls : list T) : PositiveMap.t T :=
     (fix from_list ls : positive -> PositiveMap.t T :=

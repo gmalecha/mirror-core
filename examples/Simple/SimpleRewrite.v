@@ -11,7 +11,7 @@ Set Strict Implicit.
 
 Definition E := expr typ func.
 Instance RType_typ : RType typ := _.
-Instance Expr_E : Expr _ E := Expr_expr _ _.
+Instance Expr_E : Expr _ E := Expr_expr.
 
 Definition subst : Type := FMapSubst.SUBST.raw E.
 Instance Subst_subst : Subst subst E := FMapSubst.SUBST.Subst_subst _.

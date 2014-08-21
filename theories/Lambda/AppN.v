@@ -10,7 +10,8 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.

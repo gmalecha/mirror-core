@@ -4,10 +4,11 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -36,14 +37,41 @@ Instance RelDec_eq_typ : RelDec (@eq typ) :=
                  | right _ => false
                end }.
 
+Instance RelDec_Correct_eq_typ : RelDec_Correct RelDec_eq_typ.
+Proof.
+  constructor.
+  intros.
+  unfold rel_dec; simpl.
+  destruct (typ_eq_dec x y); intuition.
+Qed.
+
+Inductive tyAcc' : typ -> typ -> Prop :=
+| tyArrL : forall a b, tyAcc' a (tyArr a b)
+| tyArrR : forall a b, tyAcc' b (tyArr a b).
+
 Instance RType_typ : RType typ :=
 { typD := typD
-; tyAcc := fun _ _ => False
+; tyAcc := tyAcc'
 ; type_cast := fun _ a b => match typ_eq_dec a b with
                               | left pf => Some pf
                               | _ => None
                             end
 }.
+
+Instance RTypeOk_typ : @RTypeOk typ _.
+Proof.
+  eapply makeRTypeOk.
+  { red.
+    induction a; constructor; inversion 1.
+    subst; auto.
+    subst; auto. }
+  { unfold type_cast; simpl.
+    intros. destruct (typ_eq_dec x x).
+    f_equal. compute.
+    uip_all. reflexivity. congruence. }
+  { unfold type_cast; simpl.
+    intros. destruct (typ_eq_dec x y); try congruence. }
+Qed.
 
 Instance Typ2_tyArr : Typ2 _ Fun :=
 { typ2 := tyArr
@@ -55,6 +83,18 @@ Instance Typ2_tyArr : Typ2 _ Fun :=
         | _ => fun fa => fa
       end
 }.
+
+Instance Typ2Ok_tyArr : Typ2Ok Typ2_tyArr.
+Proof.
+  constructor.
+  { reflexivity. }
+  { apply tyArrL. }
+  { intros; apply tyArrR. }
+  { inversion 1; subst; unfold Rty; auto. }
+  { destruct x; simpl; eauto.
+    left; do 2 eexists; exists eq_refl. reflexivity. }
+  { destruct pf. reflexivity. }
+Qed.
 
 Instance Typ0_tyProp : Typ0 _ Prop :=
 {| typ0 := tyProp
