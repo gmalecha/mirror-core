@@ -2,8 +2,6 @@ Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Eq.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 
@@ -16,8 +14,11 @@ Section Expr.
 
   Variable expr : Type.
 
-  Definition ResType (us vs : tenv typ) (T : Type) : Type :=
-    option (hlist (@typD _ _) us -> hlist (@typD _ _) vs -> T).
+  Definition ctxD (ctx : tenv typ * typ) : Type :=
+    hlist typD (fst ctx) -> typD (snd ctx).
+
+  Definition OpenT (us : tenv (tenv typ * typ)) (vs : tenv typ) (T : Type) : Type :=
+    hlist ctxD us -> hlist typD vs -> T.
 
   (** NOTE:
    ** - Right now this is intensionally weak, but it should probably include
@@ -28,9 +29,9 @@ Section Expr.
    ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
-  { exprD' : forall (us vs : tenv typ),
+  { exprD' : forall (us : tenv (tenv typ * typ)) (vs : tenv typ),
                expr -> forall (t : typ),
-                         ResType us vs (typD t)
+                         option (OpenT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
   ; mentionsU : nat -> expr -> bool
@@ -42,7 +43,7 @@ Section Expr.
       (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD' tus tvs e t = match pfu in _ = tus'
                                , pfv in _ = tvs'
-                                 return ResType tus' tvs' (typD t)
+                                 return option (OpenT tus' tvs' (typD t))
                            with
                              | eq_refl , eq_refl => exprD' tus' tvs' e t
                            end.
@@ -50,7 +51,7 @@ Section Expr.
     destruct pfu. destruct pfv. reflexivity.
   Qed.
 
-  Definition Safe_expr {E : Expr} (tus tvs : tenv typ) (e : expr) (t : typ)
+  Definition Safe_expr {E : Expr} (tus : tenv (tenv typ * typ)) (tvs : tenv typ) (e : expr) (t : typ)
   : Prop :=
     exists val, exprD' tus tvs e t = Some val.
 
@@ -60,7 +61,7 @@ Section Expr.
       exists val, exprD' us vs e t = Some val.
   Proof. reflexivity. Qed.
 
-  Definition exprD {E : Expr} (uvar_env var_env : env) (e : expr) (t : typ)
+  Definition exprD {E : Expr} uvar_env (var_env : env typD) (e : expr) (t : typ)
   : option (typD t) :=
     let (tus,us) := split_env uvar_env in
     let (tvs,vs) := split_env var_env in
@@ -192,6 +193,7 @@ Section Expr.
     simpl. auto.
   Qed.
 
+(*
 
   Theorem exprD'_strengthenU_multi (EOk : ExprOk Expr_expr)
   : forall tus tvs e  t' tus' val,
@@ -305,12 +307,13 @@ Section Expr.
       + rewrite app_length.
         apply H0. rewrite app_length. simpl. omega. }
   Qed.
-
+*)
 End Expr.
 
 Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
-Arguments ResType {_ RType} _ _ _ : rename.
+Arguments OpenT {_ RType} _ _ _ : rename.
 Arguments mentionsU {_ RType _ Expr} _ _ : rename.
 Arguments mentionsV {_ RType _ Expr} _ _ : rename.
+Arguments ctxD {typ _} _ : rename.

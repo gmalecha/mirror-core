@@ -23,37 +23,37 @@ Section proverI.
 
   Record EProver : Type :=
   { Facts : Type
-  ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
-  ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
+  ; Summarize : tenv (tenv typ * typ) -> tenv typ -> list expr -> Facts
+  ; Learn : Facts -> tenv (tenv typ * typ) -> tenv typ -> list expr -> Facts
   ; Prove : forall (subst : Type) {S : Subst subst expr},
-              Facts -> tenv typ -> tenv typ -> subst -> expr -> option subst
+              Facts -> tenv (tenv typ * typ) -> tenv typ -> subst -> expr -> option subst
   }.
 
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
              (SsubstOk : @SubstOk subst typ _ expr _ _)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
-    (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
+    (Valid : forall (tus : tenv (tenv typ * typ)) (tvs : tenv typ), summary -> option (OpenT tus tvs Prop))
+    (prover : summary -> tenv (tenv typ * typ) -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
     forall tus tvs sum (goal : expr) (sub sub' : subst),
       prover sum tus tvs sub goal = Some sub' ->
       WellFormed_subst sub ->
       WellFormed_subst sub' /\
-      (forall sumD subD goalD,
+      (forall sumD subD (goalD : OpenT tus tvs Prop),
          Valid tus tvs sum = Some sumD ->
          substD tus tvs sub = Some subD ->
          Provable tus tvs goal = Some goalD ->
          exists subD',
-           substD tus tvs sub' = Some subD' /\
-           forall (us : HList.hlist typD tus)
-                  (vs : HList.hlist typD tvs),
+           substD tus sub' = Some subD' /\
+           forall (us : HList.hlist (@ctxD _ _ nil) tus)
+                  (vs : HList.hlist (typD nil) tvs),
              sumD us vs ->
-             subD' us vs ->
-             subD us vs /\
+             subD' us ->
+             subD us /\
              goalD us vs).
 
   Record EProverOk (P : EProver) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
+  { factsD : forall (tus : tenv (tenv typ * typ)) (tvs : tenv typ), Facts P -> option (OpenT tus tvs Prop)
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->
@@ -90,9 +90,9 @@ Section proverI.
   Lemma factsD_conv P (Pok : EProverOk P)
   : forall tus tvs tus' tvs' f (pfu : tus' = tus) (pfv : tvs' = tvs),
       Pok.(factsD) tus tvs f =
-      match pfu in _ = u' return ResType u' _ Prop with
+      match pfu in _ = u' return option (OpenT u' _ Prop) with
         | eq_refl =>
-          match pfv in _ = v' return ResType _ v' Prop with
+          match pfv in _ = v' return option (OpenT _ v' Prop) with
             | eq_refl => Pok.(factsD) tus' tvs' f
           end
       end.
@@ -114,7 +114,7 @@ Section proverI.
     eapply factsD_weaken with (tus' := tus') (tvs' := nil) in H.
     forward_reason.
     rewrite factsD_conv with (pfu := eq_refl) (pfv := HList.app_nil_r_trans tvs).
-    rewrite H. unfold ResType.
+    rewrite H. unfold OpenT.
     rewrite eq_option_eq.
     eexists; split; eauto.
     intros. rewrite (H0 us vs us' HList.Hnil).
@@ -142,7 +142,7 @@ Section proverI.
     eapply factsD_weaken with (tvs' := tvs') (tus' := nil) in H.
     forward_reason.
     rewrite factsD_conv with (pfv := eq_refl) (pfu := HList.app_nil_r_trans tus).
-    rewrite H. unfold ResType.
+    rewrite H. unfold OpenT.
 
     rewrite eq_option_eq.
     eexists; split; eauto.
@@ -258,8 +258,9 @@ Section proverI.
       simpl in H. forward. inv_all; subst.
       split; auto. intros.
       eexists; split; eauto. intros. split; auto.
+      admit. (*
       eapply ProverI.Prove_sound in H; eauto.
-      eapply H; eauto.
+      *)
     Qed.
   End non_eprover.
 

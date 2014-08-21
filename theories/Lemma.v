@@ -24,8 +24,7 @@ Section lem.
   ; concl : conclusion
   }.
 
-  Variable conclusionD : forall us vs, conclusion -> ResType us vs Prop.
-
+  Variable conclusionD : forall us vs, conclusion -> option (OpenT us vs Prop).
   Context {tyProp : typ}.
   Variable Provable' : typD tyProp -> Prop.
 
@@ -95,8 +94,8 @@ Section lem.
     rewrite H. rewrite IHForall2; eauto. reflexivity.
   Qed.
 
-  Definition lemmaD' (tus tvs : tenv typ) (l : lemma)
-  : ResType tus tvs Prop :=
+  Definition lemmaD' tus (tvs : tenv typ) (l : lemma)
+  : option (OpenT tus tvs Prop) :=
     match
         Traversable.mapT (T := list) (F := option)
                          (fun e : expr => exprD' tus (vars l ++ tvs) e tyProp)
@@ -204,6 +203,7 @@ Section lem.
                   forall us vs us',
                     v us vs = v' (hlist_app us us') vs)in H.
     destruct H as [ ? [ ? ? ] ].
+(*
     rewrite H.
     { eapply conclusionD_weakenU with (tus' := tus') in H0.
       forward_reason.
@@ -234,6 +234,7 @@ Section lem.
       rewrite H4 in H5. inv_all; subst. auto. }
     { eauto. }
   Qed.
+*) Admitted.
 
   Lemma lemmaD'_weakenV
   : forall tus tvs l lD,
@@ -275,8 +276,8 @@ Section lem.
       rewrite H1.
       instantiate (1 := app_ass_trans (vars l) tvs tvs').
       exists match app_ass_trans (vars l) tvs tvs' in _ = tvs'
-                   return hlist (typD) tus ->
-                          hlist (typD) tvs' -> typD tyProp
+                   return hlist _ tus ->
+                          hlist typD tvs' -> typD tyProp
              with
                | eq_refl => x0
              end.
@@ -395,7 +396,7 @@ Section lem.
     etransitivity. eapply H0. eapply H1.
   Qed.
 
-  Definition lemmaD (us vs : env) (l : lemma) : Prop :=
+  Definition lemmaD us (vs : env _) (l : lemma) : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
     match lemmaD' tus tvs l with

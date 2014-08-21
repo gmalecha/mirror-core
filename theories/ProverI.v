@@ -17,29 +17,31 @@ Section proverI.
   Context {Expr_expr : Expr _ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
+  Let tyProp := @typ0 _ _ _ _.
+
   Record Prover : Type :=
   { Facts : Type
-  ; Summarize : tenv typ -> tenv typ -> list expr -> Facts
-  ; Learn : Facts -> tenv typ -> tenv typ -> list expr -> Facts
-  ; Prove : Facts -> tenv typ -> tenv typ -> expr -> bool
+  ; Summarize : tenv (tenv typ * typ) -> tenv typ -> list expr -> Facts
+  ; Learn : Facts -> tenv (tenv typ * typ) -> tenv typ -> list expr -> Facts
+  ; Prove : Facts -> tenv (tenv typ * typ) -> tenv typ -> expr -> bool
   }.
 
   Definition ProveOk (summary : Type)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
-    (prover : summary -> tenv typ -> tenv typ -> expr -> bool)
+    (Valid : forall (tus : _) (tvs : tenv typ), summary -> option (OpenT tus tvs Prop))
+    (prover : summary -> tenv (tenv typ * typ) -> tenv typ -> expr -> bool)
   : Prop :=
-    forall tus tvs sum (goal : expr),
+    forall (tus : tenv (tenv typ * typ)) tvs sum (goal : expr),
       prover sum tus tvs goal = true ->
       (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
-         Provable tus tvs goal = Some goalD ->
-         forall (us : HList.hlist typD tus)
+         exprD' tus tvs goal tyProp = Some goalD ->
+         forall (us : HList.hlist ctxD tus)
                 (vs : HList.hlist typD tvs),
            sumD us vs ->
-           goalD us vs).
+           Provable_val (goalD us vs)).
 
   Record ProverOk (P : Prover) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
+  { factsD : forall (tus : tenv (tenv typ * typ)) (tvs : tenv typ), Facts P -> option (OpenT tus tvs Prop)
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->

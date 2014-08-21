@@ -58,9 +58,6 @@ MODULES    := Generic \
 	      $(REIFY:%=Reify/%)
 
 #	      $(EXTENSIBLE:%=Ext/%)
-#	      $(POLY:%=Poly/%)
-#	      $(LAMBDAM:%=LambdaM/%)
-
 
 TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)

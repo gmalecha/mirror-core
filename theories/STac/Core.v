@@ -19,11 +19,12 @@ Section parameterized.
 
   Inductive Result : Type :=
   | Fail
-  | Solved : list typ -> list typ -> subst -> Result
-  | More : list typ -> list typ -> subst -> list expr -> expr -> Result.
+  | Solved : subst -> Result
+  | More : tenv (tenv typ * typ) -> tenv typ -> subst -> expr -> Result.
 
   Definition stac : Type :=
-    list typ -> list typ -> subst -> list expr -> expr ->
+    (** TODO: Part of the state is hypotheses **)
+    tenv (tenv typ * typ) -> tenv typ -> subst -> expr ->
     Result.
 
   Variable RType_typ : RType typ.
@@ -35,10 +36,10 @@ Section parameterized.
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
   Lemma propD_conv
-  : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
+  : forall tus tus' (tvs tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       propD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> option (HList.hlist typD tu -> HList.hlist typD tv -> Prop)
+            return expr -> option (OpenT tu tv Prop)
       with
         | eq_refl , eq_refl => propD tus' tvs'
       end.
@@ -47,7 +48,7 @@ Section parameterized.
   Qed.
 
   Definition stateD tus tvs (s : subst) (hs : list expr) (g : expr)
-  : ResType tus tvs Prop :=
+  : option (OpenT tus tvs Prop) :=
     match propD tus tvs g
         , mapT (F:=option) (T:=list) (propD tus tvs) hs
         , substD tus tvs s
@@ -60,11 +61,11 @@ Section parameterized.
     end.
 
   Lemma stateD_conv
-  : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
+  : forall tus tus' (tvs tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       stateD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
             return _ -> _ -> _ ->
-                   option (HList.hlist typD tu -> HList.hlist typD tv -> _)
+                   option (OpenT tu tv _)
       with
         | eq_refl , eq_refl => stateD tus' tvs'
       end.
@@ -73,7 +74,7 @@ Section parameterized.
   Qed.
 
   Definition resultD tus tvs (r : Result)
-             (P : HList.hlist _ tus -> HList.hlist _ tvs -> Prop)
+             (P : OpenT tus tvs Prop)
   : Prop :=
     match r with
       | Fail => True
@@ -181,7 +182,7 @@ Section parameterized.
        WellFormed_subst s ->
        match tac tus tvs s hs g with
          | Fail => True
-         | Solved tus' tvs' s' =>
+         | Solved s' =>
            WellFormed_subst s' /\
            match propD tus tvs g
                , mapT (F:=option) (T:=list) (propD tus tvs) hs

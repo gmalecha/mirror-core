@@ -15,24 +15,6 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Fixpoint hlist_build {T U} (F : T -> Type) (f : forall x : T, U -> option (F x))
-           (ls : list T) (ls' : list U)
-: option (hlist F ls) :=
-  match ls as ls , ls' return option (hlist F ls) with
-    | nil , nil => Some Hnil
-    | l :: ls , l' :: ls' =>
-      match hlist_build F f ls ls' with
-        | None => None
-        | Some res =>
-          match f l l' with
-            | None => None
-            | Some x =>
-              Some (Hcons x res)
-          end
-      end
-    | _ , _ => None
-  end.
-
 Lemma hlist_build_app_if
 : forall A T (F : T -> Type) G a b c d e f,
     @length T a = @length A c ->
@@ -93,7 +75,7 @@ Section subst.
 
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
-  ; substD : forall (tus tvs : tenv typ), T -> ResType tus tvs Prop
+  ; substD : forall (tus : _) (tvs : tenv typ), T -> option (OpenT tus tvs Prop)
   ; substD_weaken
     : forall tus tvs tus' tvs' s sD,
         substD tus tvs s = Some sD ->
@@ -109,16 +91,15 @@ Section subst.
           substD tus tvs s = Some sD ->
           exists t val get,
             nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) /\
-            exprD' tus tvs e t = Some val /\
-            forall us vs,
+            exprD' nil (fst t) e (snd t) = Some val /\
+            forall us vs z,
               sD us vs ->
-              get us = val us vs
+              get us z = val Hnil z
   ; WellFormed_domain : forall s ls,
       WellFormed_subst s ->
       domain s = ls ->
       (forall n, In n ls <-> lookup n s <> None)
   }.
-
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { WellFormed_empty : WellFormed_subst empty
@@ -134,16 +115,17 @@ Section subst.
         lookup uv s = None ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
+        True (*
         forall tus tvs t val get sD,
           substD tus tvs s = Some sD ->
           nth_error_get_hlist_nth typD tus uv = Some (@existT _ _ t get) ->
-          exprD' tus tvs e t = Some val ->
+          exprD' nil (fst t) e (snd t) = Some val ->
           exists sD',
             substD tus tvs s' = Some sD' /\
             forall us vs,
               sD' us vs ->
               sD us vs /\
-              get us = val us vs
+              get us = val us vs *)
     (** NOTE: This is likely to only be used through [pull],
      ** so if weakens/changes a little bit it is not a problem.
      **)
@@ -159,13 +141,14 @@ Section subst.
           forall tus tu tvs sD,
             u = length tus ->
             substD (tus ++ tu :: nil) tvs s = Some sD ->
+            True (*
             exists sD',
               substD tus tvs s' = Some sD' /\
               exists eD,
                 exprD' tus tvs e tu = Some eD /\
                 forall us vs,
                   sD' us vs <->
-                  sD (hlist_app us (Hcons (eD us vs) Hnil)) vs
+                  sD (hlist_app us (Hcons (eD us vs) Hnil)) vs *)
   }.
 
   Variable Subst_subst : Subst.
@@ -176,9 +159,9 @@ Section subst.
   Lemma substD_conv
   : forall tus tus' tvs tvs' (pfu : tus' = tus) (pfv : tvs' = tvs) s,
       substD tus tvs s =
-      match pfu in _ = u' return ResType u' _ Prop with
+      match pfu in _ = u' return option (OpenT u' _ Prop) with
         | eq_refl =>
-          match pfv in _ = v' return ResType _ v' Prop with
+          match pfv in _ = v' return option (OpenT _ v' Prop) with
             | eq_refl => substD tus' tvs' s
           end
       end.
@@ -226,7 +209,7 @@ Section subst.
     instantiate (1 := tus').
     intro. destruct H as [ ? [ ? ? ] ].
     exists (match app_nil_r_trans tvs in _ = t
-                  return hlist typD (tus ++ tus') -> hlist typD t -> Prop
+                  return hlist _ (tus ++ tus') -> hlist typD t -> Prop
             with
               | eq_refl => x
             end).
@@ -254,7 +237,7 @@ Section subst.
     instantiate (1 := tvs').
     intro. destruct H as [ ? [ ? ? ] ].
     exists (match app_nil_r_trans tus in _ = t
-                  return hlist typD t -> hlist typD _ -> Prop
+                  return hlist _ t -> hlist typD _ -> Prop
             with
               | eq_refl => x
             end).
@@ -282,6 +265,7 @@ Section subst.
                            hlist_Forall2 (ls := ls) P xs ys ->
                            hlist_Forall2 P (Hcons x xs) (Hcons y ys).
 
+(*
   Theorem pull_sound
   : forall (Hnormalized : NormalizedSubstOk) n s s' u,
       pull u n s = Some s' ->
@@ -535,7 +519,7 @@ Section subst.
       { eapply sem_preserves_if_substD; eauto. } }
     { intros. eauto. }
   Qed.
-
+*)
 End subst.
 
 Arguments pull {T expr SU} _ _ _ : rename.

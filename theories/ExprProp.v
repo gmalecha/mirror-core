@@ -26,7 +26,8 @@ Section semantic.
       | eq_refl => val
     end.
 
-  Definition Provable tus tvs (e : expr) : ResType tus tvs Prop :=
+  Definition Provable tus tvs (e : expr)
+  : option (OpenT tus tvs Prop) :=
     match exprD' tus tvs e tvProp with
       | None => None
       | Some p => Some (match @typ0_cast _ _ _ _  in _ = t
@@ -54,7 +55,8 @@ Section semantic.
     rewrite <- H0. reflexivity.
   Qed.
 
-  Definition AllProvable tus tvs (es : list expr) : ResType tus tvs Prop :=
+  Definition AllProvable tus tvs (es : list expr)
+  : option (OpenT tus tvs Prop) :=
     match mapT (T:=list) (F:=option) (Provable tus tvs) es with
       | None => None
       | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)

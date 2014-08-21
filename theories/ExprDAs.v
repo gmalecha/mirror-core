@@ -20,21 +20,21 @@ Section parameterized.
   Variable T : Type.
   Context {Typ0_T : Typ0 _ T}.
 
-  Definition exprD'_typ0 (tus tvs : list typ) (goal : expr)
-  : ResType tus tvs T :=
-    match exprD' tus tvs goal (@typ0 _ _ _ _) return ResType tus tvs T with
+  Definition exprD'_typ0 tus (tvs : list typ) (goal : expr)
+  : option (OpenT tus tvs T) :=
+    match exprD' tus tvs goal (@typ0 _ _ _ _) return option (OpenT tus tvs T) with
       | None => None
       | Some val =>
-        Some match typ0_cast(F:=T) in _ = T return HList.hlist _ tus -> HList.hlist _ tvs -> T with
+        Some match typ0_cast(F:=T) in _ = T return OpenT tus tvs T with
                | eq_refl => val
              end
     end.
 
   Lemma exprD'_typ0_conv
-  : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
+  : forall tus tus' (tvs tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD'_typ0 tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> ResType tu tv T
+            return expr -> option (OpenT tu tv T)
       with
         | eq_refl , eq_refl => exprD'_typ0 tus' tvs'
       end.
@@ -43,15 +43,15 @@ Section parameterized.
   Qed.
 
   Lemma exprD'_typ0_weaken (ExprOk_expr : ExprOk _)
-  : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist typD tus0 -> hlist typD tvs0 -> T),
+  : forall tus0 (tvs0 : tenv typ) (l0 : expr)
+           (lD : OpenT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
-      forall tus' tvs' : list typ,
+      forall tus' (tvs' : list typ),
       exists
-        lD' : hlist typD (tus0 ++ tus') -> hlist typD (tvs0 ++ tvs') -> T,
+        lD' : OpenT (tus0 ++ tus') (tvs0 ++ tvs') T,
         exprD'_typ0 (tus0 ++ tus') (tvs0 ++ tvs') l0 = Some lD' /\
-        (forall (us : hlist typD tus0) (vs : hlist typD tvs0)
-                (us' : hlist typD tus') (vs' : hlist typD tvs'),
+        (forall (us : hlist _ tus0) (vs : hlist typD tvs0)
+                (us' : hlist _ tus') (vs' : hlist typD tvs'),
            lD us vs = lD' (hlist_app us us') (hlist_app vs vs')).
   Proof.
     unfold exprD'_typ0.
@@ -59,20 +59,21 @@ Section parameterized.
     eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H; eauto.
     forward_reason. rewrite H.
     eexists; split; eauto. intros.
+    unfold OpenT.
     autorewrite with eq_rw.
     rewrite <- H0.
     reflexivity.
   Qed.
 
   Definition exprD'_typ0_weakenU (ExprOk_expr : ExprOk _)
-  : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist typD tus0 -> hlist typD tvs0 -> T),
+  : forall tus0 (tvs0 : tenv typ) (l0 : expr)
+           (lD : OpenT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
-      forall tus' : list typ,
+      forall tus',
       exists
-        lD' : hlist typD (tus0 ++ tus') -> hlist typD tvs0 -> T,
+        lD' : OpenT (tus0 ++ tus') tvs0 T,
         exprD'_typ0 (tus0 ++ tus') tvs0 l0 = Some lD' /\
-        (forall (us : hlist typD tus0) (us' : hlist typD tus')
+        (forall (us : hlist _ tus0) (us' : hlist _ tus')
                 (vs : hlist typD tvs0),
            lD us vs = lD' (hlist_app us us') vs).
   Proof.
@@ -83,20 +84,20 @@ Section parameterized.
     forward_reason.
     rewrite H.
     eexists; split; eauto.
-    intros.
+    intros. unfold OpenT.
     autorewrite with eq_rw.
     erewrite H0. reflexivity.
   Qed.
 
   Definition exprD'_typ0_weakenV (ExprOk_expr : ExprOk _)
-  : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist typD tus0 -> hlist typD tvs0 -> T),
+  : forall tus0 (tvs0 : tenv typ) (l0 : expr)
+           (lD : OpenT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
       forall tvs' : list typ,
       exists
-        lD' : hlist typD tus0 -> hlist typD (tvs0 ++ tvs') -> T,
+        lD' : OpenT tus0 (tvs0 ++ tvs') T,
         exprD'_typ0 tus0 (tvs0 ++ tvs') l0 = Some lD' /\
-        (forall (us : hlist typD tus0) (vs : hlist typD tvs0)
+        (forall (us : hlist _ tus0) (vs : hlist typD tvs0)
                 (vs' : hlist typD tvs'),
            lD us vs = lD' us (hlist_app vs vs')).
   Proof.
@@ -107,7 +108,7 @@ Section parameterized.
     forward_reason.
     rewrite H.
     eexists; split; eauto.
-    intros.
+    intros. unfold OpenT.
     autorewrite with eq_rw.
     erewrite H0. reflexivity.
   Qed.

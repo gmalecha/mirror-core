@@ -14,7 +14,7 @@ Section sem.
   Variable Expr_expr : Expr _ expr.
 
   Definition Sem_equiv' (t : typ) (R : relation (typD t))
-             (tus tvs : tenv typ)
+             tus (tvs : tenv typ)
   : relation expr :=
     fun x y =>
         match exprD' tus tvs x t , exprD' tus tvs y t with
@@ -49,7 +49,7 @@ Section sem.
     { intuition. }
   Qed.
 
-  Definition Sem_equiv (t : typ) (R : relation (typD t)) (us vs : env)
+  Definition Sem_equiv (t : typ) (R : relation (typD t)) us (vs : env typD)
   : relation expr :=
     fun x y =>
       match exprD us vs x t , exprD us vs y t with
