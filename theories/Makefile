@@ -18,7 +18,7 @@ LAMBDA := ResType \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
-	  ExprSubst AppN
+	  ExprSubst ExprSubstitute AppN
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
