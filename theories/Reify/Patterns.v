@@ -1,14 +1,18 @@
 Inductive RPattern : Type :=
 | RIgnore
-| RGet   (idx : nat)
+| RConst
+| RHasType (T : Type) (p : RPattern)
+| RGet   (idx : nat) (p : RPattern)
 | RApp   (f x : RPattern)
 | RPi    (t r : RPattern)
 | RImpl  (l r : RPattern)
 | RExact {T : Type} (value : T).
 
-Axiom function : Type -> Type.
-
+Definition function (f : Type) : Type := f.
+Definition id       (T : Type) : Type := T.
+(*
 Axiom reify    : forall (T : Type), function T -> T.
+*)
 
 Notation "'?' x" := (RGet x) (at level 30) : reify_pattern.
 Notation "'__'" := (RIgnore) (at level 30) : reify_pattern.
