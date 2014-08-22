@@ -8,3 +8,7 @@
 <reify_Monad2_MonadExpr.*>: coq, coq_plugin_utils
 <reify_Monad2_MonadExpr_plugin.*>: coq, coq_plugin_utils
 <reify_Monad2_MonadExpr_plugin.cmxs>: coq_plugin
+
+
+<reify_lambda_shell.*>: coq, coq_plugin_utils
+<reify_Lambda_plugin.cmxs>: coq_plugin, coq_plugin_utils

@@ -24,6 +24,7 @@ LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
 STAC := Core Continuation Repeat Apply EApply First Repeat Try Idtac Rec Simplify Solve Then Fail Assumption Rewrite UseForAll UseList STac
 SYMS := SymEnv SymPolyEnv SymSum
+REIFY := Patterns Reify
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      SymI \
@@ -36,7 +37,8 @@ MODULES    := Generic \
 	      $(UTIL:%=Util/%) \
 	      $(STAC:%=STac/%) \
 	      $(SYMS:%=syms/%) \
-	      $(PROVERS:%=provers/%)
+	      $(PROVERS:%=provers/%) \
+	      $(REIFY:%=Reify/%)
 
 #	      $(EXTENSIBLE:%=Ext/%)
 #	      $(POLY:%=Poly/%)
