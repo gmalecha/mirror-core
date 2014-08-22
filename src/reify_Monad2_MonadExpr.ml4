@@ -317,7 +317,7 @@ struct
     M.bind (E.ask) (fun ctx ->
       matches ctx
 	[ (Glob tm_bind,
-	   fun _ ->
+	   fun _ _ ->
 	     match Array.to_list ts with
 	       _ :: _ :: alpha :: beta :: rest ->
 		 M.bind (RT.reify alpha) (fun alpha ->
@@ -327,7 +327,7 @@ struct
 		       mk_app b es)))
 	     | _ -> assert false)
 	; (Glob tm_ret,
-	   fun _ ->
+	   fun _ _ ->
 	     match Array.to_list ts with
 	       _ :: _ :: alpha :: rest ->
 (*		 let _ = Format.printf "return (alpha=%a)\n" pp_constr alpha in *)
@@ -337,7 +337,7 @@ struct
 		     mk_app r es))
 	     | _ -> assert false)
 	; (Ignore,
-	   fun _ -> BaseReifyApp.reify_app lzy reify_expr mk_app t ts)
+	   fun _ _ -> BaseReifyApp.reify_app lzy reify_expr mk_app t ts)
 	] t)
 (*
     M.bind (reify_expr t) (fun t ->

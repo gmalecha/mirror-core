@@ -106,15 +106,15 @@ struct
     M.bind (E.ask) (fun ctx ->
       matches ctx
 	[ (App (Glob tm_eq, As (Ignore,"t")),
-	   fun s ->
+	   fun _ s ->
 	     let t = Hashtbl.find s "t" in
 	     M.bind (RT.reify t) (fun t ->
 	       M.ret (Term.mkApp (Lazy.force expr_eq, [| t |]))))
         ; (Glob tm_not,
-	   fun _ ->
+	   fun _ _ ->
 	     M.ret (Lazy.force expr_not))
         ; (Ignore,
-	   fun _ ->
+	   fun _ _ ->
 	     M.bind (RE.reify tm) (fun t ->
 	       let idx = to_positive (1 + t) in
 	       M.ret (Term.mkApp (Lazy.force expr_fref, [| idx |]))))
