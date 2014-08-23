@@ -197,33 +197,70 @@ struct
     | _ -> (trm, acc)
 
 
-  let rec compile_pattern (p : rpattern)
-  : (int,int) Term_match.pattern * int list =
-    match p with
-      RExact g ->
-	(Term_match.EGlob g, [])
-    | RIgnore -> (Term_match.Ignore, [])
-    | RGet (i, p) ->
-      let (p,us) = compile_pattern p in
-      (Term_match.As (p, i), i :: us)
-    | RApp (p1, p2) ->
-      let (p1,l1) = compile_pattern p1 in
-      let (p2,l2) = compile_pattern p2 in
-      (Term_match.App (p1,p2), l1 @ l2)
-    | RConst ->
-      let rec filter trm =
+  let compile_pattern (effects : (int, reify_env -> (int, Term.constr) Hashtbl.t -> reify_env) Hashtbl.t) =
+    let fresh = ref (-1) in
+    let rec compile_pattern (p : rpattern)
+	(effect : (reify_env -> (int, Term.constr) Hashtbl.t -> reify_env) option)
+	: (int,int) Term_match.pattern * int list =
+      match p with
+	RExact g ->
+	  (Term_match.EGlob g, [])
+      | RIgnore -> (Term_match.Ignore, [])
+      | RGet (i, p) ->
+	let (p,us) = compile_pattern p effect in
+	let _ =
+	  match effect with
+	    None -> ()
+	  | Some eft -> Hashtbl.add effects i eft
+	in
+	(Term_match.As (p, i), i :: us)
+      | RApp (p1, p2) ->
+	let (p1,l1) = compile_pattern p1 effect in
+	let (p2,l2) = compile_pattern p2 effect in
+	(Term_match.App (p1,p2), l1 @ l2)
+      | RConst ->
+	let rec filter trm =
 	(** TODO: This does not handle polymorphic types right now **)
-	let (f, args) = app_full trm [] in
-	Term.isConstruct f && List.for_all filter args
-      in
-      (Term_match.Filter (filter, Term_match.Ignore),[])
+	  let (f, args) = app_full trm [] in
+	  Term.isConstruct f && List.for_all filter args
+	in
+	(Term_match.Filter (filter, Term_match.Ignore),[])
+      | RImpl (p1, p2) ->
+	let (p1,l1) = compile_pattern p1 effect in
+	let fresh =
+	  let r = !fresh in
+	  fresh := r - 1 ;
+	  r
+	in
+	let new_effect =
+	  match effect with
+	    None ->
+	      fun x s ->
+		let nbindings = false :: x.bindings in
+		let nenv =
+		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		    x.env
+		in
+		{ x with bindings = nbindings ; env = nenv }
+	  | Some eft ->
+	    fun x s ->
+	      let x = eft x s in
+	      let nbindings = false :: x.bindings in
+	      let nenv =
+		Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		  x.env
+	      in
+	      { x with bindings = nbindings ; env = nenv }
+	in
+	let (p2,l2) = compile_pattern p2 (Some new_effect) in
+	(Term_match.Impl (Term_match.As (p1,fresh),p2), l1 @ l2)
 (*
-    | RImpl (l, r) ->
-      raise (Failure "impl not currently supported")
-    | RHasType (t,p) ->
-      raise (Failure "has_type not currently supported")
-    | _ -> raise (Failure "unsupported")
+      | RHasType (t,p) ->
+	raise (Failure "has_type not currently supported")
+      | _ -> raise (Failure "unsupported")
 *)
+    in
+    compile_pattern
 
   type action =
     Func of Term.constr
@@ -238,37 +275,47 @@ struct
       ; (Term_match.Ignore, fun _ _ -> None)
       ]
 
-  let rec compile_template (gl : unit) (tmp : Term.constr) (at : int)
-  : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr =
-    match Term.kind_of_term tmp with
-      Term.Lambda (_, typ, body) ->
-	begin
-	  match parse_action gl typ with
-	    None ->
-	      fun ls _ _ ->
-		Term.substnl ls 0 body
-	  | Some act ->
-	    let rest = compile_template gl body (at + 1) in
-	    match act with
-	    | Func f ->
-	      fun vals gl s ->
-		let cur_val = Hashtbl.find s at in
-		rest ((reify_term f gl cur_val) :: vals) gl s
-	    | Id ->
-	      fun vals gl s ->
-		let cur_val = Hashtbl.find s at in
-		rest (cur_val :: vals) gl s
-	end
-    | _ ->
-      fun ls _ _ ->
-	Term.substnl ls 0 tmp
+  let compile_template (effects : (int, reify_env -> (int, Term.constr) Hashtbl.t -> reify_env) Hashtbl.t) =
+    let rec compile_template (gl : unit) (tmp : Term.constr) (at : int)
+	: Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr =
+      match Term.kind_of_term tmp with
+	Term.Lambda (_, typ, body) ->
+	  begin
+	    match parse_action gl typ with
+	      None ->
+		let _ = Format.eprintf "Got Lambda, but didn't have action: %a" Std.pp_constr typ in
+		fun ls _ _ ->
+		  Term.substnl ls 0 tmp
+	    | Some act ->
+	      let rest = compile_template gl body (at + 1) in
+	      let eft =
+		try
+		  Hashtbl.find effects at
+		with
+		  Not_found -> (fun x _ -> x)
+	      in
+	      match act with
+	      | Func f ->
+		fun vals gl s ->
+		  let cur_val = Hashtbl.find s at in
+		  rest ((reify_term f (eft gl s) cur_val) :: vals) gl s
+	      | Id ->
+		fun vals gl s ->
+		  let cur_val = Hashtbl.find s at in
+		  rest (cur_val :: vals) gl s
+	  end
+      | _ ->
+	fun ls _ _ ->
+	  Term.substnl ls 0 tmp
+    in compile_template
 
   let parse_rule (gl : unit) (rule : Term.constr)
       (ptrn : Term.constr) (template : Term.constr)
   : reify_env rule =
     try
-      let (ptrn, occs) = compile_pattern (into_rpattern gl ptrn) in
-      let action = compile_template gl template 0 [] in
+      let effects = Hashtbl.create 1 in
+      let (ptrn, occs) = compile_pattern effects (into_rpattern gl ptrn) None in
+      let action = compile_template effects gl template 0 [] in
       (ptrn, action)
     with
       Term_match.Match_failure -> raise (Failure "match failed, please report")
@@ -413,7 +460,7 @@ END;;
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_patterns
   | [ "Reify:" "Declare" "Patterns" constr(name) ] ->
     [ () ]
-  | [ "Reify:" "Add" "Pattern" constr(pattern) "=>" constr(template) ":" constr(rule) ] ->
+  | [ "Reify:" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
 	let pattern   = Constrintern.interp_constr evm env pattern in
@@ -424,6 +471,15 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_patterns
 	Failure msg -> Pp.msgnl (Pp.str msg)
     ]
 END;;
+
+(*
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_tables
+  | [ "Reify:" "Declare" "Table" constr(name) ] ->
+    [ () ]
+  | [ "Reify:" "Table" constr(name) "+=" constr(key) "=>" constr(value) ] ->
+    [ () ]
+END;;
+*)
 
 TACTIC EXTEND Reify_Lambda_Shell_reify
   | ["reify_expr" constr(name) tactic(k) "[" ne_constr_list(es) "]" ] ->
