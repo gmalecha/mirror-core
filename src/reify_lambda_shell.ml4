@@ -46,10 +46,12 @@ struct
   ; bindings : bool list
   }
 
+  (** [rule]s implement the pattern feature **)
   type 'a rule =
     ((int,int) Term_match.pattern) *
       ('a -> (int, Term.constr) Hashtbl.t -> Term.constr)
 
+  (** [reifier]s are the actual functions that get run **)
   type 'a reifier =
     'a -> Term.constr -> Term.constr array -> int -> Term.constr
 
@@ -57,15 +59,6 @@ struct
   let reify_table : (Term.constr, reify_env reifier -> reify_env reifier) Hashtbl.t = Hashtbl.create 5
 
   let empty_array : Term.constr array = [| |]
-
-(*
-  let rec reify_special (name : Term.constr) (special : rule list) env_evm
-      (trm : Term.constr) args from : Term.constr =
-    try
-      Term_match.matches_app env_evm special trm args from
-    with
-      Term_match.Match_failure -> assert false
-*)
 
   let reify_args (name : Term.constr) : reify_env reifier =
     let meta_reifier = Hashtbl.find reify_table name in
@@ -254,6 +247,35 @@ struct
 	in
 	let (p2,l2) = compile_pattern p2 (Some new_effect) in
 	(Term_match.Impl (Term_match.As (p1,fresh),p2), l1 @ l2)
+      | RPi (p1, p2) ->
+	let (p1,l1) = compile_pattern p1 effect in
+	let fresh =
+	  let r = !fresh in
+	  fresh := r - 1 ;
+	  r
+	in
+	let new_effect =
+	  match effect with
+	    None ->
+	      fun x s ->
+		let nbindings = true :: x.bindings in
+		let nenv =
+		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		    x.env
+		in
+		{ x with bindings = nbindings ; env = nenv }
+	  | Some eft ->
+	    fun x s ->
+	      let x = eft x s in
+	      let nbindings = true :: x.bindings in
+	      let nenv =
+		Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		  x.env
+	      in
+	      { x with bindings = nbindings ; env = nenv }
+	in
+	let (p2,l2) = compile_pattern p2 (Some new_effect) in
+	(Term_match.Pi (Term_match.As (p1,fresh),p2), l1 @ l2)
 (*
       | RHasType (t,p) ->
 	raise (Failure "has_type not currently supported")

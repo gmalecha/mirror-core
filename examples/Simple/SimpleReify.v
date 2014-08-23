@@ -77,3 +77,12 @@ Definition test_6 : expr typ func.
   reify ((fun x : nat => x) = (fun y : nat => y)).
 Defined.
 Print test_6.
+
+Axiom Forall : typ -> func.
+
+Reify: Pattern reify_simple += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (Forall t)) (Abs t b))).
+
+Definition test_7 : expr typ func.
+  reify (forall x : nat, (x + 1) = 1).
+Defined.
+Print test_7.
