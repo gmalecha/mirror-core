@@ -48,7 +48,7 @@ struct
 
   (** [rule]s implement the pattern feature **)
   type 'a rule =
-    ((int,int) Term_match.pattern) *
+    ((int,int,reify_env) Term_match.pattern) *
       ('a -> (int, Term.constr) Hashtbl.t -> Term.constr)
 
   (** [reifier]s are the actual functions that get run **)
@@ -194,7 +194,7 @@ struct
     let fresh = ref (-1) in
     let rec compile_pattern (p : rpattern)
 	(effect : (reify_env -> (int, Term.constr) Hashtbl.t -> reify_env) option)
-	: (int,int) Term_match.pattern * int list =
+	: (int,int,reify_env) Term_match.pattern * int list =
       match p with
 	RExact g ->
 	  (Term_match.EGlob g, [])
@@ -212,10 +212,13 @@ struct
 	let (p2,l2) = compile_pattern p2 effect in
 	(Term_match.App (p1,p2), l1 @ l2)
       | RConst ->
-	let rec filter trm =
-	(** TODO: This does not handle polymorphic types right now **)
-	  let (f, args) = app_full trm [] in
-	  Term.isConstruct f && List.for_all filter args
+	let filter _ =
+	  let rec filter trm =
+	  (** TODO: This does not handle polymorphic types right now **)
+	    let (f, args) = app_full trm [] in
+	    Term.isConstruct f && List.for_all filter args
+	  in
+	  filter
 	in
 	(Term_match.Filter (filter, Term_match.Ignore),[])
       | RImpl (p1, p2) ->
@@ -276,9 +279,13 @@ struct
 	in
 	let (p2,l2) = compile_pattern p2 (Some new_effect) in
 	(Term_match.Pi (Term_match.As (p1,fresh),p2), l1 @ l2)
-(*
       | RHasType (t,p) ->
-	raise (Failure "has_type not currently supported")
+	let (p,l) = compile_pattern p effect in
+	(Term_match.Filter
+	   ((fun env trm ->
+	     let ty = Typing.type_of env.env env.evm trm in
+	     Term.eq_constr ty t), p), l)
+(*
       | _ -> raise (Failure "unsupported")
 *)
     in
@@ -472,7 +479,7 @@ struct
 end
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
-  | [ "Reify:" "Declare" "Syntax" constr(name) "{" constr_list(cmds) "}" ] ->
+  | [ "Reify" "Declare" "Syntax" constr(name) "{" constr_list(cmds) "}" ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
       let name = Constrintern.interp_constr evm env name in
       let cmds = List.map (Constrintern.interp_constr evm env) cmds in
@@ -480,9 +487,9 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
 END;;
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_patterns
-  | [ "Reify:" "Declare" "Patterns" constr(name) ] ->
+  | [ "Reify" "Declare" "Patterns" constr(name) ] ->
     [ () ]
-  | [ "Reify:" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
+  | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
 	let pattern   = Constrintern.interp_constr evm env pattern in
