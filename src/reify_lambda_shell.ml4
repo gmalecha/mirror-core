@@ -33,6 +33,9 @@ sig
   | Var of Term.constr
 
   val add_pattern    : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> unit
+  val print_patterns : (Format.formatter -> unit -> unit) ->
+    Format.formatter -> Term.constr -> unit
+
   val declare_syntax : Term.constr -> (Term.constr (* command *)) list -> unit
   val reify          : Term.constr -> Proof_type.goal Evd.sigma -> Term.constr -> Term.constr
   val reify_all      : Proof_type.goal Evd.sigma -> (Term.constr * Term.constr) list -> Term.constr list
@@ -476,7 +479,35 @@ struct
     let meta_reifier = compile_commands cmds in
     Hashtbl.replace reify_table name meta_reifier
 
+  let rec print_rule out ptrn =
+    Term_match.(
+      match ptrn with
+	Ignore -> Format.fprintf out "<any>"
+      | As (a,i) -> Format.fprintf out "((%a) as %d)" print_rule a i
+      | App (l,r) -> Format.fprintf out "(%a %@ %a)" print_rule l print_rule r
+      | Impl (l,r) -> Format.fprintf out "(%a -> %a)" print_rule l print_rule r
+      | Glob g -> Format.fprintf out "%a" Std.pp_constr (Lazy.force g)
+      | EGlob g -> Format.fprintf out "%a" Std.pp_constr g
+      | Lam (a,b,c) -> Format.fprintf out "(fun (%d : %a) => %a)" a print_rule b print_rule c
+      | Ref i -> Format.fprintf out "<%d>" i
+      | Choice ls -> Format.fprintf out "[...]"
+      | Pi (a,b) -> Format.fprintf out "(Pi %a . %a)" print_rule a print_rule b
+      | Filter (_,a) -> Format.fprintf out "(Filter - %a)" print_rule a)
+
+  let apps = List.fold_right Pp.(++)
+
+  let print_patterns sep out (name : Term.constr) : unit =
+    try
+      let vals = Hashtbl.find_all pattern_table name in
+      List.iter (fun x -> Format.fprintf out "%a%a" sep () print_rule (fst x)) vals
+    with
+      Not_found -> Format.fprintf out "<none>"
+
 end
+
+let print_newline out () =
+  Format.fprintf out "\n"
+
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" constr(name) "{" constr_list(cmds) "}" ] ->
@@ -486,9 +517,13 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
       Reification.declare_syntax name cmds ]
 END;;
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_patterns
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_New_Pattern
   | [ "Reify" "Declare" "Patterns" constr(name) ] ->
     [ () ]
+END;;
+
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
   | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
@@ -500,6 +535,26 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_patterns
 	Failure msg -> Pp.msgnl (Pp.str msg)
     ]
 END;;
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern
+  | [ "Reify" "Print" "Patterns" constr(name) ] ->
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let name   = Constrintern.interp_constr evm env name in
+      let as_string = (** TODO: I don't really understand Ocaml's formatting **)
+	let _ =
+	  Format.fprintf Format.str_formatter "%a"
+	    (Reification.print_patterns print_newline) name in
+	Format.flush_str_formatter ()
+      in
+      Pp.(
+      msgnl (   (str "Patterns for ")
+	     ++ (Printer.pr_constr name)
+	     ++ (str ":")
+	     ++ (fnl ())
+	     ++ (str as_string)))
+    ]
+END;;
+
 
 (*
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_tables
