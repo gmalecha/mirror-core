@@ -1,3 +1,6 @@
+Definition table    (K V : Type) : Type := prod K V.
+
+(** Patterns **)
 Inductive RPattern : Type :=
 | RIgnore
 | RConst
@@ -9,22 +12,25 @@ Inductive RPattern : Type :=
 | RImpl  (l r : RPattern)
 | RExact {T : Type} (value : T).
 
-Definition function (f : Type) : Type := f.
-Definition id       (T : Type) : Type := T.
-Definition table    (K V : Type) : Type := prod K V.
+(** Actions **)
+Definition function (f : Type)   : Type := f.
+Definition id       (T : Type)   : Type := T.
+Definition store    {K V : Type} (t : table K V) : Type := V.
 
+(** Commands **)
 Inductive Command :=
 | Patterns (T : Type)
 | Call (T : Type)
 | App {T : Type} (app : T -> T -> T)
 | Abs (T : Type) {U : Type} (lam : T -> U -> U)
 | Var {T : Type} (var : nat -> T)
-(*| Table (K V : Type) (t : table K V) *).
+| Table (K V : Type) (t : table K V).
 
+(** Suggested Notation **)
 (*
-(** Notation **)
-Notation "'?' x" := (RGet x) (at level 30) : reify_pattern.
-Notation "'__'" := (RIgnore) (at level 30) : reify_pattern.
-Notation "x '@' y" := (RApp x y) (at level 30) : reify_pattern.
-Notation "x '->' y" := (RImpl x y) (at level 30) : reify_pattern.
+Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+Local Notation "'#'" := RIgnore (only parsing, at level 0).
 *)

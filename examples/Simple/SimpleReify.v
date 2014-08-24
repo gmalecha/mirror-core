@@ -1,6 +1,3 @@
-Add LoadPath "../../src".
-Add LoadPath "../../../src".
-
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.Simple.Simple.

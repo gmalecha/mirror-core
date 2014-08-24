@@ -49,7 +49,7 @@ TESTS :=
 VS         := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS        := $(TESTS:%=%.v)
 
-ARGS := -R . MirrorCore
+ARGS := -R . MirrorCore -I ../src
 
 .PHONY: coq clean package optimize
 

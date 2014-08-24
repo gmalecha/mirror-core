@@ -120,6 +120,24 @@ struct
 
   let pattern_mod = ["MirrorCore";"Reify";"Patterns"]
 
+  module Tables =
+  struct
+
+    let seed_table (c : Term.constr) (k : Term.constr) (v : Term.constr)
+    : bool =
+      assert false
+
+    let init_table (ls : Term.constr) (** ... **) =
+      assert false
+
+    let export_table (ls : Term.constr) (** .. **) =
+      assert false
+
+    let reify : reify_env reifier =
+      fun _ -> assert false
+
+  end
+
   module Patterns =
   struct
     let pattern_table : (Term.constr, reify_env rule) Hashtbl.t =
@@ -535,11 +553,11 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
       Reification.declare_syntax name cmds ]
 END;;
 
+(** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_New_Pattern
   | [ "Reify" "Declare" "Patterns" constr(name) ] ->
     [ () ]
 END;;
-
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
   | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
@@ -573,18 +591,19 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern
     ]
 END;;
 
-
-(*
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_tables
-  | [ "Reify:" "Declare" "Table" constr(name) ] ->
-    [ () ]
-  | [ "Reify:" "Table" constr(name) "+=" constr(key) "=>" constr(value) ] ->
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
+  | [ "Reify" "Declare" "Table" constr(name) ] ->
     [ () ]
 END;;
-*)
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
+  | [ "Reify" "Table" constr(name) "+=" constr(key) "=>" constr(value) ] ->
+    [ () ]
+END;;
+
 
 TACTIC EXTEND Reify_Lambda_Shell_reify
-  | ["reify_expr" constr(name) tactic(k) "[" ne_constr_list(es) "]" ] ->
+  | ["reify_expr" constr(name) tactic(k) "[" constr_list(tbls) "]" "[" ne_constr_list(es) "]" ] ->
     [ fun gl ->
         let env = Tacmach.pf_env gl in
 	let evar_map = Tacmach.project gl in

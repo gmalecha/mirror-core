@@ -21,7 +21,7 @@ TESTS   :=
 VS      := $(GENERIC:%=%.v) $(MODULES:%=%.v)
 TVS     := $(TESTS:%=%.v)
 
-ARGS :=-R . McExamples -R ../theories MirrorCore
+ARGS :=-R . McExamples -R ../theories MirrorCore -I ../src
 
 .PHONY: coq clean package
 
