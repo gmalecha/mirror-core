@@ -34,11 +34,13 @@ sig
   | Var of Term.constr
 *)
 
+  val new_pattern    : Term.constr -> unit
   val add_pattern    : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> unit
   val print_patterns : (Format.formatter -> unit -> unit) ->
     Format.formatter -> Term.constr -> unit
 
   val declare_syntax : Term.constr -> (Term.constr (* command *)) list -> unit
+
   val reify          : Term.constr -> Proof_type.goal Evd.sigma -> Term.constr -> Term.constr
   val reify_all      : Proof_type.goal Evd.sigma -> (Term.constr * Term.constr) list -> Term.constr list
 end
@@ -62,42 +64,11 @@ struct
   type 'a reifier =
     'a -> Term.constr -> Term.constr array -> int -> Term.constr
 
-  let reify_table : (Term.constr, reify_env reifier -> reify_env reifier) Hashtbl.t = Hashtbl.create 5
-
   let empty_array : Term.constr array = [| |]
-
-  let reify_args (name : Term.constr) : reify_env reifier =
-    let meta_reifier = Hashtbl.find reify_table name in
-    let rec knot r =
-      r (fun x -> knot r x)
-    in
-    knot meta_reifier
 
   let call_reify_term (r : reify_env reifier) gl trm =
     r gl trm empty_array (-1)
 
-  let reify_term (name : Term.constr) =
-    let meta_reifier = Hashtbl.find reify_table name in
-    let rec knot r =
-      r (fun x -> knot r x)
-    in
-    call_reify_term (knot meta_reifier)
-
-  let reify (name : Term.constr) (gl : Proof_type.goal Evd.sigma) =
-    let env = Tacmach.pf_env gl in
-    let evar_map = Tacmach.project gl in
-    reify_term name { env = env
-		    ; evm = evar_map
-		    ; bindings = [] }
-
-  let reify_all gl ns_e =
-    let env = Tacmach.pf_env gl in
-    let evar_map = Tacmach.project gl in
-    let st = { env = env
-	     ; evm = evar_map
-	     ; bindings = [] }
-    in
-    List.map (fun (ns,e) -> reify_term ns st e) ns_e
 
   type rpattern =
   | RIgnore
@@ -120,6 +91,12 @@ struct
 
   let pattern_mod = ["MirrorCore";"Reify";"Patterns"]
 
+  module Cmap = Map.Make
+    (struct
+      type t = Term.constr
+      let compare = Term.constr_ord
+     end)
+
   module Tables =
   struct
 
@@ -140,8 +117,26 @@ struct
 
   module Patterns =
   struct
-    let pattern_table : (Term.constr, reify_env rule) Hashtbl.t =
-      Hashtbl.create 5
+    (** State **)
+    let pattern_table (* : (Term.constr, reify_env rule) Hashtbl.t *) =
+      ref Cmap.empty
+
+    (** Freezing and thawing of state (for backtracking) **)
+    let _ =
+      Summary.declare_summary "reify-lambda-shell-pattern-table"
+	{ Summary.freeze_function =
+            (fun () ->
+	      let _ = Format.eprintf "freezing...patterns\n" in
+	      !pattern_table);
+	  Summary.unfreeze_function =
+            (fun pt ->
+	      let _ = Format.eprintf "thawing...patterns\n" in
+              pattern_table := pt);
+	  Summary.init_function =
+            (fun () ->
+	      let _ = Format.eprintf "initing...patterns\n" in
+	      pattern_table := Cmap.empty) }
+
 
     let ptrn_exact    = Std.resolve_symbol pattern_mod "RExact"
     let ptrn_const    = Std.resolve_symbol pattern_mod "RConst"
@@ -158,9 +153,9 @@ struct
 (*  let act_get_store = Std.resolve_symbol pattern_mod "get_store" *)
 
 
-    let into_rpattern gl =
+    let into_rpattern =
       let rec into_rpattern (ptrn : Term.constr) : rpattern =
-	Term_match.matches gl
+	Term_match.matches ()
 	  [ (Term_match.EGlob ptrn_ignore,
 	     fun _ _ -> RIgnore)
 	  ; (Term_match.App (Term_match.App (Term_match.EGlob ptrn_get,
@@ -320,8 +315,8 @@ struct
       Func of Term.constr
     | Id
 
-    let parse_action gl : Term.constr -> action option =
-      Term_match.matches gl
+    let parse_action : Term.constr -> action option =
+      Term_match.matches ()
 	[ (Term_match.App (Term_match.EGlob func_function, as_ignore 0),
 	   fun _ s -> Some (Func (Hashtbl.find s 0)))
 	; (Term_match.App (Term_match.EGlob func_id, Term_match.Ignore),
@@ -329,19 +324,21 @@ struct
 	; (Term_match.Ignore, fun _ _ -> None)
 	]
 
-    let compile_template (effects : (int, reify_env -> (int, Term.constr) Hashtbl.t -> reify_env) Hashtbl.t) =
-      let rec compile_template (gl : unit) (tmp : Term.constr) (at : int)
+    let compile_template
+	(effects : (int, reify_env -> (int, Term.constr) Hashtbl.t -> reify_env) Hashtbl.t)
+	(reify_term : Term.constr -> reify_env reifier) =
+      let rec compile_template (tmp : Term.constr) (at : int)
 	  : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr =
 	match Term.kind_of_term tmp with
 	  Term.Lambda (_, typ, body) ->
 	    begin
-	      match parse_action gl typ with
+	      match parse_action typ with
 		None ->
 		  let _ = Format.eprintf "Got Lambda, but didn't have action: %a" Std.pp_constr typ in
 		  fun ls _ _ ->
 		    Term.substnl ls 0 tmp
 	      | Some act ->
-		let rest = compile_template gl body (at + 1) in
+		let rest = compile_template body (at + 1) in
 		let eft =
 		  try
 		    Hashtbl.find effects at
@@ -352,7 +349,8 @@ struct
 		| Func f ->
 		  fun vals gl s ->
 		    let cur_val = Hashtbl.find s at in
-		    rest ((reify_term f (eft gl s) cur_val) :: vals) gl s
+		    let rval = call_reify_term (reify_term f) (eft gl s) cur_val in
+		    rest (rval :: vals) gl s
 		| Id ->
 		  fun vals gl s ->
 		    let cur_val = Hashtbl.find s at in
@@ -363,25 +361,23 @@ struct
 	    Term.substnl ls 0 tmp
       in compile_template
 
-    let parse_rule (gl : unit) (rule : Term.constr)
-	(ptrn : Term.constr) (template : Term.constr)
-	: reify_env rule =
-      try
-	let effects = Hashtbl.create 1 in
-	let (ptrn, occs) = compile_pattern effects (into_rpattern gl ptrn) None in
-	let action = compile_template effects gl template 0 [] in
-	(ptrn, action)
-      with
-	Term_match.Match_failure -> raise (Failure "match failed, please report")
-
     let extend trm rul =
-      Hashtbl.add pattern_table trm rul
+      try
+	let objs = Cmap.find trm !pattern_table in
+	pattern_table := Cmap.add trm (rul :: objs) !pattern_table
+      with
+      | Not_found -> assert false
 
-    let add_pattern (name : Term.constr)
+    let add_pattern (dispatch : Term.constr -> reify_env reifier) (name : Term.constr)
 	(ptrn : Term.constr) (template : Term.constr)
 	: unit =
-      let rule = parse_rule () name ptrn template in
-      extend name rule
+      try
+	let effects = Hashtbl.create 1 in
+	let (ptrn, occs) = compile_pattern effects (into_rpattern ptrn) None in
+	let action = compile_template effects dispatch template 0 [] in
+	extend name (ptrn, action)
+      with
+	Term_match.Match_failure -> raise (Failure "match failed, please report")
 
     let rec print_rule out ptrn =
       Term_match.(
@@ -402,7 +398,7 @@ struct
 
     let print_patterns sep out (name : Term.constr) : unit =
       try
-	let vals = Hashtbl.find_all pattern_table name in
+	let vals = Cmap.find name !pattern_table in
 	List.iter (fun x -> Format.fprintf out "%a%a" sep () print_rule (fst x)) vals
       with
 	Not_found -> Format.fprintf out "<none>"
@@ -410,15 +406,45 @@ struct
     let reify_patterns i top gl trm args from =
       try
 	Term_match.matches_app gl
-	  (Hashtbl.find_all pattern_table i)
+	  (Cmap.find i !pattern_table)
 	  trm args from
       with
 	Term_match.Match_failure -> raise (ReificationFailure trm)
 
+    let new_pattern name =
+      if Cmap.mem name !pattern_table then
+	Pp.(
+	  msgnl (   (str "Pattern table '")
+		 ++ (Printer.pr_constr name)
+	         ++ (str "' already exists.")))
+      else
+	let _ = pattern_table := Cmap.add name [] !pattern_table in
+	()
+
   end
+
 
   module Syntax =
   struct
+    let reify_table : (reify_env reifier -> reify_env reifier) Cmap.t ref =
+      ref Cmap.empty
+
+    (** Freezing and thawing of state (for backtracking) **)
+    let _ =
+      Summary.declare_summary "reify-lambda-shell-syntax-table"
+	{ Summary.freeze_function =
+            (fun () ->
+	      let _ = Format.eprintf "freezing...syntax\n" in
+	      !reify_table);
+	  Summary.unfreeze_function =
+            (fun pt ->
+	      let _ = Format.eprintf "thawing...syntax\n" in
+              reify_table := pt);
+	  Summary.init_function =
+            (fun () ->
+	      let _ = Format.eprintf "initing...syntax\n" in
+	      reify_table := Cmap.empty) }
+
     type command =
     | Patterns of Term.constr
     | Call of Term.constr
@@ -426,6 +452,20 @@ struct
     | Abs of Term.constr * Term.constr
     | Var of Term.constr
   (*  | Table of Term.constr *)
+
+    let reify_args (name : Term.constr) : reify_env reifier =
+      let meta_reifier = Cmap.find name !reify_table in
+      let rec knot r =
+	r (fun x -> knot r x)
+      in
+      knot meta_reifier
+
+    let reify_term (name : Term.constr) =
+      let meta_reifier = Cmap.find name !reify_table in
+      let rec knot r =
+	r (fun x -> knot r x)
+      in
+      call_reify_term (knot meta_reifier)
 
     let cmd_patterns = Std.resolve_symbol pattern_mod "Patterns"
     let cmd_call     = Std.resolve_symbol pattern_mod "Call"
@@ -533,12 +573,38 @@ struct
     let declare_syntax (name : Term.constr) (cmds : Term.constr list) : unit =
       let cmds = List.map (parse_command ()) cmds in
       let meta_reifier = compile_commands cmds in
-      Hashtbl.replace reify_table name meta_reifier
+      let _ =
+	if Cmap.mem name !reify_table then
+	  Pp.(msg_warning (   (str "Redeclaring syntax '")
+			   ++ (Printer.pr_constr name)
+			   ++ (str "'")))
+	else ()
+      in
+	reify_table := Cmap.add name meta_reifier !reify_table
   end
 
-  let declare_syntax = Syntax.declare_syntax
+  let reify (name : Term.constr) (gl : Proof_type.goal Evd.sigma) =
+    let env = Tacmach.pf_env gl in
+    let evar_map = Tacmach.project gl in
+    Syntax.reify_term name { env = env
+			   ; evm = evar_map
+			   ; bindings = [] }
+
+  let reify_all gl ns_e =
+    let env = Tacmach.pf_env gl in
+    let evar_map = Tacmach.project gl in
+    let st = { env = env
+	     ; evm = evar_map
+	     ; bindings = [] }
+    in
+    List.map (fun (ns,e) -> Syntax.reify_term ns st e) ns_e
+
+  let new_pattern = Patterns.new_pattern
   let print_patterns = Patterns.print_patterns
-  let add_pattern = Patterns.add_pattern
+  let add_pattern = Patterns.add_pattern Syntax.reify_args
+
+  let declare_syntax = Syntax.declare_syntax
+
 end
 
 let print_newline out () =
@@ -556,7 +622,10 @@ END;;
 (** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_New_Pattern
   | [ "Reify" "Declare" "Patterns" constr(name) ] ->
-    [ () ]
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let name   = Constrintern.interp_constr evm env name in
+      Reification.new_pattern name
+    ]
 END;;
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
@@ -593,7 +662,9 @@ END;;
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" constr(name) ] ->
-    [ () ]
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let name   = Constrintern.interp_constr evm env name in
+      Reification.new_pattern name ]
 END;;
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
@@ -601,9 +672,8 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
     [ () ]
 END;;
 
-
 TACTIC EXTEND Reify_Lambda_Shell_reify
-  | ["reify_expr" constr(name) tactic(k) "[" constr_list(tbls) "]" "[" ne_constr_list(es) "]" ] ->
+  | ["reify_expr" constr(name) tactic(k) (* "[" constr_list(tbls) "]" *) "[" ne_constr_list(es) "]" ] ->
     [ fun gl ->
         let env = Tacmach.pf_env gl in
 	let evar_map = Tacmach.project gl in

@@ -5,7 +5,7 @@ SETOID  := Demo
 IMP     := Imp Wp
 AUTO    := Demo
 AUTORW  := SetoidRewrite AutoRewriteLambda
-SIMPLE  := Simple SimpleRewrite
+SIMPLE  := Simple SimpleRewrite SimpleReify
 MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
