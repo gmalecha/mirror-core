@@ -579,7 +579,7 @@ struct
     let syntax_object : Term.constr * Term.constr list -> Libobject.obj =
       Libobject.(declare_object
 	{ (default_object "REIFY_SYNTAX") with
-	  cache_function = (fun (_,_) -> Format.eprintf "called cache...")
+	  cache_function = (fun (_,_) -> ())
 	; load_function = fun i ((b,n),value) ->
 	  let (name, cmds) = value in
 	  add_syntax name cmds
@@ -614,9 +614,9 @@ struct
     Libobject.(declare_object
 		 { (default_object "REIFY_NEW_PATTERNS") with
 		   cache_function = (fun (_,_) ->
-		       (** TODO: I don't know what to do here. **)
-		     Format.eprintf "called cache...")
-		   ; load_function = fun i (obj_name,value) ->
+		     (** TODO: I don't know what to do here. **)
+		     ())
+		 ; load_function = fun i (obj_name,value) ->
 		       (** TODO: What do I do about [i] and [obj_name]? **)
 		     Patterns.declare_pattern value
 		 })
@@ -633,9 +633,9 @@ struct
     Libobject.(declare_object
 		 { (default_object "REIFY_ADD_PATTERN") with
 		   cache_function = (fun (_,_) ->
-		       (** TODO: I don't know what to do here. **)
-		     Format.eprintf "called cache...")
-		   ; load_function = fun i (obj_name,value) ->
+		     (** TODO: I don't know what to do here. **)
+		     ())
+		 ; load_function = fun i (obj_name,value) ->
 		     (** TODO: What do I do about [i] and [obj_name]? **)
 		     let (name, ptrn, template) = value in
 		     Patterns.add_pattern Syntax.reify_args name ptrn template
