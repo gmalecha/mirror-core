@@ -5,30 +5,10 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.Util.ListMapT.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Lemma list_mapT_cons
-: forall T U (F : T -> option U) ls a,
-    Traversable.mapT F (a :: ls) =
-    match match F a with
-            | Some x => Some (cons x)
-            | None => None
-          end with
-      | Some f =>
-        match Traversable.mapT F ls with
-          | Some x => Some (f x)
-          | None => None
-        end
-      | None => None
-    end.
-Proof. reflexivity. Qed.
-
-Lemma list_mapT_nil
-: forall T U (F : T -> option U),
-    Traversable.mapT F nil = Some nil.
-Proof. reflexivity. Qed.
 
 Section lem.
   Variable typ : Type.
@@ -151,63 +131,6 @@ Section lem.
 
   Opaque Traversable.mapT.
 
-  Lemma mapT_compose'
-  : forall (T V : Type)
-           (R : T -> V -> Prop)
-           (f : T -> option V),
-      (forall x a,
-         f x = Some a -> R x a) ->
-      forall (ls : list T) a,
-        mapT f ls = Some a ->
-        Forall2 R ls a.
-  Proof.
-    induction ls.
-    { simpl.
-      intros. rewrite list_mapT_nil in H0.
-      inv_all; subst. constructor. }
-    { intros. rewrite list_mapT_cons in H0.
-      forward. inv_all; subst.
-      specialize (IHls _ eq_refl). apply H in H0.
-      constructor; auto. }
-  Qed.
-
-  Lemma mapT_compose''
-  : forall (T V : Type)
-           (P : T -> Prop)
-           (R : T -> V -> Prop)
-           (f : T -> option V),
-      (forall x, P x -> exists a, f x = Some a /\ R x a) ->
-      forall ls,
-        Forall P ls ->
-        exists ls',
-          mapT f ls = Some ls' /\
-          Forall2 R ls ls'.
-  Proof.
-    clear. induction 2; intros.
-    { exists nil. rewrite list_mapT_nil. eauto. }
-    { eapply H in H0.
-      forward_reason.
-      rewrite list_mapT_cons. rewrite H0. rewrite H2.
-      eauto. }
-  Qed.
-
-  Lemma mapT_success
-  : forall (T V : Type)
-           (P : T -> Prop)
-           (f : T -> option V),
-      (forall x a, f x = Some a -> P x) ->
-      forall ls ls',
-        mapT f ls = Some ls' ->
-        Forall P ls.
-  Proof.
-    clear.
-    induction ls; simpl; intros.
-    { rewrite list_mapT_nil in *. inv_all; subst; auto. }
-    { rewrite list_mapT_cons in *. forward.
-      apply H in H0. inv_all; subst.
-      specialize (IHls _ eq_refl).
-      constructor; auto. }
-  Qed.
 
   Lemma Forall2_map1
   : forall T U V (f : T -> V) (R : V -> U -> Prop)
@@ -250,7 +173,7 @@ Section lem.
     forward.
     inv_all; subst.
     generalize (fun H' =>
-                  @mapT_compose' _ _
+                  @mapT_Forall2 _ _
                                  (fun e v =>
                                     exists v',
                                       exprD' (tus ++ tus') (vars l ++ tvs) e tyProp = Some v' /\
@@ -268,12 +191,12 @@ Section lem.
     { simpl. intros.
       eapply exprD'_weakenU with (tus' := tus') (t := tyProp) in H1;
         eauto with typeclass_instances. }
-    eapply mapT_success
+    eapply mapT_Forall
     with (P := fun e =>
                  exists v,
                    exprD' tus (vars l ++ tvs) e tyProp = Some v) in H.
     generalize H.
-    eapply mapT_compose''
+    eapply mapT_Forall2'
       with (R :=
               fun e v' =>
                 forall v,
@@ -326,7 +249,7 @@ Section lem.
     forward.
     inv_all; subst.
     generalize (fun H' =>
-                  @mapT_compose' _ _
+                  @mapT_Forall2 _ _
                                  (fun e v =>
                                     exists v',
                                       exprD' tus (vars l ++ tvs ++ tvs') e tyProp = Some v' /\
@@ -370,12 +293,12 @@ Section lem.
         revert x0.
         destruct (app_ass_trans (vars l) tvs tvs').
         simpl. reflexivity. } }
-    eapply mapT_success
+    eapply mapT_Forall
     with (P := fun e =>
                  exists v,
                    exprD' tus (vars l ++ tvs) e tyProp = Some v) in H.
     generalize H.
-    eapply mapT_compose''
+    eapply mapT_Forall2'
       with (f := fun e : expr => exprD' tus (vars l ++ tvs ++ tvs') e tyProp)
            (R :=
               fun e v' =>

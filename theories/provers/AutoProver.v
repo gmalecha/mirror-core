@@ -15,6 +15,7 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.ListMapT.
 
 Require Import FunctionalExtensionality.
 
