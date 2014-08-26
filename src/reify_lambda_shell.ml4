@@ -493,7 +493,7 @@ struct
       match ls with
 	[] ->
 	  fun top _ trm _ _ ->
-	    let _ = Format.eprintf "Failed for: %a" Std.pp_constr trm in
+	    let _ = Format.eprintf "Failed for: %a\n" Std.pp_constr trm in
 	    raise (ReificationFailure trm)
       | l :: ls ->
 	let k = compile_commands ls in
@@ -543,7 +543,8 @@ struct
 			else
 			  find ls (i - 1) (if l then acc + 1 else acc)
 		    in
-		    Term.mkApp (ctor, [| Std.to_nat (find gl.bindings (i-1) 0) |])
+		    let idx = find gl.bindings (i-1) 0 in
+		    Term.mkApp (ctor, [| Std.to_nat idx |])
 		| _ -> k top gl trm args from
 	      else
 		k top gl trm args from
