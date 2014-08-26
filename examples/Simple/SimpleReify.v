@@ -2,26 +2,28 @@ Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.Simple.Simple.
 
-Definition reify_simple_typ := typ.
-Definition reify_simple := expr typ func.
+(** Declare patterns **)
+Reify Declare Patterns patterns_simple_typ := typ.
+Reify Declare Patterns patterns_simple := (expr typ func).
 
-Reify Declare Patterns reify_simple_typ.
-Reify Pattern reify_simple_typ += (@RExact _ nat)  => tyNat.
-Reify Pattern reify_simple_typ += (@RExact _ bool) => tyBool.
-Reify Pattern reify_simple_typ += (@RExact _ Prop) => tyProp.
-Reify Pattern reify_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
+(** Declare syntax **)
+Reify Declare Syntax reify_simple_typ : typ :=
+  { (Patterns patterns_simple_typ) }.
+Reify Declare Syntax reify_simple : (expr typ func) :=
+  { (Patterns patterns_simple)
+    (@Patterns.App _ (@ExprCore.App typ func))
+    (@Patterns.Abs reify_simple_typ (expr typ func) (@ExprCore.Abs typ func))
+    (@Patterns.Var (expr typ func) (@ExprCore.Var typ func)) }.
 
-Reify Declare Patterns reify_simple.
-Reify Pattern reify_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
-Reify Pattern reify_simple += (RApp (RApp (@RExact _ plus) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function (reify_simple)) => App (App (Inj Plus) a) b).
-Reify Pattern reify_simple += (RApp (RApp (@RExact _ NPeano.ltb) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function (reify_simple)) => App (App (Inj Lt) a) b).
-Reify Pattern reify_simple += (RApp (RApp (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) (RGet 1 RIgnore)) (RGet 2 RIgnore)) => (fun (t : function reify_simple_typ) (a b : function reify_simple) => App (App (Inj (Eq t)) a) b).
+Reify Pattern patterns_simple_typ += (@RExact _ nat)  => tyNat.
+Reify Pattern patterns_simple_typ += (@RExact _ bool) => tyBool.
+Reify Pattern patterns_simple_typ += (@RExact _ Prop) => tyProp.
+Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
 
-Reify Declare Syntax reify_simple_typ { (Patterns reify_simple_typ) }.
-Reify Declare Syntax reify_simple { (Patterns reify_simple)
-                                     (@Patterns.App _ (@ExprCore.App typ func))
-                                     (@Patterns.Abs reify_simple_typ (expr typ func) (@ExprCore.Abs typ func))
-                                     (@Patterns.Var (expr typ func) (@ExprCore.Var typ func)) }.
+Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
+Reify Pattern patterns_simple += (RApp (RApp (@RExact _ plus) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (Inj Plus) a) b).
+Reify Pattern patterns_simple += (RApp (RApp (@RExact _ NPeano.ltb) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (Inj Lt) a) b).
+Reify Pattern patterns_simple += (RApp (RApp (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) (RGet 1 RIgnore)) (RGet 2 RIgnore)) => (fun (t : function reify_simple_typ) (a b : function reify_simple) => App (App (Inj (Eq t)) a) b).
 
 Ltac reify_typ trm :=
   let k e :=
@@ -77,7 +79,7 @@ Print test_6.
 
 Axiom Forall : typ -> func.
 
-Reify Pattern reify_simple += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (Forall t)) (Abs t b))).
+Reify Pattern patterns_simple += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (Forall t)) (Abs t b))).
 
 Definition test_7 : expr typ func.
   reify (forall x : nat, (x + 1) = 1).

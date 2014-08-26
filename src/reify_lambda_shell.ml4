@@ -34,12 +34,12 @@ sig
   | Var of Term.constr
 *)
 
-  val new_pattern    : Term.constr -> unit
+  val declare_pattern    : Names.identifier -> Term.constr -> unit
   val add_pattern    : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> unit
   val print_patterns : (Format.formatter -> unit -> unit) ->
     Format.formatter -> Term.constr -> unit
 
-  val declare_syntax : Term.constr -> (Term.constr (* command *)) list -> unit
+  val declare_syntax : Names.identifier -> Term.constr -> (Term.constr (* command *)) list -> unit
 
   val reify          : Term.constr -> Proof_type.goal Evd.sigma -> Term.constr -> Term.constr
   val reify_all      : Proof_type.goal Evd.sigma -> (Term.constr * Term.constr) list -> Term.constr list
@@ -97,6 +97,15 @@ struct
       let compare = Term.constr_ord
      end)
 
+  let decl_constant na c =
+    Declare.(Term.mkConst(declare_constant na
+			    (Entries.(DefinitionEntry
+					{ const_entry_body = c;
+					  const_entry_secctx = None;
+					  const_entry_type = None;
+					  const_entry_opaque = false }),
+			     Decl_kinds.(IsDefinition Definition))))
+
   module Tables =
   struct
 
@@ -118,24 +127,15 @@ struct
   module Patterns =
   struct
     (** State **)
-    let pattern_table (* : (Term.constr, reify_env rule) Hashtbl.t *) =
+    let pattern_table : ((reify_env rule) list) Cmap.t ref =
       ref Cmap.empty
 
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
-      Summary.declare_summary "reify-lambda-shell-pattern-table"
-	{ Summary.freeze_function =
-            (fun () ->
-	      let _ = Format.eprintf "freezing...patterns\n" in
-	      !pattern_table);
-	  Summary.unfreeze_function =
-            (fun pt ->
-	      let _ = Format.eprintf "thawing...patterns\n" in
-              pattern_table := pt);
-	  Summary.init_function =
-            (fun () ->
-	      let _ = Format.eprintf "initing...patterns\n" in
-	      pattern_table := Cmap.empty) }
+      Summary.(declare_summary "reify-lambda-shell-pattern-table"
+	{ freeze_function = (fun () -> !pattern_table)
+	; unfreeze_function = (fun pt -> pattern_table := pt)
+	; init_function = (fun () -> pattern_table := Cmap.empty) })
 
 
     let ptrn_exact    = Std.resolve_symbol pattern_mod "RExact"
@@ -368,8 +368,8 @@ struct
       with
       | Not_found -> assert false
 
-    let add_pattern (dispatch : Term.constr -> reify_env reifier) (name : Term.constr)
-	(ptrn : Term.constr) (template : Term.constr)
+    let add_pattern (dispatch : Term.constr -> reify_env reifier)
+	(name : Term.constr) (ptrn : Term.constr) (template : Term.constr)
 	: unit =
       try
 	let effects = Hashtbl.create 1 in
@@ -401,7 +401,9 @@ struct
 	let vals = Cmap.find name !pattern_table in
 	List.iter (fun x -> Format.fprintf out "%a%a" sep () print_rule (fst x)) vals
       with
-	Not_found -> Format.fprintf out "<none>"
+	Not_found -> Pp.(msg_warning (   (str "Unknown pattern table '")
+				      ++ (Printer.pr_constr name)
+				      ++ (str "'.")))
 
     let reify_patterns i top gl trm args from =
       try
@@ -411,18 +413,19 @@ struct
       with
 	Term_match.Match_failure -> raise (ReificationFailure trm)
 
-    let new_pattern name =
+    let add_empty_pattern name =
       if Cmap.mem name !pattern_table then
 	Pp.(
 	  msgnl (   (str "Pattern table '")
 		 ++ (Printer.pr_constr name)
 	         ++ (str "' already exists.")))
       else
-	let _ = pattern_table := Cmap.add name [] !pattern_table in
-	()
+	pattern_table := Cmap.add name [] !pattern_table
+
+    let declare_pattern (obj : Term.constr) =
+      add_empty_pattern obj
 
   end
-
 
   module Syntax =
   struct
@@ -431,19 +434,10 @@ struct
 
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
-      Summary.declare_summary "reify-lambda-shell-syntax-table"
-	{ Summary.freeze_function =
-            (fun () ->
-	      let _ = Format.eprintf "freezing...syntax\n" in
-	      !reify_table);
-	  Summary.unfreeze_function =
-            (fun pt ->
-	      let _ = Format.eprintf "thawing...syntax\n" in
-              reify_table := pt);
-	  Summary.init_function =
-            (fun () ->
-	      let _ = Format.eprintf "initing...syntax\n" in
-	      reify_table := Cmap.empty) }
+      Summary.(declare_summary "reify-lambda-shell-syntax-table"
+	{ freeze_function   = (fun () -> !reify_table);
+	  unfreeze_function = (fun pt -> reify_table := pt);
+	  init_function     = (fun () -> reify_table := Cmap.empty) })
 
     type command =
     | Patterns of Term.constr
@@ -473,8 +467,8 @@ struct
     let cmd_abs      = Std.resolve_symbol pattern_mod "Abs"
     let cmd_var      = Std.resolve_symbol pattern_mod "Var"
 
-    let parse_command gl cmd =
-      Term_match.matches gl
+    let parse_command cmd =
+      Term_match.matches ()
 	[ (Term_match.App (Term_match.EGlob cmd_patterns, as_ignore 0),
 	   fun _ s -> Patterns (Hashtbl.find s 0))
 	; (Term_match.App (Term_match.EGlob cmd_call, as_ignore 0),
@@ -570,9 +564,9 @@ struct
 		Term_match.Match_failure -> k top gl trm args from
 	    end
 
-    let declare_syntax (name : Term.constr) (cmds : Term.constr list) : unit =
-      let cmds = List.map (parse_command ()) cmds in
-      let meta_reifier = compile_commands cmds in
+    let add_syntax (name : Term.constr) (cmds : Term.constr list) : unit =
+      let program = List.map parse_command cmds in
+      let meta_reifier = compile_commands program in
       let _ =
 	if Cmap.mem name !reify_table then
 	  Pp.(msg_warning (   (str "Redeclaring syntax '")
@@ -580,7 +574,24 @@ struct
 			   ++ (str "'")))
 	else ()
       in
-	reify_table := Cmap.add name meta_reifier !reify_table
+      reify_table := Cmap.add name meta_reifier !reify_table
+
+    let syntax_object : Term.constr * Term.constr list -> Libobject.obj =
+      Libobject.(declare_object
+	{ (default_object "REIFY_SYNTAX") with
+	  cache_function = (fun (_,_) -> Format.eprintf "called cache...")
+	; load_function = fun i ((b,n),value) ->
+	  let (name, cmds) = value in
+	  add_syntax name cmds
+	})
+
+    let declare_syntax (name : Names.identifier)
+	(typ : Term.constr) (cmds : Term.constr list) : unit =
+      let program = List.map parse_command cmds in
+      let meta_reifier = compile_commands program in
+      let obj = decl_constant name typ in
+      let _ = Lib.add_anonymous_leaf (syntax_object (obj,cmds)) in
+      add_syntax obj cmds
   end
 
   let reify (name : Term.constr) (gl : Proof_type.goal Evd.sigma) =
@@ -599,9 +610,41 @@ struct
     in
     List.map (fun (ns,e) -> Syntax.reify_term ns st e) ns_e
 
-  let new_pattern = Patterns.new_pattern
+  let pattern_table_object : Term.constr -> Libobject.obj =
+    Libobject.(declare_object
+		 { (default_object "REIFY_NEW_PATTERNS") with
+		   cache_function = (fun (_,_) ->
+		       (** TODO: I don't know what to do here. **)
+		     Format.eprintf "called cache...")
+		   ; load_function = fun i (obj_name,value) ->
+		       (** TODO: What do I do about [i] and [obj_name]? **)
+		     Patterns.declare_pattern value
+		 })
+
+  let declare_pattern (name : Names.identifier) (value : Term.constr) =
+    let obj = decl_constant name value in
+    let _ = Lib.add_anonymous_leaf (pattern_table_object obj) in
+    Patterns.declare_pattern obj
+
   let print_patterns = Patterns.print_patterns
-  let add_pattern = Patterns.add_pattern Syntax.reify_args
+
+  let new_pattern_object
+      : Term.constr * Term.constr * Term.constr -> Libobject.obj =
+    Libobject.(declare_object
+		 { (default_object "REIFY_ADD_PATTERN") with
+		   cache_function = (fun (_,_) ->
+		       (** TODO: I don't know what to do here. **)
+		     Format.eprintf "called cache...")
+		   ; load_function = fun i (obj_name,value) ->
+		     (** TODO: What do I do about [i] and [obj_name]? **)
+		     let (name, ptrn, template) = value in
+		     Patterns.add_pattern Syntax.reify_args name ptrn template
+		 })
+
+  let add_pattern (name : Term.constr)
+      (ptrn : Term.constr) (template : Term.constr) : unit =
+    let _ = Patterns.add_pattern Syntax.reify_args name ptrn template in
+    Lib.add_anonymous_leaf (new_pattern_object (name, ptrn, template))
 
   let declare_syntax = Syntax.declare_syntax
 
@@ -612,19 +655,19 @@ let print_newline out () =
 
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
-  | [ "Reify" "Declare" "Syntax" constr(name) "{" constr_list(cmds) "}" ] ->
+  | [ "Reify" "Declare" "Syntax" ident(name) ":" constr(typ) ":=" "{" constr_list(cmds) "}" ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let name = Constrintern.interp_constr evm env name in
+      let typ = Constrintern.interp_constr evm env typ in
       let cmds = List.map (Constrintern.interp_constr evm env) cmds in
-      Reification.declare_syntax name cmds ]
+      Reification.declare_syntax name typ cmds ]
 END;;
 
 (** Patterns **)
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_New_Pattern
-  | [ "Reify" "Declare" "Patterns" constr(name) ] ->
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
+  | [ "Reify" "Declare" "Patterns" ident(name) ":=" constr(value) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let name   = Constrintern.interp_constr evm env name in
-      Reification.new_pattern name
+      let value     = Constrintern.interp_constr evm env value in
+      Reification.declare_pattern name value
     ]
 END;;
 
@@ -660,15 +703,19 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern
     ]
 END;;
 
+(*
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
-  | [ "Reify" "Declare" "Table" constr(name) ] ->
+  | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) "=>" constr(value) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let name   = Constrintern.interp_constr evm env name in
+(*      let name  = Constrintern.interp_constr evm env name in *)
+      let key   = Constrintern.interp_constr evm env key in
+      let value = Constrintern.interp_constr evm env value in
       Reification.new_pattern name ]
 END;;
+*)
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
-  | [ "Reify" "Table" constr(name) "+=" constr(key) "=>" constr(value) ] ->
+  | [ "Reify" "Declare" "Table" constr(name) ":" constr(key) "=>" constr(value) ] ->
     [ () ]
 END;;
 
