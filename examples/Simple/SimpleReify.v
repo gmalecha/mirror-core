@@ -7,8 +7,6 @@ Require Coq.Numbers.BinNums.
 Reify Declare Patterns patterns_simple_typ := typ.
 Reify Declare Patterns patterns_simple := (expr typ func).
 
-About Patterns.
-
 Reify Declare Syntax reify_simple_typ :=
   { (@Patterns _ patterns_simple_typ (@Fail typ)) }.
 
@@ -37,13 +35,13 @@ Ltac reify_typ trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple_typ k [ ] [ trm ].
+  reify_expr reify_simple_typ k [ True ] [ trm ].
 
 Ltac reify trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple k [ ] [ trm ].
+  reify_expr reify_simple k [ True ] [ trm ].
 
 Definition test_typ : typ.
   reify_typ (nat -> nat).

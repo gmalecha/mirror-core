@@ -18,6 +18,8 @@ sig
     SimpleMap of Term.constr * Term.constr
   | TypedMap of Term.constr * Term.constr
 
+  type all_tables
+
   val parse_tables : Term.constr -> map_type list
 
   (** Tables **)
@@ -34,10 +36,13 @@ sig
   (** Functions **)
   val declare_syntax : Names.identifier -> Term.constr (* command *) -> unit
 
+  (** Reification **)
   val reify     : Proof_type.goal Evd.sigma -> map_type list (* tables *) ->
-    Term.constr -> Term.constr -> Term.constr
+    Term.constr -> Term.constr -> Term.constr * all_tables
   val reify_all : Proof_type.goal Evd.sigma -> map_type list (* tables *) ->
-    (Term.constr * Term.constr) list -> Term.constr list
+    (Term.constr * Term.constr) list -> Term.constr list * all_tables
+  val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
+
 end
 
 module Reification : REIFICATION =
@@ -61,8 +66,12 @@ struct
   { env : Environ.env
   ; evm : Evd.evar_map
   ; bindings : bool list
-  ; mutable tables : (int environment) Cmap.t
+(*  ; mutable tables : (int environment) Cmap.t *)
   ; mutable typed_tables : (int * Term.constr) environment Cmap.t
+  }
+
+  type all_tables =
+  { tables : (int * Term.constr) environment Cmap.t
   }
 
   type lazy_term =
@@ -561,7 +570,6 @@ struct
 	  init_function     = (fun () -> reify_table := Cmap.empty) })
 
     type command =
-    | Fail
     | Patterns of Term.constr
     | Call of Term.constr
     | App of Term.constr
@@ -585,8 +593,7 @@ struct
 
     let parse_command_act cmd =
       Term_match.(matches ()
-	[ (App (EGlob cmd_fail, Ignore), fun _ _ -> Fail)
-	; (apps (EGlob cmd_patterns) [Ignore;get 0],
+	[ (apps (EGlob cmd_patterns) [Ignore;get 0],
 	   fun _ s -> Patterns (Hashtbl.find s 0))
 	; (apps (EGlob cmd_call) [Ignore;get 0],
 	   fun _ s -> Call (Hashtbl.find s 0))
@@ -699,29 +706,38 @@ struct
 		fun trm renv ->
 		  let tbl =
 		    try
-		      Cmap.find tbl_name renv.tables
+		      Cmap.find tbl_name renv.typed_tables
 		    with
-		      Not_found -> { mappings = Cmap.empty
-				   ; next = 1 }
+		      Not_found ->
+			let _ =
+			  Pp.(msg_warning
+				(   (str "Implicitly adding table '")
+				 ++ (Printer.pr_constr tbl_name)
+				 ++ (str "'. This will not be returned.")))
+			in
+			{ mappings = Cmap.empty
+			; next = 1 }
 		  in
 		  let full_term = get_term trm in
 		  try
 	          (** fast path something already in the table **)
-		    build (Cmap.find full_term tbl.mappings)
+		    build (fst (Cmap.find full_term tbl.mappings))
 		  with
 		    Not_found ->
 		      match get_by_conversion renv tbl full_term with
 			None ->
 			  let (result, new_tbl) =
 			    let result = tbl.next in
+			    let value = (result, Lazy.force Std.Unit.tt) in
 			    (result,
 			     { tbl with
 		               next = result + 1
-			     ; mappings = Cmap.add full_term result tbl.mappings })
+			     ; mappings = Cmap.add full_term value tbl.mappings })
 			  in
-			  renv.tables <- Cmap.add tbl_name new_tbl renv.tables ;
+			  renv.typed_tables <-
+			    Cmap.add tbl_name new_tbl renv.typed_tables ;
 			  build result
-		      | Some k -> build k
+		      | Some k -> build (fst k)
 	      end
 	    | TypedTable (tbl_name, type_name, ctor) ->
 	      begin
@@ -731,39 +747,40 @@ struct
 		fun trm renv ->
 		  let tbl =
 		    try
-		      Cmap.find tbl_name renv.tables
+		      Cmap.find tbl_name renv.typed_tables
 		    with
-		      Not_found -> { mappings = Cmap.empty
-				   ; next = 1 }
+		      Not_found ->
+			let _ =
+			  Pp.(msg_warning
+				(   (str "Implicitly adding table '")
+				 ++ (Printer.pr_constr tbl_name)
+				 ++ (str "'. This will not be returned.")))
+			in
+			{ mappings = Cmap.empty
+			; next = 1 }
 		  in
-		  Printf.eprintf "0\n" ;
 		  let full_term = get_term trm in
 		  let type_of = Typing.type_of renv.env renv.evm full_term in
-		  Format.eprintf "1 %a\n" Std.pp_constr type_name ;
 		  let rtyp = reify_term type_name (Term type_of) renv in
-		  Printf.eprintf "2\n" ;
 		  try
 	          (** fast path something already in the table **)
 		    let x = Cmap.find full_term tbl.mappings in
-		    Printf.eprintf "found\n" ;
-		    build x
+		    build (fst x)
 		  with
 		    Not_found ->
-		      Printf.eprintf "3\n" ;
 		      match get_by_conversion renv tbl full_term with
 			None ->
-			  Printf.eprintf "didn't find by conversion\n" ;
 			  let (result, new_tbl) =
 			    let result = tbl.next in
+			    let value = (result, rtyp) in
 			    (result,
 			     { tbl with
 		               next = result + 1
-			     ; mappings = Cmap.add full_term result tbl.mappings })
+			     ; mappings = Cmap.add full_term value tbl.mappings })
 			  in
-			  renv.tables <- Cmap.add tbl_name new_tbl renv.tables ;
-			  Printf.eprintf "Done\n" ;
+			  renv.typed_tables <- Cmap.add tbl_name new_tbl renv.typed_tables ;
 			  build result
-		      | Some k -> build k
+		      | Some k -> build (fst k)
 	      end
       in
       let result = compile_commands ls in
@@ -800,21 +817,30 @@ struct
       add_syntax obj cmd
   end
 
-  let initial_env (gl : Proof_type.goal Evd.sigma) =
+  let initial_env (gl : Proof_type.goal Evd.sigma) (tbls : map_type list) =
     let env = Tacmach.pf_env gl in
     let evar_map = Tacmach.project gl in
     { env = env
     ; evm = evar_map
     ; bindings = []
-    ; tables = Cmap.empty (** TODO: This needs to add tables **)
     ; typed_tables = Cmap.empty }
 
   let reify (gl : Proof_type.goal Evd.sigma) tbls (name : Term.constr) trm =
-    Syntax.reify_term name (Term trm) (initial_env gl)
+    let env = initial_env gl tbls in
+    let result = Syntax.reify_term name (Term trm) env in
+    (result, { tables = env.typed_tables })
 
   let reify_all gl tbls ns_e =
-    let st = initial_env gl in
-    List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e
+    let st = initial_env gl tbls in
+    (List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e,
+     { tables = st.typed_tables })
+
+  let export_table bindings mt tbls =
+    match mt with
+    | SimpleMap (name, ctor) ->
+      assert false
+    | TypedMap (name, ctor) ->
+      assert false
 
   let table_type = Std.resolve_symbol pattern_mod "table"
   let table_value = Std.resolve_symbol pattern_mod "a_table"
@@ -982,14 +1008,25 @@ END;;
 
 TACTIC EXTEND Reify_Lambda_Shell_reify
   | ["reify_expr" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
-    [ fun gl ->
-      let tbls = Reification.parse_tables tbls in
-      let res = Reification.reify_all gl tbls (List.map (fun e -> (name,e)) es) in
-      let ltac_args =
-	List.map
-	  Plugin_utils.Use_ltac.to_ltac_val
-	  res
+    [ let tbls = Reification.parse_tables tbls in
+      fun gl ->
+      let (res,tbl_data) =
+	Reification.reify_all gl tbls (List.map (fun e -> (name,e)) es)
       in
-      Plugin_utils.Use_ltac.ltac_apply k ltac_args gl
+      let rec generate tbls acc =
+	match tbls with
+	  [] ->
+	    let ltac_args =
+	      List.map
+		Plugin_utils.Use_ltac.to_ltac_val
+		(List.rev_append acc res)
+	    in
+	    Plugin_utils.Use_ltac.ltac_apply k ltac_args
+	| tbl :: tbls ->
+	  let mp = Reification.export_table acc tbl tbl_data in
+	  Plugin_utils.Use_ltac.pose "tbl" mp
+	    (fun var -> generate tbls (var :: acc))
+      in
+      generate tbls [] gl
     ]
 END;;

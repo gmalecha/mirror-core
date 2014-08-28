@@ -5,7 +5,7 @@ SETOID  := Demo
 IMP     := Imp Wp
 AUTO    := Demo
 AUTORW  := SetoidRewrite AutoRewriteLambda
-SIMPLE  := Simple SimpleRewrite SimpleReify
+SIMPLE  := Simple SimpleRewrite SimpleReify SimpleExt
 MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
@@ -40,7 +40,7 @@ Makefile.test.coq: Makefile $(TVS)
 test: coq Makefile.test.coq
 	$(MAKE) -f Makefile.test.coq
 
-clean:: Makefile.coq
+clean: Makefile.coq
 	$(MAKE) -f Makefile.coq clean
 	rm -f Makefile.coq Makefile.test.coq .depend
 
