@@ -32,7 +32,8 @@ sig
   (** Tables **)
   val declare_table : Names.identifier -> Term.constr -> unit
   val declare_typed_table : Names.identifier -> Term.constr -> Term.constr -> unit
-  val seed_table    : Term.constr -> Term.constr -> Term.constr -> unit
+  val seed_table    : Term.constr -> int -> Term.constr -> bool
+  val seed_typed_table    : Term.constr -> int -> Term.constr -> Term.constr -> bool
 
   (** Patterns **)
   val declare_pattern : Names.identifier -> Term.constr -> unit
@@ -167,12 +168,48 @@ struct
 
     type key_type = Nat | Pos
 
-    let the_seed_table : int environment Cmap.t ref =
+    let the_seed_table : (int * Term.constr) environment Cmap.t ref =
       ref Cmap.empty
 
-    let seed_table (c : Term.constr) (k : Term.constr) (v : Term.constr)
+    (** Freezing and thawing of state (for backtracking) **)
+    let _ =
+      Summary.(declare_summary "reify-lambda-shell-seed-table"
+	{ freeze_function = (fun () -> !the_seed_table)
+	; unfreeze_function = (fun pt -> the_seed_table := pt)
+	; init_function = (fun () -> the_seed_table := Cmap.empty) })
+
+    let check_compatible env evm (e : (int * Term.constr) environment) (i : int)
+	(target_ty : Term.constr) (target_t : Term.constr) : bool =
+      Cmap.for_all (fun k (id,ty) ->
+	if i = id then
+	  Reductionops.is_conv env evm k target_t &&
+	  Reductionops.is_conv env evm ty target_ty
+	else true) e.mappings
+
+    let seed_table (tbl_name : Term.constr) (k : int) (t : Term.constr) (v : Term.constr)
     : bool =
-      assert false
+      let (evm,env) = Lemmas.get_current_context () in
+      try
+	let tbl = Cmap.find tbl_name !the_seed_table in
+	if check_compatible env evm tbl k t v then
+	  let new_tbl = { mappings = Cmap.add v (k,t) tbl.mappings
+			; next = max (k+1) tbl.next } in
+	  the_seed_table := Cmap.add tbl_name new_tbl !the_seed_table ;
+	  true
+	else
+	  let _ =
+	    Pp.(msg_warning (   (str "Table '")
+			     ++ (Printer.pr_constr tbl_name)
+			     ++ (str (Printf.sprintf "' already contains a mapping for %d.\n" k))
+	                     ++ (str "This mapping is incompatible with the given mapping.")))
+	  in false
+      with
+	Not_found ->
+	  let _ = Pp.(msg_warning (   (str "Table '")
+				   ++ (Printer.pr_constr tbl_name)
+				   ++ (str "' does not exist."))) in
+	  false
+
 
     let declare_table (ls : Term.constr) (kt : key_type) =
       if Cmap.mem ls !the_seed_table then
@@ -180,11 +217,6 @@ struct
 			 ++ (Printer.pr_constr ls)
 			 ++ (str "' already exists.")))
       else
-	let get =
-	  match kt with
-	    Nat -> Std.Nat.to_nat
-	  | Pos -> Std.Positive.to_positive
-	in
 	the_seed_table := Cmap.add ls { mappings = Cmap.empty
 				      ; next = 1
 				      } !the_seed_table
@@ -195,49 +227,10 @@ struct
 			 ++ (Printer.pr_constr ls)
 			 ++ (str "' already exists.")))
       else
-	let get =
-	  match kt with
-	    Nat -> Std.Nat.to_nat
-	  | Pos -> Std.Positive.to_positive
-	in
 	the_seed_table := Cmap.add ls { mappings = Cmap.empty
 				      ; next = 1
 				      } !the_seed_table
 
-
-    let export_table (tbl : int environment) (typ : key_type) =
-      (** TODO **)
-      assert false
-
-    let reify (tbl_name : Term.constr) (trm : lazy_term) : Term.constr reifier =
-      assert false (*
-	let tbl =
-	  try
-	    Cmap.find tbl_name renv.tables
-	  with
-	    Not_found -> raise (Failure "Accessing unbound table")
-	in
-	let trm =
-	  if from = -1 then trm
-	  else if from = Array.length ary then
-	    Term.mkApp (trm, ary)
-	  else Term.mkApp (trm, Array.sub ary 0 (from+1))
-	in
-	try
-	  (** fast path something already in the table **)
-	  Std.Positive.to_positive (Cmap.find trm tbl.mappings)
-	with
-	  Not_found ->
-	    match get_by_conversion renv tbl trm with
-	      None ->
-		(** add to the table **)
-		let result = tbl.next in
-		renv.tables <- Cmap.add tbl_name
-		tbl.mappings <- Cmap.add trm (tbl.seed, result) tbl.mappings ;
-		tbl.seed <- tbl.seed + 1 ;
-		result
-	    | Some k -> k
-		     *)
   end
 
   module Patterns =
@@ -252,7 +245,6 @@ struct
 	{ freeze_function = (fun () -> !pattern_table)
 	; unfreeze_function = (fun pt -> pattern_table := pt)
 	; init_function = (fun () -> pattern_table := Cmap.empty) })
-
 
     let ptrn_exact    = Std.resolve_symbol pattern_mod "RExact"
     let ptrn_const    = Std.resolve_symbol pattern_mod "RConst"
@@ -739,8 +731,7 @@ struct
 			    let result = tbl.next in
 			    let value = (result, Lazy.force Std.Unit.tt) in
 			    (result,
-			     { tbl with
-		               next = result + 1
+			     { next = result + 1
 			     ; mappings = Cmap.add full_term value tbl.mappings })
 			  in
 			  renv.typed_tables :=
@@ -783,8 +774,7 @@ struct
 			    let result = tbl.next in
 			    let value = (result, rtyp) in
 			    (result,
-			     { tbl with
-		               next = result + 1
+			     { next = result + 1
 			     ; mappings = Cmap.add full_term value tbl.mappings })
 			  in
 			  renv.typed_tables := Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
@@ -832,7 +822,7 @@ struct
     { env = env
     ; evm = evar_map
     ; bindings = []
-    ; typed_tables = ref Cmap.empty }
+    ; typed_tables = ref !Tables.the_seed_table }
 
   let reify (gl : Proof_type.goal Evd.sigma) tbls (name : Term.constr) trm =
     let env = initial_env gl tbls in
@@ -930,7 +920,10 @@ struct
 
 
   let seed_table name key value =
-    assert false
+    Tables.seed_table name key (Lazy.force Std.Unit.tt) value
+
+  let seed_typed_table name key ty value =
+    Tables.seed_table name key ty value
 
 
   let pattern_table_object : Term.constr -> Libobject.obj =
@@ -1075,6 +1068,27 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
       let typ       = Constrintern.interp_constr evm env typ in
       Reification.declare_typed_table name key typ
     ]
+END;;
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
+  | [ "Reify" "Seed" "Table" constr(tbl) "+=" integer(key) "=>" constr(value) ] ->
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let tbl       = Constrintern.interp_constr evm env tbl in
+      let value     = Constrintern.interp_constr evm env value in
+      if Reification.seed_table tbl key value then
+	()
+      else
+	assert false ]
+  | [ "Reify" "Seed" "Typed" "Table" constr(tbl) "+=" integer(key) "=>"
+	"[" constr(typ) "," constr(value) "]" ] ->
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let tbl       = Constrintern.interp_constr evm env tbl in
+      let typ       = Constrintern.interp_constr evm env typ in
+      let value     = Constrintern.interp_constr evm env value in
+      if Reification.seed_typed_table tbl key typ value then
+	()
+      else
+	assert false ]
 END;;
 
 TACTIC EXTEND Reify_Lambda_Shell_reify
