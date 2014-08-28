@@ -13,8 +13,8 @@ end
 module Std = Plugin_utils.Coqstd.Std (struct let contrib_name = "reify_ext" end)
 
 let resolve_symbol = Std.resolve_symbol
-let to_nat = Std.to_nat
-let to_positive = Std.to_positive
+let to_nat = Std.Nat.to_nat
+let to_positive = Std.Positive.to_positive
 
 (** Reify Type **)
 module ReifyType
@@ -143,10 +143,10 @@ struct
   let expr_inj = lazy (resolve_symbol expr_pkg "Inj")
 
   let mkVar n =
-    Term.mkApp (Lazy.force expr_var, [| Lazy.force EXT.ext_type ; Std.to_nat n |])
+    Term.mkApp (Lazy.force expr_var, [| Lazy.force EXT.ext_type ; to_nat n |])
 
   let mkUVar n =
-    Term.mkApp (Lazy.force expr_uvar, [| Lazy.force EXT.ext_type ; Std.to_nat n |])
+    Term.mkApp (Lazy.force expr_uvar, [| Lazy.force EXT.ext_type ; to_nat n |])
 
   let mkAbs t e =
     Term.mkApp (Lazy.force expr_abs, [| Lazy.force EXT.ext_type ; t ; e |])

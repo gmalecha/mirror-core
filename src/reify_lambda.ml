@@ -13,8 +13,8 @@ end
 module Std = Plugin_utils.Coqstd.Std (struct let contrib_name = "reify_lambda" end)
 
 let resolve_symbol = Std.resolve_symbol
-let to_nat = Std.to_nat
-let to_positive = Std.to_positive
+let to_nat = Std.Nat.to_nat
+let to_positive = Std.Positive.to_positive
 
 let rec app_long f acc =
   match Term.kind_of_term f with
@@ -107,10 +107,10 @@ struct
   let inj = lazy (Term.mkApp (Lazy.force expr_inj, Lazy.force args))
 
   let mkVar n =
-    Term.mkApp (Lazy.force var, [| Std.to_nat n |])
+    Term.mkApp (Lazy.force var, [| to_nat n |])
 
   let mkUVar n =
-    Term.mkApp (Lazy.force uvar, [| Std.to_nat n |])
+    Term.mkApp (Lazy.force uvar, [| to_nat n |])
 
   let mkAbs t e =
     Term.mkApp (Lazy.force abs, [| t ; e |])

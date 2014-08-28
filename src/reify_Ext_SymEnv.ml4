@@ -10,7 +10,7 @@ let contrib_name = "reify_MirrorCore.Ext.SymEnv"
 module Std = Plugin_utils.Coqstd.Std (struct let contrib_name = contrib_name end)
 
 let resolve_symbol = Std.resolve_symbol
-let to_positive = Std.to_positive
+let to_positive = Std.Positive.to_positive
 
 (** Reification of MirrorCore.Ext.SymEnv **)
 let sym_env_pkg = ["MirrorCore";"Ext";"SymEnv"]
@@ -154,7 +154,7 @@ module REIFY_ENV_FUNC =
     (struct
       type result = Term.constr
       let expr_fref = lazy (resolve_symbol ["MirrorCore";"Ext";"SymEnv"] "FRef")
-      let nil_types = lazy (Std.to_list (resolve_symbol ["MirrorCore";"Ext";"Types"] "typ") [])
+      let nil_types = lazy (Std.List.to_list (resolve_symbol ["MirrorCore";"Ext";"Types"] "typ") [])
       let map x = REIFY_MONAD.bind x (fun x ->
 	let sym =
 	  Term.mkApp (Lazy.force expr_fref,
@@ -203,10 +203,10 @@ let rtype = lazy (Term.mkSort (Term.Type (Termops.new_univ ())))
 
 let extract_types (ls : Term.constr option list) =
   let rtype = Lazy.force rtype in
-  Std.to_posmap (Lazy.force types_empty)
+  Std.PosMap.to_posmap (Lazy.force types_empty)
     (fun a b c ->
       Term.mkApp (Lazy.force types_branch,
-		  [| a ; Std.to_option rtype b ; c |]))
+		  [| a ; Std.Option.to_option rtype b ; c |]))
     (fun x -> x) ls
 ;;
 
@@ -238,7 +238,7 @@ let build_functions evar env : (Term.constr -> Term.constr) option list REIFY_MO
       REIFY_MONAD.bind (reify_function_scheme ReifyExtTypes.reify tf) (fun (n, rft) ->
 	REIFY_MONAD.ret (Some (fun ts ->
 	  Term.mkApp (Lazy.force mkFunction,
-		      [| ts ; Std.to_nat n ; rft ; f |]))))
+		      [| ts ; Std.Nat.to_nat n ; rft ; f |]))))
   in
   REIFY_MONAD.bind REIFY_MONAD.get_funcs (mapM do_func)
 
@@ -288,26 +288,26 @@ TACTIC EXTEND reify_Ext_SymEnv_reify_expr
 	Plugin_utils.Use_ltac.pose "types" r_types (fun r_types ->
 	  let typ = Term.mkApp (Lazy.force e_function, [| r_types |]) in
 	  let leaf = Term.mkApp (Lazy.force ctor_leaf, [| typ |]) in
-	  let r_funcs = Std.to_posmap leaf
+	  let r_funcs = Std.PosMap.to_posmap leaf
 	    (fun a b c ->
 	      Term.mkApp (Lazy.force ctor_branch,
-			  [| typ ; a ; Std.to_option typ b ; c |]))
+			  [| typ ; a ; Std.Option.to_option typ b ; c |]))
 	    (fun f -> match f with
 	      None -> None
 	    | Some f -> Some (f r_types)) r_funcs in
 	  Plugin_utils.Use_ltac.pose "funcs" r_funcs (fun r_funcs ->
 	    let typD = Term.mkApp (Lazy.force tm_typD,
 				   [| r_types
-				    ; Std.to_list (Lazy.force rtype) [] |]) in
+				    ; Std.List.to_list (Lazy.force rtype) [] |]) in
 	    let params = [| Lazy.force tm_typ ; typD |] in
-	    let env_typ = Term.mkApp (Lazy.force Std.sigT_ctor, params) in
+	    let env_typ = Term.mkApp (Lazy.force Std.SigT.sigT_type, params) in
 	    let env_elem =
-	      Term.mkApp (Lazy.force Std.existT_ctor, params)
+	      Term.mkApp (Lazy.force Std.SigT.c_existT, params)
 	    in
 	    let r_uvars =
 	      List.map (fun (t,v) -> Term.mkApp (env_elem, [| t ; v |])) r_uvars
 	    in
-	    Plugin_utils.Use_ltac.pose "uvars" (Std.to_list env_typ r_uvars)
+	    Plugin_utils.Use_ltac.pose "uvars" (Std.List.to_list env_typ r_uvars)
 	      (fun r_uvars ->
 		let ltac_args =
 		  List.map

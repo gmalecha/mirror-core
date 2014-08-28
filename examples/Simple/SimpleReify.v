@@ -1,19 +1,27 @@
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.Simple.Simple.
+Require Coq.Numbers.BinNums.
 
 (** Declare patterns **)
 Reify Declare Patterns patterns_simple_typ := typ.
 Reify Declare Patterns patterns_simple := (expr typ func).
 
+About Patterns.
+
+Reify Declare Syntax reify_simple_typ :=
+  { (@Patterns _ patterns_simple_typ (@Fail typ)) }.
+
+Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
+
 (** Declare syntax **)
-Reify Declare Syntax reify_simple_typ : typ :=
-  { (Patterns patterns_simple_typ) }.
-Reify Declare Syntax reify_simple : (expr typ func) :=
-  { (Patterns patterns_simple)
-    (@Patterns.App _ (@ExprCore.App typ func))
-    (@Patterns.Abs reify_simple_typ (expr typ func) (@ExprCore.Abs typ func))
-    (@Patterns.Var (expr typ func) (@ExprCore.Var typ func)) }.
+Reify Declare Syntax reify_simple :=
+  { (@Patterns.Patterns _ patterns_simple
+    (@Patterns.App _ (@ExprCore.App typ func)
+    (@Patterns.Abs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)
+    (@Patterns.Var (expr typ func) (@ExprCore.Var typ func)
+    (@Patterns.Fail (expr typ func))))))
+    }.
 
 Reify Pattern patterns_simple_typ += (@RExact _ nat)  => tyNat.
 Reify Pattern patterns_simple_typ += (@RExact _ bool) => tyBool.
@@ -29,13 +37,13 @@ Ltac reify_typ trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple_typ k [ trm ].
+  reify_expr reify_simple_typ k [ ] [ trm ].
 
 Ltac reify trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple k [ trm ].
+  reify_expr reify_simple k [ ] [ trm ].
 
 Definition test_typ : typ.
   reify_typ (nat -> nat).
