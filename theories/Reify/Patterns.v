@@ -1,3 +1,5 @@
+Require Coq.FSets.FMapPositive.
+
 Inductive table (K : Type) : Type := a_table.
 Inductive typed_table (K T : Type) : Type := a_typed_table.
 Inductive patterns (T : Type) : Type := a_pattern.
@@ -33,12 +35,14 @@ Inductive Command (T : Type) :=
 | Table (K : Type) (t : table K) (ctor : K -> T) (_ : Command T)
 | TypedTable (K Ty : Type) (t : typed_table K Ty) (ctor : K -> T) (_ : Command T).
 
-Require Coq.FSets.FMapPositive.
-
 (** Tables Reification Specification **)
 Definition mk_var_map {K V T : Type} (_ : table K) (ctor : V -> T) : Type :=
   FMapPositive.PositiveMap.t T.
 Definition mk_dvar_map {K V T : Type} {F : V -> Type}
+              (_ : typed_table K V)
+              (ctor : forall x : V, F x -> T) :=
+  FMapPositive.PositiveMap.t T.
+Definition mk_dvar_map_abs {K V T D : Type} {F : V -> Type}
               (_ : typed_table K V)
               (ctor : forall x : V, F x -> T) :=
   FMapPositive.PositiveMap.t T.

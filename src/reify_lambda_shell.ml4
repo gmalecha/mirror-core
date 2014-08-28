@@ -14,9 +14,16 @@ module Std = Plugin_utils.Coqstd.Std
 
 module type REIFICATION =
 sig
+  type map_sort =
+    SimpleMap
+  | TypedMap
+  | TypedMapAbs of Term.constr
   type map_type =
-    SimpleMap of Term.constr * Term.constr
-  | TypedMap of Term.constr * Term.constr
+  { table_name : Term.constr
+  ; table_elem_type : Term.constr
+  ; table_elem_ctor : Term.constr
+  ; table_scheme : map_sort
+  }
 
   type all_tables
 
@@ -53,9 +60,16 @@ struct
       let compare = Term.constr_ord
      end)
 
+  type map_sort =
+    SimpleMap
+  | TypedMap
+  | TypedMapAbs of Term.constr
   type map_type =
-    SimpleMap of Term.constr * Term.constr
-  | TypedMap of Term.constr * Term.constr
+  { table_name : Term.constr
+  ; table_elem_type : Term.constr
+  ; table_elem_ctor : Term.constr
+  ; table_scheme : map_sort
+  }
 
   type 'a environment =
   { mappings : 'a Cmap.t
@@ -66,8 +80,7 @@ struct
   { env : Environ.env
   ; evm : Evd.evar_map
   ; bindings : bool list
-(*  ; mutable tables : (int environment) Cmap.t *)
-  ; mutable typed_tables : (int * Term.constr) environment Cmap.t
+  ; typed_tables : (int * Term.constr) environment Cmap.t ref
   }
 
   type all_tables =
@@ -119,10 +132,6 @@ struct
     fun gl -> c (f gl)
 
   let reifier_run (c : 'a reifier) (gl : reify_env) = c gl
-
-
-  let call_reify_term (r : 'a reifier) gl trm =
-    r gl trm empty_array (-1)
 
   type rpattern =
   | RIgnore
@@ -223,7 +232,7 @@ struct
 	      None ->
 		(** add to the table **)
 		let result = tbl.next in
-		renv.tables <- Cmap.add tbl_name 
+		renv.tables <- Cmap.add tbl_name
 		tbl.mappings <- Cmap.add trm (tbl.seed, result) tbl.mappings ;
 		tbl.seed <- tbl.seed + 1 ;
 		result
@@ -658,7 +667,7 @@ struct
 		      let new_gl =
 			{ gl with
 			  env = Environ.push_rel (name, None, lhs) gl.env
-			  ; bindings = true :: gl.bindings
+			; bindings = true :: gl.bindings
 			}
 		      in
 		      let body = reifier_run (!top (Term rhs)) new_gl in
@@ -706,7 +715,7 @@ struct
 		fun trm renv ->
 		  let tbl =
 		    try
-		      Cmap.find tbl_name renv.typed_tables
+		      Cmap.find tbl_name !(renv.typed_tables)
 		    with
 		      Not_found ->
 			let _ =
@@ -734,8 +743,8 @@ struct
 		               next = result + 1
 			     ; mappings = Cmap.add full_term value tbl.mappings })
 			  in
-			  renv.typed_tables <-
-			    Cmap.add tbl_name new_tbl renv.typed_tables ;
+			  renv.typed_tables :=
+			    Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
 			  build result
 		      | Some k -> build (fst k)
 	      end
@@ -747,7 +756,7 @@ struct
 		fun trm renv ->
 		  let tbl =
 		    try
-		      Cmap.find tbl_name renv.typed_tables
+		      Cmap.find tbl_name !(renv.typed_tables)
 		    with
 		      Not_found ->
 			let _ =
@@ -778,7 +787,7 @@ struct
 		               next = result + 1
 			     ; mappings = Cmap.add full_term value tbl.mappings })
 			  in
-			  renv.typed_tables <- Cmap.add tbl_name new_tbl renv.typed_tables ;
+			  renv.typed_tables := Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
 			  build result
 		      | Some k -> build (fst k)
 	      end
@@ -823,24 +832,72 @@ struct
     { env = env
     ; evm = evar_map
     ; bindings = []
-    ; typed_tables = Cmap.empty }
+    ; typed_tables = ref Cmap.empty }
 
   let reify (gl : Proof_type.goal Evd.sigma) tbls (name : Term.constr) trm =
     let env = initial_env gl tbls in
     let result = Syntax.reify_term name (Term trm) env in
-    (result, { tables = env.typed_tables })
+    (result, { tables = !(env.typed_tables) })
 
   let reify_all gl tbls ns_e =
     let st = initial_env gl tbls in
-    (List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e,
-     { tables = st.typed_tables })
+    let result = List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e in
+    (result, { tables = !(st.typed_tables) })
 
   let export_table bindings mt tbls =
-    match mt with
-    | SimpleMap (name, ctor) ->
-      assert false
-    | TypedMap (name, ctor) ->
-      assert false
+    let insert_at v =
+      let rec insert_at n ls =
+	match ls with
+	| [] -> if n = 0 then [Some v]
+	        else None :: insert_at (n - 1) ls
+	| l :: ls -> if n = 0 then Some v :: ls
+	             else l :: insert_at (n - 1) ls
+      in
+      insert_at
+    in
+    let build tbl = Cmap.fold (fun trm (idx,typ) acc ->
+      insert_at (typ,trm) (idx - 1) acc) tbl []
+    in
+    let maker =
+      match mt.table_scheme with
+      | SimpleMap ->
+	 fun (_,tt) ->
+	  Term.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| tt |]))
+      | TypedMap ->
+	 fun (ty,tt) ->
+	  Term.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| ty ; tt |]))
+      | TypedMapAbs abs_typ ->
+	 fun (ty,tt) ->
+	  let v =
+	    Term.mkApp (Term.substnl bindings 0 mt.table_elem_ctor,
+			[| Term.substnl bindings 0 ty
+			 ; Term.mkLambda (Names.Anonymous,
+					  Term.substnl bindings 0 abs_typ,
+					  Term.substnl bindings 0 tt) |])
+	  in
+	  v
+    in
+    let typ = Term.substnl bindings 0 mt.table_elem_type in
+    let ctor = Term.substnl bindings 0 mt.table_elem_ctor in
+    let ary_typ = [| typ |] in
+    let leaf = Term.mkApp (Lazy.force Std.PosMap.c_leaf, ary_typ)  in
+    let branch = Term.mkApp (Lazy.force Std.PosMap.c_node, ary_typ) in
+    let branch x y z =
+      let y =
+	match y with
+	| None -> None
+	| Some ab -> Some (maker ab)
+      in
+      Term.mkApp (branch, [| x ; Std.Option.to_option typ y ; z |])
+    in
+    let tbl =
+      try
+	let env = Cmap.find mt.table_name tbls.tables in
+	env.mappings
+      with
+	Not_found -> Cmap.empty (** This table wasn't seeded **)
+    in
+    Std.PosMap.to_posmap leaf branch (fun x -> x) (build tbl)
 
   let table_type = Std.resolve_symbol pattern_mod "table"
   let table_value = Std.resolve_symbol pattern_mod "a_table"
@@ -918,21 +975,35 @@ struct
 
   let mk_var_map = Std.resolve_symbol pattern_mod "mk_var_map"
   let mk_dvar_map = Std.resolve_symbol pattern_mod "mk_dvar_map"
+  let mk_dvar_map_abs = Std.resolve_symbol pattern_mod "mk_dvar_map_abs"
 
-  let parse_table : Term.constr -> map_type =
+  let parse_table (trm : Term.constr) : map_type =
     Term_match.(matches ()
-		  [(apps (EGlob mk_var_map) [Ignore;Ignore;Ignore;get 0;get 1],
-		    fun _ s -> SimpleMap (Hashtbl.find s 0, Hashtbl.find s 1))
-		  ;(apps (EGlob mk_dvar_map) [Ignore;Ignore;Ignore;Ignore;
+		  [(apps (EGlob mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
+		    fun _ s -> { table_name = Hashtbl.find s 0
+			       ; table_elem_type = Hashtbl.find s 2
+			       ; table_elem_ctor = Hashtbl.find s 1
+			       ; table_scheme = SimpleMap })
+		  ;(apps (EGlob mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
 					      get 0;get 1],
-		    fun _ s -> TypedMap (Hashtbl.find s 0, Hashtbl.find s 1))
-		  ])
+		    fun _ s -> { table_name = Hashtbl.find s 0
+			       ; table_elem_type = Hashtbl.find s 2
+			       ; table_elem_ctor = Hashtbl.find s 1
+			       ; table_scheme = TypedMap })
+		  ;(apps (EGlob mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
+						  Ignore;get 0;get 1],
+		    fun _ s ->
+		      { table_name = Hashtbl.find s 0
+		      ; table_elem_type = Hashtbl.find s 2
+		      ; table_elem_ctor = Hashtbl.find s 1
+		      ; table_scheme = TypedMapAbs (Hashtbl.find s 3) })
+		  ]) trm
 
   let rec parse_tables (tbls : Term.constr) : map_type list =
     Term_match.(matches ()
 		  [(Lam (0,get 0,get 1),
 		    fun _ s ->
-		      parse_table (Hashtbl.find s 0)
+		         parse_table (Hashtbl.find s 0)
 		      :: parse_tables (Hashtbl.find s 1))
 		  ;(Ignore, fun _ s -> [])
 		  ]) tbls
