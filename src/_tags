@@ -11,4 +11,4 @@
 
 
 <reify_lambda_shell.*>: coq, coq_plugin_utils
-<reify_Lambda_plugin.cmxs>: coq_plugin, coq_plugin_utils
+<reify_Lambda_plugin.cmxs>: coq_plugin_utils
