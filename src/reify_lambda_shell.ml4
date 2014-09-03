@@ -583,14 +583,14 @@ struct
       let reifier = Cmap.find name !reify_table in
       reifier
 
-    let cmd_fail     = Std.resolve_symbol pattern_mod "Fail"
-    let cmd_patterns = Std.resolve_symbol pattern_mod "Patterns"
-    let cmd_call     = Std.resolve_symbol pattern_mod "Call"
-    let cmd_app      = Std.resolve_symbol pattern_mod "App"
-    let cmd_abs      = Std.resolve_symbol pattern_mod "Abs"
-    let cmd_var      = Std.resolve_symbol pattern_mod "Var"
-    let cmd_table    = Std.resolve_symbol pattern_mod "Table"
-    let cmd_typed_table = Std.resolve_symbol pattern_mod "TypedTable"
+    let cmd_fail     = Std.resolve_symbol pattern_mod "CFail"
+    let cmd_patterns = Std.resolve_symbol pattern_mod "CPatterns"
+    let cmd_call     = Std.resolve_symbol pattern_mod "CCall"
+    let cmd_app      = Std.resolve_symbol pattern_mod "CApp"
+    let cmd_abs      = Std.resolve_symbol pattern_mod "CAbs"
+    let cmd_var      = Std.resolve_symbol pattern_mod "CVar"
+    let cmd_table    = Std.resolve_symbol pattern_mod "CTable"
+    let cmd_typed_table = Std.resolve_symbol pattern_mod "CTypedTable"
 
     let parse_command_act cmd =
       Term_match.(matches ()
