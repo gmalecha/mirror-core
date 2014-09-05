@@ -1,12 +1,12 @@
 Require Import ExtLib.Data.Fun.
-Require Import MirrorCore.EProver2.
+Require Import MirrorCore.EProverI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lemma.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 (*Require Import MirrorCore.Ext.Expr. *)
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.ExprSubst.
@@ -22,14 +22,21 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section exprs.
-  Variable func : Type.
-  Variable RType_typ : RType.
-  Variable Typ2_typ : Typ2 _ Fun.
-  Variable RSym_func : RSym typD func.
-  Variable RSymOk_func : RSymOk RSym_func.
+  Context {typ : Type}.
+  Context {func : Type}.
+  Context {RType_typD : RType typ}.
+  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {RSym_func : RSym func}.
+
+  (** Reasoning principles **)
+  Context {RTypeOk_typD : RTypeOk}.
+  Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
+  Context {RSymOk_func : RSymOk RSym_func}.
+  Variable Typ0_Prop : Typ0 _ Prop.
+  Variable Typ0_Fun : Typ2 _ Fun.
 
   (** TODO: Can this be further generalized? *)
-  Let Expr_expr := @Expr_expr func _ _ RSym_func.
+  Let Expr_expr := @Expr_expr typ func _ _ RSym_func.
   Local Existing Instance Expr_expr.
   Local Existing Instance ExprOk_expr.
 
