@@ -4,17 +4,17 @@ MTAC    := Patterns McMatch
 SETOID  := Demo
 IMP     := Imp Wp
 AUTO    := Demo
-AUTORW  := SetoidRewrite AutoRewriteLambda
+AUTORW  := SetoidRewriteRec AutoRewriteLambda DemoSetoid
 SIMPLE  := Simple SimpleRewrite SimpleReify SimpleExt
 MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
-           $(AUTO:%=Auto/%)
+           $(AUTO:%=Auto/%) \
+	   $(AUTORW:%=AutoRewrite/%)
 
 # ExprDemo
 #	      $(SETOID:%=setoid/%)
 # 	      $(MTAC:%=mtac/%)
-# 	      $(AUTORW:%=AutoRewrite/%)
 #	      $(MONAD:%=Monad/Monad%)
 
 TESTS   :=

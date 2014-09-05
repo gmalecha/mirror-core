@@ -3,8 +3,6 @@ Require Import MirrorCore.Lambda.ExprD.
 Require Import McExamples.Monad2.MonadExpr.
 Require Import McExamples.Monad2.MonadReduce.
 
-Add ML Path "../src".
-Add ML Path "../../src".
 Declare ML Module "reify_Monad2_MonadExpr_plugin".
 
 Ltac reify_left m :=

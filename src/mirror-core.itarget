@@ -1,2 +1,4 @@
+reify_Monad2_MonadExpr_plugin.cmxs
+reify_Monad2_MonadExpr_plugin.cma
 reify_Lambda_plugin.cmxs
 reify_Lambda_plugin.cma

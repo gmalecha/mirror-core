@@ -13,11 +13,6 @@ Require Import MirrorCore.Lambda.ExprSubst.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Util.Iteration.
 
-(*
-(** TODO: Move [applicable] to a common place **)
-Require Import McExamples.Auto.AutoProver2.
-*)
-
 Set Implicit Arguments.
 Set Strict Implicit.
 
