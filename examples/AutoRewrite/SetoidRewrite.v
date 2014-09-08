@@ -1,40 +1,135 @@
-Require Import Relations.
+Require Import Coq.Relations.Relations.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.Ext.Expr.
-Require Import MirrorCore.Ext.ExprD.
-Require Import MirrorCore.Ext.ExprTactics.
+Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section setoid.
-  Variable ts : types.
-  Variable sym : Type. (** Symbols **)
-  Variable RSym_sym : RSym (typD ts) sym.
-  Variable Rbase : Type. (** Relations **)
-  Variable T : Type. (** Result type **)
+  Context {typ : Type}.
+  Context {func : Type}.
+  Context {RType_typD : RType typ}.
+  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {RSym_func : RSym func}.
 
+  (** Reasoning principles **)
+  Context {RTypeOk_typD : RTypeOk}.
+  Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
+  Context {RSymOk_func : RSymOk RSym_func}.
+  Variable Typ0_Prop : Typ0 _ Prop.
+
+  Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
+
+  Variable Rbase : Type.
+  Variable Req : Rbase -> Rbase -> bool.
+
+  Inductive RG : Type :=
+  | RGinj (r : Rbase)
+  | RGrespects (l r : RG)
+  | RGany.
+
+  (** Dependent type for this? **)
   Inductive R : Type :=
-  | RInj (r : Rbase)
-  | Rpointwise (l r : R).
+  | Rinj (r : Rbase)
+  | Rrespects (l r : R).
 
-  Variable respects : expr sym -> R -> option R.
-  Variable atomic : forall e : expr sym,
-                      (forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e -> R -> T)
-                      -> R -> T.
-  Variable app : T -> T -> T.
-  Variable abs : typ -> T -> T.
+  (** This will be called on the head symbol to see what it
+   ** respects
+   **)
+(*  Variable respects : expr typ func -> RG -> option RG. *)
+(*  Variable is_reflexive : RG -> option R. *)
 
-  Definition setoid_rewrite : expr sym -> R -> T :=
-    @Fix (expr sym) _ (wf_rightTrans (@wf_expr_acc sym))
+  Fixpoint RtoRG (r : R) : RG :=
+    match r with
+      | Rinj r => RGinj r
+      | Rrespects l r => RGrespects (RtoRG l) (RtoRG r)
+    end.
+
+  Fixpoint RGtoR (rg : RG) : option R :=
+    match rg with
+      | RGinj x => Some (Rinj x)
+      | RGrespects a b =>
+        match RGtoR a , RGtoR b with
+          | Some a , Some b => Some (Rrespects a b)
+          | _ , _ => None
+        end
+      | _ => None
+    end.
+
+  Fixpoint unify (l r : RG) : option RG :=
+    match l , r with
+      | RGany , _ => Some r
+      | _ , RGany => Some l
+      | RGinj l , RGinj r => if Req l r then Some (RGinj l) else None
+      | RGrespects la lb , RGrespects ra rb =>
+        match unify la ra , unify lb rb with
+          | None , _ => None
+          | _ , None => None
+          | Some l , Some r => Some (RGrespects l r)
+        end
+      | _ , _ => None
+    end.
+
+  Variable m : Type -> Type.
+  Variable under : forall T, RG -> m T -> m T.
+  Variable mzero : forall T, m T.
+  Variable mret  : forall T, T -> m T.
+  Variable mbind : forall T U, m T -> (T -> m U) -> m U.
+  Variable mplus  : forall T, m T -> m T -> m T.
+  Variable unify_with : nat -> RG -> m RG.
+
+  Variable rw : expr typ func -> RG ->
+                m (option (expr typ func * RG)).
+
+  Definition setoid_rewrite : expr typ func -> RG -> m (expr typ func * RG) :=
+    @Fix (expr typ func) _ (wf_rightTrans (@wf_expr_acc typ func))
+         (fun _ => RG -> m (expr typ func * RG))
+         (fun e rg =>
+            mbind (rw e rg)
+                  (fun val =>
+                     match val with
+                       | Some val => mret val
+                       | None =>
+                         match e as e
+                               return (forall e', TransitiveClosure.rightTrans (@expr_acc typ func) e' e -> R -> m (expr typ func))
+                                      -> R -> m (expr typ func)
+                         with
+                           | Inj _ => fun rvars rg =>
+                                        match rw e rg with
+                                          | None => mzero
+                                          | Some r => mret (e, r)
+                                        end
+                           | Var v =>
+                             mbind (unify_with v rg)
+                                   (fun r => mret (Var v, r))
+                           | App l r => fun recur rel =>
+                                          match rw l rel with
+                                            | None =>
+                                              @atomic (App l r) recur rel
+                                            | Some r' =>
+                                              app (recur l (TransitiveClosure.RTFin _ _ _ (acc_App_l _ _))
+                                                         (Rpointwise r' rel))
+                                                  (recur r (TransitiveClosure.RTFin _ _ _ (acc_App_r _ _))
+                                                         r')
+                                          end
+                           | e' => @atomic e'
+                         end
+                     end)).
+
+
+  Definition setoid_rewrite : expr typ func -> list RG -> RG -> option (expr typ func * T :=
+    @Fix (expr typ func) _ (wf_rightTrans (@wf_expr_acc typ func))
          (fun _ => R -> T)
          (fun e =>
             match e as e
-               return (forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e -> R -> T) -> R -> T
+               return (forall e', TransitiveClosure.rightTrans (@expr_acc typ func) e' e -> R -> T) -> R -> T
             with
               | App l r => fun recur rel =>
                 match respects l rel with
@@ -46,14 +141,6 @@ Section setoid.
                         (recur r (TransitiveClosure.RTFin _ _ _ (acc_App_r _ _))
                                r')
                 end
-(*
-              | Abs t e' => fun recur rel =>
-                match rel with
-                  | Rpointwise l r =>
-                    abs t (@recur e' (TransitiveClosure.RTFin _ _ _ (acc_Abs _ _)) r)
-                  | _ => @atomic  (Abs t e') recur rel
-                end
-*)
               | e' => @atomic e'
             end).
 
@@ -65,16 +152,20 @@ Section setoid.
       | Rpointwise l r => tyArr (typeForR l) (typeForR r)
     end.
 
-  Variable TR : env (typD ts) -> env (typD ts) -> forall r : R, T -> typD ts nil (typeForR r) -> Prop.
+  Variable TR : forall ts,
+                  tenv typ -> tenv typ ->
+                  forall r : R, T -> typD ts (typeForR r) -> Prop.
 
   Hypothesis Hatomic_rel
   : forall e f g x,
       (forall e pf x, f e pf x = g e pf x) ->
       @atomic e f x = @atomic e g x.
 
+  Check exprD'.
+
   Hypothesis Hatomic
-  : forall us vs e r x result,
-      exprD us vs e (typeForR r) = Some x ->
+  : forall tus tvs e r x result,
+      exprD' tus tvs (typeForR r) e = Some x ->
       @atomic e (fun e _ => setoid_rewrite e) r = result ->
       TR us vs r result x.
 
@@ -204,3 +295,4 @@ Section setoid.
       eapply Hatomic in H0; eauto. }
   Qed.
 End setoid.
+*)

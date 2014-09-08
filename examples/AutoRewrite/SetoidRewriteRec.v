@@ -1,6 +1,9 @@
 Require Import Coq.Relations.Relations.
+Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
+Require Import MirrorCore.Util.Forwardy.
+Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
@@ -24,7 +27,6 @@ Section setoid.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
   Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Typ0_Fun : Typ2 _ Fun.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
@@ -44,8 +46,10 @@ Section setoid.
   (** This will be called on the head symbol to see what it
    ** respects
    **)
+(*
   Variable respects : expr typ func -> RG -> option RG.
   Variable is_reflexive : RG -> option R.
+*)
 
   Fixpoint RtoRG (r : R) : RG :=
     match r with
@@ -64,6 +68,7 @@ Section setoid.
       | _ => None
     end.
 
+(*
   Definition try_reflexive (e : expr typ func)
              (rvars : list RG) (rg : RG)
   : option (expr typ func * list RG * RG) :=
@@ -71,6 +76,7 @@ Section setoid.
       | None => None
       | Some r => Some (e, rvars, RtoRG r)
     end.
+*)
 
   Fixpoint unify (l r : RG) : option RG :=
     match l , r with
@@ -93,52 +99,273 @@ Section setoid.
            (e : expr typ func) (rvars : list RG) (rg : RG)
   : option (expr typ func * list RG * RG).
   refine (
-      match rw e rvars rg with
-        | None =>
-          match e with
-            | Inj _ =>
-              match respects e rg with
-                | None => try_reflexive e rvars rg
-                | Some r => Some (e, rvars, r)
-              end
-            | App f x =>
+      match e with
+        | Inj _ =>
+          match rw e rvars rg with
+            | None => None
+            | Some x => Some x
+          end
+        | App f x =>
+          match rw e rvars rg with
+            | None =>
               match setoid_rewrite f rvars (RGrespects RGany rg) with
-                | None => try_reflexive e rvars rg
+                | None => None
                 | Some (f',rvars', RGrespects rD rR) =>
                   match setoid_rewrite x rvars' rD with
-                    | None => try_reflexive e rvars rg
-                    | Some (x',rvars'',_) => Some (App f' x', rvars'',rR)
+                    | None => None
+                    | Some (x',rvars'',z) =>
+                      match z with
+                        | RGany => None
+                        | _ => Some (App f' x', rvars'',rR)
+                      end
                   end
                 | _ => None (* Dead code *)
               end
-            | Abs t b =>
-              match rg with
-                | RGrespects l r =>
-                  match setoid_rewrite b (l :: rvars) r with
-                    | None => try_reflexive e rvars rg
-                    | Some (b',lr'::rvars',r') =>
-                      Some (Abs t b', rvars', RGrespects lr' r')
-                    | _ => None (** Dead code **)
-                  end
-                | _ => try_reflexive e rvars rg
-              end
-            | Var v =>
-              match nth_error rvars v with
-                | None => None (** Dead code **)
-                | Some r =>
-                  match unify r rg with
-                    | None => None
-                    | Some r' =>
-                      Some (Var v,
-                            firstn v rvars ++ r' :: skipn (S v) rvars,
-                            r')
-                  end
-              end
-            | UVar u => None
+            | Some x => Some x
           end
-        | Some x => Some x
+        | Abs t b =>
+          match rg with
+            | RGrespects l r =>
+              match setoid_rewrite b (l :: rvars) r with
+                | None => None
+                | Some (b',lr'::rvars',r') =>
+                  Some (Abs t b', rvars', RGrespects lr' r')
+                | _ => None (** Dead code **)
+              end
+            | _ => rw e rvars rg
+          end
+        | Var v =>
+          match nth_error rvars v with
+            | None => None (** Dead code **)
+            | Some r =>
+              match unify r rg with
+                | None => None
+                | Some r' =>
+                  Some (Var v,
+                        firstn v rvars ++ r' :: skipn (S v) rvars,
+                        r')
+              end
+          end
+        | UVar u =>
+          match rw e rvars rg with
+            | None => None
+            | Some r => Some r
+          end
       end).
   Defined.
+
+  Variable typeForRbase : Rbase -> typ.
+
+  Fixpoint typeForR (r : R) : typ :=
+    match r with
+      | Rinj r => typeForRbase r
+      | Rrespects l r => tyArr (typeForR l) (typeForR r)
+    end.
+
+  Inductive Rrefines : R -> RG -> Prop :=
+  | RRGany : forall i, Rrefines i RGany
+  | RRGinj : forall i, Rrefines (Rinj i) (RGinj i)
+  | RRGrespects : forall l l' r r',
+                    Rrefines l l' -> Rrefines r r' ->
+                    Rrefines (Rrespects l r) (RGrespects l' r').
+
+  Inductive RGtypes : RG -> typ -> Prop :=
+  | RGTany : forall t, RGtypes RGany t
+  | RGTinj : forall i, RGtypes (RGinj i) (typeForRbase i)
+  | RGTrespects : forall r1 r2 t1 t2,
+                    RGtypes r1 t1 -> RGtypes r2 t2 ->
+                    RGtypes (RGrespects r1 r2) (tyArr t1 t2).
+
+  Inductive RGlt : RG -> RG -> Prop :=
+  | RGlt_inj : forall x, RGlt (RGinj x) (RGinj x)
+  | RGlt_any : forall x, RGlt RGany x
+  | RGlt_respectful : forall a b c d,
+                        RGlt a b -> RGlt c d ->
+                        RGlt (RGrespects a c) (RGrespects b d).
+
+  Instance Transitive_RGlt : Transitive RGlt.
+  Proof.
+    clear. red. intros x y z H; revert z; induction H; auto.
+    + intro; constructor.
+    + inversion 1; subst.
+      econstructor; eauto.
+  Qed.
+
+  Variable RbaseD : forall r, relation (typD nil (typeForRbase r)).
+
+  Fixpoint RD (r : R) : relation (typD nil (typeForR r)) :=
+    match r as r return relation (typD nil (typeForR r)) with
+      | Rinj i => RbaseD i
+      | Rrespects a b =>
+        match eq_sym (typ2_cast nil (typeForR a) (typeForR b)) in _ = T return relation T with
+          | eq_refl => respectful (RD a) (RD b)
+        end
+    end.
+
+  (* - the term has type [t]
+   * - there is a relation [r]  <----
+   *)
+
+  Inductive hlist_Forall2 T (F G : T -> Type) (R : forall t, F t -> G t -> Prop)
+  : forall ts : list T, HList.hlist F ts -> HList.hlist G ts -> Prop :=
+  | hlist_Forall2_nil  : @hlist_Forall2 T F G R nil HList.Hnil HList.Hnil
+  | hlist_Forall2_cons : forall t ts h1 h2 x y,
+     @R t x y ->
+     @hlist_Forall2 T F G R ts h1 h2 ->
+     @hlist_Forall2 T F G R (t :: ts) (HList.Hcons x h1) (HList.Hcons y h2).
+
+  (** This doesn't appear to work well... **)
+  (** Think about:
+   ** - the denotation of a relation at a type?
+   ** - it appears that i need to manifest the relation
+   **   - this enables me to explicity quantify over it in the conclusion
+   **     forall rels,
+   **)
+
+  Definition Hrewriter (srw : _) : Prop :=
+    forall tus e rgvars rgvars' rg rg' e',
+      srw e rgvars rg = Some (e', rgvars', rg') ->
+      Forall2 RGlt rgvars rgvars' /\
+      RGlt rg rg' /\
+      (forall tvs t eD,
+         RGtypes rg t ->
+         Forall2 RGtypes rgvars tvs ->
+         exprD' nil tus tvs t e = Some eD ->
+         exists eD',
+           RGtypes rg' t /\
+           Forall2 RGtypes rgvars' tvs /\
+           exprD' nil tus tvs t e' = Some eD' /\
+           forall us vs vs',
+             @hlist_Forall2 typ _ _ _ tvs vs vs' ->
+             rD (eD us vs) (eD' us vs')).
+
+  Lemma Rrefines_RGlt : forall r rg',
+                          Rrefines r rg' ->
+                          forall rg,
+                          RGlt rg rg' ->
+                          Rrefines r rg.
+  Proof.
+    clear. induction 1; simpl; intros.
+    { inversion H. constructor. }
+    { inversion H.
+      + constructor.
+      + constructor. }
+    { inversion H1; subst.
+      + constructor.
+      + constructor; eauto. }
+  Qed.
+
+  Lemma Forall2_diag : forall xs ys,
+                         Forall2 Rrefines xs ys ->
+                         forall zs,
+                           Forall2 RGlt zs ys ->
+                           Forall2 Rrefines xs zs.
+  Proof.
+    clear. induction 1.
+    { inversion 1. constructor. }
+    { inversion 1; subst.
+      constructor; eauto using Rrefines_RGlt. }
+  Qed.
+
+  Hypothesis Hrw : Hrewriter rw.
+
+  Local Instance Injective_Rrefines a b c d : Injective (Rrefines (Rrespects a b) (RGrespects c d)) :=
+    { result := Rrefines a c /\ Rrefines b d }.
+  clear. inversion 1. subst. split; auto.
+  Defined.
+
+  Local Instance Injective_RGlt a b c d : Injective (RGlt (RGrespects a b) (RGrespects c d)) :=
+    { result := RGlt a c /\ RGlt b d }.
+  clear. inversion 1. subst. split; auto.
+  Defined.
+
+  Local Instance Transitive_Forall2 (A : Type) (R : A -> A -> Prop) (_ : Transitive R) : Transitive (Forall2 R).
+  Proof.
+    clear - H.
+    red. intros x y z H'; revert z; induction H'; auto.
+    inversion 1; subst.
+    constructor. etransitivity; eauto.
+    eapply IHH'; eauto.
+  Qed.
+
+  Theorem setoid_rewrite_sound
+  : Hrewriter setoid_rewrite.
+  Proof.
+    induction e; simpl; intros.
+    { forwardy. inv_all; subst.
+      admit. }
+    { admit. (* consider (rw (Inj f) rgvars rg).
+      { intros. inv_all; subst.
+        eapply Hrw in H2; eauto. }
+      { intro X; clear X. inversion 1. } *) }
+    { consider (rw (App e1 e2) rgvars rg).
+      { intros. inv_all; subst.
+        eapply Hrw in H. eapply H; eauto. }
+      { intro X; clear X. intros; forwardy.
+        destruct r; try congruence. forwardy.
+        assert (exists rD, RtoRG rD = r /\
+                           e' = App e e0 /\ l0 = rgvars' /\ rg' = r2).
+        { (* TODO: Not true. *) admit. }
+        clear H1.
+        forward_reason. subst.
+        eapply IHe1 in H; clear IHe1; eauto.
+        forward_reason.
+        eapply IHe2 in H0; clear IHe2; eauto.
+        forward_reason.
+        split; [ etransitivity; eauto | ].
+        inv_all.
+        split; [ eauto | ].
+        intros. specialize (H4 rvars x).
+        specialize (H2 rvars (Rrespects x r)).
+        assert (Forall2 Rrefines rvars l).
+        { admit. }
+        forward_reason.
+        autorewrite with exprD_rw in *; simpl in *; forwardy.
+        inv_all; subst.
+        Lemma Rrefines_RtoRG : forall r, Rrefines r (RtoRG r).
+        Proof.
+          induction r; simpl; try constructor; eauto.
+        Qed.
+        assert (y = typeForR x).
+        { 
+
+
+        split; [ eauto using Rrefines_RGlt | ].
+        split; [ eauto using Forall2_diag | ].
+        assert (Rrefines x (RtoRG x)) by eauto using Rrefines_RtoRG.
+        assert (Rrefines (Rrespects x r) (RGrespects r1 r2)).
+        { constructor; auto. admit. }
+        forward_reason.
+        inv_all.
+        
+
+        { inv_all; subst.
+          unfold type_of_apply in H5.
+          arrow_case_any; try congruence.
+          clear H6. unfold Relim in H5.
+          rewrite Data.Eq.eq_Const_eq in H5.
+          red in x1. subst.
+          rewrite Data.Eq.eq_Const_eq in H5.
+          forwardy. inv_all; subst.
+          red in y. subst.
+
+          eapply IHe2 in H3; clear IHe2; eauto.
+          Focus 2.
+          forward_reason. split; eauto.
+          split; auto.
+          split; [ etransitivity; eauto | ].
+          split; eauto.
+          intros. specialize (H6 tus).
+          specialize (H12 tus).
+          autorewrite with exprD_rw in *.
+          simpl in *. forwardy.
+          inv_all; subst.
+          generalize dependent e1.
+          generalize dependent e2.
+          
+
+
+
 End setoid.
 
 
