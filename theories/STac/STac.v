@@ -5,6 +5,7 @@ Require Export MirrorCore.STac.Solve.
 Require Export MirrorCore.STac.Then.
 Require Export MirrorCore.STac.Repeat.
 Require Export MirrorCore.STac.Idtac.
+Require Export MirrorCore.STac.Instantiate.
 Require Export MirrorCore.STac.Fail.
 Require Export MirrorCore.STac.Rec.
 Require Export MirrorCore.STac.Apply.
