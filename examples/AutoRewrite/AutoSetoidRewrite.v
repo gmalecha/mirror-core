@@ -88,7 +88,7 @@ Section setoid.
         | RGrespects la lb , RGrespects ra rb =>
           match unifyRG' la ra env with
             | Some (l',env') =>
-              match unifyRG' ra rb env' with
+              match unifyRG' lb rb env' with
                 | Some (r',env'') => Some (RGrespects l' r', env'')
                 | None => None
               end
@@ -114,6 +114,8 @@ Section setoid.
 
   Definition rsubst_fresh (rs : rsubst) : (positive * rsubst) :=
     (rs.(max), {| mp := rs.(mp) ; max := rs.(max) + 1 |}).
+
+  Axiom Z : option (expr typ func * rsubst).
 
   Fixpoint setoid_rewrite
            (e : expr typ func) (rvars : list RG) (rg : RG) (rs : rsubst)
