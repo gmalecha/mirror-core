@@ -43,7 +43,7 @@ Section parameterized.
     : stac typ expr subst :=
       fun tus tvs sub hs e =>
         let inst := instantiate (fun u => lookup u sub) 0 in
-        More tus tvs sub (List.map inst hs) (inst e).
+        More nil nil sub (List.map inst hs) (inst e).
   End instantiate.
 
   Variable Expr_expr : Expr RType_typ expr.
@@ -63,7 +63,27 @@ Section parameterized.
     Require Import MirrorCore.Util.Forwardy.
     forwardy.
     inv_all; subst.
-    admit. 
+    erewrite substD_conv
+        with (pfu := app_nil_r_trans _) (pfv := app_nil_r_trans _) in H2.
+    unfold ResType in H2.
+    autorewrite with eq_rw in H2.
+    forwardy. inv_all; subst.
+    eapply sem_preserves_if_substD in H2; eauto.
+    specialize (fun g gD =>
+                  @exprD'_instantiate (tus ++ nil) (tvs ++ nil)
+                                      (fun u : nat => lookup u s) g nil tyProp gD _ H2).
+    Opaque mapT.
+    unfold propD in *.
+    forwardy; inv_all; subst.
+    rewrite exprD'_conv
+       with (pfu := app_nil_r_trans _) (pfv := app_nil_r_trans _) in H0.
+    unfold ResType in H0; autorewrite with eq_rw in H0.
+    forwardy.
+    eapply exprD'_instantiate in H0.
+    simpl in *; forward_reason.
+    change_rewrite H0.
+    inv_all; subst.
+    admit.
   Qed.
 
 End parameterized.
