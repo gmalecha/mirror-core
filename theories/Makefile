@@ -22,7 +22,12 @@ LAMBDA := ResType \
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
-STAC := Core Continuation Repeat Apply EApply Instantiate First Repeat Try Idtac Rec Simplify Solve Then Fail Assumption Rewrite UseForAll UseList STac
+STAC := Core Continuation Repeat \
+	Apply EApply Rewrite Assumption \
+	First Repeat Try Idtac Rec Solve Then Fail \
+	Simplify Instantiate \
+	UseForAll UseList \
+	STac
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := Generic \
