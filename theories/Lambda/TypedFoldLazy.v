@@ -17,8 +17,6 @@ Section typed_fold.
   Section folderL.
     Definition Lazy (T : Type) := unit -> option T.
 
-    Variable ts : list Type.
-
     Variable T : Type.
 
     Variable do_var : var -> typ -> Lazy T.
@@ -37,7 +35,7 @@ Section typed_fold.
         | Abs t' e =>
           typ2_match (F := Fun)
                      (fun _ => R)
-                     ts t
+                     t
                      (fun d r =>
                         success (fun z => do_abs tus tvs d r
                                                  (fun z =>
@@ -82,7 +80,7 @@ Section typed_fold.
           typed_mfold_infer_cpsL tus tvs f (fun dr fv =>
            typ2_match (F := Fun)
                       (fun _ => R)
-                      ts dr
+                      dr
                       (fun d r =>
                          success r (fun z =>
                                       do_abs tus tvs d r

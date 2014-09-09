@@ -3,6 +3,7 @@ Require Import Relations.Relation_Definitions.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
+Require Import ExtLib.Data.Eq.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 
@@ -15,7 +16,8 @@ Section Expr.
 
   Variable expr : Type.
 
-  Definition ResType (us vs : tenv typ) (T : Type) : Type :=    option (hlist (typD nil) us -> hlist (typD nil) vs -> T).
+  Definition ResType (us vs : tenv typ) (T : Type) : Type :=
+    option (hlist (@typD _ _) us -> hlist (@typD _ _) vs -> T).
 
   (** NOTE:
    ** - Right now this is intensionally weak, but it should probably include
@@ -28,7 +30,7 @@ Section Expr.
   Class Expr : Type :=
   { exprD' : forall (us vs : tenv typ),
                expr -> forall (t : typ),
-                         ResType us vs (typD nil t)
+                         ResType us vs (typD t)
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
   ; mentionsU : nat -> expr -> bool
@@ -40,7 +42,7 @@ Section Expr.
       (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD' tus tvs e t = match pfu in _ = tus'
                                , pfv in _ = tvs'
-                                 return ResType tus' tvs' (typD nil t)
+                                 return ResType tus' tvs' (typD t)
                            with
                              | eq_refl , eq_refl => exprD' tus' tvs' e t
                            end.
@@ -58,8 +60,8 @@ Section Expr.
       exists val, exprD' us vs e t = Some val.
   Proof. reflexivity. Qed.
 
-  Definition exprD {E : Expr} (uvar_env var_env : env nil) (e : expr) (t : typ)
-  : option (typD nil t) :=
+  Definition exprD {E : Expr} (uvar_env var_env : env) (e : expr) (t : typ)
+  : option (typD t) :=
     let (tus,us) := split_env uvar_env in
     let (tvs,vs) := split_env var_env in
     match exprD' tus tvs e t with
@@ -114,7 +116,7 @@ Section Expr.
     rewrite H.
     exists (match
                app_nil_r_trans tvs in (_ = tvs')
-               return (hlist _ (tus ++ tus') -> hlist _ tvs' -> typD nil t)
+               return (hlist _ (tus ++ tus') -> hlist _ tvs' -> typD t)
              with
                | eq_refl => x
              end).
@@ -147,7 +149,7 @@ Section Expr.
     rewrite H.
     exists (match
                app_nil_r_trans tus in (_ = tus')
-               return (hlist _ tus' -> _ -> typD nil t)
+               return (hlist _ tus' -> _ -> typD t)
              with
                | eq_refl => x
              end).
@@ -190,7 +192,6 @@ Section Expr.
     simpl. auto.
   Qed.
 
-  Require Import ExtLib.Data.Eq.
 
   Theorem exprD'_strengthenU_multi (EOk : ExprOk Expr_expr)
   : forall tus tvs e  t' tus' val,

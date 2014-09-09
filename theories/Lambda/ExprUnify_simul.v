@@ -41,15 +41,13 @@ Section typed.
   : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
   Local Existing Instance Expr_expr.
 
-  Local Instance RelDec_Rty ts : RelDec (Rty ts) :=
-  { rel_dec := fun a b => match type_cast ts a b with
+  Local Instance RelDec_Rty : RelDec Rty :=
+  { rel_dec := fun a b => match type_cast a b with
                             | Some _ => true
                             | None => false
                           end }.
 
   Section nested.
-    Variable ts : list Type.
-
     (** n is the number of binders that we have gone under **)
     Variable exprUnify : forall (tus tvs : tenv typ) (under : nat) (s : subst)
                                 (l r : expr typ func), typ -> option subst.
@@ -104,14 +102,14 @@ Section typed.
         | App e1 e1' , App e2 e2' =>
           match exprUnify_simul' us vs n s e1 e2 with
             | Some (tarr,s') =>
-              typ2_match (fun _ => option _) ts tarr
+              typ2_match (fun _ => option _) tarr
                          (fun d _ => exprUnify' us vs n s' e1' e2' d)
                          None
             | None => None
           end
         | Abs t1 e1 , Abs t2 e2 =>
           (* t1 = t2 since both terms have the same type *)
-          typ2_match (F := Fun) (fun _ => _) ts t
+          typ2_match (F := Fun) (fun _ => _) t
                      (fun _ t =>
                         exprUnify' us (t1 :: vs) (S n) s e1 e2 t)
                      None
@@ -128,11 +126,11 @@ Section typed.
               | Some t => Some (t,s)
             end
           else
-            match typeof_expr ts tus tvs (UVar u1)
-                , typeof_expr ts tus tvs (UVar u2)
+            match typeof_expr tus tvs (UVar u1)
+                , typeof_expr tus tvs (UVar u2)
             with
               | Some t1 , Some t2 =>
-                if t1 ?[ Rty ts ] t2 then
+                if t1 ?[ Rty ] t2 then
                   match
                     match lookup u1 s , lookup u2 s with
                       | None , None =>
@@ -162,11 +160,11 @@ Section typed.
               match lower 0 n e2 with
                 | None => None
                 | Some e2' =>
-                  match typeof_expr ts tus tvs (UVar u1)
-                      , typeof_expr ts tus tvs e2
+                  match typeof_expr tus tvs (UVar u1)
+                      , typeof_expr tus tvs e2
                   with
                     | Some t1 , Some t2 =>
-                      if t1 ?[ Rty ts ] t2 then
+                      if t1 ?[ Rty ] t2 then
                         match set u1 e2' s with
                           | Some s => Some (t1, s)
                           | None => None
@@ -177,11 +175,11 @@ Section typed.
                   end
               end
             | Some e1' =>
-              match typeof_expr ts tus tvs (UVar u1)
-                  , typeof_expr ts tus tvs e2
+              match typeof_expr tus tvs (UVar u1)
+                  , typeof_expr tus tvs e2
               with
                 | Some t1 , Some t2 =>
-                  if t1 ?[ Rty ts ] t2 then
+                  if t1 ?[ Rty ] t2 then
                     match exprUnify tus tvs n s (lift 0 n e1') e2 t1 with
                       | Some s => Some (t1, s)
                       | None => None
@@ -197,11 +195,11 @@ Section typed.
               match lower 0 n e1 with
                 | None => None
                 | Some e1' =>
-                  match typeof_expr ts tus tvs e1
-                      , typeof_expr ts tus tvs (UVar u2)
+                  match typeof_expr tus tvs e1
+                      , typeof_expr tus tvs (UVar u2)
                   with
                     | Some t1 , Some t2 =>
-                      if t1 ?[ Rty ts ] t2 then
+                      if t1 ?[ Rty ] t2 then
                         match set u2 e1' s with
                           | Some s => Some (t1, s)
                           | None => None
@@ -211,11 +209,11 @@ Section typed.
                   end
               end
             | Some e2' =>
-              match typeof_expr ts tus tvs e1
-                  , typeof_expr ts tus tvs (UVar u2)
+              match typeof_expr tus tvs e1
+                  , typeof_expr tus tvs (UVar u2)
               with
                 | Some t1 , Some t2 =>
-                  if t1 ?[ Rty ts ] t2 then
+                  if t1 ?[ Rty ] t2 then
                     match exprUnify tus tvs n s e1 (lift 0 n e2') t1 with
                       | Some s => Some (t1, s)
                       | _ => None
@@ -227,11 +225,11 @@ Section typed.
           end
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then
-            match typeof_expr ts tus tvs (Var v1)
-                , typeof_expr ts tus tvs (Var v2)
+            match typeof_expr tus tvs (Var v1)
+                , typeof_expr tus tvs (Var v2)
             with
               | Some t1 , Some t2 =>
-                if t1 ?[ Rty ts ] t2 then Some (t1,s) else None
+                if t1 ?[ Rty ] t2 then Some (t1,s) else None
               | _ , _ => None
             end
           else
@@ -248,7 +246,7 @@ Section typed.
         | App e1 e1' , App e2 e2' =>
           match exprUnify_simul' tus tvs n s e1 e2 with
             | Some (t,s) =>
-              typ2_match (fun _ => option (typ * subst)) ts t
+              typ2_match (fun _ => option (typ * subst)) t
                          (fun d r =>
                             match exprUnify' tus tvs n s e1' e2' d with
                               | Some s' => Some (r,s')
@@ -258,7 +256,7 @@ Section typed.
             | None => None
           end
         | Abs t1 e1 , Abs t2 e2 =>
-          if t1 ?[ Rty ts ] t2 then
+          if t1 ?[ Rty ] t2 then
             match exprUnify_simul' tus (t1 :: tvs) (S n) s e1 e2 with
               | Some (t,s) => Some (typ2 t1 t, s)
               | _ => None
@@ -274,12 +272,12 @@ Section typed.
 
     (** Delaying the recursion is important **)
     Fixpoint exprUnify (fuel : nat)
-             (ts : list Type) (us vs : tenv typ) (under : nat) (s : subst)
+             (us vs : tenv typ) (under : nat) (s : subst)
              (e1 e2 : expr typ func) (t : typ) : option subst :=
       match fuel with
         | 0 => None
         | S fuel =>
-          exprUnify' ts (fun tus tvs => exprUnify fuel ts tus tvs)
+          exprUnify' (fun tus tvs => exprUnify fuel tus tvs)
                      us vs under s e1 e2 t
       end.
   End exprUnify.
@@ -288,17 +286,17 @@ Section typed.
   Existing Instance SubstOk_subst.
 
   Definition unify_sound_mutual
-    (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
+    (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
                     (l r : expr typ func)
                     (t : typ), option subst) : Prop :=
     unify_sound _ unify ->
     forall tu tv e1 e2 s s' t tv',
-      (exprUnify' (@nil Type) (@unify nil) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      (exprUnify' unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' nil tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' nil tu (tv' ++ tv) t e2 = Some v2 ->
+        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
+        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -307,12 +305,12 @@ Section typed.
                sD us vs /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)) /\
-      (exprUnify_simul' (@nil Type) (unify nil) tu (tv' ++ tv) (length tv') s e1 e2 = Some (t,s') ->
+      (exprUnify_simul' unify tu (tv' ++ tv) (length tv') s e1 e2 = Some (t,s') ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' nil tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' nil tu (tv' ++ tv) t e2 = Some v2 ->
+        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
+        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -346,9 +344,9 @@ Section typed.
     WellFormed_subst s ->
     substD tus tvs s = Some sD ->
     lookup u s = Some e ->
-    exprD' nil tus (tvs' ++ tvs) t (UVar u) = Some eD ->
+    exprD' tus (tvs' ++ tvs) t (UVar u) = Some eD ->
     exists eD',
-      exprD' nil tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
+      exprD' tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
       forall us vs vs',
         sD us vs ->
         eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
@@ -361,7 +359,7 @@ Section typed.
     forward_reason.
     change_rewrite H3 in H1.
     inv_all; subst.
-    generalize (exprD'_lift nil tus e nil tvs' tvs x).
+    generalize (exprD'_lift tus e nil tvs' tvs x).
     simpl. change_rewrite H2.
     intro.
     forwardy. eexists; split; eauto.
@@ -373,8 +371,8 @@ Section typed.
    ** reducing it with [simpl]
    **)
   Lemma exprUnify_simul'_eq
-  : forall ts u tus tvs n s e1 e2,
-      exprUnify_simul' ts u tus tvs n s e1 e2 =
+  : forall u tus tvs n s e1 e2,
+      exprUnify_simul' u tus tvs n s e1 e2 =
       match e1 , e2 return option (typ * subst) with
         | UVar u1 , UVar u2 =>
           if EqNat.beq_nat u1 u2 then
@@ -383,11 +381,11 @@ Section typed.
               | Some t => Some (t,s)
             end
           else
-            match typeof_expr ts tus tvs (UVar u1)
-                  , typeof_expr ts tus tvs (UVar u2)
+            match typeof_expr tus tvs (UVar u1)
+                  , typeof_expr tus tvs (UVar u2)
             with
               | Some t1 , Some t2 =>
-                if t1 ?[ Rty ts ] t2 then
+                if t1 ?[ Rty ] t2 then
                   match
                     match lookup u1 s , lookup u2 s with
                       | None , None =>
@@ -417,11 +415,11 @@ Section typed.
               match lower 0 n e2 with
                 | None => None
                 | Some e2' =>
-                  match typeof_expr ts tus tvs (UVar u1)
-                      , typeof_expr ts tus tvs e2
+                  match typeof_expr tus tvs (UVar u1)
+                      , typeof_expr tus tvs e2
                   with
                     | Some t1 , Some t2 =>
-                      if t1 ?[ Rty ts ] t2 then
+                      if t1 ?[ Rty ] t2 then
                         match set u1 e2' s with
                           | Some s => Some (t1, s)
                           | None => None
@@ -432,11 +430,11 @@ Section typed.
                   end
               end
             | Some e1' =>
-              match typeof_expr ts tus tvs (UVar u1)
-                  , typeof_expr ts tus tvs e2
+              match typeof_expr tus tvs (UVar u1)
+                  , typeof_expr tus tvs e2
               with
                 | Some t1 , Some t2 =>
-                  if t1 ?[ Rty ts ] t2 then
+                  if t1 ?[ Rty ] t2 then
                     match u tus tvs n s (lift 0 n e1') e2 t1 with
                       | Some s => Some (t1, s)
                       | None => None
@@ -452,11 +450,11 @@ Section typed.
               match lower 0 n e1 with
                 | None => None
                 | Some e1' =>
-                  match typeof_expr ts tus tvs e1
-                      , typeof_expr ts tus tvs (UVar u2)
+                  match typeof_expr tus tvs e1
+                      , typeof_expr tus tvs (UVar u2)
                   with
                     | Some t1 , Some t2 =>
-                      if t1 ?[ Rty ts ] t2 then
+                      if t1 ?[ Rty ] t2 then
                         match set u2 e1' s with
                           | Some s => Some (t1, s)
                           | None => None
@@ -466,11 +464,11 @@ Section typed.
                   end
               end
             | Some e2' =>
-              match typeof_expr ts tus tvs e1
-                    , typeof_expr ts tus tvs (UVar u2)
+              match typeof_expr tus tvs e1
+                  , typeof_expr tus tvs (UVar u2)
               with
                 | Some t1 , Some t2 =>
-                  if t1 ?[ Rty ts ] t2 then
+                  if t1 ?[ Rty ] t2 then
                     match u tus tvs n s e1 (lift 0 n e2') t1 with
                       | Some s => Some (t1, s)
                       | _ => None
@@ -482,11 +480,11 @@ Section typed.
           end
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then
-            match typeof_expr ts tus tvs (Var v1)
-                  , typeof_expr ts tus tvs (Var v2)
+            match typeof_expr tus tvs (Var v1)
+                  , typeof_expr tus tvs (Var v2)
             with
               | Some t1 , Some t2 =>
-                if t1 ?[ Rty ts ] t2 then Some (t1,s) else None
+                if t1 ?[ Rty ] t2 then Some (t1,s) else None
               | _ , _ => None
             end
           else
@@ -501,11 +499,11 @@ Section typed.
             | _ => None
           end
         | App e1 e1' , App e2 e2' =>
-          match exprUnify_simul' ts u tus tvs n s e1 e2 with
+          match exprUnify_simul' u tus tvs n s e1 e2 with
             | Some (t,s) =>
-              typ2_match (fun _ => option (typ * subst)) ts t
+              typ2_match (fun _ => option (typ * subst)) t
                          (fun d r =>
-                            match exprUnify' ts u tus tvs n s e1' e2' d with
+                            match exprUnify' u tus tvs n s e1' e2' d with
                               | Some s' => Some (r,s')
                               | None => None
                             end)
@@ -513,8 +511,8 @@ Section typed.
             | None => None
           end
         | Abs t1 e1 , Abs t2 e2 =>
-          if t1 ?[ Rty ts ] t2 then
-            match exprUnify_simul' ts u tus (t1 :: tvs) (S n) s e1 e2 with
+          if t1 ?[ Rty ] t2 then
+            match exprUnify_simul' u tus (t1 :: tvs) (S n) s e1 e2 with
               | Some (t,s) => Some (typ2 t1 t, s)
               | _ => None
             end
@@ -527,11 +525,11 @@ Section typed.
   Defined.
 
   Lemma Open_App_equal
-  : forall ts tus tvs t u f f' x x' A B,
+  : forall tus tvs t u f f' x x' A B,
       f A B = f' A B ->
       x A B = x' A B ->
-      @Open_App typ _ _ ts tus tvs t u f x A B =
-      @Open_App typ _ _ ts tus tvs t u f' x' A B.
+      @Open_App typ _ _ tus tvs t u f x A B =
+      @Open_App typ _ _ tus tvs t u f' x' A B.
   Proof.
     unfold Open_App.
     clear. intros.
@@ -551,14 +549,14 @@ Section typed.
            (unifyOk : unify_sound _ unify),
       match lookup u s with
         | Some e2' =>
-          match typeof_expr nil tu (tv' ++ tv) e with
+          match typeof_expr tu (tv' ++ tv) e with
             | Some t1 =>
-              match typeof_expr nil tu (tv' ++ tv) (UVar u) with
+              match typeof_expr tu (tv' ++ tv) (UVar u) with
                 | Some t2 =>
-                  if t1 ?[ Rty nil ] t2
+                  if t1 ?[ Rty ] t2
                   then
                     match
-                      unify nil tu (tv' ++ tv) (length tv') s
+                      unify tu (tv' ++ tv) (length tv') s
                             e (lift 0 (length tv') e2') t1
                     with
                       | Some s0 => Some (t1, s0)
@@ -572,11 +570,11 @@ Section typed.
         | None =>
           match lower 0 (length tv') e with
             | Some e' =>
-              match typeof_expr nil tu (tv' ++ tv) e with
+              match typeof_expr tu (tv' ++ tv) e with
                 | Some t1 =>
-                  match typeof_expr nil tu (tv' ++ tv) (UVar u) with
+                  match typeof_expr tu (tv' ++ tv) (UVar u) with
                     | Some t2 =>
-                      if t1 ?[ Rty nil ] t2
+                      if t1 ?[ Rty ] t2
                       then
                         match set u e' s with
                           | Some s0 => Some (t1, s0)
@@ -592,19 +590,19 @@ Section typed.
       end = Some (t, s') ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
-      (forall sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
-         typeof_expr nil tu (tv' ++ tv) e <> None ->
-         typeof_expr nil tu (tv' ++ tv) (UVar u) <> None ->
+      (forall sD : hlist typD tu -> hlist typD tv -> Prop,
+         typeof_expr tu (tv' ++ tv) e <> None ->
+         typeof_expr tu (tv' ++ tv) (UVar u) <> None ->
          substD tu tv s = Some sD ->
-         exists v1 v2 : OpenT nil tu (tv' ++ tv) (typD nil t),
-           exprD' nil tu (tv' ++ tv) t e = Some v1 /\
-           exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 /\
-           (exists sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
+         exists v1 v2 : OpenT tu (tv' ++ tv) (typD t),
+           exprD' tu (tv' ++ tv) t e = Some v1 /\
+           exprD' tu (tv' ++ tv) t (UVar u) = Some v2 /\
+           (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
               substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu) (vs : hlist (typD nil) tv),
+              (forall (us : hlist typD tu) (vs : hlist typD tv),
                  sD' us vs ->
                  sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
+                 (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs))))).
   Proof.
     intros.
@@ -646,14 +644,14 @@ Section typed.
            (unifyOk : unify_sound _ unify),
       match lookup u s with
         | Some e2' =>
-          match typeof_expr nil tu (tv' ++ tv) (UVar u) with
+          match typeof_expr tu (tv' ++ tv) (UVar u) with
             | Some t1 =>
-              match typeof_expr nil tu (tv' ++ tv) e with
+              match typeof_expr tu (tv' ++ tv) e with
                 | Some t2 =>
-                  if t1 ?[ Rty nil ] t2
+                  if t1 ?[ Rty ] t2
                   then
                     match
-                      unify nil tu (tv' ++ tv) (length tv') s
+                      unify tu (tv' ++ tv) (length tv') s
                             (lift 0 (length tv') e2') e t1
                     with
                       | Some s0 => Some (t1, s0)
@@ -667,11 +665,11 @@ Section typed.
         | None =>
           match lower 0 (length tv') e with
             | Some e' =>
-              match typeof_expr nil tu (tv' ++ tv) (UVar u) with
+              match typeof_expr tu (tv' ++ tv) (UVar u) with
                 | Some t1 =>
-                  match typeof_expr nil tu (tv' ++ tv) e with
+                  match typeof_expr tu (tv' ++ tv) e with
                     | Some t2 =>
-                      if t1 ?[ Rty nil ] t2
+                      if t1 ?[ Rty ] t2
                       then
                         match set u e' s with
                           | Some s0 => Some (t1, s0)
@@ -687,19 +685,19 @@ Section typed.
       end = Some (t, s') ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
-      (forall sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
-         typeof_expr nil tu (tv' ++ tv) (UVar u) <> None ->
-         typeof_expr nil tu (tv' ++ tv) e <> None ->
+      (forall sD : hlist typD tu -> hlist typD tv -> Prop,
+         typeof_expr tu (tv' ++ tv) (UVar u) <> None ->
+         typeof_expr tu (tv' ++ tv) e <> None ->
          substD tu tv s = Some sD ->
-         exists v1 v2 : OpenT nil tu (tv' ++ tv) (typD nil t),
-           exprD' nil tu (tv' ++ tv) t (UVar u) = Some v1 /\
-           exprD' nil tu (tv' ++ tv) t e = Some v2 /\
-           (exists sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
+         exists v1 v2 : OpenT tu (tv' ++ tv) (typD t),
+           exprD' tu (tv' ++ tv) t (UVar u) = Some v1 /\
+           exprD' tu (tv' ++ tv) t e = Some v2 /\
+           (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
               substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu) (vs : hlist (typD nil) tv),
+              (forall (us : hlist typD tu) (vs : hlist typD tv),
                  sD' us vs ->
                  sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
+                 (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs))))).
   Proof.
     intros.
@@ -737,17 +735,17 @@ Section typed.
   Qed.
 
   Lemma exprUnify'_sound_mutual
-  : forall (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
+  : forall (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
                            (l r : expr typ func)
                            (t : typ), option subst)
            (unifyOk : unify_sound _ unify),
     forall tu tv e1 e2 s s' t tv',
-      (exprUnify' (@nil Type) (@unify nil) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      (exprUnify' unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' nil tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' nil tu (tv' ++ tv) t e2 = Some v2 ->
+        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
+        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -756,16 +754,16 @@ Section typed.
                sD us vs /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)) /\
-      (exprUnify_simul' (@nil Type) (unify nil) tu (tv' ++ tv) (length tv') s e1 e2 = Some (t,s') ->
+      (exprUnify_simul' unify tu (tv' ++ tv) (length tv') s e1 e2 = Some (t,s') ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall sD,
-        typeof_expr nil tu (tv' ++ tv) e1 <> None ->
-        typeof_expr nil tu (tv' ++ tv) e2 <> None ->
+        typeof_expr tu (tv' ++ tv) e1 <> None ->
+        typeof_expr tu (tv' ++ tv) e2 <> None ->
         substD tu tv s = Some sD ->
         exists v1 v2,
-          exprD' nil tu (tv' ++ tv) t e1 = Some v1 /\
-          exprD' nil tu (tv' ++ tv) t e2 = Some v2 /\
+          exprD' tu (tv' ++ tv) t e1 = Some v1 /\
+          exprD' tu (tv' ++ tv) t e2 = Some v2 /\
           exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
           /\ forall us vs,
@@ -817,8 +815,8 @@ Section typed.
           { exfalso. unfold funcAs in HeqoF.
             revert HeqoF.
             match goal with
-              | |- context [ @symD ?A ?B ?C ?D ?E ?F ] =>
-                generalize (@symD A B C D E F)
+              | |- context [ @symD ?A ?B ?C ?D ?E ] =>
+                generalize (@symD A B C D E)
             end.
             rewrite H2. rewrite type_cast_refl; eauto.
             compute. congruence. } } } }
@@ -829,7 +827,7 @@ Section typed.
           destruct (IHe1_1 e2_1 s s0 t0 tv'); clear IHe1_1; eauto.
           clear H. eapply H3 in H0; clear H3; eauto.
           destruct H0.
-          destruct (typ2_match_case nil t0); eauto.
+          destruct (typ2_match_case t0); eauto.
           { forward_reason.
             rewrite H3 in *; clear H3.
             unfold Relim in H2. red in x1. subst.
@@ -855,10 +853,10 @@ Section typed.
                    end.
             intros. eapply Open_App_equal; eauto. }
           { rewrite H3 in H2. congruence. } } }
-      { rewrite exprUnify_simul'_eq.
+      { (* rewrite exprUnify_simul'_eq. *)
         destruct e2; try solve [ congruence ].
         { intros; forward; subst.
-          destruct (typ2_match_case nil t0); eauto.
+          destruct (typ2_match_case t0); eauto.
           { forward_reason.
             rewrite H in *.
             rewrite eq_Const_eq in *.
@@ -905,8 +903,8 @@ Section typed.
       split.
       { simpl; destruct e2; intros; try solve [ congruence | eapply handle_uvar; eauto ].
         match goal with
-          | H : typ2_match _ ?Ts ?t _ _ = _ |- _ =>
-            arrow_case Ts t; try congruence
+          | H : typ2_match _ ?t _ _ = _ |- _ =>
+            arrow_case t; try congruence
         end.
         { red in x1. subst.
           autorewrite with exprD_rw. simpl.
@@ -975,7 +973,7 @@ Section typed.
             eapply match_eq_match_eq with (pf := X) (F := fun x => x)
         end.
         eapply functional_extensionality.
-        intros. exact (H10 (Hcons (Rcast_val (Rrefl nil t) x2) vs')). } }
+        intros. exact (H10 (Hcons (Rcast_val (Rrefl t) x2) vs')). } }
     { (** UVar **)
       split.
       { simpl; destruct e2; intros; try solve [ congruence | eapply handle_uvar'; eauto ].
@@ -1018,13 +1016,13 @@ Section typed.
             forward_reason. simpl in *.
             autorewrite with exprD_rw in H5. simpl in H5.
             forward.
-            change_rewrite H9 in H5. inv_all; subst.
+            (* change_rewrite H9 in H5. *) inv_all; subst.
             destruct r.
             specialize (H3 _ _ _ _ _ _ _ H7 H4 H6).
             forward_reason.
             eexists; split; eauto.
             intros.
-            eapply H3 in H5; forward_reason; split; eauto.
+            eapply H3 in H10; forward_reason; split; eauto.
             intros. symmetry.
             etransitivity; [ eapply H8; eauto | eapply H11 ]. }
           { consider (set u (UVar u0) s); intros.
@@ -1176,7 +1174,7 @@ Section typed.
   Theorem exprUnify'_sound
   : forall unify,
       unify_sound_ind _ unify ->
-      unify_sound_ind _ (fun ts => exprUnify' ts (unify ts)).
+      unify_sound_ind _ (exprUnify' unify).
   Proof.
     intros.
     red. intros.

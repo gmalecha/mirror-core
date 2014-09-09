@@ -98,7 +98,7 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Definition raw_substD (tus tvs : list typ) (sub : raw)
-    : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop) :=
+    : option (hlist typD tus -> hlist typD tvs -> Prop) :=
       FM.fold (fun k v P =>
                  match nth_error_get_hlist_nth _ tus k with
                    | None => None
@@ -219,17 +219,17 @@ Module Make (FM : WS with Definition E.t := uvar
     : forall tus tvs l, fold_left
          (fun
             (a0 : option
-                    (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop))
+                    (hlist typD tus -> hlist typD tvs -> Prop))
             (p : FM.key * expr) =>
-          match nth_error_get_hlist_nth (typD nil) tus (fst p) with
+          match nth_error_get_hlist_nth typD tus (fst p) with
           | Some (existT T get) =>
               match exprD' tus tvs (snd p) T with
               | Some val' =>
                   match a0 with
                   | Some P1 =>
                       Some
-                        (fun (us : hlist (typD nil) tus)
-                           (vs : hlist (typD nil) tvs) =>
+                        (fun (us : hlist typD tus)
+                           (vs : hlist typD tvs) =>
                          get us = val' us vs /\ P1 us vs)
                   | None => None
                   end
@@ -251,14 +251,14 @@ Module Make (FM : WS with Definition E.t := uvar
 
     Lemma substD_weaken
     : forall (tus tvs : tenv typ) (tus' tvs' : list typ) (s : raw)
-             (sD : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop),
+             (sD : hlist typD tus -> hlist typD tvs -> Prop),
         raw_substD tus tvs s = Some sD ->
         exists
-          sD' : hlist (typD nil) (tus ++ tus') ->
-                hlist (typD nil) (tvs ++ tvs') -> Prop,
+          sD' : hlist typD (tus ++ tus') ->
+                hlist typD (tvs ++ tvs') -> Prop,
           raw_substD (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
-          (forall (us : hlist (typD nil) tus) (us' : hlist (typD nil) tus')
-                  (vs : hlist (typD nil) tvs) (vs' : hlist (typD nil) tvs'),
+          (forall (us : hlist typD tus) (us' : hlist typD tus')
+                  (vs : hlist typD tvs) (vs' : hlist typD tvs'),
              sD us vs <-> sD' (hlist_app us us') (hlist_app vs vs')).
     Proof.
       intros.
@@ -298,13 +298,13 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Definition eq_option_A tus tvs
-        (x y : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop))
+        (x y : option (hlist typD tus -> hlist typD tvs -> Prop))
     : Prop :=
            match x with
              | Some x0 =>
                match y with
                  | Some y0 =>
-                   forall (a : hlist (typD nil) tus) (b : hlist (typD nil) tvs),
+                   forall (a : hlist typD tus) (b : hlist typD tvs),
                      x0 a b <-> y0 a b
                  | None => False
                end
@@ -318,16 +318,16 @@ Module Make (FM : WS with Definition E.t := uvar
     : forall tus tvs,
         Proper (eq ==> eq ==> @eq_option_A tus tvs ==> @eq_option_A tus tvs)
                (fun (k : FM.key) (v : expr)
-                    (P : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop)) =>
-                  match nth_error_get_hlist_nth (typD nil) tus k with
+                    (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
+                  match nth_error_get_hlist_nth typD tus k with
                     | Some (existT T get) =>
                       match exprD' tus tvs v T with
                         | Some val' =>
                           match P with
                             | Some P0 =>
                               Some
-                                (fun (us : hlist (typD nil) tus)
-                                     (vs : hlist (typD nil) tvs) =>
+                                (fun (us : hlist typD tus)
+                                     (vs : hlist typD tvs) =>
                                    get us = val' us vs /\ P0 us vs)
                             | None => None
                           end
@@ -348,16 +348,16 @@ Module Make (FM : WS with Definition E.t := uvar
         PROPS.transpose_neqkey
           (@eq_option_A tus tvs)
           (fun (k : FM.key) (v : expr)
-               (P : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop)) =>
-             match nth_error_get_hlist_nth (typD nil) tus k with
+               (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
+             match nth_error_get_hlist_nth typD tus k with
                | Some (existT T get) =>
                  match exprD' tus tvs v T with
                    | Some val' =>
                      match P with
                        | Some P0 =>
                          Some
-                           (fun (us : hlist (typD nil) tus)
-                                (vs : hlist (typD nil) tvs) =>
+                           (fun (us : hlist typD tus)
+                                (vs : hlist typD tvs) =>
                               get us = val' us vs /\ P0 us vs)
                        | None => None
                      end
@@ -509,9 +509,9 @@ Module Make (FM : WS with Definition E.t := uvar
 
     Lemma substD_empty
     : forall tus tvs : tenv typ,
-      exists P : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+      exists P : hlist typD tus -> hlist typD tvs -> Prop,
         substD tus tvs (empty (expr:=expr)) = Some P /\
-        (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+        (forall (us : hlist typD tus) (vs : hlist typD tvs),
            P us vs).
     Proof.
       clear. simpl; intros.
@@ -583,20 +583,20 @@ Module Make (FM : WS with Definition E.t := uvar
             (sD' us vs <-> sD us vs).
     Proof.
       unfold raw_substD. intros.
-      cut (exists sD' : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+      cut (exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
              FM.fold
                (fun (k : FM.key) (v : expr)
-                    (P : option (hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop)) =>
+                    (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
                   let v := instantiate f 0 v in
-                  match nth_error_get_hlist_nth (typD nil) tus k with
+                  match nth_error_get_hlist_nth typD tus k with
                     | Some (existT T get) =>
                       match exprD' tus tvs v T with
                         | Some val' =>
                           match P with
                             | Some P0 =>
                               Some
-                                (fun (us : hlist (typD nil) tus)
-                                     (vs : hlist (typD nil) tvs) =>
+                                (fun (us : hlist typD tus)
+                                     (vs : hlist typD tvs) =>
                                    get us = val' us vs /\ P0 us vs)
                             | None => None
                           end
@@ -605,9 +605,9 @@ Module Make (FM : WS with Definition E.t := uvar
                     | None => None
                   end) s
                (Some
-                  (fun (_ : hlist (typD nil) tus) (_ : hlist (typD nil) tvs) => True)) =
+                  (fun (_ : hlist typD tus) (_ : hlist typD tvs) => True)) =
              Some sD' /\
-             (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+             (forall (us : hlist typD tus) (vs : hlist typD tvs),
                 P us vs ->
                 (sD' us vs <-> sD us vs))).
       { intros.
@@ -688,23 +688,23 @@ Module Make (FM : WS with Definition E.t := uvar
         WellFormed s ->
         WellFormed s' /\
         (forall (tus tvs : tenv typ) (t : typ)
-                (val : hlist (typD nil) tus ->
-                       hlist (typD nil) tvs -> typD nil t)
+                (val : hlist typD tus ->
+                       hlist typD tvs -> typD t)
                 (get : (fun t0 : typ =>
-                          hlist (typD nil) tus -> typD nil t0) t)
-                (sD : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop),
+                          hlist typD tus -> typD t0) t)
+                (sD : hlist typD tus -> hlist typD tvs -> Prop),
            raw_substD tus tvs s = Some sD ->
-           nth_error_get_hlist_nth (typD nil) tus uv =
+           nth_error_get_hlist_nth typD tus uv =
            Some
              (existT
-                (fun t0 : typ => hlist (typD nil) tus -> typD nil t0) t
+                (fun t0 : typ => hlist typD tus -> typD t0) t
                 get) ->
            exprD' tus tvs e t = Some val ->
            exists
-             sD' : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+             sD' : hlist typD tus -> hlist typD tvs -> Prop,
              raw_substD tus tvs s' = Some sD' /\
-             (forall (us : hlist (typD nil) tus)
-                     (vs : hlist (typD nil) tvs),
+             (forall (us : hlist typD tus)
+                     (vs : hlist typD tvs),
                 sD' us vs -> sD us vs /\ get us = val us vs)).
     Proof.
       unfold set; simpl; intros. unfold raw_set in *.
@@ -791,7 +791,7 @@ Module Make (FM : WS with Definition E.t := uvar
       end.
       change_rewrite H.
       simpl. intros; forward.
-      eexists; split; try eassumption.
+      eexists; split; try eassumption. reflexivity.
     Qed.
 
     Lemma raw_substD_add'
@@ -879,7 +879,7 @@ Module Make (FM : WS with Definition E.t := uvar
           destruct (Compare_dec.lt_eq_lt_dec k (length tus)) as [ [ ? | ? ] | ? ]; auto.
           - subst. exfalso. eapply H. red; eauto.
           - omega. }
-        eapply nth_error_get_hlist_nth_appL with (F := typD nil) (tvs' := tu :: nil) in H6.
+        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tu :: nil) in H6.
         forward_reason. change_rewrite H7.
         change_rewrite H6 in H4.
         inv_all; subst.
@@ -897,18 +897,18 @@ Module Make (FM : WS with Definition E.t := uvar
         WellFormed_subst s ->
         WellFormed_subst s' /\
         (forall (tus : list typ) (tu : typ) (tvs : tenv typ)
-                (sD : hlist (typD nil) (tus ++ tu :: nil) ->
-                      hlist (typD nil) tvs -> Prop),
+                (sD : hlist typD (tus ++ tu :: nil) ->
+                      hlist typD tvs -> Prop),
            u = length tus ->
            substD (tus ++ tu :: nil) tvs s = Some sD ->
-           exists sD' : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+           exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
              substD tus tvs s' = Some sD' /\
              (exists
-                 (e : expr) (eD : hlist (typD nil) tus ->
-                                  hlist (typD nil) tvs -> typD nil tu),
+                 (e : expr) (eD : hlist typD tus ->
+                                  hlist typD tvs -> typD tu),
                  lookup u s = Some e /\
                  exprD' tus tvs e tu = Some eD /\
-                 (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+                 (forall (us : hlist typD tus) (vs : hlist typD tvs),
                     sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs))).
     Proof.
       simpl. unfold raw_drop.
@@ -980,16 +980,16 @@ Module Make (FM : WS with Definition E.t := uvar
            lookup u s' = None /\
            (forall u' : nat, u' <> u -> lookup u' s = lookup u' s') /\
            (forall (tus : list typ) (tu : typ) (tvs : tenv typ)
-                   (sD : hlist (typD nil) (tus ++ tu :: nil) ->
-                         hlist (typD nil) tvs -> Prop),
+                   (sD : hlist typD (tus ++ tu :: nil) ->
+                         hlist typD tvs -> Prop),
               u = length tus ->
               substD (tus ++ tu :: nil) tvs s = Some sD ->
-              exists sD' : hlist (typD nil) tus -> hlist (typD nil) tvs -> Prop,
+              exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
                 substD tus tvs s' = Some sD' /\
                 (exists
-                    eD : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil tu,
+                    eD : hlist typD tus -> hlist typD tvs -> typD tu,
                     exprD' tus tvs e tu = Some eD /\
-                    (forall (us : hlist (typD nil) tus) (vs : hlist (typD nil) tvs),
+                    (forall (us : hlist typD tus) (vs : hlist typD tvs),
                        sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs)))).
     Proof.
       simpl. unfold raw_drop.

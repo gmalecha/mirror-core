@@ -60,18 +60,17 @@ Section app_full_proofs.
   Variable RSymOk_sym : RSymOk _.
 
   Section apps_type.
-    Variable ts : list Type.
     Variables tus tvs : tenv typ.
 
     Fixpoint type_of_applys (t : typ) (es : list (expr typ sym)) {struct es} : option typ :=
       match es with
         | nil => Some t
         | e :: es =>
-          match typeof_expr ts tus tvs e with
+          match typeof_expr tus tvs e with
             | Some t' =>
-              typ2_match (fun _ => option _) ts t
+              typ2_match (fun _ => option _) t
                          (fun td tr =>
-                            match type_cast ts t' td with
+                            match type_cast t' td with
                               | Some _ => type_of_applys tr es
                               | _ => None
                             end)
@@ -82,15 +81,15 @@ Section app_full_proofs.
 
     Definition typeof_apps (e : expr typ sym)
                (es : list (expr typ sym)) : option typ :=
-      match typeof_expr ts tus tvs e with
+      match typeof_expr tus tvs e with
         | Some t => type_of_applys t es
         | None => None
       end.
 
     Lemma type_of_applys_typeof_None
     : forall es e,
-        typeof_expr ts tus tvs e = None ->
-        typeof_expr ts tus tvs (apps e es) = None.
+        typeof_expr tus tvs e = None ->
+        typeof_expr tus tvs (apps e es) = None.
     Proof.
       induction es; simpl; intros; auto.
       rewrite IHes; auto.
@@ -99,14 +98,14 @@ Section app_full_proofs.
 
     Lemma type_of_applys_typeof
     : forall es e t,
-        typeof_expr ts tus tvs e = Some t ->
-        typeof_expr ts tus tvs (apps e es) = type_of_applys t es.
+        typeof_expr tus tvs e = Some t ->
+        typeof_expr tus tvs (apps e es) = type_of_applys t es.
     Proof.
       induction es; simpl; intros; auto.
-      { consider (typeof_expr ts tus tvs a); intros.
-        { arrow_case ts t.
+      { consider (typeof_expr tus tvs a); intros.
+        { arrow_case t.
           { rewrite Relim_const in *.
-            consider (type_cast ts t0 x); intros.
+            consider (type_cast t0 x); intros.
             { erewrite IHes with (t := x0).
               { rewrite eq_Const_eq. reflexivity. }
               { simpl. rewrite H. rewrite H0.
@@ -132,10 +131,10 @@ Section app_full_proofs.
 
     Theorem typeof_expr_apps
     : forall e es,
-        typeof_expr ts tus tvs (apps e es) = typeof_apps e es.
+        typeof_expr tus tvs (apps e es) = typeof_apps e es.
     Proof.
       intros. unfold typeof_apps.
-      consider (typeof_expr ts tus tvs e); intros.
+      consider (typeof_expr tus tvs e); intros.
       { eapply type_of_applys_typeof; auto. }
       { rewrite type_of_applys_typeof_None; auto. }
     Qed.
@@ -165,8 +164,8 @@ Section app_full_proofs.
   Require Import ExtLib.Recur.Facts.
 
   Lemma type_of_applys_circle_False_lem
-  : forall ts tus tvs ls t t',
-      type_of_applys ts tus tvs t ls = Some t' ->
+  : forall tus tvs ls t t',
+      type_of_applys tus tvs t ls = Some t' ->
       leftTrans (@tyAcc _ _) t t' ->
       False.
   Proof.
@@ -174,7 +173,7 @@ Section app_full_proofs.
     { inv_all. subst.
       eapply (@irreflexivity _ _ (@wf_anti_sym _ _ (Relation.wf_leftTrans (@wf_tyAcc _ _ _)))) in H0.
       assumption. }
-    { forward. arrow_case ts t.
+    { forward. arrow_case t.
       { rewrite Relim_const in *.
         rewrite eq_Const_eq in *. forward.
         clear H2. destruct r. symmetry in x1. destruct x1.
@@ -185,46 +184,45 @@ Section app_full_proofs.
   Qed.
 
   Lemma type_of_applys_circle_False
-  : forall ts tus tvs ls t t',
-      type_of_applys ts tus tvs t ls = Some (typ2 t' t) -> False.
+  : forall tus tvs ls t t',
+      type_of_applys tus tvs t ls = Some (typ2 t' t) -> False.
   Proof.
     intros. eapply type_of_applys_circle_False_lem.
     eassumption. constructor. eapply tyAcc_typ2R; eauto.
   Qed.
 
   Section exprD'_app.
-    Variable ts : list Type.
     Variables tus tvs : tenv typ.
 
-    Fixpoint apply' {T} (x : T) (ls : list {t : typ & T -> typD ts t}) t {struct ls} :
-      typD ts (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
-      typD ts t :=
+    Fixpoint apply' {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
+      typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+      typD t :=
       match ls as ls
-            return typD ts (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
-                   typD ts t
+            return typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+                   typD t
       with
         | nil => fun x => x
         | l :: ls => fun f =>
-          apply' x ls _ (match typ2_cast ts (projT1 l) _ in _ = t return t with
+          apply' x ls _ (match typ2_cast (projT1 l) _ in _ = t return t with
                           | eq_refl => f
                         end (projT2 l x))
       end.
 
     Fixpoint apply_sem'
-             (tf : typ) (e : OpenT ts tus tvs (typD ts tf))
+             (tf : typ) (e : OpenT tus tvs (typD tf))
              (ls : list (expr typ sym)) (t : typ)
              {struct ls}
-    : option (OpenT ts tus tvs (typD ts t)) :=
+    : option (OpenT tus tvs (typD t)) :=
       match ls with
         | nil =>
-          match type_cast ts tf t with
+          match type_cast tf t with
             | None => None
-            | Some cast => Some (Rcast (OpenT ts tus tvs) cast e)
+            | Some cast => Some (Rcast (OpenT tus tvs) cast e)
           end
         | l :: ls =>
-          typ2_match (F := Fun) (fun T => OpenT ts tus tvs T -> _) ts tf
+          typ2_match (F := Fun) (fun T => OpenT tus tvs T -> _) tf
                      (fun d r f =>
-                        match exprD' ts tus tvs d l with
+                        match exprD' tus tvs d l with
                           | None => None
                           | Some x =>
                             apply_sem' r (ap f x) ls t
@@ -236,11 +234,11 @@ Section app_full_proofs.
 
     Definition apps_sem'
                (e : expr typ sym) (l : list (expr typ sym)) (t : typ)
-    : option (OpenT ts tus tvs (typD ts t)) :=
-      match typeof_expr ts tus tvs e with
+    : option (OpenT tus tvs (typD t)) :=
+      match typeof_expr tus tvs e with
         | None => None
         | Some tf =>
-          match exprD' ts tus tvs tf e with
+          match exprD' tus tvs tf e with
             | Some f => apply_sem' _ f l t
             | None => None
           end
@@ -248,40 +246,40 @@ Section app_full_proofs.
 
     Lemma apps_sem'_nil
     : forall e t,
-        apps_sem' e nil t = exprD' ts tus tvs t e.
+        apps_sem' e nil t = exprD' tus tvs t e.
     Proof.
       intros. unfold apps_sem'.
-      consider (typeof_expr ts tus tvs e); intros.
+      consider (typeof_expr tus tvs e); intros.
       { symmetry.
         rewrite ExprFacts.exprD'_type_cast; eauto.
         rewrite H. simpl.
-        destruct (type_cast ts t0 t).
+        destruct (type_cast t0 t).
         { forward. destruct r. reflexivity. }
         { forward. } }
-      { consider (exprD' ts tus tvs t e); auto; intros.
+      { consider (exprD' tus tvs t e); auto; intros.
         exfalso.
-        assert (exists v, exprD' ts tus tvs t e = Some v); eauto.
+        assert (exists v, exprD' tus tvs t e = Some v); eauto.
         eapply ExprFacts.exprD'_typeof_expr in H1. congruence. }
     Qed.
 
     Lemma exprD'_apps : forall es e t,
-      exprD' ts tus tvs t (apps e es) = apps_sem' e es t.
+      exprD' tus tvs t (apps e es) = apps_sem' e es t.
     Proof.
       induction es; simpl; intros.
       { unfold apps_sem', apply_sem'.
         rewrite ExprFacts.exprD'_type_cast; eauto.
         forward.
-        destruct (type_cast ts t0 t); destruct (exprD' ts tus tvs t0 e); auto.
+        destruct (type_cast t0 t); destruct (exprD' tus tvs t0 e); auto.
         destruct r; reflexivity. }
       { rewrite IHes.
         unfold apps_sem'.
         simpl. forward. unfold type_of_apply.
-        consider (typeof_expr ts tus tvs a); intros.
-        { arrow_case ts t0; forward.
+        consider (typeof_expr tus tvs a); intros.
+        { arrow_case t0; forward.
           { rewrite Relim_const in *.
-            consider (exprD' ts tus tvs t0 e); intros.
+            consider (exprD' tus tvs t0 e); intros.
             { Cases.rewrite_all_goal.
-              consider (type_cast ts x t1); intros.
+              consider (type_cast x t1); intros.
               { unfold Relim.
                 repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
                 autorewrite with exprD_rw; simpl; Cases.rewrite_all_goal.
@@ -295,17 +293,17 @@ Section app_full_proofs.
                 rewrite ExprFacts.exprD'_type_cast; eauto.
                 Cases.rewrite_all_goal.
                 rewrite type_cast_sym_None; eauto.
-                clear. destruct (typ2_cast ts x x0).
+                clear. destruct (typ2_cast x x0).
                 destruct x1; reflexivity. } }
             { rewrite eq_Const_eq.
-              consider (type_cast ts x t1); intros; auto.
+              consider (type_cast x t1); intros; auto.
               autorewrite with exprD_rw; simpl.
               Cases.rewrite_all_goal.
               forward. destruct r. clear - x1 H2 H4. destruct x1.
               congruence. } }
           { rewrite H1. auto. } }
-        { arrow_case ts t0; forward.
-          generalize (typ2_cast ts x x0); intros.
+        { arrow_case t0; forward.
+          generalize (typ2_cast x x0); intros.
           rewrite ExprFacts.exprD'_type_cast; eauto.
           Cases.rewrite_all_goal.
           clear. destruct x1. destruct e0. reflexivity. } }
@@ -315,28 +313,28 @@ Section app_full_proofs.
 
   (** TODO: Does this actually get used? *)
   Section exprD_app.
-    Variables us vs : env nil.
+    Variables us vs : env.
 
-    Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD nil t}) t {struct ls} :
-      typD nil (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
-      typD nil t :=
+    Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
+      typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+      typD t :=
       match ls as ls
-            return typD nil (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
-                   typD nil t
+            return typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+                   typD t
       with
         | nil => fun x => x
         | l :: ls => fun f =>
-          apply x ls _ (match typ2_cast nil (projT1 l) _ in _ = t return t with
+          apply x ls _ (match typ2_cast (projT1 l) _ in _ = t return t with
                           | eq_refl => f
                         end (projT2 l x))
       end.
 
-    Definition apply_sem (tf : typ) (e : typD nil tf)
+    Definition apply_sem (tf : typ) (e : typD tf)
              (ls : list (expr typ sym)) (t : typ)
-    : option (typD nil t) :=
+    : option (typD t) :=
       let (tus,us) := split_env us in
       let (tvs,vs) := split_env vs in
-      match @apply_sem' nil tus tvs tf (fun _ _ => e) ls t with
+      match @apply_sem' tus tvs tf (fun _ _ => e) ls t with
         | None => None
         | Some f => Some (f us vs)
       end.
@@ -346,10 +344,10 @@ Section app_full_proofs.
 
     Definition apps_sem
                (e : expr typ sym) (l : list (expr typ sym)) (t : typ)
-    : option (typD nil t) :=
+    : option (typD t) :=
       let (tus,us) := split_env us in
       let (tvs,vs) := split_env vs in
-      match @apps_sem' nil tus tvs e l t with
+      match @apps_sem' tus tvs e l t with
         | None => None
         | Some f => Some (f us vs)
       end.

@@ -12,20 +12,18 @@ Section Env.
   Variable typ : Type.
   Context {RType_typ : RType typ}.
 
-  Variable ts : list Type.
-
   (** Environments **)
   Definition tenv : Type := list typ.
-  Definition env : Type := list (sigT (typD ts)).
+  Definition env : Type := list (sigT (@typD _ _)).
 
   Definition typeof_env (e : env) : tenv :=
     map (@projT1 _ _) e.
 
-  Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD ts ty) :=
+  Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD ty) :=
     match nth_error e n with
       | None => None
       | Some (existT t v) =>
-        match type_cast ts ty t with
+        match type_cast ty t with
           | Some pf => Some (Relim (fun x => x) pf v)
           | None => None
         end
@@ -40,13 +38,13 @@ Section Env.
     erewrite nth_error_weaken by eassumption. auto.
   Qed.
 
-  Fixpoint join_env (gs : list typ) (hgs : hlist (typD ts) gs) : env :=
+  Fixpoint join_env (gs : list typ) (hgs : hlist (@typD _ _) gs) : env :=
     match hgs with
       | Hnil => nil
       | Hcons a b c d => existT _ _ c :: join_env d
     end.
 
-  Fixpoint split_env (gs : env) : sigT (hlist (typD ts)) :=
+  Fixpoint split_env (gs : env) : sigT (hlist (@typD _ _)) :=
     match gs with
       | nil => existT _ nil Hnil
       | g :: gs =>
@@ -93,7 +91,7 @@ Section Env.
     nth_error ve v = Some tv <->
     match nth_error (projT1 (split_env ve)) v as t
           return match t with
-                   | Some v => typD ts v
+                   | Some v => typD v
                    | None => unit
                  end -> Prop
     with
@@ -329,6 +327,6 @@ Section nth_error_get_hlist_nth.
 
 End nth_error_get_hlist_nth.
 
-Arguments env {typ _} _ : rename.
-Arguments join_env {typ _ _ _} _ : rename.
-Arguments split_env {typ _ _} _ : rename.
+Arguments env {typ _} : rename.
+Arguments join_env {typ _ _} _ : rename.
+Arguments split_env {typ _} _ : rename.

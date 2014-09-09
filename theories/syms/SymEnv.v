@@ -30,7 +30,7 @@ Section RSym.
 
   Record function := F
   { ftype : typ
-  ; fdenote : forall ts, typD ts ftype
+  ; fdenote : typD ftype
   }.
 
   Definition functions := PositiveMap.t function.
@@ -42,10 +42,10 @@ Section RSym.
       | Some ft => Some ft.(ftype)
     end.
 
-  Definition funcD ts (f : func) : match func_typeof_sym f with
-                                     | None => unit
-                                     | Some t => typD ts t
-                                   end :=
+  Definition funcD (f : func) : match func_typeof_sym f with
+                                  | None => unit
+                                  | Some t => typD t
+                                end :=
     match PositiveMap.find f fs as Z
           return
           match
@@ -54,11 +54,11 @@ Section RSym.
               | None => None
             end
           with
-            | Some t => typD ts t
+            | Some t => typD t
             | None => unit
           end
     with
-      | Some ft => ft.(fdenote) ts
+      | Some ft => ft.(fdenote)
       | None => tt
     end.
 

@@ -27,12 +27,12 @@ Section lem.
   Variable conclusionD : forall us vs, conclusion -> ResType us vs Prop.
 
   Context {tyProp : typ}.
-  Variable Provable' : typD nil tyProp -> Prop.
+  Variable Provable' : typD tyProp -> Prop.
 
-  Fixpoint foralls (ls : list typ) : (hlist (typD nil) ls -> Prop) -> Prop :=
-    match ls as ls return (hlist (typD nil) ls -> Prop) -> Prop with
+  Fixpoint foralls (ls : list typ) : (hlist (typD) ls -> Prop) -> Prop :=
+    match ls as ls return (hlist (typD) ls -> Prop) -> Prop with
       | nil => fun P => P Hnil
-      | l :: ls => fun P => forall x : typD nil l,
+      | l :: ls => fun P => forall x : typD l,
                               foralls (fun z => P (Hcons x z))
     end.
 
@@ -105,7 +105,7 @@ Section lem.
     with
       | Some prems , Some concl =>
         Some (fun us vs =>
-                foralls (fun h : hlist (typD nil) (vars l) =>
+                foralls (fun h : hlist (typD) (vars l) =>
                            let vs' := hlist_app h vs in
                            impls (map (fun x => Provable' (x us vs')) prems)
                                  (concl us vs')))
@@ -275,8 +275,8 @@ Section lem.
       rewrite H1.
       instantiate (1 := app_ass_trans (vars l) tvs tvs').
       exists match app_ass_trans (vars l) tvs tvs' in _ = tvs'
-                   return hlist (typD nil) tus ->
-                          hlist (typD nil) tvs' -> typD nil tyProp
+                   return hlist (typD) tus ->
+                          hlist (typD) tvs' -> typD tyProp
              with
                | eq_refl => x0
              end.
@@ -359,7 +359,7 @@ Section lem.
       rewrite H2.
       exists (match
                  app_ass_trans (vars l) tvs tvs' in (_ = tvs'0)
-                 return hlist _ tus -> hlist _ tvs'0 -> typD nil tyProp
+                 return hlist _ tus -> hlist _ tvs'0 -> typD tyProp
                with
                  | eq_refl => x1
                end).
@@ -395,7 +395,7 @@ Section lem.
     etransitivity. eapply H0. eapply H1.
   Qed.
 
-  Definition lemmaD (us vs : env nil) (l : lemma) : Prop :=
+  Definition lemmaD (us vs : env) (l : lemma) : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
     match lemmaD' tus tvs l with

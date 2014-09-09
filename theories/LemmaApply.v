@@ -18,8 +18,8 @@ Section lemma_apply.
   Variable expr : Type.
   Variable Expr_expr : Expr _ expr.
   Variable ExprOk_expr : ExprOk Expr_expr.
-  Variable tyProp : typ.
-  Variable tyPropD : forall ts, typD ts tyProp = Prop.
+  Variable Typ0_Prop : Typ0 _ Prop.
+  Let tyProp : typ := @typ0 _ _ _ _.
   Variable subst : Type.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : SubstOk _ Subst_subst.
@@ -133,20 +133,20 @@ Section lemma_apply.
   Hypothesis vars_to_uvars_exprD'
   : forall (tus : tenv typ) (e : expr) (tvs : list typ)
            (t : typ) (tvs' : list typ)
-           (val : hlist (typD  nil) tus ->
-                  hlist (typD nil) (tvs ++ tvs') -> typD nil t),
+           (val : hlist typD tus ->
+                  hlist typD (tvs ++ tvs') -> typD t),
       exprD' tus (tvs ++ tvs') e t = Some val ->
       exists
-        val' : hlist (typD nil) (tus ++ tvs') ->
-               hlist (typD nil) tvs -> typD nil t,
+        val' : hlist typD (tus ++ tvs') ->
+               hlist typD tvs -> typD t,
         exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
                t = Some val' /\
-        (forall (us : hlist (typD nil) tus)
-                (vs' : hlist (typD nil) tvs') (vs : hlist (typD nil) tvs),
+        (forall (us : hlist typD tus)
+                (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
   Let propD tus tvs g :=
-    match tyPropD nil in _ = t return ResType tus tvs t with
+    match @typ0_cast _ _ _ _ in _ = t return ResType tus tvs t with
       | eq_refl => exprD' tus tvs g tyProp
     end.
 
@@ -158,12 +158,9 @@ Section lemma_apply.
       forall sD gD,
         (exists lD,
           @lemmaD' _ _ _ _ _
-                   (fun tus tvs g =>
-                      match tyPropD nil in _ = t return ResType tus tvs t with
-                        | eq_refl => exprD' tus tvs g tyProp
-                      end)
+                   propD
                    tyProp
-                   (fun x => match tyPropD nil in _ = t return t with
+                   (fun x => match @typ0_cast _ _ _ _ in _ = t return t with
                                | eq_refl => x
                              end)
                    nil nil l0 = Some lD) ->
@@ -188,10 +185,10 @@ Section lemma_apply.
     eapply substD_weakenU with (tus' := vars l0) in H3.
     destruct H3 as [ ? [ ? ? ] ].
     generalize (@exprD'_conv _ _ _ Expr_expr nil nil _ _ (concl l0) tyProp eq_refl (eq_sym (app_nil_r (vars l0)))).
-    simpl. intro. rewrite H7 in H5; clear H7.
+    simpl. intro. unfold propD in H5. rewrite H7 in H5; clear H7.
     clear l H2.
     assert (exprD' nil (vars l0) (concl l0) tyProp =
-            Some match eq_sym (tyPropD nil) in _ = t
+            Some match eq_sym (typ0_cast (F:=Prop)) in _ = t
                        return _ -> _ -> t
                  with
                    | eq_refl =>
@@ -260,7 +257,7 @@ Section lemma_apply.
       Forall2 (fun t e => exprD' tus tvs e t = None -> False) (lem.(vars)) es ->
       @lemmaD' _ _ _ _ _
                propD tyProp
-               (fun x => match tyPropD nil in _ = t return t with
+               (fun x => match typ0_cast (F:=Prop) in _ = t return t with
                            | eq_refl => x
                          end) tus tvs lem = Some lD ->
       apply_lemma lem es = Some (l_prem, l_conc) ->

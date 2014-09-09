@@ -33,8 +33,8 @@ Section proverI.
       (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
          Provable tus tvs goal = Some goalD ->
-         forall (us : HList.hlist (typD nil) tus)
-                (vs : HList.hlist (typD nil) tvs),
+         forall (us : HList.hlist typD tus)
+                (vs : HList.hlist typD tvs),
            sumD us vs ->
            goalD us vs).
 

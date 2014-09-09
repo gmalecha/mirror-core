@@ -88,8 +88,6 @@ Section substitute.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
 
-  Variable ts : list Type.
-
 (*
   Theorem lift_0 : forall (e : expr typ func) u, Lift.lift u 0 e = e.
   Proof.
@@ -108,15 +106,15 @@ Section substitute.
       (HNV : forall n, Natural (lookupV n))
       (HlookupV : forall v e t,
          nth_error tvs v = Some t ->
-         typeof_expr ts tus tvs e = Some t ->
-         typeof_expr ts tus' tvs' (lookupV v _ (fun x => x) e) = Some t)
+         typeof_expr tus tvs e = Some t ->
+         typeof_expr tus' tvs' (lookupV v _ (fun x => x) e) = Some t)
       (HlookupU : forall u e t,
          nth_error tus u = Some t ->
-         typeof_expr ts tus tvs e = Some t ->
-         typeof_expr ts tus' tvs' (lookupU u _ (fun x => x) e) = Some t)
+         typeof_expr tus tvs e = Some t ->
+         typeof_expr tus' tvs' (lookupU u _ (fun x => x) e) = Some t)
       e y tvex,
-      typeof_expr ts tus (tvex ++ tvs) e = Some y ->
-      typeof_expr ts tus' (tvex ++ tvs')
+      typeof_expr tus (tvex ++ tvs) e = Some y ->
+      typeof_expr tus' (tvex ++ tvs')
                      (subst' lookupU lookupV (length tvex) e) = Some y.
   Proof.
     induction e; simpl; intros; eauto.
@@ -129,7 +127,7 @@ Section substitute.
           revert HlookupV.
           setoid_rewrite H1.
           intros.
-          etransitivity; [ eapply (@typeof_expr_lift _ _ _ _ _ ts tus' x nil tvex tvs') | ].
+          etransitivity; [ eapply (@typeof_expr_lift _ _ _ _ _ tus' x nil tvex tvs') | ].
           simpl.
           rewrite nth_error_app_R in H; eauto.
           eapply H2; eauto.
@@ -151,7 +149,7 @@ Section substitute.
     { generalize (HlookupU u).
       destruct (HNU u) as [ [ ? ? ] | ? ]; setoid_rewrite H0.
       { etransitivity.
-        eapply (@typeof_expr_lift _ _ _ _ _ ts tus' _ nil tvex tvs').
+        eapply (@typeof_expr_lift _ _ _ _ _ tus' _ nil tvex tvs').
         simpl. eapply H1; eauto.
         instantiate (1 := UVar u). assumption. }
       { simpl. intros.
@@ -163,26 +161,26 @@ Section substitute.
       (HNU : forall u, Natural (lookupU u)) (HNV : forall v, Natural (lookupV v))
       (HlookupV : forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' ts tus tvs t e = Some vD_orig ->
+         exprD' tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' ts tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD vs ->
              vD vs = vD' us' vs')
       (HlookupU : forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' ts tus tvs t e = Some vD_orig ->
+         exprD' tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' ts tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
+           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD us ->
              vD us = vD' us' vs'),
       forall e tvex (t : typ) eD,
-        exprD' ts tus (tvex ++ tvs) t e = Some eD ->
+        exprD' tus (tvex ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' ts tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
+          exprD' tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
           forall us vs us' vs' vex,
             P us vs us' vs' ->
             eD us (hlist_app vex vs) = eD' us' (hlist_app vex vs').
@@ -202,7 +200,7 @@ Section substitute.
           destruct y.
           intro XXX; specialize (XXX _ _ eq_refl eq_refl).
           forward_reason.
-          generalize (exprD'_lift ts tus' x nil tvex tvs' x0).
+          generalize (exprD'_lift tus' x nil tvex tvs' x0).
           simpl. rewrite H3. intros; forwardy.
           eexists; split; [ eassumption | ].
           intros.
@@ -221,7 +219,7 @@ Section substitute.
           intro.
           intro XXX; specialize (XXX _ _ eq_refl eq_refl).
           forward_reason.
-          generalize (exprD'_lift ts tus' (Var (v - length tvex)) nil tvex tvs' x).
+          generalize (exprD'_lift tus' (Var (v - length tvex)) nil tvex tvs' x).
           simpl. rewrite H5. intros; forwardy.
           cutrewrite (v - length tvex + length tvex = v) in H7; [ | omega ].
           eexists; split; [ eassumption | ].
@@ -264,10 +262,10 @@ Section substitute.
         erewrite H2; eauto. erewrite H3; eauto. }
       { intros.
         assert (exists vD,
-                  exprD' ts tus tvs t0 e = Some vD)
+                  exprD' tus tvs t0 e = Some vD)
           by (eapply ExprFacts.typeof_expr_exprD'; eauto).
         destruct H6.
-        consider (nth_error_get_hlist_nth (typD ts) tvs v); intros.
+        consider (nth_error_get_hlist_nth typD tvs v); intros.
         { destruct s.
           assert (x2 = t0).
           { eapply nth_error_get_hlist_nth_Some in H7. destruct H7.
@@ -280,10 +278,10 @@ Section substitute.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } }
       { intros.
         assert (exists vD,
-                  exprD' ts tus tvs t0 e = Some vD)
+                  exprD' tus tvs t0 e = Some vD)
           by (eapply ExprFacts.exprD'_typeof_expr; eauto).
         destruct H6.
-        consider (nth_error_get_hlist_nth (typD ts) tus u); intros.
+        consider (nth_error_get_hlist_nth typD tus u); intros.
         { destruct s.
           assert (x2 = t0).
           { eapply nth_error_get_hlist_nth_Some in H7. destruct H7.
@@ -296,13 +294,13 @@ Section substitute.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } } }
     { autorewrite with exprD_rw in *; simpl in *.
       match goal with
-        | H : appcontext [ @typ2_match _ _ _ _ _ ?X ?Y ] |- _ =>
+        | H : appcontext [ @typ2_match _ _ _ _ _ ?Y ] |- _ =>
           let H := fresh in
-          destruct (@typ2_match_case _ _ _ _ _ X Y) as [ [ ? [ ? [ ? H ] ] ] | H ];
+          destruct (@typ2_match_case _ _ _ _ _ Y) as [ [ ? [ ? [ ? H ] ] ] | H ];
             ( try rewrite H in * )
       end; clear H0.
       { unfold Relim in *. red in x1; subst.
-        destruct (eq_sym (typ2_cast ts x x0)).
+        destruct (eq_sym (typ2_cast x x0)).
         forward.
         eapply IHe with (tvex := t :: tvex) in H0.
         forward_reason. simpl in *.
@@ -327,7 +325,7 @@ Section substitute.
         rewrite H3 in H1.
         specialize (H3 _ (lift 0 (length tvex)) (UVar u)).
         rewrite H3.
-        generalize (exprD'_lift ts tus' x1 nil tvex tvs' x); simpl.
+        generalize (exprD'_lift tus' x1 nil tvex tvs' x); simpl.
         rewrite H1. intros.
         forwardy.
         eexists; split; [ eassumption | ].
@@ -346,26 +344,26 @@ Section substitute.
       (forall u, Natural (lookupU u)) -> (forall v, Natural (lookupV v)) ->
       (forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' ts tus tvs t e = Some vD_orig ->
+         exprD' tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' ts tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD vs ->
              vD vs = vD' us' vs') ->
       (forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' ts tus tvs t e = Some vD_orig ->
+         exprD' tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' ts tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
+           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD us ->
              vD us = vD' us' vs') ->
       forall tvx eD,
-        exprD' ts tus (tvx ++ tvs) t e = Some eD ->
+        exprD' tus (tvx ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' ts tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
+        exprD' tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
         forall us vs us' vs' vx,
           P us vs us' vs' ->
           eD us (hlist_app vx vs) = eD' us' (hlist_app vx vs').

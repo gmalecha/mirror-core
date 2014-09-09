@@ -94,19 +94,17 @@ Section beta_all.
 
   (** the default delta function is [apps] **)
   Definition delta_sound
-  := forall e es ts tus tvs t val,
-       exprD' ts tus tvs t (apps e es) = Some val ->
+  := forall e es tus tvs t val,
+       exprD' tus tvs t (apps e es) = Some val ->
        exists val',
-         exprD' ts tus tvs t (delta e es) = Some val' /\
+         exprD' tus tvs t (delta e es) = Some val' /\
          forall us vs,
            val us vs = val' us vs.
 
   Hypothesis deltaOk : delta_sound.
 
-  Variable ts : list Type.
-
-  Inductive EnvForall {A} (R : A -> forall t : typ, typD ts t -> Prop)
-  : list A -> forall tvs, hlist (typD ts) tvs -> Prop :=
+  Inductive EnvForall {A} (R : A -> forall t : typ, typD t -> Prop)
+  : list A -> forall tvs, hlist typD tvs -> Prop :=
   | EnvForall_nil : EnvForall R nil Hnil
   | EnvForall_cons : forall e es t ts v vs,
                        R e t v ->
@@ -166,9 +164,9 @@ Section beta_all.
 *)
 
   Lemma exprD'_App_Abs
-  : forall ts tus tvs t t0 e ex val,
-      exprD' ts tus tvs t0 (App (Abs t e) ex) = Some val ->
-      exprD' ts tus tvs t0 (substitute_one 0 ex e) = Some val.
+  : forall tus tvs t t0 e ex val,
+      exprD' tus tvs t0 (App (Abs t e) ex) = Some val ->
+      exprD' tus tvs t0 (substitute_one 0 ex e) = Some val.
   Proof.
     intros.
     autorewrite with exprD_rw in *; simpl in *.
@@ -179,7 +177,7 @@ Section beta_all.
     rewrite eq_option_eq in H0.
     forward. inv_all; subst.
     destruct r.
-    generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ ts0 tus e nil ex _ eq_refl tvs t1 t0).
+    generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus e nil ex _ eq_refl tvs t1 t0).
     simpl. Cases.rewrite_all_goal.
     intros. forward.
     f_equal. unfold Open_App.
@@ -214,7 +212,7 @@ Section beta_all.
 
   Lemma apply_sem_same
   : forall tus tvs args t f f' t' val val',
-      apply_sem' (ts := ts) (tus := tus) (tvs := tvs) T2 RS t f args t' = Some val ->
+      apply_sem' (tus := tus) (tvs := tvs) T2 RS t f args t' = Some val ->
       apply_sem' T2 RS t f' args t' = Some val' ->
       forall us vs,
         f us vs = f' us vs ->
@@ -227,8 +225,7 @@ Section beta_all.
       repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
       rewrite H1. reflexivity.
     + simpl. intros.
-
-      arrow_case ts t.
+      arrow_case t.
     - unfold Relim, OpenT, ResType.OpenT in *; autorewrite with eq_rw in *.
       forward.
       specialize (IHargs _ _ _ _ _ _ H0 H3); clear H0 H3.
@@ -240,12 +237,12 @@ Section beta_all.
 
   Lemma apply_sem'_same_args_safe
   : forall tus tvs args t f f' t' val,
-      apply_sem' (ts := ts) (tus := tus) (tvs := tvs) T2 RS t f args t' = Some val ->
-      exists val', apply_sem' (ts := ts) (tus := tus) (tvs := tvs) T2 RS t f' args t' = Some val'.
+      apply_sem' (tus := tus) (tvs := tvs) T2 RS t f args t' = Some val ->
+      exists val', apply_sem' (tus := tus) (tvs := tvs) T2 RS t f' args t' = Some val'.
   Proof.
     induction args; simpl; intros.
     + forward. eauto.
-    + arrow_case ts t.
+    + arrow_case t.
       unfold Relim, OpenT, ResType.OpenT in *.
       repeat first [ rewrite eq_Const_eq in * | rewrite eq_Arr_eq in * ].
       forward.
@@ -261,14 +258,14 @@ Section beta_all.
                        @EnvForall A R es ts vs ->
                        @EnvForall A R (e :: es) (t :: ts) (Hcons v vs).
 *)
-  Inductive EnvModels tus (us : hlist (typD ts) tus)
-  : forall tvs, list (option (expr typ sym)) -> hlist (typD ts) tvs -> Prop :=
+  Inductive EnvModels tus (us : hlist typD tus)
+  : forall tvs, list (option (expr typ sym)) -> hlist typD tvs -> Prop :=
   | EnvModels_nil : @EnvModels tus us nil nil Hnil
   | EnvModels_None : forall t tvs vs val vals,
                        @EnvModels tus us tvs vs vals ->
                        @EnvModels tus us (t :: tvs) (None :: vs) (Hcons val vals)
   | EnvModels_Some : forall t tvs e vs val vals val',
-                       exprD' ts tus tvs t e = Some val' ->
+                       exprD' tus tvs t e = Some val' ->
                        val' us vals = val ->
                        @EnvModels tus us tvs vs vals ->
                        @EnvModels tus us (t :: tvs) (Some e :: vs) (Hcons val vals).

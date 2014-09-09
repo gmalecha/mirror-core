@@ -25,7 +25,7 @@ Section Expr.
           {RS : RSym func}.
 
   Instance Expr_expr : @Expr typ _ (@expr typ func) :=
-  { exprD' := fun tus tvs e t => @exprD' _ _ _ _ _ nil tus tvs t e
+  { exprD' := fun tus tvs e t => @exprD' _ _ _ _ _ tus tvs t e
   ; wf_Expr_acc := @wf_expr_acc typ func
   ; mentionsU := mentionsU
   ; mentionsV := mentionsV
@@ -36,13 +36,13 @@ Section Expr.
           {RSOk : RSymOk RS}.
 
   Theorem typeof_expr_strengthenU_single
-  : forall ts (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
+  : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
            (t t' : typ),
       mentionsU (length tus) e = false ->
-      typeof_expr ts (tus ++ t :: nil) tvs e = Some t' ->
-      typeof_expr ts tus tvs e = Some t'.
+      typeof_expr (tus ++ t :: nil) tvs e = Some t' ->
+      typeof_expr tus tvs e = Some t'.
   Proof.
-    intros ts tus tvs e t t'.
+    intros tus tvs e t t'.
     revert tvs t'.
     induction e; simpl; intros; auto.
     { forward.
@@ -60,16 +60,16 @@ Section Expr.
   Theorem exprD'_strengthenU_single
   : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
            (t t' : typ)
-           (val : HList.hlist (typD nil) (tus ++ t :: nil) ->
-                  HList.hlist (typD nil) tvs -> typD nil t'),
+           (val : HList.hlist typD (tus ++ t :: nil) ->
+                  HList.hlist typD tvs -> typD t'),
       ExprI.mentionsU (length tus) e = false ->
       ExprI.exprD' (tus ++ t :: nil) tvs e t' = Some val ->
       exists
-        val' : HList.hlist (typD nil) tus ->
-               HList.hlist (typD nil) tvs -> typD nil t',
+        val' : HList.hlist typD tus ->
+               HList.hlist typD tvs -> typD t',
         ExprI.exprD' tus tvs e t' = Some val' /\
-        (forall (us : HList.hlist (typD nil) tus)
-                (vs : HList.hlist (typD nil) tvs) (u : typD nil t),
+        (forall (us : HList.hlist typD tus)
+                (vs : HList.hlist typD tvs) (u : typD t),
            val (HList.hlist_app us (HList.Hcons u HList.Hnil)) vs = val' us vs).
   Proof.
     intros tus tvs e; revert tvs.
@@ -91,7 +91,7 @@ Section Expr.
       unfold OpenT, ResType.OpenT.
       repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
       rewrite H6; rewrite H7; reflexivity. }
-    { destruct (typ2_match_case nil t').
+    { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
@@ -129,13 +129,13 @@ Section Expr.
   Qed.
 
   Theorem typeof_expr_strengthenV_single
-  : forall ts (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
+  : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
            (t t' : typ),
       mentionsV (length tvs) e = false ->
-      typeof_expr ts tus (tvs ++ t :: nil) e = Some t' ->
-      typeof_expr ts tus tvs e = Some t'.
+      typeof_expr tus (tvs ++ t :: nil) e = Some t' ->
+      typeof_expr tus tvs e = Some t'.
   Proof.
-    intros ts tus tvs e t t'.
+    intros tus tvs e t t'.
     revert tvs t'.
     induction e; simpl; intros; auto.
     { eapply RelDec.neg_rel_dec_correct in H.
@@ -153,16 +153,16 @@ Section Expr.
   Theorem exprD'_strengthenV_single
   : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
            (t t' : typ)
-           (val : HList.hlist (typD nil) tus ->
-                  HList.hlist (typD nil) (tvs ++ t :: nil) -> typD nil t'),
+           (val : HList.hlist typD tus ->
+                  HList.hlist typD (tvs ++ t :: nil) -> typD t'),
       ExprI.mentionsV (length tvs) e = false ->
       ExprI.exprD' tus (tvs ++ t :: nil) e t' = Some val ->
       exists
-        val' : HList.hlist (typD nil) tus ->
-               HList.hlist (typD nil) tvs -> typD nil t',
+        val' : HList.hlist typD tus ->
+               HList.hlist typD tvs -> typD t',
         ExprI.exprD' tus tvs e t' = Some val' /\
-        (forall (us : HList.hlist (typD nil) tus)
-                (vs : HList.hlist (typD nil) tvs) (u : typD nil t),
+        (forall (us : HList.hlist typD tus)
+                (vs : HList.hlist typD tvs) (u : typD t),
            val us (HList.hlist_app vs (HList.Hcons u HList.Hnil)) = val' us vs).
   Proof.
     intros tus tvs e; revert tvs.
@@ -196,7 +196,7 @@ Section Expr.
       unfold OpenT, ResType.OpenT.
       repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
       rewrite H6; rewrite H7; reflexivity. }
-    { destruct (typ2_match_case nil t').
+    { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
@@ -222,7 +222,7 @@ Section Expr.
       simpl. intros. inv_all; subst. reflexivity. }
   Qed.
 
-  Instance ExprOk_expr (ts : list Type) : ExprOk Expr_expr.
+  Instance ExprOk_expr : ExprOk Expr_expr.
   Proof.
     constructor.
     { simpl. intros.

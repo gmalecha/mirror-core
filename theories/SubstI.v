@@ -136,7 +136,7 @@ Section subst.
         WellFormed_subst s' /\
         forall tus tvs t val get sD,
           substD tus tvs s = Some sD ->
-          nth_error_get_hlist_nth (typD nil) tus uv = Some (@existT _ _ t get) ->
+          nth_error_get_hlist_nth typD tus uv = Some (@existT _ _ t get) ->
           exprD' tus tvs e t = Some val ->
           exists sD',
             substD tus tvs s' = Some sD' /\
@@ -226,7 +226,7 @@ Section subst.
     instantiate (1 := tus').
     intro. destruct H as [ ? [ ? ? ] ].
     exists (match app_nil_r_trans tvs in _ = t
-                  return hlist (typD nil) (tus ++ tus') -> hlist (typD nil) t -> Prop
+                  return hlist typD (tus ++ tus') -> hlist typD t -> Prop
             with
               | eq_refl => x
             end).
@@ -254,7 +254,7 @@ Section subst.
     instantiate (1 := tvs').
     intro. destruct H as [ ? [ ? ? ] ].
     exists (match app_nil_r_trans tus in _ = t
-                  return hlist (typD nil) t -> hlist (typD nil) _ -> Prop
+                  return hlist typD t -> hlist typD _ -> Prop
             with
               | eq_refl => x
             end).
@@ -297,10 +297,10 @@ Section subst.
           (forall u', u' < n -> lookup (u + u') s' = None) /\
         exists sD',
           substD tus tvs s' = Some sD' /\
-          exists us' : hlist (fun t => hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t) tus',
+          exists us' : hlist (fun t => hlist typD tus -> hlist typD tvs -> typD t) tus',
             @hlist_build _ _ _ (fun t e => exprD' tus tvs e t) tus' eus' = Some us' /\
             forall us vs,
-              let us' := hlist_map (fun t (x : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t) => x us vs) us' in
+              let us' := hlist_map (fun t (x : hlist typD tus -> hlist typD tvs -> typD t) => x us vs) us' in
               sD' us vs <->
               sD (hlist_app us us') vs.
   Proof.
@@ -365,12 +365,12 @@ Section subst.
         assert (exists us',
                   hlist_build
                     (fun t1 : typ =>
-                       hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t1)
+                       hlist typD tus -> hlist typD tvs -> typD t1)
                     (fun (t1 : typ) (e : expr) => exprD' tus tvs e t1) tus' x0 = Some us' /\
                   forall us vs val,
                     hlist_Forall2 (fun (t : typ)
-                                       (x : hlist (typD nil) tus -> hlist (typD nil) tvs -> typD nil t)
-                                       (y : hlist (typD nil) (tus ++ _ :: nil) -> hlist (typD nil) tvs -> typD nil t) =>
+                                       (x : hlist typD tus -> hlist typD tvs -> typD t)
+                                       (y : hlist typD (tus ++ _ :: nil) -> hlist typD tvs -> typD t) =>
                                      x us vs = y (hlist_app us (Hcons val Hnil)) vs) us' x2).
         { clear H14. generalize dependent x2.
           assert (forall e, In e x0 ->

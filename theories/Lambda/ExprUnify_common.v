@@ -47,20 +47,20 @@ Section typed.
              (t : typ) (tv' : list typ),
         (forall
             (v1 : _)
-            (v2 : hlist (typD nil) tu ->
-                    hlist (typD nil) (tv' ++ tv) -> typD nil t)
-            (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-            exprD' nil tu tv t e0 = Some v1 ->
-            exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 ->
+            (v2 : hlist typD tu ->
+                    hlist typD (tv' ++ tv) -> typD t)
+            (sD : hlist typD tu -> hlist typD tv -> Prop),
+            exprD' tu tv t e0 = Some v1 ->
+            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
-              sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
+              sD' : hlist typD tu -> hlist typD tv -> Prop,
               substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu)
-                      (vs : hlist (typD nil) tv),
+              (forall (us : hlist typD tu)
+                      (vs : hlist typD tv),
                  sD' us vs ->
                  sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
+                 (forall vs' : hlist typD tv',
                     v1 us vs = v2 us (hlist_app vs' vs)))).
   Proof.
     intros.
@@ -90,20 +90,20 @@ Section typed.
         lower 0 (length tv') e = Some e0 ->
         (forall
             (v1
-               v2 : hlist (typD nil) tu ->
-                    hlist (typD nil) (tv' ++ tv) -> typD nil t)
-            (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-            exprD' nil tu (tv' ++ tv) t e = Some v1 ->
-            exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 ->
+               v2 : hlist typD tu ->
+                    hlist typD (tv' ++ tv) -> typD t)
+            (sD : hlist typD tu -> hlist typD tv -> Prop),
+            exprD' tu (tv' ++ tv) t e = Some v1 ->
+            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
-              sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
+              sD' : hlist typD tu -> hlist typD tv -> Prop,
               substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu)
-                      (vs : hlist (typD nil) tv),
+              (forall (us : hlist typD tu)
+                      (vs : hlist typD tv),
                  sD' us vs ->
                  sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
+                 (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
   Proof.
     intros.
@@ -113,7 +113,7 @@ Section typed.
     autorewrite with exprD_rw in *; simpl in *.
     forwardy.
     destruct y. inv_all; subst.
-    eapply  (@exprD'_lower typ func _ _ RSym_func _ _ _ nil tu nil tv' tv) in H2; eauto.
+    eapply  (@exprD'_lower typ func _ _ RSym_func _ _ _ tu nil tv' tv) in H2; eauto.
     forward_reason.
     specialize (H1 _ _ _ _ _ _ H5 H4 H2).
     forward_reason.
@@ -125,16 +125,16 @@ Section typed.
   Qed.
 
   Definition unify_sound_ind
-    (unify : forall ts (us vs : tenv typ) (under : nat) (s : subst)
+    (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
                     (l r : expr typ func)
                     (t : typ), option subst) : Prop :=
     forall tu tv e1 e2 s s' t tv',
-      unify (@nil Type) tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' nil tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' nil tu (tv' ++ tv) t e2 = Some v2 ->
+        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
+        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -148,14 +148,14 @@ Section typed.
 
   Lemma handle_uvar
   : forall
-      (unify : list Type -> tenv typ -> tenv typ ->
+      (unify : tenv typ -> tenv typ ->
                nat -> subst -> expr typ func -> expr typ func -> typ -> option subst),
       unify_sound_ind unify ->
       forall (tu : tenv typ) (tv : list typ) e
              (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
         match lookup u s with
           | Some e2' =>
-            unify nil tu (tv' ++ tv) (length tv') s e
+            unify tu (tv' ++ tv) (length tv') s e
                   (lift 0 (length tv') e2') t
           | None =>
             match lower 0 (length tv') e with
@@ -166,19 +166,19 @@ Section typed.
         WellFormed_subst s ->
         WellFormed_subst s' /\
         (forall
-            (v1 v2 : hlist (typD nil) tu ->
-                     hlist (typD nil) (tv' ++ tv) -> typD nil t)
-            (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-            exprD' nil tu (tv' ++ tv) t e = Some v1 ->
-            exprD' nil tu (tv' ++ tv) t (UVar u) = Some v2 ->
+            (v1 v2 : hlist typD tu ->
+                     hlist typD (tv' ++ tv) -> typD t)
+            (sD : hlist typD tu -> hlist typD tv -> Prop),
+            exprD' tu (tv' ++ tv) t e = Some v1 ->
+            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
-              sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
+              sD' : hlist typD tu -> hlist typD tv -> Prop,
               substD tu tv s' = Some sD' /\
-              (forall (us : hlist (typD nil) tu) (vs : hlist (typD nil) tv),
+              (forall (us : hlist typD tu) (vs : hlist typD tv),
                  sD' us vs ->
                  sD us vs /\
-                 (forall vs' : hlist (typD nil) tv',
+                 (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
   Proof.
     intros.
@@ -187,7 +187,7 @@ Section typed.
       forward_reason.
       split; eauto; intros.
       assert (exists v2',
-                exprD' nil tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
+                exprD' tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
                 /\ forall us vs vs',
                      sD us vs ->
                      v2 us (hlist_app vs' vs) = v2' us (hlist_app vs' vs)).
@@ -196,18 +196,18 @@ Section typed.
         simpl in *.
         autorewrite with exprD_rw in H5; simpl in H5.
         forward. inv_all; subst.
-        change_rewrite H5 in H9. inv_all; subst.
+(*        change_rewrite H5 in H9. inv_all; subst. *)
         eapply nth_error_get_hlist_nth_Some in H5.
         simpl in *. forward_reason.
-        generalize (@exprD'_lift typ func _ _ _ _ _ _ nil tu e0 nil tv' tv x2).
+        generalize (@exprD'_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x2).
         simpl. change_rewrite H7.
         intros; forwardy. destruct r.
         eexists; split; [ eassumption | ].
         intros.
         erewrite H8; try eassumption.
-        specialize (H9 us Hnil vs' vs).
-        simpl in H9.
-        rewrite H9.
+        specialize (H10 us Hnil vs' vs).
+        simpl in H10.
+        rewrite H10.
         reflexivity. }
       forward_reason.
       specialize (H3 _ _ _ H4 H7 H6).
@@ -221,14 +221,14 @@ Section typed.
 
   Lemma handle_uvar'
   : forall
-        unify : list Type -> tenv typ -> tenv typ ->
+        unify : tenv typ -> tenv typ ->
                 nat -> subst -> expr typ func -> expr typ func -> typ -> option subst,
         unify_sound_ind unify ->
         forall (tu : tenv typ) (tv : list typ) e
                (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
           match lookup u s with
             | Some e2' =>
-              unify nil tu (tv' ++ tv) (length tv') s
+              unify tu (tv' ++ tv) (length tv') s
                     (lift 0 (length tv') e2') e t
             | None =>
               match lower 0 (length tv') e with
@@ -239,20 +239,20 @@ Section typed.
           WellFormed_subst s ->
           WellFormed_subst s' /\
           (forall
-              (v1 v2 : hlist (typD nil) tu ->
-                       hlist (typD nil) (tv' ++ tv) -> typD nil t)
-              (sD : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop),
-              exprD' nil tu (tv' ++ tv) t (UVar u) = Some v1 ->
-              exprD' nil tu (tv' ++ tv) t e = Some v2 ->
+              (v1 v2 : hlist typD tu ->
+                       hlist typD (tv' ++ tv) -> typD t)
+              (sD : hlist typD tu -> hlist typD tv -> Prop),
+              exprD' tu (tv' ++ tv) t (UVar u) = Some v1 ->
+              exprD' tu (tv' ++ tv) t e = Some v2 ->
               substD tu tv s = Some sD ->
               exists
-                sD' : hlist (typD nil) tu -> hlist (typD nil) tv -> Prop,
+                sD' : hlist typD tu -> hlist typD tv -> Prop,
                 substD tu tv s' = Some sD' /\
-                (forall (us : hlist (typD nil) tu)
-                        (vs : hlist (typD nil) tv),
+                (forall (us : hlist typD tu)
+                        (vs : hlist typD tv),
                    sD' us vs ->
                    sD us vs /\
-                   (forall vs' : hlist (typD nil) tv',
+                   (forall vs' : hlist typD tv',
                       v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
   Proof.
     intros.
@@ -261,7 +261,7 @@ Section typed.
       forward_reason.
       split; eauto; intros.
       assert (exists v2',
-                exprD' nil tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
+                exprD' tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
                 /\ forall us vs vs',
                      sD us vs ->
                      v1 us (hlist_app vs' vs) = v2' us (hlist_app vs' vs)).
@@ -272,7 +272,7 @@ Section typed.
         forwardy. inv_all; subst.
         change_rewrite H0 in H4.
         inv_all; subst.
-        generalize (@exprD'_lift typ func _ _ _ _ _ _ nil tu e0 nil tv' tv x).
+        generalize (@exprD'_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x).
         simpl. change_rewrite H7.
         intros; forwardy.
         destruct y.
@@ -301,9 +301,9 @@ Section typed.
       lookup u s = Some e ->
       WellFormed_subst s ->
       substD tu tv s = Some sD ->
-      exprD' nil tu (tv' ++ tv) t (UVar u) = Some v1 ->
+      exprD' tu (tv' ++ tv) t (UVar u) = Some v1 ->
       exists v1',
-        exprD' nil tu (tv' ++ tv) t (lift 0 (length tv') e) = Some v1' /\
+        exprD' tu (tv' ++ tv) t (lift 0 (length tv') e) = Some v1' /\
         forall us vs vs',
           sD us vs ->
           v1 us (hlist_app vs' vs) = v1' us (hlist_app vs' vs).
@@ -312,7 +312,7 @@ Section typed.
     eapply substD_lookup in H; eauto.
     simpl in *. forward_reason.
     generalize (@exprD'_lift typ func RType_typ Typ2_arr _ _ _ _
-                             nil tu e nil tv' tv x).
+                             tu e nil tv' tv x).
     simpl. change_rewrite H3.
     intros; forwardy.
     autorewrite with exprD_rw in H2. simpl in H2.

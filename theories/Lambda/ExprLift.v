@@ -68,12 +68,12 @@ Section types.
   Context {RSymOk_func : RSymOk RSym_func}.
 
   Theorem typeof_expr_lower
-  : forall ts tus e tvs tvs' tvs'' e',
+  : forall tus e tvs tvs' tvs'' e',
       lower (length tvs) (length tvs') e = Some e' ->
-      typeof_expr ts tus (tvs ++ tvs'') e' =
-      typeof_expr ts tus (tvs ++ tvs' ++ tvs'') e.
+      typeof_expr tus (tvs ++ tvs'') e' =
+      typeof_expr tus (tvs ++ tvs' ++ tvs'') e.
   Proof.
-    intros ts tus e tvs tvs' tvs''; revert tvs.
+    intros tus e tvs tvs' tvs''; revert tvs.
     induction e; simpl; intros; simpl in *; forward; inv_all; subst; auto.
     { consider (v ?[ lt ] length tvs); intros; forward; inv_all; subst.
       { simpl.
@@ -89,25 +89,25 @@ Section types.
   Qed.
 
   Theorem exprD'_lower
-  : forall ts tus tvs tvs' tvs'' e t val e',
+  : forall tus tvs tvs' tvs'' e t val e',
       lower (length tvs) (length tvs') e = Some e' ->
-      exprD' ts tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
+      exprD' tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
       exists val',
-        exprD' ts tus (tvs ++ tvs'') t e' = Some val' /\
+        exprD' tus (tvs ++ tvs'') t e' = Some val' /\
         forall us vs vs' vs'',
           val us (hlist_app vs (hlist_app vs' vs'')) =
           val' us (hlist_app vs vs'').
   Proof.
-    intros ts tus tvs tvs' tvs'' e. revert tvs.
+    intros tus tvs tvs' tvs'' e. revert tvs.
     induction e; simpl; intros;
     autorewrite with exprD_rw in *; simpl in *; forward; inv_all; subst.
     { consider (v ?[ lt ] length tvs); intros; forward.
       { inv_all; subst.
         autorewrite with exprD_rw. simpl.
         generalize H.
-        eapply nth_error_get_hlist_nth_appL with (F := typD ts) (tvs' := tvs' ++ tvs'') in H.
+        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tvs' ++ tvs'') in H.
         intro.
-        eapply nth_error_get_hlist_nth_appL with (F := typD ts) (tvs' := tvs'') in H0.
+        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tvs'') in H0.
         forward_reason; Cases.rewrite_all_goal.
         destruct x0; simpl in *.
         rewrite H3 in *. rewrite H1 in *. inv_all; subst.
@@ -115,7 +115,7 @@ Section types.
         intros. simpl. rewrite H6. rewrite H4. reflexivity. }
       { inv_all; subst.
         autorewrite with exprD_rw. simpl.
-        consider (nth_error_get_hlist_nth (typD ts) (tvs ++ tvs'') (v - length tvs')); intros.
+        consider (nth_error_get_hlist_nth typD (tvs ++ tvs'') (v - length tvs')); intros.
         { destruct s.
           eapply nth_error_get_hlist_nth_appR in H1; [ simpl in * | omega ].
           destruct H1 as [ ? [ ? ? ] ].
@@ -156,10 +156,10 @@ Section types.
       clear - H4 H5. destruct e; simpl.
       rewrite H5. rewrite H4. reflexivity. }
     { autorewrite with exprD_rw in *; simpl in *.
-      destruct (typ2_match_case ts t0).
+      destruct (typ2_match_case t0).
       { destruct H1 as [ ? [ ? [ ? ? ] ] ].
         rewrite H1 in *; clear H1.
-        generalize dependent (typ2_cast ts x x0).
+        generalize dependent (typ2_cast x x0).
         destruct x1. simpl in *. intros.
         specialize (IHe (t :: tvs)). simpl in *.
         repeat first [ rewrite eq_option_eq in *
@@ -179,11 +179,11 @@ Section types.
   Qed.
 
   Theorem typeof_expr_lift
-  : forall ts tus e tvs tvs' tvs'',
-      typeof_expr ts tus (tvs ++ tvs' ++ tvs'') (lift (length tvs) (length tvs') e) =
-      typeof_expr ts tus (tvs ++ tvs'') e.
+  : forall tus e tvs tvs' tvs'',
+      typeof_expr tus (tvs ++ tvs' ++ tvs'') (lift (length tvs) (length tvs') e) =
+      typeof_expr tus (tvs ++ tvs'') e.
   Proof.
-    intros ts tus e tvs; revert tvs; induction e; simpl; intros;
+    intros tus e tvs; revert tvs; induction e; simpl; intros;
     Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
       { repeat rewrite ListNth.nth_error_app_L by auto.
@@ -195,11 +195,11 @@ Section types.
   Qed.
 
   Theorem exprD'_lift
-  : forall ts tus e tvs tvs' tvs'' t,
-      match exprD' ts tus (tvs ++ tvs'') t e with
+  : forall tus e tvs tvs' tvs'' t,
+      match exprD' tus (tvs ++ tvs'') t e with
         | None => True
         | Some val =>
-          match exprD' ts tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
+          match exprD' tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
             | None => False
             | Some val' =>
               forall us vs vs' vs'',
@@ -212,9 +212,9 @@ Section types.
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
       { generalize H.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs' ++ tvs'') (F := typD ts) in H; eauto with typeclass_instances.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs' ++ tvs'') (F := typD) in H; eauto with typeclass_instances.
         intro.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs'') (F := typD ts)
+        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs'') (F := typD)
           in H2; eauto with typeclass_instances.
         forward_reason.
         revert H2. Cases.rewrite_all_goal. destruct x1.
@@ -226,7 +226,7 @@ Section types.
         rewrite H4. rewrite H6. auto. }
       { eapply nth_error_get_hlist_nth_appR in H0; [ simpl in * | omega ].
         forward_reason.
-        consider (nth_error_get_hlist_nth (typD ts) (tvs ++ tvs' ++ tvs'')
+        consider (nth_error_get_hlist_nth typD (tvs ++ tvs' ++ tvs'')
            (v + length tvs')); intros.
         { destruct s. forward.
           eapply nth_error_get_hlist_nth_appR in H3; [ simpl in * | omega ].
@@ -252,10 +252,10 @@ Section types.
       unfold OpenT, ResType.OpenT.
       repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
       rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
-    { destruct (typ2_match_case ts t0).
+    { destruct (typ2_match_case t0).
       { destruct H0 as [ ? [ ? [ ? ? ] ] ].
         rewrite H0 in *; clear H0.
-        generalize dependent (typ2_cast ts x x0).
+        generalize dependent (typ2_cast x x0).
         destruct x1. simpl.
         intros. rewrite eq_option_eq in *.
         forward. inv_all; subst.
@@ -268,9 +268,9 @@ Section types.
   Qed.
 
   Theorem vars_to_uvars_typeof_expr
-  : forall ts tus e tvs tvs' t,
-      typeof_expr ts tus (tvs ++ tvs') e = Some t ->
-      typeof_expr ts (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
+  : forall tus e tvs tvs' t,
+      typeof_expr tus (tvs ++ tvs') e = Some t ->
+      typeof_expr (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
       = Some t.
   Proof.
     induction e; simpl; intros; auto.

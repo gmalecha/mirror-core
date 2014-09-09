@@ -48,14 +48,14 @@ Section parameterized.
             | Some hD , Some gD , Some sD =>
               match substD (tus ++ tus') (tvs ++ tvs') sub' with
                 | Some sD' =>
-                  forall (us : hlist (typD nil) tus)
-                         (vs : hlist (typD nil) tvs),
-                    (exists (us' : hlist (typD nil) tus')
-                            (vs' : hlist (typD nil) tvs'),
+                  forall (us : hlist typD tus)
+                         (vs : hlist typD tvs),
+                    (exists (us' : hlist typD tus')
+                            (vs' : hlist typD tvs'),
                        sD' (hlist_app us us') (hlist_app vs vs')) ->
                     Forall
-                      (fun P : hlist (typD nil) tus ->
-                               hlist (typD nil) tvs -> Prop =>
+                      (fun P : hlist typD tus ->
+                               hlist typD tvs -> Prop =>
                          P us vs) hD ->
                     Forall (fun P => P us vs) gD /\ sD us vs
                 | _ => False
@@ -74,21 +74,21 @@ Section parameterized.
                   , substD (tus ++ tus') (tvs ++ tvs') sub'
               with
                 | Some hD' , Some gD' , Some sD' =>
-                  forall (us : hlist (typD nil) tus)
-                         (vs : hlist (typD nil) tvs),
-                    (exists (us' : hlist (typD nil) tus')
-                            (vs' : hlist (typD nil) tvs'),
+                  forall (us : hlist typD tus)
+                         (vs : hlist typD tvs),
+                    (exists (us' : hlist typD tus')
+                            (vs' : hlist typD tvs'),
                        let us := hlist_app us us' in
                        let vs := hlist_app vs vs' in
                        Forall
-                         (fun P : hlist (typD nil) (tus ++ tus') ->
-                                  hlist (typD nil) (tvs ++ tvs') -> Prop =>
+                         (fun P : hlist typD (tus ++ tus') ->
+                                  hlist typD (tvs ++ tvs') -> Prop =>
                             P us vs) hD' ->
                           sD' us vs
                        /\ gD' us vs) ->
                     Forall
-                      (fun P : hlist (typD nil) tus ->
-                               hlist (typD nil) tvs -> Prop =>
+                      (fun P : hlist typD tus ->
+                               hlist typD tvs -> Prop =>
                          P us vs) hD ->
                     Forall (fun P => P us vs) gD /\ sD us vs
                 | _ , _ , _ => False

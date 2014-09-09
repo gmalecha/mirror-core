@@ -27,29 +27,23 @@ Section typed.
     match x , y with
       | nil , nil => true
       | x :: xs , y :: ys =>
-        if x ?[ Rty nil ] y then list_Rty xs ys else false
+        if x ?[ @Rty _ _ ] y then list_Rty xs ys else false
       | _ , _ => false
     end.
 
   Record function := F
   { fenv : nat
-  ; ftype : typ
-  ; fdenote : forall ts, parametric fenv ts (fun env => typD env ftype)
+  ; ftype : quant typ fenv
+  ; fdenote : parametric fenv (@nil typ) (fun env =>
+                                            match qapply fenv env ftype with
+                                              | None => False
+                                              | Some x => typD x
+                                            end)
   }.
+
 
   Definition functions := PositiveMap.t function.
   Variable fs : functions.
-
-  Variable instantiate_typ : list typ -> typ -> typ.
-
-  Variable type_apply
-  : forall n ls acc t,
-      parametric n acc (fun env => typD env t) ->
-      option (typD acc (instantiate_typ ls t)).
-
-  Hypothesis type_apply_length_equal : forall ft ts' n z fd,
-    length ts' = n ->
-    exists r, type_apply n ts' z ft fd = Some r.
 
   Definition func_typeof_sym (f : func) : option typ :=
     match f with
@@ -57,12 +51,50 @@ Section typed.
         match PositiveMap.find i fs with
           | None => None
           | Some ft =>
-            if ft.(fenv) ?[ eq ] length ts then
-              Some (instantiate_typ ts ft.(ftype))
-            else
-              None
+            qapply _ ts ft.(ftype)
         end
     end.
+
+  Definition symD_sym (f : func)
+  : match func_typeof_sym f with
+      | None => unit
+      | Some t => typD t
+    end.
+    refine
+    match f as f
+          return match func_typeof_sym f with
+                   | None => unit
+                   | Some t => typD t
+                 end
+    with
+      | FRef i ts' =>
+        match PositiveMap.find i fs as x
+              return match
+                match x with
+                  | Some ft =>
+                    qapply _ ts' ft.(ftype)
+                  | None => None
+                end
+              with
+                | Some t => typD t
+                | None => unit
+              end
+        with
+          | Some {| fenv := fenv ; ftype := ftype ; fdenote := fd |} =>
+            _
+          | None => tt
+        end
+    end.
+    simpl in *.
+(*
+    Fixpoint parametric_apply n (ls : list typ) F {struct n}
+    : parametric n ls F -> F ls.
+      destruct n. simpl. refine (fun x => x).
+      simpl. intros. destruct ls.
+      + admit.
+      + specialize (parametric_apply n ls).
+*)
+  Admitted.
 
   (** TODO: This is pretty ugly, it is because it doesn't
    ** match up well with [func_typeof_func].
@@ -77,68 +109,8 @@ Section typed.
                        Some false
                  end
   ; typeof_sym := func_typeof_sym
-  ; symD := fun ts f =>
-               match f as f
-                     return match func_typeof_sym f with
-                              | None => unit
-                              | Some t => typD ts t
-                            end
-               with
-                 | FRef i ts' =>
-                   match PositiveMap.find i fs as x
-                     return match
-                       match x with
-                         | Some ft =>
-                           if fenv ft ?[ eq ] length ts'
-                           then Some (instantiate_typ ts' (ftype ft))
-                           else None
-                         | None => None
-                       end
-                     with
-                       | Some t => typD ts t
-                       | None => unit
-                     end
-                   with
-                     | Some {| fenv := fenv ; ftype := ftype ; fdenote := fd |} =>
-                       match fenv ?[ eq ] length ts' as zz
-                             return fenv ?[ eq ] length ts' = zz ->
-                                    match
-                                      (if zz
-                                       then
-                                         Some
-                                           (instantiate_typ ts'
-                                                            ftype)
-                                       else None)
-                                    with
-                                      | Some t => typD ts t
-                                      | None => unit
-                                    end
-                       with
-                         | true => fun pf =>
-                           match type_apply _ ts' ts _ (fd ts) as xx
-                                 return type_apply _ ts' ts _ (fd ts) = xx ->
-                                        typD ts (instantiate_typ ts' ftype)
-                           with
-                             | None => fun pf' => match _ : False with end
-                             | Some z => fun _ => z
-                           end eq_refl
-                         | false => fun pf => tt
-                       end eq_refl
-                     | None => tt
-                   end
-               end
+  ; symD := symD_sym
   }.
-  (** TODO(gmalecha): How worthwhile is the list of types? **)
-  abstract (rewrite rel_dec_correct in pf;
-            destruct (type_apply_length_equal ftype0 _ ts (fd ts) (eq_sym pf));
-            match type of H with
-              | ?X = _ =>
-                match type of pf' with
-                  | ?Y = _ =>
-                    change Y with X in pf' ; congruence
-                end
-            end).
-  Defined.
 
   Lemma list_Rty_eq : forall a b, list_Rty a b = true <-> a = b.
   Proof.

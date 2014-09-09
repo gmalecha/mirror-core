@@ -38,7 +38,7 @@ Section typed_fold.
         | l :: ls =>
           typ2_match (F := Fun)
                      (fun _ => R)
-                     ts ft
+                     ft
                      (fun d r =>
                         unroll_types R r ls
                                      (fun rt ls =>
@@ -61,7 +61,7 @@ Section typed_fold.
                                                  (fun _ => None)) :: ls)
 *)
              (fun ft f val args =>
-                typ2_match (F := Fun) (fun _ => R) ts ft
+                typ2_match (F := Fun) (fun _ => R) ft
                            (fun d r =>
                               success r f val
                                       ((d,x,fun z =>
@@ -113,7 +113,7 @@ Section typed_fold.
         | Abs t' e =>
           typ2_match (F := Fun)
                      (fun _ => R)
-                     ts t
+                     t
                      (fun d r =>
                         success (fun z => do_abs tus tvs d r e
                                                  (fun z =>
@@ -124,7 +124,7 @@ Section typed_fold.
         | App f x =>
           gather_app tus tvs f
                      (fun ft f val vals =>
-                        typ2_match (F := Fun) (fun _ => R) ts ft
+                        typ2_match (F := Fun) (fun _ => R) ft
                            (fun d r =>
                               let vals :=
                                   ((d,x,fun z =>
@@ -166,7 +166,7 @@ Section typed_fold.
         | App f x =>
           gather_app tus tvs f
                      (fun ft f val vals =>
-                        typ2_match (F := Fun) (fun _ => R) ts ft
+                        typ2_match (F := Fun) (fun _ => R) ft
                            (fun d r =>
                               let vals :=
                                   ((d,x,fun z =>
@@ -193,7 +193,7 @@ Section typed_fold.
   Definition lazy_typed_mfold {T : Type} (args : AppFullFoldArgs T)
   : list Type -> list typ -> list typ -> typ -> expr typ func -> option (Lazy T) :=
     fun ts tus tvs t e =>
-      @typed_mfold_cpsL ts T
+      @typed_mfold_cpsL T
                         args.(do_var)
                         args.(do_uvar)
                         args.(do_inj)

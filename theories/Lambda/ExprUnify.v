@@ -38,15 +38,13 @@ Section typed.
   : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
   Local Existing Instance Expr_expr.
 
-  Local Instance RelDec_Rty ts : RelDec (Rty ts) :=
-  { rel_dec := fun a b => match type_cast ts a b with
+  Local Instance RelDec_Rty : RelDec Rty :=
+  { rel_dec := fun a b => match type_cast a b with
                             | Some _ => true
                             | None => false
                           end }.
 
   Section nested.
-    Variable ts : list Type.
-
     (** n is the number of binders that we have gone under **)
     Variable exprUnify : forall (tus tvs : tenv typ) (under : nat) (s : subst)
                                 (l r : expr typ func), typ -> option subst.
@@ -98,10 +96,10 @@ Section typed.
             | _ => None
           end
         | App e1 e1' , App e2 e2' =>
-          match typeof_expr ts us vs e1 , typeof_expr ts us vs e2 with
+          match typeof_expr us vs e1 , typeof_expr us vs e2 with
             | Some t1 , Some t2 =>
-              if t1 ?[ Rty ts ] t2 then
-                typ2_match (fun _ => option subst) ts t1
+              if t1 ?[ Rty ] t2 then
+                typ2_match (fun _ => option subst) t1
                            (fun d r =>
                               match exprUnify' us vs n s e1 e2 t1 with
                                 | None => None
@@ -115,7 +113,7 @@ Section typed.
           end
         | Abs t1 e1 , Abs t2 e2 =>
           (* t1 = t2 since both terms have the same type *)
-          typ2_match (F := Fun) (fun _ => _) ts t
+          typ2_match (F := Fun) (fun _ => _) t
                      (fun _ t =>
                         exprUnify' us (t1 :: vs) (S n) s e1 e2 t)
                      None
@@ -128,12 +126,12 @@ Section typed.
 
     (** Delaying the recursion is probably important **)
     Fixpoint exprUnify (fuel : nat)
-             (ts : list Type) (us vs : tenv typ) (under : nat) (s : subst)
+             (us vs : tenv typ) (under : nat) (s : subst)
              (e1 e2 : expr typ func) (t : typ) : option subst :=
       match fuel with
         | 0 => None
         | S fuel =>
-          exprUnify' ts (fun tus tvs => exprUnify fuel ts tus tvs)
+          exprUnify' (fun tus tvs => exprUnify fuel tus tvs)
                      us vs under s e1 e2 t
       end.
   End exprUnify.
@@ -163,7 +161,7 @@ Section typed.
   Lemma exprUnify'_sound
   : forall unify,
       unify_sound_ind _ unify ->
-      unify_sound_ind _ (fun ts => exprUnify' ts (unify ts)).
+      unify_sound_ind _ (exprUnify' unify).
   Proof.
     Opaque rel_dec.
     red. induction e1; simpl; intros.
@@ -183,8 +181,8 @@ Section typed.
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].
       { forward.
         match goal with
-          | H : typ2_match _ ?ts ?t _ _ = _ |- _ =>
-            arrow_case ts t; try congruence
+          | H : typ2_match _ ?t _ _ = _ |- _ =>
+            arrow_case t; try congruence
         end.
         rewrite eq_Const_eq in H4.
         red in x1; red in H3. subst. subst.
@@ -214,10 +212,7 @@ Section typed.
         Cases.rewrite_all_goal. reflexivity. } }
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].
       { forward. subst.
-        match goal with
-          | H : typ2_match _ ?ts ?t _ _ = _ |- _ =>
-            arrow_case ts t; try congruence
-        end.
+        arrow_case_any; try congruence.
         unfold Relim in H0.
         rewrite eq_Const_eq in H0.
         red in x1. subst.
@@ -237,7 +232,7 @@ Section typed.
         split; auto. intros.
         unfold OpenT, ResType.OpenT.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-        eapply match_eq_match_eq with (pf := eq_sym (typ2_cast nil t x0)) (F := fun x => x).
+        eapply match_eq_match_eq with (pf := eq_sym (typ2_cast t x0)) (F := fun x => x).
         eapply functional_extensionality; intros.
         apply (H11 (Hcons x1 vs')). } }
     { destruct e2; try solve [ eapply handle_uvar'; eauto ].

@@ -14,8 +14,6 @@ Section typed_fold.
   Variable Typ2_Fun : Typ2 _ Fun.
 
   Section folder.
-    Variable ts : list Type.
-
     Variable T : Type.
 
     Variable do_var : var -> typ -> T.
@@ -35,7 +33,7 @@ Section typed_fold.
         | Abs t' e =>
           typ2_match (F := Fun)
                      (fun _ => option T)
-                     ts t
+                     t
                      (fun d r =>
                         match typed_mfold tus (d :: tvs) r e with
                           | Some rr =>
@@ -83,7 +81,7 @@ Section typed_fold.
             | Some (dr,fv) =>
               typ2_match (F := Fun)
                          (fun _ => option (typ * T))
-                         ts dr
+                         dr
                          (fun d r =>
                             match typed_mfold tus (d :: tvs) r x with
                               | Some rr => Some (r, do_abs tus tvs d r rr)
@@ -105,7 +103,7 @@ Section typed_fold.
         | Abs t' e =>
           typ2_match (F := Fun)
                      (fun _ => R)
-                     ts t
+                     t
                      (fun d r =>
                         typed_mfold_cps tus (d :: tvs) r e
                                         (fun rr => success (do_abs tus tvs d r rr))
@@ -146,7 +144,7 @@ Section typed_fold.
           typed_mfold_infer_cps tus tvs f (fun dr fv =>
                typ2_match (F := Fun)
                           (fun _ => R)
-                          ts dr
+                          dr
                           (fun d r =>
                              typed_mfold_cps tus (d :: tvs) r x
                                              (fun rr => success r (do_abs tus tvs d r rr))

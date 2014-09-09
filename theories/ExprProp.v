@@ -21,15 +21,15 @@ Section semantic.
 
   Let tvProp := @typ0 _ _ _ Typ0_Prop.
 
-  Definition Provable_val (val : typD nil tvProp) : Prop :=
-    match typ0_cast nil in _ = t return t with
+  Definition Provable_val (val : typD tvProp) : Prop :=
+    match @typ0_cast _ _ _ _ in _ = t return t with
       | eq_refl => val
     end.
 
   Definition Provable tus tvs (e : expr) : ResType tus tvs Prop :=
     match exprD' tus tvs e tvProp with
       | None => None
-      | Some p => Some (match typ0_cast nil in _ = t
+      | Some p => Some (match @typ0_cast _ _ _ _  in _ = t
                               return HList.hlist _ tus -> HList.hlist _ tvs -> t
                         with
                           | eq_refl => p

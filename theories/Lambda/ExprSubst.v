@@ -101,10 +101,10 @@ Section instantiate_thm.
   Lemma typeof_expr_instantiate
   : forall f tus tvs,
       (forall u e, f u = Some e ->
-                   typeof_expr nil tus tvs e = nth_error tus u) ->
+                   typeof_expr tus tvs e = nth_error tus u) ->
       forall e tvs',
-        typeof_expr nil tus (tvs' ++ tvs) e =
-        typeof_expr nil tus (tvs' ++ tvs) (instantiate f (length tvs') e).
+        typeof_expr tus (tvs' ++ tvs) e =
+        typeof_expr tus (tvs' ++ tvs) (instantiate f (length tvs') e).
   Proof.
     induction e; simpl; intros; auto.
     { rewrite (IHe1 tvs').
@@ -115,7 +115,7 @@ Section instantiate_thm.
       rewrite IHe. reflexivity. }
     { specialize (H u).
       destruct (f u).
-      { specialize (typeof_expr_lift nil tus e nil tvs' tvs).
+      { specialize (typeof_expr_lift tus e nil tvs' tvs).
         simpl.
         intro XXX; change_rewrite XXX; clear XXX.
         symmetry. eapply H; reflexivity. }
@@ -126,10 +126,10 @@ Section instantiate_thm.
   : forall f tus tvs,
       (forall u e t, f u = Some e ->
                      nth_error tus u = Some t ->
-                     typeof_expr nil tus tvs e = Some t) ->
+                     typeof_expr tus tvs e = Some t) ->
       forall e tvs' t,
-        typeof_expr nil tus (tvs' ++ tvs) e = Some t ->
-        typeof_expr nil tus (tvs' ++ tvs) (instantiate f (length tvs') e) = Some t.
+        typeof_expr tus (tvs' ++ tvs) e = Some t ->
+        typeof_expr tus (tvs' ++ tvs) (instantiate f (length tvs') e) = Some t.
   Proof.
     induction e; simpl; intros; auto.
     { forwardy.
@@ -142,7 +142,7 @@ Section instantiate_thm.
       erewrite IHe by eassumption. eassumption. }
     { specialize (H u).
       destruct (f u).
-      { specialize (typeof_expr_lift nil tus e nil tvs' tvs).
+      { specialize (typeof_expr_lift tus e nil tvs' tvs).
         simpl.
         intro XXX; change_rewrite XXX; clear XXX.
         eapply H; eauto. }
@@ -173,9 +173,9 @@ Section instantiate_thm.
       intros.
       specialize (fun t get => H u e t get H0).
       simpl in *.
-      consider (nth_error_get_hlist_nth (typD nil) tus u).
+      consider (nth_error_get_hlist_nth typD tus u).
       { intros. destruct s.
-        specialize (H2 _ _ H).
+        specialize (H2 _ _ eq_refl).
         forward_reason.
         eapply nth_error_get_hlist_nth_Some in H.
         simpl in H. forward_reason.
@@ -184,7 +184,7 @@ Section instantiate_thm.
       { intro. exfalso.
         eapply nth_error_get_hlist_nth_None in H. congruence. } }
     { autorewrite with exprD_rw in *.
-      destruct (typ2_match_case nil t0) as [ [ ? [ ? [ ? ? ] ] ] | ? ].
+      destruct (typ2_match_case t0) as [ [ ? [ ? [ ? ? ] ] ] | ? ].
       { rewrite H1 in *. clear H1.
         simpl in *.
         unfold Relim in *.
@@ -213,7 +213,7 @@ Section instantiate_thm.
         forwardy.
         specialize (H _ _ _ eq_refl H0).
         forward_reason.
-        generalize (exprD'_lift nil tus e nil tvs' tvs t).
+        generalize (exprD'_lift tus e nil tvs' tvs t).
         destruct y.
         simpl. change_rewrite H.
         intros; forwardy.
@@ -225,13 +225,6 @@ Section instantiate_thm.
         eexists; split; [ eassumption | ].
         reflexivity. } }
   Qed.
-
-  Theorem if_true_iff
-  : forall T (a : bool) (b c d : T),
-      (if a then b else c) = d <->
-      ((a = true /\ b = d) /\ (a = false /\ c = d)).
-  Proof.
-  Admitted.
 
   Theorem instantiate_mentionsU
   : @instantiate_mentionsU typ (expr typ func) RType_typ Expr_expr (@instantiate typ func).

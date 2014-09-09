@@ -43,15 +43,15 @@ Section parameterized.
   ; Extern : @EProver typ expr
   }.
 
-  Let provable (P : typD nil tyProp) : Prop :=
-    match typ0_cast nil in _ = T return T with
+  Let provable (P : typD tyProp) : Prop :=
+    match typ0_cast (F:=Prop) in _ = T return T with
       | eq_refl => P
     end.
 
   Let lemmaD :=
     @lemmaD _ _ _ Expr_expr expr
             (fun tus tvs g =>
-               match typ0_cast nil in _ = T return ResType tus tvs T with
+               match typ0_cast (F:=Prop) in _ = T return ResType tus tvs T with
                  | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
                end)
             tyProp
@@ -60,7 +60,7 @@ Section parameterized.
   Let lemmaD' :=
     @lemmaD' _ _ _ Expr_expr expr
             (fun tus tvs g =>
-               match typ0_cast nil in _ = T return ResType tus tvs T with
+               match typ0_cast (F:=Prop) in _ = T return ResType tus tvs T with
                  | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
                end)
             tyProp
@@ -109,7 +109,7 @@ Section parameterized.
   Hypothesis NormlizedSubst : NormalizedSubstOk _.
 
   Let eapplicable :=
-    @eapplicable typ expr tyProp subst vars_to_uvars exprUnify.
+    @eapplicable typ _ expr Typ0_Prop subst vars_to_uvars exprUnify.
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> EnvI.tenv typ -> EnvI.tenv typ -> expr -> subst -> option subst)
@@ -271,16 +271,16 @@ Section parameterized.
 
   Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
      (t : typ) (tvs' : list typ)
-     (val : hlist (typD nil) tus0 ->
-            hlist (typD nil) (tvs0 ++ tvs') -> typD nil t),
+     (val : hlist typD tus0 ->
+            hlist typD (tvs0 ++ tvs') -> typD t),
    exprD' tus0 (tvs0 ++ tvs') e t = Some val ->
    exists
-     val' : hlist (typD nil) (tus0 ++ tvs') ->
-            hlist (typD nil) tvs0 -> typD nil t,
+     val' : hlist typD (tus0 ++ tvs') ->
+            hlist typD tvs0 -> typD t,
      exprD' (tus0 ++ tvs') tvs0 (vars_to_uvars (length tvs0) (length tus0) e)
        t = Some val' /\
-     (forall (us : hlist (typD nil) tus0) (vs' : hlist (typD nil) tvs')
-        (vs : hlist (typD nil) tvs0),
+     (forall (us : hlist typD tus0) (vs' : hlist typD tvs')
+        (vs : hlist typD tvs0),
       val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
   Lemma applicable_sound
@@ -301,7 +301,7 @@ Section parameterized.
             /\ sD us vs.
   Proof.
     intros. unfold eapplicable in H.
-    eapply eapplicable_sound with (tyProp := tyProp) in H;
+    eapply eapplicable_sound in H;
       eauto with typeclass_instances.
     forward_reason. split; eauto.
   Qed.
@@ -369,9 +369,9 @@ Section parameterized.
               Provable tus (vars l ++ tvs) (concl l) = Some gD ->
               exists sD',
                 substD (tus ++ vars l) tvs s1 = Some sD' /\
-                (forall (us : hlist (typD nil) tus)
-                        (vs : hlist (typD nil) tvs)
-                        (vs' : hlist (typD nil) (vars l)),
+                (forall (us : hlist typD tus)
+                        (vs : hlist typD tvs)
+                        (vs' : hlist typD (vars l)),
                    fD us vs ->
                    sD' (hlist_app us vs') vs ->
                       sD (hlist_app us vs') vs
@@ -436,8 +436,8 @@ Section parameterized.
         rewrite foralls_sem in H6.
         remember (hlist_map
                 (fun (t : typ)
-                   (x : hlist (typD nil) tus ->
-                        hlist (typD nil) tvs -> typD nil t) =>
+                   (x : hlist typD tus ->
+                        hlist typD tvs -> typD t) =>
                  x us vs) x4).
         specialize (H6 h).
         specialize (H17 _ H23 H24).

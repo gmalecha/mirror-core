@@ -84,10 +84,10 @@ Section substitute.
     end.
 
   Theorem substitute_one_typed
-  : forall ts tus t e w tvs' tvs t',
-      typeof_expr ts tus (tvs ++ tvs') w = Some t ->
-      typeof_expr ts tus (tvs ++ t :: tvs') e = Some t' ->
-      typeof_expr ts tus (tvs ++ tvs') (substitute_one (length tvs) w e) = Some t'.
+  : forall tus t e w tvs' tvs t',
+      typeof_expr tus (tvs ++ tvs') w = Some t ->
+      typeof_expr tus (tvs ++ t :: tvs') e = Some t' ->
+      typeof_expr tus (tvs ++ tvs') (substitute_one (length tvs) w e) = Some t'.
   Proof.
     induction e; simpl; intros;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
@@ -109,23 +109,23 @@ Section substitute.
     { eapply (IHe (lift 0 1 w) tvs' (t0 :: tvs)) in H0; eauto.
       simpl in *. rewrite H0. reflexivity.
       simpl.
-      generalize (typeof_expr_lift ts tus w nil (t0 :: nil) (tvs ++ tvs')).
+      generalize (typeof_expr_lift tus w nil (t0 :: nil) (tvs ++ tvs')).
       simpl.
       intro. rewrite H1. assumption. }
   Qed.
 
   Theorem substitute_one_sound
-  : forall ts tus e tvs w e',
+  : forall tus e tvs w e',
       substitute_one (length tvs) w e = e' ->
       forall tvs' (t t' : typ),
-        match exprD' ts tus (tvs ++ tvs') t w
-            , exprD' ts tus (tvs ++ t :: tvs') t' e
+        match exprD' tus (tvs ++ tvs') t w
+            , exprD' tus (tvs ++ t :: tvs') t' e
         with
           | Some wval , Some eval =>
-            match exprD' ts tus (tvs ++ tvs') t' e' with
+            match exprD' tus (tvs ++ tvs') t' e' with
               | None => False
               | Some val' =>
-                forall (us : hlist _ tus) (gs : hlist (typD ts) tvs) (gs' : hlist (typD ts) tvs'),
+                forall (us : hlist _ tus) (gs : hlist typD tvs) (gs' : hlist typD tvs'),
                   eval us (hlist_app gs (Hcons (wval us (hlist_app gs gs')) gs')) =
                   val' us (hlist_app gs gs')
             end
@@ -167,7 +167,7 @@ Section substitute.
           forward.
           assert (v - 1 >= length tvs) by omega.
 
-          eapply (@nth_error_get_hlist_nth_rwR _ (typD ts) tvs tvs') in H6.
+          eapply (@nth_error_get_hlist_nth_rwR _ typD tvs tvs') in H6.
           rewrite H4 in *. forward_reason.
           rewrite H6. subst. inv_all; subst. subst.
           destruct r. rewrite type_cast_refl; eauto.
@@ -176,9 +176,9 @@ Section substitute.
         autorewrite with exprD_rw; simpl.
         assert (v < length tvs) by omega.
         generalize H1.
-        eapply (@nth_error_get_hlist_nth_appL _ (typD ts) (t :: tvs')) in H1.
+        eapply (@nth_error_get_hlist_nth_appL _ typD (t :: tvs')) in H1.
         intro.
-        eapply (@nth_error_get_hlist_nth_appL _ (typD ts) tvs') in H4.
+        eapply (@nth_error_get_hlist_nth_appL _ typD tvs') in H4.
         forward_reason. Cases.rewrite_all_goal.
         destruct x0; simpl in *.
         rewrite H7 in H5. inv_all; subst. destruct r.
@@ -186,7 +186,7 @@ Section substitute.
                  | H : _ |- _ => eapply nth_error_get_hlist_nth_Some in H
                end; simpl in *; forward_reason.
         unfold Rcast_val, Rcast in *; simpl in *.
-        consider (type_cast ts (projT1 x1) x).
+        consider (type_cast (projT1 x1) x).
         { intros. red in r. subst. simpl.
           rewrite H2; clear H2.
           rewrite H4; clear H4.
@@ -215,7 +215,7 @@ Section substitute.
           rewrite x5 in x3. congruence. } } }
     { simpl. autorewrite with exprD_rw.
       unfold funcAs in *.
-      generalize dependent (symD ts f).
+      generalize dependent (symD f).
       destruct (typeof_sym f).
       { intros.
         forward. destruct r.
@@ -233,15 +233,15 @@ Section substitute.
       { eapply exprD'_typeof_expr.
         left. eauto. } }
     { autorewrite with exprD_rw. simpl.
-      destruct (typ2_match_case ts t').
+      destruct (typ2_match_case t').
       { destruct H as [ ? [ ? [ ? ? ] ] ].
         rewrite H in *; clear H.
         red in x1. subst. simpl in *.
-        destruct (eq_sym (typ2_cast ts x x0)).
+        destruct (eq_sym (typ2_cast x x0)).
         forward. inv_all; subst.
         specialize (IHe (t :: tvs) (lift 0 1 w) _ eq_refl tvs' t0 x0).
         revert IHe. simpl.
-        generalize (exprD'_lift ts tus w nil (t :: nil) (tvs ++ tvs') t0).
+        generalize (exprD'_lift tus w nil (t :: nil) (tvs ++ tvs') t0).
         simpl. Cases.rewrite_all_goal.
         intros. forward.
         eapply functional_extensionality. intros.
@@ -284,44 +284,44 @@ Section beta.
     end.
 
   Theorem beta_sound
-  : forall ts tus tvs e t,
-      match exprD' ts tus tvs t e with
+  : forall tus tvs e t,
+      match exprD' tus tvs t e with
         | None => True
         | Some val =>
-          match exprD' ts tus tvs t (beta e) with
+          match exprD' tus tvs t (beta e) with
             | None => False
             | Some val' =>
               forall us vs, val us vs = val' us vs
           end
       end.
   Proof.
-    intros ts tus tvs e t.
+    intros tus tvs e t.
     match goal with
       | |- ?G =>
-        cut (exprD' ts tus tvs t e = exprD' ts tus tvs t e /\ G);
+        cut (exprD' tus tvs t e = exprD' tus tvs t e /\ G);
           [ intuition | ]
     end.
     revert tvs e t.
     refine (@ExprFacts.exprD'_ind _ _ _ _ _ _ _ _
-                                      (fun ts tus tvs e t val =>
-                                         exprD' ts tus tvs t e = val /\
+                                      (fun tus tvs e t val =>
+                                         exprD' tus tvs t e = val /\
                                       match val with
                                         | Some val =>
-                                          match exprD' ts tus tvs t (beta e) with
+                                          match exprD' tus tvs t (beta e) with
                                             | Some val' =>
-                                              forall (us : hlist (typD ts) tus) (vs : hlist (typD ts) tvs),
+                                              forall (us : hlist typD tus) (vs : hlist typD tvs),
                                                 val us vs = val' us vs
                                             | None => False
                                           end
                                         | None => True
-                                      end) _ _ _ _ _ _ _ _).
+                                      end) _ _ _ _ _ _ _).
     { auto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       rewrite type_cast_refl; eauto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       rewrite type_cast_refl; eauto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
-      unfold funcAs. generalize (symD ts i).
+      unfold funcAs. generalize (symD i).
       Cases.rewrite_all_goal.
       rewrite type_cast_refl; eauto. simpl. auto. }
     { simpl. destruct f;
@@ -336,7 +336,7 @@ Section beta.
       { split; auto.
         clear H5. unfold Open_App.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-        generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ ts tus f nil x _ eq_refl tvs d r).
+        generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus f nil x _ eq_refl tvs d r).
         autorewrite with exprD_rw in H0. simpl in H0.
         rewrite typ2_match_zeta in H0; eauto.
         rewrite eq_option_eq in H0.
@@ -352,7 +352,7 @@ Section beta.
         reflexivity. } }
     { intros. forward_reason.
       forward. simpl.
-      cutrewrite (exprD' ts tus tvs (typ2 d r) (Abs d e) = Some (Open_Abs fval)); auto.
+      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (Open_Abs fval)); auto.
       autorewrite with exprD_rw.
       rewrite typ2_match_zeta; auto.
       rewrite type_cast_refl; auto. simpl.

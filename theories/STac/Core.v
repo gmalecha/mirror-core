@@ -39,7 +39,7 @@ Section parameterized.
     match exprD' tus tvs goal (@typ0 _ _ _ _) return ResType tus tvs Prop with
       | None => None
       | Some val =>
-        Some match typ0_cast nil in _ = T return HList.hlist _ tus -> HList.hlist _ tvs -> T with
+        Some match typ0_cast (F := Prop) in _ = T return HList.hlist _ tus -> HList.hlist _ tvs -> T with
                | eq_refl => val
              end
     end.
@@ -48,7 +48,7 @@ Section parameterized.
   : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       propD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> option (HList.hlist (typD nil) tu -> HList.hlist (typD nil) tv -> Prop)
+            return expr -> option (HList.hlist typD tu -> HList.hlist typD tv -> Prop)
       with
         | eq_refl , eq_refl => propD tus' tvs'
       end.
@@ -58,14 +58,14 @@ Section parameterized.
 
   Lemma propD_weakenU (ExprOk_expr : ExprOk _)
   : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist (typD nil) tus0 -> hlist (typD nil) tvs0 -> Prop),
+           (lD : hlist typD tus0 -> hlist typD tvs0 -> Prop),
       propD tus0 tvs0 l0 = Some lD ->
       forall tus' : list typ,
       exists
-        lD' : hlist (typD nil) (tus0 ++ tus') -> hlist (typD nil) tvs0 -> Prop,
+        lD' : hlist typD (tus0 ++ tus') -> hlist typD tvs0 -> Prop,
         propD (tus0 ++ tus') tvs0 l0 = Some lD' /\
-        (forall (us : hlist (typD nil) tus0) (us' : hlist (typD nil) tus')
-                (vs : hlist (typD nil) tvs0), lD us vs <-> lD' (hlist_app us us') vs).
+        (forall (us : hlist typD tus0) (us' : hlist typD tus')
+                (vs : hlist typD tvs0), lD us vs <-> lD' (hlist_app us us') vs).
   Proof.
     unfold propD. clear - ExprOk_expr.
     intros. forward. inv_all; subst.
@@ -316,9 +316,9 @@ Section parameterized.
         | Some G =>
           match stateD (tus ++ nil) (tvs ++ nil) s hs g with
             | Some G' =>
-              forall (us : HList.hlist (typD nil) tus)
-                     (vs : HList.hlist (typD nil) tvs),
-                (exists us' vs' : HList.hlist (typD nil) nil,
+              forall (us : HList.hlist typD tus)
+                     (vs : HList.hlist typD tvs),
+                (exists us' vs' : HList.hlist typD nil,
                    let us := HList.hlist_app us us' in
                    let vs := HList.hlist_app vs vs' in
                    G' us vs) ->

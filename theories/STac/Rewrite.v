@@ -48,8 +48,8 @@ Section parameterized.
 
   Definition Hints : Type := list RW.
 
-  Let provable (P : typD nil tyProp) : Prop :=
-    match typ0_cast nil in _ = T return T with
+  Let provable (P : typD tyProp) : Prop :=
+    match typ0_cast (F:=Prop) in _ = T return T with
       | eq_refl => P
     end.
 
@@ -95,7 +95,7 @@ Section parameterized.
   Hypothesis NormlizedSubst : NormalizedSubstOk _.
 
   Let eapplicable :=
-    @eapplicable typ expr tyProp subst vars_to_uvars exprUnify.
+    @eapplicable typ _ expr Typ0_Prop subst vars_to_uvars exprUnify.
 
   Section rewrite.
     Variable rw : RW.
@@ -105,7 +105,7 @@ Section parameterized.
     : option (expr * subst) :=
       let lem := rw.(lem) in
       let '(lem_t, lem_l, lem_r) := lem.(concl) in
-      if t ?[ Rty nil ] lem_t then (** TODO: This could be ensured outside **)
+      if t ?[ Rty ] lem_t then (** TODO: This could be ensured outside **)
         let len_tus := length tus in
         let open_leml := vars_to_uvars 0 len_tus lem_l in
         match exprUnify tus tvs under e open_leml t s with

@@ -45,8 +45,8 @@ Section proverI.
          Provable tus tvs goal = Some goalD ->
          exists subD',
            substD tus tvs sub' = Some subD' /\
-           forall (us : HList.hlist (typD nil) tus)
-                  (vs : HList.hlist (typD nil) tvs),
+           forall (us : HList.hlist typD tus)
+                  (vs : HList.hlist typD tvs),
              sumD us vs ->
              subD' us vs ->
              subD us vs /\

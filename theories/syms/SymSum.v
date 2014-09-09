@@ -18,17 +18,17 @@ Section symbols_sum.
                              | inl f => typeof_sym f
                              | inr f => typeof_sym f
                            end
-  ; symD := fun ts f => match f as f
+  ; symD := fun f => match f as f
                               return match match f with
                                              | inl f => typeof_sym f
                                              | inr f => typeof_sym f
                                            end with
                                        | None => unit
-                                       | Some t => typD ts t
+                                       | Some t => typD t
                                      end
                         with
-                          | inl f => symD ts f
-                          | inr f => symD ts f
+                          | inl f => symD f
+                          | inr f => symD f
                         end
   ; sym_eqb := fun x y =>
                  match x , y with
