@@ -4,7 +4,7 @@ MTAC    := Patterns McMatch
 SETOID  := Demo
 IMP     := Imp Wp
 AUTO    := Demo
-AUTORW  := AutoSetoidRewrite DemoAutoSetoidRewrite \
+AUTORW  := AutoSetoidRewrite DemoAutoSetoidRewrite DemoQuantPull \
 	   AutoRewriteLambda
 # SetoidRewriteRec DemoSetoid
 SIMPLE  := Simple SimpleRewrite SimpleReify SimpleExt

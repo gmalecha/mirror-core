@@ -39,12 +39,14 @@ Section setoid.
   Inductive RG : Type :=
   | RGinj (r : Rbase)
   | RGrespects (l r : RG)
-  | RGany (n : positive).
+  | RGvar (n : positive).
 
+  (** TODO: Can I just make this into a standard unification environment? **)
   Record rsubst :=
   { mp : PositiveMap.tree RG
   ; max : positive
   }.
+
   Definition rsubst_set (n : positive) (a : RG) (r : rsubst)
   : option (RG * rsubst) :=
     match PositiveMap.find n r.(mp) with
@@ -56,6 +58,17 @@ Section setoid.
   Definition rsubst_lookup (r : rsubst) n : option RG :=
     PositiveMap.find n r.(mp).
 
+  Fixpoint rsubst_subst (rs : rsubst) (rg : RG) : RG :=
+    match rg with
+      | RGinj _ => rg
+      | RGrespects l r => RGrespects (rsubst_subst rs l) (rsubst_subst rs r)
+      | RGvar n =>
+        match rsubst_lookup rs n with
+          | None => rg
+          | Some e => e
+        end
+    end.
+
   Definition rsubst_empty : rsubst :=
     {| mp := PositiveMap.empty _ ; max := 1 |}.
 
@@ -64,7 +77,7 @@ Section setoid.
     Fixpoint unifyRG' (l r : RG) (env : rsubst)
     : option (RG * rsubst) :=
       match l , r with
-        | RGany n , RGany n' =>
+        | RGvar n , RGvar n' =>
           if n ?[ eq ] n' then Some (l, env)
           else match PositiveMap.find n env.(mp) with
                  | None => rsubst_set n r env
@@ -73,12 +86,12 @@ Section setoid.
                                | Some _ => None
                              end
                end
-        | RGany n , _ =>
+        | RGvar n , _ =>
           match PositiveMap.find n env.(mp) with
             | None => rsubst_set n r env
             | Some v => unifyRG v r env
           end
-        | _ , RGany n =>
+        | _ , RGvar n =>
           match PositiveMap.find n env.(mp) with
             | None => rsubst_set n l env
             | Some v => unifyRG l v env
@@ -107,31 +120,41 @@ Section setoid.
 
   Definition unifyRG := unifyRG_ 10.
 
-  Variable rw : expr typ func -> list RG -> RG -> rsubst ->
-                option (expr typ func * rsubst).
+  Variable rw_pre : expr typ func -> list RG -> RG -> rsubst ->
+                    option (expr typ func * rsubst).
   Variable rw_default : expr typ func -> list RG -> RG -> rsubst ->
                         option (expr typ func * rsubst).
+  Variable rw_post : expr typ func -> list RG -> RG -> rsubst ->
+                     option (expr typ func * rsubst).
 
   Definition rsubst_fresh (rs : rsubst) : (positive * rsubst) :=
     (rs.(max), {| mp := rs.(mp) ; max := rs.(max) + 1 |}).
 
-  Axiom Z : option (expr typ func * rsubst).
+  Definition tryRewrite
+    (rw : expr typ func -> list RG -> RG -> rsubst -> option (expr typ func * rsubst))
+    (e : expr typ func) (rvars : list RG) (rg : RG) (rs : rsubst)
+  : option (expr typ func * rsubst) :=
+    match rw e rvars rg rs with
+      | Some x => Some x
+      | None => Some (e, rs)
+    end.
+
 
   Fixpoint setoid_rewrite
            (e : expr typ func) (rvars : list RG) (rg : RG) (rs : rsubst)
   : option (expr typ func * rsubst).
   refine (
-      match rw e rvars rg rs with
+      match rw_pre e rvars rg rs with
         | None =>
           match e with
             | App f x =>
               let (nxt,rs) := rsubst_fresh rs in
-              match setoid_rewrite f rvars (RGrespects (RGany nxt) rg) rs with
+              match setoid_rewrite f rvars (RGrespects (RGvar nxt) rg) rs with
                 | None => None
                 | Some (f', rs') =>
-                  match setoid_rewrite x rvars (RGany nxt) rs' with
+                  match setoid_rewrite x rvars (RGvar nxt) rs' with
                     | None => None
-                    | Some (x',rs'') => Some (App f' x',rs'')
+                    | Some (x',rs'') => tryRewrite rw_post (App f' x') rvars rg rs''
                   end
               end
             | Abs t b =>
@@ -139,27 +162,26 @@ Section setoid.
                 | RGrespects l r =>
                   match setoid_rewrite b (l :: rvars) r rs with
                     | None => None
-                    | Some (b',rs') =>
-                      Some (Abs t b', rs')
+                    | Some (b',rs') => tryRewrite rw_post (Abs t b') rvars rg rs'
                   end
-                | RGany n =>
+                | RGvar n =>
                   match rsubst_lookup rs n with
                     | None =>
                       let (l,rs) := rsubst_fresh rs in
                       let (r,rs) := rsubst_fresh rs in
-                      match rsubst_set n (RGrespects (RGany l) (RGany r)) rs with
+                      match rsubst_set n (RGrespects (RGvar l) (RGvar r)) rs with
                         | None => None (* DEAD *)
                         | Some (_,rs') =>
-                          match setoid_rewrite b (RGany l :: rvars) (RGany r) rs' with
+                          match setoid_rewrite b (RGvar l :: rvars) (RGvar r) rs' with
                             | None => None
-                            | Some (b',rs') => Some (Abs t b',rs')
+                            | Some (b',rs') => tryRewrite rw_post (Abs t b') rvars rg rs'
                           end
                       end
                     | Some (RGrespects l r) =>
                       match setoid_rewrite b (l :: rvars) r rs with
                         | None => None
                         | Some (b',rs') =>
-                          Some (Abs t b', rs')
+                          tryRewrite rw_post (Abs t b') rvars rg rs'
                       end
                     | _ => None
                   end
@@ -171,14 +193,14 @@ Section setoid.
                 | Some r =>
                   match unifyRG r rg rs with
                     | None => rw_default e rvars rg rs
-                    | Some (r',rs') =>
-                      Some (Var v, rs')
+                    | Some (r',rs') => Some (Var v, rs')
                   end
               end
             | Inj _ => rw_default e rvars rg rs
             | UVar u => rw_default e rvars rg rs
           end
-        | Some x => Some x
+        | Some (e',rs') =>
+          tryRewrite rw_post e' rvars rg rs'
       end).
   Defined.
 

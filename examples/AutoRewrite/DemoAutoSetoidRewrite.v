@@ -82,7 +82,7 @@ Definition rewriter_default (e : expr typ func)
            (vars : list (RG Rbase))
            (rg : RG Rbase) : m (expr typ func) :=
   match rg with
-    | RGany n =>
+    | RGvar n =>
       let type := tyNat in
       rg_bind
         (unifyRG (fun x y => x ?[ eq ] y) rg (RGinj (Inj (Eq type))))
@@ -91,13 +91,12 @@ Definition rewriter_default (e : expr typ func)
     | _ => rg_fail
   end.
 
-
-
 Eval vm_compute in
     @setoid_rewrite typ func (expr typ func)
                     (fun x y => x ?[ eq ] y)
                     rewriter
                     rewriter_default
+                    (fun e _ _ rs => Some (e,rs))
                     plus_expr
                     (RGinj (Inj (Eq tyNat)) :: RGinj (Inj (Eq tyNat)) :: nil)
                     (RGinj (Inj (Eq tyNat))) (@rsubst_empty _).

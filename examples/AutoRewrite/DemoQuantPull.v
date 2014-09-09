@@ -40,11 +40,11 @@ Definition goal : expr typ func :=
        (fEx tyNat (fEq_nat (Var 0) (fN 7))).
 
 Theorem pull_ex_nat_and_left
-: forall P Q, ((exists n : nat, P n) /\ Q) = (exists n, P n /\ Q).
+: forall T P Q, ((exists n : T, P n) /\ Q) = (exists n, P n /\ Q).
 Admitted.
 
 Theorem pull_ex_nat_and_right
-: forall P Q, (Q /\ (exists n : nat, P n)) = (exists n, Q /\ P n).
+: forall T P Q, (Q /\ (exists n : T, P n)) = (exists n, Q /\ P n).
 Admitted.
 
 Definition rewrite_exs (e : expr typ func) (rvars : list (RG (expr typ func)))
@@ -87,11 +87,21 @@ Section interleave.
     end.
 End interleave.
 
-Require Import MirrorCore.Lambda.AppN.
+
+
+Fixpoint rw_fix (n : nat)
+  (rw : rw_type -> rw_type)
+  (e : expr typ func) (rvars : list (RG Rbase)) (rg : RG Rbase)
+  (rs : rsubst Rbase)
+: option (expr typ func * rsubst Rbase) :=
+  match n with
+    | 0 => Some (e,rs)
+    | S n => rw (fun e rvars rg rs => rw_fix n rw e rvars rg rs) e rvars rg rs
+  end.
 
 Definition quant_pull (e : expr typ func) : expr typ func :=
   match
-    (@setoid_rewrite typ func (expr typ func)
+    rw_fix 10 (@setoid_rewrite typ func (expr typ func)
                      rel_dec
                      rewrite_exs rewrite_respects)
       e nil (RGinj (Inj (Eq tyProp)))
@@ -102,6 +112,8 @@ Definition quant_pull (e : expr typ func) : expr typ func :=
   end.
 
 
+(*
+Require Import MirrorCore.Lambda.AppN.
 (** I'm only pulling one quantifier.
  ** What do I need to instantiate with?
  **)
@@ -118,6 +130,6 @@ Definition quant_pull' (e : expr typ func) : expr typ func :=
     | None => e
     | Some (e,_) => e
   end.
+*)
 
-Definition foo := Eval vm_compute in quant_pull goal.
-Definition foo' := Eval vm_compute in quant_pull foo.
+Time Eval vm_compute in quant_pull goal.
