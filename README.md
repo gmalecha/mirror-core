@@ -13,13 +13,7 @@ Quick Start
 
 (In the following commands 'mirror-core' refers to the root directory of mirror-core)
 
-To pull in read-only copies of all of the dependencies, run the following:
-
-```
-mirror-core/ $ make -jN init
-```
-
-where N is the maximum number of coqc processes that you would like to run simultaneously.
+(If you need to set up dependencies, please see the next section first)
 
 To build the library, run:
 
@@ -48,5 +42,39 @@ which will set up the -R and -I options to pass to coqtop from proof general (th
 Dependencies
 ------------
 
+MirrorCore depends on two external libraries.
+
 - coq-ext-lib (https://github.com/coq-ext-lib/coq-ext-lib)
-- coq-plugin-utils (https://github.com/gmalecha/coq-plugin-utils) (to build the plugin)
+- coq-plugin-utils (https://github.com/gmalecha/coq-plugin-utils) (to build the plugins)
+
+coq-pluging-utils needs to be installed, you should follow the directions in the README.md in that repository.
+
+coq-ext-lib does not need to be installed.
+
+If you do install it, simply touch coq-ext-lib in the mirror-core folder to prevent pulling a fresh copy.
+
+```
+mirror-core/ $ touch coq-ext-lib
+```
+
+If you already have a copy of coq-ext-lib on your system but it is not installed, you can create a symbolic link to it in the mirror-core directory.
+
+```
+ln -s <path/to/coq-ext-lib> coq-ext-lib
+```
+ 
+If you do not have a local copy already you can run
+
+```
+mirror-core/ $ make init
+```
+
+which will pull a fresh copy of coq-ext-lib and build it.
+
+If you opted not to install coq-ext-lib you need to create a Makefile.paths file that tells Coq where to find  the coq-ext-lib theories. The following command will achieve this.
+
+```
+mirror-core/ $ echo 'ARGS := -R ../coq-ext-lib/theories ExtLib $(ARGS)' > Makefile.paths
+```
+
+You should replace ../coq-ext-lib with the appropriate path but if the path is relative, make sure that it is relative to the theories directory (thus the leading ../ in the example above).
