@@ -32,6 +32,7 @@ SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
+	      ExprDAs \
 	      SymI \
 	      SubstI \
 	      ProverI EProverI \
