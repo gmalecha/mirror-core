@@ -233,7 +233,9 @@ Section parameterized.
   Variable substV : (nat -> option expr) -> expr -> expr.
   Variable Var : nat -> expr.
 
-  Definition INTRO (open : expr -> option ((typ + expr) * expr)) : rtac :=
+  Definition INTRO
+             (open : expr -> option ((typ * (expr -> expr)) + (expr * expr)))
+  : rtac :=
     fun g => at_bottom (m := option)
                        (fun tus tvs s g =>
                           match g with
@@ -241,15 +243,10 @@ Section parameterized.
                             | Some g =>
                               match open g with
                                 | None => None
-                                | Some (inl t, g') =>
+                                | Some (inl (t, g')) =>
                                   let nv := length tvs in
-                                  let g' := substV (fun v =>
-                                                      match v with
-                                                        | 0 => Some (Var nv)
-                                                        | _ => None
-                                                      end) g' in
-                                  Some (GAlls t (GGoal s (Some g')))
-                                | Some (inr t, g') =>
+                                  Some (GAlls t (GGoal s (Some (g' (Var nv)))))
+                                | Some (inr (t, g')) =>
                                   Some (GHyps t (GGoal s (Some g')))
                               end
                           end)
@@ -427,6 +424,7 @@ Section parameterized.
       eapply H in H0; clear H; auto. }
   Qed.
 
+(*
   Theorem INTRO_sound
   : forall open, open_sound open ->
                  rtac_sound nil nil (INTRO open).
@@ -438,6 +436,7 @@ Section parameterized.
     { destruct (goalD nil nil g); destruct (goalD nil nil g'); auto.
 *)
   Abort.
+*)
 
   Definition STAC_no_hyps (tac : stac typ expr subst) : rtac :=
     at_bottom (m := option)
