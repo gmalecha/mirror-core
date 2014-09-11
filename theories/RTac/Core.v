@@ -1,555 +1,446 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
+Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.ExprDAs.
+Require Import MirrorCore.STac.Core.
+
+Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** TODO: Can I do alternation if I can do strengthening of both
+ ** unification variables and regular variables?
+ ** 1) This means that substD needs strengthening
+ ** 2) It also means that hypotheses need to be eliminatable
+ **
+ **    goal :=
+ **      Alls : list typ -> goal -> goal
+ **    | Exs : list typ -> goal -> goal
+ **    | Hyps : list expr -> goal -> goal
+ **    | Goal : expr -> goal.
+ **
+ **)
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  (** TODO: I might want some way to maintain external state **)
   Variable subst : Type.
 
-  (** This is a way to put everything inside there,
-   ** an alternative representation is to use a simpler type, i.e.
-   **     [list (All | Ex | Hyp)]
-   ** to interpret the flattened environments
+  (** NOTE: It seems for performance this should be inverted, otherwise
+   ** every operation is going to be very expensive.
    **)
-  Inductive GoalInterp :=
-  | GAll (_ : GoalInterp)
-  | GEx  (_ : GoalInterp)
-  | GHyp (_ : GoalInterp)
-  | Top.
+  Inductive Goal :=
+  | GAlls : typ -> Goal -> Goal
+  | GExs  : typ -> Goal -> Goal
+  | GHyps : expr -> Goal -> Goal
+  | GGoal : subst -> option expr -> Goal.
 
-  Inductive Result : Type :=
-  | Fail
-  | More : list typ (** in-order **) -> list typ (** in-order **) ->
-           list expr -> GoalInterp ->
-           subst -> option expr (** None = True **) -> Result.
+  Definition Result := option Goal.
 
-  (** Is it feasible to cps-convert this? **)
+  (** Treat this as opaque! **)
   Definition rtac : Type :=
-    list typ (* in-order *) -> list typ (* in-order *) ->
-    list expr -> GoalInterp -> subst -> expr ->
-    Result.
+    Goal -> Result.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Definition runRTac (tac : rtac) (g : Goal) : option Goal :=
+    tac g.
 
-  Definition propD (tus tvs : list typ) (goal : expr) : ResType tus tvs Prop :=
-    match exprD' tus tvs goal (@typ0 _ _ _ _) return ResType tus tvs Prop with
-      | None => None
-      | Some val =>
-        Some match typ0_cast nil in _ = T
-                   return HList.hlist _ tus -> HList.hlist _ tvs -> T with
-               | eq_refl => val
-             end
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+
+  Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
+
+  Fixpoint _foralls (ls : list typ)
+  : (HList.hlist (typD nil) ls -> Prop) -> Prop :=
+    match ls as ls return (HList.hlist (typD nil) ls -> Prop) -> Prop with
+      | nil => fun P => P HList.Hnil
+      | l :: ls => fun P => forall x : typD nil l,
+                              _foralls (fun z => P (HList.Hcons x z))
     end.
 
-  Definition OpenT tus tvs T :=
-    hlist (typD nil) tus -> hlist (typD nil) tvs -> T.
-
-  Fixpoint goalD (tus tvs tus' tvs' : list typ) (hyps : list expr)
-           (gi : GoalInterp) {struct gi}
-  : option (   OpenT (tus ++ rev tus') (tvs ++ rev tvs') Prop
-            -> OpenT tus tvs Prop).
-  refine (
-      match gi with
-        | GAll gi =>
-          match tvs' with
-            | nil => None
-            | t :: tvs' =>
-              match goalD tus tvs tus' tvs' hyps gi with
-                | None => None
-                | Some gD =>
-                  Some _
-              end
-          end
-        | GEx gi =>
-          match tus' with
-            | nil => None
-            | t :: tus' =>
-              match goalD tus tvs tus' tvs' hyps gi with
-                | None => None
-                | Some gD =>
-                  Some _
-              end
-          end
-        | GHyp gi =>
-          match hyps with
-            | nil => None
-            | h :: hyps =>
-              match propD (tus ++ rev tus') (tvs ++ rev tvs') h with
-                | None => None
-                | Some P =>
-                  match goalD tus tvs tus' tvs' hyps gi with
-                    | None => None
-                    | Some gD => Some _
-                  end
-              end
-          end
-        | Top =>
-          match tus' as tus'
-              , tvs' as tvs'
-                return option (OpenT (tus ++ rev tus') (tvs ++ rev tvs') Prop -> OpenT tus tvs Prop)
-          with
-            | nil , nil => Some _
-            | _ , _ => None
-          end
-      end).
-  { simpl in *.
-    intro. apply gD.
-    rewrite <- app_ass_trans in X.
-    intros us vs.
-    refine (forall x : typD nil t, X us (hlist_app vs (Hcons x Hnil))). }
-  { simpl in *.
-    intro. apply gD.
-    rewrite <- app_ass_trans in X.
-    intros us vs.
-    refine (exists x : typD nil t, X (hlist_app us (Hcons x Hnil)) vs). }
-  { intro. apply gD.
-    refine (fun us vs => P us vs -> X us vs). }
-  { simpl. rewrite app_nil_r_trans. rewrite app_nil_r_trans.
-    refine (fun x => x). }
-  Defined.
-
-  Fixpoint GI_app (a b : GoalInterp) : GoalInterp :=
-    match a with
-      | Top => b
-      | GHyp a => GHyp (GI_app a b)
-      | GEx a => GEx (GI_app a b)
-      | GAll a => GAll (GI_app a b)
+  Fixpoint _exists (ls : list typ)
+  : (HList.hlist (typD nil) ls -> Prop) -> Prop :=
+    match ls as ls return (HList.hlist (typD nil) ls -> Prop) -> Prop with
+      | nil => fun P => P HList.Hnil
+      | l :: ls => fun P => exists x : typD nil l,
+                              _exists (fun z => P (HList.Hcons x z))
     end.
 
-  Lemma rev_app_distr_trans
-  : forall T (ls ls' : list T),
-      rev (ls ++ ls') = rev ls' ++ rev ls.
-  Proof.
-    clear. induction ls; simpl.
-    { intros. symmetry. eapply app_nil_r_trans. }
-    { intros. rewrite IHls.
-      rewrite app_ass_trans. reflexivity. }
-  Defined.
-
-  Lemma rev_involutive_trans
-  : forall T (ls : list T), rev (rev ls) = ls.
-  Proof.
-    clear. induction ls; try reflexivity.
-    simpl.
-    rewrite rev_app_distr_trans.
-    rewrite IHls. reflexivity.
-  Defined.
-
-  Definition rev_rev_hlist {T} {F : T -> Type} {ls} (h : hlist F (rev (rev ls)))
-  : hlist F ls :=
-    match rev_involutive_trans ls in _ = T return hlist F T with
-      | eq_refl => h
+  Fixpoint _impls (ls : list Prop) (P : Prop) :=
+    match ls with
+      | nil => P
+      | l :: ls => l -> _impls ls P
     end.
 
-  Definition app_rev_rev_hlist {T} {F : T -> Type} {ls' ls}
-             (h : hlist F (ls' ++ rev (rev ls)))
-  : hlist F (ls' ++ ls) :=
-    match rev_involutive_trans ls in _ = T return hlist F (ls' ++ T) with
-      | eq_refl => h
+  Fixpoint WellFormed_goal (goal : Goal) : Prop :=
+    match goal with
+      | GAlls _ goal'
+      | GExs _ goal'
+      | GHyps _ goal' => WellFormed_goal goal'
+      | GGoal s _ => WellFormed_subst s
     end.
 
-  Definition rtac_sound (r : rtac) : Prop
-  := forall tus tvs hyps gi sub goal,
-       WellFormed_subst sub ->
-       match r tus tvs hyps gi sub goal with
-         | Fail => True
-         | More tus' tvs' hyps' gi' sub' goal' =>
-           WellFormed_subst sub' /\
-           match propD tus tvs goal
-               , substD tus tvs sub
-               , goalD nil nil (rev tus) (rev tvs) hyps gi
-           with
-             | Some GD , Some SD , Some PD =>
-               let tus_f := tus ++ tus' in
-               let tvs_f := tvs ++ tvs' in
-               match match goal' with
-                       | None => Some (fun _ _ => True)
-                       | Some goal => propD  tus_f tvs_f goal
-                     end
-                   , substD tus_f tvs_f sub'
-                   , goalD tus tvs (rev tus') (rev tvs') hyps' gi'
-               with
-                 | Some GD' , Some SD' , Some PD' =>
-                   PD (fun us vs =>
-                         let us := rev_rev_hlist us in
-                         let vs := rev_rev_hlist vs in
-                         PD' (fun us' vs' =>
-                                let us' := app_rev_rev_hlist us' in
-                                let vs' := app_rev_rev_hlist vs' in
-                                SD' us' vs' /\ GD' us' vs') us vs
-                         -> SD us vs /\ GD us vs) Hnil Hnil
-                 | _ , _ , _ => False
-               end
-             | _ , _ , _ => True
-           end
-       end.
-
-  Ltac length_apply H :=
-    match type of H with
-      | ?X = ?Y =>
-        cut (length X = length Y); [ | f_equal; exact H ]
+  (** NOTE:
+   ** Appending the newly introduced terms makes tactics non-local.
+   ** Requiring globalness seems really bad.
+   **)
+  Fixpoint goalD (tus tvs : list typ) (goal : Goal)
+  : ResType tus tvs Prop :=
+    match goal with
+      | GAlls tv goal' =>
+        match goalD tus (tvs ++ tv :: nil) goal' with
+          | None => None
+          | Some D =>
+            Some (fun us vs => @_foralls (tv :: nil) (fun vs' => D us (HList.hlist_app vs vs')))
+        end
+      | GExs tu goal' =>
+        match goalD (tus ++ tu :: nil) tvs goal' with
+          | None => None
+          | Some D =>
+            Some (fun us vs => @_exists (tu :: nil)
+                      (fun us' => D (HList.hlist_app us us') vs))
+        end
+      | GHyps hyp' goal' =>
+        match mapT (T:=list) (F:=option) (propD tus tvs) (hyp' :: nil) with
+          | None => None
+          | Some hs =>
+            match goalD tus tvs goal' with
+              | None => None
+              | Some D =>
+                Some (fun us vs => _impls (map (fun x => x us vs) hs) (D us vs))
+            end
+        end
+      | GGoal sub' None =>
+        match substD tus tvs sub' with
+          | Some sD => Some (fun us vs => sD us vs)
+          | _ => None
+        end
+      | GGoal sub' (Some goal') =>
+        match substD tus tvs sub'
+            , propD tus tvs goal'
+        with
+          | Some sD , Some gD =>
+            Some (fun (us : HList.hlist (typD nil) tus)
+                      (vs : HList.hlist (typD nil) tvs)  => sD us vs /\ gD us vs)
+          | _ , _ => None
+        end
     end.
 
-  Lemma goalD_goalD
-  : forall tus tvs gi tus' tvs' hyps hyps' gi' o1 o2,
-      goalD tus tvs tus' tvs' hyps' gi = Some o1 ->
-      goalD nil nil (rev tus) (rev tvs) hyps gi' = Some o2 ->
-      exists o3,
-           goalD nil nil (rev (tus ++ rev tus')) (rev (tvs ++ rev tvs'))
-                 (hyps' ++ hyps) (GI_app gi gi') = Some o3
-        /\ forall (P : OpenT (tus ++ rev tus') (tvs ++ rev tvs') Prop),
-             o2 (fun us' vs' =>
-                   o1 P
-                      (rev_rev_hlist us') (rev_rev_hlist vs')) Hnil Hnil ->
-             o3 (fun us' vs' =>
-                   P (rev_rev_hlist us') (rev_rev_hlist vs')) Hnil Hnil.
-  Proof.
-    induction gi.
-    { simpl. intros.
-      forward. subst. inv_all; subst.
-      specialize (IHgi _ _ _ _ _ _ _ H1 H0).
-      forward_reason.
-      (*
-remember (rev (tvs ++ rev (t :: l))).
-      destruct l0.
-      { clear - Heql0. exfalso.
-        rewrite rev_app_distr in Heql0.
-        length_apply Heql0.
-        simpl. repeat rewrite app_length.
-        simpl.
-        rewrite rev_length. rewrite app_length.
-        simpl. omega. }
-      { assert (l0 = rev (tvs ++ rev l)).
-        { rewrite rev_app_distr in Heql0.
-          simpl in Heql0.
-          rewrite rev_app_distr in Heql0.
-          simpl in *.
-          inversion Heql0; subst.
-          rewrite rev_app_distr.
-          rewrite rev_involutive.
-          reflexivity. }
-        clear Heql0.
-        subst.
-        rewrite H. eauto. } *) admit. }
-    { admit. }
-    { admit. }
-    { admit. }
-  Qed.
+  (** The worry is that this isn't going to be strong enough,
+   ** especially when it comes to substitutions.
+   **)
+  Definition rtac_sound tus tvs (tac : rtac) : Prop :=
+    forall g g',
+      tac g = Some g' ->
+      WellFormed_goal g ->
+      WellFormed_goal g' /\
+      match goalD tus tvs g
+          , goalD tus tvs g'
+      with
+        | None , _ => True
+        | Some _ , None => False
+        | Some g , Some g' =>
+          forall us vs,
+            g' us vs ->
+            g us vs
+      end.
+
+  Section at_bottom.
+    Variable m : Type -> Type.
+    Context {Monad_m : Monad m}.
+    Variable gt : list typ -> list typ -> subst -> option expr -> m Goal.
+
+    Let under (gt : Goal -> Goal) (x : m Goal) : m Goal :=
+      bind x (fun x => ret (gt x)).
+
+    Fixpoint at_bottom tus tvs (g : Goal) : m Goal :=
+      match g with
+        | GAlls x g' => under (GAlls x) (at_bottom tus (tvs ++ x :: nil) g')
+        | GExs  x g' => under (GExs  x) (at_bottom (tus ++ x :: nil) tvs g')
+        | GHyps x g' => under (GHyps x) (at_bottom tus tvs g')
+        | GGoal s e => gt tus tvs s e
+      end.
+  End at_bottom.
 
   Lemma goalD_conv
-  : forall a b c d e f a' b' c' d'
-           (pfu : a' = a) (pfv : b' = b) (pfu' : c' = c) (pfv' : d' = d),
-      goalD a b c d e f =
-      match pfu in _ = A , pfv in _ = B , pfu' in _ = C , pfv' in _ = D
-            return option (OpenT (A ++ rev C) (B ++ rev D) Prop ->
-                           OpenT A B Prop)
-      with
-        | eq_refl , eq_refl , eq_refl , eq_refl => goalD a' b' c' d' e f
+  : forall tus tvs tus' tvs' (pfu : tus' = tus) (pfv : tvs' = tvs),
+      goalD tus tvs =
+      match pfu in _ = t
+            return Goal -> option (HList.hlist _ t -> _) with
+        | eq_refl =>
+          match pfv in _ = t
+                return Goal -> option (_ -> HList.hlist _ t -> _) with
+            | eq_refl => goalD tus' tvs'
+          end
       end.
   Proof.
-    destruct pfu; destruct pfv; destruct pfu'; destruct pfv'. reflexivity.
+    clear. destruct pfu; destruct pfv. reflexivity.
   Qed.
 
-  Lemma propD_conv
-  : forall a b c a' b' (pfu : a' = a) (pfv : b' = b),
-      propD a b c =
-      match pfu in _ = A , pfv in _ = B
-            return option (OpenT A B Prop)
-      with
-        | eq_refl , eq_refl => propD a' b' c
-      end.
+  Lemma _impls_sem
+  : forall ls P,
+      _impls ls P <-> (Forall (fun x => x) ls -> P).
   Proof.
-    destruct pfu; destruct pfv. reflexivity.
+    induction ls; simpl; intros.
+    + intuition.
+    + rewrite IHls. intuition.
+      inversion H0. eapply H; eauto.
   Qed.
-
-  Variable SU : SubstUpdate subst expr.
-
-  Definition IDTAC : rtac
-  := fun tus tvs hs gi s goal =>
-       More nil nil nil Top s (Some goal).
-
-  Lemma goalD_prove
-  : forall tus tvs gi tus' tvs' hyps D,
-      goalD tus tvs tus' tvs' hyps gi = Some D ->
-      forall us vs (P : OpenT _ _ Prop),
-        (forall us' vs', P (hlist_app us us') (hlist_app vs vs')) ->
-        D P us vs.
+  Lemma _exists_iff
+  : forall ls P Q,
+      (forall x, P x <-> Q x) ->
+      (@_exists ls P <-> @_exists ls Q).
   Proof.
-    induction gi.
-    { simpl; intros.
-      destruct tvs'; try congruence.
-      forwardy. inv_all; subst.
-      eapply IHgi in H. eapply H. intros.
-      simpl. intros.
-      specialize (H0 us' (hlist_app vs' (Hcons x Hnil))).
-      clear - H0.
-      rewrite hlist_app_assoc.
-      match goal with
-        | H : P _ ?X |- context [ ?Y ] =>
-          change Y with X ; generalize dependent X
-      end.
-      generalize (app_ass_trans tvs (rev tvs') (t :: nil)).
-      clear.
-      generalize dependent ((tvs ++ rev tvs') ++ t :: nil).
-      intros; subst. apply H0. }
-    { admit. (** SAME **) }
-    { admit. (** SAME **) }
-    { simpl. intros.
-      forwardy. destruct tus'; try congruence.
-      destruct tvs'; try congruence.
-      inv_all; subst.
-      simpl in *.
-      specialize (H0 Hnil Hnil).
-      do 2 rewrite hlist_app_nil_r in H0.
-      generalize dependent (app_nil_r_trans tus).
-      generalize dependent (app_nil_r_trans tvs).
-      generalize dependent (tus ++ nil).
-      generalize dependent (tvs ++ nil).
-      intros; subst.
-      apply H0. }
-  Qed.
-
-  Theorem IDTAC_sound : rtac_sound IDTAC.
-  Proof.
-    red. simpl. intros.
-    split; auto.
-    forward.
-    rewrite propD_conv with (pfu := eq_sym (app_nil_r_trans tus)) (pfv := eq_sym (app_nil_r_trans tvs)).
-    rewrite substD_conv with (pfu := eq_sym (app_nil_r_trans tus)) (pfv := eq_sym (app_nil_r_trans tvs)).
-    rewrite H1. rewrite H0.
-    unfold ResType.
-    generalize (app_nil_r_trans tus).
-    generalize (app_nil_r_trans tvs).
-    intros.
-    autorewrite with eq_rw.
-    eapply goalD_prove; eauto.
-    simpl. intros.
-    generalize dependent (rev_rev_hlist us').
-    generalize dependent (rev_rev_hlist vs').
     clear.
-    unfold app_rev_rev_hlist.
-    simpl.
-    generalize dependent (tvs ++ nil).
-    generalize dependent (tus ++ nil).
-    intros; subst. apply H3.
+    induction ls; simpl; intros.
+    + eapply H.
+    + apply exists_iff; intro. eapply IHls.
+      intro; eapply H.
+  Qed.
+  Lemma _forall_iff
+  : forall ls P Q,
+      (forall x, P x <-> Q x) ->
+      (@_foralls ls P <-> @_foralls ls Q).
+  Proof.
+    clear.
+    induction ls; simpl; intros.
+    + eapply H.
+    + apply forall_iff; intro. eapply IHls.
+      intro; eapply H.
   Qed.
 
-  Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Lemma at_bottom_sound_option
+  : forall goal tus tvs f goal',
+      (forall tus' tvs' s e e',
+         f (tus ++ tus') (tvs ++ tvs') s e = Some e' ->
+         WellFormed_subst s ->
+         match goalD (tus ++ tus') (tvs ++ tvs') (GGoal s e)
+             , goalD (tus ++ tus') (tvs ++ tvs') e'
+         with
+           | None , _ => True
+           | Some _ , None => False
+           | Some g , Some g' =>
+             forall us vs,
+               g' us vs -> g us vs
+         end) ->
+      at_bottom f tus tvs goal = Some goal' ->
+      forall (Hwf : WellFormed_goal goal),
+      match goalD tus tvs goal
+          , goalD tus tvs goal'
+      with
+        | None , _ => True
+        | Some _ , None => False
+        | Some g , Some g' =>
+          forall us vs,
+            g' us vs -> g us vs
+      end.
+  Proof.
+    induction goal; simpl; intros.
+    { forwardy. inv_all; subst.
+      eapply IHgoal in H0; clear IHgoal; auto.
+      { simpl. forward. auto. }
+      { intros.
+        specialize (H tus' (t :: tvs') s e).
+        rewrite app_ass in H1. simpl in *.
+        eapply H in H1; clear H; auto.
+        forward.
+        rewrite substD_conv
+           with (pfu := eq_refl _) (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H.
+        unfold propD in *.
+        rewrite exprD'_typ0_conv with (pfu := eq_refl _)
+             (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H.
+        simpl in *.
+        unfold ResType in *.
+        autorewrite with eq_rw in *.
+        destruct e; forwardy.
+        { inv_all; subst.
+          rewrite H in *.
+          autorewrite with eq_rw in H3.
+          forwardy.
+          rewrite H3 in *.
+          inv_all; subst.
+          rewrite goalD_conv with (pfu := eq_refl)
+                                  (pfv := eq_sym (HList.app_ass_trans _ _ _)).
+          simpl.
+          forwardy.
+          autorewrite with eq_rw.
+          rewrite H1.
+          intros us vs. autorewrite with eq_rw.
+          clear - H4.
+          match goal with
+            | |- _ _ match ?X with _ => _ end ->
+                 _ _ match ?Y with _ => _ end /\
+                 _ _ match ?Z with _ => _ end =>
+              change X with Y ; change Z with Y ; destruct Y
+          end.
+          eauto. }
+        { rewrite H in *.
+          rewrite goalD_conv with (pfu := eq_refl)
+                                  (pfv := eq_sym (HList.app_ass_trans _ _ _)).
+          simpl.
+          forwardy.
+          autorewrite with eq_rw.
+          rewrite H1. intros.
+          inv_all; subst.
+          revert H6.
+          match goal with
+            | |- match ?X with _ => _ end _ _ ->
+                 match ?Y with _ => _ end _ _ =>
+              change Y with X ; destruct X
+          end. auto. } } }
+    { forwardy; inv_all; subst.
+      eapply IHgoal in H0; clear IHgoal; auto.
+      + simpl; forward; eauto.
+        destruct H3. eauto.
+      + intros.
+        rewrite goalD_conv
+           with (pfu := eq_sym (HList.app_ass_trans _ _ _))
+                (pfv := eq_refl).
+        autorewrite with eq_rw.
+        simpl. forward.
+        rewrite HList.app_ass_trans in H1.
+        simpl in H1.
+        eapply H in H1; clear H; eauto.
+        destruct e; forward.
+        - inv_all; subst.
+          revert H7. autorewrite with eq_rw.
+          eauto.
+        - inv_all; subst.
+          revert H6. autorewrite with eq_rw.
+          eauto. }
+    { forwardy; inv_all; subst.
+      eapply IHgoal in H0; clear IHgoal; eauto.
+      + simpl; forward; eauto.
+        inv_all. subst.
+        eapply _impls_sem; intro.
+        eapply _impls_sem in H5; eauto. }
+    { specialize (H nil nil s o goal').
+      simpl in H.
+      repeat rewrite HList.app_nil_r_trans in H.
+      eapply H in H0; clear H; auto. }
+  Qed.
 
-  (** The idea here is to pop-off all the outer stuff
-   ** naively I need to do it everywhere, but in actuallity
-   ** I can lump them together.
-   ** In reality, I probably rarely do this to more than a few things.
+  Lemma _exists_sem : forall ls P,
+                        _exists (ls := ls) P <->
+                        exists x, P x.
+  Proof.
+    clear. induction ls; simpl; auto.
+    - intuition. exists HList.Hnil. auto.
+      destruct H. rewrite (HList.hlist_eta x) in H.
+      assumption.
+    - intros. split.
+      + destruct 1.
+        eapply IHls in H.
+        destruct H. eauto.
+      + destruct 1.
+        exists (HList.hlist_hd x).
+        eapply IHls.
+        exists (HList.hlist_tl x).
+        rewrite (HList.hlist_eta x) in H.
+        assumption.
+  Qed.
+  Lemma _forall_sem : forall ls P,
+                        _foralls (ls := ls) P <->
+                        forall x, P x.
+  Proof.
+    clear. induction ls; simpl; auto.
+    - intuition. rewrite (HList.hlist_eta x).
+      assumption.
+    - intros. split.
+      + intros.
+        rewrite (HList.hlist_eta x).
+        eapply IHls in H.
+        eapply H.
+      + intros.
+        eapply IHls.
+        intros. eapply H.
+  Qed.
+
+  Lemma at_bottom_WF_option
+  : forall f,
+      (forall a b c d g,
+         f a b c d = Some g ->
+         WellFormed_subst c ->
+         WellFormed_goal g) ->
+    forall g tus tvs g',
+      at_bottom f tus tvs g = Some g' ->
+      WellFormed_goal g ->
+      WellFormed_goal g'.
+  Proof.
+    clear.
+    induction g; simpl; intros; forwardy; inv_all; subst; simpl in *; eauto.
+  Qed.
+
+  Lemma WellFormed_goal_GAlls
+  : forall ls g,
+      WellFormed_goal g <-> WellFormed_goal (fold_right GAlls g ls).
+  Proof.
+    clear. induction ls; simpl; intros; auto.
+    reflexivity.
+  Qed.
+  Lemma WellFormed_goal_GExs
+  : forall ls g,
+      WellFormed_goal g <-> WellFormed_goal (fold_right GExs g ls).
+  Proof.
+    clear. induction ls; simpl; intros; auto.
+    reflexivity.
+  Qed.
+  Lemma WellFormed_goal_GHyps
+  : forall ls g,
+      WellFormed_goal g <-> WellFormed_goal (fold_right GHyps g ls).
+  Proof.
+    clear. induction ls; simpl; intros; auto.
+    reflexivity.
+  Qed.
+
+(*
+  Instance Monad_writer_nat : Monad (fun T : Type => (T * nat)%type) :=
+  { ret := fun T x => (x,0)
+  ; bind := fun T U c c1 =>
+              let (x,n) := c in
+              let (y,n') := c1 x in
+              (y,n+n')
+  }.
+
+  (** On [Proved], I need to check, that means that I probably need to do
+   ** deltas so that I know where I need to pull to...
    **)
-  Fixpoint peel_all (gi : GoalInterp) : rtac :=
-    match gi with
-      | Top => IDTAC
-      | GAll gi => IDTAC
-      | GEx gi => IDTAC
-      | GHyp gi => IDTAC
-    end.
-
-  Definition unify (e1 e2 : expr) (t : typ)
+  Definition with_new_uvar (t : typ) (k : nat -> rtac)
   : rtac :=
-    fun tus tvs hs gi sub goal =>
-      match exprUnify tus tvs 0 e1 e2 t sub with
-        | None => Fail
-        | Some sub' =>
-          More nil nil nil Top sub' (Some goal)
-      end.
-
-  Definition unify_sound
-  : forall e1 e2 t,
-      (** NOTE: There is nothing that I can write here! **)
-      rtac_sound (unify e1 e2 t).
-  Abort.
-
-  Definition with_new_uvar (t : typ) (k : nat -> rtac) : rtac
-  := fun tus tvs hs gi s goal =>
-       let uv := length tus in
-       match (k uv) (tus ++ t :: nil) tvs hs (GEx gi) s goal with
-         | Fail => Fail
-         | More tus' tvs' hyps' gi' sub' goal' =>
-           match tus' , tvs' with
-             | nil , nil =>
-               match pull (expr:=expr) uv 1 sub' with
-                 | None => Fail
-                 | Some sub'' =>
-                   More nil nil hyps' gi' sub''
-                        (fmap (F:=option) (instantiate (fun u => lookup u sub') 0) goal')
-               end
-             | _ , _ => Fail
-           end
-       end.
-
-  Definition with_new_var (t : typ) (k : nat -> rtac) : rtac
-  := fun tus tvs hs gi s goal =>
-       let v := length tvs in
-       match (k v) tus (tvs ++ t :: nil) hs (GAll gi) s goal with
-         | Fail => Fail
-         | More tus' tvs' hyps' gi' sub' goal' =>
-           match tus' , tvs' with
-             | nil , nil =>
-               (** check that the variable is not mentioned in the conclusion
-                ** since that is the only place that it can be mentioned
-                **)
-               if match goal' with
-                    | None => false
-                    | Some goal' => mentionsV v goal'
-                  end
-               then
-                 Fail
-               else
-                 More nil nil hyps' gi' sub' goal'
-             | _ , _ => Fail
-           end
-       end.
-
-  Theorem with_new_uvar_sound
-  : forall t (kTac : nat -> rtac),
-      (forall uv, rtac_sound (kTac uv)) ->
-      rtac_sound (with_new_uvar t kTac).
-  Proof.
-    unfold with_new_uvar. red; intros.
-    forward. subst.
-    inversion H5; clear H5; subst.
-    specialize (H (length tus) (tus ++ t :: nil) tvs hyps (GEx gi) sub goal H0).
-    rewrite H3 in H; clear H3. forward_reason.
-    eapply pull_sound in H4; eauto.
-    2: admit. 2: admit. 2: admit.
-    forward_reason. split; auto.
-    forward.
-    admit.
-  Qed.
-
-  Definition THEN (a b : rtac) : rtac :=
-    fun tus tvs hs gi s goal =>
-      match a tus tvs hs gi s goal with
-        | Fail => Fail
-        | More tus' tvs' hyps' gi' sub' None =>
-          More tus' tvs' hyps' gi' sub' None
-        | More tus' tvs' hyps' gi' sub' (Some goal') =>
-          match
-            b (tus ++ tus') (tvs ++ tvs') (hyps' ++ hs) (GI_app gi' gi) sub' goal'
-          with
-            | Fail => Fail
-            | More tus'' tvs'' hyps'' gi'' sub'' goal'' =>
-              More (tus' ++ tus'') (tvs' ++ tvs'')
-                   hyps'' (GI_app gi'' gi') sub'' goal''
-          end
-      end.
-
-  Theorem THEN_sound
-  : forall a b, rtac_sound a -> rtac_sound b ->
-                rtac_sound (THEN a b).
-  Proof.
-    unfold rtac_sound, THEN; intros.
-    forward.
-    specialize (H tus tvs hyps gi sub goal H1).
-    rewrite H2 in H; clear H2. forward_reason.
-    destruct o0; forward.
-    { inversion H4; clear H4; subst.
-      specialize (H0 (tus ++ l2) (tvs ++ l3) (l4 ++ hyps) (GI_app g0 gi) s0 e H).
-      rewrite H3 in H0; clear H3. forward_reason.
-      split; auto. forward.
-      simpl in *.
-      destruct (goalD_goalD _ _ _ _ _ _ H8 H5); clear H8 H5; forward_reason.
-      revert H5; revert H8. revert x.
-      repeat match goal with
-               | |- context [ rev (rev ?X) ] =>
-                 rewrite (rev_involutive X)
-             end.
-      intros. (*rewrite H5 in H7.
-      forward.
-      destruct o.
-      {
-      match goal with
-               | |- context [ rev (rev ?X) ] =>
-                 rewrite (rev_involutive X)
-             end.
-      rewrite (rev_involutive l2).
-
-      simpl.
-
-*) admit. }
-    { subst. inversion H9; clear H9; subst.
-      inv_all; subst.
-      split; auto.
-      rewrite H6. rewrite H7.
-      assumption. }
-  Qed.
-
+    fun g =>
+      let (g',n) :=
+          at_bottom (m := fun T => (T * nat))%type
+                    (fun tus _ s g => (GExs t (GGoal s g), length tus)) nil nil g
+      in
+      k n g'.
+*)
 (*
-  Variable t1 t2 t3 t4 : typ.
-  Variable e1 e2 : expr.
-  Variable s : subst.
+  Axiom ty : typ.
+  Axiom s : subst.
 
-  Eval cbv beta iota zeta delta - [ hlist_app typD ]  in fun f =>
-      match @goalD nil nil (t1 :: t3 :: nil) (t2 :: t4 :: nil) (e1 :: e2 :: nil)
-                   (GHyp (GAll (GEx (GHyp (GAll (GEx Top)))))) with
-        | None => None
-        | Some X => Some (X f Hnil Hnil)
-      end.
+  Eval compute in fun (f : nat -> rtac) => with_new_uvar ty f (GGoal s None).
+
+  Definition with_new_var (t : typ) (k : nat -> rtac)
+  : rtac :=
+    fun g =>
+      let (g',uv) :=
+          at_bottom (fun _ tvs g => (GAlls t g, length tvs)) nil nil g
+      in
+      k uv g'.
 *)
 
-
-  (** TODO: This is breaking me at the moment b/c I can not add/compose
-   ** more things under this.
-   **)
-  Definition proof_stateD (tus tvs tus' tvs' : list typ)
-             (hyps : list expr) (gi : GoalInterp) (sub : subst)
-             (goal : option expr)
-  : option (OpenT tus tvs Prop) :=
-    let tus_f := tus ++ rev tus' in
-    let tvs_f := tvs ++ rev tvs' in
-    match match goal with
-            | None => Some (fun _ _ => True)
-            | Some goal => propD  tus_f tvs_f goal
-          end
-        , substD tus_f tvs_f sub
-        , goalD tus tvs tus' tvs' hyps gi
-    with
-      | Some GD , Some SD , Some PD =>
-        Some (PD (fun us vs => SD us vs /\ GD us vs))
-      | _ , _ , _ => None
-    end.
-
-(*
-  Goal forall T U V W (P : _ -> _ -> Prop) (Q : _ -> _ -> _ -> _ -> Prop),
-    (forall x : T, exists y : U,
-          (forall a : V, exists b : W, Q x y a b)
-       -> P x y)
-    ->
-    ((forall x, forall y, forall a, exists b, Q x y a b) ->
-     (forall x, exists y, P x y)).
-  Proof.
-    clear. intros.
-    { intros. specialize (H0 x).
-      specialize (H x). destruct H.
-      exists x0. apply H. auto. }
-  Qed.
-*)
 End parameterized.
+
+Arguments propD {typ expr _ _ _} tus tvs e : rename.
+Arguments rtac_sound {typ expr subst _ _ _ _ _} tus tvs tac : rename.
+Arguments GExs {typ expr subst} _ _ : rename.
+Arguments GAlls {typ expr subst} _ _ : rename.
+Arguments GHyps {typ expr subst} _ _ : rename.
+Arguments GGoal {typ expr subst} _ _ : rename.
