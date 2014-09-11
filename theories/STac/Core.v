@@ -10,6 +10,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.ExprDAs.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -35,14 +36,7 @@ Section parameterized.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
-  Definition propD (tus tvs : list typ) (goal : expr) : ResType tus tvs Prop :=
-    match exprD' tus tvs goal (@typ0 _ _ _ _) return ResType tus tvs Prop with
-      | None => None
-      | Some val =>
-        Some match typ0_cast (F := Prop) in _ = T return HList.hlist _ tus -> HList.hlist _ tvs -> T with
-               | eq_refl => val
-             end
-    end.
+  Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
   Lemma propD_conv
   : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
@@ -54,27 +48,6 @@ Section parameterized.
       end.
   Proof.
     destruct pfu; destruct pfv. reflexivity.
-  Qed.
-
-  Lemma propD_weakenU (ExprOk_expr : ExprOk _)
-  : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist typD tus0 -> hlist typD tvs0 -> Prop),
-      propD tus0 tvs0 l0 = Some lD ->
-      forall tus' : list typ,
-      exists
-        lD' : hlist typD (tus0 ++ tus') -> hlist typD tvs0 -> Prop,
-        propD (tus0 ++ tus') tvs0 l0 = Some lD' /\
-        (forall (us : hlist typD tus0) (us' : hlist typD tus')
-                (vs : hlist typD tvs0), lD us vs <-> lD' (hlist_app us us') vs).
-  Proof.
-    unfold propD. clear - ExprOk_expr.
-    intros. forward. inv_all; subst.
-    eapply exprD'_weakenU with (tus' := tus') in H; eauto.
-    forward_reason. rewrite H.
-    eexists; split; eauto. intros.
-    autorewrite with eq_rw.
-    rewrite <- H0.
-    reflexivity.
   Qed.
 
   Definition stateD tus tvs (s : subst) (hs : list expr) (g : expr)
@@ -90,6 +63,19 @@ Section parameterized.
       | _ , _ , _ => None
     end.
 
+  Lemma stateD_conv
+  : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
+      stateD tus tvs =
+      match pfu in _ = tu , pfv in _ = tv
+            return _ -> _ -> _ ->
+                   option (HList.hlist typD tu -> HList.hlist typD tv -> _)
+      with
+        | eq_refl , eq_refl => stateD tus' tvs'
+      end.
+  Proof.
+    destruct pfu; destruct pfv. reflexivity.
+  Qed.
+
   Definition resultD tus tvs (r : Result)
              (P : HList.hlist _ tus -> HList.hlist _ tvs -> Prop)
   : Prop :=
@@ -100,8 +86,12 @@ Section parameterized.
         match substD (tus ++ tus') (tvs ++ tvs') s' with
           | None => False
           | Some s'V =>
+            (** The problem with [exists] out here is that we don't know that
+             ** the values are the same before and after. This is why it makes
+             ** sense to put [forall] in both places
+             **)
             forall us vs,
-              (exists us' vs',
+              (exists us', forall vs',
                  let us := HList.hlist_app us us' in
                  let vs := HList.hlist_app vs vs' in
                  s'V us vs) ->
@@ -112,7 +102,7 @@ Section parameterized.
         match stateD (tus ++ tus') (tvs ++ tvs') s' hs' g' with
           | Some G' =>
             forall us vs,
-              (exists us' vs',
+              (exists us', forall vs',
                  let us := HList.hlist_app us us' in
                  let vs := HList.hlist_app vs vs' in
                  G' us vs) ->
@@ -120,6 +110,19 @@ Section parameterized.
           | _ => False
         end
     end.
+
+  Lemma resultD_conv
+  : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
+      @resultD tus tvs =
+      match pfu in _ = tu , pfv in _ = tv
+            return _ ->
+                   (HList.hlist typD tu -> HList.hlist typD tv -> _) -> _
+      with
+        | eq_refl , eq_refl => @resultD tus' tvs'
+      end.
+  Proof.
+    destruct pfu; destruct pfv. reflexivity.
+  Qed.
 
   Definition WellFormed_result (r : Result) : Prop :=
     match r with
@@ -151,7 +154,7 @@ Section parameterized.
                  | None => False
                  | Some s'V =>
                    forall (us : HList.hlist _ tus) (vs : HList.hlist _ tvs),
-                     (exists us' vs',
+                     (exists us', forall vs',
                         let us := HList.hlist_app us us' in
                         let vs := HList.hlist_app vs vs' in
                         s'V us vs) ->
@@ -166,7 +169,7 @@ Section parameterized.
                match stateD (tus ++ tus') (tvs ++ tvs') s' hs' g' with
                  | Some G' =>
                    forall us vs,
-                     (exists us' vs',
+                     (exists us', forall vs',
                         let us := HList.hlist_app us us' in
                         let vs := HList.hlist_app vs vs' in
                         G' us vs) ->
@@ -193,7 +196,7 @@ Section parameterized.
                  | None => False
                  | Some s'V =>
                    forall (us : HList.hlist _ tus) (vs : HList.hlist _ tvs),
-                     (exists us' vs',
+                     (exists us', forall vs',
                         s'V (HList.hlist_app us us') (HList.hlist_app vs vs')) ->
                      Forall (fun P => P us vs) Hs ->
                      G us vs /\ sV us vs
@@ -213,7 +216,7 @@ Section parameterized.
                with
                  | Some G' , Some Hs' , Some s'V =>
                    forall us vs,
-                     (exists us' vs',
+                     (exists us', forall vs',
                         let us := HList.hlist_app us us' in
                         let vs := HList.hlist_app vs vs' in
                         Forall (fun P => P us vs) Hs' ->
@@ -240,6 +243,13 @@ Section parameterized.
                        (forall x,
                           P x <-> Q x) ->
                        ((forall x : T, P x) <-> (forall x : T, Q x)).
+  Proof.
+    clear. intros. setoid_rewrite H. reflexivity.
+  Qed.
+  Lemma exists_iff : forall T P Q,
+                       (forall x,
+                          P x <-> Q x) ->
+                       ((exists x : T, P x) <-> (exists x : T, Q x)).
   Proof.
     clear. intros. setoid_rewrite H. reflexivity.
   Qed.
@@ -318,7 +328,7 @@ Section parameterized.
             | Some G' =>
               forall (us : HList.hlist typD tus)
                      (vs : HList.hlist typD tvs),
-                (exists us' vs' : HList.hlist typD nil,
+                (exists us', forall vs' : HList.hlist typD nil,
                    let us := HList.hlist_app us us' in
                    let vs := HList.hlist_app vs vs' in
                    G' us vs) ->
@@ -334,9 +344,9 @@ Section parameterized.
       | |- match ?X with _ => _ end =>
         consider X; intros
     end.
-    { destruct H1 as [ ? [ ? ? ] ].
+    { destruct H1.
+      specialize (H1 Hnil).
       rewrite (HList.hlist_eta x) in *.
-      rewrite (HList.hlist_eta x0) in *.
       do 2 rewrite HList.hlist_app_nil_r in H1.
       destruct (eq_sym (HList.app_nil_r_trans tus)).
       destruct (eq_sym (HList.app_nil_r_trans tvs)).
@@ -356,7 +366,7 @@ Section parameterized.
             | None => False
             | Some s'V =>
               forall (us : HList.hlist _ tus) (vs : HList.hlist _ tvs),
-                (exists us' vs',
+                (exists us', forall vs',
                    let us := HList.hlist_app us us' in
                    let vs := HList.hlist_app vs vs' in
                    s'V us vs) ->
@@ -380,7 +390,7 @@ Section parameterized.
           match stateD (tus ++ tus') (tvs ++ tvs') sub' hs' g' with
             | Some G' =>
               forall us vs,
-                (exists us' vs',
+                (exists us', forall vs',
                    let us := HList.hlist_app us us' in
                    let vs := HList.hlist_app vs vs' in
                    G' us vs) ->

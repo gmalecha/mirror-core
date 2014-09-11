@@ -50,8 +50,8 @@ Section parameterized.
                 | Some sD' =>
                   forall (us : hlist typD tus)
                          (vs : hlist typD tvs),
-                    (exists (us' : hlist typD tus')
-                            (vs' : hlist typD tvs'),
+                    (exists (us' : hlist typD tus'),
+                     forall (vs' : hlist typD tvs'),
                        sD' (hlist_app us us') (hlist_app vs vs')) ->
                     Forall
                       (fun P : hlist typD tus ->
@@ -76,8 +76,8 @@ Section parameterized.
                 | Some hD' , Some gD' , Some sD' =>
                   forall (us : hlist typD tus)
                          (vs : hlist typD tvs),
-                    (exists (us' : hlist typD tus')
-                            (vs' : hlist typD tvs'),
+                    (exists (us' : hlist typD tus'),
+                     forall (vs' : hlist typD tvs'),
                        let us := hlist_app us us' in
                        let vs := hlist_app vs vs' in
                        Forall

@@ -4,11 +4,13 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -316,6 +318,95 @@ Section types.
       eapply ListNth.nth_error_length_ge in H0.
       clear H1. eapply ListNth.nth_error_length_lt in x0.
       rewrite app_length in H0. omega. }
+  Qed.
+
+  Definition lem_vars_to_uvars_exprD' : Prop :=
+    forall (tus : tenv typ) (e : _) (tvs : list typ)
+         (t : typ) (tvs' : list typ)
+         (val : hlist typD tus ->
+                hlist typD (tvs ++ tvs') -> typD t),
+    exprD' tus (tvs ++ tvs') t e = Some val ->
+    exists
+      val' : hlist typD (tus ++ tvs') ->
+             hlist typD tvs -> typD t,
+      exprD' (tus ++ tvs') tvs t (vars_to_uvars (length tvs) (length tus) e) = Some val' /\
+      (forall (us : hlist typD tus)
+              (vs' : hlist typD tvs') (vs : hlist typD tvs),
+         val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
+
+  Theorem vars_to_uvars_exprD' : lem_vars_to_uvars_exprD'.
+  Proof.
+    red.
+    induction e; simpl; intros.
+    { revert H; consider (v ?[ lt ] length tvs);
+      autorewrite with exprD_rw; simpl; intros; forwardy.
+      { inv_all; subst.
+        eapply nth_error_get_hlist_nth_appL in H.
+        forward_reason. rewrite H2.
+        rewrite H in H0. inv_all; subst.
+        simpl in *. change_rewrite H1.
+        eexists; split; try reflexivity.
+        simpl. intros. f_equal. apply H3. }
+      { inv_all; subst.
+        eapply nth_error_get_hlist_nth_appR in H0.
+        2: omega.
+        simpl in *.
+        forward_reason.
+        assert (v - length tvs + length tus >= length tus) by omega.
+        eapply nth_error_get_hlist_nth_rwR with (F := typD) in H3.
+        revert H3.
+        instantiate (1 := tvs').
+        cutrewrite (v - length tvs + length tus - length tus = v - length tvs); [ | omega ].
+        change_rewrite H0.
+        intros; forward_reason.
+        change_rewrite H3.
+        change_rewrite H1.
+        eexists; split; try reflexivity.
+        simpl. intros. f_equal. rewrite H2. eapply H4. } }
+    { revert H; autorewrite with exprD_rw; simpl.
+      intros. destruct (funcAs f t); try congruence.
+      eexists; split; try reflexivity.
+      simpl. inv_all; subst. reflexivity. }
+    { revert H. autorewrite with exprD_rw; simpl; intros.
+      forwardy; inv_all; subst.
+      eapply vars_to_uvars_typeof_expr in H.
+      change_rewrite H.
+      eapply IHe1 in H0.
+      eapply IHe2 in H1.
+      forward_reason.
+      Cases.rewrite_all_goal.
+      eexists; split; try reflexivity.
+      intros.
+      unfold Open_App, OpenT, ResType.OpenT.
+      autorewrite with eq_rw.
+      rewrite H2. rewrite H3. reflexivity. }
+    { revert H. autorewrite with exprD_rw; simpl; intros.
+      match goal with
+        | H : typ2_match _ ?Y _ _ = _ |- _ =>
+          arrow_case Y
+      end; try congruence.
+      clear H0.
+      red in x1; subst. unfold Relim in *.
+      autorewrite with eq_rw in *. forwardy.
+      change_rewrite H.
+      destruct y0. eapply IHe with (tvs := x :: tvs) in H1.
+      forward_reason.
+      change_rewrite H1.
+      eexists; split; try reflexivity.
+      inv_all; subst. intros.
+      unfold OpenT, ResType.OpenT.
+      autorewrite with eq_rw.
+      eapply match_eq_match_eq with (F := fun x => x).
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros. specialize (H3 us vs' (Hcons x2 vs)).
+      apply H3. }
+    { revert H. autorewrite with exprD_rw; simpl; intros.
+      forwardy. inv_all; subst.
+      eapply nth_error_get_hlist_nth_weaken in H.
+      simpl in *. forward_reason.
+      rewrite H. change_rewrite H0.
+      eexists; split; try reflexivity.
+      simpl. intros. f_equal. apply H1. }
   Qed.
 
   Lemma mentionsU_lift

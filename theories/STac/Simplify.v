@@ -63,7 +63,7 @@ Section parameterized.
     { forward_reason.
       forward. inv_all; subst.
       rewrite (HList.hlist_eta x) in *.
-      rewrite (HList.hlist_eta x0) in *.
+      specialize (H6 HList.Hnil).
       do 2 rewrite HList.hlist_app_nil_r in H6.
       destruct (eq_sym (HList.app_nil_r_trans tus)).
       destruct (eq_sym (HList.app_nil_r_trans tvs)).

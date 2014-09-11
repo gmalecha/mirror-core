@@ -36,70 +36,66 @@ Section parameterized.
   Theorem THEN_sound
   : forall a b, stac_sound a -> stac_sound b -> stac_sound (THEN a b).
   Proof.
-    intros.
-    apply stac_sound_stac_sound_old in H.
-    apply stac_sound_stac_sound_old in H0.
-    apply stac_sound_stac_sound_old.
-    unfold stac_sound_old, THEN in *; intros.
-    specialize (H tus tvs s hs g).
+    intros; unfold stac_sound, THEN; intros.
+    specialize (H tus tvs s hs g H1).
     destruct (a tus tvs s hs g); auto.
-    specialize (H0 (tus ++ l) (tvs ++ l0) s0 l1 e).
+    destruct H.
+    specialize (H0 (tus ++ l) (tvs ++ l0) s0 l1 e H).
     destruct (b (tus ++ l) (tvs ++ l0) s0 l1 e); auto.
-    { forward_reason. split; auto.
+    { forward_reason.
+      split; auto.
       forward.
+      rewrite substD_conv with (pfu := eq_sym (HList.app_ass_trans _ _ _))
+                               (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H4.
+      unfold ResType in H4.
+      autorewrite with eq_rw in H4.
+      forward.
+      inv_all; subst.
+      eapply H5; clear H5.
+      forward_reason.
+      exists (fst (HList.hlist_split _ _ x)).
+      simpl. intros.
+      eapply H6; clear H6.
+      exists (snd (HList.hlist_split _ _ x)).
+      simpl. intros.
+      autorewrite with eq_rw.
+      specialize (H5 (HList.hlist_app vs' vs'0)); clear - H5.
+      do 2 rewrite HList.hlist_app_assoc.
+      rewrite HList.hlist_app_hlist_split.
+      generalize dependent (HList.hlist_app us x).
+      generalize dependent (HList.hlist_app vs (HList.hlist_app vs' vs'0)).
+      clear.
+      intros.
       match goal with
-        | |- match ?X with _ => _ end =>
-          consider X; intros
-      end.
-      { forward_reason.
-        eapply H9; clear H9; eauto.
-        exists (fst (HList.hlist_split _ _ x)).
-        exists (fst (HList.hlist_split _ _ x0)).
-        intro.
-        eapply and_comm.
-        eapply H10; clear H10; eauto.
-        exists (snd (HList.hlist_split _ _ x)).
-        exists (snd (HList.hlist_split _ _ x0)).
-        do 2 rewrite HList.hlist_app_assoc.
-        do 2 rewrite HList.hlist_app_hlist_split.
-        repeat match goal with
-                 | |- context [ match ?X with _ => _ end ] =>
-                   destruct X
-               end.
-        rewrite H8 in *. inv_all; subst. assumption. }
-      { intros. revert H11 H8.
-        clear - P3. revert P3.
-        do 2 rewrite app_ass. intros. congruence. } }
+        | |- _ match eq_sym ?X with eq_refl => match ?Y with _ => _ end end
+               match eq_sym ?A with eq_refl => match ?B with _ => _ end end =>
+          change Y with X ; change B with A ; destruct A; destruct X
+      end. assumption. }
     { forward_reason. split; auto.
-      forward.
-      repeat match goal with
-               | |- match ?X with _ => _ end =>
-                 consider X; intros
-             end.
-      { forward_reason.
-        eapply H9; clear H9; auto.
-        exists (fst (HList.hlist_split _ _ x)).
-        exists (fst (HList.hlist_split _ _ x0)).
-        intro.
-        eapply and_comm.
-        eapply H12; clear H12; eauto.
-        exists (snd (HList.hlist_split _ _ x)).
-        exists (snd (HList.hlist_split _ _ x0)).
-        do 2 rewrite HList.hlist_app_assoc.
-        do 2 rewrite HList.hlist_app_hlist_split.
-        destruct (eq_sym (HList.app_ass_trans tus l l2)).
-        destruct (eq_sym (HList.app_ass_trans tvs l0 l3)).
-        repeat match goal with
-                 | H : _ = _ , H' : _ = _ |- _ =>
-                   rewrite H in H'
-               end.
-        inv_all; subst. auto. }
-      { revert H11 H15. clear. revert P4.
-        do 2 rewrite app_ass. congruence. }
-      { revert H10 H14. clear. revert l7.
-        do 2 rewrite app_ass. congruence. }
-      { revert H13 H8. clear. revert P3.
-        do 2 rewrite app_ass. congruence. } }
+      rewrite stateD_conv with (pfu := eq_sym (HList.app_ass_trans _ _ _))
+                               (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H3.
+      unfold ResType in H3.
+      autorewrite with eq_rw in H3.
+      forward; inv_all; subst.
+      eapply H5; clear H5.
+      destruct H9.
+      exists (fst (HList.hlist_split _ _ x)).
+      intro.
+      simpl. eapply H6; clear H6.
+      exists (snd (HList.hlist_split _ _ x)).
+      intros.
+      do 2 rewrite HList.hlist_app_assoc.
+      rewrite HList.hlist_app_hlist_split.
+      specialize (H5 (HList.hlist_app vs' vs'0)).
+      generalize dependent (HList.hlist_app us x).
+      generalize dependent (HList.hlist_app vs (HList.hlist_app vs' vs'0)).
+      intros.
+      match goal with
+        | |- match ?X with eq_refl => match ?Y with _ => _ end end
+               match ?A with _ => _ end
+               match ?B with _ => _ end =>
+          change X with A ; change Y with B ; destruct A ; destruct B
+      end; assumption. }
   Qed.
 
 End parameterized.

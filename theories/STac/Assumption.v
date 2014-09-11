@@ -91,7 +91,7 @@ Section parameterized.
       unfold stateD. simpl in *.
       rewrite list_mapT_cons.
       forward; inv_all; subst.
-      unfold propD in *.
+      unfold propD, ExprDAs.exprD'_typ0 in H2, H3.
       forwardy; inv_all; subst.
       match goal with
         | H : _ , H' : _ , H'' : _ |- _ =>
@@ -131,10 +131,11 @@ Section parameterized.
       autorewrite with eq_rw.
       intros. apply H3.
       forward_reason.
-      rewrite (hlist_eta x0) in H4.
-      rewrite (hlist_eta x) in H4.
-      do 2 rewrite HList.hlist_app_nil_r in H4.
+      specialize (H4 HList.Hnil).
+      rewrite HList.hlist_app_nil_r in H4.
       revert H4. clear.
+      rewrite (HList.hlist_eta x).
+      rewrite HList.hlist_app_nil_r.
       destruct (eq_sym (app_nil_r_trans tus)).
       destruct (eq_sym (app_nil_r_trans tvs)).
       exact (fun x => x). }

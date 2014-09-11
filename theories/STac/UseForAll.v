@@ -75,7 +75,7 @@ Section parameterized.
       repeat rewrite eq_option_eq.
       intros. forward_reason.
       rewrite (hlist_eta x) in *; clear x.
-      rewrite (hlist_eta x0) in *; clear x0.
+      specialize (H3 Hnil).
       do 2 rewrite hlist_app_nil_r in H3.
       destruct (eq_sym (app_nil_r_trans tvs)).
       destruct (eq_sym (app_nil_r_trans tus)).
@@ -103,7 +103,8 @@ Section parameterized.
           eapply H11 in H12; clear H11; eauto.
           eapply H9 in H13; clear H9; eauto.
           intuition.
-          exists Hnil; exists Hnil.
+          exists Hnil. intros.
+          rewrite (hlist_eta vs'); clear vs'.
           do 2 rewrite hlist_app_nil_r.
           destruct (eq_sym (app_nil_r_trans tus)).
           destruct (eq_sym (app_nil_r_trans tvs)).
@@ -123,7 +124,8 @@ Section parameterized.
           eapply H13 in H14; eauto; clear H13.
           eapply H9 in H15; eauto; clear H9.
           intuition.
-          exists Hnil; exists Hnil.
+          exists Hnil.
+          intro vs'; rewrite (hlist_eta vs'); clear vs'.
           do 2 rewrite hlist_app_nil_r.
           destruct (eq_sym (app_nil_r_trans tus)).
           destruct (eq_sym (app_nil_r_trans tvs)).

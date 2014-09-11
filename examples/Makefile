@@ -7,12 +7,14 @@ AUTO    := Demo
 AUTORW  := AutoSetoidRewrite DemoAutoSetoidRewrite DemoQuantPull \
 	   AutoRewriteLambda
 # SetoidRewriteRec DemoSetoid
+RTAC    := Demo
 SIMPLE  := Simple SimpleRewrite SimpleReify SimpleExt
 MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
            $(AUTO:%=Auto/%) \
-	   $(AUTORW:%=AutoRewrite/%)
+	   $(AUTORW:%=AutoRewrite/%) \
+	   $(RTAC:%=RTac/%)
 
 # ExprDemo
 #	      $(SETOID:%=setoid/%)
