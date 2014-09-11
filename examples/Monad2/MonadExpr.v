@@ -25,13 +25,13 @@ Section mext.
   apply RSym_mfunc. assumption.
   Defined.
 
-  Definition exprD (ts : list Type) (us vs : @EnvI.env _ (RType_typ m tys) nil) (t : typ) (e : mexpr)
-  : option (typD m tys ts t) :=
+  Definition exprD (us vs : @EnvI.env _ (RType_typ m tys)) (t : typ) (e : mexpr)
+  : option (typD m tys t) :=
     let (tus,us) := EnvI.split_env us in
     let (tvs,vs) := EnvI.split_env vs in
     match @exprD' typ mext
                   (RType_typ _ _) _ RSym_mext
-                  ts tus tvs t e
+                  tus tvs t e
     with
       | None => None
       | Some val => Some (val us vs)

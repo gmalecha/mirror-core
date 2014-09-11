@@ -40,11 +40,11 @@ Qed.
 
 Definition fs : @functions typ _ :=
   Eval simpl in from_list
-                  ((@F typ _ (tyArr tyNat tyProp) (fun _ => Even)) ::
-                   (@F typ _ tyNat (fun _ => O)) ::
-                   (@F typ _  (tyArr tyNat tyNat) (fun _ => S)) ::
-                   (@F typ _  (tyArr tyNat (tyArr tyNat tyNat)) (fun _ => plus)) ::
-                   (@F typ _  (tyArr tyNat (tyArr tyNat tyNat)) (fun _ => minus)) ::
+                  ((@F typ _ (tyArr tyNat tyProp) (Even)) ::
+                   (@F typ _ tyNat (O)) ::
+                   (@F typ _  (tyArr tyNat tyNat) (S)) ::
+                   (@F typ _  (tyArr tyNat (tyArr tyNat tyNat)) (plus)) ::
+                   (@F typ _  (tyArr tyNat (tyArr tyNat tyNat)) (minus)) ::
                    nil).
 
 Let func := SymEnv.func.
@@ -94,7 +94,8 @@ Definition evenHints : Hints typ (expr typ func) :=
  ; Extern := from_Prover (@assumptionProver _ (expr typ func) _)
  |}.
 
-Instance ExprOk_expr : ExprI.ExprOk Expr_expr := @ExprOk_expr _ _ _ _ _ _ _ _ nil.
+Instance ExprOk_expr : ExprI.ExprOk Expr_expr :=
+  @ExprOk_expr _ _ _ _ _ _ _ _.
 
 Theorem evenHintsOk : @HintsOk _ _ RType_typ _ _ evenHints.
 Proof.
@@ -129,12 +130,12 @@ Qed.
 Require MirrorCore.Lambda.ExprUnify_simul.
 
 Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ _ hints)
-: forall facts (us vs : EnvI.env nil) goal s',
+: forall facts (us vs : EnvI.env) goal s',
     @auto_prove typ (expr typ func) _ _ subst _ _ 
                 hints
                 (vars_to_uvars)
                 (fun tus tvs under el er (t : typ) (sub : subst) =>
-                   @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 nil tus tvs under sub el er t)
+                   @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under sub el er t)
                 (@instantiate typ func) fuel facts
                 (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
                 (@SubstI.empty _ _ _) = Some s' ->

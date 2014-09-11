@@ -42,7 +42,7 @@ Definition rewrite (rw : RW typ E subst) tus tvs (t : typ) (e : E) : option E :=
   match
     @rewrite_here typ E _ subst _ _ (@vars_to_uvars typ func)
                   (fun tus tvs u e1 e2 t s =>
-                     @ExprUnify_simul.exprUnify subst typ func _ _ _ _ _ 10 nil tus tvs u s e1 e2 t)
+                     @ExprUnify_simul.exprUnify subst typ func _ _ _ _ _ 10 tus tvs u s e1 e2 t)
                   (@instantiate typ func) rw tus tvs t nil e (@empty _ _ _) 0
   with
     | None => None
@@ -54,7 +54,7 @@ Definition rewrite_top (rw : RW typ E subst) : stac typ E subst :=
     match
       @rewrite_here typ E _ subst _ _ (@vars_to_uvars typ func)
                     (fun tus tvs u e1 e2 t s =>
-                       @ExprUnify_simul.exprUnify subst typ func _ _ _ _ _ 10 nil tus tvs u s e1 e2 t)
+                       @ExprUnify_simul.exprUnify subst typ func _ _ _ _ _ 10 tus tvs u s e1 e2 t)
                     (@instantiate typ func) rw tus tvs tyProp hyps goal sub 0
     with
       | None => Fail
@@ -114,7 +114,7 @@ Section above_binders.
           | Some t => Some (t,(e,s))
         end
       | Inj _ =>
-        match typeof_expr nil tus tvs e with
+        match typeof_expr tus tvs e with
           | None => None
           | Some t => Some match rw tus tvs t e under s with
                              | None => (t,(e,s))
@@ -133,7 +133,7 @@ Section above_binders.
           | _ => None
         end
       | Abs _ _ =>
-        match typeof_expr nil tus tvs e with
+        match typeof_expr tus tvs e with
           | None => None
           | Some t =>
             Some match rw tus tvs t e under s with
@@ -150,7 +150,7 @@ End above_binders.
 Definition autorewrite : RWs typ E subst -> stac typ E subst :=
   @rewrite_bottom_up typ E RType_typ _ subst _ _ (@vars_to_uvars typ func)
                     (fun tus tvs u e1 e2 t s =>
-                       @ExprUnify_simul.exprUnify subst typ func _ _ _ _ _ 10 nil tus tvs u s e1 e2 t)
+                       @ExprUnify_simul.exprUnify subst typ func _ _ _ _ _ 10 tus tvs u s e1 e2 t)
                     (@instantiate typ func)
                     bottom_up.
 

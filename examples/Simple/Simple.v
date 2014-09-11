@@ -18,12 +18,12 @@ Inductive typ :=
 | tyNat | tyBool
 | tyProp.
 
-Fixpoint typD (ts : list Type) (t : typ) : Type :=
+Fixpoint typD (t : typ) : Type :=
   match t with
     | tyNat => nat
     | tyBool => bool
     | tyProp => Prop
-    | tyArr a b => typD ts a -> typD ts b
+    | tyArr a b => typD a -> typD b
   end.
 
 Definition typ_eq_dec : forall a b : typ, {a = b} + {a <> b}.
@@ -52,10 +52,10 @@ Inductive tyAcc' : typ -> typ -> Prop :=
 Instance RType_typ : RType typ :=
 { typD := typD
 ; tyAcc := tyAcc'
-; type_cast := fun _ a b => match typ_eq_dec a b with
-                              | left pf => Some pf
-                              | _ => None
-                            end
+; type_cast := fun a b => match typ_eq_dec a b with
+                            | left pf => Some pf
+                            | _ => None
+                          end
 }.
 
 Instance RTypeOk_typ : @RTypeOk typ _.
@@ -75,10 +75,10 @@ Qed.
 
 Instance Typ2_tyArr : Typ2 _ Fun :=
 { typ2 := tyArr
-; typ2_cast := fun _ _ _ => eq_refl
+; typ2_cast := fun _ _ => eq_refl
 ; typ2_match :=
-    fun T ts t tr =>
-      match t as t return T (TypesI.typD ts t) -> T (TypesI.typD ts t) with
+    fun T t tr =>
+      match t as t return T (TypesI.typD t) -> T (TypesI.typD t) with
         | tyArr a b => fun _ => tr a b
         | _ => fun fa => fa
       end
@@ -98,10 +98,10 @@ Qed.
 
 Instance Typ0_tyProp : Typ0 _ Prop :=
 {| typ0 := tyProp
- ; typ0_cast := fun _ => eq_refl
- ; typ0_match := fun T ts t =>
+ ; typ0_cast := eq_refl
+ ; typ0_match := fun T t =>
                    match t as t
-                         return T Prop -> T (TypesI.typD ts t) -> T (TypesI.typD ts t)
+                         return T Prop -> T (TypesI.typD t) -> T (TypesI.typD t)
                    with
                      | tyProp => fun tr _ => tr
                      | _ => fun _ fa => fa
@@ -123,14 +123,14 @@ Definition typeof_func (f : func) : option typ :=
          | Ex t | All t => tyArr (tyArr t tyProp) tyProp
        end.
 
-Definition funcD (ts : list Type) (f : func)
+Definition funcD (f : func)
 : match typeof_func f with
     | None => unit
-    | Some t => typD ts t
+    | Some t => typD t
   end :=
   match f as f return match typeof_func f with
                         | None => unit
-                        | Some t => typD ts t
+                        | Some t => typD t
                       end
   with
     | Lt => NPeano.ltb
@@ -140,8 +140,8 @@ Definition funcD (ts : list Type) (f : func)
     | And => and
     | Or => or
     | Impl => fun (P Q : Prop) => P -> Q
-    | All t => fun P => forall x : typD ts t, P x
-    | Ex t => fun P => exists x : typD ts t, P x
+    | All t => fun P => forall x : typD t, P x
+    | Ex t => fun P => exists x : typD t, P x
   end.
 
 Instance RelDec_func_eq : RelDec (@eq func) :=

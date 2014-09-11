@@ -113,17 +113,17 @@ Section soundness.
   Lemma reduce_m_arr
   : forall tus e tvs,
       (forall tm,
-         match exprD' nil tus tvs (tyM tm) e with
+         match exprD' tus tvs (tyM tm) e with
            | None => True
-           | Some v => match exprD' nil tus tvs (tyM tm) (reduce_m tm e) with
+           | Some v => match exprD' tus tvs (tyM tm) (reduce_m tm e) with
                          | None => False
                          | Some v' => forall us vs, v us vs = v' us vs
                        end
          end) /\
       (forall t t',
-         match exprD' nil tus tvs (tyArr t t') e with
+         match exprD' tus tvs (tyArr t t') e with
            | None => True
-           | Some v => match exprD' nil tus tvs (tyArr t t') (reduce_arrow t t' e) with
+           | Some v => match exprD' tus tvs (tyArr t t') (reduce_arrow t t' e) with
                          | None => False
                          | Some v' => forall us vs, v us vs = v' us vs
                        end
@@ -161,8 +161,8 @@ Section soundness.
   Theorem reduceOk (me : mexpr)
   : forall us vs t me',
       reduce t me = me' ->
-      match @exprD m _ tys fs nil us vs t me with
-        | Some val => match @exprD m _ tys fs nil us vs t me' with
+      match @exprD m _ tys fs us vs t me with
+        | Some val => match @exprD m _ tys fs us vs t me' with
                         | Some val' => val = val'
                         | None => False
                       end
@@ -171,16 +171,16 @@ Section soundness.
   Admitted.
 
   Definition Conclusion_reduce_eq us vs t a b : Prop :=
-    match @exprD m _ tys fs nil us vs t a
-        , @exprD m _ tys fs nil us vs t b
+    match @exprD m _ tys fs us vs t a
+        , @exprD m _ tys fs us vs t b
     with
       | Some val , Some val' => val = val'
       | _ , _ => True
     end.
 
   Definition Premise_reduce_eq us vs t ab : Prop :=
-    match @exprD m _ tys fs nil us vs t (fst ab)
-          , @exprD m _ tys fs nil us vs t (snd ab)
+    match @exprD m _ tys fs us vs t (fst ab)
+          , @exprD m _ tys fs us vs t (snd ab)
     with
       | Some val , Some val' => val = val'
       | _ , _ => False

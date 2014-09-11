@@ -43,7 +43,7 @@ Reify Pattern patterns_simple += (RApp (RApp (@RExact _ plus) (RGet 0 RIgnore)) 
 Reify Pattern patterns_simple += (RApp (RApp (@RExact _ NPeano.ltb) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (Inj (inl Simple.Lt)) a) b).
 Reify Pattern patterns_simple += (RApp (RApp (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) (RGet 1 RIgnore)) (RGet 2 RIgnore)) => (fun (t : function reify_simple_typ) (a b : function reify_simple) => App (App (Inj (inl (Simple.Eq t))) a) b).
 
-Let map_ctor : forall (a : Simple.typ),  (forall ts, TypesI.typD ts a) -> _ :=
+Let map_ctor : forall (a : Simple.typ),  (TypesI.typD a) -> _ :=
   @SymEnv.F Simple.typ _.
 
 Ltac reify_typ trm :=
@@ -58,7 +58,7 @@ Ltac reify trm :=
       refine e
   in
   reify_expr reify_simple k
-             [ (fun x : mk_dvar_map_abs (D := list Type) table_terms map_ctor => True) ]
+             [ (fun x : mk_dvar_map table_terms map_ctor => True) ]
              [ trm ].
 
 Definition test_1 : expr typ func.

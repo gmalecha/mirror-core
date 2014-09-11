@@ -75,10 +75,7 @@ Section types.
   | tyM : typ -> typ.
 
   Section with_env.
-    Variable env : list Type.
-
     Fixpoint typD (x : typ) {struct x} : Type :=
-      let _ := env in
       match x return Type with
         | tyProp => Prop
         | tyArr l r => typD l -> typD r
@@ -86,9 +83,9 @@ Section types.
         | tyM x => m (typD x)
       end.
 
-    Definition Rty (env : list Type) : typ -> typ -> Prop := @eq _.
+    Definition Rty : typ -> typ -> Prop := @eq _.
     Definition Relim (F : Type -> Type)
-               (to from : typ) (pf : Rty env to from)
+               (to from : typ) (pf : Rty to from)
     : F (typD from) -> F (typD to).
       destruct pf. refine (fun x => x).
     Defined.
@@ -113,7 +110,7 @@ Section types.
         | _ , _ => None
       end.
 
-    Fixpoint type_cast (a b : typ) {struct a} : option (Rty env a b) :=
+    Fixpoint type_cast (a b : typ) {struct a} : option (Rty a b) :=
       match a , b with
         | tyProp , tyProp => Some eq_refl
         | tyArr a b , tyArr c d =>
@@ -179,11 +176,13 @@ Section types.
 
 End types.
 
+Print Typ2.
+
 Instance Typ2_tyArr ts m : @Typ2 _ (RType_typ ts m) Fun :=
 { typ2 := tyArr
-; typ2_cast := fun _ _ _ => eq_refl
-; typ2_match := fun T ts t tr =>
-                  match t as t return T (typD _ _ ts t) -> T (typD _ _ ts t) with
+; typ2_cast := fun _ _ => eq_refl
+; typ2_match := fun T t tr =>
+                  match t as t return T (typD _ _ t) -> T (typD _ _ t) with
                     | tyArr a b => fun _ => tr a b
                     | _ => fun fa => fa
                   end
@@ -197,7 +196,7 @@ Proof.
   { eapply acc_tyArrL. }
   { eapply acc_tyArrR. }
   { unfold TypesI.Rty. simpl.
-    inversion 2. auto. }
+    inversion 1. auto. }
   { destruct x; simpl; try solve [ right; reflexivity ].
     left. eexists; eexists. exists eq_refl. reflexivity. }
   { destruct pf. reflexivity. }

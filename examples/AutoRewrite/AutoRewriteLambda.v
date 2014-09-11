@@ -49,8 +49,8 @@ Section exprs.
     @lemmaD _ _ _ Expr_expr _
             (fun tus tvs (c : Eqn) =>
                let '{| type := t ; lhs := lhs ; rhs := rhs |} := c in
-               match exprD' nil tus tvs t lhs
-                   , exprD' nil tus tvs t rhs
+               match exprD' tus tvs t lhs
+                   , exprD' tus tvs t rhs
                with
                  | Some l , Some r =>
                    Some (fun us vs => l us vs = r us vs)
@@ -94,7 +94,7 @@ Section exprs.
                        match
                          ExprUnify.exprUnify
                            _ RSym_func Subst_subst SU fuel
-                           nil (tus ++ vars lem) tvs 0 s pattern e t
+                           (tus ++ vars lem) tvs 0 s pattern e t
                        with
                          | Some s' =>
                            match all_success
@@ -124,7 +124,7 @@ Section exprs.
     Fixpoint typed_foldr (tvs : tenv typ) (e : expr typ func) (t : typ) : T :=
       match e with
         | App f x =>
-          match typeof_expr nil tus tvs x with
+          match typeof_expr tus tvs x with
             | None => atom tvs t e
             | Some d =>
               app tvs d t
@@ -132,7 +132,7 @@ Section exprs.
                   (typed_foldr tvs x d)
           end
         | Abs d e =>
-          typ2_match (fun _ => T) nil t
+          typ2_match (fun _ => T) t
                      (fun _ r =>
                         abs tvs d r (typed_foldr (t :: tvs) e r))
                      (atom tvs t (Abs d e))

@@ -25,12 +25,12 @@ Section monad_funcs.
            | mReturn a => tyArr a (tyM a)
          end.
 
-  Definition mfuncD ts' (f : mfunc) : match typeof_mfunc f with
-                                       | None => unit
-                                       | Some t => typD m ts ts' t
-                                     end :=
+  Definition mfuncD (f : mfunc) : match typeof_mfunc f with
+                                    | None => unit
+                                    | Some t => typD m ts t
+                                  end :=
     match f as f
-          return typD m ts nil
+          return typD m ts
                       match f with
                         | mBind a b =>
                           tyArr (tyM a) (tyArr (tyArr a (tyM b)) (tyM b))
@@ -44,9 +44,9 @@ Section monad_funcs.
   Definition mfunc_eq (a b : mfunc) : option bool :=
     match a , b with
       | mBind a1 a2 , mBind b1 b2 =>
-        Some (if type_cast nil a1 b1 then if type_cast nil a2 b2 then true else false else false)
+        Some (if type_cast a1 b1 then if type_cast a2 b2 then true else false else false)
       | mReturn a , mReturn b =>
-        Some (if type_cast nil a b then true else false)
+        Some (if type_cast a b then true else false)
       | _ , _ => Some false
     end.
 
