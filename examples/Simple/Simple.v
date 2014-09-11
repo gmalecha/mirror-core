@@ -111,7 +111,7 @@ Instance Typ0_tyProp : Typ0 _ Prop :=
 Inductive func :=
 | Lt | Plus | N : nat -> func | Eq : typ -> func
 | Ex : typ -> func | All : typ -> func
-| And | Or.
+| And | Or | Impl.
 
 Definition typeof_func (f : func) : option typ :=
   Some match f with
@@ -119,7 +119,7 @@ Definition typeof_func (f : func) : option typ :=
          | Plus => tyArr tyNat (tyArr tyNat tyNat)
          | N _ => tyNat
          | Eq t => tyArr t (tyArr t tyProp)
-         | And | Or => tyArr tyProp (tyArr tyProp tyProp)
+         | And | Or | Impl => tyArr tyProp (tyArr tyProp tyProp)
          | Ex t | All t => tyArr (tyArr t tyProp) tyProp
        end.
 
@@ -139,6 +139,7 @@ Definition funcD (ts : list Type) (f : func)
     | Eq t => @eq _
     | And => and
     | Or => or
+    | Impl => fun (P Q : Prop) => P -> Q
     | All t => fun P => forall x : typD ts t, P x
     | Ex t => fun P => exists x : typD ts t, P x
   end.
@@ -150,7 +151,8 @@ Instance RelDec_func_eq : RelDec (@eq func) :=
                  | Lt , Lt => true
                  | N a , N b => a ?[ eq ] b
                  | Eq a , Eq b => a ?[ eq ] b
-                 | And , And => true
+                 | And , And
+                 | Impl , Impl
                  | Or , Or => true
                  | All a , All b
                  | Ex a , Ex b => a ?[ eq ] b

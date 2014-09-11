@@ -42,6 +42,7 @@ MODULES    := Generic \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(STAC:%=STac/%) \
+	      $(RTAC:%=RTac/%) \
 	      $(SYMS:%=syms/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(REIFY:%=Reify/%)
