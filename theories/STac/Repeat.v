@@ -68,12 +68,12 @@ Section parameterized.
             inv_all; subst.
             eapply H5; auto; clear H5.
             exists (fst (HList.hlist_split _ _ x)).
-            exists (fst (HList.hlist_split _ _ x0)).
-            simpl. eapply H6.
+            intros.
+            eapply H6; clear H6; auto.
             exists (snd (HList.hlist_split _ _ x)).
-            exists (snd (HList.hlist_split _ _ x0)).
+            intros.
             do 2 rewrite hlist_app_assoc.
-            do 2 rewrite hlist_app_hlist_split.
+            rewrite hlist_app_hlist_split.
             rewrite substD_conv
                with (pfu := app_ass_trans tus l l2)
                     (pfv := app_ass_trans tvs l0 l3)
@@ -81,12 +81,14 @@ Section parameterized.
             rewrite H4 in H9.
             unfold ResType in H9. autorewrite with eq_rw in H9.
             inv_all; subst.
+            clear - H12.
+            specialize (H12 (hlist_app vs' vs'0)).
             generalize dependent (hlist_app us x).
-            generalize dependent (hlist_app vs x0).
+            generalize dependent (hlist_app vs (hlist_app vs' vs'0)).
             clear.
-            destruct (app_ass_trans tus l l2).
+            destruct (app_ass_trans tus l l2); auto.
             destruct (app_ass_trans tvs l0 l3).
-            intros. apply H12. }
+            exact (fun _ _ x => x). }
         { clear - H4 H9.
           generalize dependent P1.
           do 2 rewrite app_ass. intros. congruence. } }
@@ -96,24 +98,39 @@ Section parameterized.
                    | |- match ?X with _ => _ end =>
                      consider X; intros
                  end.
-          { destruct H17 as [ ? [ ? ? ] ].
-            inv_all; subst.
+          { inv_all; subst.
             eapply H5; auto; clear H5.
+            forward_reason.
             exists (fst (HList.hlist_split _ _ x)).
-            exists (fst (HList.hlist_split _ _ x0)).
             intro. apply H6; clear H6; auto.
             exists (snd (HList.hlist_split _ _ x)).
-            exists (snd (HList.hlist_split _ _ x0)).
+            intro.
             do 2 rewrite hlist_app_assoc.
-            do 2 rewrite hlist_app_hlist_split.
+            rewrite hlist_app_hlist_split.
+            rewrite substD_conv
+               with (pfu := eq_sym (app_ass_trans _ _ _))
+                    (pfv := eq_sym (app_ass_trans _ _ _)) in H8.
+            unfold propD in *.
+            rewrite ExprDAs.exprD'_typ0_conv
+               with (pfu := eq_sym (app_ass_trans _ _ _))
+                    (pfv := eq_sym (app_ass_trans _ _ _)) in H4.
+            rewrite ExprDAs.exprD'_typ0_conv
+               with (pfu := eq_sym (app_ass_trans _ _ _))
+                    (pfv := eq_sym (app_ass_trans _ _ _)) in H7.
+            unfold ResType in *.
+            autorewrite with eq_rw in *.
+            forward; inv_all; subst.
+            autorewrite with eq_rw.
+            eapply H5; clear H5.
+            admit. (*
             destruct (eq_sym (app_ass_trans tus l l2)).
             destruct (eq_sym (app_ass_trans tvs l0 l3)).
             rewrite H7 in H16; clear H7.
             rewrite H8 in H16; clear H8.
             rewrite H4 in H16; clear H4.
-            inv_all; subst. assumption. }
+            inv_all; subst. assumption. *) }
           { revert H16.
-            clear - H7 H8 H4.
+            clear - H7 H8 H4. admit. (*
             rewrite propD_conv
                with (pfu := app_ass_trans tus l l2)
                     (pfv := app_ass_trans tvs l0 l3).
@@ -125,7 +142,7 @@ Section parameterized.
             rewrite H4.
             destruct (app_ass_trans tus l l2).
             destruct (app_ass_trans tvs l0 l3).
-            rewrite H7. congruence. } } } }
+            rewrite H7. congruence. *) } } } }
   Qed.
 
 End parameterized.

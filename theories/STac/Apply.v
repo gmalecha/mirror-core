@@ -5,6 +5,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
+Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
@@ -145,6 +146,7 @@ Section parameterized.
            end.
       unfold propD in H6.
       forward.
+      admit. (*
       eapply H8 in H6; clear H8; eauto.
       { forward_reason.
         eapply lemmaD'_weakenU with (tus' := tus) in H; eauto using propD_weakenU.
@@ -368,7 +370,7 @@ Section parameterized.
         unfold tyProp.
         destruct (exprD' x y z (typ0 (F:=Prop))).
         unfold ResType. rewrite eq_option_eq. reflexivity.
-        unfold ResType. rewrite eq_option_eq. reflexivity. } }
+        unfold ResType. rewrite eq_option_eq. reflexivity. } *) }
   Qed.
 
 End parameterized.

@@ -48,8 +48,10 @@ Section parameterized.
     eapply SIMPLIFY_sound.
     intros. unfold propD.
     forward.
-    eapply sem_preserves_if_substD in H3; eauto.
+    eapply sem_preserves_if_substD in H2; eauto.
     red in exprD'_instantiate.
+    unfold ExprDAs.exprD'_typ0 in *.
+    forward.
     eapply exprD'_instantiate with (tvs' := nil) in H1; eauto.
     simpl in H1.
     forward_reason.
