@@ -31,7 +31,7 @@ STAC := Core Continuation Repeat \
 RTAC := Core CoreX Open \
 	Then Try Repeat \
 	Assumption RunSTac \
-	Intro \
+	Intro Apply EApply \
 	RTac
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
