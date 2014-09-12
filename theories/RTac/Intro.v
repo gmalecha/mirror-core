@@ -44,9 +44,16 @@ Section parameterized.
 
   Variable substV : (nat -> option expr) -> expr -> expr.
   Variable Var : nat -> expr.
+  Variable UVar : nat -> expr.
+
+  Inductive OpenAs :=
+  | AsEx : typ -> (expr -> expr) -> OpenAs
+  | AsAl : typ -> (expr -> expr) -> OpenAs
+  | AsHy : expr -> expr -> OpenAs.
+
+  Variable open : expr -> option OpenAs.
 
   Definition INTRO
-             (open : expr -> option ((typ * (expr -> expr)) + (expr * expr)))
   : rtac typ expr subst :=
     fun g => at_bottom (m := option)
                        (fun tus tvs s g =>
@@ -55,15 +62,19 @@ Section parameterized.
                             | Some g =>
                               match open g with
                                 | None => None
-                                | Some (inl (t, g')) =>
+                                | Some (AsAl t g') =>
                                   let nv := length tvs in
                                   Some (GAlls t (GGoal s (Some (g' (Var nv)))))
-                                | Some (inr (t, g')) =>
-                                  Some (GHyps t (GGoal s (Some g')))
+                                | Some (AsEx t g') =>
+                                  let nu := length tus in
+                                  Some (GExs t (GGoal s (Some (g' (UVar nu)))))
+                                | Some (AsHy h g') =>
+                                  Some (GHyps h (GGoal s (Some g')))
                               end
                           end)
                nil nil g.
 
+(*
   Definition open_sound (open : expr -> option ((typ + expr) * expr)) : Prop :=
     forall tus tvs e eD h e',
       open e = Some (h,e') ->
@@ -77,6 +88,7 @@ Section parameterized.
         | inr h =>
           False
       end.
+*)
 
 (*
   Lemma _impls_sem

@@ -18,18 +18,17 @@ Defined.
 
 
 Definition open (e : expr typ func)
-: option (   ((typ * (expr typ func -> expr typ func))
-           + (expr typ func * expr typ func))) :=
+: option (OpenAs typ (expr typ func)) :=
   match e with
     | App (Inj (All t)) e =>
-      Some (inl (t, fun x => beta (App e x)))
+      Some (AsAl t (fun x => beta (App e x)))
     | App (App (Inj Impl) P) Q =>
-      Some (inr (P, Q))
+      Some (AsHy _ P Q)
     | _ => None
   end.
 
 Let INTRO :=
-  INTRO (subst:=subst) (@Var typ func) open.
+  INTRO (subst:=subst) (@Var typ func) (@UVar _ _) open.
 
 Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
                     (@vars_to_uvars _ _)
