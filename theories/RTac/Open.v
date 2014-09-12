@@ -45,4 +45,23 @@ Section parameterized.
       | CEx t c => closeGoal c (GExs t g)
       | CHyp t c => closeGoal c (GHyps t g)
     end.
+
+  Fixpoint getEnvs' (ctx : Ctx) (tus tvs : tenv typ) : tenv typ * tenv typ :=
+    match ctx with
+      | CTop => (tus,tvs)
+      | CAll t ctx' => getEnvs' ctx' tus (t :: tvs)
+      | CEx  t ctx' => getEnvs' ctx' (t :: tus) tvs
+      | CHyp _ ctx' => getEnvs' ctx' tus tvs
+    end.
+
+  Definition getEnvs (ctx : Ctx) : tenv typ * tenv typ :=
+    let (x,y) := getEnvs' ctx nil nil in
+    (x, y).
+
+(*
+  Eval compute in fun t u v a b =>
+      let '(x,_,_) := openGoal (GAlls t (GAlls u (GAlls v (GGoal a b)))) in
+      getEnvs x.
+*)
+
 End parameterized.

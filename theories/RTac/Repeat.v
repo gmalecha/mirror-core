@@ -12,6 +12,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Try.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -43,12 +44,12 @@ Section parameterized.
                       | Some gl' =>
                         match REPEAT' n tac gl' with
                           | None => Some gl'
-                          | Some gl'' => REPEAT' n tac gl'
+                          | Some gl'' => TRY (REPEAT' n tac) gl''
                         end
                     end
           | xO n => match REPEAT' n tac gl with
                       | None => Some gl
-                      | Some gl' => REPEAT' n tac gl
+                      | Some gl' => TRY (REPEAT' n tac) gl'
                     end
         end.
   End repeater.
