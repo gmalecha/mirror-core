@@ -29,7 +29,7 @@ STAC := Core Continuation Repeat \
 	UseForAll UseList \
 	STac
 RTAC := Core CoreX Open \
-	Then Try Repeat \
+	Then Try Repeat Idtac First Fail \
 	Assumption RunSTac \
 	Intro Apply EApply \
 	RTac

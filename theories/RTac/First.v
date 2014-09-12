@@ -3,7 +3,6 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 
 Require Import MirrorCore.Util.Forwardy.
@@ -22,30 +21,25 @@ Section parameterized.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
-  Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
+  Fixpoint FIRST (tacs : list (rtac typ expr subst))
+  : rtac typ expr subst :=
     fun gl =>
-      match c1 gl with
-        | Some gl' => c2 gl'
-        | None => None
+      match tacs with
+        | nil => None
+        | tac :: tacs' =>
+          match tac gl with
+            | None => FIRST tacs' gl
+            | Some gl' => Some gl'
+          end
       end.
 
-  Theorem THEN_sound
-  : forall (tus tvs : list typ) (tac1 tac2 : rtac typ expr subst),
-      rtac_sound tus tvs tac1 ->
-      rtac_sound tus tvs tac2 ->
-      rtac_sound tus tvs (THEN tac1 tac2).
+  Theorem FIRST_sound
+  : forall tus tvs tacs, Forall (rtac_sound tus tvs) tacs -> rtac_sound tus tvs (FIRST tacs).
   Proof.
-    unfold THEN.
-    intros.
-    red. intros.
-    forward.
-    eapply H in H1; clear H.
-    eapply H1 in H2; clear H1.
-    destruct H2.
-    eapply H0 in H3; eauto.
-    specialize (H3 H). forward_reason.
-    split; auto.
-    forward. eauto.
+    unfold FIRST.
+    induction 1.
+    { unfold rtac_sound. intros; congruence. }
+    { admit. }
   Qed.
 
 End parameterized.

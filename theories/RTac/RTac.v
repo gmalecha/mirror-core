@@ -1,4 +1,7 @@
 Require Export MirrorCore.RTac.Core.
+Require Export MirrorCore.RTac.Idtac.
+Require Export MirrorCore.RTac.Fail.
+Require Export MirrorCore.RTac.First.
 Require Export MirrorCore.RTac.Then.
 Require Export MirrorCore.RTac.Try.
 Require Export MirrorCore.RTac.Repeat.

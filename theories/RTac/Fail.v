@@ -21,21 +21,12 @@ Section parameterized.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
-  Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
-    fun gl => match tac gl with
-                | None => Some gl
-                | Some gl' => Some gl'
-              end.
+  Definition FAIL : rtac typ expr subst :=
+    fun _ => None.
 
-  Theorem TRY_sound
-  : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
+  Theorem FAIL_sound
+  : forall tus tvs, rtac_sound tus tvs FAIL.
   Proof.
-    unfold TRY, rtac_sound.
-    intros.
-    specialize (H g g').
-    destruct (tac g); inv_all; subst.
-    { eapply H; eauto. }
-    { forward. }
-  Qed.
+  Admitted.
 
 End parameterized.
