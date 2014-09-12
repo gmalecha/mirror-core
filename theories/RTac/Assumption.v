@@ -82,6 +82,13 @@ Section parameterized.
           end
       end.
 
+  Definition finish : rtac typ expr subst :=
+    fun g =>
+      let '(ctx,s,gl) := openGoal g in
+      let (tus,tvs) := getEnvs ctx in
+      let (ctx',s) := reduceGoal ctx s (length tus) (length tvs) in
+      Some (closeGoal ctx' (GGoal s None)).
+
   (** check soundness **)
 
 End parameterized.

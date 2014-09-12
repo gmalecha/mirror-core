@@ -27,9 +27,10 @@ Reify Pattern patterns_simple_typ += (@RExact _ Prop) => tyProp.
 Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
 
 Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
-Reify Pattern patterns_simple += (RApp (RApp (@RExact _ plus) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (Inj Plus) a) b).
-Reify Pattern patterns_simple += (RApp (RApp (@RExact _ NPeano.ltb) (RGet 0 RIgnore)) (RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (Inj Lt) a) b).
-Reify Pattern patterns_simple += (RApp (RApp (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) (RGet 1 RIgnore)) (RGet 2 RIgnore)) => (fun (t : function reify_simple_typ) (a b : function reify_simple) => App (App (Inj (Eq t)) a) b).
+Reify Pattern patterns_simple += (@RExact _ plus) => (Inj (typ:=typ) Plus).
+Reify Pattern patterns_simple += (@RExact _ NPeano.ltb) => (Inj (typ:=typ) Lt).
+Reify Pattern patterns_simple += (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) =>
+(fun (t : function reify_simple_typ) => Inj (typ:=typ) (Eq t)).
 
 Ltac reify_typ trm :=
   let k e :=
