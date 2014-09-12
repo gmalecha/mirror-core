@@ -12,3 +12,6 @@ Require Export MirrorCore.RTac.Apply.
 Require Export MirrorCore.RTac.EApply.
 
 Require Export MirrorCore.RTac.AtGoal.
+
+Require Export MirrorCore.RTac.Continuation.
+Require Export MirrorCore.RTac.ApplyToAll.

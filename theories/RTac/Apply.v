@@ -6,8 +6,8 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.RunSTac.
 Require Import MirrorCore.Lemma.
+Require Import MirrorCore.RTac.Continuation.
 Require Import MirrorCore.RTac.Open.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.InstantiateI.
@@ -76,7 +76,7 @@ Section parameterized.
 
   Definition APPLY
              (lem : Lemma.lemma typ expr expr)
-             (ctac : rtac typ expr subst)
+             (tacC : rtac_cont typ expr subst)
   : rtac typ expr subst :=
     let len_vars := length lem.(vars) in
     fun gl =>
@@ -97,12 +97,7 @@ Section parameterized.
                           lem.(premises)
                   in
                   (** Solve the side conditions **)
-                  all_success
-                    (fun goal_expression sub =>
-                       let goal := closeGoal ctx (GGoal sub (Some goal_expression)) in
-                       ctac goal)
-                    sub''
-                    premises
+                  tacC ctx sub premises
                 | None => None
               end
           end

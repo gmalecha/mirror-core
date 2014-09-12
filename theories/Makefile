@@ -32,7 +32,8 @@ RTAC := Core CoreX Open \
 	Then Try Repeat Idtac First Fail \
 	Assumption RunSTac \
 	Intro Apply EApply \
-	RTac
+	RTac \
+	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := Generic \

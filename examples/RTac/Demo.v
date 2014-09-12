@@ -88,4 +88,4 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (APPLY and_lem ASSUMPTION)) goal.
+                             (APPLY and_lem (apply_to_all ASSUMPTION))) goal.
