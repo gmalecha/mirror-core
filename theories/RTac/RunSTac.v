@@ -13,6 +13,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.STac.Core.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Open.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -29,27 +30,25 @@ Section parameterized.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
+(*
   Definition STAC_no_hyps (tac : stac typ expr subst)
   : rtac typ expr subst :=
-    at_bottom (m := option)
-              (fun tus tvs sub gl =>
-                 match gl with
-                   | None => Some (GGoal sub None)
-                   | Some gl =>
-                     match tac tus tvs sub nil gl with
-                       | Fail => None
-                       | More tus' tvs' sub' hs' gl' =>
-                         ret (List.fold_right (@GExs _ _ _)
-                               (List.fold_right (@GAlls _ _ _)
-                                 (List.fold_right (@GHyps _ _ _)
-                                   (GGoal sub' (Some gl')) hs') tvs') tus')
-                       | Solved tus' tvs' sub' =>
-                         ret (List.fold_right (@GExs _ _ _)
-                               (List.fold_right (@GAlls _ _ _)
-                                 (GGoal sub' None) tvs') tus')
-                     end
-                 end)
-              nil nil.
+    fun ctx sub gl =>
+      let '(tus,tvs) := getEnvs ctx in
+      match tac tus tvs sub nil gl with
+        | STac.Core.Fail => Fail
+        | STac.Core.More tus' tvs' sub' hs' gl' =>
+          (** Unsound: Note that sub' has the wrong environments
+           **)
+          More sub' (List.fold_right (@GEx _ _ _)
+                      (List.fold_right (@GAll _ _ _)
+                        (List.fold_right (@GHyp _ _ _)
+                          (GGoal sub' (Some gl')) hs') tvs') tus')
+        | STac.Core.Solved tus' tvs' sub' =>
+          Solved sub' (List.fold_right (fun x y => @CEx _ _ y x)
+                         (List.fold_right (fun x y => @CAll _ _ y x)
+                            CTop tvs') tus')
+      end.
 
   Lemma goalD_fold_right_GExs
   : forall tvs g ls tus,
@@ -316,7 +315,6 @@ Section parameterized.
       simpl. forward. }
 *)
   Abort.
+*)
 
 End parameterized.
-
-Arguments rtac_sound {typ expr subst _ _ _ _ _} tus tvs tac : rename.

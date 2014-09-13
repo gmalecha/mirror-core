@@ -1,5 +1,6 @@
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Traversable.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
@@ -7,47 +8,47 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
-Require Import MirrorCore.STac.Core.
 
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** TODO: Can I do alternation if I can do strengthening of both
- ** unification variables and regular variables?
- ** 1) This means that substD needs strengthening
- ** 2) It also means that hypotheses need to be eliminatable
- **
- **    goal :=
- **      Alls : list typ -> goal -> goal
- **    | Exs : list typ -> goal -> goal
- **    | Hyps : list expr -> goal -> goal
- **    | Goal : expr -> goal.
- **
- **)
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
   Variable subst : Type.
 
   (** NOTE: It seems for performance this should be inverted, otherwise
-   ** every operation is going to be very expensive.
+   ** every operation is going to be expensive.
    **)
   Inductive Goal :=
-  | GAlls : typ -> Goal -> Goal
-  | GExs  : typ -> Goal -> Goal
-  | GHyps : expr -> Goal -> Goal
-  | GGoal : subst -> option expr -> Goal.
+  | GAll    : typ -> Goal -> Goal
+  | GEx     : typ -> Goal -> Goal
+  | GHyp    : expr -> Goal -> Goal
+  | GGoal   : subst -> expr -> Goal
+  | GSolved : subst -> Goal.
 
-  Definition Result := option Goal.
+  Inductive Ctx :=
+  | CTop
+  | CAll : Ctx -> typ -> Ctx
+  | CEx  : Ctx -> typ -> Ctx
+  | CHyp : Ctx -> expr -> Ctx.
+
+  (** StateT subst Option Goal **)
+  Inductive Result :=
+  | Fail
+  | More   : subst -> Goal -> Result
+  | Solved : subst -> Result.
 
   (** Treat this as opaque! **)
   Definition rtac : Type :=
-    Goal -> Result.
+    Ctx -> subst -> expr -> Result.
 
+  (**
   Definition runRTac (tac : rtac) (g : Goal) : option Goal :=
     tac g.
+   **)
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
@@ -81,33 +82,36 @@ Section parameterized.
 
   Fixpoint WellFormed_goal (goal : Goal) : Prop :=
     match goal with
-      | GAlls _ goal'
-      | GExs _ goal'
-      | GHyps _ goal' => WellFormed_goal goal'
+      | GAll _ goal'
+      | GEx _ goal'
+      | GHyp _ goal' => WellFormed_goal goal'
       | GGoal s _ => WellFormed_subst s
+      | GSolved s => WellFormed_subst s
     end.
 
   (** NOTE:
    ** Appending the newly introduced terms makes tactics non-local.
-   ** Requiring globalness seems really bad.
+   ** Requiring globalness seems bad.
+   ** - The alternative, however, is to expose a lot more operations
+   **   on substitute
    **)
   Fixpoint goalD (tus tvs : list typ) (goal : Goal)
   : ResType tus tvs Prop :=
     match goal with
-      | GAlls tv goal' =>
+      | GAll tv goal' =>
         match goalD tus (tvs ++ tv :: nil) goal' with
           | None => None
           | Some D =>
             Some (fun us vs => @_foralls (tv :: nil) (fun vs' => D us (HList.hlist_app vs vs')))
         end
-      | GExs tu goal' =>
+      | GEx tu goal' =>
         match goalD (tus ++ tu :: nil) tvs goal' with
           | None => None
           | Some D =>
             Some (fun us vs => @_exists (tu :: nil)
                       (fun us' => D (HList.hlist_app us us') vs))
         end
-      | GHyps hyp' goal' =>
+      | GHyp hyp' goal' =>
         match mapT (T:=list) (F:=option) (propD tus tvs) (hyp' :: nil) with
           | None => None
           | Some hs =>
@@ -117,12 +121,12 @@ Section parameterized.
                 Some (fun us vs => _impls (map (fun x => x us vs) hs) (D us vs))
             end
         end
-      | GGoal sub' None =>
+      | GSolved sub' =>
         match substD tus tvs sub' with
           | Some sD => Some (fun us vs => sD us vs)
           | _ => None
         end
-      | GGoal sub' (Some goal') =>
+      | GGoal sub' goal' =>
         match substD tus tvs sub'
             , propD tus tvs goal'
         with
@@ -136,9 +140,10 @@ Section parameterized.
   (** The worry is that this isn't going to be strong enough,
    ** especially when it comes to substitutions.
    **)
-  Definition rtac_sound tus tvs (tac : rtac) : Prop :=
-    forall g g',
-      tac g = Some g' ->
+  Definition rtac_sound (tus tvs : tenv typ) (tac : rtac) : Prop :=
+    False. (*
+    forall g result,
+      tac g = result ->
       WellFormed_goal g ->
       WellFormed_goal g' /\
       match goalD tus tvs g
@@ -151,7 +156,9 @@ Section parameterized.
             g' us vs ->
             g us vs
       end.
+*)
 
+(*
   Section at_bottom.
     Variable m : Type -> Type.
     Context {Monad_m : Monad m}.
@@ -162,13 +169,13 @@ Section parameterized.
 
     Fixpoint at_bottom tus tvs (g : Goal) : m Goal :=
       match g with
-        | GAlls x g' => under (GAlls x) (at_bottom tus (tvs ++ x :: nil) g')
-        | GExs  x g' => under (GExs  x) (at_bottom (tus ++ x :: nil) tvs g')
-        | GHyps x g' => under (GHyps x) (at_bottom tus tvs g')
+        | GAll x g' => under (GAll x) (at_bottom tus (tvs ++ x :: nil) g')
+        | GEx  x g' => under (GEx  x) (at_bottom (tus ++ x :: nil) tvs g')
+        | GHyp x g' => under (GHyp x) (at_bottom tus tvs g')
         | GGoal s e => gt tus tvs s e
       end.
   End at_bottom.
-
+*)
   Lemma goalD_conv
   : forall tus tvs tus' tvs' (pfu : tus' = tus) (pfv : tvs' = tvs),
       goalD tus tvs =
@@ -216,6 +223,7 @@ Section parameterized.
       intro; eapply H.
   Qed.
 
+(*
   Lemma at_bottom_sound_option
   : forall goal tus tvs f goal',
       (forall tus' tvs' s e e',
@@ -326,6 +334,7 @@ Section parameterized.
       repeat rewrite HList.app_nil_r_trans in H.
       eapply H in H0; clear H; auto. }
   Qed.
+*)
 
   Lemma _exists_sem : forall ls P,
                         _exists (ls := ls) P <->
@@ -363,6 +372,7 @@ Section parameterized.
         intros. eapply H.
   Qed.
 
+(*
   Lemma at_bottom_WF_option
   : forall f,
       (forall a b c d g,
@@ -377,24 +387,25 @@ Section parameterized.
     clear.
     induction g; simpl; intros; forwardy; inv_all; subst; simpl in *; eauto.
   Qed.
+*)
 
-  Lemma WellFormed_goal_GAlls
+  Lemma WellFormed_goal_GAll
   : forall ls g,
-      WellFormed_goal g <-> WellFormed_goal (fold_right GAlls g ls).
+      WellFormed_goal g <-> WellFormed_goal (fold_right GAll g ls).
   Proof.
     clear. induction ls; simpl; intros; auto.
     reflexivity.
   Qed.
-  Lemma WellFormed_goal_GExs
+  Lemma WellFormed_goal_GEx
   : forall ls g,
-      WellFormed_goal g <-> WellFormed_goal (fold_right GExs g ls).
+      WellFormed_goal g <-> WellFormed_goal (fold_right GEx g ls).
   Proof.
     clear. induction ls; simpl; intros; auto.
     reflexivity.
   Qed.
-  Lemma WellFormed_goal_GHyps
+  Lemma WellFormed_goal_GHyp
   : forall ls g,
-      WellFormed_goal g <-> WellFormed_goal (fold_right GHyps g ls).
+      WellFormed_goal g <-> WellFormed_goal (fold_right GHyp g ls).
   Proof.
     clear. induction ls; simpl; intros; auto.
     reflexivity.
@@ -417,7 +428,7 @@ Section parameterized.
     fun g =>
       let (g',n) :=
           at_bottom (m := fun T => (T * nat))%type
-                    (fun tus _ s g => (GExs t (GGoal s g), length tus)) nil nil g
+                    (fun tus _ s g => (GEx t (GGoal s g), length tus)) nil nil g
       in
       k n g'.
 *)
@@ -431,7 +442,7 @@ Section parameterized.
   : rtac :=
     fun g =>
       let (g',uv) :=
-          at_bottom (fun _ tvs g => (GAlls t g, length tvs)) nil nil g
+          at_bottom (fun _ tvs g => (GAll t g, length tvs)) nil nil g
       in
       k uv g'.
 *)
@@ -439,8 +450,17 @@ Section parameterized.
 End parameterized.
 
 Arguments propD {typ expr _ _ _} tus tvs e : rename.
-Arguments rtac_sound {typ expr subst _ _ _ _ _} tus tvs tac : rename.
-Arguments GExs {typ expr subst} _ _ : rename.
-Arguments GAlls {typ expr subst} _ _ : rename.
-Arguments GHyps {typ expr subst} _ _ : rename.
+Arguments rtac_sound {typ expr subst} tus tvs tac : rename.
+Arguments GEx {typ expr subst} _ _ : rename.
+Arguments GAll {typ expr subst} _ _ : rename.
+Arguments GHyp {typ expr subst} _ _ : rename.
 Arguments GGoal {typ expr subst} _ _ : rename.
+Arguments GSolved {typ expr subst} _ : rename.
+Arguments CTop {typ expr} : rename.
+Arguments CEx {typ expr} _ _ : rename.
+Arguments CAll {typ expr} _ _ : rename.
+Arguments CHyp {typ expr} _ _ : rename.
+
+Arguments Fail {typ expr subst} : rename.
+Arguments More {typ expr subst} _ _ : rename.
+Arguments Solved {typ expr subst} _ : rename.

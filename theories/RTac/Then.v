@@ -5,6 +5,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Open.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -16,19 +17,71 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
+
+  Fixpoint RunOnGoal (r : rtac typ expr subst)
+           (ctx : Ctx typ expr) (g : Goal typ expr subst)
+           (nu nv : nat)
+  : Result typ expr subst :=
+    (** NOTE: Since rtac's are relativized, this needs to
+     ** reconstruct the outer environment
+     **)
+    match g with
+      | GGoal s e => r ctx s e
+      | GSolved s => Solved s
+      | GAll t g =>
+        match RunOnGoal r (CAll ctx t) g nu (S nv) with
+          | Fail => Fail
+          | More s g' => More s (GAll t g')
+          | Solved s => Solved s (** TODO **)
+        end
+      | GEx  t g =>
+        match RunOnGoal r (CEx ctx t) g (S nu) nv with
+          | Fail => Fail
+          | More s g' =>
+            let s' := s in
+            More s' (GEx t g)
+          | Solved s =>
+            match drop nu s with
+              | None => let s' := s (** TODO **) in
+                        More s (GEx t (GSolved s))
+              | Some s' => Solved s'
+            end
+        end
+      | GHyp h g =>
+        match RunOnGoal r (CHyp ctx h) g nu nv with
+          | Fail => Fail
+          | More s g' => More s (GHyp h g')
+          | Solved s => Solved s
+        end
+    end.
+
+  (** c2 is put closer to the goal **)
+  Fixpoint Ctx_append (c1 c2 : Ctx typ expr) {struct c2} : Ctx typ expr :=
+    match c2 with
+      | CTop => c1
+      | CAll c2' t => CAll (Ctx_append c1 c2') t
+      | CEx  c2' t => CEx  (Ctx_append c1 c2') t
+      | CHyp c2' h => CHyp (Ctx_append c1 c2') h
+    end.
 
   Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
-    fun gl =>
-      match c1 gl with
-        | Some gl' => c2 gl'
-        | None => None
+    fun ctx sub g =>
+      match c1 ctx sub g with
+        | More sub g' =>
+          let '(tus,tvs) := getEnvs ctx in
+          RunOnGoal c2 ctx g' (length tus) (length tvs)
+        | Solved sub =>
+          Solved sub
+        | Fail => Fail
       end.
 
+(*
   Theorem THEN_sound
   : forall (tus tvs : list typ) (tac1 tac2 : rtac typ expr subst),
       rtac_sound tus tvs tac1 ->
@@ -47,5 +100,5 @@ Section parameterized.
     split; auto.
     forward. eauto.
   Qed.
-
+*)
 End parameterized.

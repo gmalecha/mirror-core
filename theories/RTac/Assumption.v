@@ -25,15 +25,15 @@ Section parameterized.
   Variable SubstUpdate_subst : SubstUpdate subst expr.
   Variable SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _.
 
-  Variable (check : expr -> expr -> subst -> option subst).
+  Variable (check : Ctx typ expr -> expr -> expr -> subst -> option subst).
 
   Fixpoint findHyp s (ctx : Ctx typ expr) (g : expr) {struct ctx}
   : option subst :=
     match ctx with
       | CTop => None
-      | CAll t ctx' => findHyp s ctx' g
-      | CEx  t ctx' => findHyp s ctx' g
-      | CHyp h ctx' => match check g h s with
+      | CAll ctx' _ => findHyp s ctx' g
+      | CEx  ctx' _ => findHyp s ctx' g
+      | CHyp ctx' h => match check ctx' g h s with
                          | None => findHyp s ctx' g
                          | Some e => Some e
                        end
@@ -43,7 +43,7 @@ Section parameterized.
   : Ctx typ expr * subst :=
     match ctx with
       | CTop => (ctx, s)
-      | CAll l ctx' =>
+      | CAll ctx' l =>
         match vn with
           | 0 => (** STUCK **)
             (ctx, s)
@@ -51,7 +51,7 @@ Section parameterized.
             (** TODO: Drop var **)
             reduceGoal ctx' s un vn'
         end
-      | CEx  l ctx' =>
+      | CEx  ctx' l =>
         match un with
           | 0 => (** STUCK **)
             (ctx, s)
@@ -63,32 +63,19 @@ Section parameterized.
                 (ctx, s)
             end
         end
-      | CHyp h ctx' =>
+      | CHyp ctx' h =>
         reduceGoal ctx' s un vn
     end.
 
   Definition ASSUMPTION : rtac typ (expr) subst :=
-    fun g =>
-      let '(ctx,s,gl) := openGoal g in
-      match gl with
-        | None => Some g
-        | Some gl =>
-          match findHyp s ctx gl with
-            | None => None
-            | Some s' =>
-              let (tus,tvs) := getEnvs ctx in
-              let (ctx',s'') := reduceGoal ctx s' (length tus) (length tvs) in
-              Some (closeGoal ctx' (GGoal s'' None))
-          end
+    fun ctx s gl =>
+      match findHyp s ctx gl with
+        | None => Fail
+        | Some s' =>
+          Solved s'
       end.
-
-  Definition finish : rtac typ expr subst :=
-    fun g =>
-      let '(ctx,s,gl) := openGoal g in
-      let (tus,tvs) := getEnvs ctx in
-      let (ctx',s) := reduceGoal ctx s (length tus) (length tvs) in
-      Some (closeGoal ctx' (GGoal s None)).
 
   (** check soundness **)
 
 End parameterized.
+

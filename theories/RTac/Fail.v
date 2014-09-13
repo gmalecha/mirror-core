@@ -22,7 +22,7 @@ Section parameterized.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
   Definition FAIL : rtac typ expr subst :=
-    fun _ => None.
+    fun _ _ _ => Fail.
 
   Theorem FAIL_sound
   : forall tus tvs, rtac_sound tus tvs FAIL.

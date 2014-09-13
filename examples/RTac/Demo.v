@@ -30,13 +30,16 @@ Definition open (e : expr typ func)
 Let INTRO :=
   INTRO (subst:=subst) (@Var typ func) (@UVar _ _) open.
 
+(*
 Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
                     (@vars_to_uvars _ _)
                     (fun tus tvs n l r t s =>
                        @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
                     (@instantiate _ _).
+*)
+
 Let ASSUMPTION : rtac typ (expr typ func) subst :=
-  ASSUMPTION _ (fun x y s => if x ?[ eq ] y then Some s else None).
+  ASSUMPTION (fun _ x y s => if x ?[ eq ] y then Some s else None).
 
 Definition fAll (t : typ) (P : expr typ func) : expr typ func :=
   App (Inj (All t)) (Abs t P).
@@ -58,7 +61,7 @@ Definition simple_goal : expr typ func :=
 
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
            (goal : expr typ func)  :=
-  runRTac tac (@GGoal typ (expr typ func) subst (@empty _ _ _) (Some goal)).
+  RunOnGoal tac CTop (@GGoal typ (expr typ func) subst (@empty _ _ _) goal).
 
 Eval compute in
     runRTac_empty_goal tac simple_goal.

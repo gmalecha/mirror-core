@@ -1,3 +1,4 @@
+Require Import Coq.PArith.BinPos.
 Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
@@ -13,6 +14,8 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Try.
+Require Import MirrorCore.RTac.Idtac.
+Require Import MirrorCore.RTac.Then.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -24,32 +27,39 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
   Section repeater.
-    Require Import Coq.PArith.BinPos.
-
+    (** TODO: To be efficient, this must be written in CPS
+     **)
     Fixpoint REPEAT' (n : positive) (tac : rtac typ expr subst)
              {struct n}
     : rtac typ expr subst :=
-      fun gl =>
+      fun ctx sub gl =>
         match n with
-          | xH => tac gl
-          | xI n => match tac gl with
-                      | None => Some gl
-                      | Some gl' =>
-                        match REPEAT' n tac gl' with
+          | xH => TRY tac ctx sub gl
+          | xI n => match tac ctx sub gl with
+                      | Fail => IDTAC ctx sub gl
+                      | More sub gl' =>
+                        let '(tus,tvs) := Open.getEnvs ctx in
+                        RunOnGoal (REPEAT' n tac) ctx gl' (length tus) (length tvs)
+(*
                           | None => Some gl'
                           | Some gl'' => TRY (REPEAT' n tac) gl''
-                        end
+                        end *)
+                      | x => x
                     end
-          | xO n => match REPEAT' n tac gl with
-                      | None => Some gl
-                      | Some gl' => TRY (REPEAT' n tac) gl'
+          | xO n => match REPEAT' n tac ctx sub gl with
+                      | Fail => IDTAC ctx sub gl
+                      | More sub gl' =>
+                        let '(tus,tvs) := Open.getEnvs ctx in
+                        RunOnGoal (REPEAT' n tac) ctx gl' (length tus) (length tvs)
+                      | x => x
                     end
         end.
   End repeater.

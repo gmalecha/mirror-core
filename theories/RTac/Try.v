@@ -22,11 +22,12 @@ Section parameterized.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
   Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
-    fun gl => match tac gl with
-                | None => Some gl
-                | Some gl' => Some gl'
-              end.
+    fun ctx s g => match tac ctx s g with
+                     | Fail => More s (GGoal s g)
+                     | x => x
+                   end.
 
+(*
   Theorem TRY_sound
   : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
   Proof.
@@ -37,5 +38,6 @@ Section parameterized.
     { eapply H; eauto. }
     { forward. }
   Qed.
+*)
 
 End parameterized.
