@@ -18,7 +18,8 @@ LAMBDA := ResType \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
-	  ExprSubst ExprSubstitute AppN
+	  ExprSubst ExprSubstitute AppN \
+	  AutoSetoidRewrite
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
@@ -28,12 +29,15 @@ STAC := Core Continuation Repeat \
 	Simplify Instantiate \
 	UseForAll UseList \
 	STac
-RTAC := Core CoreX Open \
-	Then Try Repeat Idtac First Fail \
+RTAC := Core \
+	Then Try Repeat Idtac First Fail Solve \
 	Assumption RunSTac \
 	Intro Apply EApply \
-	RTac \
-	Continuation ApplyToAll
+	Simplify Instantiate \
+	AtGoal Reduce \
+	RTac
+# Apply EApply
+#	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := Generic \

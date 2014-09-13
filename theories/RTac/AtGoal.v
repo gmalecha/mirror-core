@@ -4,7 +4,6 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Open.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -25,11 +24,6 @@ Section parameterized.
   Definition AT_GOAL
              (tac : Ctx typ expr -> subst -> expr -> rtac typ expr subst)
   : rtac typ expr subst :=
-    fun gl =>
-      let '(c,s,e) := openGoal gl in
-      match e with
-        | None => Some gl
-        | Some g => tac c s g gl
-      end.
+    fun ctx s e => (tac ctx s e) ctx s e.
 
 End parameterized.

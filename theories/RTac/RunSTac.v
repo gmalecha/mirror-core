@@ -13,6 +13,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.STac.Core.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Reduce.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -20,37 +21,37 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-  Variable subst : Type.
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {typ : Type}.
+  Context {expr : Type}.
+  Context {subst : Type}.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
+
+  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Definition STAC_no_hyps (tac : stac typ expr subst)
   : rtac typ expr subst :=
-    at_bottom (m := option)
-              (fun tus tvs sub gl =>
-                 match gl with
-                   | None => Some (GGoal sub None)
-                   | Some gl =>
-                     match tac tus tvs sub nil gl with
-                       | Fail => None
-                       | More tus' tvs' sub' hs' gl' =>
-                         ret (List.fold_right (@GExs _ _ _)
-                               (List.fold_right (@GAlls _ _ _)
-                                 (List.fold_right (@GHyps _ _ _)
-                                   (GGoal sub' (Some gl')) hs') tvs') tus')
-                       | Solved tus' tvs' sub' =>
-                         ret (List.fold_right (@GExs _ _ _)
-                               (List.fold_right (@GAlls _ _ _)
-                                 (GGoal sub' None) tvs') tus')
-                     end
-                 end)
-              nil nil.
+    fun ctx sub gl =>
+      let '(tus,tvs) := getEnvs ctx in
+      match tac tus tvs sub nil gl with
+        | STac.Core.Fail => Fail
+        | STac.Core.More tus' tvs' sub' hs' gl' =>
+          reduceGoal instantiate
+                     (List.fold_right (fun x y => @CEx _ _ y x)
+                         (List.fold_right (fun x y => @CAll _ _ y x)
+                            CTop tvs') tus') sub' (GGoal gl') (length tus + length tus') (length tvs + length tvs')
+        | STac.Core.Solved tus' tvs' sub' =>
+          reduceGoal instantiate
+                     (List.fold_right (fun x y => @CEx _ _ y x)
+                       (List.fold_right (fun x y => @CAll _ _ y x)
+                          CTop tvs') tus') sub' GSolved (length tus + length tus') (length tvs + length tvs')
+      end.
 
+(*
   Lemma goalD_fold_right_GExs
   : forall tvs g ls tus,
       match goalD tus tvs (fold_right (@GExs _ _ _) g ls)
@@ -316,7 +317,6 @@ Section parameterized.
       simpl. forward. }
 *)
   Abort.
+*)
 
 End parameterized.
-
-Arguments rtac_sound {typ expr subst _ _ _ _ _} tus tvs tac : rename.

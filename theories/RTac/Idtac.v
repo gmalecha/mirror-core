@@ -1,3 +1,4 @@
+Require Import ExtLib.Data.Sum.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
@@ -11,27 +12,36 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-  Variable subst : Type.
-
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {typ : Type}.
+  Context {expr : Type}.
+  Context {subst : Type}.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition IDTAC : rtac typ expr subst :=
-    fun gl => Some gl.
+    fun ctx sub gl => More sub (GGoal gl).
 
   Theorem IDTAC_sound
   : forall tus tvs, rtac_sound tus tvs IDTAC.
   Proof.
     unfold IDTAC, rtac_sound.
-    intros.
-    inv_all; subst.
+    intros; subst.
     split; auto.
-    forward.
+    simpl.
+    revert tus tvs.
+    induction ctx; simpl; intros.
+    + forward. inv_all; subst.
+      tauto.
+    + specialize (IHctx tus (tvs ++ t :: nil)).
+      forward. eauto.
+    + specialize (IHctx (tus ++ t :: nil) tvs).
+      forward. eauto.
+    + specialize (IHctx tus tvs).
+      forward; eauto. inv_all; subst.
+      eauto.
   Qed.
 
 End parameterized.

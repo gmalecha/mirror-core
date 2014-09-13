@@ -23,16 +23,17 @@ Section parameterized.
 
   Fixpoint FIRST (tacs : list (rtac typ expr subst))
   : rtac typ expr subst :=
-    fun gl =>
+    fun ctx s gl =>
       match tacs with
-        | nil => None
+        | nil => Fail
         | tac :: tacs' =>
-          match tac gl with
-            | None => FIRST tacs' gl
-            | Some gl' => Some gl'
+          match tac ctx s gl with
+            | Fail => FIRST tacs' ctx s gl
+            | x => x
           end
       end.
 
+(*
   Theorem FIRST_sound
   : forall tus tvs tacs, Forall (rtac_sound tus tvs) tacs -> rtac_sound tus tvs (FIRST tacs).
   Proof.
@@ -41,5 +42,6 @@ Section parameterized.
     { unfold rtac_sound. intros; congruence. }
     { admit. }
   Qed.
+*)
 
 End parameterized.

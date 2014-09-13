@@ -176,8 +176,6 @@ Section types.
 
 End types.
 
-Print Typ2.
-
 Instance Typ2_tyArr ts m : @Typ2 _ (RType_typ ts m) Fun :=
 { typ2 := tyArr
 ; typ2_cast := fun _ _ => eq_refl

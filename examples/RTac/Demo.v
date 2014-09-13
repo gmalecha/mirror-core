@@ -35,8 +35,15 @@ Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
                     (fun tus tvs n l r t s =>
                        @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
                     (@instantiate _ _).
+
+Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _ _
+                      (@vars_to_uvars _ _)
+                      (fun tus tvs n l r t s =>
+                         @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
+                      (@instantiate _ _).
+
 Let ASSUMPTION : rtac typ (expr typ func) subst :=
-  ASSUMPTION _ (fun x y s => if x ?[ eq ] y then Some s else None).
+  ASSUMPTION (fun _ x y s => if x ?[ eq ] y then Some s else None).
 
 Definition fAll (t : typ) (P : expr typ func) : expr typ func :=
   App (Inj (All t)) (Abs t P).
@@ -58,7 +65,7 @@ Definition simple_goal : expr typ func :=
 
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
            (goal : expr typ func)  :=
-  runRTac tac (@GGoal typ (expr typ func) subst (@empty _ _ _) (Some goal)).
+  runRTac tac CTop (@empty _ _ _) (@GGoal typ (expr typ func) goal).
 
 Eval compute in
     runRTac_empty_goal tac simple_goal.
@@ -87,4 +94,31 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (APPLY and_lem (apply_to_all ASSUMPTION))) goal.
+                             (THEN (APPLY and_lem)
+                                   (FIRST (FAIL :: ASSUMPTION :: nil)))) goal.
+
+Eval compute in
+    let goal :=
+        fAll tyProp (fAll tyProp
+                          (fImpl (Var 0)
+                                 (fImpl (Var 1)
+                                        (fAnd (Var 0) (Var 1)))))
+    in
+    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
+                             (EAPPLY and_lem)) goal.
+
+Definition random_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
+{| Lemma.vars := tyProp :: tyNat :: tyBool :: tyNat :: nil
+ ; Lemma.premises := Var 0 :: App (App (Inj (Eq tyBool)) (App (App (Inj Lt) (Var 1)) (Var 3))) (Var 2) :: nil
+ ; Lemma.concl := Var 0
+ |}.
+
+Eval compute in
+    let goal :=
+        fAll tyProp (fAll tyProp
+                          (fImpl (Var 0)
+                                 (fImpl (Var 1)
+                                        (fAnd (Var 0) (Var 1)))))
+    in
+    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
+                             (EAPPLY random_lem)) goal.

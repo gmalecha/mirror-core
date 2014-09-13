@@ -1,3 +1,4 @@
+Require Import ExtLib.Data.Sum.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
@@ -20,22 +21,16 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
-  Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
-    fun ctx s g => match tac ctx s g with
-                     | Fail => More s (GGoal g)
-                     | x => x
-                   end.
+  Variable simplify : Ctx typ expr -> subst -> expr -> expr.
 
-  Theorem TRY_sound
-  : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
+  Definition SIMPLIFY : rtac typ expr subst :=
+    fun ctx sub gl => More sub (GGoal (simplify ctx sub gl)).
+
+  Hypothesis simplify_sound : False.
+
+  Theorem SIMPLIFY_sound
+  : forall tus tvs, rtac_sound tus tvs SIMPLIFY.
   Proof.
-    unfold TRY, rtac_sound.
-    intros; subst.
-    specialize (H ctx s g _ eq_refl).
-    destruct (tac ctx s g); auto.
-    + intros; split; auto.
-      simpl.
-      admit.
-  Qed.
+  Admitted.
 
 End parameterized.

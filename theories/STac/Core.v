@@ -1,12 +1,8 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
@@ -229,30 +225,6 @@ Section parameterized.
              | _ , _ , _ => True
            end
        end.
-
-  Lemma And_True_iff : forall P, (P /\ True) <-> P.
-  Proof. clear. intuition. Qed.
-  Lemma And_And_iff : forall P, (P /\ P) <-> P.
-  Proof. clear. intuition. Qed.
-  Lemma And_assoc : forall P Q R, (P /\ Q /\ R) <-> ((P /\ Q) /\ R).
-  Proof. clear. intuition. Qed.
-  Lemma And_cancel
-  : forall P Q R : Prop, (P -> (Q <-> R)) -> ((P /\ Q) <-> (P /\ R)).
-  Proof. clear. intuition. Qed.
-  Lemma forall_iff : forall T P Q,
-                       (forall x,
-                          P x <-> Q x) ->
-                       ((forall x : T, P x) <-> (forall x : T, Q x)).
-  Proof.
-    clear. intros. setoid_rewrite H. reflexivity.
-  Qed.
-  Lemma exists_iff : forall T P Q,
-                       (forall x,
-                          P x <-> Q x) ->
-                       ((exists x : T, P x) <-> (exists x : T, Q x)).
-  Proof.
-    clear. intros. setoid_rewrite H. reflexivity.
-  Qed.
 
   Theorem stac_sound_stac_sound'
   : forall tac,

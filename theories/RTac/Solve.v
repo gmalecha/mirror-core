@@ -20,22 +20,18 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
-  Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
+  Definition SOLVE (tac : rtac typ expr subst) : rtac typ expr subst :=
     fun ctx s g => match tac ctx s g with
-                     | Fail => More s (GGoal g)
-                     | x => x
+                     | Solved s => Solved s
+                     | _ => Fail
                    end.
 
-  Theorem TRY_sound
-  : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
+  Theorem SOLVE_sound
+  : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (SOLVE tac).
   Proof.
-    unfold TRY, rtac_sound.
-    intros; subst.
-    specialize (H ctx s g _ eq_refl).
-    destruct (tac ctx s g); auto.
-    + intros; split; auto.
-      simpl.
-      admit.
+    unfold SOLVE, rtac_sound.
+    intros.
+    admit.
   Qed.
 
 End parameterized.

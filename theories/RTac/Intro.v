@@ -17,12 +17,13 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
+(*
   Section at_bottom.
     Variable m : Type -> Type.
     Context {Monad_m : Monad m}.
@@ -35,12 +36,13 @@ Section parameterized.
     Fixpoint at_bottom tus tvs (g : Goal typ expr subst)
     : m (Goal typ expr subst) :=
       match g with
-        | GAlls x g' => under (GAlls x) (at_bottom tus (tvs ++ x :: nil) g')
-        | GExs  x g' => under (GExs  x) (at_bottom (tus ++ x :: nil) tvs g')
-        | GHyps x g' => under (GHyps x) (at_bottom tus tvs g')
+        | GAll x g' => under (GAll x) (at_bottom tus (tvs ++ x :: nil) g')
+        | GEx  x g' => under (GEx  x) (at_bottom (tus ++ x :: nil) tvs g')
+        | GHyp x g' => under (GHyp x) (at_bottom tus tvs g')
         | GGoal s e => gt tus tvs s e
       end.
   End at_bottom.
+*)
 
   Variable substV : (nat -> option expr) -> expr -> expr.
   Variable Var : nat -> expr.
@@ -55,24 +57,18 @@ Section parameterized.
 
   Definition INTRO
   : rtac typ expr subst :=
-    fun g => at_bottom (m := option)
-                       (fun tus tvs s g =>
-                          match g with
-                            | None => None
-                            | Some g =>
-                              match open g with
-                                | None => None
-                                | Some (AsAl t g') =>
-                                  let nv := length tvs in
-                                  Some (GAlls t (GGoal s (Some (g' (Var nv)))))
-                                | Some (AsEx t g') =>
-                                  let nu := length tus in
-                                  Some (GExs t (GGoal s (Some (g' (UVar nu)))))
-                                | Some (AsHy h g') =>
-                                  Some (GHyps h (GGoal s (Some g')))
-                              end
-                          end)
-               nil nil g.
+    fun ctx sub gl =>
+      match open gl with
+        | None => Fail
+        | Some (AsAl t g') =>
+          let nv := countVars ctx in
+          More sub (GAll t (GGoal (g' (Var nv))))
+        | Some (AsEx t g') =>
+          let nu := countUVars ctx in
+          More sub (GEx t None (GGoal (g' (UVar nu))))
+        | Some (AsHy h g') =>
+          More sub (GHyp h (GGoal g'))
+      end.
 
 (*
   Definition open_sound (open : expr -> option ((typ + expr) * expr)) : Prop :=
