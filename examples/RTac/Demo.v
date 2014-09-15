@@ -61,7 +61,7 @@ Definition simple_goal : expr typ func :=
 
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
            (goal : expr typ func)  :=
-  RunOnGoal tac CTop (@GGoal typ (expr typ func) subst (@empty _ _ _) goal).
+  runRTac tac CTop (@empty _ _ _) (@GGoal typ (expr typ func) goal).
 
 Eval compute in
     runRTac_empty_goal tac simple_goal.
@@ -76,6 +76,7 @@ Definition simple_goal3 : expr typ func :=
 
 Eval compute in runRTac_empty_goal tac simple_goal3.
 
+(*
 Definition and_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
 {| Lemma.vars := tyProp :: tyProp :: nil
  ; Lemma.premises := Var 0 :: Var 1 :: nil
@@ -91,3 +92,4 @@ Eval compute in
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
                              (APPLY and_lem (apply_to_all ASSUMPTION))) goal.
+*)

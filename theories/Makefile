@@ -28,12 +28,13 @@ STAC := Core Continuation Repeat \
 	Simplify Instantiate \
 	UseForAll UseList \
 	STac
-RTAC := Core CoreX Open \
+RTAC := Core \
 	Then Try Repeat Idtac First Fail \
 	Assumption RunSTac \
-	Intro Apply EApply \
-	RTac \
-	Continuation ApplyToAll
+	Intro \
+	RTac
+# Apply EApply
+#	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := Generic \

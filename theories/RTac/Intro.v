@@ -6,7 +6,6 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Open.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -63,12 +62,12 @@ Section parameterized.
         | None => Fail
         | Some (AsAl t g') =>
           let nv := countVars ctx in
-          More sub (GAll t (GGoal sub (g' (Var nv))))
+          More sub (GAll t (GGoal (g' (Var nv))))
         | Some (AsEx t g') =>
           let nu := countUVars ctx in
-          More sub (GEx t (GGoal sub (g' (UVar nu))))
+          More sub (GEx t None (GGoal (g' (UVar nu))))
         | Some (AsHy h g') =>
-          More sub (GHyp h (GGoal sub g'))
+          More sub (GHyp h (GGoal g'))
       end.
 
 (*

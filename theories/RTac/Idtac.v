@@ -1,3 +1,4 @@
+Require Import ExtLib.Data.Sum.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
@@ -22,18 +23,26 @@ Section parameterized.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
   Definition IDTAC : rtac typ expr subst :=
-    fun ctx sub gl => More sub (GGoal sub gl).
+    fun ctx sub gl => More sub (GGoal gl).
 
   Theorem IDTAC_sound
   : forall tus tvs, rtac_sound tus tvs IDTAC.
-  Proof. (*
+  Proof.
     unfold IDTAC, rtac_sound.
-    intros.
-    inv_all; subst.
+    intros; subst.
     split; auto.
-    forward.
+    simpl.
+    revert tus tvs.
+    induction ctx; simpl; intros.
+    + forward. inv_all; subst.
+      tauto.
+    + specialize (IHctx tus (tvs ++ t :: nil)).
+      forward. eauto.
+    + specialize (IHctx (tus ++ t :: nil) tvs).
+      forward. eauto.
+    + specialize (IHctx tus tvs).
+      forward; eauto. inv_all; subst.
+      eauto.
   Qed.
-*)
-  Admitted.
 
 End parameterized.

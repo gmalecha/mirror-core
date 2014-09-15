@@ -7,7 +7,6 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Open.
 
 Set Implicit Arguments.
 Set Strict Implicit.

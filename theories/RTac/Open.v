@@ -20,8 +20,8 @@ Section parameterized.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
 
-  Fixpoint openGoal' (g : Goal typ expr subst) (ctx : Ctx typ expr)
-  : Ctx typ expr * subst * option expr :=
+  Fixpoint openGoal' (g : Goal typ expr subst) (ctx : Ctx typ expr subst)
+  : Ctx typ expr subst * subst * option expr :=
     match g with
       | GGoal s e => (ctx,s,Some e)
       | GSolved s => (ctx,s,None)
@@ -54,25 +54,6 @@ Section parameterized.
     let (x,y) := getEnvs' ctx nil nil in
     (x, y).
 
-  Fixpoint countVars' (ctx : Ctx typ expr) acc : nat :=
-    match ctx with
-      | CTop => acc
-      | CAll ctx' t => countVars' ctx' (S acc)
-      | CEx  ctx' _
-      | CHyp ctx' _ => countVars' ctx' acc
-    end.
-
-  Fixpoint countUVars' (ctx : Ctx typ expr) acc : nat :=
-    match ctx with
-      | CTop => acc
-      | CEx  ctx' t => countUVars' ctx' (S acc)
-      | CAll ctx' _
-      | CHyp ctx' _ => countUVars' ctx' acc
-    end.
-
-
-  Definition countVars ctx := countVars' ctx 0.
-  Definition countUVars ctx := countUVars' ctx 0.
 
 (*
   Eval compute in fun t u v a b =>

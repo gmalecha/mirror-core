@@ -4,7 +4,6 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Open.
 
 Require Import MirrorCore.Util.Forwardy.
 

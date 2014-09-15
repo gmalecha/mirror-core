@@ -6,7 +6,6 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Open.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -39,6 +38,19 @@ Section parameterized.
                        end
     end.
 
+  Definition ASSUMPTION : rtac typ expr subst :=
+    fun ctx s gl =>
+      match findHyp s ctx gl with
+        | None => Fail
+        | Some s' =>
+          Solved s'
+      end.
+
+  (** check soundness **)
+
+End parameterized.
+
+(*
   Fixpoint reduceGoal (ctx : Ctx typ expr) (s : subst) (un vn : nat)
   : Ctx typ expr * subst :=
     match ctx with
@@ -66,16 +78,4 @@ Section parameterized.
       | CHyp ctx' h =>
         reduceGoal ctx' s un vn
     end.
-
-  Definition ASSUMPTION : rtac typ (expr) subst :=
-    fun ctx s gl =>
-      match findHyp s ctx gl with
-        | None => Fail
-        | Some s' =>
-          Solved s'
-      end.
-
-  (** check soundness **)
-
-End parameterized.
-
+*)

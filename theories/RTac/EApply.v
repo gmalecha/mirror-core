@@ -7,7 +7,6 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Continuation.
-Require Import MirrorCore.RTac.Open.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 
