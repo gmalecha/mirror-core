@@ -68,6 +68,7 @@ ARGS := -R . MirrorCore -I ../src
 .PHONY: coq clean package optimize
 
 coq: Makefile.coq
+	$(MAKE) -C ../src
 	$(MAKE) -f Makefile.coq
 
 install: coq

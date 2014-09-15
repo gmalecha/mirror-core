@@ -21,13 +21,13 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
-  Variable SU : SubstUpdate subst expr.
-  Variable SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SU : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify :
@@ -37,43 +37,6 @@ Section parameterized.
   Let eapplicable :=
     @eapplicable typ _ expr _ subst vars_to_uvars
                  exprUnify.
-
-  Section fm2.
-    Variable T U V : Type.
-    Variable f : T -> U -> option V.
-    Fixpoint filter_map2 (ls : list T) (ls' : list U) : option (list V) :=
-      match ls , ls' with
-        | nil , nil => Some nil
-        | l :: ls , l' :: ls' =>
-          match f l l' with
-            | None => filter_map2 ls ls'
-            | Some x => match filter_map2 ls ls' with
-                          | None => None
-                          | Some xs => Some (x :: xs)
-                        end
-          end
-        | _ , _ => None
-      end.
-  End fm2.
-
-(*
-  Fixpoint all_success (f : expr -> subst -> option (Goal typ expr subst))
-           (sub : _) (ls : list expr)
-  : option (Goal typ expr subst) :=
-    match ls with
-      | nil => Some (GGoal sub None)
-      | l :: ls =>
-        match f l sub with
-          | None => None
-          | Some (GGoal sub' None) => all_success f sub' ls
-          | Some x =>
-            match ls with
-              | nil => Some x
-              | _ :: _ => None
-            end
-        end
-    end.
-*)
 
   Definition APPLY
              (lem : Lemma.lemma typ expr expr)

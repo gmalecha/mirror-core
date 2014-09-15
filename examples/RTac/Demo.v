@@ -94,7 +94,8 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (THEN (APPLY and_lem) ASSUMPTION)) goal.
+                             (THEN (APPLY and_lem)
+                                   (FIRST (FAIL :: ASSUMPTION :: nil)))) goal.
 
 Eval compute in
     let goal :=
