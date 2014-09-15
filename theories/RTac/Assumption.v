@@ -51,31 +51,5 @@ Section parameterized.
 End parameterized.
 
 (*
-  Fixpoint reduceGoal (ctx : Ctx typ expr) (s : subst) (un vn : nat)
-  : Ctx typ expr * subst :=
-    match ctx with
-      | CTop => (ctx, s)
-      | CAll ctx' l =>
-        match vn with
-          | 0 => (** STUCK **)
-            (ctx, s)
-          | S vn' =>
-            (** TODO: Drop var **)
-            reduceGoal ctx' s un vn'
-        end
-      | CEx  ctx' l =>
-        match un with
-          | 0 => (** STUCK **)
-            (ctx, s)
-          | S un' =>
-            match drop un' s with
-              | Some s' =>
-                reduceGoal ctx' s' un' vn
-              | None => (** STUCK **)
-                (ctx, s)
-            end
-        end
-      | CHyp ctx' h =>
-        reduceGoal ctx' s un vn
-    end.
+
 *)

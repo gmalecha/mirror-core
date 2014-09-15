@@ -30,13 +30,17 @@ Definition open (e : expr typ func)
 Let INTRO :=
   INTRO (subst:=subst) (@Var typ func) (@UVar _ _) open.
 
-(*
 Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
                     (@vars_to_uvars _ _)
                     (fun tus tvs n l r t s =>
                        @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
                     (@instantiate _ _).
-*)
+
+Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _ _
+                      (@vars_to_uvars _ _)
+                      (fun tus tvs n l r t s =>
+                         @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
+                      (@instantiate _ _).
 
 Let ASSUMPTION : rtac typ (expr typ func) subst :=
   ASSUMPTION (fun _ x y s => if x ?[ eq ] y then Some s else None).
@@ -76,7 +80,6 @@ Definition simple_goal3 : expr typ func :=
 
 Eval compute in runRTac_empty_goal tac simple_goal3.
 
-(*
 Definition and_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
 {| Lemma.vars := tyProp :: tyProp :: nil
  ; Lemma.premises := Var 0 :: Var 1 :: nil
@@ -91,5 +94,14 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (APPLY and_lem (apply_to_all ASSUMPTION))) goal.
-*)
+                             (THEN (APPLY and_lem) ASSUMPTION)) goal.
+
+Eval compute in
+    let goal :=
+        fAll tyProp (fAll tyProp
+                          (fImpl (Var 0)
+                                 (fImpl (Var 1)
+                                        (fAnd (Var 0) (Var 1)))))
+    in
+    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
+                             (EAPPLY and_lem)) goal.

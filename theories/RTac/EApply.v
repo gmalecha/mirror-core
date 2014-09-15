@@ -6,7 +6,6 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Continuation.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 
@@ -20,13 +19,13 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
-  Variable SU : SubstUpdate subst expr.
-  Variable SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SU : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -38,34 +37,29 @@ Section parameterized.
 
   Definition EAPPLY
              (lem : Lemma.lemma typ expr expr)
-             (tacC : rtac_cont typ expr subst)
   : rtac typ expr subst :=
     let len_vars := length lem.(vars) in
-    fun gl =>
-      let '(ctx,sub,e) := openGoal gl in
+    fun ctx sub gl =>
       let '(tus,tvs) := getEnvs ctx in
-      match e with
-        | None => Some gl
-        | Some e =>
-          match eapplicable sub tus tvs lem e with
-            | None => None
-            | Some sub' =>
-              let len_uvars := length tus in
-              match pull (expr := expr) len_uvars len_vars sub' with
-                | Some sub'' =>
-                  (** If we have instantiated everything then we can be a little
-                   ** bit more efficient
-                   **)
-                  let premises :=
-                      map (fun e => instantiate (fun u => lookup u sub') 0
-                                                (vars_to_uvars 0 len_uvars e))
-                          lem.(premises)
-                  in
-                  tacC ctx sub'' premises
-                | None =>
-                  let premises := map (vars_to_uvars 0 len_uvars) lem.(premises) in
-                  tacC (fold_right (@CEx _ _) ctx lem.(vars)) sub' premises
-              (*
+      match eapplicable sub tus tvs lem gl with
+        | None => Fail
+        | Some sub' =>
+          let len_uvars := length tus in
+          match pull (expr := expr) len_uvars len_vars sub' with
+            | Some sub'' =>
+              (** If we have instantiated everything then we can be a little
+               ** bit more efficient
+               **)
+              let premises :=
+                  map (fun e => GGoal (instantiate (fun u => lookup u sub') 0
+                                                   (vars_to_uvars 0 len_uvars e)))
+                      lem.(premises)
+              in
+              more_list CTop sub'' premises
+            | None =>
+              let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
+              more_list (fold_right (fun a b => @CEx _ _ b a) ctx lem.(vars)) sub' premises
+          (*
               with
                 | None => None
                 | Solved tus' tvs' sub'' =>
@@ -83,8 +77,7 @@ Section parameterized.
                       More (firstn len_uvars tus) tvs sub''' hyps'' e
                   end
               end
-               *)
-              end
+           *)
           end
       end.
 

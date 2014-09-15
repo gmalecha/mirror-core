@@ -7,7 +7,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.Lemma.
-Require Import MirrorCore.RTac.Continuation.
+(* Require Import MirrorCore.RTac.Continuation. *)
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.InstantiateI.
 
@@ -56,6 +56,7 @@ Section parameterized.
       end.
   End fm2.
 
+(*
   Fixpoint all_success (f : expr -> subst -> option (Goal typ expr subst))
            (sub : _) (ls : list expr)
   : option (Goal typ expr subst) :=
@@ -72,33 +73,28 @@ Section parameterized.
             end
         end
     end.
+*)
 
   Definition APPLY
              (lem : Lemma.lemma typ expr expr)
-             (tacC : rtac_cont typ expr subst)
   : rtac typ expr subst :=
     let len_vars := length lem.(vars) in
-    fun gl =>
-      let '(ctx,sub,goal) := openGoal gl in
-      match goal with
-        | None => Some gl
-        | Some goal =>
-          let '(tus,tvs) := getEnvs ctx in
-          match eapplicable sub tus tvs lem goal with
-            | None => None
-            | Some sub' =>
-              let len_uvars := length tus in
-              match pull (expr := expr) (SU := SU) len_uvars len_vars sub' with
-                | Some sub'' =>
-                  let premises :=
-                      map (fun e => instantiate (fun u => lookup u sub') 0
-                                                (vars_to_uvars 0 len_uvars e))
-                          lem.(premises)
-                  in
-                  (** Solve the side conditions **)
-                  tacC ctx sub premises
-                | None => None
-              end
+    fun ctx sub goal =>
+      let '(tus,tvs) := getEnvs ctx in
+      match eapplicable sub tus tvs lem goal with
+        | None => Fail
+        | Some sub' =>
+          let len_uvars := length tus in
+          match pull (expr := expr) (SU := SU) len_uvars len_vars sub' with
+            | Some sub'' =>
+              let premises :=
+                  map (fun e => instantiate (fun u => lookup u sub') 0
+                                            (vars_to_uvars 0 len_uvars e))
+                      lem.(premises)
+              in
+              more_list CTop sub'' (map GGoal premises)
+              (** Solve the side conditions **)
+            | None => Fail
           end
       end.
 

@@ -74,6 +74,20 @@ Section parameterized.
   Definition countVars ctx := countVars' ctx 0.
   Definition countUVars ctx := countUVars' ctx 0.
 
+  Fixpoint getEnvs' (ctx : Ctx) (tus tvs : tenv typ)
+  : tenv typ * tenv typ :=
+    match ctx with
+      | CTop => (tus,tvs)
+      | CAll ctx' t => getEnvs' ctx' tus (t :: tvs)
+      | CEx  ctx' t => getEnvs' ctx' (t :: tus) tvs
+      | CHyp ctx' _ => getEnvs' ctx' tus tvs
+    end.
+
+  Definition getEnvs (ctx : Ctx) : tenv typ * tenv typ :=
+    let (x,y) := getEnvs' ctx nil nil in
+    (x, y).
+
+
   Definition mapUnderEx (t : typ) (nus : nat) (r : Result) : Result :=
     match r with
       | Fail => Fail
@@ -189,7 +203,12 @@ Section parameterized.
       end.
   End _and.
 
-
+  (** Well_formedness is about acyclicity, but we don't have enough now
+   ** to guarantee that.
+   ** We could make a acyclic judgement on a map and just construct the map.
+   ** Either way things are getting a lot more complex here than I wanted them
+   ** too.
+   **)
   Fixpoint WellFormed_goal (goal : Goal) : Prop :=
     match goal with
       | GAll _ goal' => WellFormed_goal goal'
@@ -674,6 +693,51 @@ Section parameterized.
         closeGoal c s (GEx t (lookup nus s) g) (S nus)
       | CHyp c h => closeGoal c s (GHyp h g) nus
     end.
+
+  Fixpoint reduceGoal (ctx : Ctx) (s : subst) (g : Goal) (un vn : nat)
+  : Result :=
+    match ctx with
+      | CTop => match g with
+                  | GSolved => Solved s
+                  | g => More s g
+                end
+      | CAll ctx' l =>
+        match vn with
+          | 0 => (** STUCK **)
+            Fail
+          | S vn' =>
+            (** TODO: Drop var **)
+            reduceGoal ctx' s g un vn'
+        end
+      | CEx  ctx' l =>
+        match un with
+          | 0 => (** STUCK **)
+            Fail
+          | S un' =>
+            match reduceGoal ctx' s g un' vn with
+              | Fail => Fail
+              | Solved s' =>
+                match drop un' s' with
+                  | Some s'' => Solved s''
+                  | None => Fail
+                end
+              | More s' g' =>
+                match drop un' s' with
+                  | Some s'' => More s'' (GEx l (lookup un' s') g')
+                  | None => Fail (** BAD **)
+                end
+            end
+        end
+      | CHyp ctx' h =>
+        reduceGoal ctx' s g un vn
+    end.
+
+  Definition more_list (ctx : Ctx) (sub : subst) (gl : list Goal)
+  : Result :=
+    reduceGoal ctx sub match gl with
+                         | nil => GSolved
+                         | _ :: _ => GConj gl
+                       end (countUVars ctx) (countVars ctx).
 
 
 End parameterized.

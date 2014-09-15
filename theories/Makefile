@@ -31,7 +31,7 @@ STAC := Core Continuation Repeat \
 RTAC := Core \
 	Then Try Repeat Idtac First Fail \
 	Assumption RunSTac \
-	Intro \
+	Intro Apply EApply \
 	RTac
 # Apply EApply
 #	Continuation ApplyToAll
