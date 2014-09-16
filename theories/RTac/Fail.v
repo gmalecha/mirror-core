@@ -27,6 +27,9 @@ Section parameterized.
   Theorem FAIL_sound
   : forall tus tvs, rtac_sound tus tvs FAIL.
   Proof.
-  Admitted.
+    unfold FAIL, rtac_sound.
+    intros; subst.
+    trivial.
+  Qed.
 
 End parameterized.

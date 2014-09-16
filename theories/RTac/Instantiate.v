@@ -5,6 +5,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Simplify.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -21,27 +22,18 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
-  Definition IDTAC : rtac typ expr subst :=
-    fun ctx sub gl => More sub (GGoal gl).
+  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
-  Theorem IDTAC_sound
-  : forall tus tvs, rtac_sound tus tvs IDTAC.
+  Section instantiate.
+    Definition INSTANTIATE
+    : rtac typ expr subst :=
+      @SIMPLIFY typ expr subst
+                (fun _ sub => instantiate (fun u => lookup u sub) 0).
+  End instantiate.
+
+  Theorem INSTANTIATE_sound
+  : forall tus tvs, rtac_sound tus tvs INSTANTIATE.
   Proof.
-    unfold IDTAC, rtac_sound.
-    intros; subst.
-    split; auto.
-    simpl.
-    revert tus tvs.
-    induction ctx; simpl; intros.
-    + forward. inv_all; subst.
-      tauto.
-    + specialize (IHctx tus (tvs ++ t :: nil)).
-      forward. eauto.
-    + specialize (IHctx (tus ++ t :: nil) tvs).
-      forward. eauto.
-    + specialize (IHctx tus tvs).
-      forward; eauto. inv_all; subst.
-      eauto.
-  Qed.
+  Admitted.
 
 End parameterized.

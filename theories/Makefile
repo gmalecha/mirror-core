@@ -29,9 +29,10 @@ STAC := Core Continuation Repeat \
 	UseForAll UseList \
 	STac
 RTAC := Core \
-	Then Try Repeat Idtac First Fail \
+	Then Try Repeat Idtac First Fail Solve \
 	Assumption RunSTac \
 	Intro Apply EApply \
+	Simplify Instantiate \
 	RTac
 # Apply EApply
 #	Continuation ApplyToAll
@@ -68,7 +69,6 @@ ARGS := -R . MirrorCore -I ../src
 .PHONY: coq clean package optimize
 
 coq: Makefile.coq
-	$(MAKE) -C ../src
 	$(MAKE) -f Makefile.coq
 
 install: coq

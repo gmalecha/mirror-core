@@ -21,27 +21,16 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
-  Definition IDTAC : rtac typ expr subst :=
-    fun ctx sub gl => More sub (GGoal gl).
+  Variable simplify : Ctx typ expr -> subst -> expr -> expr.
 
-  Theorem IDTAC_sound
-  : forall tus tvs, rtac_sound tus tvs IDTAC.
+  Definition SIMPLIFY : rtac typ expr subst :=
+    fun ctx sub gl => More sub (GGoal (simplify ctx sub gl)).
+
+  Hypothesis simplify_sound : False.
+
+  Theorem SIMPLIFY_sound
+  : forall tus tvs, rtac_sound tus tvs SIMPLIFY.
   Proof.
-    unfold IDTAC, rtac_sound.
-    intros; subst.
-    split; auto.
-    simpl.
-    revert tus tvs.
-    induction ctx; simpl; intros.
-    + forward. inv_all; subst.
-      tauto.
-    + specialize (IHctx tus (tvs ++ t :: nil)).
-      forward. eauto.
-    + specialize (IHctx (tus ++ t :: nil) tvs).
-      forward. eauto.
-    + specialize (IHctx tus tvs).
-      forward; eauto. inv_all; subst.
-      eauto.
-  Qed.
+  Admitted.
 
 End parameterized.

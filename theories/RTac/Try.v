@@ -11,10 +11,9 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-  Variable subst : Type.
-
+  Context {typ : Type}.
+  Context {expr : Type}.
+  Context {subst : Type}.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
@@ -27,17 +26,12 @@ Section parameterized.
                      | x => x
                    end.
 
-(*
   Theorem TRY_sound
   : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
   Proof.
     unfold TRY, rtac_sound.
     intros.
-    specialize (H g g').
-    destruct (tac g); inv_all; subst.
-    { eapply H; eauto. }
-    { forward. }
+    admit.
   Qed.
-*)
 
 End parameterized.
