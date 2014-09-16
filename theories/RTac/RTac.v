@@ -13,6 +13,7 @@ Require Export MirrorCore.RTac.Apply.
 Require Export MirrorCore.RTac.EApply.
 Require Export MirrorCore.RTac.Simplify.
 Require Export MirrorCore.RTac.Instantiate.
+Require Export MirrorCore.RTac.RunSTac.
 (*
 
 Require Export MirrorCore.RTac.AtGoal.

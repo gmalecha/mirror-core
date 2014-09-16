@@ -20,16 +20,16 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-  Variable subst : Type.
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {typ : Type}.
+  Context {expr : Type}.
+  Context {subst : Type}.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
-(*
   Definition STAC_no_hyps (tac : stac typ expr subst)
   : rtac typ expr subst :=
     fun ctx sub gl =>
@@ -37,18 +37,16 @@ Section parameterized.
       match tac tus tvs sub nil gl with
         | STac.Core.Fail => Fail
         | STac.Core.More tus' tvs' sub' hs' gl' =>
-          (** Unsound: Note that sub' has the wrong environments
-           **)
-          More sub' (List.fold_right (@GEx _ _ _)
-                      (List.fold_right (@GAll _ _ _)
-                        (List.fold_right (@GHyp _ _ _)
-                          (GGoal sub' (Some gl')) hs') tvs') tus')
-        | STac.Core.Solved tus' tvs' sub' =>
-          Solved sub' (List.fold_right (fun x y => @CEx _ _ y x)
+          reduceGoal (List.fold_right (fun x y => @CEx _ _ y x)
                          (List.fold_right (fun x y => @CAll _ _ y x)
-                            CTop tvs') tus')
+                            CTop tvs') tus') sub' (GGoal gl') (length tus) (length tvs)
+        | STac.Core.Solved tus' tvs' sub' =>
+          reduceGoal (List.fold_right (fun x y => @CEx _ _ y x)
+                         (List.fold_right (fun x y => @CAll _ _ y x)
+                            CTop tvs') tus') sub' GSolved (length tus) (length tvs)
       end.
 
+(*
   Lemma goalD_fold_right_GExs
   : forall tvs g ls tus,
       match goalD tus tvs (fold_right (@GExs _ _ _) g ls)
