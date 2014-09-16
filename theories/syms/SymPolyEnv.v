@@ -27,20 +27,15 @@ Section typed.
     match x , y with
       | nil , nil => true
       | x :: xs , y :: ys =>
-        if x ?[ @Rty _ _ ] y then list_Rty xs ys else false
+        if x ?[ Rty ] y then list_Rty xs ys else false
       | _ , _ => false
     end.
 
   Record function := F
   { fenv : nat
   ; ftype : quant typ fenv
-  ; fdenote : parametric fenv (@nil typ) (fun env =>
-                                            match qapply fenv env ftype with
-                                              | None => False
-                                              | Some x => typD x
-                                            end)
+  ; fdenote : paraquant typD fenv ftype
   }.
-
 
   Definition functions := PositiveMap.t function.
   Variable fs : functions.
@@ -59,8 +54,7 @@ Section typed.
   : match func_typeof_sym f with
       | None => unit
       | Some t => typD t
-    end.
-    refine
+    end :=
     match f as f
           return match func_typeof_sym f with
                    | None => unit
@@ -81,20 +75,10 @@ Section typed.
               end
         with
           | Some {| fenv := fenv ; ftype := ftype ; fdenote := fd |} =>
-            _
+            paraquant_apply _ _ ts' _ fd
           | None => tt
         end
     end.
-    simpl in *.
-(*
-    Fixpoint parametric_apply n (ls : list typ) F {struct n}
-    : parametric n ls F -> F ls.
-      destruct n. simpl. refine (fun x => x).
-      simpl. intros. destruct ls.
-      + admit.
-      + specialize (parametric_apply n ls).
-*)
-  Admitted.
 
   (** TODO: This is pretty ugly, it is because it doesn't
    ** match up well with [func_typeof_func].
