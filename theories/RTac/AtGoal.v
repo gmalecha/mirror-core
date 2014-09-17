@@ -24,11 +24,6 @@ Section parameterized.
   Definition AT_GOAL
              (tac : Ctx typ expr -> subst -> expr -> rtac typ expr subst)
   : rtac typ expr subst :=
-    fun gl =>
-      let '(c,s,e) := openGoal gl in
-      match e with
-        | None => Some gl
-        | Some g => tac c s g gl
-      end.
+    fun ctx s e => (tac ctx s e) ctx s e.
 
 End parameterized.
