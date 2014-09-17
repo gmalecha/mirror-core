@@ -714,18 +714,11 @@ Section parameterized.
           | 0 => (** STUCK **)
             Fail
           | S un' =>
-            match reduceGoal ctx' s g un' vn with
-              | Fail => Fail
-              | Solved s' =>
-                match drop un' s' with
-                  | Some s'' => Solved s''
-                  | None => Fail
-                end
-              | More s' g' =>
-                match drop un' s' with
-                  | Some s'' => More s'' (GEx l (lookup un' s') g')
-                  | None => Fail (** BAD **)
-                end
+            match drop un' s with
+              | None =>
+                More s (GEx l (lookup un' s) g)
+              | Some s' =>
+                reduceGoal ctx' s' g un' vn
             end
         end
       | CHyp ctx' h =>
