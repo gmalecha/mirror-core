@@ -47,7 +47,7 @@ Section parameterized.
         | Some sub' =>
           let len_uvars := length tus in
           let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
-          more_list instantiate (fold_left (@CEx _ _) lem.(vars) ctx) sub' premises
+          more_list instantiate (fold_left (@CEx _ _) lem.(vars) CTop) sub' premises
       end.
 
 End parameterized.
