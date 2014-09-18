@@ -13,35 +13,28 @@ Set Strict Implicit.
 Section OpenT.
   Variable typ : Type.
   Variable typD : typ -> Type.
-  Variables tus tvs : tenv typ.
+  Variables tvs : tenv typ.
 
   Definition OpenT (T : Type) :=
-    hlist typD tus -> hlist typD tvs -> T.
+    hlist typD tvs -> T.
 
   Global Instance Applicative_OpenT : Applicative OpenT :=
-  { pure := fun _ val _ _ => val
-  ; ap := fun _ _ f x us vs => (f us vs) (x us vs)
+  { pure := fun _ val _ => val
+  ; ap := fun _ _ f x vs => (f vs) (x vs)
   }.
 
   Global Instance Functor_OpenT : Functor  OpenT :=
-  { fmap := fun _ _ f x => fun us vs => (f (x us vs)) }.
+  { fmap := fun _ _ f x => fun vs => (f (x vs)) }.
 
-  Definition Open_UseU (n : nat) : option { t : typ & OpenT (typD t) } :=
-    match nth_error_get_hlist_nth _ tus n with
-      | None => None
-      | Some (existT t get) =>
-        Some (@existT _ (fun t => OpenT (typD t)) t (fun us _ => get us))
-    end.
-
-  Definition Open_UseV (n : nat) : option { t : typ & OpenT (typD t) } :=
+  Definition OpenT_Use (n : nat) : option { t : typ & OpenT (typD t) } :=
     match nth_error_get_hlist_nth _ tvs n with
       | None => None
       | Some (existT t get) =>
-        Some (@existT _ (fun t => OpenT (typD t)) t (fun _ => get))
+        Some (@existT _ (fun t => OpenT (typD t)) t get)
     end.
 
   Definition OpenTeq T (R : relation T) : relation (OpenT T) :=
-    fun a b => forall x y, R (a x y) (b x y).
+    fun a b => forall x, R (a x) (b x).
 
   Theorem pure_eq
   : forall T (R : relation T) a b, R a b -> OpenTeq R (pure a) (pure b).
@@ -65,7 +58,7 @@ Section OpenT_Abs.
   Variable typ : Type.
   Variable typD : typ -> Type.
 
-  Definition Open_Abs {tus tvs t T} (f : OpenT typD tus (t :: tvs) T)
-  : OpenT typD tus tvs (typD t -> T) :=
-    fun us vs x => f us (Hcons x vs).
+  Definition Open_Abs {tvs t T} (f : OpenT typD (t :: tvs) T)
+  : OpenT typD tvs (typD t -> T) :=
+    fun vs x => f (Hcons x vs).
 End OpenT_Abs.

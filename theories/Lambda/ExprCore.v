@@ -1,6 +1,7 @@
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
 
@@ -16,12 +17,64 @@ Section env.
   (** TODO(gmalecha): Putting [typ] and [func] in a module would
    ** reduce the number of parameters here.
    **)
+  Unset Elimination Schemes.
   Inductive expr : Type :=
   | Var : var -> expr
   | Inj : func -> expr
   | App : expr -> expr -> expr
   | Abs : typ -> expr -> expr
   | UVar : uvar -> list expr -> expr.
+
+  Theorem expr_ind
+  : forall P : expr -> Prop,
+      (forall v : var, P (Var v)) ->
+      (forall f0 : func, P (Inj f0)) ->
+      (forall e : expr, P e -> forall e0 : expr, P e0 -> P (App e e0)) ->
+      (forall (t : typ) (e : expr), P e -> P (Abs t e)) ->
+      (forall (u : uvar) (l : list expr), Forall P l -> P (UVar u l)) ->
+      forall e : expr, P e.
+  Proof.
+    intros P Hvar Hinj Happ Habs Huvar.
+    refine (fix expr_ind e : P e :=
+              match e with
+                | Var v => Hvar v
+                | Inj i => Hinj i
+                | App l r => Happ _ (expr_ind l) _ (expr_ind r)
+                | Abs t e => Habs _ _ (expr_ind e)
+                | UVar u es =>
+                  Huvar u es ((fix build ls : Forall P ls :=
+                                 match ls with
+                                   | nil => Forall_nil P
+                                   | l :: ls => Forall_cons _ (expr_ind l) (build ls)
+                                 end) es)
+              end).
+  Qed.
+
+  Theorem expr_rect
+  : forall P : expr -> Type,
+      (forall v : var, P (Var v)) ->
+      (forall f0 : func, P (Inj f0)) ->
+      (forall e : expr, P e -> forall e0 : expr, P e0 -> P (App e e0)) ->
+      (forall (t : typ) (e : expr), P e -> P (Abs t e)) ->
+      (forall (u : uvar) (l : list expr), hlist P l -> P (UVar u l)) ->
+      forall e : expr, P e.
+  Proof.
+    intros P Hvar Hinj Happ Habs Huvar.
+    refine (fix expr_rect e : P e :=
+              match e with
+                | Var v => Hvar v
+                | Inj i => Hinj i
+                | App l r => Happ _ (expr_rect l) _ (expr_rect r)
+                | Abs t e => Habs _ _ (expr_rect e)
+                | UVar u es =>
+                  Huvar u es ((fix build ls : hlist P ls :=
+                                 match ls with
+                                   | nil => Hnil
+                                   | l :: ls => Hcons (expr_rect l) (build ls)
+                                 end) es)
+              end).
+  Defined.
+  Set Elimination Schemes.
 
   Inductive expr_acc : expr -> expr -> Prop :=
   | acc_App_l : forall f a, expr_acc f (App f a)

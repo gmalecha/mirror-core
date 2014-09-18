@@ -16,10 +16,6 @@ Section typed.
   { (** NOTE: This must be decidable if [exprD] will respect it.
      **)
     typD : typ -> Type
-(*
-    (** NOTE: weakening is not implementable unless types are strongly typed **)
-  ; type_weaken : forall ts t, typD nil t -> typD ts t
-*)
   ; tyAcc : typ -> typ -> Prop
     (** NOTE: Everything below here is fixed! **)
   ; Rty : typ -> typ -> Prop := @eq typ

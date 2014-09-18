@@ -21,16 +21,16 @@ Section proverI.
 
   Record Prover : Type :=
   { Facts : Type
-  ; Summarize : tenv (tenv typ * typ) -> tenv typ -> list expr -> Facts
-  ; Learn : Facts -> tenv (tenv typ * typ) -> tenv typ -> list expr -> Facts
-  ; Prove : Facts -> tenv (tenv typ * typ) -> tenv typ -> expr -> bool
+  ; Summarize : tenv (ctyp typ) -> tenv typ -> list expr -> Facts
+  ; Learn : Facts -> tenv (ctyp typ) -> tenv typ -> list expr -> Facts
+  ; Prove : Facts -> tenv (ctyp typ) -> tenv typ -> expr -> bool
   }.
 
   Definition ProveOk (summary : Type)
-    (Valid : forall (tus : _) (tvs : tenv typ), summary -> option (OpenT tus tvs Prop))
-    (prover : summary -> tenv (tenv typ * typ) -> tenv typ -> expr -> bool)
+    (Valid : forall (tus : _) (tvs : tenv typ), summary -> option (exprT tus tvs Prop))
+    (prover : summary -> tenv (ctyp typ) -> tenv typ -> expr -> bool)
   : Prop :=
-    forall (tus : tenv (tenv typ * typ)) tvs sum (goal : expr),
+    forall (tus : tenv (ctyp typ)) tvs sum (goal : expr),
       prover sum tus tvs goal = true ->
       (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
@@ -41,7 +41,7 @@ Section proverI.
            Provable_val (goalD us vs)).
 
   Record ProverOk (P : Prover) : Type :=
-  { factsD : forall (tus : tenv (tenv typ * typ)) (tvs : tenv typ), Facts P -> option (OpenT tus tvs Prop)
+  { factsD : forall (tus : tenv (ctyp typ)) (tvs : tenv typ), Facts P -> option (exprT tus tvs Prop)
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->

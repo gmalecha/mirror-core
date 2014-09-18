@@ -9,6 +9,7 @@ Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.OpenT.
 Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.Util.Forwardy.
 
@@ -75,26 +76,26 @@ Section subst.
 
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
-  ; substD : forall (tus : _) (tvs : tenv typ), T -> option (OpenT tus tvs Prop)
+  ; substD : forall (tus : _), T -> option (OpenT ctxD tus Prop)
   ; substD_weaken
-    : forall tus tvs tus' tvs' s sD,
-        substD tus tvs s = Some sD ->
+    : forall tus tus' s sD,
+        substD tus s = Some sD ->
         exists sD',
-          substD (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
-          forall us us' vs vs',
-            sD us vs <-> sD' (hlist_app us us') (hlist_app vs vs')
+          substD (tus ++ tus') s = Some sD' /\
+          forall us us',
+            sD us <-> sD' (hlist_app us us')
   ; substD_lookup
     : forall s uv e,
         WellFormed_subst s ->
         lookup uv s = Some e ->
-        forall tus tvs sD,
-          substD tus tvs s = Some sD ->
+        forall tus sD,
+          substD tus s = Some sD ->
           exists t val get,
             nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) /\
-            exprD' nil (fst t) e (snd t) = Some val /\
-            forall us vs z,
-              sD us vs ->
-              get us z = val Hnil z
+            exprD' tus t.(cctx) e t.(vtyp) = Some val /\
+            forall us z,
+              sD us ->
+              get us z = val us z
   ; WellFormed_domain : forall s ls,
       WellFormed_subst s ->
       domain s = ls ->
@@ -104,10 +105,10 @@ Section subst.
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { WellFormed_empty : WellFormed_subst empty
   ; substD_empty
-    : forall tus tvs,
+    : forall tus,
       exists P,
-        substD tus tvs empty = Some P /\
-        forall us vs, P us vs
+        substD tus empty = Some P /\
+        forall us, P us
   ; set_sound
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',
@@ -115,19 +116,18 @@ Section subst.
         lookup uv s = None ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        True (*
-        forall tus tvs t val get sD,
-          substD tus tvs s = Some sD ->
-          nth_error_get_hlist_nth typD tus uv = Some (@existT _ _ t get) ->
-          exprD' nil (fst t) e (snd t) = Some val ->
+        forall tus t val get sD,
+          substD tus s = Some sD ->
+          nth_error_get_hlist_nth ctxD tus uv = Some (@existT _ _ t get) ->
+          exprD' tus t.(cctx) e t.(vtyp) = Some val ->
           exists sD',
-            substD tus tvs s' = Some sD' /\
+            substD tus s' = Some sD' /\
             forall us vs,
-              sD' us vs ->
-              sD us vs /\
-              get us = val us vs *)
+              sD' us ->
+              sD us /\
+              get us vs = val us vs
     (** NOTE: This is likely to only be used through [pull],
-     ** so if weakens/changes a little bit it is not a problem.
+     ** so if it weakens/changes a little bit it is not a problem.
      **)
   ; drop_sound
     : forall s s' u,
@@ -138,17 +138,16 @@ Section subst.
           lookup u s = Some e /\
           lookup u s' = None /\
           (forall u', u' <> u -> lookup u' s = lookup u' s') /\
-          forall tus tu tvs sD,
+          forall tus tu sD,
             u = length tus ->
-            substD (tus ++ tu :: nil) tvs s = Some sD ->
-            True (*
+            substD (tus ++ tu :: nil) s = Some sD ->
             exists sD',
-              substD tus tvs s' = Some sD' /\
+              substD tus s' = Some sD' /\
               exists eD,
-                exprD' tus tvs e tu = Some eD /\
-                forall us vs,
-                  sD' us vs <->
-                  sD (hlist_app us (Hcons (eD us vs) Hnil)) vs *)
+                exprD' tus tu.(cctx) e tu.(vtyp) = Some eD /\
+                forall us,
+                  sD' us <->
+                  sD (hlist_app us (Hcons (F:=ctxD) (eD us) Hnil))
   }.
 
   Variable Subst_subst : Subst.
@@ -157,16 +156,13 @@ Section subst.
   Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
 
   Lemma substD_conv
-  : forall tus tus' tvs tvs' (pfu : tus' = tus) (pfv : tvs' = tvs) s,
-      substD tus tvs s =
-      match pfu in _ = u' return option (OpenT u' _ Prop) with
-        | eq_refl =>
-          match pfv in _ = v' return option (OpenT _ v' Prop) with
-            | eq_refl => substD tus' tvs' s
-          end
+  : forall tus tus' (pfu : tus' = tus) s,
+      substD tus s =
+      match pfu in _ = u' return option (OpenT _ u' Prop) with
+        | eq_refl => substD tus' s
       end.
   Proof.
-    clear. destruct pfu. destruct pfv. reflexivity.
+    clear. destruct pfu. reflexivity.
   Qed.
 
   (** This is the "obvious" extension of [drop] **)
@@ -180,10 +176,10 @@ Section subst.
     end.
 
   Definition Subst_Extends (a b : T) : Prop :=
-    forall tus tvs P Q,
-      substD tus tvs b = Some P ->
-      substD tus tvs a = Some Q ->
-      forall us vs, P us vs -> Q us vs.
+    forall tus P Q,
+      substD tus b = Some P ->
+      substD tus a = Some Q ->
+      forall us, P us -> Q us.
 
   (** TODO: Maybe this should be essential **)
   Class NormalizedSubstOk : Type :=
@@ -194,62 +190,6 @@ Section subst.
         lookup u' s = Some e' ->
         mentionsU u' e = false
   }.
-
-  Lemma substD_weakenU
-  : forall tus tvs tus' s sD,
-      substD tus tvs s = Some sD ->
-      exists sD',
-        substD (tus ++ tus') tvs s = Some sD' /\
-        forall a b c,
-          sD a b <-> sD' (hlist_app a c) b.
-  Proof.
-    intros.
-    eapply substD_weaken with (tvs' := nil) in H.
-    revert H.
-    instantiate (1 := tus').
-    intro. destruct H as [ ? [ ? ? ] ].
-    exists (match app_nil_r_trans tvs in _ = t
-                  return hlist _ (tus ++ tus') -> hlist typD t -> Prop
-            with
-              | eq_refl => x
-            end).
-    split.
-    { clear - H. generalize dependent x.
-      destruct (app_nil_r_trans tvs). auto. }
-    { intros. rewrite H0.
-      instantiate (1 := Hnil). instantiate (1 := c).
-      rewrite hlist_app_nil_r.
-      clear. revert x. revert b.
-      destruct (app_nil_r_trans tvs). reflexivity. }
-  Qed.
-
-  Lemma substD_weakenV
-  : forall tus tvs tvs' s sD,
-      substD tus tvs s = Some sD ->
-      exists sD',
-        substD tus (tvs ++ tvs') s = Some sD' /\
-        forall a b c,
-          sD a b <-> sD' a (hlist_app b c).
-  Proof.
-    intros.
-    eapply substD_weaken with (tus' := nil) in H.
-    revert H.
-    instantiate (1 := tvs').
-    intro. destruct H as [ ? [ ? ? ] ].
-    exists (match app_nil_r_trans tus in _ = t
-                  return hlist _ t -> hlist typD _ -> Prop
-            with
-              | eq_refl => x
-            end).
-    split.
-    { clear - H. generalize dependent x.
-      destruct (app_nil_r_trans tus). auto. }
-    { intros. rewrite H0.
-      instantiate (1 := c). instantiate (1 := Hnil).
-      rewrite hlist_app_nil_r.
-      clear. revert x. revert a.
-      destruct (app_nil_r_trans tus). reflexivity. }
-  Qed.
 
   Fixpoint seq (start : nat) (len : nat) : list nat :=
     match len with

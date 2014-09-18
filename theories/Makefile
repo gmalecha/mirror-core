@@ -1,5 +1,4 @@
-GENERIC :=
-UTIL := Approx Iteration ListMapT Forwardy
+UTIL := Approx Iteration ListMapT Forwardy Generic
 PROVERS := ProverTac AssumptionProver DefaultProver AutoProver
 SUBST   := UVarMap FMapSubst CascadeSubst # SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
@@ -11,8 +10,7 @@ EXTENSIBLE := Types ExprCore \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
 # ExprUnifySyntactic ExprUnifySyntactic2
-LAMBDA := ResType \
-	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
+LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
 	  Expr ExprLift Red RedAll \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
@@ -40,8 +38,8 @@ RTAC := Core \
 #	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
-MODULES    := Generic \
-	      TypesI EnvI ExprI ExprProp ExprSem \
+MODULES    := TypesI EnvI ExprI ExprProp ExprSem \
+	      OpenT \
 	      ExprDAs \
 	      SymI \
 	      SubstI \
@@ -87,6 +85,8 @@ test: coq Makefile.test.coq
 clean:: Makefile.coq
 	$(MAKE) -f Makefile.coq clean
 	rm -f Makefile.coq Makefile.test.coq .depend
+	rm -f *.vo *.glob *.v.d
+	rm -f */*.vo */*.glob */*.v.d
 
 package:
 	hg archive -t tgz /tmp/mirror-core.tgz

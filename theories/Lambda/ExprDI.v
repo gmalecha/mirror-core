@@ -1,5 +1,7 @@
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Structures.Applicative.
+Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Fun.
@@ -9,7 +11,6 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Lambda.ResType.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
@@ -42,35 +43,21 @@ Module Type ExprDenote.
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
 
-    Definition OpenT (tus : tenv (list typ * typ)) (tvs : list typ) (T : Type) : Type :=
-      hlist ctxD tus -> hlist typD tvs -> T.
-    Definition Open_UseV tus tvs (n : nat)
-    : option {t : typ & OpenT tus tvs (typD t)} :=
-        match nth_error_get_hlist_nth typD tvs n with
-          | Some (existT t get) =>
-            Some
-              (existT (fun t0 : typ => OpenT tus tvs (typD t0)) t
-                      (fun tus => get))
-          | None => None
-        end.
-    Definition Open_Inj tus tvs T (v : T) : OpenT tus tvs T :=
-      fun _ _ => v.
-
-    Definition Open_App {tus tvs t u}
-    : OpenT tus tvs (typD (typ_arr t u)) -> OpenT tus tvs (typD t) -> OpenT tus tvs (typD u) :=
+    Definition exprT_App {tus tvs t u}
+    : exprT tus tvs (typD (typ_arr t u)) -> exprT tus tvs (typD t) -> exprT tus tvs (typD u) :=
       match eq_sym (typD_arr t u) in _ = T
-            return OpenT tus tvs T ->
-                   OpenT tus tvs (typD t) ->
-                   OpenT tus tvs (typD u)
+            return exprT tus tvs T ->
+                   exprT tus tvs (typD t) ->
+                   exprT tus tvs (typD u)
       with
         | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
       end.
 
-    Definition Open_Abs {tus tvs t u}
-    : OpenT tus (t :: tvs) (typD u) ->
-      OpenT tus tvs (typD (typ_arr t u)) :=
+    Definition exprT_Abs {tus tvs t u}
+    : exprT tus (t :: tvs) (typD u) ->
+      exprT tus tvs (typD (typ_arr t u)) :=
       match eq_sym (typD_arr t u) in _ = T
-            return OpenT tus (t :: tvs) (typD u) -> OpenT tus tvs T
+            return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
       with
         | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
       end.
@@ -99,17 +86,17 @@ Module Type ExprDenote.
     Parameter exprD'
     : forall {Typ2_Fun : Typ2 _ Fun}
              {RSym_func : RSym func}
-             (tus : tenv (list typ * typ)) (tvs : tenv typ) (t : typ) (e : expr typ func),
-        option (OpenT tus tvs (typD t)).
+             (tus : tenv (ctyp typ)) (tvs : tenv typ) (t : typ) (e : expr typ func),
+        option (exprT tus tvs (typD t)).
 
     Axiom exprD'_respects
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e (pf : Rty t' t),
         exprD' tus tvs t e =
-        Rcast (fun T => option (OpenT tus tvs T)) pf (exprD' tus tvs t' e).
+        Rcast (fun T => option (exprT tus tvs T)) pf (exprD' tus tvs t' e).
 
     Section typeof_expr.
-      Variable tus : tenv (list typ * typ).
+      Variable tus : tenv (ctyp typ).
 
       Definition type_of_apply (tv x : typ) : option typ :=
         arr_match (fun _ => option typ) tv
@@ -120,33 +107,26 @@ Module Type ExprDenote.
                      end)
                   None.
 
-      Fixpoint typeof_expr (tvs : tenv typ) (e : expr typ func)
+      Fixpoint ctxRty_eq (ts ts' : list typ) : bool :=
+        match ts , ts' with
+          | nil , nil => true
+          | t :: ts , t' :: ts' => t ?[ Rty ] t' && ctxRty_eq ts ts'
+          | _ , _ => false
+        end%bool.
+
+      Fixpoint typeof_expr (tvs : tenv typ) (e : expr typ func) {struct e}
       : option typ :=
         match e with
         | Var x  => nth_error tvs x
-        | UVar x es => match nth_error tus x with
-                         | None => None
-                         | Some (cs,r) =>
-                           (fix prefix_of cs es {struct es} : option typ :=
-                              match cs with
-                                | nil => Some r
-                                | c :: cs =>
-                                  match es with
-                                    | nil => None
-                                    | e :: es =>
-                                      match typeof_expr tvs e with
-                                        | None => None
-                                        | Some t =>
-<<<<<<< HEAD
-                                          if type_cast t c then prefix_of cs es
-=======
-                                          if type_cast ts t c then prefix_of cs es
->>>>>>> 4c5e81c... It doesn't compile, but it is a start.
-                                          else None
-                                      end
-                                  end
-                              end) cs es
-                       end
+        | UVar x es =>
+          match nth_error tus x with
+            | None => None
+            | Some {| cctx := cs ; vtyp := r |} =>
+              match mapT_list (typeof_expr tvs) es with
+                | Some tes => if ctxRty_eq tes cs then Some r else None
+                | None => None
+              end
+          end
         | Inj f => typeof_sym f
         | App e e' =>
           match typeof_expr tvs e
@@ -178,14 +158,14 @@ Module Type ExprDenote.
                         ret (fun us vs => Rcast_val cast (get vs)))).
 
     Section uvar_eval.
-      Context {tus : tenv (list typ * typ)}.
+      Context {tus : tenv (ctyp typ)}.
       Context {T : Type}.
       Context {tvs : tenv typ}.
 
       Fixpoint uvar_eval tys (ls : list (expr typ func)) {struct ls}
-      : option ((hlist typD tys -> OpenT tus tvs T) -> OpenT tus tvs T) :=
+      : option ((hlist typD tys -> exprT tus tvs T) -> exprT tus tvs T) :=
         match tys as tys
-              return option ((hlist typD tys -> OpenT tus tvs T) -> OpenT tus tvs T)
+              return option ((hlist typD tys -> exprT tus tvs T) -> exprT tus tvs T)
         with
           | nil => Some (fun u => u Hnil)
           | ty :: tys =>
@@ -210,14 +190,14 @@ Module Type ExprDenote.
       forall tus tvs t u es,
         exprD' tus tvs t (UVar u es) =
         bind (m := option)
-             (nth_error_get_hlist_nth (fun t => hlist typD (fst t) -> typD  (snd t)) tus u)
+             (nth_error_get_hlist_nth ctxD tus u)
              (fun t_get =>
                 let '(existT t' get) := t_get in
                 bind (m := option)
-                     (@uvar_eval tus (typD (snd t')) tvs (fst t') es)
+                     (@uvar_eval tus (typD t'.(vtyp)) tvs t'.(cctx) es)
                      (fun val =>
                         bind (m := option)
-                             (type_cast (snd t') t)
+                             (type_cast t'.(vtyp) t)
                              (fun cast =>
                                 ret (fun us vs =>
                                        Rcast_val cast (val (fun z _ _ => get us z) us vs))))).
@@ -242,13 +222,13 @@ Module Type ExprDenote.
                      (fun f =>
                         bind (exprD' tus tvs t' x)
                              (fun x =>
-                                ret (Open_App f x)))).
+                                ret (exprT_App f x)))).
 
     Axiom exprD'_Abs
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e,
         exprD' tus tvs t (Abs t' e) =
-        arr_match (fun T => option (OpenT tus tvs T)) t
+        arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
                      bind (m := option)
                           (type_cast d t')

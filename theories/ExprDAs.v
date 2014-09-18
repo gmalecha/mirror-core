@@ -21,11 +21,11 @@ Section parameterized.
   Context {Typ0_T : Typ0 _ T}.
 
   Definition exprD'_typ0 tus (tvs : list typ) (goal : expr)
-  : option (OpenT tus tvs T) :=
-    match exprD' tus tvs goal (@typ0 _ _ _ _) return option (OpenT tus tvs T) with
+  : option (exprT tus tvs T) :=
+    match exprD' tus tvs goal (@typ0 _ _ _ _) return option (exprT tus tvs T) with
       | None => None
       | Some val =>
-        Some match typ0_cast(F:=T) in _ = T return OpenT tus tvs T with
+        Some match typ0_cast(F:=T) in _ = T return exprT tus tvs T with
                | eq_refl => val
              end
     end.
@@ -34,7 +34,7 @@ Section parameterized.
   : forall tus tus' (tvs tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD'_typ0 tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> option (OpenT tu tv T)
+            return expr -> option (exprT tu tv T)
       with
         | eq_refl , eq_refl => exprD'_typ0 tus' tvs'
       end.
@@ -44,11 +44,11 @@ Section parameterized.
 
   Lemma exprD'_typ0_weaken (ExprOk_expr : ExprOk _)
   : forall tus0 (tvs0 : tenv typ) (l0 : expr)
-           (lD : OpenT tus0 tvs0 T),
+           (lD : exprT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
       forall tus' (tvs' : list typ),
       exists
-        lD' : OpenT (tus0 ++ tus') (tvs0 ++ tvs') T,
+        lD' : exprT (tus0 ++ tus') (tvs0 ++ tvs') T,
         exprD'_typ0 (tus0 ++ tus') (tvs0 ++ tvs') l0 = Some lD' /\
         (forall (us : hlist _ tus0) (vs : hlist typD tvs0)
                 (us' : hlist _ tus') (vs' : hlist typD tvs'),
@@ -59,7 +59,7 @@ Section parameterized.
     eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H; eauto.
     forward_reason. rewrite H.
     eexists; split; eauto. intros.
-    unfold OpenT.
+    unfold exprT, OpenT.OpenT.
     autorewrite with eq_rw.
     rewrite <- H0.
     reflexivity.
@@ -67,11 +67,11 @@ Section parameterized.
 
   Definition exprD'_typ0_weakenU (ExprOk_expr : ExprOk _)
   : forall tus0 (tvs0 : tenv typ) (l0 : expr)
-           (lD : OpenT tus0 tvs0 T),
+           (lD : exprT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
       forall tus',
       exists
-        lD' : OpenT (tus0 ++ tus') tvs0 T,
+        lD' : exprT (tus0 ++ tus') tvs0 T,
         exprD'_typ0 (tus0 ++ tus') tvs0 l0 = Some lD' /\
         (forall (us : hlist _ tus0) (us' : hlist _ tus')
                 (vs : hlist typD tvs0),
@@ -84,18 +84,18 @@ Section parameterized.
     forward_reason.
     rewrite H.
     eexists; split; eauto.
-    intros. unfold OpenT.
+    intros. unfold exprT, OpenT.OpenT.
     autorewrite with eq_rw.
     erewrite H0. reflexivity.
   Qed.
 
   Definition exprD'_typ0_weakenV (ExprOk_expr : ExprOk _)
   : forall tus0 (tvs0 : tenv typ) (l0 : expr)
-           (lD : OpenT tus0 tvs0 T),
+           (lD : exprT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
       forall tvs' : list typ,
       exists
-        lD' : OpenT tus0 (tvs0 ++ tvs') T,
+        lD' : exprT tus0 (tvs0 ++ tvs') T,
         exprD'_typ0 tus0 (tvs0 ++ tvs') l0 = Some lD' /\
         (forall (us : hlist _ tus0) (vs : hlist typD tvs0)
                 (vs' : hlist typD tvs'),
@@ -108,7 +108,7 @@ Section parameterized.
     forward_reason.
     rewrite H.
     eexists; split; eauto.
-    intros. unfold OpenT.
+    intros. unfold exprT,OpenT.OpenT.
     autorewrite with eq_rw.
     erewrite H0. reflexivity.
   Qed.

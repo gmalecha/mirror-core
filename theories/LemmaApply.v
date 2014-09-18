@@ -25,7 +25,7 @@ Section lemma_apply.
   Variable SubstOk_subst : SubstOk _ Subst_subst.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable unify : tenv (tenv typ * typ) -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+  Variable unify : tenv (ctyp typ) -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.
 
   Definition unify_sound : Prop :=
     forall tu tv e1 e2 s s' t tv',
@@ -50,7 +50,7 @@ Section lemma_apply.
              (lem : lemma typ expr expr) (e : expr)
   : option subst :=
     let pattern := vars_to_uvars 0 (length tus) lem.(concl) in
-    unify (tus ++ List.map (@pair _ _ tvs) lem.(vars)) tvs 0 pattern e tyProp s.
+    unify (tus ++ List.map (mkctyp tvs) lem.(vars)) tvs 0 pattern e tyProp s.
 
   Ltac fill_holes :=
     let is_prop P := match type of P with
@@ -129,33 +129,33 @@ Section lemma_apply.
            end.
 
   (** This function is really complex! **)
-  Fixpoint typs_to_holes (ctx : tenv typ) {ls : tenv typ} (h : hlist (typD nil) ls)
-  : hlist (@ctxD _ _ nil) (List.map (@pair _ _ ctx) ls) :=
-    match h in hlist _ ls return hlist (@ctxD _ _ nil) (List.map (@pair _ _ ctx) ls) with
+  Fixpoint typs_to_holes (ctx : tenv typ) {ls : tenv typ} (h : hlist typD ls)
+  : hlist ctxD (List.map (mkctyp ctx) ls) :=
+    match h in hlist _ ls return hlist ctxD (List.map (mkctyp ctx) ls) with
       | Hnil => Hnil
-      | Hcons t _ l ls => @Hcons _ (@ctxD _ _ nil) (ctx,t) _ (fun _ => l) (typs_to_holes ctx ls)
+      | Hcons t _ l ls => @Hcons _ ctxD {| cctx := ctx ; vtyp := t |} _ (fun _ => l) (typs_to_holes ctx ls)
     end.
 
   Hypothesis vars_to_uvars_exprD'
   : forall (tus : _) (e : expr) (tvs : list typ)
            (t : typ) (tvs' : list typ)
-           (val : hlist (@ctxD _ _ nil) tus ->
-                  hlist (typD nil) (tvs ++ tvs') -> typD nil t),
+           (val : hlist ctxD tus ->
+                  hlist typD (tvs ++ tvs') -> typD t),
       exprD' tus (tvs ++ tvs') e t = Some val ->
       exists
-        val' : hlist (@ctxD _ _ nil) (tus ++ List.map (@pair _ _ nil) tvs') ->
-               hlist (typD nil) tvs -> typD nil t,
-        exprD' (tus ++ List.map (@pair _ _ nil) tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
+        val' : hlist ctxD (tus ++ List.map (mkctyp nil) tvs') ->
+               hlist typD tvs -> typD t,
+        exprD' (tus ++ List.map (mkctyp nil) tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
                t = Some val' /\
-        (forall (us : hlist (@ctxD _ _ nil) tus)
-                (vs' : hlist (typD nil) tvs') (vs : hlist (typD nil) tvs),
+        (forall (us : hlist ctxD tus)
+                (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') =
-           val' (hlist_app (lr := List.map (@pair _ _ nil) tvs')
+           val' (hlist_app (lr := List.map (mkctyp nil) tvs')
                            us
                            (typs_to_holes nil vs')) vs).
 
   Let propD tus tvs g :=
-    match @typ0_cast _ _ _ _ in _ = t return ResType tus tvs t with
+    match @typ0_cast _ _ _ _ in _ = t return option (exprT tus tvs t) with
       | eq_refl => exprD' tus tvs g tyProp
     end.
 
@@ -174,16 +174,17 @@ Section lemma_apply.
                                | eq_refl => x
                              end)
                    nil nil l0 = Some lD) ->
-        substD tus tvs s = Some sD ->
+        substD tus s = Some sD ->
         exprD' tus tvs g tyProp = Some gD ->
         exists s1D,
-          substD (tus ++ List.map (@pair _ _ nil) l0.(vars)) s1 = Some s1D /\
-          forall (us : hlist _ tus) (us' : hlist _ (List.map (@pair _ _ nil) l0.(vars))) (vs : hlist _ tvs),
+          substD (tus ++ List.map (mkctyp nil) l0.(vars)) s1 = Some s1D /\
+          forall (us : hlist _ tus) (us' : hlist _ (List.map (mkctyp nil) l0.(vars))) (vs : hlist _ tvs),
             s1D (hlist_app us us') ->
-            exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
+            exprD (join_env us) ((* join_env us' ++ *) join_env vs) l0.(concl) tyProp =
             Some (gD us vs)
             /\ sD us.
   Proof.
+(*
     unfold eapplicable.
     intros.
     eapply (@Hunify (tus ++ vars l0) tvs _ _ _ _ _ nil) in H; auto.
@@ -253,6 +254,8 @@ Section lemma_apply.
       eassumption. }
     { eapply H6. eapply H11. }
   Qed.
+*)
+  Admitted.
 
   Variable substitute_all : (nat -> option expr) -> nat -> expr -> expr.
 

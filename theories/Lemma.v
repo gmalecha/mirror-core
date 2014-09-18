@@ -24,7 +24,7 @@ Section lem.
   ; concl : conclusion
   }.
 
-  Variable conclusionD : forall us vs, conclusion -> option (OpenT us vs Prop).
+  Variable conclusionD : forall us vs, conclusion -> option (exprT us vs Prop).
   Context {tyProp : typ}.
   Variable Provable' : typD tyProp -> Prop.
 
@@ -95,7 +95,7 @@ Section lem.
   Qed.
 
   Definition lemmaD' tus (tvs : tenv typ) (l : lemma)
-  : option (OpenT tus tvs Prop) :=
+  : option (exprT tus tvs Prop) :=
     match
         Traversable.mapT (T := list) (F := option)
                          (fun e : expr => exprD' tus (vars l ++ tvs) e tyProp)

@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
+Require Import MirrorCore.OpenT.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 
@@ -14,11 +15,14 @@ Section Expr.
 
   Variable expr : Type.
 
-  Definition ctxD (ctx : tenv typ * typ) : Type :=
-    hlist typD (fst ctx) -> typD (snd ctx).
+  Record ctyp := mkctyp
+  { cctx : list typ ; vtyp : typ }.
 
-  Definition OpenT (us : tenv (tenv typ * typ)) (vs : tenv typ) (T : Type) : Type :=
-    hlist ctxD us -> hlist typD vs -> T.
+  Definition ctxD (ctx : ctyp) : Type :=
+    hlist typD ctx.(cctx) -> typD ctx.(vtyp).
+
+  Definition exprT (us : tenv ctyp) (vs : tenv typ) (T : Type) : Type :=
+    OpenT ctxD us (OpenT typD vs T).
 
   (** NOTE:
    ** - Right now this is intensionally weak, but it should probably include
@@ -29,9 +33,9 @@ Section Expr.
    ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
-  { exprD' : forall (us : tenv (tenv typ * typ)) (vs : tenv typ),
+  { exprD' : forall (us : tenv ctyp) (vs : tenv typ),
                expr -> forall (t : typ),
-                         option (OpenT us vs (typD t))
+                         option (exprT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
   ; mentionsU : nat -> expr -> bool
@@ -43,7 +47,7 @@ Section Expr.
       (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD' tus tvs e t = match pfu in _ = tus'
                                , pfv in _ = tvs'
-                                 return option (OpenT tus' tvs' (typD t))
+                                 return option (exprT tus' tvs' (typD t))
                            with
                              | eq_refl , eq_refl => exprD' tus' tvs' e t
                            end.
@@ -51,7 +55,7 @@ Section Expr.
     destruct pfu. destruct pfv. reflexivity.
   Qed.
 
-  Definition Safe_expr {E : Expr} (tus : tenv (tenv typ * typ)) (tvs : tenv typ) (e : expr) (t : typ)
+  Definition Safe_expr {E : Expr} (tus : tenv ctyp) (tvs : tenv typ) (e : expr) (t : typ)
   : Prop :=
     exists val, exprD' tus tvs e t = Some val.
 
@@ -313,7 +317,7 @@ End Expr.
 Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
-Arguments OpenT {_ RType} _ _ _ : rename.
+Arguments exprT {_ RType} _ _ _ : rename.
 Arguments mentionsU {_ RType _ Expr} _ _ : rename.
 Arguments mentionsV {_ RType _ Expr} _ _ : rename.
 Arguments ctxD {typ _} _ : rename.
