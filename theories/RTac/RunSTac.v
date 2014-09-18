@@ -43,12 +43,12 @@ Section parameterized.
           reduceGoal instantiate
                      (List.fold_right (fun x y => @CEx _ _ y x)
                          (List.fold_right (fun x y => @CAll _ _ y x)
-                            CTop tvs') tus') sub' (GGoal gl') (length tus) (length tvs)
+                            CTop tvs') tus') sub' (GGoal gl') (length tus + length tus') (length tvs + length tvs')
         | STac.Core.Solved tus' tvs' sub' =>
           reduceGoal instantiate
                      (List.fold_right (fun x y => @CEx _ _ y x)
                        (List.fold_right (fun x y => @CAll _ _ y x)
-                          CTop tvs') tus') sub' GSolved (length tus) (length tvs)
+                          CTop tvs') tus') sub' GSolved (length tus + length tus') (length tvs + length tvs')
       end.
 
 (*
