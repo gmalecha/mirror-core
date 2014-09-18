@@ -25,6 +25,8 @@ sig
   ; table_scheme : map_sort
   }
 
+  exception ReificationFailure of Term.constr
+
   type all_tables
 
   val parse_tables : Term.constr -> map_type list
@@ -634,7 +636,6 @@ struct
 	    [] ->
 	      fun trm ->
 		let trm = get_term trm in
-		let _ = Format.eprintf "Failed for: %a\n" Std.pp_constr trm in
 		raise (ReificationFailure trm)
 	  | l :: ls ->
 	    let k = compile_commands ls in
@@ -1095,23 +1096,30 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
   | ["reify_expr" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
     [ let tbls = Reification.parse_tables tbls in
       fun gl ->
-      let (res,tbl_data) =
-	Reification.reify_all gl tbls (List.map (fun e -> (name,e)) es)
-      in
-      let rec generate tbls acc =
-	match tbls with
-	  [] ->
-	    let ltac_args =
-	      List.map
-		Plugin_utils.Use_ltac.to_ltac_val
-		(List.rev_append acc res)
-	    in
-	    Plugin_utils.Use_ltac.ltac_apply k ltac_args
-	| tbl :: tbls ->
-	  let mp = Reification.export_table acc tbl tbl_data in
-	  Plugin_utils.Use_ltac.pose "tbl" mp
-	    (fun var -> generate tbls (var :: acc))
-      in
-      generate tbls [] gl
+	try
+	  let (res,tbl_data) =
+	    Reification.reify_all gl tbls (List.map (fun e -> (name,e)) es)
+	  in
+	  let rec generate tbls acc =
+	    match tbls with
+	      [] ->
+		let ltac_args =
+		  List.map
+		    Plugin_utils.Use_ltac.to_ltac_val
+		    (List.rev_append acc res)
+		in
+		Plugin_utils.Use_ltac.ltac_apply k ltac_args
+	    | tbl :: tbls ->
+	      let mp = Reification.export_table acc tbl tbl_data in
+	      Plugin_utils.Use_ltac.pose "tbl" mp
+		(fun var -> generate tbls (var :: acc))
+	  in
+	  generate tbls [] gl
+	with
+	  Reification.ReificationFailure trm ->
+	    let pr = lazy (Pp.(   (str "Failed to reify term '")
+			       ++ (Printer.pr_constr trm)
+			       ++ (str "'."))) in
+	    Tacticals.tclFAIL_lazy 0 pr gl
     ]
 END;;
