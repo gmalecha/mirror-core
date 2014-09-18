@@ -5,11 +5,11 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
-Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.Lemma.
-(* Require Import MirrorCore.RTac.Continuation. *)
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Reduce.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -55,7 +55,7 @@ Section parameterized.
                                             (vars_to_uvars 0 len_uvars e))
                       lem.(premises)
               in
-              more_list CTop sub'' (map GGoal premises)
+              more_list instantiate CTop sub'' (map GGoal premises)
               (** Solve the side conditions **)
             | None => Fail
           end

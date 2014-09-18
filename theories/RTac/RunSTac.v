@@ -13,6 +13,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.STac.Core.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Reduce.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -30,6 +31,8 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
+  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+
   Definition STAC_no_hyps (tac : stac typ expr subst)
   : rtac typ expr subst :=
     fun ctx sub gl =>
@@ -37,13 +40,15 @@ Section parameterized.
       match tac tus tvs sub nil gl with
         | STac.Core.Fail => Fail
         | STac.Core.More tus' tvs' sub' hs' gl' =>
-          reduceGoal (List.fold_right (fun x y => @CEx _ _ y x)
+          reduceGoal instantiate
+                     (List.fold_right (fun x y => @CEx _ _ y x)
                          (List.fold_right (fun x y => @CAll _ _ y x)
                             CTop tvs') tus') sub' (GGoal gl') (length tus) (length tvs)
         | STac.Core.Solved tus' tvs' sub' =>
-          reduceGoal (List.fold_right (fun x y => @CEx _ _ y x)
-                         (List.fold_right (fun x y => @CAll _ _ y x)
-                            CTop tvs') tus') sub' GSolved (length tus) (length tvs)
+          reduceGoal instantiate
+                     (List.fold_right (fun x y => @CEx _ _ y x)
+                       (List.fold_right (fun x y => @CAll _ _ y x)
+                          CTop tvs') tus') sub' GSolved (length tus) (length tvs)
       end.
 
 (*

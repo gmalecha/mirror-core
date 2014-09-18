@@ -106,3 +106,19 @@ Eval compute in
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
                              (EAPPLY and_lem)) goal.
+
+Definition random_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
+{| Lemma.vars := tyProp :: tyNat :: tyBool :: tyNat :: nil
+ ; Lemma.premises := Var 0 :: App (App (Inj (Eq tyBool)) (App (App (Inj Lt) (Var 1)) (Var 3))) (Var 2) :: nil
+ ; Lemma.concl := Var 0
+ |}.
+
+Eval compute in
+    let goal :=
+        fAll tyProp (fAll tyProp
+                          (fImpl (Var 0)
+                                 (fImpl (Var 1)
+                                        (fAnd (Var 0) (Var 1)))))
+    in
+    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
+                             (EAPPLY random_lem)) goal.

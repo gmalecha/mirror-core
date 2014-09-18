@@ -694,43 +694,6 @@ Section parameterized.
       | CHyp c h => closeGoal c s (GHyp h g) nus
     end.
 
-  Fixpoint reduceGoal (ctx : Ctx) (s : subst) (g : Goal) (un vn : nat)
-  : Result :=
-    match ctx with
-      | CTop => match g with
-                  | GSolved => Solved s
-                  | g => More s g
-                end
-      | CAll ctx' l =>
-        match vn with
-          | 0 => (** STUCK **)
-            Fail
-          | S vn' =>
-            (** TODO: Drop var **)
-            reduceGoal ctx' s g un vn'
-        end
-      | CEx  ctx' l =>
-        match un with
-          | 0 => (** STUCK **)
-            Fail
-          | S un' =>
-            match drop un' s with
-              | None =>
-                More s (GEx l (lookup un' s) g)
-              | Some s' =>
-                reduceGoal ctx' s' g un' vn
-            end
-        end
-      | CHyp ctx' h =>
-        reduceGoal ctx' s g un vn
-    end.
-
-  Definition more_list (ctx : Ctx) (sub : subst) (gl : list Goal)
-  : Result :=
-    reduceGoal ctx sub match gl with
-                         | nil => GSolved
-                         | _ :: _ => GConj gl
-                       end (countUVars ctx) (countVars ctx).
 
 
 End parameterized.

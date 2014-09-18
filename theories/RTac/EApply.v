@@ -5,9 +5,10 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
-Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
+Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.Reduce.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -45,40 +46,8 @@ Section parameterized.
         | None => Fail
         | Some sub' =>
           let len_uvars := length tus in
-          match pull (expr := expr) len_uvars len_vars sub' with
-            | Some sub'' =>
-              (** If we have instantiated everything then we can be a little
-               ** bit more efficient
-               **)
-              let premises :=
-                  map (fun e => GGoal (instantiate (fun u => lookup u sub') 0
-                                                   (vars_to_uvars 0 len_uvars e)))
-                      lem.(premises)
-              in
-              more_list CTop sub'' premises
-            | None =>
-              let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
-              more_list (fold_right (fun a b => @CEx _ _ b a) ctx lem.(vars)) sub' premises
-          (*
-              with
-                | None => None
-                | Solved tus' tvs' sub'' =>
-                  match pull (expr := expr) len_uvars len_vars sub'' with
-                    | None => @Fail _ _ _
-                    | Some sub''' => @Solved _ _ _ nil nil sub'''
-                  end
-                | More tus tvs sub'' hyps'' e =>
-                  (** TODO: In this case it is not necessary to pull everything
-                   ** I could leave unification variables in place
-                   **)
-                  match pull (expr := expr) len_uvars len_vars sub'' with
-                    | None => @Fail _ _ _
-                    | Some sub''' =>
-                      More (firstn len_uvars tus) tvs sub''' hyps'' e
-                  end
-              end
-           *)
-          end
+          let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
+          more_list instantiate (fold_right (fun a b => @CEx _ _ b a) ctx lem.(vars)) sub' premises
       end.
 
 End parameterized.

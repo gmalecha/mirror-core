@@ -33,7 +33,7 @@ RTAC := Core \
 	Assumption RunSTac \
 	Intro Apply EApply \
 	Simplify Instantiate \
-	AtGoal \
+	AtGoal Reduce \
 	RTac
 # Apply EApply
 #	Continuation ApplyToAll
