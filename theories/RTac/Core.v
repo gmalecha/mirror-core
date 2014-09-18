@@ -51,6 +51,10 @@ Section parameterized.
   | More   : subst -> Goal -> Result
   | Solved : subst -> Result.
 
+  Definition DEAD : Result.
+    exact Fail.
+  Qed.
+
   (** Treat this as opaque! **)
   Definition rtac : Type :=
     Ctx -> subst -> expr -> Result.
@@ -97,7 +101,7 @@ Section parameterized.
                     More s'' (GEx t None GSolved)
           | Some e =>
             match drop nus s' with
-              | None => Fail (** DEAD **)
+              | None => DEAD
               | Some s'' => Solved s''
             end
         end
@@ -107,7 +111,7 @@ Section parameterized.
                     More s' (GEx t None g')
           | Some e =>
             match drop nus s' with
-              | None => (** DEAD **) Fail
+              | None => DEAD
               | Some s'' => More s'' (GEx t (Some e) g')
             end
         end
@@ -128,12 +132,12 @@ Section parameterized.
             | More s g => More s (GAll t g)
           end
         | GEx  t None g =>
-          mapUnderEx t nus (runRTac' (CEx  ctx t) s g (S nus) nvs)
+          mapUnderEx t nus (runRTac' (CEx ctx t) s g (S nus) nvs)
         | GEx  t (Some e) g =>
           match set nus e s with
-            | None => Fail (** DEAD **)
+            | None => DEAD
             | Some s' =>
-              mapUnderEx t nus (runRTac' (CEx  ctx t) s' g (S nus) nvs)
+              mapUnderEx t nus (runRTac' (CEx ctx t) s' g (S nus) nvs)
           end
         | GHyp h g =>
           match runRTac' (CHyp ctx h) s g nus nvs with
@@ -164,7 +168,7 @@ Section parameterized.
 
     Definition runRTac (ctx : Ctx) (s : subst) (g : Goal)
     : Result :=
-      runRTac' ctx s g (countVars ctx) (countUVars ctx).
+      runRTac' ctx s g (countUVars ctx) (countVars ctx).
   End runRTac'.
 
 
