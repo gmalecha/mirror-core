@@ -1,6 +1,7 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
@@ -25,7 +26,11 @@ Section raw_types.
                  else if (v - skip) ?[ lt ] _by then None
                       else Some (Var (v - _by))
       | Inj f => Some (Inj f)
-      | UVar u => Some (UVar u)
+      | UVar u es =>
+        match mapT_list (lower skip _by) es with
+          | None => None
+          | Some es' => Some (UVar u es')
+        end
       | App a b =>
         ap (ap (pure App) (lower skip _by a)) (lower skip _by b)
       | Abs t a =>
@@ -37,22 +42,24 @@ Section raw_types.
     match e with
       | Var v => Var (if v ?[ lt ] skip then v else (v + _by))
       | Inj f => Inj f
-      | UVar u => UVar u
+      | UVar u es =>
+        UVar u (map (lift skip _by) es)
       | App a b =>
         App (lift skip _by a) (lift skip _by b)
       | Abs t a =>
         Abs t (lift (S skip) _by a)
     end.
 
-  Fixpoint vars_to_uvars (skip add : nat) (e : expr typ func) : expr typ func :=
+  Fixpoint vars_to_uvars (es : list (expr typ func)) (skip add : nat) (e : expr typ func) : expr typ func :=
     match e with
       | Var v =>
         if v ?[ lt ] skip then Var v
-        else UVar (v - skip + add)
-      | UVar _
+        else UVar (v - skip + add) es
+      | UVar u es' =>
+        UVar u (map (vars_to_uvars es skip add) es')
       | Inj _ => e
-      | App l r => App (vars_to_uvars skip add l) (vars_to_uvars skip add r)
-      | Abs t e => Abs t (vars_to_uvars (S skip) add e)
+      | App l r => App (vars_to_uvars es skip add l) (vars_to_uvars es skip add r)
+      | Abs t e => Abs t (vars_to_uvars (map (lift 0 1) es) (S skip) add e)
     end.
 
 End raw_types.
@@ -88,6 +95,7 @@ Section types.
     { simpl. specialize (IHe (t :: tvs)).
       simpl in *. eapply IHe in H.
       destruct H. reflexivity. }
+    { admit. }
   Qed.
 
   Theorem exprD'_lower
