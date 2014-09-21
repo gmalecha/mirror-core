@@ -2,7 +2,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
-Require Import McExamples.AutoRewrite.AutoSetoidRewrite.
+Require Import MirrorCore.Lambda.AutoSetoidRewrite.
 Require Import McExamples.Simple.Simple.
 
 Set Implicit Arguments.

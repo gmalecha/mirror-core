@@ -1,118 +1,102 @@
-Section foo.
-  Variable ts : types.
+Require Import ExtLib.Core.RelDec.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.AutoSetoidRewrite.
+Require Import McExamples.Simple.Simple.
 
-  Inductive sym : Type := And | Other.
-  Instance RSym_sym : RSym (typD ts) sym :=
-  { typeof_sym := fun s =>
-                    match s with
-                      | And => Some (tyArr tyProp (tyArr tyProp tyProp))
-                      | Other => Some (tyArr tyProp tyProp)
-                    end
-  ; symD := fun s =>
-              match s as s return match match s with
-                                          | And => Some (tyArr tyProp (tyArr tyProp tyProp))
-                                          | Other => Some (tyArr tyProp tyProp)
-                                        end
-                                  with
-                                    | None => unit
-                                    | Some t => typD ts nil t
-                                  end
-              with
-                | And => and
-                | Other => not
-              end
-  ; sym_eqb := fun _ _ => None
-  }.
-  Inductive Rbase := Impl | Eq.
-  Definition typeForRbase (_ : Rbase) : typ := tyProp.
-  Definition T := expr sym.
+Set Implicit Arguments.
+Set Strict Implicit.
 
-  Fixpoint RD (r : R Rbase) : relation (typD ts nil (typeForR typeForRbase r)) :=
-    match r with
-      | Rpointwise l r =>
-        (fun f g => forall x y, RD l x y -> RD r (f x) (g y))
-      | RInj Impl => Basics.impl
-      | RInj Eq => @eq Prop
+Require Import McExamples.Simple.Simple.
+
+Let Rbase := expr typ func.
+
+Definition m (T : Type) : Type :=
+  rsubst Rbase -> option (T * rsubst Rbase).
+
+Definition rg_bind {T U} (a : m T) (b : T -> m U) : m U :=
+  fun s => match a s with
+             | None => None
+             | Some (val,s') => b val s'
+           end.
+Definition rg_fail {T} : m T := fun _ => None.
+Definition rg_ret {T} (v : T) : m T := fun s => Some (v, s).
+Definition rg_plus {T} (l r : m T) : m T :=
+  fun s =>
+    let v := l s in
+    match v with
+      | None => r s
+      | Some _ => v
     end.
 
-  Definition respects (f : expr sym) (r : R Rbase) : option (R Rbase) :=
-    match f , r with
-      | App (Inj And) _ , RInj Impl => Some (RInj Impl)
-      | App (Inj And) _ , RInj Eq => Some (RInj Eq)
-      | Inj And , Rpointwise (RInj Impl) (RInj Impl) => Some (RInj Impl)
-      | _ , _ => None
-    end.
+Definition SRrespects (e : expr typ func) (l : RG (expr typ func))
+: m (RG (expr typ func)) :=
+  match e , l with
+    | Inj Lt , RGrespects a (RGrespects b (RGinj (Inj (Eq _)))) =>
+      rg_bind
+        (unifyRG (fun x y => x ?[ eq ] y) a (RGinj (Inj Lt)))
+        (fun a =>
+           rg_bind
+             (unifyRG (fun x y => x ?[ eq ] y) b (RGinj (Inj (Eq tyNat))))
+             (fun b =>
+                rg_ret (RGrespects a (RGrespects b (RGinj (Inj (Eq tyProp)))))))
+    | Inj (Eq t) , RGrespects a (RGrespects b (RGinj (Inj (Eq _)))) =>
+      rg_bind
+        (unifyRG (fun x y => x ?[ eq ] y) a (RGinj (Inj (Eq t))))
+        (fun a =>
+           rg_bind
+             (unifyRG (fun x y => x ?[ eq ] y) b (RGinj (Inj (Eq t))))
+             (fun b =>
+                rg_ret (RGrespects a (RGrespects b (RGinj (Inj (Eq t)))))))
+    | Inj Plus , RGrespects a (RGrespects b (RGinj (Inj (Eq t)))) =>
+      rg_bind
+        (unifyRG (fun x y => x ?[ eq ] y) a (RGinj (Inj (Eq t))))
+        (fun a =>
+           rg_bind
+             (unifyRG (fun x y => x ?[ eq ] y) b (RGinj (Inj (Eq t))))
+             (fun b =>
+                rg_ret (RGrespects a (RGrespects b (RGinj (Inj (Eq t)))))))
+    | _ , _ => rg_fail
+  end.
 
-  Definition atomic (e : expr sym) :
-    (forall e', TransitiveClosure.rightTrans (@expr_acc sym) e' e -> R Rbase -> T)
-    -> R Rbase -> T :=
-    fun _ _ => e.
+Let plus_expr : expr typ func := (App (App (Inj Plus) (Inj (N 0))) (Inj (N 5))).
 
-  Definition app : T -> T -> T := App.
+Definition the_rewriter (e : expr typ func) (c : list (RG (expr typ func)))
+           (rg : RG (expr typ func))
+: m (expr typ func) :=
+  match e with
+    | Inj (N 0) =>
+      rg_bind (unifyRG (fun x y => x ?[ eq ] y) rg (RGinj (Inj (Eq tyNat))))
+              (fun _ =>
+                 rg_ret (Inj (N 1)))
+    | Inj _ => rg_bind (SRrespects e rg) (fun _ => rg_ret e)
+    | _ => rg_fail
+  end.
 
-  Definition TR (us vs : env (typD ts)) (r : R Rbase) (t : T) (v : typD ts nil (typeForR typeForRbase r)) : Prop :=
-    exists v',
-      exprD us vs t (typeForR typeForRbase r) = Some v' /\
-      (RD r v v' \/ v = v').
+Definition rewriter (e : expr typ func)
+           (vars : list (RG Rbase))
+           (r : RG Rbase) : m (expr typ func) :=
+  the_rewriter e vars r.
 
-  Theorem Hatomic
-  : forall us vs e r x result,
-      exprD us vs e (typeForR typeForRbase r) = Some x ->
-      @atomic e (fun e _ => setoid_rewrite respects atomic app e) r = result ->
-      TR us vs r result x.
-  Proof.
-    intros.
-    generalize dependent ((fun (e0 : expr sym)
-        (_ : TransitiveClosure.rightTrans (expr_acc (func:=sym)) e0 e) =>
-      setoid_rewrite respects atomic app e0)).
-    intros.
-    unfold atomic in *. subst. red.
-    match goal with
-      | H : ?X = _ |- context [ ?Y ] =>
-        change Y with X ; rewrite H
-    end.
-    eexists; split; eauto.
-  Qed.
+Definition rewriter_default (e : expr typ func)
+           (vars : list (RG Rbase))
+           (rg : RG Rbase) : m (expr typ func) :=
+  match rg with
+    | RGvar n =>
+      let type := tyNat in
+      rg_bind
+        (unifyRG (fun x y => x ?[ eq ] y) rg (RGinj (Inj (Eq type))))
+        (fun _ => rg_ret e)
+    | RGinj (Inj (Eq _)) => rg_ret e
+    | _ => rg_fail
+  end.
 
-  Theorem Hrespects_typ
-  : forall r r' e,
-      respects e r = Some r' ->
-      forall us vs t,
-        typeof_expr us vs e = Some t ->
-        t = (tyArr (typeForR typeForRbase r') (typeForR typeForRbase r)).
-  Proof.
-    destruct e; destruct r; simpl; intros; try congruence.
-    forward.
-    forward; subst. inv_all. subst. reflexivity.
-    forward; subst; inv_all; subst.
-    unfold type_of_apply in *.
-    destruct r; inv_all; subst; inv_all; subst.
-    forward. subst; inv_all; subst. reflexivity.
-    forward. subst; inv_all; subst; reflexivity.
-    forward.
-  Qed.
-
-  Theorem Happ
-  : forall us vs t1 t2 r1 r2 v1 v2 f,
-      respects f t2 = Some t1 ->
-      exprD us vs f (typeForR typeForRbase (Rpointwise t1 t2)) = Some v1 ->
-      @TR us vs (Rpointwise t1 t2) r1 v1 ->
-      @TR us vs t1 r2 v2 ->
-      @TR us vs t2 (app r1 r2) (v1 v2).
-  Proof.
-    unfold app, TR; simpl; intros.
-    destruct H1. destruct H2.
-    destruct H1; destruct H2.
-    red_exprD.
-    destruct (typeof_expr_exprD _ us vs r1 (tyArr (typeForR typeForRbase t1) (typeForR typeForRbase t2))).
-    unfold WellTyped_expr in H6.
-(*
-    rewrite H6. 2: eexists. 2: eapply H1.
-    clear H5 H6. rewrite H1. rewrite H2.
-    rewrite typ_cast_typ_refl.
-    eexists; split; eauto.
-    intuition; subst.
-    { left. eapply H5.
-*)
-  Admitted.
-End foo.
+Eval vm_compute in
+    @setoid_rewrite typ func (expr typ func)
+                    (fun x y => x ?[ eq ] y)
+                    rewriter
+                    rewriter_default
+                    (fun e _ _ rs => Some (e,rs))
+                    plus_expr
+                    (RGinj (Inj (Eq tyNat)) :: RGinj (Inj (Eq tyNat)) :: nil)
+                    (RGinj (Inj (Eq tyNat))) (@rsubst_empty _).
