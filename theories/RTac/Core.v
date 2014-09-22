@@ -231,12 +231,16 @@ Section parameterized.
   | PDirect : forall x y, f x y -> Path f x y
   | PThrough : forall x y z, f x y -> Path f y z -> Path f x z.
 
-  Definition Acyclic_from (tus tvs : nat) (tes : list (typ * option expr)) : Prop :=
-    forall x, ~Path (fun f t =>
-                       f > tus /\ t > tus /\
-                       exists z e,
-                         nth_error tes (f - tus) = Some (z, Some e) /\
-                         mentionsU t e = true) x x.
+  Definition Acyclic_from (tus tvs : nat) (tes : list (typ * option expr))
+  : Prop :=
+    (forall x, ~Path (fun f t =>
+                        f > tus /\ t > tus /\
+                        exists z e,
+                          nth_error tes (f - tus) = Some (z, Some e) /\
+                          mentionsU t e = true) x x) /\
+    (forall t e, In (t,Some e) tes ->
+                 forall u, mentionsU u e = true ->
+                           u < tus + length tes).
 
   (** Well_formedness is about acyclicity, but we don't have enough now
    ** to guarantee that.
