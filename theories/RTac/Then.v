@@ -23,46 +23,6 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
-(*
-  Fixpoint RunOnGoal (r : rtac typ expr subst)
-           (ctx : Ctx typ expr) (s : subst) (g : Goal typ expr)
-           (nu nv : nat)
-  : Result typ expr subst :=
-    (** NOTE: Since rtac's are relativized, this needs to
-     ** reconstruct the outer environment
-     **)
-    match g with
-      | GGoal e => r ctx s e
-      | GSolved => Solved s
-      | GAll t g =>
-        match RunOnGoal r (CAll ctx t) s g nu (S nv) with
-          | Fail => Fail
-          | More s g' => More s (GAll t g')
-          | Solved s => Solved s (** TODO **)
-        end
-      | GEx t e g =>
-        match RunOnGoal r (CEx ctx t) s g (S nu) nv with
-          | Fail => Fail
-          | More s g' =>
-            let s' := s in
-            More s' (GEx t e g)
-          | Solved s =>
-            match drop nu s with
-              | None => let s' := s (** TODO **) in
-                        More s (GEx t e GSolved)
-              | Some s' => Solved s'
-            end
-        end
-      | GHyp h g =>
-        match RunOnGoal r (CHyp ctx h) s g nu nv with
-          | Fail => Fail
-          | More s g' => More s (GHyp h g')
-          | Solved s => Solved s
-        end
-      | GConj gs =>
-    end.
-*)
-
   (** c2 is put closer to the goal **)
   Fixpoint Ctx_append (c1 c2 : Ctx typ expr) {struct c2} : Ctx typ expr :=
     match c2 with

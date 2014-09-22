@@ -1,6 +1,7 @@
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.Prop.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
@@ -33,11 +34,21 @@ Section parameterized.
    **)
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
-  | GEx     : typ -> option expr -> Goal -> Goal
+  (** The first thing in the list has the lowest index **)
+  | GExs    : list (typ * option expr) -> Goal -> Goal
   | GHyp    : expr -> Goal -> Goal
   | GConj   : list Goal -> Goal
   | GGoal   : expr -> Goal
   | GSolved : Goal.
+
+  Definition GAlls (ts : list typ) (g : Goal) : Goal :=
+    fold_right (fun x y => GAll x y) g ts.
+
+  Definition GEx (t : typ) (e : option expr) (g : Goal) : Goal :=
+    match g with
+      | GExs tes g' => GExs (tes ++ (t,e) :: nil) g'
+      | _ => GExs ((t, e) :: nil) g
+    end.
 
   Inductive Ctx :=
   | CTop
@@ -91,7 +102,6 @@ Section parameterized.
     let (x,y) := getEnvs' ctx nil nil in
     (x, y).
 
-
   Definition mapUnderEx (t : typ) (nus : nat) (r : Result) : Result :=
     match r with
       | Fail => Fail
@@ -131,14 +141,23 @@ Section parameterized.
             | Solved s => Solved s
             | More s g => More s (GAll t g)
           end
-        | GEx  t None g =>
-          mapUnderEx t nus (runRTac' (CEx ctx t) s g (S nus) nvs)
-        | GEx  t (Some e) g =>
-          match set nus e s with
-            | None => DEAD
-            | Some s' =>
-              mapUnderEx t nus (runRTac' (CEx ctx t) s' g (S nus) nvs)
-          end
+        | GExs tes g =>
+          (fix go (nus : nat) (tes : list (typ * option expr)) (s : subst) (ctx : Ctx)
+           : Result :=
+             match tes with
+               | nil => runRTac' ctx s g nus nvs
+               | (t,e) :: tes =>
+                 match e with
+                   | None =>
+                     mapUnderEx t nus (runRTac' (CEx ctx t) s g (S nus) nvs)
+                   | Some e' =>
+                     match set nus e' s with
+                       | None => DEAD
+                       | Some s' =>
+                         mapUnderEx t nus (runRTac' (CEx ctx t) s' g (S nus) nvs)
+                     end
+                 end
+             end) nus tes s ctx
         | GHyp h g =>
           match runRTac' (CHyp ctx h) s g nus nvs with
             | Fail => Fail
@@ -207,26 +226,71 @@ Section parameterized.
       end.
   End _and.
 
+  (** TODO: I hope that there is a better way to reason about this **)
+  Inductive Path (f : nat -> nat -> Prop) : nat -> nat -> Prop :=
+  | PDirect : forall x y, f x y -> Path f x y
+  | PThrough : forall x y z, f x y -> Path f y z -> Path f x z.
+
+  Definition Acyclic_from (tus tvs : nat) (tes : list (typ * option expr)) : Prop :=
+    forall x, ~Path (fun f t =>
+                       f > tus /\ t > tus /\
+                       exists z e,
+                         nth_error tes (f - tus) = Some (z, Some e) /\
+                         mentionsU t e = true) x x.
+
   (** Well_formedness is about acyclicity, but we don't have enough now
    ** to guarantee that.
    ** We could make a acyclic judgement on a map and just construct the map.
    ** Either way things are getting a lot more complex here than I wanted them
    ** too.
    **)
-  Fixpoint WellFormed_goal (goal : Goal) : Prop :=
+  Fixpoint WellFormed_goal (tus tvs : nat) (goal : Goal) : Prop :=
     match goal with
-      | GAll _ goal' => WellFormed_goal goal'
-      | GEx t e goal' => False (** TODO: This isn't going to work, maybe we need to coalesce... **)
-      | GHyp _ goal' => WellFormed_goal goal'
+      | GAll _ goal' => WellFormed_goal tus (S tvs) goal'
+      | GExs tes goal' =>
+           Acyclic_from tus tvs tes
+        /\ WellFormed_goal (tus + length tes) tvs goal'
+      | GHyp _ goal' => WellFormed_goal tus tvs goal'
       | GGoal _ => True
       | GSolved => True
       | GConj ls =>
         (fix Forall (ls : list Goal) : Prop :=
            match ls with
              | nil => True
-             | l :: ls => WellFormed_goal l /\ Forall ls
+             | l :: ls => WellFormed_goal tus tvs l /\ Forall ls
            end) ls
     end.
+
+  Fixpoint hlist_mapT {T : Type} {F : T -> Type}
+           {ls : list T} (h : HList.hlist (fun x => option (F x)) ls)
+  : option (HList.hlist F ls) :=
+    match h in HList.hlist _ ls return option (HList.hlist F ls) with
+      | HList.Hnil => Some (HList.Hnil)
+      | HList.Hcons _ _ x y =>
+        match x , hlist_mapT y with
+          | Some x , Some y => Some (HList.Hcons x y)
+          | _ , _ => None
+        end
+    end.
+
+  Fixpoint goal_substD (tus tvs : list typ) (tes : list (typ * option expr))
+  : ResType (tus ++ map fst tes) tvs Prop.
+(*
+  refine
+    match tes as tes return ResType (tus ++ map fst tes) tvs Prop with
+      | nil => Some (fun _ _ => True)
+      | (t,None) :: tes =>
+        goal_substD (tus ++ t :: nil) tvs tes
+      | (t,Some e) :: tes =>
+        match exprD' tus tvs e t
+            , goal_substD tus tvs tes
+        with
+          | Some eD , Some sD => _
+          | _ , _ => None
+        end
+    end.
+*)
+  Admitted.
 
   (** NOTE:
    ** Appending the newly introduced terms makes tactics non-local.
@@ -244,23 +308,16 @@ Section parameterized.
           | Some D =>
             Some (fun us vs => @_foralls (tv :: nil) (fun vs' => D us (HList.hlist_app vs vs')))
         end
-      | GEx tu e goal' =>
-        match goalD (tus ++ tu :: nil) tvs goal' with
-          | None => None
-          | Some D =>
-            match e with
-              | None =>
-                Some (fun us vs => @_exists (tu :: nil)
-                        (fun us' => D (HList.hlist_app us us') vs))
-              | Some e =>
-                match exprD' tus tvs e tu with
-                  | None => None
-                  | Some eD =>
-                    Some (fun us vs =>
-                           D (HList.hlist_app us
-                                (HList.Hcons (eD us vs) HList.Hnil)) vs)
-                end
-            end
+      | GExs tes goal' =>
+        let tus_ext := map fst tes in
+        match goalD (tus ++ tus_ext) tvs goal'
+            , goal_substD tus tvs tes with
+          | None , _ => None
+          | Some _ , None => None
+          | Some D , Some sD =>
+            Some (fun us vs => @_exists tus_ext
+                                        (fun us' => sD (HList.hlist_app us us') vs
+                                                    /\ D (HList.hlist_app us us') vs))
         end
       | GHyp hyp' goal' =>
         match mapT (T:=list) (F:=option) (propD tus tvs) (hyp' :: nil) with
@@ -280,17 +337,10 @@ Section parameterized.
             Some (fun us vs => _and us vs lD)
         end
         **)
-        (fix mapT gs : option (HList.hlist _ tus -> HList.hlist _ tvs -> Prop) :=
-           match gs with
-             | nil => Some (fun _ _ => True)
-             | g :: gs => match goalD tus tvs g
-                              , mapT gs
-                          with
-                            | Some gD , Some gsD =>
-                              Some (fun us vs => gD us vs /\ gsD us vs)
-                            | _ , _ => None
-                          end
-           end) ls
+        match mapT_list (F:=option) (goalD tus tvs) ls with
+          | None => None
+          | Some lD => Some (fun us vs => _and us vs lD)
+        end
       | GSolved => Some (fun _ _ => True)
       | GGoal goal' => propD tus tvs goal'
     end.

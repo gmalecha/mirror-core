@@ -35,9 +35,12 @@ Section parameterized.
       | GSolved => GSolved
       | GGoal g => GGoal (instantiate f 0 g)
       | GAll t g' => GAll t (instantiateGoal f g')
-      | GEx t None g' => GEx t None (instantiateGoal f g')
-      | GEx t (Some e') g' => GEx t (Some (instantiate f 0 e'))
-                                  (instantiateGoal f g')
+      | GExs tes g' => GExs (List.map (fun te =>
+                                         match te with
+                                           | (t,None) => (t,None)
+                                           | (t,Some e) => (t,Some (instantiate f 0 e))
+                                         end) tes)
+                            (instantiateGoal f g')
       | GHyp h g' => GHyp (instantiate f 0 h) (instantiateGoal f g')
       | GConj ps =>
         GConj (List.map (instantiateGoal f) ps)

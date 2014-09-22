@@ -30,8 +30,12 @@ Section parameterized.
   : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
   Proof.
     unfold TRY, rtac_sound.
-    intros.
-    admit.
+    intros; subst.
+    specialize (H ctx s g _ eq_refl).
+    destruct (tac ctx s g); auto.
+    + intros; split; auto.
+      simpl.
+      admit.
   Qed.
 
 End parameterized.
