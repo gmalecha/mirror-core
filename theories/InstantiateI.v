@@ -29,21 +29,22 @@ Section definitions.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
   (** instantiate **)
-  Variable instantiate : (nat -> list expr -> option expr) -> nat -> expr -> expr.
+  Variable instantiate : (nat -> option expr) -> expr -> expr.
 
   Definition sem_preserves_if (tus : tenv (ctyp typ)) (tvs : tenv typ)
              (P : exprT tus tvs Prop)
-             (f : nat -> list expr -> option expr) : Prop :=
+             (f : nat -> option expr) : Prop :=
     forall u e es t get vals,
-      f u es = Some e ->
+      f u = Some e ->
       nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
       hlist_build (fun T => exprT tus tvs (typD T))
                   (fun t e => exprD' tus tvs e t) t.(cctx) es = Some vals ->
       exists eD,
-        exprD' tus tvs e t.(vtyp) = Some eD /\
+        exprD' tus t.(cctx) e t.(vtyp) = Some eD /\
         forall us vs,
           P us vs ->
-          get us (hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) vals) = eD us vs.
+          let vs' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) vals in
+          get us vs' = eD us vs'.
 
 (*
   (** TODO **)
@@ -62,7 +63,7 @@ Section definitions.
       sem_preserves_if tus tvs P f ->
       exprD' tus (tvs' ++ tvs) e t = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        exprD' tus (tvs' ++ tvs) (instantiate f e) t = Some eD' /\
         forall us vs vs',
           P us vs ->
           eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).

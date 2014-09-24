@@ -47,17 +47,46 @@ Section instantiate.
   Variable func : Type.
   Variable lookup : uvar -> option (expr typ func).
 
-  Fixpoint instantiate (under : nat) (e : expr typ func) : expr typ func :=
+  Fixpoint lt_rem (a b : nat) : option nat :=
+    match b with
+      | 0 => Some a
+      | S b' => match a with
+                  | 0 => None
+                  | S a' => lt_rem a' b'
+                end
+    end.
+
+  Section substList.
+    Variable es : list (expr typ func).
+    Fixpoint substList (under : nat) (e : expr typ func) : expr typ func :=
+      match e with
+        | Var v =>
+          match lt_rem v under with
+            | None => Var v
+            | Some v =>
+              match nth_error es v with
+                | None => e
+                | Some e' => e'
+              end
+          end
+        | Inj _ => e
+        | App l r => App (substList under l) (substList under r)
+        | Abs t e => Abs t (substList (S under) e)
+        | UVar u es => UVar u (List.map (substList under) es)
+      end.
+  End substList.
+
+  Fixpoint instantiate (e : expr typ func) : expr typ func :=
     match e with
       | Var _
       | Inj _ => e
-      | App l r => App (instantiate under l) (instantiate under r)
-      | Abs t e => Abs t (instantiate (S under) e)
+      | App l r => App (instantiate l) (instantiate r)
+      | Abs t e => Abs t (instantiate e)
       | UVar u es =>
-        let es' := List.map (instantiate under) es in
+        let es' := List.map instantiate es in
         match lookup u with
           | None => UVar u es'
-          | Some e => lift 0 under e (** WRONG **)
+          | Some e => substList es' 0 e
         end
     end.
 
@@ -69,8 +98,8 @@ Section instantiate.
   Lemma instantiate_instantiates
   : forall u,
       instantiates u ->
-      forall e under,
-        mentionsU u (instantiate under e) = false.
+      forall e,
+        mentionsU u (instantiate e) = false.
   Proof.
 (*
     induction e; simpl; intros; auto.

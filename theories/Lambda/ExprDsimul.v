@@ -140,24 +140,22 @@ Module ExprDenote <: ExprDenote.
 
         Fixpoint uvar_eval' tys (ls : list (expr typ func)) {struct ls}
         : option ((hlist typD tys -> exprT tus tvs T) -> exprT tus tvs T) :=
-          match tys as tys
+          match ls , tys as tys
                 return option ((hlist typD tys -> exprT tus tvs T) -> exprT tus tvs T)
           with
-            | nil => Some (fun u => u Hnil)
-            | ty :: tys =>
-              match ls with
-                | nil => None
-                | l :: ls =>
-                  match exprD' tvs ty l with
+            | nil , nil => Some (fun u => u Hnil)
+            | l :: ls , ty :: tys =>
+              match exprD' tvs ty l with
+                | None => None
+                | Some val =>
+                  match uvar_eval' tys ls with
                     | None => None
-                    | Some val =>
-                      match uvar_eval' tys ls with
-                        | None => None
-                        | Some result =>
-                          Some (fun u => result (fun z us vs => u (Hcons (val us vs) z) us vs))
-                      end
+                    | Some result =>
+                      Some (fun u => result (fun z us vs => u (Hcons (val us vs) z) us vs))
                   end
               end
+            | nil , _ :: _ => None
+            | _ :: _ , nil => None
           end.
       End uvar_eval.
 

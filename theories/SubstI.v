@@ -364,7 +364,7 @@ Section subst.
               eapply equiv_eq_eq in H10. subst. symmetry. eapply H9. } } }
   Qed.
 
-  Variable instantiate : (uvar -> list expr -> option expr) -> nat -> expr -> expr.
+  Variable instantiate : (uvar -> option expr) -> expr -> expr.
 
   Hypothesis exprD'_instantiate : InstantiateI.exprD'_instantiate _ _ instantiate.
 (*

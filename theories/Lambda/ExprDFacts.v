@@ -43,7 +43,14 @@ Module Make (ED : ExprDenote).
         destruct (type_cast x y). auto. congruence. }
       { subst. unfold rel_dec; simpl. rewrite type_cast_refl; auto. }
     Qed.
-(*
+
+    Inductive Forall3 {A B} {C : A -> Type} (P : forall x : A, B -> C x -> Prop) : forall ls : list A, list B -> hlist C ls -> Prop :=
+    | Forall3_nil : @Forall3 A B C P nil nil Hnil
+    | Forall3_cons : forall t ts x xs y ys,
+                       @P t x y ->
+                       @Forall3 A B C P ts xs ys ->
+                       @Forall3 A B C P (t :: ts) (x :: xs) (Hcons y ys).
+
     Theorem exprD'_ind
     : (* @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
@@ -54,10 +61,13 @@ Module Make (ED : ExprDenote).
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P tus tvs (Var v) t
                     (Some (Relim (exprT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
-        (Huvar : forall tvs u es t t' get (pf : Rty t t'),
+        (Huvar : forall tvs u es t t' get vals (pf : Rty t t'.(vtyp)),
                    nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
+                   @Forall3 _ _ _ (fun t e v => P tus tvs e t (Some v))
+                            t'.(cctx) es vals ->
                    P tus tvs (UVar u es) t
-                     (Some (Relim (exprT tus tvs) pf ((fun us _ => get us)))))
+                     (Some (Relim (exprT tus tvs) pf
+                                  (fun us vs => get us (hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) vals)))))
         (Hinj : forall tvs i t t' (pf : typeof_sym i = Some t)
                 (pf' : Rty t' t),
                   P tus tvs (Inj i) t'
@@ -98,11 +108,11 @@ Module Make (ED : ExprDenote).
         auto. }
       { clear Habs Happ Huvar Hvar.
         unfold ED.funcAs in *.
-        specialize (Hinj tvs f).
-        generalize dependent (symD f).
-        destruct (typeof_sym f); intros.
+        specialize (Hinj tvs f0).
+        generalize dependent (symD f0).
+        destruct (typeof_sym f0); intros.
         { forward. specialize (Hinj _ t eq_refl (Rsym r)).
-          generalize dependent (P tus tvs (Inj f) t).
+          generalize dependent (P tus tvs (Inj f0) t).
           destruct r.
           simpl. unfold ED.Rcast in H0. simpl in H0.
           inv_all; subst. auto. }
@@ -119,7 +129,7 @@ Module Make (ED : ExprDenote).
           { specialize (fun H => IHe H (t :: tvs) x0).
             consider (ED.exprD' tus (t :: tvs) x0 e); intros.
             { eapply Habs in IHe; eauto.
-              revert IHe. unfold ED.Open_Abs.
+              revert IHe. unfold ED.exprT_Abs.
               destruct r.
               match goal with
                 | |- _ _ _ _ _ (Some (match ?X with _ => _ end _)) ->
@@ -128,7 +138,7 @@ Module Make (ED : ExprDenote).
               end.
               clear H2. destruct x1.
               simpl. generalize (P tus tvs (Abs x e) t0).
-              destruct e0. auto. }
+              destruct e1. auto. }
             { match goal with
                 | |- context [ match ?X with _ => _ end ] =>
                   generalize dependent X
@@ -147,13 +157,14 @@ Module Make (ED : ExprDenote).
         { specialize (H tvs t0). autorewrite with exprD_rw in H.
           rewrite H0 in *. intros; apply H. reflexivity. } }
       { subst. clear Happ Habs Hvar Hinj Pnone.
-        specialize (@Huvar tvs _ _ _ _ (Rsym r) H1).
-        unfold ED.Rcast_val, ED.Rcast, Relim in *.
-        generalize dependent (P tus tvs (UVar u) t); clear.
-        destruct r.
-        auto. }
+        specialize (fun vals => @Huvar tvs u l t x c vals (Rsym r) H2).
+        clear H5. destruct r.
+        revert H3. revert Huvar.
+        clear - H0. unfold ctxD in *.
+        admit. }
     Qed.
 
+(*
     Theorem exprD'_ind_with
     : (* @RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
