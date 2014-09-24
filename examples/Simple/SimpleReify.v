@@ -1,3 +1,4 @@
+Require Import Coq.Lists.List.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.Simple.Simple.
@@ -8,18 +9,21 @@ Reify Declare Patterns patterns_simple_typ := typ.
 Reify Declare Patterns patterns_simple := (expr typ func).
 
 Reify Declare Syntax reify_simple_typ :=
-  { (@Patterns.CPatterns _ patterns_simple_typ (@Patterns.CFail typ)) }.
+  { ((@Patterns.CPatterns _ patterns_simple_typ) :: nil) }.
+
+Axiom otherFunc : BinNums.positive -> expr typ func.
 
 Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
 
 (** Declare syntax **)
+Print Patterns.CTypedTable.
 Reify Declare Syntax reify_simple :=
-  { (@Patterns.CPatterns _ patterns_simple
-    (@Patterns.CApp _ (@ExprCore.App typ func)
-    (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)
-    (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)
-    (@Patterns.CFail (expr typ func))))))
-    }.
+  { ((@Patterns.CPatterns (expr typ func) patterns_simple) ::
+     (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
+     (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
+     (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
+     (@Patterns.CTypedTable (expr typ func) _ _ table_terms otherFunc) :: nil)
+  }.
 
 Reify Pattern patterns_simple_typ += (@RExact _ nat)  => tyNat.
 Reify Pattern patterns_simple_typ += (@RExact _ bool) => tyBool.
@@ -92,3 +96,11 @@ Definition test_7 : expr typ func.
   reify (forall x : nat, (x + 1) = 1).
 Defined.
 Print test_7.
+
+(** Something that doesn't fit **)
+Definition id T (x : T) : T := x.
+
+Definition test_fail : expr typ func.
+  reify (id nat 0).
+Defined.
+Print test_fail.

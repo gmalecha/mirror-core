@@ -25,7 +25,7 @@ sig
   ; table_scheme : map_sort
   }
 
-  exception ReificationFailure of Term.constr
+  exception ReificationFailure of Term.constr Lazy.t
 
   type all_tables
 
@@ -102,7 +102,7 @@ struct
       | Some k -> Some k) tbl.mappings None
 
 
-  exception ReificationFailure of Term.constr
+  exception ReificationFailure of (Term.constr Lazy.t)
 
   (** [rule]s implement the pattern feature **)
   type 'a rule =
@@ -127,6 +127,17 @@ struct
   let reifier_bind (c : 'a reifier) (k : 'a -> 'b reifier) : 'b reifier =
     fun gl ->
       k (c gl) gl
+
+  let reifier_fail (t : Term.constr) : 'a reifier =
+    fun gl -> raise (ReificationFailure (lazy t))
+
+  let reifier_fail_lazy (t : lazy_term) : 'a reifier =
+    fun gl -> raise (ReificationFailure (lazy (get_term t)))
+
+  let reifier_try (c : 'a reifier) (x : 'a reifier) : 'a reifier =
+    fun gl ->
+      try c gl
+      with ReificationFailure _ -> x gl
 
   let reifier_ret (value : 'a) : 'a reifier =
     fun _ -> value
@@ -544,7 +555,7 @@ struct
 	      trm args from
 	with
 	  Term_match.Match_failure ->
-	    raise (ReificationFailure (get_term trm))
+	    raise (ReificationFailure (lazy (get_term trm)))
 
     let add_empty_pattern name =
       if Cmap.mem name !pattern_table then
@@ -578,6 +589,8 @@ struct
     | App of Term.constr
     | Abs of Term.constr * Term.constr
     | Var of Term.constr
+    | Map of Term.constr * command
+    | First of command list
     | Table of Term.constr * Term.constr
     | TypedTable of Term.constr * Term.constr * Term.constr
 
@@ -585,7 +598,6 @@ struct
       let reifier = Cmap.find name !reify_table in
       reifier
 
-    let cmd_fail     = Std.resolve_symbol pattern_mod "CFail"
     let cmd_patterns = Std.resolve_symbol pattern_mod "CPatterns"
     let cmd_call     = Std.resolve_symbol pattern_mod "CCall"
     let cmd_app      = Std.resolve_symbol pattern_mod "CApp"
@@ -593,8 +605,21 @@ struct
     let cmd_var      = Std.resolve_symbol pattern_mod "CVar"
     let cmd_table    = Std.resolve_symbol pattern_mod "CTable"
     let cmd_typed_table = Std.resolve_symbol pattern_mod "CTypedTable"
+    let cmd_map      = Std.resolve_symbol pattern_mod "CMap"
+    let cmd_first    = Std.resolve_symbol pattern_mod "CFirst"
 
-    let parse_command_act cmd =
+
+    let rec parse_commands cmd =
+      Term_match.(matches ()
+	[ (apps (Glob Std.List.c_nil) [apps Ignore [get 0(*T*)]],
+	   fun _ s -> (Hashtbl.find s 0,[]))
+	; (apps (Glob Std.List.c_cons) [Ignore(*T*);get 0(*cmd*);get 1(*cmds*)],
+	   fun _ s ->
+	     let (a,b) = parse_commands (Hashtbl.find s 1) in
+	     (a,parse_command (Hashtbl.find s 0) :: b))
+	]
+	cmd)
+    and parse_command cmd =
       Term_match.(matches ()
 	[ (apps (EGlob cmd_patterns) [Ignore;get 0],
 	   fun _ s -> Patterns (Hashtbl.find s 0))
@@ -613,17 +638,13 @@ struct
 	      get 1(*tbl*);get 2(*ctor*)],
 	   fun _ s ->
 	     TypedTable (Hashtbl.find s 1, Hashtbl.find s 0, Hashtbl.find s 2))
-	]
-	cmd)
-
-
-    let rec parse_commands cmd =
-      Term_match.(matches ()
-	[ (App (EGlob cmd_fail, get 0), fun _ s -> (Hashtbl.find s 0,[]))
-	; (App (get 0, get 1),
+	; (apps (EGlob cmd_map)
+	     [Ignore(*T*);get 1(*F*);get 0(*cmd*)],
 	   fun _ s ->
-	     let (typ,rest) = parse_commands (Hashtbl.find s 1) in
-	     (typ,parse_command_act (Hashtbl.find s 0) :: rest))
+	     Map (Hashtbl.find s 1, parse_command (Hashtbl.find s 0)))
+	; (apps (EGlob cmd_first)
+	     [Ignore(*T*);get 0(*cmds*)],
+	   fun _ s -> First (snd (parse_commands (Hashtbl.find s 0))))
 	]
 	cmd)
 
@@ -634,154 +655,166 @@ struct
       : lazy_term -> Term.constr reifier =
 	  match ls with
 	    [] ->
-	      fun trm ->
+	      fun trm gl ->
 		let trm = get_term trm in
-		raise (ReificationFailure trm)
+		raise (ReificationFailure (lazy trm))
 	  | l :: ls ->
 	    let k = compile_commands ls in
-	    match l with
-	    | Patterns i ->
-	      begin
-		fun trm -> fun gl ->
-		  try
-		    Patterns.reify_patterns i trm gl
-		  with
-		    ReificationFailure _ -> k trm gl
-	      end
-	    | Call t ->
-	      fun trm gl ->
-		reify_term t trm gl
-	    | Abs (ty_name,ctor) ->
-	      fun trm gl ->
-		begin
-		  match Term.kind_of_term (get_term trm) with
-		    Term.Lambda (name, lhs, rhs) ->
-		      let ty = reify_term ty_name (Term lhs) gl in
-		      let new_gl =
-			{ gl with
-			  env = Environ.push_rel (name, None, lhs) gl.env
-			; bindings = true :: gl.bindings
-			}
-		      in
-		      let body = reifier_run (!top (Term rhs)) new_gl in
-		      Term.mkApp (ctor, [| ty ; body |])
-		  | _ -> k trm gl
-		end
-	    | Var ctor ->
-	      fun trm gl ->
-		begin
-		  match Term.kind_of_term (get_term trm) with
-		    Term.Rel i ->
-		      let rec find ls i acc =
-			match ls with
-			  [] -> assert false
-			| l :: ls ->
-			  if i = 0 then
-			    (assert l ; acc)
-			  else
-			    find ls (i - 1) (if l then acc + 1 else acc)
-		      in
-		      let idx = find gl.bindings (i-1) 0 in
-		      Term.mkApp (ctor, [| Std.Nat.to_nat idx |])
-		  | _ -> k trm gl
-		end
-	    | App ctor ->
-	      fun trm gl ->
-		begin
-		  try
-		    Term_match.(matches gl
-		      [ (App (get 0, get 1),
-			 fun gl s ->
-			   let f = !top (Term (Hashtbl.find s 0)) gl in
-			   let x = !top (Term (Hashtbl.find s 1)) gl in
-			   Term.mkApp (ctor, [| f ; x |]))
-		      ])
-		      (get_term trm)
-		  with
-		    Term_match.Match_failure -> k trm gl
-		end
-	    | Table (tbl_name,ctor) ->
-	      begin
-		let build x =
-		  Term.mkApp (ctor, [| Std.Positive.to_positive x |])
-		in
-		fun trm renv ->
-		  let tbl =
-		    try
-		      Cmap.find tbl_name !(renv.typed_tables)
-		    with
-		      Not_found ->
-			let _ =
-			  Pp.(msg_warning
-				(   (str "Implicitly adding table '")
-				 ++ (Printer.pr_constr tbl_name)
-				 ++ (str "'. This will not be returned.")))
-			in
-			{ mappings = Cmap.empty
-			; next = 1 }
+	    let l = compile_command l in
+	    fun t gl -> reifier_try (l t) (k t) gl
+      and compile_command (l : command)
+      : lazy_term -> Term.constr reifier =
+	match l with
+	| Patterns i ->
+	  begin
+	    fun trm gl ->
+	      try
+		Patterns.reify_patterns i trm gl
+	      with
+		ReificationFailure t -> raise (ReificationFailure t)
+	  end
+	| Call t ->
+	  fun trm gl ->
+	    reify_term t trm gl
+	| Abs (ty_name,ctor) ->
+	  fun trm gl ->
+	    begin
+	      match Term.kind_of_term (get_term trm) with
+		Term.Lambda (name, lhs, rhs) ->
+		  let ty = reify_term ty_name (Term lhs) gl in
+		  let new_gl =
+		    { gl with
+		      env = Environ.push_rel (name, None, lhs) gl.env
+		      ; bindings = true :: gl.bindings
+		    }
 		  in
-		  let full_term = get_term trm in
-		  try
-	          (** fast path something already in the table **)
-		    build (fst (Cmap.find full_term tbl.mappings))
-		  with
-		    Not_found ->
-		      match get_by_conversion renv tbl full_term with
-			None ->
-			  let (result, new_tbl) =
-			    let result = tbl.next in
-			    let value = (result, Lazy.force Std.Unit.tt) in
-			    (result,
-			     { next = result + 1
-			     ; mappings = Cmap.add full_term value tbl.mappings })
-			  in
-			  renv.typed_tables :=
-			    Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
-			  build result
-		      | Some k -> build (fst k)
-	      end
-	    | TypedTable (tbl_name, type_name, ctor) ->
-	      begin
-		let build x =
-		  Term.mkApp (ctor, [| Std.Positive.to_positive x |])
-		in
-		fun trm renv ->
-		  let tbl =
-		    try
-		      Cmap.find tbl_name !(renv.typed_tables)
-		    with
-		      Not_found ->
-			let _ =
-			  Pp.(msg_warning
-				(   (str "Implicitly adding table '")
-				 ++ (Printer.pr_constr tbl_name)
-				 ++ (str "'. This will not be returned.")))
-			in
-			{ mappings = Cmap.empty
-			; next = 1 }
+		  let body = reifier_run (!top (Term rhs)) new_gl in
+		  Term.mkApp (ctor, [| ty ; body |])
+	      | _ -> reifier_fail_lazy trm gl
+	    end
+	| Var ctor ->
+	  fun trm gl ->
+	    begin
+	      match Term.kind_of_term (get_term trm) with
+		Term.Rel i ->
+		  let rec find ls i acc =
+		    match ls with
+		      [] -> assert false
+		    | l :: ls ->
+		      if i = 0 then
+			(assert l ; acc)
+		      else
+			find ls (i - 1) (if l then acc + 1 else acc)
 		  in
-		  let full_term = get_term trm in
-		  let type_of = Typing.type_of renv.env renv.evm full_term in
-		  let rtyp = reify_term type_name (Term type_of) renv in
-		  try
-	          (** fast path something already in the table **)
-		    let x = Cmap.find full_term tbl.mappings in
-		    build (fst x)
-		  with
-		    Not_found ->
-		      match get_by_conversion renv tbl full_term with
-			None ->
-			  let (result, new_tbl) =
-			    let result = tbl.next in
-			    let value = (result, rtyp) in
-			    (result,
-			     { next = result + 1
-			     ; mappings = Cmap.add full_term value tbl.mappings })
-			  in
-			  renv.typed_tables := Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
-			  build result
-		      | Some k -> build (fst k)
-	      end
+		  let idx = find gl.bindings (i-1) 0 in
+		  Term.mkApp (ctor, [| Std.Nat.to_nat idx |])
+	      | _ -> reifier_fail_lazy trm gl
+	    end
+	| App ctor ->
+	  fun trm gl ->
+	    begin
+	      try
+		Term_match.(matches gl
+			      [ (App (get 0, get 1),
+				 fun gl s ->
+				   let f = !top (Term (Hashtbl.find s 0)) gl in
+				   let x = !top (Term (Hashtbl.find s 1)) gl in
+				   Term.mkApp (ctor, [| f ; x |]))
+			      ])
+		  (get_term trm)
+	      with
+		Term_match.Match_failure -> reifier_fail_lazy trm gl
+	    end
+	| Table (tbl_name,ctor) ->
+	  begin
+	    let build x =
+	      Term.mkApp (ctor, [| Std.Positive.to_positive x |])
+	    in
+	    fun trm renv ->
+	      let tbl =
+		try
+		  Cmap.find tbl_name !(renv.typed_tables)
+		with
+		  Not_found ->
+		    let _ =
+		      Pp.(msg_warning
+			    (   (str "Implicitly adding table '")
+				++ (Printer.pr_constr tbl_name)
+				++ (str "'. This will not be returned.")))
+		    in
+		    { mappings = Cmap.empty
+		    ; next = 1 }
+	      in
+	      let full_term = get_term trm in
+	      try
+	            (** fast path something already in the table **)
+		build (fst (Cmap.find full_term tbl.mappings))
+	      with
+		Not_found ->
+		  match get_by_conversion renv tbl full_term with
+		    None ->
+		      let (result, new_tbl) =
+			let result = tbl.next in
+			let value = (result, Lazy.force Std.Unit.tt) in
+			(result,
+			 { next = result + 1
+			 ; mappings = Cmap.add full_term value tbl.mappings })
+		      in
+		      renv.typed_tables :=
+			Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
+		      build result
+		  | Some k -> build (fst k)
+	  end
+	| TypedTable (tbl_name, type_name, ctor) ->
+	  begin
+	    let build x =
+	      Term.mkApp (ctor, [| Std.Positive.to_positive x |])
+	    in
+	    fun trm renv ->
+	      let tbl =
+		try
+		  Cmap.find tbl_name !(renv.typed_tables)
+		with
+		  Not_found ->
+		    let _ =
+		      Pp.(msg_warning
+			    (   (str "Implicitly adding table '")
+				++ (Printer.pr_constr tbl_name)
+				++ (str "'. This will not be returned.")))
+		    in
+		    { mappings = Cmap.empty
+		    ; next = 1 }
+	      in
+	      let full_term = get_term trm in
+	      let type_of = Typing.type_of renv.env renv.evm full_term in
+	      let rtyp = reify_term type_name (Term type_of) renv in
+	      try
+	            (** fast path something already in the table **)
+		let x = Cmap.find full_term tbl.mappings in
+		build (fst x)
+	      with
+		Not_found ->
+		  match get_by_conversion renv tbl full_term with
+		    None ->
+		      let (result, new_tbl) =
+			let result = tbl.next in
+			let value = (result, rtyp) in
+			(result,
+			 { next = result + 1
+			 ; mappings = Cmap.add full_term value tbl.mappings })
+		      in
+		      renv.typed_tables := Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
+		      build result
+		  | Some k -> build (fst k)
+	  end
+	| Map (f,n) ->
+	  let cmd = compile_commands [n] in
+	  begin
+	    fun trm ->
+	      reifier_bind (cmd trm) (fun t -> reifier_ret (Term.mkApp (f, [| t |])))
+	  end
+	| First cs ->
+	  compile_commands cs
       in
       let result = compile_commands ls in
       top := result ;
@@ -869,7 +902,7 @@ struct
 	  v
     in
     let typ = Term.substnl bindings 0 mt.table_elem_type in
-    let ctor = Term.substnl bindings 0 mt.table_elem_ctor in
+(*    let ctor = Term.substnl bindings 0 mt.table_elem_ctor in *)
     let ary_typ = [| typ |] in
     let leaf = Term.mkApp (Lazy.force Std.PosMap.c_leaf, ary_typ)  in
     let branch = Term.mkApp (Lazy.force Std.PosMap.c_node, ary_typ) in
@@ -1118,7 +1151,7 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 	with
 	  Reification.ReificationFailure trm ->
 	    let pr = lazy (Pp.(   (str "Failed to reify term '")
-			       ++ (Printer.pr_constr trm)
+			       ++ (Printer.pr_constr (Lazy.force trm))
 			       ++ (str "'."))) in
 	    Tacticals.tclFAIL_lazy 0 pr gl
     ]

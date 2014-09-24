@@ -26,14 +26,15 @@ Definition store     (K : Type) (t : table K) : Type := K.
 
 (** Commands **)
 Inductive Command (T : Type) :=
-| CFail
-| CPatterns (f : patterns T) (_ : Command T)
-| CCall (f : Type) (_ : Command T)
-| CApp (app : T -> T -> T) (_ : Command T)
-| CAbs (U : Type) (lam : U -> T -> T) (_ : Command T)
-| CVar (var : nat -> T) (_ : Command T)
-| CTable (K : Type) (t : table K) (ctor : K -> T) (_ : Command T)
-| CTypedTable (K Ty : Type) (t : typed_table K Ty) (ctor : K -> T) (_ : Command T).
+| CPatterns (f : patterns T)
+| CCall (f : Type)
+| CApp (app : T -> T -> T)
+| CAbs (U : Type) (lam : U -> T -> T)
+| CVar (var : nat -> T)
+| CTable (K : Type) (t : table K) (ctor : K -> T)
+| CTypedTable (K Ty : Type) (t : typed_table K Ty) (ctor : K -> T)
+| CMap (F : Type) (f : F -> T) (c : Command F)
+| CFirst (ls : list (Command T)).
 
 (** Tables Reification Specification **)
 Definition mk_var_map {K V T : Type} (_ : table K) (ctor : V -> T) : Type :=
