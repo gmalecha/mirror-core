@@ -60,7 +60,8 @@ Section app_full_proofs.
   Variable RSymOk_sym : RSymOk _.
 
   Section apps_type.
-    Variables tus tvs : tenv typ.
+    Variable tus : tenv (ctyp typ).
+    Variable tvs : tenv typ.
 
     Fixpoint type_of_applys (t : typ) (es : list (expr typ sym)) {struct es} : option typ :=
       match es with
@@ -192,7 +193,8 @@ Section app_full_proofs.
   Qed.
 
   Section exprD'_app.
-    Variables tus tvs : tenv typ.
+    Variable tus : tenv (ctyp typ).
+    Variable tvs : tenv typ.
 
     Fixpoint apply' {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
       typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
@@ -208,19 +210,21 @@ Section app_full_proofs.
                         end (projT2 l x))
       end.
 
+    Existing Instance Applicative_exprT.
+
     Fixpoint apply_sem'
-             (tf : typ) (e : OpenT tus tvs (typD tf))
+             (tf : typ) (e : exprT tus tvs (typD tf))
              (ls : list (expr typ sym)) (t : typ)
              {struct ls}
-    : option (OpenT tus tvs (typD t)) :=
+    : option (exprT tus tvs (typD t)) :=
       match ls with
         | nil =>
           match type_cast tf t with
             | None => None
-            | Some cast => Some (Rcast (OpenT tus tvs) cast e)
+            | Some cast => Some (Rcast (exprT tus tvs) cast e)
           end
         | l :: ls =>
-          typ2_match (F := Fun) (fun T => OpenT tus tvs T -> _) tf
+          typ2_match (F := Fun) (fun T => exprT tus tvs T -> _) tf
                      (fun d r f =>
                         match exprD' tus tvs d l with
                           | None => None
@@ -234,7 +238,7 @@ Section app_full_proofs.
 
     Definition apps_sem'
                (e : expr typ sym) (l : list (expr typ sym)) (t : typ)
-    : option (OpenT tus tvs (typD t)) :=
+    : option (exprT tus tvs (typD t)) :=
       match typeof_expr tus tvs e with
         | None => None
         | Some tf =>
@@ -286,7 +290,7 @@ Section app_full_proofs.
                 red in x1. subst.
                 destruct r. Cases.rewrite_all_goal.
                 forward. f_equal.
-                unfold Open_App. simpl.
+                unfold exprT_App. simpl.
                 repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
                 reflexivity. }
               { repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
@@ -306,11 +310,12 @@ Section app_full_proofs.
           generalize (typ2_cast x x0); intros.
           rewrite ExprFacts.exprD'_type_cast; eauto.
           Cases.rewrite_all_goal.
-          clear. destruct x1. destruct e0. reflexivity. } }
+          clear. destruct x1. destruct e1. reflexivity. } }
     Qed.
 
   End exprD'_app.
 
+(*
   (** TODO: Does this actually get used? *)
   Section exprD_app.
     Variables us vs : env.
@@ -377,4 +382,5 @@ Section app_full_proofs.
     Qed.
 
   End exprD_app.
+*)
 End app_full_proofs.

@@ -2,6 +2,10 @@
  ** (i.e. substituting and finding) unification variables
  **)
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Structures.Applicative.
+Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Bool.
@@ -25,6 +29,11 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Require Import FunctionalExtensionality.
+
+(** The key insight of this file is that it handles semantic/logical
+ ** relations.
+ ** This allows us to factor out the common pieces.
+ **)
 
 Section substitute.
   Variable typ : Type.
@@ -53,31 +62,51 @@ Section substitute.
       destruct (lt_rem a b); intuition. }
   Qed.
 
-  Section subst'.
-    Variable lookupU : uvar -> forall t, (expr typ func -> t) -> t -> t.
-    Variable lookupV : var -> forall t, (expr typ func -> t) -> t -> t.
+    Variable m : Type -> Type.
+    Variable Applicative_m : Applicative m.
+    Variable Functor_m : Functor m.
+    Variable Monad_m : Monad m.
+    Variable lookupU : uvar -> list (expr typ func) -> m (expr typ func).
+    Variable lookupV : var -> m (expr typ func).
 
-    Fixpoint subst' (lift_by : nat) (e : expr typ func)
-    : expr typ func :=
+    Fixpoint subst' (lift_by : nat) (e : expr typ func) {struct e}
+    : m (expr typ func) :=
       match e with
         | Var v => match lt_rem v lift_by with
-                     | None => Var v
+                     | None => pure (Var v)
                      | Some diff =>
-                       lookupV diff (lift 0 lift_by) e
+                       fmap (lift 0 lift_by) (lookupV diff)
                    end
-        | Inj _ => e
-        | UVar u => lookupU u (lift 0 lift_by) e
-        | App l r => App (subst' lift_by l) (subst' lift_by r)
-        | Abs t e => Abs t (subst' (S lift_by) e)
+        | Inj _ => pure e
+        | UVar u es =>
+          (* the issue is that [es] is meaningless to [lookupU] because
+           * [es] could mention variables that do not exist in the context that
+           * [lookupU] reasons about.
+           * >> The purpose of the extra terms is to enable contexts, they
+           *    should not mention anything that doesn't make sense for the
+           *    top unification variable.
+           * >> But they could, e.g.
+           *       \ x (pf : x = y) . ?0 [y]
+           *    could become
+           *       \ x (pf : x = y) . ?0 [x]
+           *    the key thing to note is that these things are "equal"
+           *    and the bottom term was really constructed via a term.
+           * >> The way to solve this is to offer the context to the
+           *    function and ensure that it knows how to construct the
+           *    final result.
+           *)
+          bind (m := m) (mapT_list (subst' lift_by) es) (lookupU u)
+        | App l r => ap (ap (pure App) (subst' lift_by l)) (subst' lift_by r)
+        | Abs t e => fmap (Abs t) (subst' (S lift_by) e)
       end.
-  End subst'.
 
-  Definition subst
-             (lookupU : uvar -> forall t, (expr typ func -> t) -> t -> t)
-             (lookupV : var -> forall t, (expr typ func -> t) -> t -> t)
-             (under : nat) (e : expr typ func)
-  : expr typ func :=
-    subst' lookupU lookupV under e.
+    Definition subst (under : nat) (e : expr typ func)
+    : m (expr typ func) :=
+      subst' under e.
+
+(*
+  End subst'.
+*)
 
   Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ Fun.
@@ -101,22 +130,23 @@ Section substitute.
     \/ (forall t ret none, f t ret none = none).
 
   Lemma typeof_expr_subst'
-  : forall (lookupU lookupV : nat -> forall t, (expr _ _ -> t) -> t -> t) tus tus' tvs tvs'
-      (HNU : forall n, Natural (lookupU n))
-      (HNV : forall n, Natural (lookupV n))
-      (HlookupV : forall v e t,
+  : forall (lookupU : uvar -> list (expr typ func) -> m (expr typ func))
+           (lookupV : nat -> m (expr typ func)) tus tus' tvs tvs'
+      (HlookupV : forall v t e',
+         lookupV v = pure e' ->
          nth_error tvs v = Some t ->
-         typeof_expr tus tvs e = Some t ->
-         typeof_expr tus' tvs' (lookupV v _ (fun x => x) e) = Some t)
-      (HlookupU : forall u e t,
+         typeof_expr tus' tvs' e' = Some t)
+      (HlookupU : forall u t e' es,
+         lookupU u es = pure e' ->
          nth_error tus u = Some t ->
-         typeof_expr tus tvs e = Some t ->
-         typeof_expr tus' tvs' (lookupU u _ (fun x => x) e) = Some t)
-      e y tvex,
+         Forall2 (fun t e => typeof_expr tus' tvs' e = Some t) t.(cctx) es ->
+         typeof_expr tus' tvs' e' = Some t.(vtyp))
+      e y tvex e',
       typeof_expr tus (tvex ++ tvs) e = Some y ->
-      typeof_expr tus' (tvex ++ tvs')
-                     (subst' lookupU lookupV (length tvex) e) = Some y.
+      subst' (length tvex) e = pure e' ->
+      typeof_expr tus' (tvex ++ tvs') e' = Some y.
   Proof.
+(*
     induction e; simpl; intros; eauto.
     { generalize (lt_rem_sound (length tvex) v).
       destruct (lt_rem v (length tvex)); intros.
@@ -155,7 +185,10 @@ Section substitute.
       { simpl. intros.
         specialize (H1 (UVar u) y). auto. } }
   Qed.
+*)
+  Admitted.
 
+(*
   Theorem exprD'_subst'
   : forall lookupU lookupV tus tvs tus' tvs' P
       (HNU : forall u, Natural (lookupU u)) (HNV : forall v, Natural (lookupV v))
@@ -676,5 +709,6 @@ Section substitute.
                                    | specialize (H1 (UVar 0)); congruence ]. } } } }
 *)
   Abort.
+*)
 
 End substitute.

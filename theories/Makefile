@@ -38,7 +38,8 @@ RTAC := Core \
 #	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
-MODULES    := TypesI EnvI ExprI ExprProp ExprSem \
+MODULES    := TypesI EnvI ExprI VariablesI \
+	      ExprProp ExprSem \
 	      OpenT \
 	      ExprDAs \
 	      SymI \

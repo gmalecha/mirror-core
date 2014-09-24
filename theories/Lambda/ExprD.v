@@ -2,6 +2,7 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -27,8 +28,20 @@ Section Expr.
   Instance Expr_expr : @Expr typ _ (@expr typ func) :=
   { exprD' := fun tus tvs e t => @exprD' _ _ _ _ _ tus tvs t e
   ; wf_Expr_acc := @wf_expr_acc typ func
+(*
   ; mentionsU := mentionsU
   ; mentionsV := mentionsV
+*)
+  }.
+
+  Instance ExprVar_expr : ExprVar (expr typ func) :=
+  { Var := @Var typ func
+  ; mentionsV := mentionsV
+  }.
+
+  Instance ExprUVar_expr : ExprUVar (expr typ func) :=
+  { UVar := @UVar typ func
+  ; mentionsU := mentionsU
   }.
 
   Context {RTOk : RTypeOk}
@@ -62,7 +75,7 @@ Section Expr.
   : forall (tus : EnvI.tenv (ctyp typ)) (tvs : EnvI.tenv typ) (e : expr typ func)
            t (t' : typ)
            (val : exprT (tus ++ t :: nil) tvs (typD t')),
-      ExprI.mentionsU (length tus) e = false ->
+      mentionsU (length tus) e = false ->
       ExprI.exprD' (tus ++ t :: nil) tvs e t' = Some val ->
       exists
         val' : exprT tus tvs (typD t'),
@@ -157,7 +170,7 @@ Section Expr.
   : forall (tus : EnvI.tenv (ctyp typ)) (tvs : EnvI.tenv typ) (e : expr typ func)
            t (t' : typ)
            (val : exprT tus (tvs ++ t :: nil) (typD t')),
-      ExprI.mentionsV (length tvs) e = false ->
+      mentionsV (length tvs) e = false ->
       ExprI.exprD' tus (tvs ++ t :: nil) e t' = Some val ->
       exists val' : exprT tus tvs (typD t'),
         ExprI.exprD' tus tvs e t' = Some val' /\
@@ -230,8 +243,10 @@ Section Expr.
     constructor.
     { simpl. intros.
       eapply ExprFacts.exprD'_weaken; eauto. }
+(*
     { eapply exprD'_strengthenU_single. }
     { eapply exprD'_strengthenV_single. }
+*)
   Qed.
 
 End Expr.

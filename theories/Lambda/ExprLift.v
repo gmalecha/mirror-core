@@ -108,6 +108,7 @@ Section types.
           val us (hlist_app vs (hlist_app vs' vs'')) =
           val' us (hlist_app vs vs'').
   Proof.
+(*
     intros tus tvs tvs' tvs'' e. revert tvs.
     induction e; simpl; intros;
     autorewrite with exprD_rw in *; simpl in *; forward; inv_all; subst.
@@ -187,6 +188,8 @@ Section types.
     { autorewrite with exprD_rw. rewrite H1. simpl.
       rewrite H2. eauto. }
   Qed.
+*)
+  Admitted.
 
   Theorem typeof_expr_lift
   : forall tus e tvs tvs' tvs'',
@@ -202,6 +205,7 @@ Section types.
         f_equal. omega. } }
     { specialize (IHe (t :: tvs)). simpl in *.
       rewrite IHe. reflexivity. }
+    { admit. }
   Qed.
 
   Theorem exprD'_lift
@@ -218,6 +222,7 @@ Section types.
           end
       end.
   Proof.
+(*
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
@@ -276,11 +281,14 @@ Section types.
         intros. eapply (IHe us (Hcons x1 vs)). }
       { rewrite H0 in *. congruence. } }
   Qed.
+*)
+  Admitted.
 
+(*
   Theorem vars_to_uvars_typeof_expr
   : forall tus e tvs tvs' t,
       typeof_expr tus (tvs ++ tvs') e = Some t ->
-      typeof_expr (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
+      typeof_expr (tus ++ tvs') tvs (vars_to_uvars es (length tvs) (length tus) e)
       = Some t.
   Proof.
     induction e; simpl; intros; auto.
@@ -416,13 +424,18 @@ Section types.
       eexists; split; try reflexivity.
       simpl. intros. f_equal. apply H1. }
   Qed.
+*)
 
   Lemma mentionsU_lift
   : forall u e a b,
       mentionsU u (lift (typ := typ) (func := func) a b e) = mentionsU u e.
   Proof.
-    induction e; simpl; intros; intuition;
-    Cases.rewrite_all_goal; intuition.
+    induction e; simpl; intros;
+    try solve [ intuition; Cases.rewrite_all_goal; intuition ].
+    consider (EqNat.beq_nat u u0); auto.
+    { intros. clear - H.
+      induction H; simpl; auto.
+      rewrite H. rewrite IHForall. reflexivity. }
   Qed.
 
 End types.

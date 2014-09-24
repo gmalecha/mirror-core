@@ -10,7 +10,7 @@ Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Generic.
+Require Import MirrorCore.Util.Generic.
 
 Set Implicit Arguments.
 Set Strict Implicit.

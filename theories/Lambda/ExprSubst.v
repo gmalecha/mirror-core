@@ -34,6 +34,10 @@ Section mentionsU.
   Proof.
     induction e; simpl; intros; intuition;
     Cases.rewrite_all_goal; intuition.
+    forward.
+    clear - H. induction H.
+    - reflexivity.
+    - simpl. rewrite IHForall. rewrite H. reflexivity.
   Qed.
 
 End mentionsU.
@@ -49,10 +53,11 @@ Section instantiate.
       | Inj _ => e
       | App l r => App (instantiate under l) (instantiate under r)
       | Abs t e => Abs t (instantiate (S under) e)
-      | UVar u =>
+      | UVar u es =>
+        let es' := List.map (instantiate under) es in
         match lookup u with
-          | None => UVar u
-          | Some e => lift 0 under e
+          | None => UVar u es'
+          | Some e => lift 0 under e (** WRONG **)
         end
     end.
 
@@ -67,6 +72,7 @@ Section instantiate.
       forall e under,
         mentionsU u (instantiate under e) = false.
   Proof.
+(*
     induction e; simpl; intros; auto.
     { rewrite IHe1. auto. }
     { destruct H.
@@ -81,9 +87,11 @@ Section instantiate.
         { rewrite mentionsU_lift. eauto. }
         { simpl. consider (EqNat.beq_nat u u0); try congruence. } } }
   Qed.
+*)
+  Admitted.
 
 End instantiate.
-
+(*
 Section instantiate_thm.
   Variable typ : Type.
   Variable func : Type.
@@ -294,3 +302,4 @@ Section instantiate_thm.
   Qed.
 
 End instantiate_thm.
+*)

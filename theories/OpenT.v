@@ -33,8 +33,12 @@ Section OpenT.
         Some (@existT _ (fun t => OpenT (typD t)) t get)
     end.
 
-  Definition OpenTeq T (R : relation T) : relation (OpenT T) :=
-    fun a b => forall x, R (a x) (b x).
+  Definition OpenTrel (Rd : forall t, relation (typD t)) {T} (R : relation T)
+  : relation (OpenT T) :=
+    fun a b => forall x y, equiv_hlist Rd x y -> R (a x) (b y).
+
+  Definition OpenTeq {T} (R : relation T) : relation (OpenT T) :=
+    OpenTrel (fun x => @eq _) R.
 
   Theorem pure_eq
   : forall T (R : relation T) a b, R a b -> OpenTeq R (pure a) (pure b).

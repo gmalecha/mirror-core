@@ -1,4 +1,5 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Fun.
@@ -44,49 +45,114 @@ Section typed.
                             | None => false
                           end }.
 
+  Instance RelDec_eq_expr : RelDec (@eq (expr typ func)). Admitted.
+
   Section nested.
     (** n is the number of binders that we have gone under **)
-    Variable exprUnify : forall (tus tvs : tenv typ) (under : nat) (s : subst)
-                                (l r : expr typ func), typ -> option subst.
+    Variable exprUnify : forall (tus : tenv (ctyp typ)) (tvs : tenv typ)
+                                (l r : expr typ func), typ -> subst -> option subst.
 
-    Fixpoint exprUnify' (us vs : tenv typ) (n : nat) (s : subst)
-             (e1 e2 : expr typ func) (t : typ) {struct e1}
-    : option subst :=
+    Definition substList (e : expr typ func) (es : list (expr typ func))
+    : expr typ func.
+    Admitted.
+
+    Fixpoint find (e : expr typ func) (acc : nat) (es : list (expr typ func)) : option nat :=
+      match es with
+        | nil => None
+        | e' :: es' =>
+          if e ?[ eq ] e' then Some acc
+          else find e (S acc) es'
+      end.
+
+    Axiom instantiate : subst -> expr typ func -> expr typ func.
+
+    Fixpoint patterns (es : list (expr typ func)) (s : subst)
+             (e : expr typ func) {struct e}
+    : option (expr typ func).
+      refine
+        match e with
+          | Inj i => Some (Inj i)
+          | UVar u es' =>
+            match mapT_list (F:=option) (patterns es s) es' with
+              | None => None (** I could do something here **)
+              | Some es'' => Some (UVar u es'')
+            end
+          | App e1 e2 =>
+            match patterns es s e1
+                , patterns es s e2 with
+              | Some e1' , Some e2' => Some (App e1' e2')
+              | _ , _ => None
+            end
+          | _ =>
+            (** This is the only case that I expect to happen **)
+            match find e 0 es with
+              | None => None
+              | Some v' => Some (Var v')
+            end
+        end.
+    Defined.
+
+    Definition try_set
+               (u : uvar) (args1 : list (expr typ func))
+               (e2 : expr typ func)
+               (s : subst) : option subst :=
+      match patterns args1 s e2 with
+        | None => None
+        | Some e => set u e s
+      end.
+
+    Fixpoint fold_left3 {A B C} (f : C -> A -> A -> B -> option B) (t : list C)
+             (x y : list A) (s : B)
+    : option B :=
+      match t , x , y with
+        | nil , nil , nil => Some s
+        | t :: ts , x :: xs , y :: ys =>
+          match f t x y s with
+            | None => None
+            | Some s => fold_left3 f ts xs ys s
+          end
+        | _ , _ , _ => None
+      end.
+
+    Fixpoint exprUnify' (us : tenv (ctyp typ)) (vs : tenv typ)
+             (e1 e2 : expr typ func) (t : typ) (s : subst) {struct e1}
+    : option subst.
+    refine
       match e1 , e2 with
-        | UVar u1 , UVar u2 =>
-          if EqNat.beq_nat u1 u2 then Some s
+        | UVar u1 es1 , UVar u2 es2 =>
+          if EqNat.beq_nat u1 u2 then
+            match nth_error us u1 with
+              | Some ct =>
+                fold_left3 (fun t e1 e2 s =>
+                              exprUnify us vs e1 e2 t s)
+                           ct.(cctx) es1 es2 s
+              | None => None
+            end
           else
             match lookup u1 s , lookup u2 s with
               | None , None =>
-                match set u1 (UVar u2) s with
-                  | None =>
-                    set u2 (UVar u1) s
+                match set u1 e2 s with
+                  | None => set u2 e1 s
                   | Some s => Some s
                 end
               | Some e1' , None =>
-                set u2 e1' s
+                try_set u2 es2 e1' s
               | None , Some e2' =>
-                set u1 e2' s
+                try_set u1 es1 e2' s
               | Some e1' , Some e2' =>
-                exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
+                exprUnify us vs (substList e1' es1) (substList e2' es2) t s
             end
-        | UVar u1 , _ =>
+        | UVar u1 es1 , _ =>
           match lookup u1 s with
             | None =>
-              match lower 0 n e2 with
-                | None => None
-                | Some e2 => set u1 e2 s
-              end
-            | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
+              try_set u1 es1 e2 s
+            | Some e1' => exprUnify us vs (substList e1' es1) e2 t s
           end
-        | _ , UVar u2 =>
+        | _ , UVar u2 es2 =>
           match lookup u2 s with
             | None =>
-              match lower 0 n e1 with
-                | None => None
-                | Some e1 => set u2 e1 s
-              end
-            | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
+              try_set u2 es2 e1 s
+            | Some e2' => exprUnify us vs e1 (substList e2' es2) t s
           end
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then Some s else None
@@ -101,10 +167,10 @@ Section typed.
               if t1 ?[ Rty ] t2 then
                 typ2_match (fun _ => option subst) t1
                            (fun d r =>
-                              match exprUnify' us vs n s e1 e2 t1 with
+                              match exprUnify' us vs e1 e2 t1 s with
                                 | None => None
                                 | Some s' =>
-                                  exprUnify' us vs n s' e1' e2' d
+                                  exprUnify' us vs e1' e2' d s'
                               end)
                            None
               else
@@ -115,10 +181,11 @@ Section typed.
           (* t1 = t2 since both terms have the same type *)
           typ2_match (F := Fun) (fun _ => _) t
                      (fun _ t =>
-                        exprUnify' us (t1 :: vs) (S n) s e1 e2 t)
+                        exprUnify' us (t1 :: vs) e1 e2 t s)
                      None
         | _ , _ => None
       end%bool.
+    Defined.
 
   End nested.
 
@@ -126,13 +193,13 @@ Section typed.
 
     (** Delaying the recursion is probably important **)
     Fixpoint exprUnify (fuel : nat)
-             (us vs : tenv typ) (under : nat) (s : subst)
-             (e1 e2 : expr typ func) (t : typ) : option subst :=
+             (us : tenv (ctyp typ)) (vs : tenv typ)
+             (e1 e2 : expr typ func) (t : typ) (s : subst) : option subst :=
       match fuel with
         | 0 => None
         | S fuel =>
           exprUnify' (fun tus tvs => exprUnify fuel tus tvs)
-                     us vs under s e1 e2 t
+                     us vs e1 e2 t s
       end.
   End exprUnify.
 
@@ -164,6 +231,7 @@ Section typed.
       unify_sound_ind _ (exprUnify' unify).
   Proof.
     Opaque rel_dec.
+(*
     red. induction e1; simpl; intros.
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].
       { consider (EqNat.beq_nat v v0); intros; try congruence.
@@ -290,6 +358,8 @@ Section typed.
               rewrite H3. simpl. assumption. }
             { eapply handle_uvar; eauto.
               rewrite H2. simpl. assumption. } } } } }
+*)
+    admit.
   Qed.
 
   Theorem exprUnify_sound : forall fuel, unify_sound _ (exprUnify fuel).

@@ -1,7 +1,10 @@
 Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
-Require Import ExtLib.Tactics.
+Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Structures.Applicative.
+Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.OpenT.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
@@ -19,10 +22,24 @@ Section Expr.
   { cctx : list typ ; vtyp : typ }.
 
   Definition ctxD (ctx : ctyp) : Type :=
-    hlist typD ctx.(cctx) -> typD ctx.(vtyp).
+    OpenT typD ctx.(cctx) (typD ctx.(vtyp)).
 
   Definition exprT (us : tenv ctyp) (vs : tenv typ) (T : Type) : Type :=
     OpenT ctxD us (OpenT typD vs T).
+
+  Definition Applicative_exprT tus tvs : Applicative (exprT tus tvs) :=
+    Eval cbv beta iota zeta delta [ ap pure Applicative_OpenT ] in
+  {| pure := fun _ x => pure (pure x)
+  ; ap := fun _ _ f x => ap (T:=OpenT ctxD tus)
+         (ap (T:=OpenT ctxD tus) (pure (ap (T:=OpenT typD tvs))) f) x
+  |}.
+  Existing Instance Applicative_exprT.
+
+  Definition Functor_exprT tus tvs : Functor (exprT tus tvs) :=
+    Eval cbv beta iota zeta delta [ fmap Functor_OpenT ] in
+  {| fmap := fun _ _ f x => fmap (fmap f) x
+  |}.
+  Existing Instance Functor_exprT.
 
   (** NOTE:
    ** - Right now this is intensionally weak, but it should probably include
@@ -38,8 +55,10 @@ Section Expr.
                          option (exprT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
+(*
   ; mentionsU : nat -> expr -> bool
   ; mentionsV : nat -> expr -> bool
+*)
   }.
 
   Theorem exprD'_conv (E : Expr)
@@ -83,6 +102,7 @@ Section Expr.
              exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
           /\ forall us vs us' vs',
                val us vs = val' (hlist_app us us') (hlist_app vs vs')
+(*
   ; exprD'_strengthenU_single
     : forall tus tvs e t t' val,
       mentionsU (length tus) e = false ->
@@ -99,6 +119,7 @@ Section Expr.
         exprD' tus tvs e t' = Some val' /\
         forall us vs u,
           val us (hlist_app vs (Hcons u Hnil)) = val' us vs
+*)
   }.
 
   Context {Expr_expr : Expr}.
@@ -318,6 +339,8 @@ Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprT {_ RType} _ _ _ : rename.
+(*
 Arguments mentionsU {_ RType _ Expr} _ _ : rename.
 Arguments mentionsV {_ RType _ Expr} _ _ : rename.
+*)
 Arguments ctxD {typ _} _ : rename.

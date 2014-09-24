@@ -45,8 +45,8 @@ Section definitions.
           P us vs ->
           get us (hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) vals) = eD us vs.
 
-  (** TODO **)
 (*
+  (** TODO **)
   Definition instantiate_mentionsU : Prop :=
     forall f n e u,
       mentionsU u (instantiate f n e) = true <-> (** do i need iff? **)

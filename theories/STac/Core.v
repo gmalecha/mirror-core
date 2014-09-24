@@ -20,7 +20,7 @@ Section parameterized.
   Inductive Result : Type :=
   | Fail
   | Solved : subst -> Result
-  | More : tenv (tenv typ * typ) -> tenv typ -> subst -> expr -> Result.
+  | More : tenv (ctyp typ) -> tenv typ -> subst -> expr -> Result.
 
   Definition stac : Type :=
     (** TODO: Part of the state is hypotheses **)
@@ -39,7 +39,7 @@ Section parameterized.
   : forall tus tus' (tvs tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       propD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> option (OpenT tu tv Prop)
+            return expr -> option (exprT tu tv Prop)
       with
         | eq_refl , eq_refl => propD tus' tvs'
       end.
@@ -48,15 +48,15 @@ Section parameterized.
   Qed.
 
   Definition stateD tus tvs (s : subst) (hs : list expr) (g : expr)
-  : option (OpenT tus tvs Prop) :=
+  : option (exprT tus tvs Prop) :=
     match propD tus tvs g
         , mapT (F:=option) (T:=list) (propD tus tvs) hs
-        , substD tus tvs s
+        , substD tus s
     with
       | Some G , Some Hs , Some sV =>
         Some (fun us vs =>
                 Forall (fun x => x us vs) Hs ->
-                sV us vs /\ G us vs)
+                sV us /\ G us vs)
       | _ , _ , _ => None
     end.
 
@@ -65,7 +65,7 @@ Section parameterized.
       stateD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
             return _ -> _ -> _ ->
-                   option (OpenT tu tv _)
+                   option (exprT tu tv _)
       with
         | eq_refl , eq_refl => stateD tus' tvs'
       end.
@@ -74,7 +74,7 @@ Section parameterized.
   Qed.
 
   Definition resultD tus tvs (r : Result)
-             (P : OpenT tus tvs Prop)
+             (P : exprT tus tvs Prop)
   : Prop :=
     match r with
       | Fail => True

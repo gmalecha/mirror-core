@@ -37,13 +37,14 @@ Section typed.
   : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
   Local Existing Instance Expr_expr. (* : Expr _ (expr typ func) := Expr_expr. *)
 
+(*
   Lemma handle_set
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)
     (Hnot_found : lookup u s = None),
       set u e0 s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
-      forall (tu : tenv typ) (tv : list typ)
+      forall (tu : tenv (ctyp typ)) (tv : list typ)
              (t : typ) (tv' : list typ),
         (forall
             (v1 : _)
@@ -51,7 +52,7 @@ Section typed.
                     hlist typD (tv' ++ tv) -> typD t)
             (sD : hlist typD tu -> hlist typD tv -> Prop),
             exprD' tu tv t e0 = Some v1 ->
-            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
+            exprD' tu (tv' ++ tv) t (UVar u es) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -123,29 +124,30 @@ Section typed.
     forward_reason; split; eauto.
     rewrite H9. intros. eapply (H7 us Hnil vs' vs).
   Qed.
+*)
 
   Definition unify_sound_ind
-    (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
+    (unify : forall (us : tenv (ctyp typ)) (vs : tenv typ)
                     (l r : expr typ func)
-                    (t : typ), option subst) : Prop :=
+                    (t : typ) (s : subst), option subst) : Prop :=
     forall tu tv e1 e2 s s' t tv',
-      unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      unify tu (tv' ++ tv) e1 e2 t s = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
         exprD' tu (tv' ++ tv) t e1 = Some v1 ->
         exprD' tu (tv' ++ tv) t e2 = Some v2 ->
-        substD tu tv s = Some sD ->
+        substD tu s = Some sD ->
         exists sD',
-             substD (expr := expr typ func) tu tv s' = Some sD'
+             substD (expr := expr typ func) tu s' = Some sD'
           /\ forall us vs,
-               sD' us vs ->
-               sD us vs /\
+               sD' us ->
+               sD us /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs).
 
   Definition unify_sound := unify_sound_ind.
-
+(*
   Lemma handle_uvar
   : forall
       (unify : tenv typ -> tenv typ ->
@@ -326,5 +328,5 @@ Section typed.
     simpl in *.
     etransitivity; [ eapply H4 | eapply H6 ]; eauto.
   Qed.
-
+*)
 End typed.
