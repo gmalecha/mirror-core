@@ -313,7 +313,7 @@ Section beta.
                                         | Some val =>
                                           match exprD' tus tvs t (beta e) with
                                             | Some val' =>
-                                              forall (us : hlist typD tus) (vs : hlist typD tvs),
+                                              forall (us : hlist _ tus) (vs : hlist typD tvs),
                                                 val us vs = val' us vs
                                             | None => False
                                           end
@@ -323,7 +323,8 @@ Section beta.
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       rewrite type_cast_refl; eauto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
-      rewrite type_cast_refl; eauto. }
+      rewrite type_cast_refl; eauto.
+}
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       unfold funcAs. generalize (symD i).
       Cases.rewrite_all_goal.

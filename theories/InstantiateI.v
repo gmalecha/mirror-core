@@ -3,6 +3,10 @@ Require Import ExtLib.Data.HList.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.VariablesI.
+
+Set Implicit Arguments.
+Set Strict Implicit.
 
 Fixpoint hlist_build {T U} (F : T -> Type) (f : forall x : T, U -> option (F x))
            (ls : list T) (ls' : list U)
@@ -27,14 +31,15 @@ Section definitions.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprUVar : ExprUVar expr}.
 
   (** instantiate **)
   Variable instantiate : (nat -> option expr) -> expr -> expr.
 
-  Definition sem_preserves_if (tus : tenv (ctyp typ)) (tvs : tenv typ)
-             (P : exprT tus tvs Prop)
+  Definition sem_preserves_if (tus : tenv (ctyp typ))
+             (P : OpenT.OpenT ctxD tus Prop)
              (f : nat -> option expr) : Prop :=
-    forall u e es t get vals,
+    forall tvs u e es t get vals,
       f u = Some e ->
       nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
       hlist_build (fun T => exprT tus tvs (typD T))
@@ -42,31 +47,29 @@ Section definitions.
       exists eD,
         exprD' tus t.(cctx) e t.(vtyp) = Some eD /\
         forall us vs,
-          P us vs ->
+          P us ->
           let vs' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) vals in
           get us vs' = eD us vs'.
 
-(*
   (** TODO **)
   Definition instantiate_mentionsU : Prop :=
-    forall f n e u,
-      mentionsU u (instantiate f n e) = true <-> (** do i need iff? **)
+    forall f e u,
+      mentionsU u (instantiate f e) = true <-> (** do i need iff? **)
       (   (f u = None /\ mentionsU u e = true)
        \/ exists u' e',
             f u' = Some e' /\
             mentionsU u' e = true/\
             mentionsU u e' = true).
-*)
 
   Definition exprD'_instantiate : Prop :=
-    forall tus tvs f e tvs' t eD P,
-      sem_preserves_if tus tvs P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+    forall tus tvs f e t eD P,
+      @sem_preserves_if tus P f ->
+      exprD' tus tvs e t = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f e) t = Some eD' /\
-        forall us vs vs',
-          P us vs ->
-          eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
+        exprD' tus tvs (instantiate f e) t = Some eD' /\
+        forall us vs,
+          P us ->
+          eD us vs = eD' us vs.
 End definitions.
 
-Arguments sem_preserves_if {typ expr RType Expr} _ _ _ _ : rename.
+Arguments sem_preserves_if {typ expr RType Expr} _ _ _ : rename.

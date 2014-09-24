@@ -62,51 +62,45 @@ Section substitute.
       destruct (lt_rem a b); intuition. }
   Qed.
 
-    Variable m : Type -> Type.
-    Variable Applicative_m : Applicative m.
-    Variable Functor_m : Functor m.
-    Variable Monad_m : Monad m.
-    Variable lookupU : uvar -> list (expr typ func) -> m (expr typ func).
-    Variable lookupV : var -> m (expr typ func).
+  Variable m : Type -> Type.
+  Variable Monad_m : Monad m.
+  Variable lookupU : uvar -> list (expr typ func) -> m (expr typ func).
+  Variable lookupV : var -> m (expr typ func).
 
-    Fixpoint subst' (lift_by : nat) (e : expr typ func) {struct e}
-    : m (expr typ func) :=
-      match e with
-        | Var v => match lt_rem v lift_by with
-                     | None => pure (Var v)
-                     | Some diff =>
-                       fmap (lift 0 lift_by) (lookupV diff)
-                   end
-        | Inj _ => pure e
-        | UVar u es =>
-          (* the issue is that [es] is meaningless to [lookupU] because
-           * [es] could mention variables that do not exist in the context that
-           * [lookupU] reasons about.
-           * >> The purpose of the extra terms is to enable contexts, they
-           *    should not mention anything that doesn't make sense for the
-           *    top unification variable.
-           * >> But they could, e.g.
-           *       \ x (pf : x = y) . ?0 [y]
-           *    could become
-           *       \ x (pf : x = y) . ?0 [x]
-           *    the key thing to note is that these things are "equal"
-           *    and the bottom term was really constructed via a term.
-           * >> The way to solve this is to offer the context to the
-           *    function and ensure that it knows how to construct the
-           *    final result.
-           *)
-          bind (m := m) (mapT_list (subst' lift_by) es) (lookupU u)
-        | App l r => ap (ap (pure App) (subst' lift_by l)) (subst' lift_by r)
-        | Abs t e => fmap (Abs t) (subst' (S lift_by) e)
-      end.
+  Fixpoint subst' (lift_by : nat) (e : expr typ func) {struct e}
+  : m (expr typ func) :=
+    match e with
+      | Var v => match lt_rem v lift_by with
+                   | None => pure (Var v)
+                   | Some diff =>
+                     fmap (lift 0 lift_by) (lookupV diff)
+                 end
+      | Inj _ => pure e
+      | UVar u es =>
+        (* the issue is that [es] is meaningless to [lookupU] because
+         * [es] could mention variables that do not exist in the context that
+         * [lookupU] reasons about.
+         * >> The purpose of the extra terms is to enable contexts, they
+         *    should not mention anything that doesn't make sense for the
+         *    top unification variable.
+         * >> But they could, e.g.
+         *       \ x (pf : x = y) . ?0 [y]
+         *    could become
+         *       \ x (pf : x = y) . ?0 [x]
+         *    the key thing to note is that these things are "equal"
+         *    and the bottom term was really constructed via a term.
+         * >> The way to solve this is to offer the context to the
+         *    function and ensure that it knows how to construct the
+         *    final result.
+         *)
+        bind (m := m) (mapT_list (subst' lift_by) es) (lookupU u)
+      | App l r => ap (ap (pure App) (subst' lift_by l)) (subst' lift_by r)
+      | Abs t e => fmap (Abs t) (subst' (S lift_by) e)
+    end.
 
-    Definition subst (under : nat) (e : expr typ func)
-    : m (expr typ func) :=
-      subst' under e.
-
-(*
-  End subst'.
-*)
+  Definition subst (under : nat) (e : expr typ func)
+  : m (expr typ func) :=
+    subst' under e.
 
   Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ Fun.
@@ -116,37 +110,28 @@ Section substitute.
   Context {RTypeOk_typD : RTypeOk}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
-
 (*
-  Theorem lift_0 : forall (e : expr typ func) u, Lift.lift u 0 e = e.
-  Proof.
-    induction e; simpl; intros; Cases.rewrite_all_goal; auto.
-    consider (v ?[ lt ] u); auto.
-  Qed.
-*)
-
-  Definition Natural {T} (f : forall t, (T -> t) -> t -> t) : Prop :=
-       (exists v, forall t ret none, f t ret none = ret v)
-    \/ (forall t ret none, f t ret none = none).
-
   Lemma typeof_expr_subst'
-  : forall (lookupU : uvar -> list (expr typ func) -> m (expr typ func))
-           (lookupV : nat -> m (expr typ func)) tus tus' tvs tvs'
-      (HlookupV : forall v t e',
-         lookupV v = pure e' ->
-         nth_error tvs v = Some t ->
-         typeof_expr tus' tvs' e' = Some t)
-      (HlookupU : forall u t e' es,
-         lookupU u es = pure e' ->
-         nth_error tus u = Some t ->
-         Forall2 (fun t e => typeof_expr tus' tvs' e = Some t) t.(cctx) es ->
-         typeof_expr tus' tvs' e' = Some t.(vtyp))
-      e y tvex e',
+  : forall tus tus' e tvs tvs'
+           (HlookupV : forall v t e',
+                         lookupV v = pure e' ->
+                         nth_error tvs v = Some t ->
+                         typeof_expr tus' tvs' e' = Some t)
+           (HlookupU : forall u t e' es,
+                         lookupU u es = pure e' ->
+                         nth_error tus u = Some t ->
+                         Forall2 (fun t e => typeof_expr tus' tvs' e = Some t) t.(cctx) es ->
+                         typeof_expr tus' tvs' e' = Some t.(vtyp))
+      y tvex e',
       typeof_expr tus (tvex ++ tvs) e = Some y ->
-      subst' (length tvex) e = pure e' ->
+      subst' (length tvex) e = ret e' ->
       typeof_expr tus' (tvex ++ tvs') e' = Some y.
   Proof.
-(*
+    intros tus tus' tvs tvs' HlookupV HlookupU.
+    Print ExprD.ExprFacts.
+
+
+
     induction e; simpl; intros; eauto.
     { generalize (lt_rem_sound (length tvex) v).
       destruct (lt_rem v (length tvex)); intros.
@@ -184,226 +169,249 @@ Section substitute.
         instantiate (1 := UVar u). assumption. }
       { simpl. intros.
         specialize (H1 (UVar u) y). auto. } }
-  Qed.
+  Admitted.
 *)
+
+  (** TODO: Move this, duplicated **)
+  Inductive Forall5 {A B} {C : A -> Type} {D} {E : A -> Type}
+            (P : forall x : A, B -> C x -> D -> E x -> Prop)
+  : forall ls : list A, list B -> hlist C ls -> list D -> hlist E ls -> Prop :=
+  | Forall5_nil : @Forall5 A B C D E P nil nil Hnil nil Hnil
+  | Forall5_cons : forall t ts x xs y ys z zs b bs,
+                     @P t x y z b ->
+                     @Forall5 A B C D E P ts xs ys zs bs->
+                     @Forall5 A B C D E P (t :: ts) (x :: xs) (Hcons y ys) (z :: zs) (Hcons b bs).
+
+  Lemma bind_ret : forall {A B} (c : m A) (f : A -> m B) x,
+                     bind c f = ret x ->
+                     exists c', c = ret c' /\
+                                f c' = ret x.
+  Proof. clear.
+  Admitted.
+  Lemma ret_ret : forall {A} (a b : A),
+                    ret (m:=m) a = ret b -> a = b.
+  Proof.
   Admitted.
 
-(*
+  Lemma fmap_ret : forall {A B : Type} (f : A -> B) x y,
+                     fmap (F:=m) f x = ret y ->
+                     exists x', x = ret x' /\ f x' = y.
+  Proof.
+    clear.
+    simpl. unfold liftM.
+    intros. eapply bind_ret in H.
+    forward_reason.
+    eexists; split; eauto.
+    eapply ret_ret in H0.
+    assumption.
+  Qed.
+
+  Lemma pure_is_ret : forall T (a b : T), pure a = ret (m:=m) b -> a = b.
+  Proof.
+    clear.
+    simpl. intros. apply ret_ret. assumption.
+  Qed.
+
+  Lemma ap_ret : forall T U (f : m (T -> U)) x y,
+                   ap f x = ret y ->
+                   exists x' f', x = ret x' /\
+                                 f = ret f' /\
+                                 y = f' x'.
+  Proof.
+    clear; simpl.
+    unfold apM, liftM.
+    intros.
+    eapply bind_ret in H; forward_reason.
+    eapply bind_ret in H0; forward_reason.
+    eapply ret_ret in H1. eauto.
+  Qed.
+
   Theorem exprD'_subst'
-  : forall lookupU lookupV tus tvs tus' tvs' P
-      (HNU : forall u, Natural (lookupU u)) (HNV : forall v, Natural (lookupV v))
-      (HlookupV : forall t e v vD vD_orig,
+  : forall (tus : tenv (ctyp typ)) tvs tus' tvs'
+           (P : exprT tus tvs (exprT tus' tvs' Prop))
+      (HlookupV : forall t e' v vD,
+         lookupV v = ret e' ->
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           exprD' tus' tvs' t e' = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
-             vD_orig us vs = vD vs ->
              vD vs = vD' us' vs')
-      (HlookupU : forall t e v vD vD_orig,
-         nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
-         exists vD',
-           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
-           forall us vs us' vs',
+      (HlookupU : forall t es e' u vD vals es' vals',
+         lookupU u es = ret e' ->
+         nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t vD) ->
+         @Forall5 typ
+                  (expr typ func) (fun t => exprT tus tvs (typD t))
+                  (expr typ func) (fun t => exprT tus' tvs' (typD t))
+                  (fun t e v e' v' =>
+                    exprD' tus tvs t e = Some v /\
+                    exprD' tus' tvs' t e = Some v' /\
+                    forall us vs us' vs',
+                      v us vs = v' us' vs') t.(cctx) es vals es' vals' ->
+         exists (vD' : exprT tus' tvs' (typD t.(vtyp))),
+           exprD' tus' tvs' t.(vtyp) e' = Some vD' /\
+           forall (us : hlist ctxD tus) vs
+                  (us' : hlist ctxD tus') vs',
              P us vs us' vs' ->
-             vD_orig us vs = vD us ->
-             vD us = vD' us' vs'),
-      forall e tvex (t : typ) eD,
+             vD us (hlist_map (F:=fun t => exprT tus tvs (typD t)) (fun t x => x us vs) vals) = vD' us' vs'),
+      forall e e' tvex (t : typ) eD,
+        subst' (length tvex) e = ret e' ->
         exprD' tus (tvex ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
+          exprD' tus' (tvex ++ tvs') t e' = Some eD' /\
           forall us vs us' vs' vex,
             P us vs us' vs' ->
             eD us (hlist_app vex vs) = eD' us' (hlist_app vex vs').
   Proof.
     induction e; simpl; intros.
-    { generalize (lt_rem_sound (length tvex) v).
+    { clear HlookupU.
+      generalize (lt_rem_sound (length tvex) v).
       destruct (lt_rem v (length tvex)).
       { destruct 1.
-        destruct (HNV n) as [ [ ? ? ] | ? ].
-        { generalize (HlookupV t (Var n) n); clear HlookupU HlookupV.
-          autorewrite with exprD_rw in *; simpl in *.
-          subst.
-          forwardy.
-          eapply nth_error_get_hlist_nth_appR in H0; eauto.
-          simpl in *. forward_reason; inv_all; subst.
-          Cases.rewrite_all_goal.
-          destruct y.
-          intro XXX; specialize (XXX _ _ eq_refl eq_refl).
-          forward_reason.
-          generalize (exprD'_lift tus' x nil tvex tvs' x0).
-          simpl. rewrite H3. intros; forwardy.
-          eexists; split; [ eassumption | ].
-          intros.
-          etransitivity; [ | eapply (H7 us' Hnil vex vs') ].
-          rewrite H4.
-          eapply H5; eauto. }
-        { generalize (HlookupV t (Var n) n); clear HlookupU HlookupV.
-          autorewrite with exprD_rw in *; simpl in *.
-          subst.
-          forwardy.
-          generalize H0.
-          eapply nth_error_get_hlist_nth_appR in H0; eauto.
-          simpl in *. forward_reason; inv_all; subst.
-          Cases.rewrite_all_goal.
-          destruct y.
-          intro.
-          intro XXX; specialize (XXX _ _ eq_refl eq_refl).
-          forward_reason.
-          generalize (exprD'_lift tus' (Var (v - length tvex)) nil tvex tvs' x).
-          simpl. rewrite H5. intros; forwardy.
-          cutrewrite (v - length tvex + length tvex = v) in H7; [ | omega ].
-          eexists; split; [ eassumption | ].
-          intros.
-          etransitivity; [ | eapply (H8 us' Hnil vex vs') ].
-          rewrite H4.
-          eapply H6; eauto. } }
-      { intros.
-        autorewrite with exprD_rw in *; simpl in *.
-        forwardy.
-        generalize H0.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs') in H0.
-        intro H3.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs) in H3.
+        autorewrite with exprD_rw in H0; simpl in H0.
+        forwardy; inv_all; subst.
+        destruct y.
+        eapply nth_error_get_hlist_nth_appR in H0; eauto.
+        simpl in *. forward_reason.
+        eapply fmap_ret in H. destruct H as [ ? [ ? ? ] ].
+        eapply HlookupV in H; eauto.
         forward_reason.
-        rewrite H0. destruct x0; simpl in *.
-        red in y. subst.
-        rewrite H3 in H.
-        rewrite H6 in H4.
-        inv_all; subst.
-        destruct x1; simpl in *.
-        rewrite H1. eexists; split; [ reflexivity | ].
-        intros. simpl. rewrite H7. rewrite H5. reflexivity. } }
-    { autorewrite with exprD_rw in *; simpl in *.
-      forwardy.
-      rewrite H. eexists; split; [ reflexivity | ].
-      inv_all; subst.
-      reflexivity. }
-    { autorewrite with exprD_rw in *; simpl in *.
-      forwardy.
-      inv_all; subst.
-      eapply IHe1 in H0; clear IHe1.
-      eapply IHe2 in H1; clear IHe2.
-      forward_reason.
-      rewrite typeof_expr_subst' with (tvs := tvs) (tus := tus) (y := y); eauto.
-      { rewrite H1; clear H1.
-        rewrite H0; clear H0.
-        eexists; split; [ reflexivity | ].
-        unfold Open_App, OpenT, ResType.OpenT; intros; autorewrite with eq_rw.
-        erewrite H2; eauto. erewrite H3; eauto. }
-      { intros.
-        assert (exists vD,
-                  exprD' tus tvs t0 e = Some vD)
-          by (eapply ExprFacts.typeof_expr_exprD'; eauto).
-        destruct H6.
-        consider (nth_error_get_hlist_nth typD tvs v); intros.
-        { destruct s.
-          assert (x2 = t0).
-          { eapply nth_error_get_hlist_nth_Some in H7. destruct H7.
-            clear - H4 x3. simpl in *. congruence. }
-          subst.
-          eapply HlookupV with (v := v) in H6; eauto.
-          forward_reason. eapply ExprFacts.exprD'_typeof_expr.
-          eauto. }
-        { clear - H4 H7; exfalso.
-          eapply nth_error_get_hlist_nth_None in H7. congruence. } }
-      { intros.
-        assert (exists vD,
-                  exprD' tus tvs t0 e = Some vD)
-          by (eapply ExprFacts.exprD'_typeof_expr; eauto).
-        destruct H6.
-        consider (nth_error_get_hlist_nth typD tus u); intros.
-        { destruct s.
-          assert (x2 = t0).
-          { eapply nth_error_get_hlist_nth_Some in H7. destruct H7.
-            clear - H4 x3. simpl in *. congruence. }
-          subst.
-          eapply HlookupU with (v := u) in H6; eauto.
-          forward_reason. eapply ExprFacts.exprD'_typeof_expr.
-          eauto. }
-        { clear - H4 H7; exfalso.
-          eapply nth_error_get_hlist_nth_None in H7. congruence. } } }
-    { autorewrite with exprD_rw in *; simpl in *.
-      match goal with
-        | H : appcontext [ @typ2_match _ _ _ _ _ ?Y ] |- _ =>
-          let H := fresh in
-          destruct (@typ2_match_case _ _ _ _ _ Y) as [ [ ? [ ? [ ? H ] ] ] | H ];
-            ( try rewrite H in * )
-      end; clear H0.
-      { unfold Relim in *. red in x1; subst.
-        destruct (eq_sym (typ2_cast x x0)).
-        forward.
-        eapply IHe with (tvex := t :: tvex) in H0.
-        forward_reason. simpl in *.
-        rewrite H0.
-        eexists; split; [ reflexivity | ].
-        inv_all; subst.
-        intros. eapply functional_extensionality.
+        generalize (exprD'_lift tus' x1 nil tvex tvs' x).
+        change_rewrite H. simpl.
+        intros; forwardy.
+        subst.
+        eexists; split; try eassumption.
         intros.
-        eapply (H2 us vs us' vs' (Hcons (Rcast_val r x2) vex)); assumption. }
-      { congruence. } }
-    { generalize (HlookupU t (UVar u) u); clear HlookupU HlookupV.
-      autorewrite with exprD_rw in *; simpl in *.
-      forwardy.
+        unfold Rcast_val, Rcast, Relim. simpl.
+        rewrite H2; clear H2.
+        specialize (H7 us' Hnil vex vs'). simpl in H7.
+        rewrite <- H7. eapply H5; eauto. }
+      { eapply pure_is_ret in H. subst.
+        autorewrite with exprD_rw in H0; simpl in H0.
+        forwardy; inv_all; subst.
+        destruct y.
+        autorewrite with exprD_rw; simpl.
+        intro.
+        destruct (@nth_error_get_hlist_nth_appL _ typD tvs' tvex _ H1).
+        destruct (@nth_error_get_hlist_nth_appL _ typD tvs tvex _ H1).
+        rewrite H in *.
+        forward_reason; inv_all; subst.
+        simpl in *.
+        rewrite H2.
+        destruct x0. simpl in *.
+        rewrite H6 in H4.
+        inv_all. subst.
+        rewrite H0.
+        eexists; split; eauto.
+        intros.
+        unfold Rcast_val, Rcast; simpl.
+        rewrite H5; clear H5.
+        rewrite H7; clear H7. reflexivity. } }
+    { eapply pure_is_ret in H.
+      subst.
+      revert H0.
+      autorewrite with exprD_rw. simpl.
+      destruct (funcAs f0 t); try congruence.
+      eexists; split; eauto.
       inv_all; subst.
-      rewrite H. rewrite H0.
-      intro HlookupU.
-      destruct y.
-      specialize (HlookupU _ _ eq_refl eq_refl).
+      auto. }
+    { eapply ap_ret in H.
       forward_reason.
-      destruct (HNU u).
+      eapply ap_ret in H1.
+      forward_reason.
+      subst.
+      apply pure_is_ret in H3. subst.
+      revert H0.
+      autorewrite with exprD_rw; simpl.
+      intros. forwardy; inv_all; subst.
+      specialize (IHe1 _ _ _ _ H1 H2); clear H1 H2.
+      specialize (IHe2 _ _ _ _ H H3); clear H H3.
+      forward_reason.
+      rewrite (ExprTac.exprD_typeof_Some _ _ _ _ _ H).
+      rewrite H. rewrite H1.
+      eexists; split; eauto.
+      intros.
+      unfold exprT_App.
+      clear - H2 H3 H4.
+      unfold exprT, OpenT.OpenT.
+      autorewrite with eq_rw.
+      erewrite H3; eauto.
+      erewrite H2; eauto. }
+    { clear HlookupU HlookupV.
+      eapply fmap_ret in H.
+      destruct H as [ ? [ ? ? ] ].
+      subst.
+      revert H0.
+      autorewrite with exprD_rw; simpl.
+      intros.
+      ExprTac.arrow_case_any.
       { forward_reason.
-        rewrite H3 in H1.
-        specialize (H3 _ (lift 0 (length tvex)) (UVar u)).
-        rewrite H3.
-        generalize (exprD'_lift tus' x1 nil tvex tvs' x); simpl.
-        rewrite H1. intros.
-        forwardy.
-        eexists; split; [ eassumption | ].
-        intros. etransitivity; [ eapply H2 | ]; eauto.
-        eapply (H5 us' Hnil vex vs'). }
-      { rewrite H3 in *.
-        revert H1. autorewrite with exprD_rw; simpl.
-        intros. forward.
-        eexists; split; [ reflexivity | ].
-        inv_all; subst; intros.
-        eapply H2; eauto. } }
+        red in x2. subst.
+        simpl in *.
+        revert H0.
+        autorewrite with eq_rw.
+        destruct (type_cast x0 t); try congruence.
+        intros. forward; inv_all; subst.
+        specialize (IHe _ (t :: tvex) x1 _ H H0).
+        forward_reason.
+        simpl in *. rewrite H2.
+        eexists; split; eauto.
+        intros.
+        unfold exprT, OpenT.OpenT.
+        autorewrite with eq_rw.
+        eapply Eq.match_eq_match_eq with (F:=fun x=>x).
+        eapply functional_extensionality.
+        intros. eapply (H3 us vs us' vs' (Hcons (Rcast_val r x3) vex)); auto. }
+      { congruence. } }
+    { revert H1.
+      eapply bind_ret in H0.
+      forward_reason.
+      clear HlookupV.
+      autorewrite with exprD_rw; simpl.
+      intros. forwardy.
+      inv_all; subst.
+      specialize (fun vals vals' => @HlookupU x0 x e' u _ vals l vals' H1 H2).
+      admit. }
   Qed.
 
   Theorem exprD'_subst
-  : forall tus tvs tus' tvs' lookupU lookupV P (e : expr typ func) (t : typ),
-      (forall u, Natural (lookupU u)) -> (forall v, Natural (lookupV v)) ->
-      (forall t e v vD vD_orig,
+  : forall (tus : tenv (ctyp typ)) tvs tus' tvs'
+           (P : exprT tus tvs (exprT tus' tvs' Prop))
+      (HlookupV : forall t e' v vD,
+         lookupV v = ret e' ->
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           exprD' tus' tvs' t e' = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
-             vD_orig us vs = vD vs ->
-             vD vs = vD' us' vs') ->
-      (forall t e v vD vD_orig,
-         nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
-         exists vD',
-           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
-           forall us vs us' vs',
+             vD vs = vD' us' vs')
+      (HlookupU : forall t es e' u vD vals es' vals',
+         lookupU u es = ret e' ->
+         nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t vD) ->
+         @Forall5 typ
+                  (expr typ func) (fun t => exprT tus tvs (typD t))
+                  (expr typ func) (fun t => exprT tus' tvs' (typD t))
+                  (fun t e v e' v' =>
+                    exprD' tus tvs t e = Some v /\
+                    exprD' tus' tvs' t e = Some v' /\
+                    forall us vs us' vs',
+                      v us vs = v' us' vs') t.(cctx) es vals es' vals' ->
+         exists (vD' : exprT tus' tvs' (typD t.(vtyp))),
+           exprD' tus' tvs' t.(vtyp) e' = Some vD' /\
+           forall (us : hlist ctxD tus) vs
+                  (us' : hlist ctxD tus') vs',
              P us vs us' vs' ->
-             vD_orig us vs = vD us ->
-             vD us = vD' us' vs') ->
-      forall tvx eD,
-        exprD' tus (tvx ++ tvs) t e = Some eD ->
-      exists eD',
-        exprD' tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
-        forall us vs us' vs' vx,
-          P us vs us' vs' ->
-          eD us (hlist_app vx vs) = eD' us' (hlist_app vx vs').
+             vD us (hlist_map (F:=fun t => exprT tus tvs (typD t)) (fun t x => x us vs) vals) = vD' us' vs'),
+      forall e e' tvex (t : typ) eD,
+        subst (length tvex) e = ret e' ->
+        exprD' tus (tvex ++ tvs) t e = Some eD ->
+        exists eD',
+          exprD' tus' (tvex ++ tvs') t e' = Some eD' /\
+          forall us vs us' vs' vex,
+            P us vs us' vs' ->
+            eD us (hlist_app vex vs) = eD' us' (hlist_app vex vs').
   Proof.
-    intros.
-    eapply (@exprD'_subst' lookupU lookupV tus tvs tus' tvs' P)
-      with (tvex := tvx) in H1; eauto.
+    eapply exprD'_subst'.
   Qed.
 
   Definition mentions (uv : nat + nat) (e : expr typ func) : bool :=
@@ -457,6 +465,16 @@ Section substitute.
         rewrite NPeano.Nat.add_cancel_r in H1. exfalso; auto. } }
     { rewrite IHx1. rewrite IHx2. reflexivity. }
     { specialize (IHx (S z)). apply IHx. }
+    { Lemma existsb_map : forall T U (f : T -> U) P ls,
+                            existsb P (map f ls) = existsb (fun x => P (f x)) ls.
+      Proof.
+        clear. induction ls; simpl; auto.
+        rewrite IHls. reflexivity.
+      Qed.
+      rewrite existsb_map.
+      clear - H.
+      induction H; simpl; auto.
+      rewrite H. rewrite IHForall. reflexivity. }
   Qed.
 
   Lemma or_rearrange : forall (A B C D : Prop),
@@ -490,9 +508,9 @@ Section substitute.
   Lemma False_or : forall A, (False \/ A) <-> A.
   Proof. intuition. Qed.
 
+(*
   Theorem mentions_subst
   : forall lookupU lookupV,
-      (forall u, Natural (lookupU u)) -> (forall v, Natural (lookupV v)) ->
       forall e uv n,
       let lookup uv :=
           match uv with
@@ -500,7 +518,7 @@ Section substitute.
             | inr v => lookupV v
           end
       in
-      mentions (lift_uv uv n) (subst lookupU lookupV n e) = true <->
+      mentions (lift_uv uv n) (subst n e) = true <->
       (   (mentions (lift_uv uv n) e = true /\
            forall e',
              mentions uv e' = true ->

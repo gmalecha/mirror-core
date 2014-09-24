@@ -366,7 +366,7 @@ Section subst.
 
   Variable instantiate : (uvar -> option expr) -> expr -> expr.
 
-  Hypothesis exprD'_instantiate : InstantiateI.exprD'_instantiate _ _ instantiate.
+  Hypothesis exprD'_instantiate : InstantiateI.exprD'_instantiate instantiate.
 (*
   Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
 *)

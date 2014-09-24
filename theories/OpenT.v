@@ -33,12 +33,56 @@ Section OpenT.
         Some (@existT _ (fun t => OpenT (typD t)) t get)
     end.
 
-  Definition OpenTrel (Rd : forall t, relation (typD t)) {T} (R : relation T)
-  : relation (OpenT T) :=
-    fun a b => forall x y, equiv_hlist Rd x y -> R (a x) (b y).
+  Section OpenTrel.
+    Variable Rd : forall t, relation (typD t).
+    Context {T : Type}.
+    Variable R : relation T.
 
-  Definition OpenTeq {T} (R : relation T) : relation (OpenT T) :=
-    OpenTrel (fun x => @eq _) R.
+    (** TODO: Move to Data.HList **)
+    Theorem Symmetric_equiv_hlist : (forall t, Symmetric (@Rd t)) ->
+                                    forall ls, Symmetric (@equiv_hlist _ _ Rd ls).
+    Proof.
+      compute.
+      induction 2. constructor. constructor. apply H; auto. auto.
+    Qed.
+
+
+    Definition OpenTrel : relation (OpenT T) :=
+      fun a b => forall x y, equiv_hlist Rd x y -> R (a x) (b y).
+
+    Theorem Symmetric_OpenTrel : (forall t, Symmetric (@Rd t)) -> Symmetric R -> Symmetric OpenTrel.
+    Proof.
+      compute. intros. apply H0. apply H1.
+      eapply Symmetric_equiv_hlist; eauto.
+    Qed.
+  End OpenTrel.
+
+  Section OpenTeq.
+    Context {T : Type}.
+    Variable R : relation T.
+
+    Definition OpenTeq : relation (OpenT T) :=
+      OpenTrel (fun x => @eq _) R.
+
+    Theorem Reflexive_OpenTeq : Reflexive R -> Reflexive OpenTeq.
+    Proof.
+      compute. intros. eapply equiv_eq_eq in H0. subst.
+      apply H.
+    Qed.
+
+    Theorem Symmetric_OpenTeq : Symmetric R -> Symmetric OpenTeq.
+    Proof.
+      compute. intros. apply H. apply H0.
+      symmetry. assumption.
+    Qed.
+
+    Theorem Transitive_OpenTeq : Transitive R -> Transitive OpenTeq.
+    Proof.
+      compute. intros. eapply H. eapply H0; try eassumption.
+      eapply H1. reflexivity.
+    Qed.
+  End OpenTeq.
+
 
   Theorem pure_eq
   : forall T (R : relation T) a b, R a b -> OpenTeq R (pure a) (pure b).

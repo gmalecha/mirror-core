@@ -44,6 +44,7 @@ Module Make (ED : ExprDenote).
       { subst. unfold rel_dec; simpl. rewrite type_cast_refl; auto. }
     Qed.
 
+    (** TODO: Move this **)
     Inductive Forall3 {A B} {C : A -> Type} (P : forall x : A, B -> C x -> Prop) : forall ls : list A, list B -> hlist C ls -> Prop :=
     | Forall3_nil : @Forall3 A B C P nil nil Hnil
     | Forall3_cons : forall t ts x xs y ys,
