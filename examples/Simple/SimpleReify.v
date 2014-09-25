@@ -16,7 +16,6 @@ Axiom otherFunc : BinNums.positive -> expr typ func.
 Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
 
 (** Declare syntax **)
-Print Patterns.CTypedTable.
 Reify Declare Syntax reify_simple :=
   { (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_simple) ::
                          (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
