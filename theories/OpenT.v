@@ -55,6 +55,13 @@ Section OpenT.
       compute. intros. apply H0. apply H1.
       eapply Symmetric_equiv_hlist; eauto.
     Qed.
+
+    Theorem Transitive_OpenTrel : (forall t, Reflexive (@Rd t)) -> Transitive R -> Transitive OpenTrel.
+    Proof.
+      compute. intros.
+      eapply H0.  eapply H1. eassumption.
+      eapply H2. eapply Reflexive_equiv_hlist. eauto.
+    Qed.
   End OpenTrel.
 
   Section OpenTeq.
@@ -109,4 +116,9 @@ Section OpenT_Abs.
   Definition Open_Abs {tvs t T} (f : OpenT typD (t :: tvs) T)
   : OpenT typD tvs (typD t -> T) :=
     fun vs x => f (Hcons x vs).
+
+  Definition Open_App {tvs T U} (f : OpenT typD tvs (T -> U))
+             (x : OpenT typD tvs T)
+  : OpenT typD tvs U :=
+    fun vs => (f vs) (x vs).
 End OpenT_Abs.

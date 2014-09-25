@@ -143,22 +143,31 @@ Section lemma_apply.
                   hlist typD (tvs ++ tvs') -> typD t),
       exprD' tus (tvs ++ tvs') e t = Some val ->
       exists
-        val' : hlist ctxD (tus ++ List.map (mkctyp nil) tvs') ->
+        val' : hlist ctxD (tus ++ List.map (mkctyp tvs) tvs') ->
                hlist typD tvs -> typD t,
-        exprD' (tus ++ List.map (mkctyp nil) tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
+        exprD' (tus ++ List.map (mkctyp tvs) tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
                t = Some val' /\
         (forall (us : hlist ctxD tus)
                 (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') =
-           val' (hlist_app (lr := List.map (mkctyp nil) tvs')
+           val' (hlist_app (lr := List.map (mkctyp tvs) tvs')
                            us
-                           (typs_to_holes nil vs')) vs).
+                           (typs_to_holes tvs vs')) vs).
 
   Let propD tus tvs g :=
     match @typ0_cast _ _ _ _ in _ = t return option (exprT tus tvs t) with
       | eq_refl => exprD' tus tvs g tyProp
     end.
 
+  (** TODO: I need a place to put this **)
+  Fixpoint hlist_OpenT_const_to_hlist_ctx (tvs ts : list typ)
+           (h : hlist (fun t => OpenT.OpenT typD tvs (typD t)) ts)
+  : hlist ctxD (List.map (mkctyp tvs) ts) :=
+    match h in hlist _ ts return hlist ctxD (List.map (mkctyp tvs) ts) with
+      | Hnil => Hnil
+      | Hcons _ _ x h =>
+        Hcons (l:=mkctyp tvs _) x (hlist_OpenT_const_to_hlist_ctx h)
+    end.
 
   Lemma eapplicable_sound
   : forall s tus tvs l0 g s1,
@@ -177,12 +186,15 @@ Section lemma_apply.
         substD tus s = Some sD ->
         exprD' tus tvs g tyProp = Some gD ->
         exists s1D,
-          substD (tus ++ List.map (mkctyp nil) l0.(vars)) s1 = Some s1D /\
-          forall (us : hlist _ tus) (us' : hlist _ (List.map (mkctyp nil) l0.(vars))) (vs : hlist _ tvs),
-            s1D (hlist_app us us') ->
-            exprD (join_env us) ((* join_env us' ++ *) join_env vs) l0.(concl) tyProp =
-            Some (gD us vs)
-            /\ sD us.
+          substD (tus ++ List.map (mkctyp tvs) l0.(vars)) s1 = Some s1D /\
+          forall (us : hlist ctxD tus)
+                 (us' : hlist (fun t => OpenT.OpenT typD tvs (typD t)) l0.(vars))
+                 (vs : hlist typD tvs),
+            s1D (hlist_app us (hlist_OpenT_const_to_hlist_ctx us')) ->
+            exists gD',
+              exprD' tus (l0.(vars) ++ tvs) l0.(concl) tyProp = Some gD'
+              /\ (gD us vs = gD' us (hlist_app (hlist_map (fun t (x : OpenT.OpenT typD tvs (typD t)) => x vs) us') vs))
+              /\ sD us.
   Proof.
 (*
     unfold eapplicable.

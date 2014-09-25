@@ -5,6 +5,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.OpenT.
 Require Import MirrorCore.Util.ListMapT.
 
 Set Implicit Arguments.
@@ -28,8 +29,8 @@ Section lem.
   Context {tyProp : typ}.
   Variable Provable' : typD tyProp -> Prop.
 
-  Fixpoint foralls (ls : list typ) : (hlist (typD) ls -> Prop) -> Prop :=
-    match ls as ls return (hlist (typD) ls -> Prop) -> Prop with
+  Fixpoint foralls (ls : list typ) : (OpenT typD ls Prop) -> Prop :=
+    match ls as ls return (OpenT typD ls Prop) -> Prop with
       | nil => fun P => P Hnil
       | l :: ls => fun P => forall x : typD l,
                               foralls (fun z => P (Hcons x z))
