@@ -81,20 +81,12 @@ Section subst.
   | Roption_None : Roption r None None
   | Roption_Some : forall x y, r x y -> Roption r (Some x) (Some y).
 
-  Definition r tus : Relation_Definitions.relation (option (OpenT ctxD tus Prop)).
-    eapply Roption.
-    eapply OpenTrel.
-    - intros. eapply OpenTrel.
-      + exact (fun t => @eq _).
-      + exact (@eq _).
-    - exact (fun x y => x <-> y).
-  Defined.
-
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
   ; substD : forall (tus : _), T -> option (OpenT ctxD tus Prop)
   ; substD_respects
-    : forall tus t, r (@substD tus t) (@substD tus t)
+    : forall tus t, Roption
+  (OpenTrel (fun t : ctyp typ => OpenTeq eq) (fun x y : Prop => x <-> y)) (@substD tus t) (@substD tus t)
   ; substD_weaken
     : forall tus tus' s sD,
         substD tus s = Some sD ->
@@ -352,15 +344,18 @@ Section subst.
           split.
           - eapply Reflexive_equiv_hlist.
             intros. red. red. intros.
+            red. intros.
             eapply equiv_eq_eq in H9. destruct H9; reflexivity.
           - constructor.
-            + red. intros. apply equiv_eq_eq in H9. destruct H9; reflexivity.
+            + red. intros.
+              red; intros. apply equiv_eq_eq in H9. destruct H9; reflexivity.
             + eapply hlist_hrel_equiv.
               specialize (H18 us (x4 us)).
               eapply hlist_hrel_map.
               2: eapply hlist_hrel_flip; eapply H18.
               simpl. clear H18.
               intros. red. intros.
+              red. intros.
               eapply equiv_eq_eq in H10. subst. symmetry. eapply H9. } } }
   Qed.
 
@@ -383,9 +378,8 @@ Section subst.
         { right. eapply IHc. omega. } } }
   Qed.
 
-(*
   Lemma sem_preserves_if_substD
-  : forall tus tvs s sD,
+  : forall tus s sD,
       WellFormed_subst s ->
       substD tus s = Some sD ->
       sem_preserves_if tus sD (fun u => lookup u s).
@@ -399,7 +393,7 @@ Section subst.
     forward_reason. simpl in *.
     eexists; split; eauto.
   Qed.
-
+(*
   Theorem pull_for_instantiate_sound
   : forall (Hnormalized : NormalizedSubstOk) tus tus' tvs s s',
       pull (length tus) (length tus') s = Some s' ->

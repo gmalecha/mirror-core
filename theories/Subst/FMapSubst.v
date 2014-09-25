@@ -515,9 +515,28 @@ Module Make (FM : WS with Definition E.t := uvar
         { right; auto. } }
     Qed.
 
+    Theorem raw_substD_respects
+    : forall (tus : tenv (ctyp typ)) (t : raw),
+        Roption
+          (OpenT.OpenTrel (fun t0 : ctyp typ => OpenT.OpenTeq eq)
+                          (fun x y : Prop => x <-> y)) (raw_substD tus t)
+          (raw_substD tus t).
+    Proof.
+      intros.
+      eapply Reflexive_Roption.
+      red. intros. red. intros.
+      cutrewrite (x0 = y). reflexivity.
+      clear - H. induction H; auto.
+      subst. red in H. red in H.
+      f_equal.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros. eapply H. reflexivity.
+    Qed.
+
     Instance SubstOk_subst : SubstOk Expr_expr Subst_subst :=
     {| WellFormed_subst := WellFormed
      ; substD := raw_substD
+     ; substD_respects := raw_substD_respects
      ; substD_weaken := substD_weaken
      ; substD_lookup := substD_lookup
      ; WellFormed_domain := WellFormed_domain
@@ -593,8 +612,6 @@ Module Make (FM : WS with Definition E.t := uvar
         { rewrite H0; try reflexivity.
           eapply H5; clear H5. } }
     Qed.
-
-    About sem_preserves_if.
 
     Lemma raw_substD_instantiate
     : forall tus s sD f (P : OpenT.OpenT ctxD tus Prop),
@@ -672,16 +689,16 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Lemma raw_substD_add
-    : forall tus tvs uv e t s sD eD get,
+    : forall tus uv e t s sD eD get,
         raw_lookup uv s = None ->
         nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) ->
-        exprD' tus tvs e t = Some eD ->
-        raw_substD tus tvs s = Some sD ->
+        exprD' tus t.(cctx) e t.(vtyp) = Some eD ->
+        raw_substD tus s = Some sD ->
         exists sD',
-          raw_substD tus tvs (FM.add uv e s) = Some sD' /\
-          forall us vs,
-            sD' us vs <->
-            (sD us vs /\ get us = eD us vs).
+          raw_substD tus (FM.add uv e s) = Some sD' /\
+          forall us,
+            sD' us <->
+            (sD us /\ (forall vs, get us vs = eD us vs)).
     Proof.
       intros.
       unfold raw_substD.
@@ -690,19 +707,18 @@ Module Make (FM : WS with Definition E.t := uvar
         eapply FACTS.not_find_in_iff. assumption. }
       match goal with
         | |- exists x , FM.fold ?F (FM.add ?U ?E ?M) ?X = _ /\ _ =>
-          generalize (@PROPS.fold_add _ _ (@eq_option_A tus tvs) _ F
-                                      (@Proper_substD tus tvs)
-                                      (@Transpose_substD tus tvs) M U E X H3)
+          generalize (@PROPS.fold_add _ _ (Roption _) _ F
+                                      (@Proper_substD tus)
+                                      (@Transpose_substD tus) M U E X H3)
       end.
       intro XXX.
       change_rewrite H0 in XXX.
       change_rewrite H1 in XXX.
       change_rewrite H2 in XXX.
-      unfold eq_option_A in XXX.
-      forwardy.
-      eexists; split. eapply H4.
-      intros. rewrite H5; clear H5.
-      clear. tauto.
+      inversion XXX; clear XXX; inv_all; subst.
+      eexists; split; eauto.
+      intros. etransitivity. eapply H6. reflexivity.
+      simpl. rewrite and_comm. reflexivity.
     Qed.
 
     Theorem substD_set
@@ -711,25 +727,19 @@ Module Make (FM : WS with Definition E.t := uvar
         raw_lookup uv s = None ->
         WellFormed s ->
         WellFormed s' /\
-        (forall (tus tvs : tenv typ) (t : typ)
-                (val : hlist typD tus ->
-                       hlist typD tvs -> typD t)
-                (get : (fun t0 : typ =>
-                          hlist typD tus -> typD t0) t)
-                (sD : hlist typD tus -> hlist typD tvs -> Prop),
-           raw_substD tus tvs s = Some sD ->
-           nth_error_get_hlist_nth typD tus uv =
-           Some
-             (existT
-                (fun t0 : typ => hlist typD tus -> typD t0) t
-                get) ->
-           exprD' tus tvs e t = Some val ->
-           exists
-             sD' : hlist typD tus -> hlist typD tvs -> Prop,
-             raw_substD tus tvs s' = Some sD' /\
-             (forall (us : hlist typD tus)
-                     (vs : hlist typD tvs),
-                sD' us vs -> sD us vs /\ get us = val us vs)).
+        (forall (tus : tenv (ctyp typ)) t
+                (val : exprT tus t.(cctx) (typD t.(vtyp)))
+                get
+                (sD : OpenT.OpenT ctxD tus Prop),
+           raw_substD tus s = Some sD ->
+           nth_error_get_hlist_nth ctxD tus uv =
+           Some (@existT _ (fun t => hlist ctxD tus -> ctxD t) t get) ->
+           exprD' tus t.(cctx) e t.(vtyp) = Some val ->
+           exists sD' : hlist ctxD tus -> Prop,
+             raw_substD tus s' = Some sD' /\
+             (forall (us : hlist ctxD tus)
+                     (vs : hlist typD _),
+                sD' us -> sD us /\ get us vs = val us vs)).
     Proof.
       unfold set; simpl; intros. unfold raw_set in *.
       forward. inv_all; subst.
@@ -739,14 +749,14 @@ Module Make (FM : WS with Definition E.t := uvar
         intro XXX. specialize (XXX _ eq_refl). eauto. }
       { intros.
         red in exprD'_instantiate.
-        eapply exprD'_instantiate with (tvs' := nil) (tvs := tvs) in H4.
-        2: eapply sem_preserves_if_substD; eassumption.
+        eapply exprD'_instantiate with (tvs := _) in H4.
+        2: eapply sem_preserves_if_substD; eauto.
         simpl in H4.
         forward_reason.
         eapply raw_substD_instantiate
           with (f := fun u' : uvar =>
-                     if uv ?[ eq ] u' then Some (raw_subst s 0 e) else None)
-               (P := fun us vs => x us vs = get us)
+                     if uv ?[ eq ] u' then Some (raw_subst s e) else None)
+               (P := fun us => forall vs, x us vs = get us vs)
           in H2.
         forward_reason.
         eapply raw_substD_add in H2; eauto.
@@ -755,9 +765,9 @@ Module Make (FM : WS with Definition E.t := uvar
           intros.
           eapply H7 in H8.
           forward_reason.
-          cut (sD us vs).
+          cut (sD us).
           + intros; split; auto.
-            rewrite H9. symmetry. apply (H5 us vs Hnil); assumption.
+            rewrite H9. symmetry. apply (H5 us vs); assumption.
           + apply H6; auto. }
         { unfold raw_lookup.
           rewrite FACTS.map_o.
@@ -797,57 +807,60 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Lemma raw_substD_Equal
-    : forall tus tvs s s' sD,
-        raw_substD tus tvs s = Some sD ->
+    : forall tus s s' sD,
+        raw_substD tus s = Some sD ->
         FM.Equal s s' ->
         exists sD',
-          raw_substD tus tvs s' = Some sD' /\
-          forall us vs,
-            sD us vs <-> sD' us vs.
+          raw_substD tus s' = Some sD' /\
+          forall us,
+            sD us <-> sD' us.
     Proof.
       unfold raw_substD.
       intros.
       match goal with
         | _ : context [ FM.fold ?X _ ?A ] |- _ =>
-          generalize (@PROPS.fold_Equal _ _ (@eq_option_A tus tvs) _ X
-                                        (@Proper_substD _ _)
-                                        (@Transpose_substD _ _) _ _ A H0)
+          generalize (@PROPS.fold_Equal _ _ (Roption _) _ X
+                                        (@Proper_substD _)
+                                        (@Transpose_substD _) _ _ A H0)
       end.
       change_rewrite H.
       simpl. intros; forward.
+      inversion H1; clear H1; inv_all; subst.
       eexists; split; try eassumption. reflexivity.
+      intros. eapply H4. reflexivity.
     Qed.
 
     Lemma raw_substD_add'
-    : forall tus tvs s k v sD,
+    : forall tus s k v sD,
         ~FM.In k s ->
-        raw_substD tus tvs (FM.add k v s) = Some sD ->
+        raw_substD tus (FM.add k v s) = Some sD ->
         exists sD' t val get,
-          raw_substD tus tvs s = Some sD' /\
-          exprD' tus tvs v t = Some val /\
+          raw_substD tus s = Some sD' /\
           nth_error_get_hlist_nth _ tus k = Some (@existT _ _ t get) /\
-          forall us vs,
-            sD us vs <->
-            (sD' us vs /\ get us = val us vs).
+          exprD' tus t.(cctx) v t.(vtyp) = Some val /\
+          forall us,
+            sD us <->
+            (sD' us /\ forall vs, get us vs = val us vs).
     Proof.
       simpl. intros.
       unfold raw_substD in H0.
       match goal with
         | _ : context [ FM.fold ?X _ ?A ] |- _ =>
-          generalize (@PROPS.fold_add _ _ (@eq_option_A tus tvs) _ X
-                                      (@Proper_substD _ _)
-                                      (@Transpose_substD _ _) s k v A H)
+          generalize (@PROPS.fold_add _ _ (Roption _) _ X
+                                      (@Proper_substD _)
+                                      (@Transpose_substD _) s k v A H)
       end.
       change_rewrite H0.
       simpl. intros.
-      forwardy.
+      inversion H1; clear H1; inv_all; subst.
+      symmetry in H3.
+      forwardy. inv_all; subst.
       do 4 eexists.
       split; [ eassumption | ].
       split; [ eassumption | ].
       split; [ eassumption | ].
       inv_all; subst. intros.
-      rewrite H2.
-      intuition.
+      rewrite and_comm. eapply H4. reflexivity.
     Qed.
 
     Lemma WellFormed_remove
@@ -866,6 +879,7 @@ Module Make (FM : WS with Definition E.t := uvar
       intuition.
     Qed.
 
+(*
     Lemma raw_substD_strengthen_1
     : forall tus tu tvs s sD,
         ~FM.In (length tus) s ->
@@ -1046,13 +1060,15 @@ Module Make (FM : WS with Definition E.t := uvar
           rewrite H in H4. inv_all; subst.
           eexists; split; eauto. } }
     Qed.
-
+*)
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| WellFormed_empty := WellFormed_empty
      ; substD_empty := substD_empty
      ; set_sound := substD_set
-     ; drop_sound := substD_drop'
+     ; drop_sound := _
      |}.
+    admit.
+    Defined.
 
   End exprs.
 End Make.
