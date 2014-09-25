@@ -34,11 +34,11 @@ Section proverI.
       prover sum tus tvs goal = true ->
       (forall sumD goalD,
          Valid tus tvs sum = Some sumD ->
-         exprD' tus tvs goal tyProp = Some goalD ->
+         Provable tus tvs goal = Some goalD ->
          forall (us : HList.hlist ctxD tus)
                 (vs : HList.hlist typD tvs),
            sumD us vs ->
-           Provable_val (goalD us vs)).
+           goalD us vs).
 
   Record ProverOk (P : Prover) : Type :=
   { factsD : forall (tus : tenv (ctyp typ)) (tvs : tenv typ), Facts P -> option (exprT tus tvs Prop)

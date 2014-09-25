@@ -258,9 +258,8 @@ Section proverI.
       simpl in H. forward. inv_all; subst.
       split; auto. intros.
       eexists; split; eauto. intros. split; auto.
-      admit. (*
       eapply ProverI.Prove_sound in H; eauto.
-      *)
+      eapply H; eauto.
     Qed.
   End non_eprover.
 
