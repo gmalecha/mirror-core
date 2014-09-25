@@ -611,44 +611,47 @@ struct
 
     let rec parse_commands cmd =
       Term_match.(matches ()
-	[ (apps (Glob Std.List.c_nil) [apps Ignore [get 0(*T*)]],
-	   fun _ s -> (Hashtbl.find s 0,[]))
+	[ (apps (Glob Std.List.c_nil) [Ignore],
+	   fun _ s -> [])
 	; (apps (Glob Std.List.c_cons) [Ignore(*T*);get 0(*cmd*);get 1(*cmds*)],
 	   fun _ s ->
-	     let (a,b) = parse_commands (Hashtbl.find s 1) in
-	     (a,parse_command (Hashtbl.find s 0) :: b))
+	     let (_,a) = parse_command (Hashtbl.find s 0) in
+	     let b = parse_commands (Hashtbl.find s 1) in
+	     (a :: b))
 	]
 	cmd)
-    and parse_command cmd =
+    and parse_command cmd : Term.constr * command =
       Term_match.(matches ()
-	[ (apps (EGlob cmd_patterns) [Ignore;get 0],
-	   fun _ s -> Patterns (Hashtbl.find s 0))
-	; (apps (EGlob cmd_call) [Ignore;get 0],
-	   fun _ s -> Call (Hashtbl.find s 0))
-	; (apps (EGlob cmd_app) [Ignore;get 0],
-	   fun _ s -> App (Hashtbl.find s 0))
-	; (apps (EGlob cmd_var) [Ignore;get 0],
-	   fun _ s -> Var (Hashtbl.find s 0))
-	; (apps (EGlob cmd_abs) [Ignore;get 1;get 0],
-	   fun _ s -> Abs (Hashtbl.find s 1,Hashtbl.find s 0))
-	; (apps (EGlob cmd_table) [Ignore;Ignore;get 0;get 1],
-	   fun _ s -> Table (Hashtbl.find s 0, Hashtbl.find s 1))
+	[ (apps (EGlob cmd_patterns) [get ~-1(*T*);get 0],
+	   fun _ s -> (Hashtbl.find s ~-1,Patterns (Hashtbl.find s 0)))
+	; (apps (EGlob cmd_call) [get ~-1(*T*);get 0],
+	   fun _ s -> (Hashtbl.find s ~-1,Call (Hashtbl.find s 0)))
+	; (apps (EGlob cmd_app) [get ~-1(*T*);get 0],
+	   fun _ s -> (Hashtbl.find s ~-1,App (Hashtbl.find s 0)))
+	; (apps (EGlob cmd_var) [get ~-1(*T*);get 0],
+	   fun _ s -> (Hashtbl.find s ~-1,Var (Hashtbl.find s 0)))
+	; (apps (EGlob cmd_abs) [get ~-1(*T*);get 1;get 0],
+	   fun _ s -> (Hashtbl.find s ~-1,Abs (Hashtbl.find s 1,Hashtbl.find s 0)))
+	; (apps (EGlob cmd_table) [get ~-1(*T*);Ignore;get 0;get 1],
+	   fun _ s -> (Hashtbl.find s ~-1,Table (Hashtbl.find s 0, Hashtbl.find s 1)))
 	; (apps (EGlob cmd_typed_table)
-	     [Ignore(*T*);Ignore(*K*);get 0(*Ty*);
+	     [get ~-1(*T*);Ignore(*K*);get 0(*Ty*);
 	      get 1(*tbl*);get 2(*ctor*)],
 	   fun _ s ->
-	     TypedTable (Hashtbl.find s 1, Hashtbl.find s 0, Hashtbl.find s 2))
+	     (Hashtbl.find s ~-1,TypedTable (Hashtbl.find s 1, Hashtbl.find s 0, Hashtbl.find s 2)))
 	; (apps (EGlob cmd_map)
-	     [Ignore(*T*);get 1(*F*);get 0(*cmd*)],
+	     [get ~-1(*T*);get 1(*F*);get 0(*cmd*)],
 	   fun _ s ->
-	     Map (Hashtbl.find s 1, parse_command (Hashtbl.find s 0)))
+	     let (_,c) = parse_command (Hashtbl.find s 0) in
+	     (Hashtbl.find s ~-1,Map (Hashtbl.find s 1, c)))
 	; (apps (EGlob cmd_first)
-	     [Ignore(*T*);get 0(*cmds*)],
-	   fun _ s -> First (snd (parse_commands (Hashtbl.find s 0))))
+	     [get ~-1(*T*);get 0(*cmds*)],
+	   fun _ s ->
+	     (Hashtbl.find s ~-1,First (parse_commands (Hashtbl.find s 0))))
 	]
 	cmd)
 
-    let compile_commands (ls : command list)
+    let compile_command (ls : command)
     : lazy_term -> Term.constr reifier =
       let top = ref (fun _ _ -> assert false) in
       let rec compile_commands (ls : command list)
@@ -816,13 +819,13 @@ struct
 	| First cs ->
 	  compile_commands cs
       in
-      let result = compile_commands ls in
+      let result = compile_command ls in
       top := result ;
       result
 
     let add_syntax (name : Term.constr) (cmds : Term.constr) : unit =
-      let (_,program) = parse_commands cmds in
-      let meta_reifier = compile_commands program in
+      let (_,program) = parse_command cmds in
+      let meta_reifier = compile_command program in
       let _ =
 	if Cmap.mem name !reify_table then
 	  Pp.(msg_warning (   (str "Redeclaring syntax '")
@@ -843,8 +846,8 @@ struct
 
     let declare_syntax (name : Names.identifier)
 	(cmd : Term.constr) : unit =
-      let (typ,_program) = parse_commands cmd in
-      let _meta_reifier = compile_commands _program in
+      let (typ,_program) = parse_command cmd in
+      let _meta_reifier = compile_command _program in
       let obj = decl_constant name typ in
       let _ = Lib.add_anonymous_leaf (syntax_object (obj,cmd)) in
       add_syntax obj cmd
