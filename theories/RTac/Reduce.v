@@ -78,7 +78,7 @@ Section parameterized.
                      ** have to be renumbered. This is because this is
                      ** actually a subst, not an instantiate
                      **)
-                    let g' := instantiateGoal(fun u => if u ?[ eq ] un' then Some e else None) g
+                    let g' := instantiateGoal (fun u => if u ?[ eq ] un' then Some e else None) g
                     in
                     match g' with
                       | GSolved =>
