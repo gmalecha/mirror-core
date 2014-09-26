@@ -324,7 +324,7 @@ Section beta.
       rewrite type_cast_refl; eauto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       rewrite type_cast_refl; eauto.
-}
+      admit. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       unfold funcAs. generalize (symD i).
       Cases.rewrite_all_goal.
@@ -333,15 +333,15 @@ Section beta.
       simpl; intros; forward_reason;
       autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl;
       forward; inv_all; subst.
-      { split; auto. unfold Open_App.
+      { split; auto. unfold exprT_App.
         intros.
-        unfold OpenT, ResType.OpenT.
+        unfold ExprI.exprT, OpenT.OpenT.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
         rewrite H5. reflexivity. }
       { split; auto.
-        clear H5. unfold Open_App.
+        clear H5. unfold exprT_App.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-        generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus f nil x _ eq_refl tvs d r).
+        generalize (@substitute_one_sound _ _ _ _ _ tus f nil x _ eq_refl tvs d r).
         autorewrite with exprD_rw in H0. simpl in H0.
         rewrite typ2_match_zeta in H0; eauto.
         rewrite eq_option_eq in H0.
@@ -349,7 +349,7 @@ Section beta.
         simpl in *. destruct r0.
         rewrite H1 in H5. rewrite H6 in H5.
         forward.
-        unfold OpenT, ResType.OpenT, Rcast_val, Rcast, Relim.
+        unfold ExprI.exprT, OpenT.OpenT, Rcast_val, Rcast, Relim.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
         simpl. specialize (H5 us Hnil vs).
         simpl in *. etransitivity; [ | eassumption ].
@@ -357,11 +357,11 @@ Section beta.
         reflexivity. } }
     { intros. forward_reason.
       forward. simpl.
-      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (Open_Abs fval)); auto.
+      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (exprT_Abs fval)); auto.
       autorewrite with exprD_rw.
       rewrite typ2_match_zeta; auto.
       rewrite type_cast_refl; auto. simpl.
-      rewrite H. unfold Open_Abs.
+      rewrite H. unfold exprT_Abs.
       rewrite eq_Arr_eq. rewrite eq_Const_eq.
       rewrite eq_option_eq. reflexivity. }
   Qed.

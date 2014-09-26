@@ -7,6 +7,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
@@ -177,11 +178,11 @@ Section beta_all.
     rewrite eq_option_eq in H0.
     forward. inv_all; subst.
     destruct r.
-    generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus e nil ex _ eq_refl tvs t1 t0).
+    generalize (@substitute_one_sound _ _ _ _ _ tus e nil ex _ eq_refl tvs t1 t0).
     simpl. Cases.rewrite_all_goal.
     intros. forward.
-    f_equal. unfold Open_App.
-    unfold OpenT, ResType.OpenT.
+    f_equal. unfold exprT_App.
+    unfold exprT, OpenT.OpenT.
     repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
     clear - H4.
     apply functional_extensionality; intro.
@@ -221,12 +222,12 @@ Section beta_all.
     induction args.
     + simpl.
       intros. forward. inv_all. subst.
-      unfold Rcast, Relim, OpenT, ResType.OpenT.
+      unfold Rcast, Relim, exprT, OpenT.OpenT.
       repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
       rewrite H1. reflexivity.
     + simpl. intros.
       arrow_case t.
-    - unfold Relim, OpenT, ResType.OpenT in *; autorewrite with eq_rw in *.
+    - unfold Relim, exprT, OpenT.OpenT in *; autorewrite with eq_rw in *.
       forward.
       specialize (IHargs _ _ _ _ _ _ H0 H3); clear H0 H3.
       simpl in *. eapply IHargs.
@@ -243,7 +244,7 @@ Section beta_all.
     induction args; simpl; intros.
     + forward. eauto.
     + arrow_case t.
-      unfold Relim, OpenT, ResType.OpenT in *.
+      unfold Relim, exprT, OpenT.OpenT in *.
       repeat first [ rewrite eq_Const_eq in * | rewrite eq_Arr_eq in * ].
       forward.
       eapply IHargs in H1. eapply H1. congruence.
@@ -258,7 +259,7 @@ Section beta_all.
                        @EnvForall A R es ts vs ->
                        @EnvForall A R (e :: es) (t :: ts) (Hcons v vs).
 *)
-  Inductive EnvModels tus (us : hlist typD tus)
+  Inductive EnvModels tus (us : hlist ctxD tus)
   : forall tvs, list (option (expr typ sym)) -> hlist typD tvs -> Prop :=
   | EnvModels_nil : @EnvModels tus us nil nil Hnil
   | EnvModels_None : forall t tvs vs val vals,

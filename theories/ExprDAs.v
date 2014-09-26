@@ -43,14 +43,13 @@ Section parameterized.
   Qed.
 
   Lemma exprD'_typ0_weaken (ExprOk_expr : ExprOk _)
-  : forall tus0 (tvs0 : tenv typ) (l0 : expr)
-           (lD : exprT tus0 tvs0 T),
-      exprD'_typ0 tus0 tvs0 l0 = Some lD ->
-      forall tus' (tvs' : list typ),
+  : forall tus (tvs : tenv typ) tus' (tvs' : list typ) (l0 : expr)
+           (lD : exprT tus tvs T),
+      exprD'_typ0 tus tvs l0 = Some lD ->
       exists
-        lD' : exprT (tus0 ++ tus') (tvs0 ++ tvs') T,
-        exprD'_typ0 (tus0 ++ tus') (tvs0 ++ tvs') l0 = Some lD' /\
-        (forall (us : hlist _ tus0) (vs : hlist typD tvs0)
+        lD' : exprT (tus ++ tus') (tvs ++ tvs') T,
+        exprD'_typ0 (tus ++ tus') (tvs ++ tvs') l0 = Some lD' /\
+        (forall (us : hlist _ tus) (vs : hlist typD tvs)
                 (us' : hlist _ tus') (vs' : hlist typD tvs'),
            lD us vs = lD' (hlist_app us us') (hlist_app vs vs')).
   Proof.
@@ -66,15 +65,14 @@ Section parameterized.
   Qed.
 
   Definition exprD'_typ0_weakenU (ExprOk_expr : ExprOk _)
-  : forall tus0 (tvs0 : tenv typ) (l0 : expr)
-           (lD : exprT tus0 tvs0 T),
-      exprD'_typ0 tus0 tvs0 l0 = Some lD ->
-      forall tus',
+  : forall tus (tvs : tenv typ) tus' (l0 : expr)
+           (lD : exprT tus tvs T),
+      exprD'_typ0 tus tvs l0 = Some lD ->
       exists
-        lD' : exprT (tus0 ++ tus') tvs0 T,
-        exprD'_typ0 (tus0 ++ tus') tvs0 l0 = Some lD' /\
-        (forall (us : hlist _ tus0) (us' : hlist _ tus')
-                (vs : hlist typD tvs0),
+        lD' : exprT (tus ++ tus') tvs T,
+        exprD'_typ0 (tus ++ tus') tvs l0 = Some lD' /\
+        (forall (us : hlist _ tus) (us' : hlist _ tus')
+                (vs : hlist typD tvs),
            lD us vs = lD' (hlist_app us us') vs).
   Proof.
     unfold exprD'_typ0. intros.
@@ -90,14 +88,13 @@ Section parameterized.
   Qed.
 
   Definition exprD'_typ0_weakenV (ExprOk_expr : ExprOk _)
-  : forall tus0 (tvs0 : tenv typ) (l0 : expr)
-           (lD : exprT tus0 tvs0 T),
-      exprD'_typ0 tus0 tvs0 l0 = Some lD ->
-      forall tvs' : list typ,
+  : forall tus (tvs : tenv typ) tvs' (l0 : expr)
+           (lD : exprT tus tvs T),
+      exprD'_typ0 tus tvs l0 = Some lD ->
       exists
-        lD' : exprT tus0 (tvs0 ++ tvs') T,
-        exprD'_typ0 tus0 (tvs0 ++ tvs') l0 = Some lD' /\
-        (forall (us : hlist _ tus0) (vs : hlist typD tvs0)
+        lD' : exprT tus (tvs ++ tvs') T,
+        exprD'_typ0 tus (tvs ++ tvs') l0 = Some lD' /\
+        (forall (us : hlist _ tus) (vs : hlist typD tvs)
                 (vs' : hlist typD tvs'),
            lD us vs = lD' us (hlist_app vs vs')).
   Proof.
@@ -114,3 +111,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments exprD'_typ0 {_ _ _ _} T {_} _ _ _ : rename.

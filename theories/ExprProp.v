@@ -6,6 +6,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.ExprDAs.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -26,16 +27,7 @@ Section semantic.
       | eq_refl => val
     end.
 
-  Definition Provable tus tvs (e : expr)
-  : option (exprT tus tvs Prop) :=
-    match exprD' tus tvs e tvProp with
-      | None => None
-      | Some p => Some (match @typ0_cast _ _ _ _  in _ = t
-                              return HList.hlist _ tus -> HList.hlist _ tvs -> t
-                        with
-                          | eq_refl => p
-                        end)
-    end.
+  Definition Provable := exprD'_typ0 Prop.
 
   Theorem Provable_weaken
   : forall tus tus' tvs tvs' e eD,
@@ -47,7 +39,7 @@ Section semantic.
   Proof.
     unfold Provable.
     intros; forward; inv_all; subst.
-    eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H; eauto.
+    eapply (@exprD'_typ0_weaken _ _ _ _ _ _ _ tus tvs tus' tvs') in H; eauto.
     forward_reason.
     rewrite H. eexists; split; eauto.
     intros.
