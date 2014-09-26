@@ -3,6 +3,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
@@ -36,6 +37,73 @@ Section typed.
   Variable SubstUpdateOk_subst
   : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
   Local Existing Instance Expr_expr. (* : Expr _ (expr typ func) := Expr_expr. *)
+  Variable RelDec_eq_typ : RelDec (@eq typ).
+  Variable RelDec_eq_func : RelDec (@eq func).
+  Instance RelDec_eq_expr : RelDec (@eq (expr typ func)) := RelDec_eq_expr _ _.
+
+  (** n is the number of binders that we have gone under **)
+  Variable exprUnify : forall (tus : tenv (ctyp typ)) (tvs : tenv typ)
+                                (l r : expr typ func), typ -> subst -> option subst.
+
+  Fixpoint find (e : expr typ func) (acc : nat) (es : list (expr typ func)) : option nat :=
+    match es with
+      | nil => None
+      | e' :: es' =>
+        if e ?[ eq ] e' then Some acc
+        else find e (S acc) es'
+    end.
+
+  Axiom instantiate : subst -> expr typ func -> expr typ func.
+
+  Fixpoint patterns (es : list (expr typ func)) (s : subst)
+           (e : expr typ func) {struct e}
+  : option (expr typ func).
+    refine
+      match e with
+        | Inj i => Some (Inj i)
+        | UVar u es' =>
+          match mapT_list (F:=option) (patterns es s) es' with
+            | None => None (** I could do something here **)
+            | Some es'' => Some (UVar u es'')
+          end
+        | App e1 e2 =>
+          match patterns es s e1
+                , patterns es s e2 with
+            | Some e1' , Some e2' => Some (App e1' e2')
+            | _ , _ => None
+          end
+        | _ =>
+          (** This is the only case that I expect to happen **)
+          match find e 0 es with
+            | None => None
+            | Some v' => Some (Var v')
+          end
+      end.
+  Defined.
+
+  Definition try_set
+             (u : uvar) (args1 : list (expr typ func))
+             (e2 : expr typ func)
+             (s : subst) : option subst :=
+    match patterns args1 s e2 with
+      | None => None
+      | Some e => set u e s
+    end.
+
+  Fixpoint fold_left3 {A B C} (f : C -> A -> A -> B -> option B) (t : list C)
+           (x y : list A) (s : B)
+  : option B :=
+    match t , x , y with
+      | nil , nil , nil => Some s
+      | t :: ts , x :: xs , y :: ys =>
+        match f t x y s with
+          | None => None
+          | Some s => fold_left3 f ts xs ys s
+        end
+      | _ , _ , _ => None
+    end.
+
+
 
 (*
   Lemma handle_set
@@ -330,3 +398,5 @@ Section typed.
   Qed.
 *)
 End typed.
+
+Arguments try_set {_ _ _ _ _ _} _ _ _ _ : rename.

@@ -7,6 +7,7 @@ Require Import MirrorCore.EnvI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
 
 Set Implicit Arguments.
@@ -133,7 +134,18 @@ Section lemma_apply.
   : hlist ctxD (List.map (mkctyp ctx) ls) :=
     match h in hlist _ ls return hlist ctxD (List.map (mkctyp ctx) ls) with
       | Hnil => Hnil
-      | Hcons t _ l ls => @Hcons _ ctxD {| cctx := ctx ; vtyp := t |} _ (fun _ => l) (typs_to_holes ctx ls)
+      | Hcons t _ l ls =>
+        @Hcons _ ctxD {| cctx := ctx ; vtyp := t |} _ (fun _ => l)
+               (typs_to_holes ctx ls)
+    end.
+
+  Fixpoint holes_convert (ctx : tenv typ) (ls : tenv typ)
+           (h : hlist (fun t => OpenT.OpenT typD ctx (typD t)) ls)
+  : hlist ctxD (List.map (mkctyp ctx) ls) :=
+    match h in hlist _ ls return hlist ctxD (List.map (mkctyp ctx) ls) with
+      | Hnil => Hnil
+      | Hcons t _ l ls =>
+        @Hcons _ ctxD {| cctx := ctx ; vtyp := t |} _ l (holes_convert ls)
     end.
 
   Hypothesis vars_to_uvars_exprD'
@@ -154,10 +166,7 @@ Section lemma_apply.
                            us
                            (typs_to_holes tvs vs')) vs).
 
-  Let propD tus tvs g :=
-    match @typ0_cast _ _ _ _ in _ = t return option (exprT tus tvs t) with
-      | eq_refl => exprD' tus tvs g tyProp
-    end.
+(*  Let propD tus tvs g := exprD'_typ0 tus tvs g. *)
 
   (** TODO: I need a place to put this **)
   Fixpoint hlist_OpenT_const_to_hlist_ctx (tvs ts : list typ)
@@ -176,25 +185,20 @@ Section lemma_apply.
       WellFormed_subst s1 /\
       forall sD gD,
         (exists lD,
-          @lemmaD' _ _ _ _ _
-                   propD
-                   tyProp
-                   (fun x => match @typ0_cast _ _ _ _ in _ = t return t with
-                               | eq_refl => x
-                             end)
+          @lemmaD' _ _ _ _ _ _
+                   (exprD'_typ0 Prop)
                    nil nil l0 = Some lD) ->
         substD tus s = Some sD ->
         exprD' tus tvs g tyProp = Some gD ->
-        exists s1D,
+        exists s1D gD',
           substD (tus ++ List.map (mkctyp tvs) l0.(vars)) s1 = Some s1D /\
+          exprD' tus (l0.(vars) ++ tvs) l0.(concl) tyProp = Some gD' /\
           forall (us : hlist ctxD tus)
                  (us' : hlist (fun t => OpenT.OpenT typD tvs (typD t)) l0.(vars))
                  (vs : hlist typD tvs),
             s1D (hlist_app us (hlist_OpenT_const_to_hlist_ctx us')) ->
-            exists gD',
-              exprD' tus (l0.(vars) ++ tvs) l0.(concl) tyProp = Some gD'
-              /\ (gD us vs = gD' us (hlist_app (hlist_map (fun t (x : OpenT.OpenT typD tvs (typD t)) => x vs) us') vs))
-              /\ sD us.
+               (gD us vs = gD' us (hlist_app (hlist_map (fun t (x : OpenT.OpenT typD tvs (typD t)) => x vs) us') vs))
+            /\ sD us.
   Proof.
 (*
     unfold eapplicable.
@@ -280,15 +284,12 @@ Section lemma_apply.
   Theorem apply_lemma_sound
   : forall (lem : lemma typ expr expr) (es : list expr) tus tvs l_prem l_conc lD,
       Forall2 (fun t e => exprD' tus tvs e t = None -> False) (lem.(vars)) es ->
-      @lemmaD' _ _ _ _ _
-               propD tyProp
-               (fun x => match typ0_cast (F:=Prop) in _ = t return t with
-                           | eq_refl => x
-                         end) tus tvs lem = Some lD ->
+      @lemmaD' _ _ _ _ _ _
+               (exprD'_typ0 Prop) tus tvs lem = Some lD ->
       apply_lemma lem es = Some (l_prem, l_conc) ->
       exists lpD lcD,
-        mapT (F:=option)(T:=list) (propD tus tvs) l_prem = Some lpD /\
-        propD tus tvs l_conc = Some lcD /\
+        mapT (F:=option)(T:=list) (exprD'_typ0 Prop tus tvs) l_prem = Some lpD /\
+        exprD'_typ0 Prop tus tvs l_conc = Some lcD /\
         forall us vs,
           lD us vs ->
           (   Forall (fun x => x us vs) lpD
@@ -297,3 +298,5 @@ Section lemma_apply.
   Admitted.
 
 End lemma_apply.
+
+Arguments typs_to_holes {typ _} ctx {ls} _ : rename.

@@ -15,6 +15,7 @@ Require Import MirrorCore.Lambda.ExprUnify_common.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
+Require Import MirrorCore.Lambda.ExprSubst.
 Require Import MirrorCore.Util.Forwardy.
 
 Require Import FunctionalExtensionality.
@@ -44,75 +45,15 @@ Section typed.
                             | Some _ => true
                             | None => false
                           end }.
+  Variable RelDec_eq_typ : RelDec (@eq typ).
+  Variable RelDec_eq_func : RelDec (@eq func).
 
-  Instance RelDec_eq_expr : RelDec (@eq (expr typ func)). Admitted.
-
+  Local Instance RelDec_eq_expr : RelDec (@eq (expr typ func)) := _.
+  
   Section nested.
     (** n is the number of binders that we have gone under **)
     Variable exprUnify : forall (tus : tenv (ctyp typ)) (tvs : tenv typ)
                                 (l r : expr typ func), typ -> subst -> option subst.
-
-    Definition substList (e : expr typ func) (es : list (expr typ func))
-    : expr typ func.
-    Admitted.
-
-    Fixpoint find (e : expr typ func) (acc : nat) (es : list (expr typ func)) : option nat :=
-      match es with
-        | nil => None
-        | e' :: es' =>
-          if e ?[ eq ] e' then Some acc
-          else find e (S acc) es'
-      end.
-
-    Axiom instantiate : subst -> expr typ func -> expr typ func.
-
-    Fixpoint patterns (es : list (expr typ func)) (s : subst)
-             (e : expr typ func) {struct e}
-    : option (expr typ func).
-      refine
-        match e with
-          | Inj i => Some (Inj i)
-          | UVar u es' =>
-            match mapT_list (F:=option) (patterns es s) es' with
-              | None => None (** I could do something here **)
-              | Some es'' => Some (UVar u es'')
-            end
-          | App e1 e2 =>
-            match patterns es s e1
-                , patterns es s e2 with
-              | Some e1' , Some e2' => Some (App e1' e2')
-              | _ , _ => None
-            end
-          | _ =>
-            (** This is the only case that I expect to happen **)
-            match find e 0 es with
-              | None => None
-              | Some v' => Some (Var v')
-            end
-        end.
-    Defined.
-
-    Definition try_set
-               (u : uvar) (args1 : list (expr typ func))
-               (e2 : expr typ func)
-               (s : subst) : option subst :=
-      match patterns args1 s e2 with
-        | None => None
-        | Some e => set u e s
-      end.
-
-    Fixpoint fold_left3 {A B C} (f : C -> A -> A -> B -> option B) (t : list C)
-             (x y : list A) (s : B)
-    : option B :=
-      match t , x , y with
-        | nil , nil , nil => Some s
-        | t :: ts , x :: xs , y :: ys =>
-          match f t x y s with
-            | None => None
-            | Some s => fold_left3 f ts xs ys s
-          end
-        | _ , _ , _ => None
-      end.
 
     Fixpoint exprUnify' (us : tenv (ctyp typ)) (vs : tenv typ)
              (e1 e2 : expr typ func) (t : typ) (s : subst) {struct e1}
@@ -140,19 +81,17 @@ Section typed.
               | None , Some e2' =>
                 try_set u1 es1 e2' s
               | Some e1' , Some e2' =>
-                exprUnify us vs (substList e1' es1) (substList e2' es2) t s
+                exprUnify us vs (substList es1 0 e1') (substList es2 0 e2') t s
             end
         | UVar u1 es1 , _ =>
           match lookup u1 s with
-            | None =>
-              try_set u1 es1 e2 s
-            | Some e1' => exprUnify us vs (substList e1' es1) e2 t s
+            | None => try_set u1 es1 e2 s
+            | Some e1' => exprUnify us vs (substList es1 0 e1') e2 t s
           end
         | _ , UVar u2 es2 =>
           match lookup u2 s with
-            | None =>
-              try_set u2 es2 e1 s
-            | Some e2' => exprUnify us vs e1 (substList e2' es2) t s
+            | None => try_set u2 es2 e1 s
+            | Some e2' => exprUnify us vs e1 (substList es2 0 e2') t s
           end
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then Some s else None

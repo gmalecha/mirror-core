@@ -13,11 +13,12 @@ EXTENSIBLE := Types ExprCore \
 LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
 	  Expr ExprLift Red RedAll \
-	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
 	  ExprSubst ExprSubstitute AppN \
 	  AutoSetoidRewrite
+	  ExprSubst ExprSubstitute AppN
+	  # TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore

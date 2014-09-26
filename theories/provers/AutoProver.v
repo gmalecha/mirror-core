@@ -3,6 +3,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.OpenT.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
@@ -33,6 +34,7 @@ Section parameterized.
   Variable Expr_expr : Expr _ expr.
   Variable ExprOk_expr : ExprOk Expr_expr.
 
+
   Let tyProp : typ := @typ0 _ _ _ _.
 
   Local Existing Instance Expr_expr.
@@ -50,19 +52,13 @@ Section parameterized.
 
   Let lemmaD :=
     @lemmaD _ _ _ Expr_expr expr
-            (fun tus tvs g =>
-               match typ0_cast (F:=Prop) in _ = T return option (exprT tus tvs T) with
-                 | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
-               end)
+            (ExprDAs.exprD'_typ0 Prop)
             tyProp
             provable.
 
   Let lemmaD' :=
     @lemmaD' _ _ _ Expr_expr expr
-            (fun tus tvs g =>
-               match typ0_cast (F:=Prop) in _ = T return option (exprT tus tvs T) with
-                 | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
-               end)
+            (ExprDAs.exprD'_typ0 Prop)
             tyProp
             provable.
 
@@ -98,12 +94,17 @@ Section parameterized.
   Variable SU : SubstUpdate subst expr.
   Variable SubstUpdateOk : SubstUpdateOk SU _.
 
+  Context {ExprUVar_expr : VariablesI.ExprUVar expr}.
+  Context {ExprUVarOk_expr : VariablesI.ExprUVarOk ExprUVar_expr}.
+  Context {NSO : NormalizedSubstOk ExprUVar_expr SubstOk_subst}.
+
+
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : tenv (ctyp typ) -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
-  Variable instantiate : (nat -> list expr -> option expr) -> nat -> expr -> expr.
+  Variable instantiate : (nat -> option expr) -> expr -> expr.
 
   Hypothesis exprUnify_sound : unify_sound SubstOk_subst exprUnify.
 (*  Hypothesis NormlizedSubst : @NormalizedSubstOk _ _ _ _ . *)
@@ -129,7 +130,7 @@ Section parameterized.
             match
               all_success (fun h sub =>
                              let e :=
-                                 instantiate (fun x es => lookup x sub) 0
+                                 instantiate (fun x => lookup x sub)
                                              (vars_to_uvars 0 len_tus h)
                              in
                              auto_prove facts (tus ++ List.map (mkctyp tvs) lem.(vars)) tvs e sub)
@@ -292,37 +293,37 @@ Section parameterized.
     end.
 
   Lemma applicable_sound
-  : forall s tus tvs l0 g s1 ty,
+  : forall s tus tvs l0 g s1,
       eapplicable s tus tvs l0 g = Some s1 ->
       WellFormed_subst s ->
       WellFormed_subst s1 /\
       forall lD sD gD,
         lemmaD' nil nil l0 = Some lD ->
         substD tus s = Some sD ->
-        exprD' tus tvs g ty = Some gD ->
+        exprD' tus tvs g (@typ0 _ _ Prop _) = Some gD ->
         exists s1D gD',
           let nus := List.map (mkctyp tvs) l0.(vars) in
           substD (tus ++ nus) s1 = Some s1D /\
+          exprD' tus (l0.(vars) ++ tvs) l0.(concl) (@typ0 _ _ Prop _) = Some gD' /\
           forall (us : hlist _ tus)
                  (us' : hlist (fun x => OpenT.OpenT _ tvs (typD x)) l0.(vars))
                  (vs : hlist _ tvs),
             s1D (hlist_app us (hlist_OpenT_const_to_hlist_ctx us')) ->
-            exprD' tus (tvs ++ l0.(vars)) l0.(concl) ty = Some gD'
-            /\ (gD us vs =
-                gD' us (hlist_app vs (hlist_map
-                                        (F:=fun t => OpenT.OpenT _ tvs (typD t)) (G:=typD)
-                                        (fun t g => g vs) us')))
+            (gD us vs =
+             gD' us (hlist_app (hlist_map
+                                  (F:=fun t => OpenT.OpenT _ tvs (typD t)) (G:=typD)
+                                  (fun t g => g vs) us') vs))
             /\ sD us.
   Proof.
     intros. unfold eapplicable in H.
     eapply eapplicable_sound in H;
       eauto with typeclass_instances.
     forward_reason. split; eauto.
-  Admitted.
+  Qed.
 
   Opaque Traversable.mapT impls.
 
-  Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
+  Hypothesis exprD'_instantiate : exprD'_instantiate instantiate.
 
   Lemma exprD'_instantiate_subst_Some
   : forall tus tvs sub e t eD sD,
@@ -330,23 +331,17 @@ Section parameterized.
       substD tus sub = Some sD ->
       exprD' tus tvs e t = Some eD ->
       exists eD',
-        exprD' tus tvs (instantiate (fun x es => lookup x sub) 0 e) t = Some eD' /\
+        exprD' tus tvs (instantiate (fun x => lookup x sub) e) t = Some eD' /\
         forall us vs,
           sD us ->
           eD us vs = eD' us vs.
   Proof.
     intros.
     generalize exprD'_instantiate. unfold InstantiateI.exprD'_instantiate.
-    (*
-    intro XXX; eapply XXX with (f := fun x es => lookup x sub) (tvs' := nil) in H1; eauto.
-    { destruct H1. forward_reason.
-      eexists; split; [ eapply H1 | ].
-      intros. specialize (H2 us vs Hnil).
-      exact (H2 H3). }
+    intro XXX; eapply XXX with (f := fun x => lookup x sub) in H1; eauto.
     { simpl. clear - H H0.
       eapply sem_preserves_if_substD; eauto. }
-  Qed. *)
-  Admitted.
+  Qed.
 
   Lemma auto_prove_rec_sound
   : forall recurse,
@@ -363,7 +358,6 @@ Section parameterized.
       forward_reason.
       split; auto. }
     { (** Apply **)
-(*
       clear H0.
       eapply first_success_sound in H2.
       forward_reason.
@@ -377,21 +371,82 @@ Section parameterized.
       eapply applicable_sound in H2; eauto.
       simpl in *; forward_reason.
       specialize (fun sD gD => H7 _ sD gD H5).
+      eapply lemmaD'_weaken  with (tus' := tus) (tvs' := tvs) in H5; eauto.
+      { simpl in *.
+        destruct H5 as [ ? [ ? ? ] ].
+        unfold Lemma.lemmaD' in H5; forwardy; inv_all; subst.
+        cut (
+          WellFormed_subst s1 /\
+          (forall fD sD gD,
+              factsD (ExternOk Hok) tus tvs facts = Some fD ->
+              substD (tus ++ map (mkctyp tvs) l.(vars)) s0 = Some sD ->
+              Provable tus (vars l ++ tvs) (concl l) = Some gD ->
+              exists sD',
+                substD (tus ++ map (mkctyp tvs) l.(vars)) s1 = Some sD' /\
+                (forall (us : hlist ctxD tus)
+                        (vs : hlist typD tvs)
+                        (vs' : hlist (fun t => OpenT typD tvs (typD t)) (vars l)),
+                   let vs'' := hlist_map (fun t (x : OpenT typD tvs (typD t)) => x vs) vs' in
+                   fD us vs ->
+                   sD' (hlist_app us (holes_convert _ vs')) ->
+                      sD (hlist_app us (holes_convert _ vs'))
+                   /\ (impls
+                         (map (fun x => provable (x us (hlist_app vs'' vs))) y)
+                         (gD us (hlist_app vs'' vs)) ->
+                       gD us (hlist_app vs'' vs))))).
+        { intros; forward_reason.
+          eapply pull_sound in H4; eauto.
+          forward_reason; split; eauto.
+          intros.
+          eapply H7 in H14; eauto.
+          Focus 2.
+          eapply substD_weaken with (tus' := map (mkctyp tvs) l.(vars)) in H14.
+          forward_reason.
+          specialize (fun H => H12 _ _ _ eq_refl H H14).
+
+        
+        
+        
+        
+
+        }
+      { intros.
+        eapply ExprDAs.exprD'_typ0_weakenV in H8; eauto.
+        revert H8. instantiate (1 := tvs').
+        destruct 1 as [ ? [ ? ? ] ].
+        eexists; split; eauto.
+        intros; rewrite <- H9. reflexivity. } }
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       unfold Lemma.lemmaD' in H5. forward. inv_all; subst.
       cut (
           WellFormed_subst s1 /\
           (forall fD sD gD,
               factsD (ExternOk Hok) tus tvs facts = Some fD ->
-              substD (tus ++ vars l) tvs s0 = Some sD ->
+              substD (tus ++ map (mkctyp tvs) l.(vars)) s0 = Some sD ->
               Provable tus (vars l ++ tvs) (concl l) = Some gD ->
               exists sD',
-                substD (tus ++ vars l) tvs s1 = Some sD' /\
-                (forall (us : hlist typD tus)
+                substD (tus ++ map (mkctyp tvs) l.(vars)) s1 = Some sD' /\
+                (forall (us : hlist ctxD tus)
                         (vs : hlist typD tvs)
-                        (vs' : hlist typD (vars l)),
+                        (vs' : hlist (fun t => OpenT typD tvs (typD t)) (vars l)),
                    fD us vs ->
-                   sD' (hlist_app us vs') vs ->
-                      sD (hlist_app us vs') vs
+                   sD' (hlist_app us (holes_convert _ vs')) ->
+                      sD (hlist_app us (holes_convert _ vs'))
                    /\ (impls
                          (map (fun x => provable (x Hnil (hlist_app vs' Hnil))) l0)
                          (gD us (hlist_app vs' vs)) ->

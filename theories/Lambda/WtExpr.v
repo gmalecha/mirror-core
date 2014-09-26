@@ -275,13 +275,17 @@ Section ways_to_do_terms.
         end
     end.
 
+  Inductive hlist2 {T U : Type} (F : T -> U -> Type) : list T -> list U -> Type :=
+  | Hnil2 : hlist2 F nil nil
+  | Hcons2 : forall t u ts us, F t u -> hlist2 F ts us -> hlist2 F (t :: ts) (u :: us).
+
   Inductive WellTyped_expr (tus : list (ctyp typ))
   : list typ -> typ -> expr typ func -> Type :=
   | WT_Var : forall tvs t v, nth_error tvs v = Some t ->
                              WellTyped_expr tus tvs t (Var v)
   | WT_UVar : forall tvs t u es, nth_error tus u = Some t ->
-                                 Forall2 (WellTyped_expr tus tvs) t.(cctx) es ->
-                              WellTyped_expr tus tvs t.(vtyp) (UVar u es)
+                                 hlist2 (WellTyped_expr tus tvs) t.(cctx) es ->
+                                 WellTyped_expr tus tvs t.(vtyp) (UVar u es)
   | WT_Inj : forall tvs t f, typeof_sym f = Some t ->
                              WellTyped_expr tus tvs t (Inj f)
   | WT_App : forall tvs d r f x, WellTyped_expr tus tvs (typ2 d r) f ->
@@ -297,9 +301,10 @@ Section ways_to_do_terms.
   Require Import ExtLib.Data.HList.
 
   Fixpoint exprD'_wt tus tvs t e (wt : WellTyped_expr tus tvs t e)
-  : HList.hlist typD tus -> HList.hlist typD tvs -> typD t :=
+  : exprT tus tvs (typD t).
+  refine
     match wt in WellTyped_expr _ tvs t e
-          return HList.hlist typD tus -> HList.hlist typD tvs -> typD t
+          return exprT tus tvs (typD t)
     with
       | WT_Var tvs t v pf => fun _ vs =>
         match pf in _ = t return match t with
@@ -308,12 +313,12 @@ Section ways_to_do_terms.
                                  end with
           | eq_refl => hlist_nth vs v
         end
-      | WT_UVar tvs t u pf => fun us _ =>
+      | WT_UVar tvs t u es pf pf' => fun us _ =>
         match pf in _ = t return match t with
-                                   | Some t => _
+                                   | Some t => typD t.(vtyp)
                                    | None => unit
                                  end with
-          | eq_refl => hlist_nth us u
+          | eq_refl => _ (* hlist_nth us u *)
         end
       | WT_Inj tvs t f pf => fun _ _ =>
         match pf in _ = t return match t with
@@ -335,6 +340,8 @@ Section ways_to_do_terms.
           | eq_refl => fun us vs x => e us (Hcons x vs)
         end
     end.
+  clear. admit.
+  Defined.
 
 (*
   Lemma exprD'_exprD_wt
