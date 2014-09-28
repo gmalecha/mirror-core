@@ -1,4 +1,5 @@
 Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
@@ -23,26 +24,7 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
-(*
-  Section at_bottom.
-    Variable m : Type -> Type.
-    Context {Monad_m : Monad m}.
-    Variable gt : list typ -> list typ -> subst -> option expr -> m (Goal typ expr subst).
-
-    Let under (gt : Goal typ expr subst -> Goal typ expr subst)
-        (x : m (Goal typ expr subst)) : m (Goal typ expr subst) :=
-      bind x (fun x => ret (gt x)).
-
-    Fixpoint at_bottom tus tvs (g : Goal typ expr subst)
-    : m (Goal typ expr subst) :=
-      match g with
-        | GAll x g' => under (GAll x) (at_bottom tus (tvs ++ x :: nil) g')
-        | GEx  x g' => under (GEx  x) (at_bottom (tus ++ x :: nil) tvs g')
-        | GHyp x g' => under (GHyp x) (at_bottom tus tvs g')
-        | GGoal s e => gt tus tvs s e
-      end.
-  End at_bottom.
-*)
+  Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Variable substV : (nat -> option expr) -> expr -> expr.
   Variable Var : nat -> expr.
@@ -70,21 +52,85 @@ Section parameterized.
           More sub (GHyp h (GGoal g'))
       end.
 
-(*
-  Definition open_sound (open : expr -> option ((typ + expr) * expr)) : Prop :=
-    forall tus tvs e eD h e',
-      open e = Some (h,e') ->
-      propD tus tvs e = Some eD ->
-      match h with
-        | inl t =>
-          exists eD',
-          propD tus (t :: tvs) e' = Some eD' /\
-          forall us vs,
-            (eD us vs) -> (forall x : typD t, eD' us (HList.Hcons x vs))
-        | inr h =>
-          False
+  Definition open_sound : Prop :=
+    forall tus tvs e ot,
+      open e = Some ot ->
+      match ot with
+        | AsAl t gl' =>
+          forall eD e' e'D,
+            propD tus tvs e = Some eD ->
+            exprD' tus (tvs ++ t :: nil) e' t = Some e'D ->
+            exists eD',
+              propD tus (tvs ++ t :: nil) (gl' e') = Some eD' /\
+              forall us vs,
+                (forall x : typD t,
+                   eD' us (hlist_app vs (Hcons (e'D us (hlist_app vs (Hcons x Hnil))) Hnil))) ->
+                (eD us vs)
+        | AsEx t gl' =>
+          forall eD e' e'D,
+            propD tus tvs e = Some eD ->
+            exprD' (tus ++ t :: nil) tvs e' t = Some e'D ->
+            exists eD',
+              propD (tus ++ t :: nil) tvs (gl' e') = Some eD' /\
+              forall us vs,
+                (exists x : typD t,
+                   eD' (hlist_app us (Hcons (e'D (hlist_app us (Hcons x Hnil)) vs) Hnil)) vs) ->
+                (eD us vs)
+        | AsHy h gl' =>
+          forall eD,
+            propD tus tvs e = Some eD ->
+            exists eD' hD,
+              propD tus tvs h = Some hD /\
+              propD tus tvs gl' = Some eD' /\
+              forall us vs,
+                (hD us vs -> eD' us vs) ->
+                (eD us vs)
       end.
-*)
+
+  Hypothesis Hopen : open_sound.
+
+  Theorem INTRO_sound : rtac_sound nil nil INTRO.
+  Proof.
+    unfold rtac_sound, INTRO.
+    intros; subst.
+    red in Hopen.
+    specialize (@Hopen (getUVars ctx nil) (getVars ctx nil) g).
+    destruct (open g); auto.
+    specialize (Hopen _ eq_refl).
+    destruct o; intros; split; auto.
+    { simpl. forward.
+      eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H0; eauto.
+      forward_reason.
+      unfold exprD'_typ0 in H0.
+      autorewrite with eq_rw in H0; forwardy.
+      assert (exists eD',
+                exprD' (getUVars ctx nil ++ t :: nil) (getVars ctx nil)
+                       (UVar (countUVars ctx)) t = Some eD' /\
+                forall us vs x,
+                  eD' (hlist_app us (Hcons x Hnil)) vs = x).
+      { admit. }
+      forward_reason.
+      specialize (@Hopen _ (UVar (countUVars ctx)) _ eq_refl H4).
+      inv_all; subst.
+      destruct Hopen as [ ? [ ? ? ] ].
+      rewrite H3.
+      admit. }
+    { simpl. forward.
+      eapply exprD'_typ0_weakenV with (tvs' := t :: nil) in H0; eauto.
+      (** Same proof as above **)
+      admit. }
+    { simpl; forward.
+      specialize (Hopen _ eq_refl).
+      destruct Hopen as [ ? [ ? [ ? [ ? ? ] ] ] ]; clear Hopen.
+      rewrite H2.
+      rewrite H3.
+      simpl.
+      eapply ctxD'_no_hyps.
+      intros. split; auto. }
+  Qed.
+
+End parameterized.
+
 
 (*
   Lemma _impls_sem
@@ -229,20 +275,4 @@ Section parameterized.
       repeat rewrite HList.app_nil_r_trans in H.
       eapply H in H0; clear H; auto. }
   Qed.
-
-(*
-  Theorem INTRO_sound
-  : forall open, open_sound open ->
-                 rtac_sound nil nil (INTRO open).
-  Proof.
-    unfold rtac_sound, INTRO.
-    intros.
-    eapply at_bottom_sound_option in H0; eauto.
-(*
-    { destruct (goalD nil nil g); destruct (goalD nil nil g'); auto.
 *)
-  Abort.
-*)
-*)
-
-End parameterized.

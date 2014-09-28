@@ -1,7 +1,9 @@
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
@@ -350,51 +352,71 @@ Section parameterized.
     end.
   Defined.
 
+  Fixpoint getUVars (ctx : Ctx) (acc : tenv typ) : tenv typ :=
+    match ctx with
+      | CTop => acc
+      | CAll ctx' _ => getUVars ctx' acc
+      | CEx  ctx' t => getUVars ctx' (t :: acc)
+      | CHyp ctx' _ => getUVars ctx' acc
+    end.
+  Fixpoint getVars (ctx : Ctx) (acc : tenv typ) : tenv typ :=
+    match ctx with
+      | CTop => acc
+      | CAll ctx' t => getVars ctx' (t :: acc)
+      | CEx  ctx' _ => getVars ctx' acc
+      | CHyp ctx' _ => getVars ctx' acc
+    end.
+
+  Theorem getEnvs'_getUVars_getVars
+  : forall ctx tus tvs,
+      getEnvs' ctx tus tvs = (getUVars ctx tus, getVars ctx tvs).
+  Proof.
+    clear. induction ctx; simpl; intros; auto.
+  Qed.
+
+  Theorem getEnvs_getUVars_getVars
+  : forall ctx,
+      getEnvs ctx = (getUVars ctx nil, getVars ctx nil).
+  Proof.
+    intros. rewrite <- (getEnvs'_getUVars_getVars ctx nil nil).
+    unfold getEnvs. destruct (getEnvs' ctx nil nil); reflexivity.
+  Qed.
+
   Definition OpenT (tus tvs : tenv typ) (T : Type) : Type :=
     HList.hlist typD tus -> HList.hlist typD tvs -> T.
 
   Section ctxD.
-    Variable P : forall (tus' tvs' : tenv typ),
-                   unit + option (OpenT tus' tvs' Prop).
 
-
-    Fixpoint ctxD (tus tvs : tenv typ) (ctx : Ctx) {struct ctx}
-    : unit + option (OpenT tus tvs Prop) :=
-      match ctx with
-        | CTop => P tus tvs
+    Fixpoint ctxD' (tus tvs : tenv typ) (ctx : Ctx)
+             {struct ctx}
+    : OpenT tus tvs Prop -> Prop :=
+      match ctx return OpenT tus tvs Prop -> Prop with
+        | CTop => fun k => forall us vs, k us vs
         | CEx ctx' t =>
-          match ctxD (tus ++ t :: nil) tvs ctx' with
-            | inr (Some PD) =>
-              (** The [forall] here is on purpose, [ctxD] is used to construct
-               ** holes and in holes, everything is a variable
-               **)
-              inr (Some (fun us vs => forall x : typD t,
-                           PD (HList.hlist_app us (HList.Hcons x HList.Hnil))
-                              vs))
-            | inl x => inl x
-            | inr None => inr None
+          match tus as tus return OpenT tus tvs Prop -> Prop with
+            | t' :: tus' => fun k =>
+              t = t' ->
+              @ctxD' tus' tvs ctx'
+                     (fun us vs => forall x : typD t', k (Hcons x us) vs)
+            | nil => fun _ => True
           end
         | CAll ctx' t =>
-          match ctxD tus (tvs ++ t :: nil) ctx' with
-            | inr (Some PD) =>
-              inr (Some (fun us vs => forall x : typD t,
-                           PD us
-                              (HList.hlist_app vs (HList.Hcons x HList.Hnil))))
-            | inl x => inl x
-            | inr None => inr None
+          match tvs as tvs return OpenT tus tvs Prop -> Prop with
+            | t' :: tvs' => fun k =>
+              t = t' ->
+              @ctxD' tus tvs' ctx'
+                     (fun us vs => forall x : typD t', k us (Hcons x vs))
+            | nil => fun _ => True
           end
         | CHyp ctx' h =>
-          match propD tus tvs h with
-            | None => inl tt
-            | Some hD =>
-              match ctxD tus tvs ctx' with
-                | inr (Some PD) =>
-                  inr (Some (fun us vs => hD us vs -> PD us vs))
-                | inl x => inl x
-                | inr None => inr None
-              end
+          match propD (rev tus) (rev tvs) h with
+            | None => fun _ => True
+            | Some P => fun k =>
+              @ctxD' tus tvs ctx' (fun us vs => P (hlist_rev us) (hlist_rev vs) -> k us vs)
           end
       end.
+
+
   End ctxD.
 
   Definition rtac_sound (tus tvs : tenv typ) (tac : rtac) : Prop :=
@@ -405,48 +427,56 @@ Section parameterized.
         | Solved s' =>
           WellFormed_subst s ->
           WellFormed_subst s' /\
-          match ctxD (fun tus' tvs' =>
-                        match propD tus' tvs' g
-                            , substD tus' tvs' s
-                            , substD tus' tvs' s'
-                        with
-                          | None , _ , _ => inl tt
-                          | Some _ , None , _ => inl tt
-                          | Some _ , Some _ , None => inr None
-                          | Some gD , Some sD , Some sD' =>
-                            inr (Some (fun us vs =>
-                                         sD' us vs ->
-                                         sD us vs /\ gD us vs))
-                        end)
-                     tus tvs ctx
+          let tus' := tus ++ getUVars ctx nil in
+          let tvs' := tvs ++ getVars ctx nil in
+          match propD  tus' tvs' g
+              , substD tus' tvs' s
+              , substD tus' tvs' s'
           with
-            | inl _ => True
-            | inr None => False
-            | inr (Some gD) => forall us vs, gD us vs
+            | None , _ , _
+            | Some _ , None , _ => True
+            | Some _ , Some _ , None => False
+            | Some gD , Some sD , Some sD' =>
+              @ctxD' (rev tus') (rev tvs') ctx
+                     (fun us vs =>
+                        let us : hlist typD tus' :=
+                            match rev_involutive tus' in _ = t return hlist _ t with
+                              | eq_refl => hlist_rev us
+                            end in
+                        let vs : hlist typD tvs' :=
+                            match rev_involutive tvs' in _ = t return hlist _ t with
+                              | eq_refl => hlist_rev vs
+                            end in
+                        sD' us vs ->
+                        sD us vs /\ gD us vs)
           end
         | More s' g' =>
           WellFormed_subst s ->
           WellFormed_subst s' /\
-          match ctxD (fun tus' tvs' =>
-                        match propD tus' tvs' g
-                            , substD tus' tvs' s
-                            , goalD tus' tvs' g'
-                            , substD tus' tvs' s'
-                        with
-                          | None , _ , _ , _
-                          | Some _ , None , _ , _ => inl tt
-                          | Some _ , Some _ , None , _
-                          | Some _ , Some _ , Some _ , None => inr None
-                          | Some gD , Some sD , Some gD' , Some sD' =>
-                            inr (Some (fun us vs =>
-                                         sD' us vs -> gD' us vs ->
-                                         sD us vs /\ gD us vs))
-                        end)
-                     tus tvs ctx
+          let tus' := tus ++ getUVars ctx nil in
+          let tvs' := tvs ++ getVars ctx nil in
+          match propD  tus' tvs' g
+              , substD tus' tvs' s
+              , goalD  tus' tvs' g'
+              , substD tus' tvs' s'
           with
-            | inl _ => True
-            | inr None => False
-            | inr (Some gD) => forall us vs, gD us vs
+            | None , _ , _ , _
+            | Some _ , None , _ , _ => True
+            | Some _ , Some _ , None , _
+            | Some _ , Some _ , Some _ , None => False
+            | Some gD , Some sD , Some gD' , Some sD' =>
+              @ctxD' (rev tus') (rev tvs') ctx
+                     (fun us vs =>
+                        let us : hlist typD tus' :=
+                            match rev_involutive tus' in _ = t return hlist _ t with
+                              | eq_refl => hlist_rev us
+                            end in
+                        let vs : hlist typD tvs' :=
+                            match rev_involutive tvs' in _ = t return hlist _ t with
+                              | eq_refl => hlist_rev vs
+                            end in
+                        sD' us vs -> gD' us vs ->
+                        sD us vs /\ gD us vs)
           end
       end.
 
@@ -752,7 +782,13 @@ Section parameterized.
       | CHyp c h => closeGoal c s (GHyp h g) nus
     end.
 
-
+    Theorem ctxD'_no_hyps
+    : forall ctx tus tvs (P : OpenT _ _ Prop),
+        (forall us vs, P us vs) ->
+        @ctxD' tus tvs ctx P.
+    Proof.
+      induction ctx; simpl; intros; auto; forward; subst; auto.
+    Qed.
 
 End parameterized.
 

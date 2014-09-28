@@ -30,18 +30,8 @@ Section parameterized.
     unfold IDTAC, rtac_sound.
     intros; subst.
     split; auto.
-    simpl.
-    revert tus tvs.
-    induction ctx; simpl; intros.
-    + forward. inv_all; subst.
-      tauto.
-    + specialize (IHctx tus (tvs ++ t :: nil)).
-      forward. eauto.
-    + specialize (IHctx (tus ++ t :: nil) tvs).
-      forward. eauto.
-    + specialize (IHctx tus tvs).
-      forward; eauto. inv_all; subst.
-      eauto.
+    simpl. intros. forward.
+    eapply ctxD'_no_hyps. intros. split; assumption.
   Qed.
 
 End parameterized.
