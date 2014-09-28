@@ -144,19 +144,20 @@ Section parameterized.
             | More s g => More s (GAll t g)
           end
         | GExs tes g =>
-          (fix go (nus : nat) (tes : list (typ * option expr)) (s : subst) (ctx : Ctx)
+          (fix go (nus : nat) (tes : list (typ * option expr)) (s : subst)
+               (ctx : Ctx)
            : Result :=
              match tes with
                | nil => runRTac' ctx s g nus nvs
                | (t,e) :: tes =>
                  match e with
                    | None =>
-                     mapUnderEx t nus (runRTac' (CEx ctx t) s g (S nus) nvs)
+                     mapUnderEx t nus (go (S nus) tes s (CEx ctx t))
                    | Some e' =>
                      match set nus e' s with
                        | None => DEAD
                        | Some s' =>
-                         mapUnderEx t nus (runRTac' (CEx ctx t) s' g (S nus) nvs)
+                         mapUnderEx t nus (go (S nus) tes s' (CEx ctx t))
                      end
                  end
              end) nus tes s ctx
