@@ -640,7 +640,7 @@ struct
 	   fun _ s ->
 	     (Hashtbl.find s ~-1,TypedTable (Hashtbl.find s 1, Hashtbl.find s 0, Hashtbl.find s 2)))
 	; (apps (EGlob cmd_map)
-	     [get ~-1(*T*);get 1(*F*);get 0(*cmd*)],
+	     [get ~-1(*T*);Ignore;get 1(*F*);get 0(*cmd*)],
 	   fun _ s ->
 	     let (_,c) = parse_command (Hashtbl.find s 0) in
 	     (Hashtbl.find s ~-1,Map (Hashtbl.find s 1, c)))
