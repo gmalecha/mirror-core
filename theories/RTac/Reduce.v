@@ -97,6 +97,7 @@ Section parameterized.
   : Result typ expr subst :=
     reduceGoal ctx sub match gl with
                          | nil => GSolved
+                         | gl :: nil => gl
                          | _ :: _ => GConj gl
                        end (countUVars ctx) (countVars ctx).
 
