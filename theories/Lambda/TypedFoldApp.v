@@ -17,8 +17,6 @@ Section typed_fold.
   Section folderL.
     Definition Lazy (T : Type) := unit -> option T.
 
-    Variable ts : list Type.
-
     Variable T : Type.
 
     Variable do_var : var -> typ -> Lazy T.
@@ -127,12 +125,11 @@ Section typed_fold.
                         typ2_match (F := Fun) (fun _ => R) ft
                            (fun d r =>
                               let vals :=
-                                  ((d,x,fun z =>
-                                        typed_mfold_cpsL (R := option _)
-                                                         tus tvs d x
-                                                         (fun x => x z)
-                                                         None)
-                                     :: vals) in
+                                  vals ++ (d,x,fun z =>
+                                                 typed_mfold_cpsL (R := option _)
+                                                                  tus tvs d x
+                                                                  (fun x => x z)
+                                                                  None) :: nil in
                               success (fun z => do_app tus tvs r f val vals z))
                            failure)
                      failure
@@ -169,13 +166,12 @@ Section typed_fold.
                         typ2_match (F := Fun) (fun _ => R) ft
                            (fun d r =>
                               let vals :=
-                                  ((d,x,fun z =>
-                                        typed_mfold_cpsL (R := option _)
-                                                         tus tvs d x
-                                                         (fun x => x z)
-                                                         None)
-                                     :: vals) in
-                              success ft (fun z => do_app tus tvs r x val vals z))
+                                  vals ++ (d,x,fun z =>
+                                                 typed_mfold_cpsL (R := option _)
+                                                                  tus tvs d x
+                                                                  (fun x => x z)
+                                                                  None) :: nil in
+                              success ft (fun z => do_app tus tvs r f val vals z))
                            failure)
                      failure
       end.
@@ -191,8 +187,8 @@ Section typed_fold.
   }.
 
   Definition lazy_typed_mfold {T : Type} (args : AppFullFoldArgs T)
-  : list Type -> list typ -> list typ -> typ -> expr typ func -> option (Lazy T) :=
-    fun ts tus tvs t e =>
+  : list typ -> list typ -> typ -> expr typ func -> option (Lazy T) :=
+    fun tus tvs t e =>
       @typed_mfold_cpsL T
                         args.(do_var)
                         args.(do_uvar)

@@ -8,7 +8,7 @@ AUTORW  := Demo DemoQuantPull \
 	   AutoRewriteLambda
 # SetoidRewriteRec DemoSetoid
 RTAC    := Demo
-SIMPLE  := Simple SimpleRewrite SimpleReify SimpleExt
+SIMPLE  := Simple SimpleRewrite SimpleReify SimpleExt FoldTest
 MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
