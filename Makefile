@@ -17,6 +17,7 @@ dist:
 	@ sed s,PWD,$(shell pwd -P),g tools/dir-locals.el | sed s,MOD,$(MODULE),g > .dir-locals.el
 
 install:
+	$(MAKE) -C src install
 	$(MAKE) -C theories install
 
 init:
