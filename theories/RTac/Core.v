@@ -30,13 +30,16 @@ Section parameterized.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
-
-  (** NOTE: It seems for performance this should be inverted, otherwise
+  (** NOTE: For performance this should be inverted, otherwise
    ** every operation is going to be expensive.
+   ** - Solving this problem is the purpose of [Ctx]
    **)
+  (** TODO: Make [GAll] and [GEx] more symmetric **)
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
-  (** The first thing in the list has the lowest index **)
+  (** The first element in the list has the lowest index
+   ** in the final goal.
+   **)
   | GExs    : list (typ * option expr) -> Goal -> Goal
   | GHyp    : expr -> Goal -> Goal
   | GConj   : list Goal -> Goal
@@ -145,22 +148,22 @@ Section parameterized.
           end
         | GExs tes g =>
           (fix go (nus : nat) (tes : list (typ * option expr)) (s : subst)
-               (ctx : Ctx)
+               (ctx : Ctx) (acc : Result -> Result)
            : Result :=
              match tes with
-               | nil => runRTac' ctx s g nus nvs
+               | nil => acc (runRTac' ctx s g nus nvs)
                | (t,e) :: tes =>
                  match e with
                    | None =>
-                     mapUnderEx t nus (go (S nus) tes s (CEx ctx t))
+                     go (S nus) tes s (CEx ctx t) (fun x => mapUnderEx t nus (acc x))
                    | Some e' =>
                      match set nus e' s with
                        | None => DEAD
                        | Some s' =>
-                         mapUnderEx t nus (go (S nus) tes s' (CEx ctx t))
+                         go (S nus) tes s' (CEx ctx t) (fun x => mapUnderEx t nus (acc x))
                      end
                  end
-             end) nus tes s ctx
+             end) nus tes s ctx (fun x => x)
         | GHyp h g =>
           match runRTac' (CHyp ctx h) s g nus nvs with
             | Fail => Fail
@@ -184,6 +187,7 @@ Section parameterized.
                   (fun rem s =>
                      match rem with
                        | nil => Solved s
+                       | g :: nil => More s g
                        | _ :: _ => More s (GConj rem)
                      end)
       end.
@@ -783,13 +787,13 @@ Section parameterized.
       | CHyp c h => closeGoal c s (GHyp h g) nus
     end.
 
-    Theorem ctxD'_no_hyps
-    : forall ctx tus tvs (P : OpenT _ _ Prop),
-        (forall us vs, P us vs) ->
-        @ctxD' tus tvs ctx P.
-    Proof.
-      induction ctx; simpl; intros; auto; forward; subst; auto.
-    Qed.
+  Theorem ctxD'_no_hyps
+  : forall ctx tus tvs (P : OpenT _ _ Prop),
+      (forall us vs, P us vs) ->
+      @ctxD' tus tvs ctx P.
+  Proof.
+    induction ctx; simpl; intros; auto; forward; subst; auto.
+  Qed.
 
 End parameterized.
 
