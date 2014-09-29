@@ -42,7 +42,7 @@ Section parameterized.
                                          end) tes)
                             (instantiateGoal f g')
       | GHyp h g' => GHyp (instantiate f 0 h) (instantiateGoal f g')
-      | GConj ps =>
+      | GConj_ ps =>
         GConj (List.map (instantiateGoal f) ps)
     end.
 
@@ -93,12 +93,8 @@ Section parameterized.
     end.
 
   Definition more_list (ctx : Ctx typ expr) (sub : subst)
-             (gl : list (Goal typ expr))
+             (gls : list (Goal typ expr))
   : Result typ expr subst :=
-    reduceGoal ctx sub match gl with
-                         | nil => GSolved
-                         | gl :: nil => gl
-                         | _ :: _ => GConj gl
-                       end (countUVars ctx) (countVars ctx).
+    reduceGoal ctx sub (GConj gls) (countUVars ctx) (countVars ctx).
 
 End parameterized.

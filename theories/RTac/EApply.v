@@ -48,10 +48,7 @@ Section parameterized.
           let len_uvars := length tus in
           let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
           reduceGoal instantiate (fold_left (@CEx _ _) lem.(vars) CTop) sub'
-                     match premises with
-                       | nil => GSolved
-                       | _ :: _ => GConj premises
-                     end (countUVars ctx + len_vars) (countVars ctx)
+                     (GConj premises) (countUVars ctx + len_vars) (countVars ctx)
       end.
 
 End parameterized.

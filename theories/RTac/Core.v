@@ -42,7 +42,7 @@ Section parameterized.
    **)
   | GExs    : list (typ * option expr) -> Goal -> Goal
   | GHyp    : expr -> Goal -> Goal
-  | GConj   : list Goal -> Goal
+  | GConj_   : list Goal -> Goal
   | GGoal   : expr -> Goal
   | GSolved : Goal.
 
@@ -51,8 +51,15 @@ Section parameterized.
 
   Definition GEx (t : typ) (e : option expr) (g : Goal) : Goal :=
     match g with
-      | GExs tes g' => GExs (tes ++ (t,e) :: nil) g'
+      | GExs tes g' => GExs ((t,e) :: tes) g'
       | _ => GExs ((t, e) :: nil) g
+    end.
+
+  Definition GConj (ls : list Goal) : Goal :=
+    match ls with
+      | nil => GSolved
+      | g :: nil => g
+      | _ :: _ :: _ => GConj_ ls
     end.
 
   Inductive Ctx :=
@@ -107,33 +114,33 @@ Section parameterized.
     let (x,y) := getEnvs' ctx nil nil in
     (x, y).
 
-  Definition mapUnderEx (t : typ) (nus : nat) (r : Result) : Result :=
-    match r with
-      | Fail => Fail
-      | Solved s' =>
-        match lookup nus s' with
-          | None => let s'' := s' in
-                    More s'' (GEx t None GSolved)
-          | Some e =>
-            match drop nus s' with
-              | None => DEAD
-              | Some s'' => Solved s''
-            end
-        end
-      | More s' g' =>
-        match lookup nus s' with
-          | None => let s'' := s' in
-                    More s' (GEx t None g')
-          | Some e =>
-            match drop nus s' with
-              | None => DEAD
-              | Some s'' => More s'' (GEx t (Some e) g')
-            end
-        end
-    end.
-
   Section runRTac'.
     Variable tac : rtac.
+
+    Definition mapUnderEx (t : typ) (nus : nat) (r : Result) : Result :=
+      match r with
+        | Fail => Fail
+        | Solved s' =>
+          match lookup nus s' with
+            | None => let s'' := s' in
+                      More s'' (GEx t None GSolved)
+            | Some e =>
+              match drop nus s' with
+                | None => DEAD
+                | Some s'' => Solved s''
+              end
+          end
+        | More s' g' =>
+          match lookup nus s' with
+            | None => let s'' := s' in
+                      More s' (GEx t None g')
+            | Some e =>
+              match drop nus s' with
+                | None => DEAD
+                | Some s'' => More s'' (GEx t (Some e) g')
+              end
+          end
+      end.
 
     Fixpoint runRTac' (ctx : Ctx) (s : subst) (g : Goal) (nus nvs : nat) {struct g}
     : Result :=
@@ -147,30 +154,33 @@ Section parameterized.
             | More s g => More s (GAll t g)
           end
         | GExs tes g =>
+          (** TODO: This can probably be more efficient because it can
+           ** co-operate with mapUnderEx
+           **)
           (fix go (nus : nat) (tes : list (typ * option expr)) (s : subst)
-               (ctx : Ctx) (acc : Result -> Result)
+               (ctx : Ctx)
            : Result :=
              match tes with
-               | nil => acc (runRTac' ctx s g nus nvs)
+               | nil => runRTac' ctx s g nus nvs
                | (t,e) :: tes =>
                  match e with
                    | None =>
-                     go (S nus) tes s (CEx ctx t) (fun x => mapUnderEx t nus (acc x))
+                     mapUnderEx t nus (go (S nus) tes s (CEx ctx t))
                    | Some e' =>
                      match set nus e' s with
                        | None => DEAD
                        | Some s' =>
-                         go (S nus) tes s' (CEx ctx t) (fun x => mapUnderEx t nus (acc x))
+                         mapUnderEx t nus (go (S nus) tes s' (CEx ctx t))
                      end
                  end
-             end) nus tes s ctx (fun x => x)
+             end) nus tes s ctx
         | GHyp h g =>
           match runRTac' (CHyp ctx h) s g nus nvs with
             | Fail => Fail
             | Solved s => Solved s
             | More s g => More s (GHyp h g)
           end
-        | GConj gs =>
+        | GConj_ gs =>
           (fix do_each (gs : list Goal) (s : subst)
                (acc : list Goal -> subst -> Result)
            : Result :=
@@ -264,7 +274,7 @@ Section parameterized.
       | GHyp _ goal' => WellFormed_goal tus tvs goal'
       | GGoal _ => True
       | GSolved => True
-      | GConj ls =>
+      | GConj_ ls =>
         (fix Forall (ls : list Goal) : Prop :=
            match ls with
              | nil => True
@@ -340,7 +350,7 @@ Section parameterized.
                 Some (fun us vs => _impls (map (fun x => x us vs) hs) (D us vs))
             end
         end
-      | GConj ls =>
+      | GConj_ ls =>
         (** This is actually:
         match mapT (T:=list) (F:=option) (goalD tus tvs) ls with
           | None => None
