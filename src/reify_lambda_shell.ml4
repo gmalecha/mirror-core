@@ -660,6 +660,10 @@ struct
 	    [] ->
 	      fun trm gl ->
 		let trm = get_term trm in
+		(* HERE *)
+		Pp.(msg_warning (   (str "backtracking on '")
+				 ++ (Printer.pr_constr trm)
+				 ++ (str "'\n"))) ;
 		raise (ReificationFailure (lazy trm))
 	  | l :: ls ->
 	    let k = compile_commands ls in
@@ -720,8 +724,9 @@ struct
 		Term_match.(matches gl
 			      [ (App (get 0, get 1),
 				 fun gl s ->
-				   let f = !top (Term (Hashtbl.find s 0)) gl in
-				   let x = !top (Term (Hashtbl.find s 1)) gl in
+				   let r = !top in
+				   let f = r (Term (Hashtbl.find s 0)) gl in
+				   let x = r (Term (Hashtbl.find s 1)) gl in
 				   Term.mkApp (ctor, [| f ; x |]))
 			      ])
 		  (get_term trm)
