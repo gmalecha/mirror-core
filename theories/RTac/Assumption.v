@@ -61,41 +61,18 @@ Section parameterized.
   : forall ctx e1 e2 s s',
       check ctx e1 e2 s = Some s' ->
       WellFormed_subst s ->
-      let tus := getUVars ctx nil in
-      let tvs := getVars ctx nil in
+      let (tus,tvs) := getEnvs ctx in
       WellFormed_subst s' /\
       forall v1 v2 sD,
         exprD' tus tvs e1 (@typ0 _ _ Prop _) = Some v1 ->
         exprD' tus tvs e1 (@typ0 _ _ Prop _) = Some v2 ->
-        substD tus tvs s = Some sD ->
+        substD tus s = Some sD ->
         exists sD',
-             substD tus tvs s' = Some sD'
+             substD tus s' = Some sD'
           /\ forall us vs,
-               sD' us vs ->
-               sD us vs /\
+               sD' us ->
+               sD us /\
                v1 us vs = v2 us vs.
-
-  Theorem rev_app_distr_trans
-  : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
-  Proof. clear.
-         induction x; simpl; intros.
-         - symmetry. apply app_nil_r_trans.
-         - rewrite IHx. apply app_ass_trans.
-  Defined.
-
-  (** TODO: This is cubic! **)
-  Theorem rev_involutive_trans (A : Type)
-  : forall (l : list A), rev (rev l) = l.
-  Proof. clear.
-         induction l; simpl; auto.
-         rewrite rev_app_distr. rewrite IHl. reflexivity.
-  Defined.
-
-  Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))
-  : hlist F ls :=
-    match rev_involutive_trans ls in _ = t return hlist F t with
-      | eq_refl => hlist_rev h
-    end.
 
 (*
   Lemma findHypOk

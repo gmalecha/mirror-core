@@ -1,10 +1,12 @@
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.OpenT.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 
@@ -23,12 +25,14 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprVarOk_expr : ExprVarOk _}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Variable substV : (nat -> option expr) -> expr -> expr.
-  Variable Var : nat -> expr.
-  Variable UVar : nat -> expr.
 
   Inductive OpenAs :=
   | AsEx : typ -> (expr -> expr) -> OpenAs
@@ -36,6 +40,12 @@ Section parameterized.
   | AsHy : expr -> expr -> OpenAs.
 
   Variable open : expr -> option OpenAs.
+
+  Fixpoint vars_to (n : nat) (acc : list expr) : list expr :=
+    match n with
+      | 0 => acc
+      | S n => vars_to n (Var n :: acc)
+    end.
 
   Definition INTRO
   : rtac typ expr subst :=
@@ -47,7 +57,8 @@ Section parameterized.
           More sub (GAll t (GGoal (g' (Var nv))))
         | Some (AsEx t g') =>
           let nu := countUVars ctx in
-          More sub (GEx t None (GGoal (g' (UVar nu))))
+          let nv := countVars ctx in
+          More sub (GEx t None (GGoal (g' (UVar nu (vars_to nv nil)))))
         | Some (AsHy h g') =>
           More sub (GHyp h (GGoal g'))
       end.
@@ -69,12 +80,12 @@ Section parameterized.
         | AsEx t gl' =>
           forall eD e' e'D,
             propD tus tvs e = Some eD ->
-            exprD' (tus ++ t :: nil) tvs e' t = Some e'D ->
+            exprD' (tus ++ mkctyp tvs t :: nil) tvs e' t = Some e'D ->
             exists eD',
-              propD (tus ++ t :: nil) tvs (gl' e') = Some eD' /\
+              propD (tus ++ mkctyp tvs t :: nil) tvs (gl' e') = Some eD' /\
               forall us vs,
-                (exists x : typD t,
-                   eD' (hlist_app us (Hcons (e'D (hlist_app us (Hcons x Hnil)) vs) Hnil)) vs) ->
+                (exists x : ctxD {| cctx := tvs ; vtyp := t |},
+                   eD' (hlist_app us (Hcons x Hnil)) vs) ->
                 (eD us vs)
         | AsHy h gl' =>
           forall eD,
@@ -94,185 +105,44 @@ Section parameterized.
     unfold rtac_sound, INTRO.
     intros; subst.
     red in Hopen.
-    specialize (@Hopen (getUVars ctx nil) (getVars ctx nil) g).
+    specialize (@Hopen (fst (getEnvs ctx)) (snd (getEnvs ctx)) g).
     destruct (open g); auto.
     specialize (Hopen _ eq_refl).
     destruct o; intros; split; auto.
-    { simpl. forward.
-      eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H0; eauto.
-      forward_reason.
-      unfold exprD'_typ0 in H0.
-      autorewrite with eq_rw in H0; forwardy.
+    { simpl. forward; simpl in *.
+      specialize (fun e' e'D => @Hopen _ e' e'D H1).
       assert (exists eD',
-                exprD' (getUVars ctx nil ++ t :: nil) (getVars ctx nil)
-                       (UVar (countUVars ctx)) t = Some eD' /\
+                exprD' (t0 ++ {| cctx := t1; vtyp := t |} :: nil) t1
+                       (UVar (countUVars ctx) (vars_to (countVars ctx) nil)) t = Some eD' /\
                 forall us vs x,
-                  eD' (hlist_app us (Hcons x Hnil)) vs = x).
+                  eD' (hlist_app us (Hcons x Hnil)) vs = x vs).
       { admit. }
-      forward_reason.
-      specialize (@Hopen _ (UVar (countUVars ctx)) _ eq_refl H4).
-      inv_all; subst.
-      destruct Hopen as [ ? [ ? ? ] ].
+      inv_all. forward_reason.
+      generalize (@VariablesI.UVar_exprD' _ _ _ _ _ _
+                                          (t0 ++ {| cctx := t1; vtyp := t |} :: nil) t1
+                 (countUVars ctx) (vars_to (countVars ctx) nil) t).
       rewrite H3.
-      admit. }
+      specialize (@Hopen _ _ H3).
+      intros.
+      destruct Hopen as [ ? [ ? ? ] ]; clear Hopen.
+      destruct H5 as [ ? [ ? ? ] ].
+      rewrite H6.
+      unfold eq_rect_r, eq_rect, eq_sym.
+      autorewrite with eq_rw.
+      eapply ctxD'_no_hyps; intros.
+      specialize (H7 (hlist_unrev us) (hlist_unrev vs)).
+      split; auto.
+      eapply H7.
+      destruct H10. exists x2. tauto. }
     { simpl. forward.
-      eapply exprD'_typ0_weakenV with (tvs' := t :: nil) in H0; eauto.
       (** Same proof as above **)
       admit. }
-    { simpl; forward.
-      specialize (Hopen _ eq_refl).
-      destruct Hopen as [ ? [ ? [ ? [ ? ? ] ] ] ]; clear Hopen.
-      rewrite H2.
-      rewrite H3.
-      simpl.
+    { simpl in *; forward; simpl in *.
+      eapply Hopen in H1; clear Hopen.
+      forward_reason.
+      Cases.rewrite_all_goal.
       eapply ctxD'_no_hyps.
-      intros. split; auto. }
+      intuition. }
   Qed.
 
 End parameterized.
-
-
-(*
-  Lemma _impls_sem
-  : forall ls P,
-      _impls ls P <-> (Forall (fun x => x) ls -> P).
-  Proof.
-    induction ls; simpl; intros.
-    + intuition.
-    + rewrite IHls. intuition.
-      inversion H0. eapply H; eauto.
-  Qed.
-  Lemma _exists_iff
-  : forall ls P Q,
-      (forall x, P x <-> Q x) ->
-      (@_exists ls P <-> @_exists ls Q).
-  Proof.
-    clear.
-    induction ls; simpl; intros.
-    + eapply H.
-    + apply exists_iff; intro. eapply IHls.
-      intro; eapply H.
-  Qed.
-  Lemma _forall_iff
-  : forall ls P Q,
-      (forall x, P x <-> Q x) ->
-      (@_foralls ls P <-> @_foralls ls Q).
-  Proof.
-    clear.
-    induction ls; simpl; intros.
-    + eapply H.
-    + apply forall_iff; intro. eapply IHls.
-      intro; eapply H.
-  Qed.
-
-  Lemma at_bottom_sound_option
-  : forall goal tus tvs f goal',
-      (forall tus' tvs' s e e',
-         f (tus ++ tus') (tvs ++ tvs') s e = Some e' ->
-         WellFormed_subst s ->
-         match goalD (tus ++ tus') (tvs ++ tvs') (GGoal s e)
-             , goalD (tus ++ tus') (tvs ++ tvs') e'
-         with
-           | None , _ => True
-           | Some _ , None => False
-           | Some g , Some g' =>
-             forall us vs,
-               g' us vs -> g us vs
-         end) ->
-      at_bottom f tus tvs goal = Some goal' ->
-      forall (Hwf : WellFormed_goal goal),
-      match goalD tus tvs goal
-          , goalD tus tvs goal'
-      with
-        | None , _ => True
-        | Some _ , None => False
-        | Some g , Some g' =>
-          forall us vs,
-            g' us vs -> g us vs
-      end.
-  Proof.
-    induction goal; simpl; intros.
-    { forwardy. inv_all; subst.
-      eapply IHgoal in H0; clear IHgoal; auto.
-      { simpl. forward. auto. }
-      { intros.
-        specialize (H tus' (t :: tvs') s e).
-        rewrite app_ass in H1. simpl in *.
-        eapply H in H1; clear H; auto.
-        forward.
-        rewrite substD_conv
-           with (pfu := eq_refl _) (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H.
-        unfold propD in *.
-        rewrite exprD'_typ0_conv with (pfu := eq_refl _)
-             (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H.
-        simpl in *.
-        unfold ResType in *.
-        autorewrite with eq_rw in *.
-        destruct e; forwardy.
-        { inv_all; subst.
-          rewrite H in *.
-          autorewrite with eq_rw in H3.
-          forwardy.
-          rewrite H3 in *.
-          inv_all; subst.
-          rewrite goalD_conv with (pfu := eq_refl)
-                                  (pfv := eq_sym (HList.app_ass_trans _ _ _)).
-          simpl.
-          forwardy.
-          autorewrite with eq_rw.
-          rewrite H1.
-          intros us vs. autorewrite with eq_rw.
-          clear - H4.
-          match goal with
-            | |- _ _ match ?X with _ => _ end ->
-                 _ _ match ?Y with _ => _ end /\
-                 _ _ match ?Z with _ => _ end =>
-              change X with Y ; change Z with Y ; destruct Y
-          end.
-          eauto. }
-        { rewrite H in *.
-          rewrite goalD_conv with (pfu := eq_refl)
-                                  (pfv := eq_sym (HList.app_ass_trans _ _ _)).
-          simpl.
-          forwardy.
-          autorewrite with eq_rw.
-          rewrite H1. intros.
-          inv_all; subst.
-          revert H6.
-          match goal with
-            | |- match ?X with _ => _ end _ _ ->
-                 match ?Y with _ => _ end _ _ =>
-              change Y with X ; destruct X
-          end. auto. } } }
-    { forwardy; inv_all; subst.
-      eapply IHgoal in H0; clear IHgoal; auto.
-      + simpl; forward; eauto.
-        destruct H3. eauto.
-      + intros.
-        rewrite goalD_conv
-           with (pfu := eq_sym (HList.app_ass_trans _ _ _))
-                (pfv := eq_refl).
-        autorewrite with eq_rw.
-        simpl. forward.
-        rewrite HList.app_ass_trans in H1.
-        simpl in H1.
-        eapply H in H1; clear H; eauto.
-        destruct e; forward.
-        - inv_all; subst.
-          revert H7. autorewrite with eq_rw.
-          eauto.
-        - inv_all; subst.
-          revert H6. autorewrite with eq_rw.
-          eauto. }
-    { forwardy; inv_all; subst.
-      eapply IHgoal in H0; clear IHgoal; eauto.
-      + simpl; forward; eauto.
-        inv_all. subst.
-        eapply _impls_sem; intro.
-        eapply _impls_sem in H5; eauto. }
-    { specialize (H nil nil s o goal').
-      simpl in H.
-      repeat rewrite HList.app_nil_r_trans in H.
-      eapply H in H0; clear H; auto. }
-  Qed.
-*)

@@ -17,7 +17,6 @@ LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
 	  ExprSubst ExprSubstitute AppN \
 	  AutoSetoidRewrite
-	  ExprSubst ExprSubstitute AppN
 	  # TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
@@ -51,12 +50,12 @@ MODULES    := TypesI EnvI ExprI VariablesI \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
-	      $(STAC:%=STac/%) \
 	      $(RTAC:%=RTac/%) \
 	      $(SYMS:%=syms/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(REIFY:%=Reify/%)
 
+#	      $(STAC:%=STac/%)
 #	      $(EXTENSIBLE:%=Ext/%)
 
 TESTS :=

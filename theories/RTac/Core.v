@@ -6,6 +6,7 @@ Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.OpenT.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
@@ -16,6 +17,29 @@ Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Theorem rev_app_distr_trans
+: forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
+Proof. clear.
+       induction x; simpl; intros.
+       - symmetry. apply app_nil_r_trans.
+       - rewrite IHx. apply app_ass_trans.
+Defined.
+
+(** TODO: This is cubic! **)
+Theorem rev_involutive_trans (A : Type)
+: forall (l : list A), rev (rev l) = l.
+Proof. clear.
+       induction l; simpl; auto.
+       rewrite rev_app_distr. rewrite IHl. reflexivity.
+Defined.
+
+Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))
+: hlist F ls :=
+  match rev_involutive_trans ls in _ = t return hlist F t with
+    | eq_refl => hlist_rev h
+  end.
+
 
 Section parameterized.
   Variable typ : Type.
@@ -101,16 +125,16 @@ Section parameterized.
   Definition countVars ctx := countVars' ctx 0.
   Definition countUVars ctx := countUVars' ctx 0.
 
-  Fixpoint getEnvs' (ctx : Ctx) (tus tvs : tenv typ)
-  : tenv typ * tenv typ :=
+  Fixpoint getEnvs' (ctx : Ctx) (tus : tenv (ctyp typ)) (tvs : tenv typ)
+  : tenv (ctyp typ) * tenv typ :=
     match ctx with
       | CTop => (tus,tvs)
       | CAll ctx' t => getEnvs' ctx' tus (t :: tvs)
-      | CEx  ctx' t => getEnvs' ctx' (t :: tus) tvs
+      | CEx  ctx' t => getEnvs' ctx' (mkctyp tvs t :: tus) tvs
       | CHyp ctx' _ => getEnvs' ctx' tus tvs
     end.
 
-  Definition getEnvs (ctx : Ctx) : tenv typ * tenv typ :=
+  Definition getEnvs (ctx : Ctx) : tenv (ctyp typ) * tenv typ :=
     let (x,y) := getEnvs' ctx nil nil in
     (x, y).
 
@@ -210,21 +234,26 @@ Section parameterized.
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
-  Fixpoint _foralls (ls : list typ)
-  : (HList.hlist typD ls -> Prop) -> Prop :=
-    match ls as ls return (HList.hlist typD ls -> Prop) -> Prop with
-      | nil => fun P => P HList.Hnil
-      | l :: ls => fun P => forall x : typD l,
-                              _foralls (fun z => P (HList.Hcons x z))
-    end.
+  Section _quants.
+    Context {T : Type}.
+    Variable TD : T -> Type.
 
-  Fixpoint _exists (ls : list typ)
-  : (HList.hlist typD ls -> Prop) -> Prop :=
-    match ls as ls return (HList.hlist typD ls -> Prop) -> Prop with
-      | nil => fun P => P HList.Hnil
-      | l :: ls => fun P => exists x : typD l,
-                              _exists (fun z => P (HList.Hcons x z))
-    end.
+    Fixpoint _foralls (ls : list T)
+    : OpenT TD ls Prop -> Prop :=
+      match ls as ls return OpenT TD ls Prop -> Prop with
+        | nil => fun P => P HList.Hnil
+        | l :: ls => fun P => forall x : TD l,
+                                _foralls (fun z => P (HList.Hcons x z))
+      end.
+
+    Fixpoint _exists (ls : list T)
+    : OpenT TD ls Prop -> Prop :=
+      match ls as ls return OpenT TD ls Prop -> Prop with
+        | nil => fun P => P HList.Hnil
+        | l :: ls => fun P => exists x : TD l,
+                                _exists (fun z => P (HList.Hcons x z))
+      end.
+  End _quants.
 
   Fixpoint _impls (ls : list Prop) (P : Prop) :=
     match ls with
@@ -248,6 +277,7 @@ Section parameterized.
   | PDirect : forall x y, f x y -> Path f x y
   | PThrough : forall x y z, f x y -> Path f y z -> Path f x z.
 
+(*
   Definition Acyclic_from (tus tvs : nat) (tes : list (typ * option expr))
   : Prop :=
     (forall x, ~Path (fun f t =>
@@ -258,6 +288,7 @@ Section parameterized.
     (forall t e, In (t,Some e) tes ->
                  forall u, mentionsU u e = true ->
                            u < tus + length tes).
+*)
 
   (** Well_formedness is about acyclicity, but we don't have enough now
    ** to guarantee that.
@@ -269,8 +300,8 @@ Section parameterized.
     match goal with
       | GAll _ goal' => WellFormed_goal tus (S tvs) goal'
       | GExs tes goal' =>
-           Acyclic_from tus tvs tes
-        /\ WellFormed_goal (tus + length tes) tvs goal'
+           (* Acyclic_from tus tvs tes
+        /\ *) WellFormed_goal (tus + length tes) tvs goal'
       | GHyp _ goal' => WellFormed_goal tus tvs goal'
       | GGoal _ => True
       | GSolved => True
@@ -294,24 +325,49 @@ Section parameterized.
         end
     end.
 
-  Fixpoint goal_substD (tus tvs : list typ) (tes : list (typ * option expr))
-  : ResType (tus ++ map fst tes) tvs Prop.
-(*
+  Section with_T.
+    Context {T : Type}.
+    Variables (b : T) (c : list T).
+
+    Fixpoint nth_after' a  : nth_error (a ++ b :: c) (length a) = Some b :=
+      match a as a return nth_error (a ++ b :: c) (length a) = Some b with
+        | nil => eq_refl
+        | x :: xs => nth_after' xs
+      end.
+  End with_T.
+  Definition nth_after T a b c := @nth_after' T b c a.
+
+  Definition hlist_get_cons_after_app {T : Type} {F : T -> Type} {t} {a b : list T}
+             (h : hlist F (a ++ t :: b)) : F t :=
+    (match nth_after a t b in _ = T return match T with
+                                             | None => unit
+                                             | Some x => F x
+                                           end
+     with
+       | eq_refl => hlist_nth h (length a)
+     end).
+
+  Fixpoint goal_substD (tus : tenv (ctyp typ)) (tvs : tenv typ) (tes : list (typ * option expr))
+  : option (OpenT ctxD (tus ++ map (fun x => mkctyp tvs (fst x)) tes) Prop).
   refine
-    match tes as tes return ResType (tus ++ map fst tes) tvs Prop with
-      | nil => Some (fun _ _ => True)
+    match tes as tes
+          return option (OpenT ctxD (tus ++ map (fun x => mkctyp tvs (fst x)) tes) Prop)
+    with
+      | nil => Some (fun _ => True)
       | (t,None) :: tes =>
-        goal_substD (tus ++ t :: nil) tvs tes
-      | (t,Some e) :: tes =>
-        match exprD' tus tvs e t
-            , goal_substD tus tvs tes
+        _ (goal_substD (tus ++ mkctyp tvs t :: nil) tvs tes)
+      | (t,Some e) :: tes' =>
+        match exprD' (tus ++ mkctyp tvs t :: map (fun x => mkctyp tvs (fst x)) tes') tvs e t
+            , goal_substD (tus ++ mkctyp tvs t :: nil) tvs tes'
         with
           | Some eD , Some sD => _
           | _ , _ => None
         end
     end.
-*)
-  Admitted.
+  { rewrite app_ass_trans in sD.
+    refine (Some (fun us => sD us /\ forall vs, hlist_get_cons_after_app us vs = eD us vs)). }
+  { rewrite app_ass_trans. refine (fun x => x). }
+  Defined.
 
   (** NOTE:
    ** Appending the newly introduced terms makes tactics non-local.
@@ -319,25 +375,26 @@ Section parameterized.
    ** - The alternative, however, is to expose a lot more operations
    **   on substitute
    **)
-  Fixpoint goalD (tus tvs : list typ) (goal : Goal) {struct goal}
-  : ResType tus tvs Prop.
+  Fixpoint goalD (tus : tenv (ctyp typ)) (tvs : tenv typ) (goal : Goal) {struct goal}
+  : option (exprT tus tvs Prop).
   refine
     match goal with
       | GAll tv goal' =>
         match goalD tus (tvs ++ tv :: nil) goal' with
           | None => None
           | Some D =>
-            Some (fun us vs => @_foralls (tv :: nil) (fun vs' => D us (HList.hlist_app vs vs')))
+            Some (fun us vs => @_foralls _ typD (tv :: nil) (fun vs' => D us (HList.hlist_app vs vs')))
         end
       | GExs tes goal' =>
-        let tus_ext := map fst tes in
+        let tus_ext := map (fun x => mkctyp tvs (fst x)) tes in
         match goalD (tus ++ tus_ext) tvs goal'
-            , goal_substD tus tvs tes with
+            , @goal_substD tus tvs tes with
           | None , _ => None
           | Some _ , None => None
           | Some D , Some sD =>
-            Some (fun us vs => @_exists tus_ext
-                                        (fun us' => sD (HList.hlist_app us us') vs
+            Some (fun (us : hlist ctxD tus)
+                      (vs : hlist typD tvs) => @_exists _ ctxD tus_ext
+                                        (fun us' => sD (HList.hlist_app us us')
                                                     /\ D (HList.hlist_app us us') vs))
         end
       | GHyp hyp' goal' =>
@@ -367,11 +424,12 @@ Section parameterized.
     end.
   Defined.
 
-  Fixpoint getUVars (ctx : Ctx) (acc : tenv typ) : tenv typ :=
+(*
+  Fixpoint getUVars (ctx : Ctx) (acc : tenv (ctyp typ)) : tenv (ctyp typ) :=
     match ctx with
       | CTop => acc
       | CAll ctx' _ => getUVars ctx' acc
-      | CEx  ctx' t => getUVars ctx' (t :: acc)
+      | CEx  ctx' t => getUVars ctx' (mkctyp t :: acc)
       | CHyp ctx' _ => getUVars ctx' acc
     end.
   Fixpoint getVars (ctx : Ctx) (acc : tenv typ) : tenv typ :=
@@ -396,27 +454,25 @@ Section parameterized.
     intros. rewrite <- (getEnvs'_getUVars_getVars ctx nil nil).
     unfold getEnvs. destruct (getEnvs' ctx nil nil); reflexivity.
   Qed.
-
-  Definition OpenT (tus tvs : tenv typ) (T : Type) : Type :=
-    HList.hlist typD tus -> HList.hlist typD tvs -> T.
+*)
 
   Section ctxD.
 
-    Fixpoint ctxD' (tus tvs : tenv typ) (ctx : Ctx)
+    Fixpoint ctxD' (tus : tenv (ctyp typ)) (tvs : tenv typ) (ctx : Ctx)
              {struct ctx}
-    : OpenT tus tvs Prop -> Prop :=
-      match ctx return OpenT tus tvs Prop -> Prop with
+    : exprT tus tvs Prop -> Prop :=
+      match ctx return exprT tus tvs Prop -> Prop with
         | CTop => fun k => forall us vs, k us vs
         | CEx ctx' t =>
-          match tus as tus return OpenT tus tvs Prop -> Prop with
+          match tus as tus return exprT tus tvs Prop -> Prop with
             | t' :: tus' => fun k =>
-              t = t' ->
+              mkctyp tvs t = t' ->
               @ctxD' tus' tvs ctx'
-                     (fun us vs => forall x : typD t', k (Hcons x us) vs)
+                     (fun us vs => forall x : ctxD t', k (Hcons x us) vs)
             | nil => fun _ => True
           end
         | CAll ctx' t =>
-          match tvs as tvs return OpenT tus tvs Prop -> Prop with
+          match tvs as tvs return exprT tus tvs Prop -> Prop with
             | t' :: tvs' => fun k =>
               t = t' ->
               @ctxD' tus tvs' ctx'
@@ -434,7 +490,7 @@ Section parameterized.
 
   End ctxD.
 
-  Definition rtac_sound (tus tvs : tenv typ) (tac : rtac) : Prop :=
+  Definition rtac_sound (tus : tenv (ctyp typ)) (tvs : tenv typ) (tac : rtac) : Prop :=
     forall ctx s g result,
       tac ctx s g = result ->
       match result with
@@ -442,11 +498,12 @@ Section parameterized.
         | Solved s' =>
           WellFormed_subst s ->
           WellFormed_subst s' /\
-          let tus' := tus ++ getUVars ctx nil in
-          let tvs' := tvs ++ getVars ctx nil in
+          let (tux,tvx) := getEnvs ctx in
+          let tus' := tus ++ tux in
+          let tvs' := tvs ++ tvx in
           match propD  tus' tvs' g
-              , substD tus' tvs' s
-              , substD tus' tvs' s'
+              , substD tus' s
+              , substD tus' s'
           with
             | None , _ , _
             | Some _ , None , _ => True
@@ -454,26 +511,21 @@ Section parameterized.
             | Some gD , Some sD , Some sD' =>
               @ctxD' (rev tus') (rev tvs') ctx
                      (fun us vs =>
-                        let us : hlist typD tus' :=
-                            match rev_involutive tus' in _ = t return hlist _ t with
-                              | eq_refl => hlist_rev us
-                            end in
-                        let vs : hlist typD tvs' :=
-                            match rev_involutive tvs' in _ = t return hlist _ t with
-                              | eq_refl => hlist_rev vs
-                            end in
-                        sD' us vs ->
-                        sD us vs /\ gD us vs)
+                        let us : hlist ctxD tus' := hlist_unrev us in
+                        let vs : hlist typD tvs' := hlist_unrev vs in
+                        sD' us ->
+                        sD us /\ gD us vs)
           end
         | More s' g' =>
           WellFormed_subst s ->
           WellFormed_subst s' /\
-          let tus' := tus ++ getUVars ctx nil in
-          let tvs' := tvs ++ getVars ctx nil in
+          let (tux,tvx) := getEnvs ctx in
+          let tus' := tus ++ tux in
+          let tvs' := tvs ++ tvx in
           match propD  tus' tvs' g
-              , substD tus' tvs' s
+              , substD tus' s
               , goalD  tus' tvs' g'
-              , substD tus' tvs' s'
+              , substD tus' s'
           with
             | None , _ , _ , _
             | Some _ , None , _ , _ => True
@@ -482,16 +534,10 @@ Section parameterized.
             | Some gD , Some sD , Some gD' , Some sD' =>
               @ctxD' (rev tus') (rev tvs') ctx
                      (fun us vs =>
-                        let us : hlist typD tus' :=
-                            match rev_involutive tus' in _ = t return hlist _ t with
-                              | eq_refl => hlist_rev us
-                            end in
-                        let vs : hlist typD tvs' :=
-                            match rev_involutive tvs' in _ = t return hlist _ t with
-                              | eq_refl => hlist_rev vs
-                            end in
-                        sD' us vs -> gD' us vs ->
-                        sD us vs /\ gD us vs)
+                        let us : hlist ctxD tus' := hlist_unrev us in
+                        let vs : hlist typD tvs' := hlist_unrev vs in
+                        sD' us -> gD' us vs ->
+                        sD us /\ gD us vs)
           end
       end.
 
@@ -538,9 +584,9 @@ Section parameterized.
       inversion H0. eapply H; eauto.
   Qed.
   Lemma _exists_iff
-  : forall ls P Q,
+  : forall T F ls P Q,
       (forall x, P x <-> Q x) ->
-      (@_exists ls P <-> @_exists ls Q).
+      (@_exists T F ls P <-> @_exists _ F ls Q).
   Proof.
     clear.
     induction ls; simpl; intros.
@@ -549,9 +595,9 @@ Section parameterized.
       intro; eapply H.
   Qed.
   Lemma _forall_iff
-  : forall ls P Q,
+  : forall T F ls P Q,
       (forall x, P x <-> Q x) ->
-      (@_foralls ls P <-> @_foralls ls Q).
+      (@_foralls T F ls P <-> @_foralls T F ls Q).
   Proof.
     clear.
     induction ls; simpl; intros.
@@ -673,8 +719,8 @@ Section parameterized.
   Qed.
 *)
 
-  Lemma _exists_sem : forall ls P,
-                        _exists (ls := ls) P <->
+  Lemma _exists_sem : forall T F ls P,
+                        @_exists T F ls P <->
                         exists x, P x.
   Proof.
     clear. induction ls; simpl; auto.
@@ -692,8 +738,8 @@ Section parameterized.
         rewrite (HList.hlist_eta x) in H.
         assumption.
   Qed.
-  Lemma _forall_sem : forall ls P,
-                        _foralls (ls := ls) P <->
+  Lemma _forall_sem : forall T F ls P,
+                        @_foralls T F ls  P <->
                         forall x, P x.
   Proof.
     clear. induction ls; simpl; auto.
@@ -798,7 +844,7 @@ Section parameterized.
     end.
 
   Theorem ctxD'_no_hyps
-  : forall ctx tus tvs (P : OpenT _ _ Prop),
+  : forall ctx tus tvs (P : exprT _ _ Prop),
       (forall us vs, P us vs) ->
       @ctxD' tus tvs ctx P.
   Proof.
