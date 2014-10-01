@@ -53,8 +53,6 @@ Section typed.
         else find e (S acc) es'
     end.
 
-  Axiom instantiate : subst -> expr typ func -> expr typ func.
-
   Fixpoint patterns (es : list (expr typ func)) (s : subst)
            (e : expr typ func) {struct e}
   : option (expr typ func).
