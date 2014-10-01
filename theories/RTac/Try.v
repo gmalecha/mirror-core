@@ -35,7 +35,8 @@ Section parameterized.
     destruct (tac ctx s g); auto.
     + intros; split; auto.
       simpl.
-      admit.
+      forward.
+      eapply ctxD'_no_hyps. auto.
   Qed.
 
 End parameterized.

@@ -11,15 +11,14 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-  Variable subst : Type.
-
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {typ : Type}.
+  Context {expr : Type}.
+  Context {subst : Type}.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Fixpoint FIRST (tacs : list (rtac typ expr subst))
   : rtac typ expr subst :=
@@ -33,15 +32,18 @@ Section parameterized.
           end
       end.
 
-(*
   Theorem FIRST_sound
   : forall tus tvs tacs, Forall (rtac_sound tus tvs) tacs -> rtac_sound tus tvs (FIRST tacs).
   Proof.
     unfold FIRST.
     induction 1.
-    { unfold rtac_sound. intros; congruence. }
-    { admit. }
+    { unfold rtac_sound.
+      intros; subst. trivial. }
+    { red; simpl; intros.
+      subst.
+      specialize (H ctx s g _ eq_refl).
+      destruct (x ctx s g); auto.
+      eapply IHForall. reflexivity. }
   Qed.
-*)
 
 End parameterized.
