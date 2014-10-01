@@ -29,7 +29,7 @@ Section parameterized.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+  Variable exprUnify : tenv (ctyp typ) -> tenv typ -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Let eapplicable :=

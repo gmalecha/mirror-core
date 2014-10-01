@@ -29,11 +29,10 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable RType_typ : RType typ.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Expr_expr : Expr _ expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
-
+  Context {RType_typ : RType typ}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Expr_expr : Expr _ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Let tyProp : typ := @typ0 _ _ _ _.
 
@@ -51,16 +50,12 @@ Section parameterized.
     end.
 
   Let lemmaD :=
-    @lemmaD _ _ _ Expr_expr expr
-            (ExprDAs.exprD'_typ0 Prop)
-            tyProp
-            provable.
+    @lemmaD _ _ _ _ _ _
+            (ExprDAs.exprD'_typ0 Prop).
 
   Let lemmaD' :=
-    @lemmaD' _ _ _ Expr_expr expr
-            (ExprDAs.exprD'_typ0 Prop)
-            tyProp
-            provable.
+    @lemmaD' _ _ _ _ _ _
+            (ExprDAs.exprD'_typ0 Prop).
 
   Record HintsOk (h : Hints) : Type :=
   { ApplyOk : Forall (lemmaD nil nil) h.(Apply)
@@ -89,10 +84,10 @@ Section parameterized.
   End get_applicable.
 
   Variable subst : Type.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : SubstOk _ Subst_subst.
-  Variable SU : SubstUpdate subst expr.
-  Variable SubstUpdateOk : SubstUpdateOk SU _.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : SubstOk _ Subst_subst}.
+  Context {SU : SubstUpdate subst expr}.
+  Context {SubstUpdateOk : SubstUpdateOk SU _}.
 
   Context {ExprUVar_expr : VariablesI.ExprUVar expr}.
   Context {ExprUVarOk_expr : VariablesI.ExprUVarOk ExprUVar_expr}.
@@ -103,7 +98,7 @@ Section parameterized.
   Hypothesis hintsOk : HintsOk hints.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable exprUnify : tenv (ctyp typ) -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+  Variable exprUnify : tenv (ctyp typ) -> tenv typ -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> expr -> expr.
 
   Hypothesis exprUnify_sound : unify_sound SubstOk_subst exprUnify.

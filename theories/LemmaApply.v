@@ -26,11 +26,11 @@ Section lemma_apply.
   Variable SubstOk_subst : SubstOk _ Subst_subst.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable unify : tenv (ctyp typ) -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+  Variable unify : tenv (ctyp typ) -> tenv  typ -> expr -> expr -> typ -> subst -> option subst.
 
   Definition unify_sound : Prop :=
     forall tu tv e1 e2 s s' t tv',
-      unify tu (tv' ++ tv) (length tv') e1 e2 t s = Some s' ->
+      unify tu (tv' ++ tv) e1 e2 t s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall v1 v2 sD,
@@ -51,7 +51,7 @@ Section lemma_apply.
              (lem : lemma typ expr expr) (e : expr)
   : option subst :=
     let pattern := vars_to_uvars 0 (length tus) lem.(concl) in
-    unify (tus ++ List.map (mkctyp tvs) lem.(vars)) tvs 0 pattern e tyProp s.
+    unify (tus ++ List.map (mkctyp tvs) lem.(vars)) tvs pattern e tyProp s.
 
   Ltac fill_holes :=
     let is_prop P := match type of P with

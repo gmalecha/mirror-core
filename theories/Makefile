@@ -29,13 +29,12 @@ STAC := Core Continuation Repeat \
 	STac
 RTAC := Core \
 	Then Try Repeat Idtac First Fail Solve \
-	Assumption RunSTac \
+	Assumption \
 	Intro Apply EApply \
 	Simplify Instantiate \
 	AtGoal Reduce \
 	RTac
-# Apply EApply
-#	Continuation ApplyToAll
+# RunSTac
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := TypesI EnvI ExprI VariablesI \

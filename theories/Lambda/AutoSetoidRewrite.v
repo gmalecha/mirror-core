@@ -197,7 +197,7 @@ Section setoid.
                   end
               end
             | Inj _ => rw_default e rvars rg rs
-            | UVar u => rw_default e rvars rg rs
+            | UVar _ _ => rw_default e rvars rg rs
           end
         | Some (e',rs') =>
           tryRewrite rw_post e' rvars rg rs'

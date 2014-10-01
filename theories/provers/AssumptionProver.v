@@ -29,7 +29,7 @@ Section proverI.
   Definition assumptionSummarize (hyps : list expr) : assumption_summary := hyps.
 
   Definition assumptionProve (hyps : assumption_summary)
-             (_ _ : tenv typ)
+             (_ : tenv (ctyp typ)) (_ : tenv typ)
              (goal : expr) : bool :=
     anyb (rel_dec goal) hyps.
 
@@ -37,8 +37,8 @@ Section proverI.
   : assumption_summary :=
     hyps ++ sum.
 
-  Definition assumptionValid (tus tvs : list typ) (sum : assumption_summary)
-  : ResType tus tvs Prop :=
+  Definition assumptionValid (tus : tenv (ctyp typ)) (tvs : list typ) (sum : assumption_summary)
+  : option (exprT tus tvs Prop) :=
     AllProvable tus tvs sum.
 
   Lemma assumptionValid_extensible
@@ -64,19 +64,6 @@ Section proverI.
   Proof.
     unfold assumptionValid, assumptionSummarize. eauto.
   Qed.
-
-  (** TODO: Move **)
-(*
-  Theorem Forall_app : forall T (P : T -> Prop) ls ls',
-    Forall P (ls ++ ls') <->
-    Forall P ls /\ Forall P ls'.
-  Proof.
-    induction ls; simpl; split; try inversion 1; intros; subst; auto.
-    { apply IHls in H3. intuition. }
-    { intuition. inversion H2; subst. constructor; auto.
-      eapply IHls; intuition. }
-  Qed.
-*)
 
   Lemma assumptionLearnCorrect : forall uvars vars sum sD,
     assumptionValid uvars vars sum = Some sD ->

@@ -31,7 +31,7 @@ Section parameterized.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify :
-    tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+    tenv (ctyp typ) -> tenv typ -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Let eapplicable :=
