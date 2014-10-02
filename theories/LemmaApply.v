@@ -3,8 +3,6 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lemma.
@@ -22,7 +20,7 @@ Section lemma_apply.
   Let tyProp : typ := @typ0 _ _ _ _.
   Variable subst : Type.
   Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : SubstOk _ Subst_subst.
+  Variable SubstOk_subst : SubstOk Subst_subst.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable unify : tenv typ -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.

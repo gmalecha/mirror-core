@@ -7,11 +7,9 @@ Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprUnify_common.
 Require Import MirrorCore.Lambda.ExprD.
@@ -28,18 +26,17 @@ Section typed.
   Variable subst : Type.
   Variable typ : Type.
   Variable func : Type.
-  Variable RType_typ : RType typ.
-  Variable RTypeOk : RTypeOk.
-  Variable Typ2_arr : Typ2 _ Fun.
-  Variable Typ2Ok_arr : Typ2Ok Typ2_arr.
-  Variable RSym_func : RSym func.
-  Variable RSymOk_func : RSymOk RSym_func.
-  Variable Subst_subst : Subst subst (expr typ func).
-  Variable SubstUpdate_subst : SubstUpdate subst (expr typ func).
-  Variable SubstOk_subst : SubstOk (Expr_expr) Subst_subst.
-  Variable SubstUpdateOk_subst
-  : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
+  Context {RType_typ : RType typ}.
+  Context {RTypeOk : RTypeOk}.
+  Context {RSym_func : RSym func}.
+  Context {RSymOk_func : RSymOk RSym_func}.
   Local Existing Instance Expr_expr.
+  Context {Typ2_arr : Typ2 _ Fun}.
+  Context {Typ2Ok_arr : Typ2Ok Typ2_arr}.
+  Context {Subst_subst : Subst subst (expr typ func)}.
+  Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _}.
 
   Local Instance RelDec_Rty : RelDec Rty :=
   { rel_dec := fun a b => match type_cast a b with
@@ -289,7 +286,7 @@ Section typed.
     (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
                     (l r : expr typ func)
                     (t : typ), option subst) : Prop :=
-    unify_sound _ unify ->
+    unify_sound unify ->
     forall tu tv e1 e2 s s' t tv',
       (exprUnify' unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
@@ -546,7 +543,7 @@ Section typed.
 
   Lemma handle_uvar_simul
   : forall u s s' t (e : expr typ func) tv tu tv' unify
-           (unifyOk : unify_sound _ unify),
+           (unifyOk : unify_sound unify),
       match lookup u s with
         | Some e2' =>
           match typeof_expr tu (tv' ++ tv) e with
@@ -614,7 +611,7 @@ Section typed.
              |- _ =>
              change Y with X in H ; consider X; intros; forward
          end.
-    generalize (fun e => handle_uvar _ _ _ _ unifyOk tu tv e u s).
+    generalize (fun e => handle_uvar unifyOk tu tv e u s).
     consider (lookup u s); intros.
     { forwardy. inv_all. subst.
       destruct H2.
@@ -641,7 +638,7 @@ Section typed.
 
   Lemma handle_uvar_simul'
   : forall u s s' t (e : expr typ func) tv tu tv' unify
-           (unifyOk : unify_sound _ unify),
+           (unifyOk : unify_sound unify),
       match lookup u s with
         | Some e2' =>
           match typeof_expr tu (tv' ++ tv) (UVar u) with
@@ -709,7 +706,7 @@ Section typed.
              |- _ =>
              change Y with X in H ; consider X; intros; forward
          end.
-    generalize (fun e => handle_uvar' _ _ _ _ unifyOk tu tv e u s).
+    generalize (fun e => handle_uvar' unifyOk tu tv e u s).
     consider (lookup u s); intros.
     { forwardy. inv_all. subst.
       destruct H2.
@@ -738,7 +735,7 @@ Section typed.
   : forall (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
                            (l r : expr typ func)
                            (t : typ), option subst)
-           (unifyOk : unify_sound _ unify),
+           (unifyOk : unify_sound unify),
     forall tu tv e1 e2 s s' t tv',
       (exprUnify' unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
@@ -1173,8 +1170,8 @@ Section typed.
 
   Theorem exprUnify'_sound
   : forall unify,
-      unify_sound_ind _ unify ->
-      unify_sound_ind _ (exprUnify' unify).
+      unify_sound_ind unify ->
+      unify_sound_ind (exprUnify' unify).
   Proof.
     intros.
     red. intros.
@@ -1183,7 +1180,7 @@ Section typed.
     eauto.
   Qed.
 
-  Theorem exprUnify_sound : forall fuel, unify_sound _ (exprUnify fuel).
+  Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify fuel).
   Proof.
     induction fuel; simpl; intros; try congruence.
     eapply exprUnify'_sound. eassumption.

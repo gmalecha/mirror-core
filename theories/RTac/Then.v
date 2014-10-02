@@ -1,9 +1,4 @@
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.SubstI.
-Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 
 Require Import MirrorCore.Util.Forwardy.

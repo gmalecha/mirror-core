@@ -6,9 +6,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.Util.Forwardy.
 
@@ -73,10 +71,10 @@ Section subst.
   Variable T : Type.
   Variable typ : Type.
   (** the [expr] type requires a notion of unification variable **)
-  Variable RType_type : RType typ.
   Variable expr : Type.
-  Variable Expr_expr : Expr _ expr.
-  Variable ExprOk_expr : ExprOk _.
+  Context {RType_type : RType typ}.
+  Context {Expr_expr : Expr _ expr}.
+  Context {ExprOk_expr : ExprOk _}.
 
   Let uvar : Type := nat.
 
@@ -168,10 +166,10 @@ Section subst.
                   sD (hlist_app us (Hcons (eD us vs) Hnil)) vs
   }.
 
-  Variable Subst_subst : Subst.
-  Variable SubstOk_subst : SubstOk Subst_subst.
-  Variable SubstUpdate_subst : SubstUpdate.
-  Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
+  Context {Subst_subst : Subst}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst}.
 
   Lemma substD_conv
   : forall tus tus' tvs tvs' (pfu : tus' = tus) (pfv : tvs' = tvs) s,
@@ -539,3 +537,4 @@ Section subst.
 End subst.
 
 Arguments pull {T expr SU} _ _ _ : rename.
+Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.

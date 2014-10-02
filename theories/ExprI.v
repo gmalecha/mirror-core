@@ -314,3 +314,6 @@ Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments ResType {_ RType} _ _ _ : rename.
 Arguments mentionsU {_ RType _ Expr} _ _ : rename.
 Arguments mentionsV {_ RType _ Expr} _ _ : rename.
+
+Export MirrorCore.TypesI.
+Export MirrorCore.EnvI.

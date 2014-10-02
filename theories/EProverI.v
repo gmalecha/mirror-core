@@ -1,9 +1,7 @@
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprProp.
 Require Import MirrorCore.ProverI.
@@ -31,7 +29,7 @@ Section proverI.
 
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : @SubstOk subst typ _ expr _ _)
+             (SsubstOk : SubstOk Ssubst)
     (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
@@ -83,7 +81,7 @@ Section proverI.
             sumD' us vs
   ; Prove_sound
     : forall subst (Ssubst : Subst subst expr)
-             (Sok : SubstOk _ _),
+             (Sok : SubstOk Ssubst),
         EProveOk Sok factsD (@Prove P subst Ssubst)
   }.
 

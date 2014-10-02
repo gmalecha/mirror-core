@@ -7,10 +7,8 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.InstantiateI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
@@ -493,7 +491,7 @@ Module Make (FM : WS with Definition E.t := uvar
         { right; auto. } }
     Qed.
 
-    Instance SubstOk_subst : SubstOk Expr_expr Subst_subst :=
+    Instance SubstOk_subst : SubstOk Subst_subst :=
     {| WellFormed_subst := WellFormed
      ; substD := raw_substD
      ; substD_weaken := substD_weaken

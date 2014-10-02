@@ -4,11 +4,9 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
@@ -24,18 +22,18 @@ Section typed.
   Variable subst : Type.
   Variable typ : Type.
   Variable func : Type.
-  Variable RType_typ : RType typ.
-  Variable RTypeOk_typ : RTypeOk.
-  Variable Typ2_arr : Typ2 _ Fun.
-  Variable Typ2Ok_arr : Typ2Ok Typ2_arr.
-  Variable RSym_func : RSym func.
-  Variable RSymOk_func : RSymOk RSym_func.
-  Variable Subst_subst : Subst subst (expr typ func).
-  Variable SubstUpdate_subst : SubstUpdate subst (expr typ func).
-  Variable SubstOk_subst : SubstOk (Expr_expr) Subst_subst.
-  Variable SubstUpdateOk_subst
-  : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _.
+  Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
+  Context {RSym_func : RSym func}.
+  Context {RSymOk_func : RSymOk RSym_func}.
   Local Existing Instance Expr_expr. (* : Expr _ (expr typ func) := Expr_expr. *)
+  Context {Typ2_arr : Typ2 _ Fun}.
+  Context {Typ2Ok_arr : Typ2Ok Typ2_arr}.
+  Context {Subst_subst : Subst subst (expr typ func)}.
+  Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstUpdateOk_subst
+  : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _}.
 
   Lemma handle_set
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)

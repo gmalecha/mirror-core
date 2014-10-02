@@ -1,10 +1,8 @@
 Require Import ExtLib.Data.Sum.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.

@@ -11,7 +11,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.ExprI.
+(*Require Import MirrorCore.ExprI.*)
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.

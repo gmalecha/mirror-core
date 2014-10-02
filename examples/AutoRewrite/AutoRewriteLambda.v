@@ -1,12 +1,11 @@
+Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Fun.
-Require Import MirrorCore.EProverI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.EProverI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.SubstI.
-(*Require Import MirrorCore.Ext.Expr. *)
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.ExprSubst.
@@ -27,8 +26,8 @@ Section exprs.
   Context {RTypeOk_typD : RTypeOk}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Typ0_Fun : Typ2 _ Fun.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Typ0_Fun : Typ2 _ Fun}.
 
   (** TODO: Can this be further generalized? *)
   Let Expr_expr := @Expr_expr typ func _ _ RSym_func.
@@ -70,14 +69,10 @@ Section exprs.
    **)
 
   Variable subst : Type.
-  Variable Subst_subst : Subst subst (expr typ func).
-  Variable SubstOk_subst : SubstOk _ Subst_subst.
-  Variable SU : SubstUpdate subst (expr typ func).
-  Variable SubstUpdateOk : SubstUpdateOk SU _.
-
-  Require Import ExtLib.Structures.Monad.
-  Require Import ExtLib.Data.Option.
-(*  Require Import MirrorCore.Ext.ExprSubst. *)
+  Context {Subst_subst : Subst subst (expr typ func)}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SU : SubstUpdate subst (expr typ func)}.
+  Context {SubstUpdateOk : SubstUpdateOk SU _}.
 
   Section apply_rewrite.
     Variable prove : tenv typ -> tenv typ -> expr typ func -> subst -> option subst.
@@ -92,8 +87,7 @@ Section exprs.
                        let pattern := vars_to_uvars 0 (length tus) lhs in
                        let fuel := 100 in
                        match
-                         ExprUnify.exprUnify
-                           _ RSym_func Subst_subst SU fuel
+                         ExprUnify.exprUnify fuel
                            (tus ++ vars lem) tvs 0 s pattern e t
                        with
                          | Some s' =>

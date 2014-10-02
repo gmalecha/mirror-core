@@ -3,9 +3,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.InstantiateI.
@@ -28,10 +26,10 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable RType_typ : RType typ.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Expr_expr : Expr _ expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
+  Context {RType_typ : RType typ}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Expr_expr : Expr _ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Let tyProp : typ := @typ0 _ _ _ _.
 
@@ -74,7 +72,7 @@ Section parameterized.
   (** TODO: This is essentially [filter_map] **)
   Section get_applicable.
     Variable subst : Type.
-    Variable Subst_subst : Subst subst expr.
+    Context {Subst_subst : Subst subst expr}.
     Variable goal : expr.
 
     Variable applicable : forall (l : lemma typ expr expr) (g : expr),
@@ -93,10 +91,10 @@ Section parameterized.
   End get_applicable.
 
   Variable subst : Type.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : SubstOk _ Subst_subst.
-  Variable SU : SubstUpdate subst expr.
-  Variable SubstUpdateOk : SubstUpdateOk SU _.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SU : SubstUpdate subst expr}.
+  Context {SubstUpdateOk : SubstUpdateOk SU _}.
 
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
@@ -106,7 +104,7 @@ Section parameterized.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Hypothesis exprUnify_sound : unify_sound SubstOk_subst exprUnify.
-  Hypothesis NormlizedSubst : NormalizedSubstOk _.
+  Context {NormlizedSubst : NormalizedSubstOk _}.
 
   Let eapplicable :=
     @eapplicable typ _ expr Typ0_Prop subst vars_to_uvars exprUnify.

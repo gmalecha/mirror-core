@@ -51,9 +51,9 @@ MODULES    := Generic \
 	      $(LAMBDA:%=Lambda/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
+	      $(SYMS:%=syms/%) \
 	      $(STAC:%=STac/%) \
 	      $(RTAC:%=RTac/%) \
-	      $(SYMS:%=syms/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(REIFY:%=Reify/%)
 

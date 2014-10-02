@@ -121,7 +121,7 @@ Defined.
 
 Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ Subst_subst :=
   @FMapSubst.SUBST.SubstOk_subst _ _ _ _ _.
-Local Instance SubstUpdateOk_fmap_subst : @SubstI.SubstUpdateOk subst typ _ (expr typ func) _ _ (SubstUpdate_subst) _.
+Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk _ _.
 eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
 eapply ExprSubst.instantiate_mentionsU.
 eapply ExprSubst.exprD'_instantiate; eauto with typeclass_instances.
@@ -129,7 +129,7 @@ Qed.
 
 Require MirrorCore.Lambda.ExprUnify_simul.
 
-Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk _ _ hints)
+Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
 : forall facts (us vs : EnvI.env) goal s',
     @auto_prove typ (expr typ func) _ _ subst _ _ 
                 hints

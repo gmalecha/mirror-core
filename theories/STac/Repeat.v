@@ -2,9 +2,6 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.STac.Core.
 Require Import MirrorCore.STac.Idtac.
 

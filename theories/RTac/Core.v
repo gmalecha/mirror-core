@@ -6,9 +6,7 @@ Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 
@@ -825,3 +823,7 @@ Arguments CHyp {typ expr} _ _ : rename.
 Arguments Fail {typ expr subst} : rename.
 Arguments More {typ expr subst} _ _ : rename.
 Arguments Solved {typ expr subst} _ : rename.
+
+Export MirrorCore.ExprI.
+Export MirrorCore.SubstI.
+Export MirrorCore.ExprDAs.

@@ -22,8 +22,8 @@ Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
   Variable subst : Type.
-  Variable RType_typ : RType typ.
-  Variable Typ0_Prop : Typ0 _ Prop.
+  Context {RType_typ : RType typ}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Let tyProp : typ := @typ0 _ _ _ _.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
@@ -31,8 +31,8 @@ Section parameterized.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Section apply.
-    Variable Subst_subst : Subst subst expr.
-    Variable SU : SubstUpdate subst expr.
+    Context {Subst_subst : Subst subst expr}.
+    Context {SU : SubstUpdate subst expr}.
 
     Let eapplicable :=
       @eapplicable typ _ expr _ subst vars_to_uvars
@@ -67,14 +67,14 @@ Section parameterized.
       end.
   End apply.
 
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
-  Variable SubstUpdate_subst : SubstUpdate subst expr.
-  Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst}.
   Variable UnifySound_exprUnify : unify_sound _ exprUnify.
-  Variable NormalizedSubst : NormalizedSubstOk SubstOk_subst.
+  Context {NormalizedSubst : NormalizedSubstOk Subst_subst}.
 
   Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
      (t : typ) (tvs' : list typ)
@@ -123,7 +123,7 @@ Section parameterized.
                         end)
               nil nil lem ->
       stac_cont_sound tacC ->
-      stac_sound (APPLY _ _ lem tacC).
+      stac_sound (APPLY lem tacC).
   Proof.
     intros. apply stac_sound_stac_sound_old. red. intros.
     unfold APPLY.

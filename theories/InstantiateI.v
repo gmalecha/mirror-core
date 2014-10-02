@@ -1,8 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Data.HList.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
 
 Section definitions.
   Variables typ expr : Type.
