@@ -15,7 +15,8 @@ Set Strict Implicit.
 
 Module Make (ED : ExprDenote).
 
-  Hint Rewrite @ED.exprD'_Var @ED.exprD'_UVar @ED.exprD'_Inj @ED.exprD'_Abs @ED.exprD'_App using (eauto with typeclass_instances) : exprD_rw.
+  Hint Rewrite @ED.exprD'_Var @ED.exprD'_UVar @ED.exprD'_Inj @ED.exprD'_Abs
+               @ED.exprD'_App using (eauto with typeclass_instances) : exprD_rw.
 
   Section with_types.
     Context {typ : Type}.

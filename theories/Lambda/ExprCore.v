@@ -76,35 +76,111 @@ Section env.
   Defined.
   Set Elimination Schemes.
 
-  Inductive expr_acc : expr -> expr -> Prop :=
-  | acc_App_l : forall f a, expr_acc f (App f a)
-  | acc_App_r : forall f a, expr_acc a (App f a)
-  | acc_Abs : forall t e, expr_acc e (Abs t e)
-  | acc_UVar : forall u es e, In e es -> expr_acc e (UVar u es).
+  Inductive IIn {T} (x : T) : list T -> Prop :=
+  | IInH : forall ls, IIn x (x :: ls)
+  | IInN : forall y ls, IIn x ls -> IIn x (y :: ls).
+
+  Inductive expr_acc (e : expr) : expr -> Prop :=
+  | acc_App_l : forall a, expr_acc e (App e a)
+  | acc_App_r : forall f, expr_acc e (App f e)
+  | acc_Abs : forall t, expr_acc e (Abs t e)
+  | acc_UVar : forall u es, IIn e es -> expr_acc e (UVar u es).
 
   Definition exprs : Type := list expr.
 
-  Theorem wf_expr_acc : well_founded expr_acc.
-  Proof.
-    clear. red.
-(*    refine (fix recurse a : Acc expr_acc a :=
-              match a as a return Acc expr_acc a with
-                | Var v => Acc_intro _ (fun y pf => match pf in expr_acc _ z return match z return Prop with
-                                                                                      | Var v => Acc expr_acc y
-                                                                                      | _ => True
-                                                                                    end
-                                                    with
-                                                      | acc_App_l _ _ => _
-                                                      | _ => _
-                                                    end)
-                | App f x => _
-                | _ => _
-              end) ;
-    try solve [ inversion H ].
-constructor.
-Show Proof.
-*)
-  Admitted.
+  Definition wf_expr_acc : well_founded expr_acc :=
+    fix recurse a : Acc expr_acc a :=
+      match a as a return Acc expr_acc a with
+        | Var v =>
+           Acc_intro _ (fun y (pf : expr_acc _ (Var v)) =>
+                          match pf in expr_acc _ z
+                                return match z return Prop with
+                                         | Var _ => Acc expr_acc y
+                                         | _ => True
+                                       end
+                          with
+                            | acc_App_l _ => I
+                            | _ => I
+                          end)
+         | Inj i =>
+           Acc_intro _ (fun y (pf : expr_acc _ (Inj i)) =>
+                          match pf in expr_acc _ z
+                                return match z return Prop with
+                                         | Inj _ => Acc expr_acc y
+                                         | _ => True
+                                       end
+                          with
+                            | acc_App_l _ => I
+                            | _ => I
+                          end)
+         | App f x =>
+           Acc_intro _ (fun y (pf : expr_acc y (App f x)) =>
+                          match pf in expr_acc _ z
+                                return match z return Prop with
+                                         | App a b =>
+                                           (unit -> Acc expr_acc a) ->
+                                           (unit -> Acc expr_acc b) ->
+                                           Acc expr_acc y
+                                         | _ => True
+                                       end
+                          with
+                            | acc_App_l z => fun a _ => a tt
+                            | acc_App_r _ => fun _ a => a tt
+                            | _ => I
+                          end (fun _ => recurse f) (fun _ => recurse x))
+         | Abs t x =>
+           Acc_intro _ (fun y (pf : expr_acc y (Abs t x)) =>
+                          match pf in expr_acc _ z
+                                return match z return Prop with
+                                         | Abs t b =>
+                                           (unit -> Acc expr_acc b) ->
+                                           Acc expr_acc y
+                                         | _ => True
+                                       end
+                          with
+                            | acc_Abs _ => fun a => a tt
+                            | _ => I
+                          end (fun _ => recurse x))
+         | UVar u es =>
+           Acc_intro _ (fun y (pf : expr_acc y (UVar u es)) =>
+                          match pf in expr_acc _ z
+                                return match z return Prop with
+                                         | UVar u es =>
+                                           (forall e, IIn e es ->
+                                                      Acc expr_acc e) ->
+                                           Acc expr_acc y
+                                         | _ => True
+                                       end
+                          with
+                            | acc_UVar _ e pf => fun x => x _ pf
+                            | _ => I
+                          end (fun i =>
+                                 (fix get es (pf : IIn i es) {struct es}
+                                  : Acc _ i :=
+                                    match pf in IIn _ es
+                                          return match es return Prop with
+                                                   | nil => True
+                                                   | x :: xs =>
+                                                     (unit -> Acc _ x) *
+                                                     (IIn i xs -> Acc _ i)
+                                                 end ->
+                                                 Acc _ i
+                                    with
+                                      | IInH _ => fun k => fst k tt
+                                      | IInN _ _ pf => fun k => snd k pf
+                                    end match es as es
+                                              return match es return Prop with
+                                                       | nil => True
+                                                       | x :: xs =>
+                                                         (unit -> Acc expr_acc x) *
+                                                         (IIn i xs -> Acc expr_acc i)
+                                                     end
+                                        with
+                                          | nil => I
+                                          | x :: xs => (fun _ => recurse x,
+                                                        fun pf => get xs pf)
+                                        end) es))
+       end.
 
   Theorem expr_strong_ind
   : forall (P : expr -> Prop),
@@ -118,7 +194,11 @@ Show Proof.
     intros P Hvar Huvar Hinj Happ Habs.
     eapply Fix. eapply wf_leftTrans. eapply wf_expr_acc.
     destruct x; auto.
-    intros. eapply Huvar. clear - H. admit.
+    intros. eapply Huvar. clear - H.
+    cut (forall y, IIn y l -> P y).
+    { clear. admit. }
+    { intro. specialize (H y).
+      intro. apply H. constructor. constructor. assumption. }
   Qed.
 
   Variable RelDec_eq_typ : RelDec (@eq typ).
