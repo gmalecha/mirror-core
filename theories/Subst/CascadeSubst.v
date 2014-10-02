@@ -43,6 +43,35 @@ Section cascade_subst.
   Variable mentions_any : (nat -> bool) -> expr -> bool.
   Variable instantiate : (nat -> nat -> option expr) -> nat -> expr -> expr.
 
+  Definition cascade_forget (u : nat) (c : CascadeSubst) : CascadeSubst * option expr :=
+    if u ?[ lt ] c.(belowVars) then
+      let '(s',ne) := forget u c.(lowerSubst) in
+      match ne with
+        | None => ({| belowVars := c.(belowVars)
+                    ; insertVars := c.(insertVars)
+                    ; lowerSubst := s'
+                    ; upperSubst := c.(upperSubst)
+                    |}, None)
+        | Some e => ({| belowVars := c.(belowVars)
+                      ; insertVars := c.(insertVars)
+                      ; lowerSubst := s'
+                      ; upperSubst := c.(upperSubst)
+                     |}, Some (lift c.(insertVars) e))
+      end
+    else
+      let '(s',ne) := forget u c.(upperSubst) in
+      ({| belowVars := c.(belowVars)
+        ; insertVars := c.(insertVars)
+        ; lowerSubst := c.(lowerSubst)
+        ; upperSubst := s'
+        |}, ne).
+
+  Definition cascade_strengthenU (from len : nat) (c : CascadeSubst) : bool.
+  Admitted.
+
+  Definition cascade_strengthenV (from len : nat) (c : CascadeSubst) : bool.
+  Admitted.
+
   Instance SubstUpdate_CascadeSubst : SubstUpdate CascadeSubst expr :=
   { (** NOTE: [empty] doesn't make a lot of sense since a lot of the custom
      ** substitutions need more information.
@@ -93,6 +122,10 @@ Section cascade_subst.
                            ; upperSubst := sub'
                            |}
                  end
+  ; forget := cascade_forget
+  ; strengthenU := cascade_strengthenU
+  ; strengthenV := cascade_strengthenV
+(*
   ; drop  := fun from sub =>
                if from ?[ ge ] sub.(belowVars) then
                  match drop from sub.(upperSubst) with
@@ -105,6 +138,7 @@ Section cascade_subst.
                  end
                else
                  None
+*)
   }.
 
   Definition over (l : Lsubst) (s : Usubst) (u : nat) (n : nat) : CascadeSubst :=

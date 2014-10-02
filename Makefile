@@ -1,6 +1,7 @@
 all: coq plugin
 
 coq:
+	$(MAKE) -C src
 	$(MAKE) -C theories
 
 plugin:

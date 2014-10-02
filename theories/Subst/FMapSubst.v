@@ -207,10 +207,41 @@ Module Make (FM : WS with Definition E.t := uvar
         | Some _ => Some (FM.remove from sub)
       end.
 
+    Fixpoint mentionsRange (m : nat -> expr -> bool) (from len : nat) (e : expr) : bool :=
+      match len with
+        | 0 => false
+        | S n => if m from e then true else mentionsRange m (S from) n e
+      end.
+
+    Definition raw_forget (u : nat) (r : raw) : raw * option expr :=
+      match FM.find u r with
+        | None => (r,None)
+        | Some e => (FM.remove u r, Some e)
+      end.
+
+    Definition raw_strengthenU (from len : nat) (s : raw) : bool :=
+      FM.fold (fun k e (a : bool) =>
+                 if from ?[ le ] k && k ?[ lt ] (from + len) then
+                   if a then
+                     mentionsRange mentionsV from len e
+                   else false
+                 else
+                   true)
+              s true.
+
+    Definition raw_strengthenV (from len : nat) (s : raw) : bool :=
+      FM.fold (fun k e (a : bool) =>
+                 if a then
+                   mentionsRange mentionsV from len e
+                 else false)
+              s true.
+
     Instance SubstUpdate_subst : SubstUpdate raw expr :=
     { set := raw_set
-    ; drop := raw_drop
     ; empty := FM.empty _
+    ; forget := raw_forget
+    ; strengthenU := raw_strengthenU
+    ; strengthenV := raw_strengthenV
     }.
 
     Lemma None_becomes_None
@@ -889,6 +920,7 @@ Module Make (FM : WS with Definition E.t := uvar
         rewrite H5. reflexivity. }
     Qed.
 
+(*
     Theorem substD_drop
     : forall (s s' : raw) (u : nat),
         drop u s = Some s' ->
@@ -967,7 +999,8 @@ Module Make (FM : WS with Definition E.t := uvar
         { rewrite FACTS.remove_in_iff.
           clear. intuition. } }
     Qed.
-
+*)
+(*
     Theorem substD_drop'
     : forall (s s' : raw) (u : nat),
         drop u s = Some s' ->
@@ -1020,12 +1053,53 @@ Module Make (FM : WS with Definition E.t := uvar
           rewrite H in H4. inv_all; subst.
           eexists; split; eauto. } }
     Qed.
+*)
+
+    Theorem strengthenV_sound
+    : forall (s : raw) (n c : nat),
+        raw_strengthenV n c s = true ->
+        WellFormed_subst s ->
+        forall (tus : tenv typ) (tvs tvs' : list typ)
+               (sD : hlist typD tus ->
+                     hlist typD (tvs ++ tvs') -> Prop),
+          substD tus (tvs ++ tvs') s = Some sD ->
+          n = length tvs ->
+          c = length tvs' ->
+          exists
+            sD' : hlist typD tus -> hlist typD tvs -> Prop,
+            substD tus tvs s = Some sD' /\
+            (forall (us : hlist typD tus)
+                    (vs : hlist typD tvs)
+                    (vs' : hlist typD tvs'),
+               sD us (hlist_app vs vs') <-> sD' us vs).
+    Admitted.
+
+    Theorem strengthenU_sound
+    : forall (s : raw) (n c : nat),
+        raw_strengthenU n c s = true ->
+        WellFormed_subst s ->
+        forall (tus : list typ) (tvs : tenv typ)
+               (tus' : list typ)
+               (sD : hlist typD (tus ++ tus') ->
+                     hlist typD tvs -> Prop),
+          substD (tus ++ tus') tvs s = Some sD ->
+          n = length tus ->
+          c = length tus' ->
+          exists
+            sD' : hlist typD tus -> hlist typD tvs -> Prop,
+            substD tus tvs s = Some sD' /\
+            (forall (us : hlist typD tus)
+                    (vs : hlist typD tvs)
+                    (us' : hlist typD tus'),
+               sD (hlist_app us us') vs <-> sD' us vs).
+    Admitted.
 
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| WellFormed_empty := WellFormed_empty
      ; substD_empty := substD_empty
      ; set_sound := substD_set
-     ; drop_sound := substD_drop'
+     ; strengthenU_sound := strengthenU_sound
+     ; strengthenV_sound := strengthenV_sound
      |}.
 
   End exprs.

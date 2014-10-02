@@ -115,29 +115,22 @@ Section parameterized.
   Section runRTac'.
     Variable tac : rtac.
 
+    (** This is sound but it could be more liberal
+     **)
     Definition mapUnderEx (t : typ) (nus : nat) (r : Result) : Result :=
       match r with
         | Fail => Fail
         | Solved s' =>
-          match lookup nus s' with
-            | None => let s'' := s' in
-                      More s'' (GEx t None GSolved)
-            | Some e =>
-              match drop nus s' with
-                | None => DEAD
-                | Some s'' => Solved s''
-              end
+          match forget nus s' with
+            | (s'',None) => More s'' (GEx t None GSolved)
+            | (s'',Some e) =>
+              if strengthenU nus 1 s'' then
+                Solved s''
+              else Fail
           end
         | More s' g' =>
-          match lookup nus s' with
-            | None => let s'' := s' in
-                      More s' (GEx t None g')
-            | Some e =>
-              match drop nus s' with
-                | None => DEAD
-                | Some s'' => More s'' (GEx t (Some e) g')
-              end
-          end
+          let '(s'',e) := forget nus s' in
+          More s'' (GEx t e g')
       end.
 
     Fixpoint runRTac' (ctx : Ctx) (s : subst) (g : Goal) (nus nvs : nat) {struct g}

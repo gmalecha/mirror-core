@@ -83,12 +83,6 @@ Section subst.
   ; domain : T -> list uvar
   }.
 
-  Class SubstUpdate :=
-  { set : uvar -> expr -> T -> option T
-  ; drop : uvar -> T -> option T
-  ; empty : T
-  }.
-
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
   ; substD : forall (tus tvs : tenv typ), T -> ResType tus tvs Prop
@@ -118,6 +112,15 @@ Section subst.
   }.
 
 
+  Class SubstUpdate :=
+  { set : uvar -> expr -> T -> option T
+(*  ; drop : uvar -> T -> option T *)
+  ; empty : T
+  ; forget : uvar -> T -> (T * option expr)
+  ; strengthenV : nat -> nat -> T -> bool
+  ; strengthenU : nat -> nat -> T -> bool
+  }.
+
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { WellFormed_empty : WellFormed_subst empty
   ; substD_empty
@@ -142,28 +145,31 @@ Section subst.
               sD' us vs ->
               sD us vs /\
               get us = val us vs
-    (** NOTE: This is likely to only be used through [pull],
-     ** so if weakens/changes a little bit it is not a problem.
-     **)
-  ; drop_sound
-    : forall s s' u,
-        drop u s = Some s' ->
+  ; strengthenV_sound
+    : forall s n c,
+        strengthenV n c s = true ->
         WellFormed_subst s ->
-        WellFormed_subst s' /\
-        exists e,
-          lookup u s = Some e /\
-          lookup u s' = None /\
-          (forall u', u' <> u -> lookup u' s = lookup u' s') /\
-          forall tus tu tvs sD,
-            u = length tus ->
-            substD (tus ++ tu :: nil) tvs s = Some sD ->
-            exists sD',
-              substD tus tvs s' = Some sD' /\
-              exists eD,
-                exprD' tus tvs e tu = Some eD /\
-                forall us vs,
-                  sD' us vs <->
-                  sD (hlist_app us (Hcons (eD us vs) Hnil)) vs
+        forall tus tvs tvs' sD,
+          substD tus (tvs ++ tvs') s = Some sD ->
+          n = length tvs ->
+          c = length tvs' ->
+          exists sD',
+            substD tus tvs s = Some sD' /\
+            forall us vs vs',
+              sD us (hlist_app vs vs') <-> sD' us vs
+  ; strengthenU_sound
+    : forall s n c,
+        strengthenU n c s = true ->
+        WellFormed_subst s ->
+        forall tus tvs tus' sD,
+          substD (tus ++ tus') tvs s = Some sD ->
+          n = length tus ->
+          c = length tus' ->
+          exists sD',
+            substD tus tvs s = Some sD' /\
+            forall us vs us',
+              sD (hlist_app us us') vs <-> sD' us vs
+
   }.
 
   Context {Subst_subst : Subst}.
@@ -183,6 +189,34 @@ Section subst.
   Proof.
     clear. destruct pfu. destruct pfv. reflexivity.
   Qed.
+
+  Definition drop (from : uvar) (s : T) : option T :=
+    let (nsub,val) := forget from s in
+    match val with
+      | None => None
+      | Some _ => Some nsub
+    end.
+
+  Theorem drop_sound
+  : forall s s' u,
+      drop u s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      exists e,
+        lookup u s = Some e /\
+        lookup u s' = None /\
+        (forall u', u' <> u -> lookup u' s = lookup u' s') /\
+        forall tus tu tvs sD,
+          u = length tus ->
+          substD (tus ++ tu :: nil) tvs s = Some sD ->
+          exists sD',
+            substD tus tvs s' = Some sD' /\
+            exists eD,
+              exprD' tus tvs e tu = Some eD /\
+              forall us vs,
+                sD' us vs <->
+                sD (hlist_app us (Hcons (eD us vs) Hnil)) vs.
+  Admitted.
 
   (** This is the "obvious" extension of [drop] **)
   Fixpoint pull (from : uvar) (len : nat) (s : T) : option T :=
