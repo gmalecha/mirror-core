@@ -3,11 +3,6 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.EProverI.
 Require Import MirrorCore.ExprProp.

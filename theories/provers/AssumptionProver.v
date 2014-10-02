@@ -2,9 +2,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ProverI.
 Require Import MirrorCore.provers.ProverTac.
 Require Import MirrorCore.ExprProp.

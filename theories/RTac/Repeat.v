@@ -6,11 +6,7 @@ Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Try.

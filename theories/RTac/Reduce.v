@@ -1,10 +1,6 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.ExprI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.RTac.Core.
