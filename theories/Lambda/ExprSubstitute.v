@@ -182,33 +182,28 @@ Section substitute.
                      @Forall5 A B C D E P ts xs ys zs bs->
                      @Forall5 A B C D E P (t :: ts) (x :: xs) (Hcons y ys) (z :: zs) (Hcons b bs).
 
-  Lemma bind_ret : forall {A B} (c : m A) (f : A -> m B) x,
-                     bind c f = ret x ->
-                     exists c', c = ret c' /\
-                                f c' = ret x.
-  Proof. clear.
-  Admitted.
-  Lemma ret_ret : forall {A} (a b : A),
-                    ret (m:=m) a = ret b -> a = b.
-  Proof.
-  Admitted.
+  Hypothesis bind_ret
+  : forall {A B} (c : m A) (f : A -> m B) x,
+      bind c f = ret x ->
+      exists c', c = ret c' /\ f c' = ret x.
+  Hypothesis ret_ret
+  : forall {A} (a b : A),
+      ret (m:=m) a = ret b -> a = b.
 
   Lemma fmap_ret : forall {A B : Type} (f : A -> B) x y,
                      fmap (F:=m) f x = ret y ->
                      exists x', x = ret x' /\ f x' = y.
   Proof.
-    clear.
+    clear - bind_ret ret_ret.
     simpl. unfold liftM.
     intros. eapply bind_ret in H.
     forward_reason.
     eexists; split; eauto.
-    eapply ret_ret in H0.
-    assumption.
   Qed.
 
   Lemma pure_is_ret : forall T (a b : T), pure a = ret (m:=m) b -> a = b.
   Proof.
-    clear.
+    clear - ret_ret.
     simpl. intros. apply ret_ret. assumption.
   Qed.
 
@@ -218,7 +213,7 @@ Section substitute.
                                  f = ret f' /\
                                  y = f' x'.
   Proof.
-    clear; simpl.
+    clear - bind_ret ret_ret; simpl.
     unfold apM, liftM.
     intros.
     eapply bind_ret in H; forward_reason.
@@ -238,14 +233,14 @@ Section substitute.
              P us vs us' vs' ->
              vD vs = vD' us' vs')
       (HlookupU : forall t es e' u vD vals es' vals',
-         lookupU u es = ret e' ->
+         lookupU u es' = ret e' ->
          nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t vD) ->
          @Forall5 typ
                   (expr typ func) (fun t => exprT tus tvs (typD t))
                   (expr typ func) (fun t => exprT tus' tvs' (typD t))
                   (fun t e v e' v' =>
                     exprD' tus tvs t e = Some v /\
-                    exprD' tus' tvs' t e = Some v' /\
+                    exprD' tus' tvs' t e' = Some v' /\
                     forall us vs us' vs',
                       v us vs = v' us' vs') t.(cctx) es vals es' vals' ->
          exists (vD' : exprT tus' tvs' (typD t.(vtyp))),
@@ -370,7 +365,21 @@ Section substitute.
       autorewrite with exprD_rw; simpl.
       intros. forwardy.
       inv_all; subst.
-      specialize (fun vals vals' => @HlookupU x0 x e' u _ vals l vals' H1 H2).
+      specialize (fun vals vals' => @HlookupU x0 l e' u _ vals _ vals' H1 H2).
+      destruct y0. unfold Rcast_val, Rcast, Relim; simpl.
+      clear H2 H4. (*
+      generalize dependent x.
+      generalize dependent y.
+      destruct x0; simpl.
+      generalize dependent cctx.
+      induction H; simpl.
+      { intros.
+        eapply ret_ret in H0. subst.
+        destruct cctx; try congruence.
+        inv_all; subst.
+        destruct (HlookupU Hnil Hnil); try constructor; clear HlookupU.
+        forward_reason.
+*)
       admit. }
   Qed.
 
@@ -386,14 +395,14 @@ Section substitute.
              P us vs us' vs' ->
              vD vs = vD' us' vs')
       (HlookupU : forall t es e' u vD vals es' vals',
-         lookupU u es = ret e' ->
+         lookupU u es' = ret e' ->
          nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t vD) ->
          @Forall5 typ
                   (expr typ func) (fun t => exprT tus tvs (typD t))
                   (expr typ func) (fun t => exprT tus' tvs' (typD t))
                   (fun t e v e' v' =>
                     exprD' tus tvs t e = Some v /\
-                    exprD' tus' tvs' t e = Some v' /\
+                    exprD' tus' tvs' t e' = Some v' /\
                     forall us vs us' vs',
                       v us vs = v' us' vs') t.(cctx) es vals es' vals' ->
          exists (vD' : exprT tus' tvs' (typD t.(vtyp))),

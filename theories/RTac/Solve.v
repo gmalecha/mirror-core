@@ -31,7 +31,11 @@ Section parameterized.
   Proof.
     unfold SOLVE, rtac_sound.
     intros.
-    admit.
+    subst.
+    specialize (H ctx s g).
+    destruct (tac ctx s g); auto.
+    specialize (H _ eq_refl).
+    simpl in *; auto.
   Qed.
 
 End parameterized.
