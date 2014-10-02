@@ -39,8 +39,9 @@ Section OpenT.
     Variable R : relation T.
 
     (** TODO: Move to Data.HList **)
-    Theorem Symmetric_equiv_hlist : (forall t, Symmetric (@Rd t)) ->
-                                    forall ls, Symmetric (@equiv_hlist _ _ Rd ls).
+    Theorem Symmetric_equiv_hlist
+    : (forall t, Symmetric (@Rd t)) ->
+      forall ls, Symmetric (@equiv_hlist _ _ Rd ls).
     Proof.
       compute.
       induction 2. constructor. constructor. apply H; auto. auto.
@@ -50,13 +51,15 @@ Section OpenT.
     Definition OpenTrel : relation (OpenT T) :=
       fun a b => forall x y, equiv_hlist Rd x y -> R (a x) (b y).
 
-    Theorem Symmetric_OpenTrel : (forall t, Symmetric (@Rd t)) -> Symmetric R -> Symmetric OpenTrel.
+    Theorem Symmetric_OpenTrel
+    : (forall t, Symmetric (@Rd t)) -> Symmetric R -> Symmetric OpenTrel.
     Proof.
       compute. intros. apply H0. apply H1.
       eapply Symmetric_equiv_hlist; eauto.
     Qed.
 
-    Theorem Transitive_OpenTrel : (forall t, Reflexive (@Rd t)) -> Transitive R -> Transitive OpenTrel.
+    Theorem Transitive_OpenTrel
+    : (forall t, Reflexive (@Rd t)) -> Transitive R -> Transitive OpenTrel.
     Proof.
       compute. intros.
       eapply H0.  eapply H1. eassumption.
