@@ -35,11 +35,11 @@ Section parameterized.
              end
        end) max.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
 
   Theorem REPEAT_sound
   : forall br, stac_sound br ->
@@ -76,18 +76,16 @@ Section parameterized.
                     (pfv := app_ass_trans tvs l0 l3)
               in H9.
             rewrite H4 in H9.
-            unfold ResType in H9. autorewrite with eq_rw in H9.
+            autorewrite with eq_rw in H9.
             inv_all; subst.
             clear - H12.
             specialize (H12 (hlist_app vs' vs'0)).
             generalize dependent (hlist_app us x).
             generalize dependent (hlist_app vs (hlist_app vs' vs'0)).
             clear.
-            destruct (app_ass_trans tus l l2); auto.
-            destruct (app_ass_trans tvs l0 l3).
-            exact (fun _ _ x => x). }
+            destruct (app_ass_trans tus l l2); auto. }
         { clear - H4 H9.
-          generalize dependent P1.
+          generalize dependent e2.
           do 2 rewrite app_ass. intros. congruence. } }
         { forward_reason. split; auto. unfold stateD in *.
           forward.
@@ -114,20 +112,16 @@ Section parameterized.
             rewrite ExprDAs.exprD'_typ0_conv
                with (pfu := eq_sym (app_ass_trans _ _ _))
                     (pfv := eq_sym (app_ass_trans _ _ _)) in H7.
-            unfold ResType in *.
             autorewrite with eq_rw in *.
             forward; inv_all; subst.
             autorewrite with eq_rw.
             eapply H5; clear H5.
-            admit. (*
             destruct (eq_sym (app_ass_trans tus l l2)).
             destruct (eq_sym (app_ass_trans tvs l0 l3)).
-            rewrite H7 in H16; clear H7.
-            rewrite H8 in H16; clear H8.
-            rewrite H4 in H16; clear H4.
-            inv_all; subst. assumption. *) }
+            rewrite H7 in H12; clear H7.
+            inv_all; subst; assumption. }
           { revert H16.
-            clear - H7 H8 H4. admit. (*
+            clear - H7 H8 H4.
             rewrite propD_conv
                with (pfu := app_ass_trans tus l l2)
                     (pfv := app_ass_trans tvs l0 l3).
@@ -139,7 +133,7 @@ Section parameterized.
             rewrite H4.
             destruct (app_ass_trans tus l l2).
             destruct (app_ass_trans tvs l0 l3).
-            rewrite H7. congruence. *) } } } }
+            rewrite H7. congruence. } } } }
   Qed.
 
 End parameterized.

@@ -3,9 +3,8 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 
@@ -45,22 +44,22 @@ Module Make (ED : ExprDenote).
 
     Theorem exprD'_ind
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
-      forall (P : forall tus tvs, _ -> forall t, option (ED.OpenT tus tvs (typD t)) -> Prop) tus
+      forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tvs e t,
                    ED.exprD' tus tvs t e = None ->
                    P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P tus tvs (Var v) t
-                    (Some (Relim (ED.OpenT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
+                    (Some (Relim (exprT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
         (Huvar : forall tvs u t t' get (pf : Rty t t'),
                    nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
                    P tus tvs (UVar u) t
-                     (Some (Relim (ED.OpenT tus tvs) pf ((fun us _ => get us)))))
+                     (Some (Relim (exprT tus tvs) pf ((fun us _ => get us)))))
         (Hinj : forall tvs i t t' (pf : typeof_sym i = Some t)
                 (pf' : Rty t' t),
                   P tus tvs (Inj i) t'
-                    (Some (Relim (ED.OpenT tus tvs) pf' (fun _ _ =>
+                    (Some (Relim (exprT tus tvs) pf' (fun _ _ =>
                              match pf in _ = t
                                    return match t with
                                             | Some t => typD t
@@ -73,10 +72,10 @@ Module Make (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.Open_App fval xval)))
+                    (Some (ED.exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.Open_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
         forall tvs e t,
         P tus tvs e t (ED.exprD' tus tvs t e).
     Proof.
@@ -118,7 +117,7 @@ Module Make (ED : ExprDenote).
           { specialize (fun H => IHe H (t :: tvs) x0).
             consider (ED.exprD' tus (t :: tvs) x0 e); intros.
             { eapply Habs in IHe; eauto.
-              revert IHe. unfold ED.Open_Abs.
+              revert IHe. unfold ED.exprT_Abs.
               destruct r.
               match goal with
                 | |- _ _ _ _ _ (Some (match ?X with _ => _ end _)) ->
@@ -127,7 +126,7 @@ Module Make (ED : ExprDenote).
               end.
               clear H2. destruct x1.
               simpl. generalize (P tus tvs (Abs x e) t0).
-              destruct e0. auto. }
+              destruct e1. auto. }
             { match goal with
                 | |- context [ match ?X with _ => _ end ] =>
                   generalize dependent X
@@ -155,22 +154,22 @@ Module Make (ED : ExprDenote).
 
     Theorem exprD'_ind_with
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
-      forall (P : forall tus tvs, _ -> forall t, option (ED.OpenT tus tvs (typD t)) -> Prop) tus
+      forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tvs e t,
                    ED.exprD' tus tvs t e = None ->
                    P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P tus tvs (Var v) t
-                    (Some (Relim (ED.OpenT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
+                    (Some (Relim (exprT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
         (Huvar : forall tvs u t t' get (pf : Rty t t'),
                    nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
                    P tus tvs (UVar u) t
-                     (Some (Relim (ED.OpenT tus tvs) pf ((fun us _ => get us)))))
+                     (Some (Relim (exprT tus tvs) pf ((fun us _ => get us)))))
         (Hinj : forall tvs i t t' (pf : typeof_sym i = Some t)
                 (pf' : Rty t' t),
                   P tus tvs (Inj i) t'
-                    (Some (Relim (ED.OpenT tus tvs) pf' (fun _ _ =>
+                    (Some (Relim (exprT tus tvs) pf' (fun _ _ =>
                              match pf in _ = t
                                    return match t with
                                             | Some t => typD t
@@ -183,10 +182,10 @@ Module Make (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.Open_App fval xval)))
+                    (Some (ED.exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.Open_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
         forall tvs e t,
         P tus tvs e t (ED.exprD' tus tvs t e).
     Proof.
@@ -219,9 +218,8 @@ Module Make (ED : ExprDenote).
         autorewrite with exprD_rw.
         rewrite typ2_match_zeta; eauto.
         rewrite type_cast_refl; eauto. rewrite H.
-        simpl. unfold ED.Open_Abs, ED.OpenT, ResType.OpenT.
-        rewrite eq_option_eq.
-        repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
+        simpl. unfold ED.exprT_Abs.
+        autorewrite with eq_rw.
         reflexivity. }
     Qed.
 
@@ -255,7 +253,7 @@ Module Make (ED : ExprDenote).
                           (fun tus tvs e t val =>
                              forall val'',
                                val = Some val'' ->
-                               exists val' : ED.OpenT (tus ++ tus') (tvs ++ tvs') (typD t),
+                               exists val' : exprT (tus ++ tus') (tvs ++ tvs') (typD t),
                                  ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
                                  (forall (us : hlist typD tus) (vs : hlist typD tvs)
                                          (us' : hlist typD tus') (vs' : hlist typD tvs'),
@@ -292,14 +290,10 @@ Module Make (ED : ExprDenote).
         rewrite H4. rewrite H3.
         eexists; split; eauto.
         revert H6 H7. clear.
-        unfold ED.Open_App. intros.
-
-        repeat rewrite eq_Arr_eq.
-        repeat rewrite eq_Const_eq.
+        unfold ED.exprT_App. intros.
+        autorewrite with eq_rw.
         rewrite <- H6.
         clear - H7.
-        unfold ED.OpenT, ResType.OpenT.
-        repeat (rewrite eq_Const_eq || rewrite eq_Arr_eq).
         rewrite <- H7. reflexivity. }
       { intros. forward_reason; inv_all; subst.
         specialize (H2 _ eq_refl).
@@ -312,10 +306,10 @@ Module Make (ED : ExprDenote).
         rewrite eq_option_eq. eexists; split; eauto.
         intros.
         clear - H3.
-        unfold ED.Open_Abs, ED.OpenT, ResType.OpenT.
-        repeat (rewrite eq_Const_eq || rewrite eq_Arr_eq).
+        unfold ED.exprT_Abs, exprT.
+        autorewrite with eq_rw; simpl.
         match goal with
-          | |- match ?X with _ => _ end = match ?Y with _ => _ end =>
+          | |- match ?X with _ => _ end _ = match ?Y with _ => _ end _ =>
             change Y with X ; generalize X
         end.
         destruct e. eapply FunctionalExtensionality.functional_extensionality.
@@ -377,7 +371,7 @@ Module Make (ED : ExprDenote).
         ED.exprD' tus tvs t e = Some val ->
         ED.exprD' tus tvs t' e = Some val' ->
         exists pf : Rty t t',
-          Relim (ED.OpenT tus tvs) pf val' = val.
+          Relim (exprT tus tvs) pf val' = val.
     Proof.
       intros tus tvs.
       refine (@exprD'_ind
@@ -386,7 +380,7 @@ Module Make (ED : ExprDenote).
                                val'' = Some val ->
                                ED.exprD' tus tvs t' e = Some val' ->
                                exists pf : Rty t t',
-                                 Relim (ED.OpenT tus tvs) pf val' = val)
+                                 Relim (exprT tus tvs) pf val' = val)
                           _ _ _ _ _ _ _ _).
       { congruence. }
       { intros; inv_all; subst.
@@ -437,7 +431,7 @@ Module Make (ED : ExprDenote).
             consider (ED.exprD' tus (x :: tvs0) x0 e); intros.
             { eapply H in H0; clear H; eauto.
               destruct H0. destruct x2.
-              subst. exists (Rsym x1). unfold ED.Open_Abs.
+              subst. exists (Rsym x1). unfold ED.exprT_Abs.
               generalize dependent (typ2_cast x r).
               destruct x1. simpl; intros.
               rewrite eq_option_eq in H1.

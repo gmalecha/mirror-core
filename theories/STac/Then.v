@@ -26,12 +26,12 @@ Section parameterized.
         | Fail => res
       end.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Theorem THEN_sound
   : forall a b, stac_sound a -> stac_sound b -> stac_sound (THEN a b).
@@ -47,7 +47,6 @@ Section parameterized.
       forward.
       rewrite substD_conv with (pfu := eq_sym (HList.app_ass_trans _ _ _))
                                (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H4.
-      unfold ResType in H4.
       autorewrite with eq_rw in H4.
       forward.
       inv_all; subst.
@@ -74,7 +73,6 @@ Section parameterized.
     { forward_reason. split; auto.
       rewrite stateD_conv with (pfu := eq_sym (HList.app_ass_trans _ _ _))
                                (pfv := eq_sym (HList.app_ass_trans _ _ _)) in H3.
-      unfold ResType in H3.
       autorewrite with eq_rw in H3.
       forward; inv_all; subst.
       eapply H5; clear H5.
@@ -84,18 +82,15 @@ Section parameterized.
       simpl. eapply H6; clear H6.
       exists (snd (HList.hlist_split _ _ x)).
       intros.
+      unfold us0. unfold vs0.
+      autorewrite with eq_rw.
       do 2 rewrite HList.hlist_app_assoc.
       rewrite HList.hlist_app_hlist_split.
       specialize (H5 (HList.hlist_app vs' vs'0)).
       generalize dependent (HList.hlist_app us x).
       generalize dependent (HList.hlist_app vs (HList.hlist_app vs' vs'0)).
       intros.
-      match goal with
-        | |- match ?X with eq_refl => match ?Y with _ => _ end end
-               match ?A with _ => _ end
-               match ?B with _ => _ end =>
-          change X with A ; change Y with B ; destruct A ; destruct B
-      end; assumption. }
+      autorewrite with eq_rw. assumption. }
   Qed.
 
 End parameterized.

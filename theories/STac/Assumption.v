@@ -19,8 +19,8 @@ Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
   Variable subst : Type.
-  Variable RType_typ : RType typ.
-  Variable Typ0_Prop : Typ0 _ Prop.
+  Context {RType_typ : RType typ}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Let tyProp : typ := @typ0 _ _ _ _.
 
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -38,8 +38,8 @@ Section parameterized.
     end.
 
   Section assumption.
-    Variable Subst_subst : Subst subst expr.
-    Variable SU : SubstUpdate subst expr.
+    Context {Subst_subst : Subst subst expr}.
+    Context {SU : SubstUpdate subst expr}.
 
 
     (** Think of this like:
@@ -57,17 +57,17 @@ Section parameterized.
         end.
   End assumption.
 
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
-  Variable UnifySound_exprUnify : unify_sound _ exprUnify.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {UnifySound_exprUnify : unify_sound exprUnify}.
 
   Lemma find_assumption_sound
   : forall tus tvs needle haystack sub sub',
       find_assumption tus tvs needle haystack sub = Some sub' ->
       WellFormed_subst sub ->
       WellFormed_subst sub' /\
-      match stateD _ _ tus tvs sub haystack needle with
+      match stateD tus tvs sub haystack needle with
         | Some P =>
           match substD tus tvs sub' with
             | Some sV' =>
@@ -127,7 +127,6 @@ Section parameterized.
          with (pfu := eq_sym (HList.app_nil_r_trans tus))
               (pfv := eq_sym (HList.app_nil_r_trans tvs)).
       rewrite H2.
-      unfold ResType.
       autorewrite with eq_rw.
       intros. apply H3.
       forward_reason.

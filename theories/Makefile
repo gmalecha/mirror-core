@@ -11,8 +11,7 @@ EXTENSIBLE := Types ExprCore \
 	      SetoidFold AppFull Red AsConst \
 	      provers/UnifyEProver
 # ExprUnifySyntactic ExprUnifySyntactic2
-LAMBDA := ResType \
-	  ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
+LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
 	  Expr ExprLift Red RedAll \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
@@ -40,7 +39,7 @@ RTAC := Core \
 #	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
-MODULES    := Generic \
+MODULES    := OpenT Generic \
 	      TypesI EnvI ExprI ExprProp ExprSem \
 	      ExprDAs \
 	      SymI \

@@ -27,7 +27,9 @@ Section parameterized.
   Proof.
     unfold SOLVE, rtac_sound.
     intros.
-    admit.
+    specialize (H ctx s g).
+    subst; destruct (tac ctx s g); auto.
+    specialize (H _ eq_refl). apply H.
   Qed.
 
 End parameterized.

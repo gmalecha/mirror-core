@@ -71,8 +71,7 @@ Section parameterized.
       erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
                                 (pfu := eq_sym (app_nil_r_trans tus)).
       rewrite H2.
-      unfold ResType.
-      repeat rewrite eq_option_eq.
+      autorewrite with eq_rw.
       intros. forward_reason.
       rewrite (hlist_eta x) in *; clear x.
       specialize (H3 Hnil).
@@ -97,8 +96,7 @@ Section parameterized.
           forward. inv_all; subst.
           erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
                                     (pfu := eq_sym (app_nil_r_trans tus)) in H8.
-          unfold ResType in H8.
-          repeat rewrite eq_option_eq in H8.
+          autorewrite with eq_rw in H8.
           forward. inv_all; subst.
           eapply H11 in H12; clear H11; eauto.
           eapply H9 in H13; clear H9; eauto.
@@ -118,8 +116,7 @@ Section parameterized.
           forward. inv_all; subst.
           erewrite substD_conv with (pfv := eq_sym (app_nil_r_trans tvs))
                                     (pfu := eq_sym (app_nil_r_trans tus)) in H8.
-          unfold ResType in H8.
-          repeat rewrite eq_option_eq in H8.
+          autorewrite with eq_rw in H8.
           forward. inv_all; subst.
           eapply H13 in H14; eauto; clear H13.
           eapply H9 in H15; eauto; clear H9.

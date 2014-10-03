@@ -525,19 +525,13 @@ Section typed.
   : forall tus tvs t u f f' x x' A B,
       f A B = f' A B ->
       x A B = x' A B ->
-      @Open_App typ _ _ tus tvs t u f x A B =
-      @Open_App typ _ _ tus tvs t u f' x' A B.
+      @exprT_App typ _ _ tus tvs t u f x A B =
+      @exprT_App typ _ _ tus tvs t u f' x' A B.
   Proof.
-    unfold Open_App.
+    unfold exprT_App.
     clear. intros.
-    unfold Open_App, OpenT, ResType.OpenT.
     intros.
-    repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-    repeat match goal with
-             | H : ?X = _ , H' : ?Y = _ |- _ =>
-               change Y with X in H' ; rewrite H in H'
-           end.
-    inv_all; subst.
+    autorewrite with eq_rw.
     rewrite H. rewrite H0. reflexivity.
   Qed.
 
@@ -591,7 +585,7 @@ Section typed.
          typeof_expr tu (tv' ++ tv) e <> None ->
          typeof_expr tu (tv' ++ tv) (UVar u) <> None ->
          substD tu tv s = Some sD ->
-         exists v1 v2 : OpenT tu (tv' ++ tv) (typD t),
+         exists v1 v2 : exprT tu (tv' ++ tv) (typD t),
            exprD' tu (tv' ++ tv) t e = Some v1 /\
            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -686,7 +680,7 @@ Section typed.
          typeof_expr tu (tv' ++ tv) (UVar u) <> None ->
          typeof_expr tu (tv' ++ tv) e <> None ->
          substD tu tv s = Some sD ->
-         exists v1 v2 : OpenT tu (tv' ++ tv) (typD t),
+         exists v1 v2 : exprT tu (tv' ++ tv) (typD t),
            exprD' tu (tv' ++ tv) t (UVar u) = Some v1 /\
            exprD' tu (tv' ++ tv) t e = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -922,8 +916,7 @@ Section typed.
           intros. eapply H5 in H7; clear H5.
           forward_reason. split; auto. intros.
           revert H7. clear.
-          unfold Open_App, OpenT, ResType.OpenT.
-          repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+          autorewrite with eq_rw.
           repeat match goal with
                    | H : ?X = _ , H' : ?Y = _ |- _ =>
                      change Y with X in H' ; rewrite H in H'
@@ -963,8 +956,7 @@ Section typed.
         eapply H9 in H10; clear H9.
         forward_reason; split; auto.
         intros.
-        unfold OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        autorewrite with eq_rw.
         match goal with
           | |- match ?X with _ => _ end = _ =>
             eapply match_eq_match_eq with (pf := X) (F := fun x => x)

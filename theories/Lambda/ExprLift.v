@@ -147,15 +147,14 @@ Section types.
       forward_reason.
       Cases.rewrite_all_goal.
       eexists; split; eauto. intros.
-      unfold Open_App.
+      unfold exprT_App.
       match goal with
         | |- match ?X with _ => _ end _ _ _ _ =
              match ?Y with _ => _ end _ _ _ _ =>
           change Y with X ; generalize X
       end; intros.
-      unfold OpenT.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-      clear - H4 H5. destruct e; simpl.
+      autorewrite with eq_rw.
+      clear - H4 H5. destruct e3; simpl.
       rewrite H5. rewrite H4. reflexivity. }
     { autorewrite with exprD_rw in *; simpl in *.
       destruct (typ2_match_case t0).
@@ -250,9 +249,8 @@ Section types.
       specialize (IHe1 tvs tvs' tvs'' (typ2 t0 t)).
       specialize (IHe2 tvs tvs' tvs'' t0).
       forward. inv_all. subst.
-      unfold Open_App.
-      unfold OpenT, ResType.OpenT.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      unfold exprT_App.
+      autorewrite with eq_rw.
       rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
     { destruct (typ2_match_case t0).
       { destruct H0 as [ ? [ ? [ ? ? ] ] ].
@@ -377,7 +375,7 @@ Section types.
       Cases.rewrite_all_goal.
       eexists; split; try reflexivity.
       intros.
-      unfold Open_App, OpenT, ResType.OpenT.
+      unfold exprT_App.
       autorewrite with eq_rw.
       rewrite H2. rewrite H3. reflexivity. }
     { revert H. autorewrite with exprD_rw; simpl; intros.
@@ -394,7 +392,6 @@ Section types.
       change_rewrite H1.
       eexists; split; try reflexivity.
       inv_all; subst. intros.
-      unfold OpenT, ResType.OpenT.
       autorewrite with eq_rw.
       eapply match_eq_match_eq with (F := fun x => x).
       eapply FunctionalExtensionality.functional_extensionality.

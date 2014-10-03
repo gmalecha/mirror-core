@@ -92,7 +92,7 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst}.
-  Variable UnifySound_exprUnify : unify_sound _ exprUnify.
+  Variable UnifySound_exprUnify : unify_sound exprUnify.
   Context {NormalizedSubst : NormalizedSubstOk Subst_subst}.
 
   Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)

@@ -85,7 +85,7 @@ Section subst.
 
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
-  ; substD : forall (tus tvs : tenv typ), T -> ResType tus tvs Prop
+  ; substD : forall (tus tvs : tenv typ), T -> option (exprT tus tvs Prop)
   ; substD_weaken
     : forall tus tvs tus' tvs' s sD,
         substD tus tvs s = Some sD ->
@@ -180,9 +180,9 @@ Section subst.
   Lemma substD_conv
   : forall tus tus' tvs tvs' (pfu : tus' = tus) (pfv : tvs' = tvs) s,
       substD tus tvs s =
-      match pfu in _ = u' return ResType u' _ Prop with
+      match pfu in _ = u' return option (exprT u' _ Prop) with
         | eq_refl =>
-          match pfv in _ = v' return ResType _ v' Prop with
+          match pfv in _ = v' return option (exprT _ v' Prop) with
             | eq_refl => substD tus' tvs' s
           end
       end.
@@ -348,15 +348,13 @@ Section subst.
       split; try reflexivity.
       split; [ inversion 1 | ].
       rewrite substD_conv with (pfu := eq_sym (app_nil_r_trans tus)) (pfv := eq_refl) in H2.
-      unfold ResType in H2.
-      repeat first [ rewrite eq_Const_eq in H2 | rewrite eq_option_eq in H2 ].
-      forward.
+      autorewrite with eq_rw in H2.
+      forwardy.
       eexists; split; eauto.
       simpl. eexists; split; eauto.
       inv_all. subst.
       simpl. intros. rewrite hlist_app_nil_r.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-      destruct (eq_sym (app_nil_r_trans tus)). reflexivity. }
+      autorewrite with eq_rw. reflexivity. }
     { simpl. intros. forward.
       eapply IHn in H; clear IHn; auto.
       forward_reason.
@@ -368,8 +366,7 @@ Section subst.
       specialize (H2 (tus ++ t0 :: nil) tus' tvs).
       rewrite substD_conv with (pfv := eq_refl)
                                (pfu := app_ass_trans tus (t0 :: nil) tus') in H9.
-      unfold ResType in H9.
-      rewrite eq_option_eq in H9.
+      autorewrite with eq_rw in H9.
       forwardy.
       assert (S (length tus) = length (tus ++ t0 :: nil)).
       { rewrite app_length. simpl. omega. }
@@ -442,7 +439,7 @@ Section subst.
           rewrite H14; clear H14.
           simpl.
           rewrite hlist_app_assoc. simpl.
-          repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+          autorewrite with eq_rw.
           match goal with
             | |- _ ?X _ <-> _ ?Y _ =>
               cutrewrite (X = Y); try reflexivity

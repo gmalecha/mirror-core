@@ -109,7 +109,8 @@ Section parameterized.
       inv_all; subst.
       destruct Hopen as [ ? [ ? ? ] ].
       rewrite H3.
-      admit. }
+      simpl. admit.
+    }
     { simpl. forward.
       eapply exprD'_typ0_weakenV with (tvs' := t :: nil) in H0; eauto.
       (** Same proof as above **)

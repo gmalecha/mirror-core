@@ -23,7 +23,7 @@ Section proverI.
   }.
 
   Definition ProveOk (summary : Type)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
+    (Valid : forall tus tvs, summary -> option (exprT tus tvs Prop))
     (prover : summary -> tenv typ -> tenv typ -> expr -> bool)
   : Prop :=
     forall tus tvs sum (goal : expr),
@@ -37,7 +37,7 @@ Section proverI.
            goalD us vs).
 
   Record ProverOk (P : Prover) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
+  { factsD : forall tus tvs, Facts P -> option (exprT tus tvs Prop)
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->

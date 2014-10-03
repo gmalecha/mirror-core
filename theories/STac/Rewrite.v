@@ -86,7 +86,7 @@ Section parameterized.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
-  Hypothesis exprUnify_sound : unify_sound SubstOk_subst exprUnify.
+  Hypothesis exprUnify_sound : unify_sound exprUnify.
   Context {NormlizedSubst : NormalizedSubstOk _}.
 
   Let eapplicable :=

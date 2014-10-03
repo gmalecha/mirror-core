@@ -18,11 +18,11 @@ Section parameterized.
   Context {Typ0_T : Typ0 _ T}.
 
   Definition exprD'_typ0 (tus tvs : list typ) (goal : expr)
-  : ResType tus tvs T :=
-    match exprD' tus tvs goal (@typ0 _ _ _ _) return ResType tus tvs T with
+  : option (exprT tus tvs T) :=
+    match exprD' tus tvs goal (@typ0 _ _ _ _) return option (exprT tus tvs T) with
       | None => None
       | Some val =>
-        Some match typ0_cast(F:=T) in _ = T return HList.hlist _ tus -> HList.hlist _ tvs -> T with
+        Some match typ0_cast(F:=T) in _ = T return exprT tus tvs T with
                | eq_refl => val
              end
     end.
@@ -31,7 +31,7 @@ Section parameterized.
   : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD'_typ0 tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> ResType tu tv T
+            return expr -> option (exprT tu tv T)
       with
         | eq_refl , eq_refl => exprD'_typ0 tus' tvs'
       end.
@@ -56,7 +56,7 @@ Section parameterized.
     eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H; eauto.
     forward_reason. rewrite H.
     eexists; split; eauto. intros.
-    autorewrite with eq_rw.
+    autorewrite with eq_rw; simpl.
     rewrite <- H0.
     reflexivity.
   Qed.
@@ -81,7 +81,7 @@ Section parameterized.
     rewrite H.
     eexists; split; eauto.
     intros.
-    autorewrite with eq_rw.
+    autorewrite with eq_rw; simpl.
     erewrite H0. reflexivity.
   Qed.
 

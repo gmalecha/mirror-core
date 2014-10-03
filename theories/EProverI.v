@@ -30,7 +30,7 @@ Section proverI.
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
              (SsubstOk : SubstOk Ssubst)
-    (Valid : forall tus tvs : tenv typ, summary -> ResType tus tvs Prop)
+    (Valid : forall tus tvs, summary -> option (exprT tus tvs Prop))
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
     forall tus tvs sum (goal : expr) (sub sub' : subst),
@@ -51,7 +51,7 @@ Section proverI.
              goalD us vs).
 
   Record EProverOk (P : EProver) : Type :=
-  { factsD : forall tus tvs : tenv typ, Facts P -> ResType tus tvs Prop
+  { factsD : forall tus tvs, Facts P -> option (exprT tus tvs Prop)
   ; factsD_weaken
     : forall tus tvs f sumD,
         factsD tus tvs f = Some sumD ->
@@ -88,11 +88,8 @@ Section proverI.
   Lemma factsD_conv P (Pok : EProverOk P)
   : forall tus tvs tus' tvs' f (pfu : tus' = tus) (pfv : tvs' = tvs),
       Pok.(factsD) tus tvs f =
-      match pfu in _ = u' return ResType u' _ Prop with
-        | eq_refl =>
-          match pfv in _ = v' return ResType _ v' Prop with
-            | eq_refl => Pok.(factsD) tus' tvs' f
-          end
+      match pfu in _ = u' , pfv in _ = v' return option (exprT u' v' Prop) with
+        | eq_refl , eq_refl => Pok.(factsD) tus' tvs' f
       end.
   Proof.
     destruct pfu. destruct pfv. reflexivity.
@@ -112,18 +109,12 @@ Section proverI.
     eapply factsD_weaken with (tus' := tus') (tvs' := nil) in H.
     forward_reason.
     rewrite factsD_conv with (pfu := eq_refl) (pfv := HList.app_nil_r_trans tvs).
-    rewrite H. unfold ResType.
-    rewrite eq_option_eq.
+    rewrite H.
+    autorewrite with eq_rw.
     eexists; split; eauto.
     intros. rewrite (H0 us vs us' HList.Hnil).
     rewrite HList.hlist_app_nil_r.
-    clear.
-    match goal with
-      | |- _ _ match eq_sym ?X with _ => _ end <-> match ?Y with _ => _ end _ _ =>
-        change Y with X; generalize X
-    end.
-    generalize dependent (tvs ++ nil).
-    intros; subst. reflexivity.
+    clear. reflexivity.
   Qed.
 
   Lemma factsD_weakenV P (Pok : EProverOk P)
@@ -140,19 +131,10 @@ Section proverI.
     eapply factsD_weaken with (tvs' := tvs') (tus' := nil) in H.
     forward_reason.
     rewrite factsD_conv with (pfv := eq_refl) (pfu := HList.app_nil_r_trans tus).
-    rewrite H. unfold ResType.
-
-    rewrite eq_option_eq.
+    rewrite H. autorewrite with eq_rw.
     eexists; split; eauto.
     intros. rewrite (H0 us vs HList.Hnil vs').
-    rewrite HList.hlist_app_nil_r.
-    clear.
-    match goal with
-      | |- _ match eq_sym ?X with _ => _ end _ <-> match ?Y with _ => _ end _ _ =>
-        change Y with X; generalize X
-    end.
-    generalize dependent (tus ++ nil).
-    intros; subst. reflexivity.
+    rewrite HList.hlist_app_nil_r. reflexivity.
   Qed.
 
   (** Composite Prover **)

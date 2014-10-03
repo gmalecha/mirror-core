@@ -204,9 +204,8 @@ Section typed.
         eapply H18 in H20; clear H18; forward_reason.
         eapply H15 in H18; clear H15; forward_reason.
         split; eauto. intros.
-        unfold Open_App.
-        unfold OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        unfold exprT_App.
+        autorewrite with eq_rw.
         Cases.rewrite_all_goal. reflexivity. } }
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].
       { forward. subst.
@@ -228,8 +227,7 @@ Section typed.
         eexists; split; eauto. intros.
         eapply H10 in H11; clear H10. forward_reason.
         split; auto. intros.
-        unfold OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        autorewrite with eq_rw.
         eapply match_eq_match_eq with (pf := eq_sym (typ2_cast t x0)) (F := fun x => x).
         eapply functional_extensionality; intros.
         apply (H11 (Hcons x1 vs')). } }

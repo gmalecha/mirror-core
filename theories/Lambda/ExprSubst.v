@@ -162,7 +162,7 @@ Section instantiate_thm.
       change_rewrite H5. change_rewrite H4.
       eexists; split; [ reflexivity | ].
       intros. inv_all; subst.
-      unfold Open_App, OpenT, ResType.OpenT.
+      unfold exprT_App.
       autorewrite with eq_rw.
       rewrite H6 by assumption.
       rewrite H7 by assumption. reflexivity.
@@ -196,7 +196,6 @@ Section instantiate_thm.
         eexists; split; eauto.
         intros.
         inv_all; subst.
-        unfold OpenT, ResType.OpenT.
         autorewrite with eq_rw.
         eapply match_eq_match_eq.
         eapply match_eq_match_eq with (F := fun x => x).

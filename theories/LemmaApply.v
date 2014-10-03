@@ -14,13 +14,13 @@ Section lemma_apply.
   Variable typ : Type.
   Variable RType_typ : RType typ.
   Variable expr : Type.
-  Variable Expr_expr : Expr _ expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
+  Context {Expr_expr : Expr _ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Let tyProp : typ := @typ0 _ _ _ _.
-  Variable subst : Type.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : SubstOk Subst_subst.
+  Context {subst : Type}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : SubstOk Subst_subst}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable unify : tenv typ -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -144,7 +144,7 @@ Section lemma_apply.
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
   Let propD tus tvs g :=
-    match @typ0_cast _ _ _ _ in _ = t return ResType tus tvs t with
+    match @typ0_cast _ _ _ _ in _ = t return option (exprT tus tvs t) with
       | eq_refl => exprD' tus tvs g tyProp
     end.
 
@@ -187,17 +187,17 @@ Section lemma_apply.
     clear l H2.
     assert (exprD' nil (vars l0) (concl l0) tyProp =
             Some match eq_sym (typ0_cast (F:=Prop)) in _ = t
-                       return _ -> _ -> t
+                       return exprT _ _ t
                  with
                    | eq_refl =>
                      match
                        app_nil_r (vars l0) in (_ = tvs')
-                       return hlist _ nil -> hlist _ tvs' -> _
+                       return exprT nil tvs' _
                      with
-                       | eq_refl => P
+                       | eq_refl => e
                      end
                  end).
-    { revert H5; clear. revert P.
+    { revert H5; clear. revert e.
       generalize (exprD' nil (vars l0) (concl l0) tyProp).
       destruct (app_nil_r (vars l0)).
       simpl in *. intros.
@@ -206,10 +206,9 @@ Section lemma_apply.
         |- _ = Some match eq_sym ?Y with _ => _ end =>
           change Y with X; generalize dependent X
       end.
-      intro.
-      unfold ResType. rewrite eq_option_eq.
+      intro. autorewrite with eq_rw.
       forward. subst. inv_all; subst.
-      clear. destruct e. reflexivity. }
+      clear. destruct e0. reflexivity. }
     clear H5.
     change (vars l0) with (nil ++ vars l0) in H2.
     eapply (@exprD'_weakenU _ _ _ Expr_expr) with (tus' := tus) (t := tyProp) in H2; eauto with typeclass_instances.

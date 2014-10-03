@@ -206,24 +206,26 @@ Section app_full_proofs.
                         end (projT2 l x))
       end.
 
+    Local Existing Instance Applicative_exprT.
+
     Fixpoint apply_sem'
-             (tf : typ) (e : OpenT tus tvs (typD tf))
+             (tf : typ) (e : exprT tus tvs (typD tf))
              (ls : list (expr typ sym)) (t : typ)
              {struct ls}
-    : option (OpenT tus tvs (typD t)) :=
+    : option (exprT tus tvs (typD t)) :=
       match ls with
         | nil =>
           match type_cast tf t with
             | None => None
-            | Some cast => Some (Rcast (OpenT tus tvs) cast e)
+            | Some cast => Some (Rcast (exprT tus tvs) cast e)
           end
         | l :: ls =>
-          typ2_match (F := Fun) (fun T => OpenT tus tvs T -> _) tf
+          typ2_match (F := Fun) (fun T => exprT tus tvs T -> _) tf
                      (fun d r f =>
                         match exprD' tus tvs d l with
                           | None => None
                           | Some x =>
-                            apply_sem' r (ap f x) ls t
+                            apply_sem' r (Applicative.ap f x) ls t
                         end
                      )
                      (fun _ => None)
@@ -232,7 +234,7 @@ Section app_full_proofs.
 
     Definition apps_sem'
                (e : expr typ sym) (l : list (expr typ sym)) (t : typ)
-    : option (OpenT tus tvs (typD t)) :=
+    : option (exprT tus tvs (typD t)) :=
       match typeof_expr tus tvs e with
         | None => None
         | Some tf =>
@@ -284,10 +286,10 @@ Section app_full_proofs.
                 red in x1. subst.
                 destruct r. Cases.rewrite_all_goal.
                 forward. f_equal.
-                unfold Open_App. simpl.
-                repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+                unfold exprT_App. simpl.
+                autorewrite with eq_rw.
                 reflexivity. }
-              { repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+              { autorewrite with eq_rw.
                 rewrite ExprFacts.exprD'_type_cast; eauto.
                 Cases.rewrite_all_goal.
                 rewrite type_cast_sym_None; eauto.
@@ -304,7 +306,7 @@ Section app_full_proofs.
           generalize (typ2_cast x x0); intros.
           rewrite ExprFacts.exprD'_type_cast; eauto.
           Cases.rewrite_all_goal.
-          clear. destruct x1. destruct e0. reflexivity. } }
+          clear. destruct x1. destruct e1. reflexivity. } }
     Qed.
 
   End exprD'_app.

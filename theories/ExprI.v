@@ -1,11 +1,15 @@
 Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
+Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Structures.Applicative.
+Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
+Require Import MirrorCore.OpenT.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -16,8 +20,98 @@ Section Expr.
 
   Variable expr : Type.
 
-  Definition ResType (us vs : tenv typ) (T : Type) : Type :=
-    option (hlist (@typD _ _) us -> hlist (@typD _ _) vs -> T).
+  Definition exprT (us : tenv typ) (vs : tenv typ) (T : Type) : Type :=
+    OpenT typD us (OpenT typD vs  T).
+
+  Definition Applicative_exprT tus tvs : Applicative (exprT tus tvs) :=
+    Eval cbv beta iota zeta delta [ ap pure Applicative_OpenT ] in
+  {| pure := fun _ x => pure (pure x)
+  ; ap := fun _ _ f x => ap (T:=OpenT typD tus)
+         (ap (T:=OpenT typD tus) (pure (ap (T:=OpenT typD tvs))) f) x
+  |}.
+  Existing Instance Applicative_exprT.
+
+  Definition Functor_exprT tus tvs : Functor (exprT tus tvs) :=
+    Eval cbv beta iota zeta delta [ fmap Functor_OpenT ] in
+  {| fmap := fun _ _ f x => fmap (fmap f) x
+  |}.
+  Existing Instance Functor_exprT.
+
+  Theorem eq_exprT_eq_F tus tvs
+  : forall (T : Type) (F : T -> Type) (a b : T) (pf : a = b)
+         (val : exprT tus tvs (F a)),
+       match pf in (_ = x) return exprT tus tvs (F x) with
+       | eq_refl => val
+       end =
+       fun a b =>
+         match pf in (_ = x) return F x with
+           | eq_refl => val a b
+         end.
+  Proof.
+    destruct pf; reflexivity.
+  Qed.
+  Theorem eq_exprT_eq tus tvs
+  : forall (a b : Type) (pf : a = b)
+         (val : exprT tus tvs a),
+       match pf in (_ = x) return (exprT tus tvs x) with
+       | eq_refl => val
+       end =
+       fun a b =>
+         match pf in (_ = x) return x with
+           | eq_refl => val a b
+         end.
+  Proof.
+    destruct pf; reflexivity.
+  Qed.
+  Theorem eq_exprT_eq_tus tvs
+  : forall T a b (pf : a = b)
+         (val : exprT a tvs T),
+       match pf in (_ = x) return (exprT x tvs T) with
+       | eq_refl => val
+       end =
+       fun us =>
+         val match eq_sym pf in (_ = x) return hlist _ x with
+               | eq_refl => us
+             end.
+  Proof.
+    destruct pf; reflexivity.
+  Qed.
+  Theorem eq_exprT_eq_tvs tvs
+  : forall T a b (pf : a = b)
+         (val : exprT tvs a T),
+       match pf in (_ = x) return exprT tvs x T with
+       | eq_refl => val
+       end =
+       fun us vs =>
+         val us match eq_sym pf in (_ = x) return hlist _ x with
+                  | eq_refl => vs
+                end.
+  Proof.
+    destruct pf; reflexivity.
+  Qed.
+
+  Definition exprT_UseV tus tvs (n : nat)
+  : option { t : typ & exprT tus tvs (typD t) } :=
+    match nth_error_get_hlist_nth _ tvs n with
+      | None => None
+      | Some (existT t get) =>
+        Some (existT (fun t => exprT tus tvs (_ t)) t (fun _ vs => get vs))
+    end.
+
+  Definition exprT_UseU tus tvs (n : nat)
+  : option { t : typ & exprT tus tvs (typD t) } :=
+    match nth_error_get_hlist_nth _ tus n with
+      | None => None
+      | Some (existT t get) =>
+        Some (existT (fun t => exprT tus tvs (_ t)) t (fun us _ => get us))
+    end.
+
+  Definition exprT_Inj tus tvs :=
+    Eval simpl in @pure (exprT tus tvs)
+                        (Applicative_exprT tus tvs).
+
+  Hint Rewrite eq_exprT_eq eq_exprT_eq_F
+       eq_exprT_eq_tus eq_exprT_eq_tvs : eq_rw.
 
   (** NOTE:
    ** - Right now this is intensionally weak, but it should probably include
@@ -30,7 +124,7 @@ Section Expr.
   Class Expr : Type :=
   { exprD' : forall (us vs : tenv typ),
                expr -> forall (t : typ),
-                         ResType us vs (typD t)
+                         option (exprT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
   ; mentionsU : nat -> expr -> bool
@@ -42,7 +136,7 @@ Section Expr.
       (pfu : tus' = tus) (pfv : tvs' = tvs),
       exprD' tus tvs e t = match pfu in _ = tus'
                                , pfv in _ = tvs'
-                                 return ResType tus' tvs' (typD t)
+                                 return option (exprT tus' tvs' (typD t))
                            with
                              | eq_refl , eq_refl => exprD' tus' tvs' e t
                            end.
@@ -207,17 +301,13 @@ Section Expr.
     refine (@list_rev_ind _ _ _ _).
     { simpl. intros.
       rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
-      rewrite H0.
-      unfold ResType. rewrite eq_option_eq.
+      rewrite H0. autorewrite with eq_rw.
       eexists; split; eauto.
       intros. rewrite (hlist_eta us').
-      rewrite hlist_app_nil_r.
-      clear.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
-      reflexivity. }
+      rewrite hlist_app_nil_r. reflexivity. }
     { intros.
       rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
-      unfold ResType in H1. rewrite eq_option_eq in H1.
+      autorewrite with eq_rw in H1.
       forward.
       eapply exprD'_strengthenU_single in H1.
       + forward_reason.
@@ -234,11 +324,11 @@ Section Expr.
           repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
           f_equal.
           rewrite hlist_app_assoc.
-          apply match_eq_match_eq.
+          autorewrite with eq_rw.
           f_equal.
-          etransitivity.
-          symmetry.
-          eapply (hlist_app_hlist_split _ _ us').
+          eapply match_eq_match_eq.
+          f_equal.
+          etransitivity. symmetry. eapply (hlist_app_hlist_split _ _ us').
           f_equal.
           rewrite (hlist_eta (snd (hlist_split _ _ _))).
           simpl. f_equal.
@@ -264,17 +354,14 @@ Section Expr.
     refine (@list_rev_ind _ _ _ _).
     { simpl. intros.
       rewrite exprD'_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
-      rewrite H0.
-      unfold ResType. rewrite eq_option_eq.
+      rewrite H0. autorewrite with eq_rw.
       eexists; split; eauto.
       intros. rewrite (hlist_eta vs').
       rewrite hlist_app_nil_r.
-      clear.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
       reflexivity. }
     { intros.
       rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil)) (pfu := eq_refl) in H1.
-      unfold ResType in H1. rewrite eq_option_eq in H1.
+      autorewrite with eq_rw in H1.
       forward.
       eapply exprD'_strengthenV_single in H1.
       + forward_reason.
@@ -288,7 +375,7 @@ Section Expr.
                          (hlist_hd (snd (hlist_split _ _ vs')))).
           rewrite <- H4; clear H4.
           rewrite <- H3; clear H3.
-          repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
+          autorewrite with eq_rw.
           f_equal.
           rewrite hlist_app_assoc.
           apply match_eq_match_eq.
@@ -311,9 +398,16 @@ End Expr.
 Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
-Arguments ResType {_ RType} _ _ _ : rename.
+Arguments exprT {_ RType} _ _ _ : rename.
 Arguments mentionsU {_ RType _ Expr} _ _ : rename.
 Arguments mentionsV {_ RType _ Expr} _ _ : rename.
+Arguments exprT_Inj {_ _} _ _ {_} _ _ _ : rename.
+Arguments exprT_UseU {_ _} tus tvs n : rename.
+Arguments exprT_UseV {_ _} tus tvs n : rename.
 
 Export MirrorCore.TypesI.
 Export MirrorCore.EnvI.
+Export MirrorCore.OpenT.
+
+Hint Rewrite eq_exprT_eq eq_exprT_eq_F
+     eq_exprT_eq_tus eq_exprT_eq_tvs : eq_rw.

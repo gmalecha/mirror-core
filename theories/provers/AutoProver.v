@@ -49,7 +49,8 @@ Section parameterized.
   Let lemmaD :=
     @lemmaD _ _ _ Expr_expr expr
             (fun tus tvs g =>
-               match typ0_cast (F:=Prop) in _ = T return ResType tus tvs T with
+               match typ0_cast (F:=Prop) in _ = T
+                     return option (exprT tus tvs T) with
                  | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
                end)
             tyProp
@@ -58,7 +59,8 @@ Section parameterized.
   Let lemmaD' :=
     @lemmaD' _ _ _ Expr_expr expr
             (fun tus tvs g =>
-               match typ0_cast (F:=Prop) in _ = T return ResType tus tvs T with
+               match typ0_cast (F:=Prop) in _ = T
+                     return option (exprT tus tvs T) with
                  | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
                end)
             tyProp
@@ -103,16 +105,16 @@ Section parameterized.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
-  Hypothesis exprUnify_sound : unify_sound SubstOk_subst exprUnify.
+  Hypothesis exprUnify_sound : unify_sound exprUnify.
   Context {NormlizedSubst : NormalizedSubstOk _}.
 
   Let eapplicable :=
     @eapplicable typ _ expr Typ0_Prop subst vars_to_uvars exprUnify.
 
   Definition auto_prove_rec
-             (auto_prove : hints.(Extern).(Facts) -> EnvI.tenv typ -> EnvI.tenv typ -> expr -> subst -> option subst)
+             (auto_prove : hints.(Extern).(Facts) -> tenv typ -> tenv typ -> expr -> subst -> option subst)
              (facts : hints.(Extern).(Facts))
-             (tus tvs : EnvI.tenv typ) (g : expr) (s : subst) : option subst :=
+             (tus tvs : tenv typ) (g : expr) (s : subst) : option subst :=
     match @Prove _ _ hints.(Extern) subst _ facts tus tvs s g with
       | Some s =>
         (** solved by extern **)
@@ -145,7 +147,7 @@ Section parameterized.
 
   Fixpoint auto_prove (fuel : nat)
            (facts : hints.(Extern).(Facts))
-           (tus tvs : EnvI.tenv typ) (g : expr) (s : subst) : option subst :=
+           (tus tvs : tenv typ) (g : expr) (s : subst) : option subst :=
     match fuel with
       | 0 => None
       | S fuel =>
@@ -157,7 +159,7 @@ Section parameterized.
 
   Definition auto_prove_sound_ind
              (auto_prove : forall (facts : hints.(Extern).(Facts))
-                                  (tus tvs : EnvI.tenv typ) (g : expr)
+                                  (tus tvs : tenv typ) (g : expr)
                                   (s : subst), option subst)
   := forall facts tus tvs g s s' (Hok : HintsOk hints),
        auto_prove facts tus tvs g s = Some s' ->
@@ -394,9 +396,8 @@ Section parameterized.
         assert (exists y,
                   Provable tus (vars l ++ tvs) (concl l) = Some y /\
                   forall a b c,
-                    P0 Hnil (hlist_app a Hnil) <-> y b (hlist_app a c)).
-        { unfold ResType in H8.
-          rewrite eq_option_eq in H8.
+                    e0 Hnil (hlist_app a Hnil) <-> y b (hlist_app a c)).
+        { autorewrite with eq_rw in H8.
           forwardy.
           eapply (@ExprI.exprD'_weaken _ _ _ Expr_expr)
           with (tus' := tus) (tvs' := tvs) in H8; eauto with typeclass_instances.
@@ -405,19 +406,19 @@ Section parameterized.
           rewrite H8.
           unfold Provable.
           intro XXX; change_rewrite XXX; clear XXX.
-          unfold ResType. rewrite eq_option_eq.
+          autorewrite with eq_rw.
           eexists; split; eauto. inv_all.
           subst.
-          intros. repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+          intros. autorewrite with eq_rw.
           erewrite H12.
           instantiate (1 := c). instantiate (1 := b).
           simpl.
           rewrite hlist_app_assoc. simpl. reflexivity. }
         destruct H11 as [ ? [ ? ? ] ].
-        unfold Provable, ResType in *. forwardy.
+        unfold Provable in *. forwardy.
         specialize (H7 _ H10).
         forward_reason.
-        rewrite eq_option_eq in H8.
+        autorewrite with eq_rw in H8.
         forwardy.
         rewrite H11 in *.
         specialize (H0 _ _ H7 eq_refl).
@@ -486,7 +487,7 @@ Section parameterized.
                     Some y /\
                     forall a b c,
                       sD (hlist_app a b) c ->
-                      y (hlist_app a b) c = t Hnil (hlist_app b Hnil)).
+                      y (hlist_app a b) c = e Hnil (hlist_app b Hnil)).
           { eapply (@exprD'_weakenU _ _ _ Expr_expr) with (tus' := tus) in H0;
             eauto with typeclass_instances.
             destruct H0 as [ ? [ ? ? ] ].
@@ -517,7 +518,7 @@ Section parameterized.
                                   | eq_refl => eq_refl
                                 end).
               simpl. rewrite H0.
-              unfold ResType. rewrite eq_option_eq.
+              autorewrite with eq_rw.
               eexists; split; eauto.
               { clear. intros.
                 rewrite hlist_app_nil_r.

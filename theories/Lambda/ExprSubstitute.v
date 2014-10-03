@@ -256,7 +256,7 @@ Section substitute.
       { rewrite H1; clear H1.
         rewrite H0; clear H0.
         eexists; split; [ reflexivity | ].
-        unfold Open_App, OpenT, ResType.OpenT; intros; autorewrite with eq_rw.
+        unfold exprT_App; intros; autorewrite with eq_rw.
         erewrite H2; eauto. erewrite H3; eauto. }
       { intros.
         assert (exists vD,

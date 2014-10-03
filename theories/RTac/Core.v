@@ -202,16 +202,16 @@ Section parameterized.
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
   Fixpoint _foralls (ls : list typ)
-  : (HList.hlist typD ls -> Prop) -> Prop :=
-    match ls as ls return (HList.hlist typD ls -> Prop) -> Prop with
+  : (OpenT typD ls Prop) -> Prop :=
+    match ls as ls return (OpenT typD ls Prop) -> Prop with
       | nil => fun P => P HList.Hnil
       | l :: ls => fun P => forall x : typD l,
                               _foralls (fun z => P (HList.Hcons x z))
     end.
 
   Fixpoint _exists (ls : list typ)
-  : (HList.hlist typD ls -> Prop) -> Prop :=
-    match ls as ls return (HList.hlist typD ls -> Prop) -> Prop with
+  : (OpenT typD ls Prop) -> Prop :=
+    match ls as ls return (OpenT typD ls Prop) -> Prop with
       | nil => fun P => P HList.Hnil
       | l :: ls => fun P => exists x : typD l,
                               _exists (fun z => P (HList.Hcons x z))
@@ -286,13 +286,12 @@ Section parameterized.
     end.
 
   Fixpoint goal_substD (tus tvs : list typ) (tes : list (typ * option expr))
-  : ResType (tus ++ map fst tes) tvs Prop.
-(*
+  : option (exprT (tus ++ map fst tes) tvs Prop).
   refine
-    match tes as tes return ResType (tus ++ map fst tes) tvs Prop with
+    match tes as tes return option (exprT (tus ++ map fst tes) tvs Prop) with
       | nil => Some (fun _ _ => True)
       | (t,None) :: tes =>
-        goal_substD (tus ++ t :: nil) tvs tes
+        _ (*goal_substD (tus ++ t :: nil) tvs tes *)
       | (t,Some e) :: tes =>
         match exprD' tus tvs e t
             , goal_substD tus tvs tes
@@ -301,7 +300,6 @@ Section parameterized.
           | _ , _ => None
         end
     end.
-*)
   Admitted.
 
   (** NOTE:
@@ -311,7 +309,7 @@ Section parameterized.
    **   on substitute
    **)
   Fixpoint goalD (tus tvs : list typ) (goal : Goal) {struct goal}
-  : ResType tus tvs Prop.
+  : option (exprT tus tvs Prop).
   refine
     match goal with
       | GAll tv goal' =>

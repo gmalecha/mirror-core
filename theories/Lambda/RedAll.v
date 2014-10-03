@@ -180,9 +180,8 @@ Section beta_all.
     generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus e nil ex _ eq_refl tvs t1 t0).
     simpl. Cases.rewrite_all_goal.
     intros. forward.
-    f_equal. unfold Open_App.
-    unfold OpenT, ResType.OpenT.
-    repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+    f_equal. unfold exprT_App.
+    autorewrite with eq_rw.
     clear - H4.
     apply functional_extensionality; intro.
     apply functional_extensionality; intro.
@@ -221,12 +220,12 @@ Section beta_all.
     induction args.
     + simpl.
       intros. forward. inv_all. subst.
-      unfold Rcast, Relim, OpenT, ResType.OpenT.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      unfold Rcast, Relim.
+      autorewrite with eq_rw.
       rewrite H1. reflexivity.
     + simpl. intros.
       arrow_case t.
-    - unfold Relim, OpenT, ResType.OpenT in *; autorewrite with eq_rw in *.
+    - unfold Relim in *; autorewrite with eq_rw in *.
       forward.
       specialize (IHargs _ _ _ _ _ _ H0 H3); clear H0 H3.
       simpl in *. eapply IHargs.
@@ -243,21 +242,12 @@ Section beta_all.
     induction args; simpl; intros.
     + forward. eauto.
     + arrow_case t.
-      unfold Relim, OpenT, ResType.OpenT in *.
-      repeat first [ rewrite eq_Const_eq in * | rewrite eq_Arr_eq in * ].
+      unfold Relim in *.
+      autorewrite with eq_rw in *.
       forward.
       eapply IHargs in H1. eapply H1. congruence.
   Qed.
 
-(*
-  Inductive EnvForall {A} (R : A -> forall t : typ, typD ts t -> Prop)
-  : list A -> forall tvs, hlist (typD ts) tvs -> Prop :=
-  | EnvForall_nil : EnvForall R nil Hnil
-  | EnvForall_cons : forall e es t ts v vs,
-                       R e t v ->
-                       @EnvForall A R es ts vs ->
-                       @EnvForall A R (e :: es) (t :: ts) (Hcons v vs).
-*)
   Inductive EnvModels tus (us : hlist typD tus)
   : forall tvs, list (option (expr typ sym)) -> hlist typD tvs -> Prop :=
   | EnvModels_nil : @EnvModels tus us nil nil Hnil

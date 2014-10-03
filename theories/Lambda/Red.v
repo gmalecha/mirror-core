@@ -151,11 +151,11 @@ Section substitute.
         rewrite x0.
         replace (length tvs - length tvs) with 0 by omega.
         simpl in *.
-        generalize dependent (o us (hlist_app gs gs')).
+        generalize dependent (e us (hlist_app gs gs')).
         generalize dependent (hlist_nth gs (length tvs)).
         gen_refl.
         cutrewrite (nth_error tvs (length tvs) = None).
-        { intros. generalize (e0 e). unfold value. uip_all'. reflexivity. }
+        { intros. generalize (e1 e0). unfold value. uip_all'. reflexivity. }
         { rewrite nth_error_past_end; auto. } }
       { apply nat_compare_lt in H.
         autorewrite with exprD_rw; simpl.
@@ -196,15 +196,15 @@ Section substitute.
           gen_refl.
           generalize dependent (hlist_nth gs v).
           generalize (hlist_nth gs' (v - length tvs)).
-          generalize (hlist_nth (Hcons (o us (hlist_app gs gs')) gs')
+          generalize (hlist_nth (Hcons (e us (hlist_app gs gs')) gs')
                                 (v - length tvs)).
           generalize (cast1 tvs (t :: tvs') v).
           generalize (cast2 tvs (t :: tvs') v).
           generalize (cast2 tvs tvs' v).
           generalize (cast1 tvs tvs' v).
           consider (nth_error tvs v).
-          { intros. generalize (e t0 e3).
-            generalize (e2 t0 e3). uip_all'.
+          { intros. generalize (e3 t0 e4).
+            generalize (e3 t0 e4). uip_all'.
             clear - ED_typ. assert (t0 = projT1 x1) by congruence. subst.
             uip_all'. reflexivity. }
           { intros.
@@ -227,8 +227,7 @@ Section substitute.
         specialize (IHe1 tvs w _ eq_refl tvs' t (typ2 t0 t')).
         revert IHe1 IHe2.
         Cases.rewrite_all_goal. intros; forward.
-        unfold Open_App, OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        unfold exprT_App. autorewrite with eq_rw.
         rewrite IHe1. rewrite IHe2. reflexivity. }
       { eapply exprD'_typeof_expr.
         left. eauto. } }
@@ -328,10 +327,8 @@ Section beta.
       simpl; intros; forward_reason;
       autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl;
       forward; inv_all; subst.
-      { split; auto. unfold Open_App.
-        intros.
-        unfold OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      { split; auto. unfold exprT_App.
+        intros. autorewrite with eq_rw.
         rewrite H5. reflexivity. }
       { split; auto.
         clear H5. unfold Open_App.
@@ -344,21 +341,19 @@ Section beta.
         simpl in *. destruct r0.
         rewrite H1 in H5. rewrite H6 in H5.
         forward.
-        unfold OpenT, ResType.OpenT, Rcast_val, Rcast, Relim.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        unfold exprT_App, Rcast_val, Rcast, Relim.
+        autorewrite with eq_rw.
         simpl. specialize (H5 us Hnil vs).
         simpl in *. etransitivity; [ | eassumption ].
-        rewrite match_eq_sym_eq'.
         reflexivity. } }
     { intros. forward_reason.
       forward. simpl.
-      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (Open_Abs fval)); auto.
+      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (exprT_Abs fval)); auto.
       autorewrite with exprD_rw.
       rewrite typ2_match_zeta; auto.
       rewrite type_cast_refl; auto. simpl.
-      rewrite H. unfold Open_Abs.
-      rewrite eq_Arr_eq. rewrite eq_Const_eq.
-      rewrite eq_option_eq. reflexivity. }
+      rewrite H. unfold exprT_Abs.
+      autorewrite with eq_rw. reflexivity. }
   Qed.
 
 End beta.

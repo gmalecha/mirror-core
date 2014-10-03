@@ -13,7 +13,6 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  (** TODO: I might want some way to maintain external state **)
   Variable subst : Type.
 
   Inductive Result : Type :=
@@ -25,11 +24,11 @@ Section parameterized.
     list typ -> list typ -> subst -> list expr -> expr ->
     Result.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
@@ -37,7 +36,7 @@ Section parameterized.
   : forall (tus tvs tus' tvs' : list typ) (pfu : tus' = tus) (pfv : tvs' = tvs),
       propD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
-            return expr -> option (HList.hlist typD tu -> HList.hlist typD tv -> Prop)
+            return expr -> option (exprT tu tv Prop)
       with
         | eq_refl , eq_refl => propD tus' tvs'
       end.
@@ -46,7 +45,7 @@ Section parameterized.
   Qed.
 
   Definition stateD tus tvs (s : subst) (hs : list expr) (g : expr)
-  : ResType tus tvs Prop :=
+  : option (exprT tus tvs Prop) :=
     match propD tus tvs g
         , mapT (F:=option) (T:=list) (propD tus tvs) hs
         , substD tus tvs s
@@ -63,7 +62,7 @@ Section parameterized.
       stateD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
             return _ -> _ -> _ ->
-                   option (HList.hlist typD tu -> HList.hlist typD tv -> _)
+                   option (exprT tu tv Prop)
       with
         | eq_refl , eq_refl => stateD tus' tvs'
       end.
@@ -71,8 +70,7 @@ Section parameterized.
     destruct pfu; destruct pfv. reflexivity.
   Qed.
 
-  Definition resultD tus tvs (r : Result)
-             (P : HList.hlist _ tus -> HList.hlist _ tvs -> Prop)
+  Definition resultD tus tvs (r : Result) (P : exprT tus tvs Prop)
   : Prop :=
     match r with
       | Fail => True
@@ -111,7 +109,7 @@ Section parameterized.
       @resultD tus tvs =
       match pfu in _ = tu , pfv in _ = tv
             return _ ->
-                   (HList.hlist typD tu -> HList.hlist typD tv -> _) -> _
+                   (exprT tu tv _) -> _
       with
         | eq_refl , eq_refl => @resultD tus' tvs'
       end.
@@ -259,17 +257,17 @@ Section parameterized.
       try reflexivity.
     { eapply And_cancel; intros.
       do 2 (eapply forall_iff; intro).
-      setoid_rewrite (and_comm (P x5 x6) (P0 x5 x6)).
+      setoid_rewrite (and_comm (e x5 x6) (e0 x5 x6)).
       reflexivity. }
     { eapply And_cancel; intros.
-      destruct (propD (x ++ l0) (x0 ++ l1) e);
+      destruct (propD (x ++ l0) (x0 ++ l1) e1);
         destruct (mapT (T:=list)(F:=option) (propD (x ++ l0) (x0 ++ l1)) l2);
         try reflexivity.
       do 2 (eapply forall_iff; intro).
-      setoid_rewrite (and_comm (P x5 x6) (P0 x5 x6)).
+      setoid_rewrite (and_comm (e x5 x6) (e0 x5 x6)).
       reflexivity. }
     { apply And_cancel; intros.
-      destruct (propD (x ++ l0) (x0 ++ l1) e);
+      destruct (propD (x ++ l0) (x0 ++ l1) e1);
         destruct (mapT (T:=list)(F:=option) (propD (x ++ l0) (x0 ++ l1)) l2);
         try reflexivity. }
   Qed.

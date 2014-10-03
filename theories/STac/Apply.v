@@ -73,7 +73,7 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst}.
-  Variable UnifySound_exprUnify : unify_sound _ exprUnify.
+  Variable UnifySound_exprUnify : unify_sound exprUnify.
   Context {NormalizedSubst : NormalizedSubstOk Subst_subst}.
 
   Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
@@ -103,8 +103,6 @@ Section parameterized.
     clear.
     destruct lem. intros. revert H1. Opaque mapT.
     unfold lemmaD'. simpl.
-    unfold propD. unfold ResType.
-    repeat rewrite eq_option_eq.
     match goal with
       | |- match ?X with _ => _ end = _ -> match ?Y with _ => _ end = _ =>
         change Y with X ; generalize X
@@ -127,7 +125,7 @@ Section parameterized.
   Proof.
     intros. apply stac_sound_stac_sound_old. red. intros.
     unfold APPLY.
-    consider (eapplicable Typ0_Prop vars_to_uvars exprUnify s tus tvs lem g); auto; intros.
+    consider (eapplicable vars_to_uvars exprUnify s tus tvs lem g); auto; intros.
     eapply (@eapplicable_sound _ _ _ _ _ Typ0_Prop) in H2; eauto.
     forward_reason.
     red in H. simpl in H.

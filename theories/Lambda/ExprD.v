@@ -36,7 +36,7 @@ Section Expr.
           {RSOk : RSymOk RS}.
 
   Theorem typeof_expr_strengthenU_single
-  : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
+  : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ),
       mentionsU (length tus) e = false ->
       typeof_expr (tus ++ t :: nil) tvs e = Some t' ->
@@ -58,7 +58,7 @@ Section Expr.
   Qed.
 
   Theorem exprD'_strengthenU_single
-  : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
+  : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ)
            (val : HList.hlist typD (tus ++ t :: nil) ->
                   HList.hlist typD tvs -> typD t'),
@@ -87,17 +87,19 @@ Section Expr.
       rewrite H4; clear H4.
       eexists; split; eauto.
       intros.
-      unfold Open_App.
-      unfold OpenT, ResType.OpenT.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      unfold exprT_App.
+      autorewrite with eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
+        autorewrite with eq_rw in *.
+(*
         repeat first [ rewrite eq_Const_eq in *
                      | rewrite eq_option_eq in *
                      | rewrite eq_Arr_eq in * ].
+*)
         forward.
         eapply IHe in H3; eauto.
         forward_reason.
@@ -105,8 +107,7 @@ Section Expr.
         eexists; split; eauto.
         intros.
         inv_all; subst.
-        unfold OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        autorewrite with eq_rw.
         eapply match_eq_match_eq.
         eapply match_eq_match_eq with (F := fun x => x).
         eapply functional_extensionality.
@@ -114,14 +115,14 @@ Section Expr.
       { rewrite H1 in *. congruence. } }
     { forward. inv_all; subst.
       cut (u < length tus); intros.
-      { eapply EnvI.nth_error_get_hlist_nth_appL in H0.
+      { eapply nth_error_get_hlist_nth_appL in H0.
         forward_reason.
         rewrite H0 in H1.
         inv_all; subst. simpl in *.
         rewrite H3. rewrite H2.
         eexists; split; eauto.
         simpl. intros. rewrite H4. reflexivity. }
-      { eapply EnvI.nth_error_get_hlist_nth_Some in H1.
+      { eapply nth_error_get_hlist_nth_Some in H1.
         destruct H1. clear H0.
         eapply ListNth.nth_error_length_lt in x0.
         consider (EqNat.beq_nat (length tus) u); try congruence.
@@ -129,7 +130,7 @@ Section Expr.
   Qed.
 
   Theorem typeof_expr_strengthenV_single
-  : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
+  : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ),
       mentionsV (length tvs) e = false ->
       typeof_expr tus (tvs ++ t :: nil) e = Some t' ->
@@ -151,7 +152,7 @@ Section Expr.
   Qed.
 
   Theorem exprD'_strengthenV_single
-  : forall (tus : list typ) (tvs : EnvI.tenv typ) (e : expr typ func)
+  : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ)
            (val : HList.hlist typD tus ->
                   HList.hlist typD (tvs ++ t :: nil) -> typD t'),
@@ -169,14 +170,14 @@ Section Expr.
     induction e; simpl; intros; autorewrite with exprD_rw in *; simpl in *.
     { forward. inv_all; subst.
       cut (v < length tvs); intros.
-      { eapply EnvI.nth_error_get_hlist_nth_appL in H0.
+      { eapply nth_error_get_hlist_nth_appL in H0.
         forward_reason.
         rewrite H0 in H1.
         inv_all; subst. simpl in *.
         rewrite H3. rewrite H2.
         eexists; split; eauto.
         simpl. intros. rewrite H4. reflexivity. }
-      { eapply EnvI.nth_error_get_hlist_nth_Some in H1.
+      { eapply nth_error_get_hlist_nth_Some in H1.
         destruct H1. clear H0.
         eapply ListNth.nth_error_length_lt in x0.
         eapply RelDec.neg_rel_dec_correct in H.
@@ -192,9 +193,8 @@ Section Expr.
       rewrite H5; clear H5.
       eexists; split; eauto.
       intros.
-      unfold Open_App.
-      unfold OpenT, ResType.OpenT.
-      repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+      unfold exprT_App.
+      autorewrite with eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
@@ -210,8 +210,7 @@ Section Expr.
         eexists; split; eauto.
         intros.
         inv_all; subst.
-        unfold OpenT, ResType.OpenT.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        autorewrite with eq_rw.
         eapply match_eq_match_eq.
         eapply match_eq_match_eq with (F := fun x => x).
         eapply functional_extensionality.

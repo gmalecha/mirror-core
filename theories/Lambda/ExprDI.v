@@ -5,10 +5,8 @@ Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Lambda.ResType.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
@@ -41,26 +39,22 @@ Module Type ExprDenote.
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
 
-    Definition OpenT := ResType.OpenT typD.
-    Definition Open_UseV := ResType.Open_UseV.
-    Definition Open_UseU := ResType.Open_UseU.
-    Definition Open_Inj tus tvs := Eval simpl in @pure (OpenT tus tvs) _.
-
-    Definition Open_App {tus tvs t u}
-    : OpenT tus tvs (typD (typ_arr t u)) -> OpenT tus tvs (typD t) -> OpenT tus tvs (typD u) :=
+    Definition exprT_App {tus tvs t u}
+    : exprT tus tvs (typD (typ_arr t u)) -> exprT tus tvs (typD t)
+      -> exprT tus tvs (typD u) :=
       match eq_sym (typD_arr t u) in _ = T
-            return OpenT tus tvs T ->
-                   OpenT tus tvs (typD t) ->
-                   OpenT tus tvs (typD u)
+            return exprT tus tvs T ->
+                   exprT tus tvs (typD t) ->
+                   exprT tus tvs (typD u)
       with
         | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
       end.
 
-    Definition Open_Abs {tus tvs t u}
-    : OpenT tus (t :: tvs) (typD u) ->
-      OpenT tus tvs (typD (typ_arr t u)) :=
+    Definition exprT_Abs {tus tvs t u}
+    : exprT tus (t :: tvs) (typD u) ->
+      exprT tus tvs (typD (typ_arr t u)) :=
       match eq_sym (typD_arr t u) in _ = T
-            return OpenT tus (t :: tvs) (typD u) -> OpenT tus tvs T
+            return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
       with
         | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
       end.
@@ -90,13 +84,13 @@ Module Type ExprDenote.
     : forall {Typ2_Fun : Typ2 _ Fun}
              {RSym_func : RSym func}
              (tus tvs : tenv typ) (t : typ) (e : expr typ func),
-        option (OpenT tus tvs (typD t)).
+        option (exprT tus tvs (typD t)).
 
     Axiom exprD'_respects
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e (pf : Rty t' t),
         exprD' tus tvs t e =
-        Rcast (fun T => option (OpenT tus tvs T)) pf (exprD' tus tvs t' e).
+        Rcast (fun T => option (exprT tus tvs T)) pf (exprD' tus tvs t' e).
 
     Section typeof_expr.
       Variable tus : tenv typ.
@@ -168,7 +162,7 @@ Module Type ExprDenote.
                 ret (fun _ _ => val)).
 
     Axiom exprD'_App
-    : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
+    : RTypeOk (typ:=typ) -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t f x,
         exprD' tus tvs t (App f x) =
         bind (m := option)
@@ -178,13 +172,13 @@ Module Type ExprDenote.
                      (fun f =>
                         bind (exprD' tus tvs t' x)
                              (fun x =>
-                                ret (Open_App f x)))).
+                                ret (exprT_App f x)))).
 
     Axiom exprD'_Abs
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e,
         exprD' tus tvs t (Abs t' e) =
-        arr_match (fun T => option (OpenT tus tvs T)) t
+        arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
                      bind (m := option)
                           (type_cast d t')
@@ -216,21 +210,21 @@ Module Type ExprFacts (ED : ExprDenote).
 
     Axiom exprD'_ind
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
-      forall (P : forall tus tvs, _ -> forall t, option (ED.OpenT tus tvs (typD t)) -> Prop) tus
+      forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tus tvs e t,
                    ED.exprD' tus tvs t e = None -> P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P tus tvs (Var v) t
-                    (Some (Relim (ED.OpenT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
+                    (Some (Relim (exprT tus tvs) pf (fun _ (vs : hlist _ tvs) => get vs))))
         (Huvar : forall tvs u t t' get (pf : Rty t t'),
                    nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t' get) ->
                    P tus tvs (UVar u) t
-                     (Some (Relim (ED.OpenT tus tvs) pf ((fun us _ => get us)))))
+                     (Some (Relim (exprT tus tvs) pf ((fun us _ => get us)))))
         (Hinj : forall tvs i t t' (pf : typeof_sym i = Some t)
                 (pf' : Rty t' t),
                   P tus tvs (Inj i) t'
-                    (Some (Relim (ED.OpenT tus tvs) pf' (fun _ _ =>
+                    (Some (Relim (exprT tus tvs) pf' (fun _ _ =>
                              (match pf in _ = t
                                     return match t with
                                              | Some t => typD t
@@ -243,10 +237,10 @@ Module Type ExprFacts (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.Open_App fval xval)))
+                    (Some (ED.exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.Open_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
         forall tvs e t,
         P tus tvs e t (ED.exprD' tus tvs t e).
 
