@@ -29,15 +29,16 @@ Section parameterized.
           end
       end.
 
-(*
   Theorem FIRST_sound
   : forall tus tvs tacs, Forall (rtac_sound tus tvs) tacs -> rtac_sound tus tvs (FIRST tacs).
   Proof.
     unfold FIRST.
     induction 1.
-    { unfold rtac_sound. intros; congruence. }
-    { admit. }
+    { unfold rtac_sound. intros; subst; simpl; auto. }
+    { red. intros.
+      specialize (H ctx s g _ eq_refl).
+      subst. destruct (x ctx s g); eauto.
+      eapply IHForall; reflexivity. }
   Qed.
-*)
 
 End parameterized.
