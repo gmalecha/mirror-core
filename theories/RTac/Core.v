@@ -198,6 +198,27 @@ Section parameterized.
       runRTac' ctx s g (countUVars ctx) (countVars ctx).
   End runRTac'.
 
+  Theorem rev_app_distr_trans
+  : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
+  Proof. clear.
+         induction x; simpl; intros.
+         - symmetry. apply app_nil_r_trans.
+         - rewrite IHx. apply app_ass_trans.
+  Defined.
+
+  (** TODO: This is cubic! **)
+  Theorem rev_involutive_trans (A : Type)
+  : forall (l : list A), rev (rev l) = l.
+  Proof. clear.
+         induction l; simpl; auto.
+         rewrite rev_app_distr. rewrite IHl. reflexivity.
+  Defined.
+
+  Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))
+  : hlist F ls :=
+    match rev_involutive_trans ls in _ = t return hlist F t with
+      | eq_refl => hlist_rev h
+    end.
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
@@ -285,22 +306,54 @@ Section parameterized.
         end
     end.
 
+  Section with_T.
+    Context {T : Type}.
+    Variables (b : T) (c : list T).
+
+    Fixpoint nth_after' a  : nth_error (a ++ b :: c) (length a) = Some b :=
+      match a as a return nth_error (a ++ b :: c) (length a) = Some b with
+        | nil => eq_refl
+        | x :: xs => nth_after' xs
+      end.
+  End with_T.
+  Definition nth_after T a b c := @nth_after' T b c a.
+
+  Definition hlist_get_cons_after_app {T : Type} {F : T -> Type} {t} {a b : list T}
+             (h : hlist F (a ++ t :: b)) : F t :=
+    (match nth_after a t b in _ = T return match T with
+                                             | None => unit
+                                             | Some x => F x
+                                           end
+     with
+       | eq_refl => hlist_nth h (length a)
+     end).
+
   Fixpoint goal_substD (tus tvs : list typ) (tes : list (typ * option expr))
-  : option (exprT (tus ++ map fst tes) tvs Prop).
-  refine
+  : option (exprT (tus ++ map fst tes) tvs Prop) :=
     match tes as tes return option (exprT (tus ++ map fst tes) tvs Prop) with
       | nil => Some (fun _ _ => True)
       | (t,None) :: tes =>
-        _ (*goal_substD (tus ++ t :: nil) tvs tes *)
-      | (t,Some e) :: tes =>
-        match exprD' tus tvs e t
-            , goal_substD tus tvs tes
+        match app_ass_trans tus (t :: nil) (map fst tes) in _ = t
+              return option (exprT _ tvs Prop) ->
+                     option (exprT t tvs Prop)
         with
-          | Some eD , Some sD => _
+          | eq_refl => fun x => x
+        end (goal_substD (tus ++ t :: nil) tvs tes)
+      | (t,Some e) :: tes =>
+        match exprD' (tus ++ t :: map fst tes) tvs e t
+            , goal_substD (tus ++ t :: nil) tvs tes
+        with
+          | Some eD , Some sD =>
+            Some (match eq_sym (app_ass_trans tus (t :: nil) (map fst tes)) in _ = t
+                        return exprT t tvs Prop -> exprT _ tvs Prop
+                  with
+                    | eq_refl => fun sD =>
+                      fun us vs => sD us vs /\
+                                   hlist_get_cons_after_app us = eD us vs
+                  end sD)
           | _ , _ => None
         end
     end.
-  Admitted.
 
   (** NOTE:
    ** Appending the newly introduced terms makes tactics non-local.
@@ -386,18 +439,15 @@ Section parameterized.
     unfold getEnvs. destruct (getEnvs' ctx nil nil); reflexivity.
   Qed.
 
-  Definition OpenT (tus tvs : tenv typ) (T : Type) : Type :=
-    HList.hlist typD tus -> HList.hlist typD tvs -> T.
-
   Section ctxD.
 
     Fixpoint ctxD' (tus tvs : tenv typ) (ctx : Ctx)
              {struct ctx}
-    : OpenT tus tvs Prop -> Prop :=
-      match ctx return OpenT tus tvs Prop -> Prop with
+    : exprT tus tvs Prop -> Prop :=
+      match ctx return exprT tus tvs Prop -> Prop with
         | CTop => fun k => forall us vs, k us vs
         | CEx ctx' t =>
-          match tus as tus return OpenT tus tvs Prop -> Prop with
+          match tus as tus return exprT tus tvs Prop -> Prop with
             | t' :: tus' => fun k =>
               t = t' ->
               @ctxD' tus' tvs ctx'
@@ -405,7 +455,7 @@ Section parameterized.
             | nil => fun _ => True
           end
         | CAll ctx' t =>
-          match tvs as tvs return OpenT tus tvs Prop -> Prop with
+          match tvs as tvs return exprT tus tvs Prop -> Prop with
             | t' :: tvs' => fun k =>
               t = t' ->
               @ctxD' tus tvs' ctx'
@@ -444,11 +494,11 @@ Section parameterized.
               @ctxD' (rev tus') (rev tvs') ctx
                      (fun us vs =>
                         let us : hlist typD tus' :=
-                            match rev_involutive tus' in _ = t return hlist _ t with
+                            match rev_involutive_trans tus' in _ = t return hlist _ t with
                               | eq_refl => hlist_rev us
                             end in
                         let vs : hlist typD tvs' :=
-                            match rev_involutive tvs' in _ = t return hlist _ t with
+                            match rev_involutive_trans tvs' in _ = t return hlist _ t with
                               | eq_refl => hlist_rev vs
                             end in
                         sD' us vs ->
@@ -472,11 +522,11 @@ Section parameterized.
               @ctxD' (rev tus') (rev tvs') ctx
                      (fun us vs =>
                         let us : hlist typD tus' :=
-                            match rev_involutive tus' in _ = t return hlist _ t with
+                            match rev_involutive_trans tus' in _ = t return hlist _ t with
                               | eq_refl => hlist_rev us
                             end in
                         let vs : hlist typD tvs' :=
-                            match rev_involutive tvs' in _ = t return hlist _ t with
+                            match rev_involutive_trans tvs' in _ = t return hlist _ t with
                               | eq_refl => hlist_rev vs
                             end in
                         sD' us vs -> gD' us vs ->
@@ -787,11 +837,29 @@ Section parameterized.
     end.
 
   Theorem ctxD'_no_hyps
-  : forall ctx tus tvs (P : OpenT _ _ Prop),
+  : forall ctx tus tvs (P : exprT tus tvs Prop),
       (forall us vs, P us vs) ->
       @ctxD' tus tvs ctx P.
   Proof.
     induction ctx; simpl; intros; auto; forward; subst; auto.
+  Qed.
+
+  Lemma ctxD'_impl
+  : forall c a b (P Q : exprT a b Prop),
+      ctxD' c P ->
+      (forall x y, P x y -> Q x y) ->
+      ctxD' c Q.
+  Proof.
+    clear.
+    induction c; simpl; auto.
+    { intros. destruct b; auto.
+      intro. specialize (H H1).
+      eapply IHc; eauto. }
+    { intros; destruct a; auto.
+      intro. specialize (H H1).
+      eapply IHc; eauto. }
+    { intros; forward.
+      eapply IHc; [ eassumption | eauto ]. }
   Qed.
 
 End parameterized.

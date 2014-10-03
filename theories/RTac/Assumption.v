@@ -73,29 +73,6 @@ Section parameterized.
                sD us vs /\
                v1 us vs = v2 us vs.
 
-  Theorem rev_app_distr_trans
-  : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
-  Proof. clear.
-         induction x; simpl; intros.
-         - symmetry. apply app_nil_r_trans.
-         - rewrite IHx. apply app_ass_trans.
-  Defined.
-
-  (** TODO: This is cubic! **)
-  Theorem rev_involutive_trans (A : Type)
-  : forall (l : list A), rev (rev l) = l.
-  Proof. clear.
-         induction l; simpl; auto.
-         rewrite rev_app_distr. rewrite IHl. reflexivity.
-  Defined.
-
-  Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))
-  : hlist F ls :=
-    match rev_involutive_trans ls in _ = t return hlist F t with
-      | eq_refl => hlist_rev h
-    end.
-
-(*
   Lemma findHypOk
   : forall ctx tus tvs g s s',
       findHyp (check ctx (** TODO: This isn't right **) g) ctx s = Some s' ->
@@ -117,6 +94,7 @@ Section parameterized.
         | _ , None , _ => True
         | Some _ , Some _ , None => False
       end.
+(*
   Proof.
     induction ctx; simpl; intros; try congruence.
     { specialize (IHctx tus (tvs ++ t :: nil) _ _ _ H H0).
@@ -143,13 +121,17 @@ Section parameterized.
         destruct o0; inv_all; subst.
         { admit. }
         { 
+*)
+  Admitted.
 
 
   Theorem ASSUMPTION_sound : rtac_sound nil nil ASSUMPTION.
   Proof.
     unfold ASSUMPTION, rtac_sound.
     intros. subst.
-    consider (findHyp s ctx g); auto.
+    consider (findHyp (check ctx g) ctx s); auto.
     intros.
-*)
+    eapply findHypOk with (tus := nil) (tvs := nil) in H; auto.
+  Qed.
+
 End parameterized.
