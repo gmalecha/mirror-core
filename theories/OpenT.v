@@ -1,6 +1,5 @@
 Require Import Coq.Relations.Relations.
 Require Import Coq.Classes.Morphisms.
-Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.HList.

@@ -1,8 +1,6 @@
-Require Import Coq.Lists.List.
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 

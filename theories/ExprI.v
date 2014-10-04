@@ -1,11 +1,8 @@
-Require Import Coq.Lists.List.
 Require Import Relations.Relation_Definitions.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.

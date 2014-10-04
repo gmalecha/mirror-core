@@ -383,7 +383,6 @@ Arguments Solved {typ expr subst} _ _ _.
 Arguments More {typ expr subst} _ _ _ _ _.
 
 Export MirrorCore.EnvI.
-Export MirrorCore.SymI.
-Export MirrorCore.ExprI.
 Export MirrorCore.TypesI.
+Export MirrorCore.ExprI.
 Export MirrorCore.SubstI.

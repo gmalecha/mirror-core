@@ -1,4 +1,3 @@
-Require Import Coq.Lists.List.
 Require Import ExtLib.Data.HList.
 Require Import MirrorCore.ExprI.
 

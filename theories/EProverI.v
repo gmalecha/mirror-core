@@ -1,5 +1,3 @@
-Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.

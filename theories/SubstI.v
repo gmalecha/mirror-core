@@ -1,7 +1,5 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.

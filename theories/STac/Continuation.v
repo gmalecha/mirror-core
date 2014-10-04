@@ -1,11 +1,6 @@
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.STac.Core.
 
 Set Implicit Arguments.
@@ -27,12 +22,12 @@ Section parameterized.
     (* goals : *) list expr ->
     Result typ expr subst.
 
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
-  Variable SubstUpdate_subst : SubstUpdate subst expr.
-  Variable SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst}.
 
   Definition stac_cont_sound (tacC : stac_cont) : Prop :=
     forall tus tvs sub hyps gs,

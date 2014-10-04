@@ -3,18 +3,10 @@
  **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Bool.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.ExprDI.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprDFacts.
 Require Import MirrorCore.Lambda.ExprD.

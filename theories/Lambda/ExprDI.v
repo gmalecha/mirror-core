@@ -1,7 +1,5 @@
 Require Import ExtLib.Structures.Monads.
-Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.

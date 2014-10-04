@@ -1,10 +1,7 @@
-Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
@@ -41,11 +38,11 @@ Section parameterized.
 
   Lemma exprD'_typ0_weaken (ExprOk_expr : ExprOk _)
   : forall (tus0 tvs0 : tenv typ) (l0 : expr)
-           (lD : hlist typD tus0 -> hlist typD tvs0 -> T),
+           (lD : exprT tus0 tvs0 T),
       exprD'_typ0 tus0 tvs0 l0 = Some lD ->
       forall tus' tvs' : list typ,
       exists
-        lD' : hlist typD (tus0 ++ tus') -> hlist typD (tvs0 ++ tvs') -> T,
+        lD' : exprT (tus0 ++ tus') (tvs0 ++ tvs') T,
         exprD'_typ0 (tus0 ++ tus') (tvs0 ++ tvs') l0 = Some lD' /\
         (forall (us : hlist typD tus0) (vs : hlist typD tvs0)
                 (us' : hlist typD tus') (vs' : hlist typD tvs'),

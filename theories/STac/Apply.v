@@ -1,14 +1,6 @@
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Util.ListMapT.
-Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.InstantiateI.
