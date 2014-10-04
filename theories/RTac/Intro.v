@@ -114,16 +114,9 @@ Section parameterized.
       split; eauto.
       eapply H6.
       destruct H8. exists x1. destruct H8. revert H9. revert H5. clear.
-      generalize dependent (rev_involutive_trans (getUVars ctx nil)).
-      generalize dependent (rev_involutive_trans (getVars ctx nil)).
       generalize dependent (getVars ctx nil).
       generalize dependent (getUVars ctx nil).
       intros.
-      generalize dependent (hlist_rev us).
-      generalize dependent (hlist_rev vs).
-      generalize dependent (rev t1).
-      generalize dependent (rev t0).
-      intros. destruct e0. destruct e.
       rewrite H5. assumption. }
     { simpl. forward.
       eapply exprD'_typ0_weakenV with (tvs' := t :: nil) in H0; eauto.

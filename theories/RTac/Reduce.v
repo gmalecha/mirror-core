@@ -42,50 +42,105 @@ Section parameterized.
         GConj (List.map (instantiateGoal f) ps)
     end.
 
-  Fixpoint reduceGoal (ctx : Ctx typ expr) (s : subst) (g : Goal typ expr)
+  Fixpoint toGoal (ctx : Ctx typ expr) (s : subst) (g : Goal typ expr)
+           (su : nat)
            (un vn : nat)
   : Result typ expr subst :=
     match ctx with
-      | CTop => match g with
-                  | GSolved => Solved s
-                  | g => More s g
-                end
+      | CTop => More s g
       | CAll ctx' l =>
         match vn with
           | 0 => (** STUCK **)
             Fail
           | S vn' =>
             (** TODO: Drop var **)
-            reduceGoal ctx' s g un vn'
+            if strengthenU un su s then
+              if strengthenV vn' 1 s then
+                toGoal ctx' s g 0 un vn'
+              else
+                Fail
+            else
+              Fail
         end
       | CEx  ctx' l =>
         match un with
           | 0 => (** STUCK **)
             Fail
           | S un' =>
-            match drop un' s with
+            let '(s',ne) := forget un' s in
+            match ne with
               | None =>
-                reduceGoal ctx' s (GEx l (lookup un' s) g) un' vn
-              | Some s' =>
-                match lookup un' s with
-                  | None => Fail (** DEAD **)
-                  | Some e =>
-                    (** NOTE: If this gets removed then all of the variables
-                     ** have to be renumbered. This is because this is
-                     ** actually a subst, not an instantiate
-                     **)
-                    let g' := instantiateGoal (fun u => if u ?[ eq ] un' then Some e else None) g
-                    in
-                    match g' with
-                      | GSolved =>
-                        reduceGoal ctx' s' g' un' vn
-                      | _ => reduceGoal ctx' s' (GEx l (Some e) g') un' vn
-                    end
-                end
+                toGoal ctx' s' (GEx l ne g) (S su) un' vn
+              | Some e =>
+                let g' :=
+                    instantiateGoal
+                      (fun u => if u ?[ eq ] un' then Some e else None) g
+                in
+                toGoal ctx' s' (GEx l (Some e) g') (S su) un' vn
             end
         end
       | CHyp ctx' h =>
-        reduceGoal ctx' s g un vn
+        if strengthenU un su s then
+          toGoal ctx' s (GHyp h g) 0 un vn
+        else
+          Fail
+    end.
+
+  (** This assumes that the goal is a [GSolved] **)
+  Fixpoint solveGoal (ctx : Ctx typ expr) (s : subst)
+           (su : nat) (un vn : nat)
+  : Result typ expr subst :=
+    match ctx with
+      | CTop =>
+        if strengthenU un su s then
+          Solved s
+        else
+          Fail
+      | CAll ctx' l =>
+        match vn with
+          | 0 => (** STUCK **)
+            Fail
+          | S vn' =>
+            (** TODO: Drop var **)
+            if strengthenU un su s then
+              if strengthenV vn' 1 s then
+                solveGoal ctx' s su un vn'
+              else
+                Fail
+            else
+              Fail
+        end
+      | CEx  ctx' l =>
+        match un with
+          | 0 => (** STUCK **)
+            Fail
+          | S un' =>
+            let '(s',ne) := forget un' s in
+            match ne with
+              | None =>
+                toGoal ctx' s' (GEx l None GSolved) (S su) un' vn
+              | Some e =>
+                (** NOTE: I don't need to check that [e] is fully
+                 ** instantiated because if it is not instantiated
+                 ** then when I get to the variable that instantiates
+                 ** it, it will not be filled in.
+                 **)
+                solveGoal ctx' s' (S su) un' vn
+            end
+        end
+      | CHyp ctx' h =>
+        if strengthenU un su s then
+          solveGoal ctx' s 0 un vn
+        else
+          Fail
+    end.
+
+  Definition reduceGoal (ctx : Ctx typ expr) (s : subst) (g : Goal typ expr)
+           (un vn : nat)
+  : Result typ expr subst :=
+    match g with
+      | GSolved => solveGoal ctx s 0 un vn
+      | _ => toGoal ctx s g 0 un vn
     end.
 
   Definition more_list (ctx : Ctx typ expr) (sub : subst)
