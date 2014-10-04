@@ -4,11 +4,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprD.
-Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprLift.
 
 Require Import FunctionalExtensionality.

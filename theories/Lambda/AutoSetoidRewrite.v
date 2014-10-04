@@ -6,11 +6,7 @@ Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.SymI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.

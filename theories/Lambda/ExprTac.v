@@ -1,7 +1,5 @@
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprDFacts.
@@ -20,7 +18,7 @@ Section some_lemmas.
   Variable RSymOk_sym : RSymOk RSym_sym.
 
   Lemma exprD_typeof_not_None
-  : forall tus tvs e t val,
+  : forall tus tvs (e : expr typ sym) (t : typ) val,
       exprD' tus tvs t e = Some val ->
       typeof_expr tus tvs e <> None.
   Proof.

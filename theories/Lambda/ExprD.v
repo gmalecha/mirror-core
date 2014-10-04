@@ -3,7 +3,6 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDFacts.
 Require MirrorCore.Lambda.ExprDsimul.
@@ -231,3 +230,6 @@ Section Expr.
   Qed.
 
 End Expr.
+
+Export MirrorCore.Lambda.ExprCore.
+Export MirrorCore.SymI.
