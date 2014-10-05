@@ -1,4 +1,3 @@
-(*Require Import Coq.PArith.BinPos. *)
 Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
@@ -59,7 +58,23 @@ Section parameterized.
   : forall tus tvs n tac, rtac_sound tus tvs tac ->
                           rtac_sound tus tvs (REPEAT n tac).
   Proof.
-  Admitted.
+    unfold REPEAT. intros tus vs n tac H.
+    induction n.
+    - simpl. intros. clear.
+      red; intros; subst.
+      intro; split; auto.
+      simpl.
+      forward.
+      eapply ctxD'_no_hyps. tauto.
+    - simpl. red; intros; subst.
+      specialize (H ctx s g _ eq_refl).
+      destruct (tac ctx s g); auto.
+      + intros; split; auto.
+        simpl. forward.
+        eapply ctxD'_no_hyps.
+        auto.
+      + admit.
+  Qed.
 
 End parameterized.
 
