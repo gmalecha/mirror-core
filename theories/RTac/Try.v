@@ -14,11 +14,12 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Subst_subst : Subst subst expr}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
     fun ctx s g => match tac ctx s g with
-                     | Fail => More s (GGoal g)
+                     | Fail => More_ s g
                      | x => x
                    end.
 
@@ -32,7 +33,6 @@ Section parameterized.
     + intros; split; auto.
       simpl.
       forward.
-      apply ctxD'_no_hyps. intros; tauto.
   Qed.
 
 End parameterized.
