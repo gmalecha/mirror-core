@@ -596,6 +596,14 @@ Section parameterized.
         end
     end.
 
+  Local Existing Instance Transitive_Roption.
+  Local Existing Instance Symmetric_Roption.
+  Local Existing Instance Reflexive_Roption.
+  Local Existing Instance Transitive_RexprT.
+  Local Existing Instance Symmetric_RexprT.
+  Local Existing Instance Reflexive_RexprT.
+
+
   Definition EqGoal tus tvs : relation Goal :=
     fun g1 g2 =>
       forall ctx s,
@@ -603,12 +611,21 @@ Section parameterized.
                 (osgD tus tvs (toGoal (length tus) (length tvs) ctx s g1))
                 (osgD tus tvs (toGoal (length tus) (length tvs) ctx s g2)).
 
+
+
   Instance Reflexive_EqGoal tus tvs : Reflexive (EqGoal tus tvs).
-  Admitted.
-  Instance Symmetric_EqGoal tus tvs : Symmetric (EqGoal tus tvs).
-  Admitted.
+  Proof. red. red. reflexivity. Qed.
   Instance Transitive_EqGoal tus tvs : Transitive (EqGoal tus tvs).
-  Admitted.
+  Proof.
+    red. unfold EqGoal. intros.
+    etransitivity; eauto.
+  Qed.
+
+  Instance Symmetric_EqGoal tus tvs : Symmetric (EqGoal tus tvs).
+  Proof.
+    red; unfold EqGoal. intros.
+    symmetry. eauto.
+  Qed.
 
   Inductive Eqpair {T U} (rT : relation T) (rU : relation U) : relation (T * U) :=
   | Eqpair_both : forall a b c d, rT a b -> rU c d -> Eqpair rT rU (a,c) (b,d).
@@ -619,6 +636,7 @@ Section parameterized.
               (fromResult r1) (fromResult r2).
 
   Instance Reflexive_EqResult tus tvs : Reflexive (EqResult tus tvs).
+  Proof.
   Admitted.
   Instance Symmetric_EqResult tus tvs : Symmetric (EqResult tus tvs).
   Admitted.
@@ -891,13 +909,6 @@ Section parameterized.
       red. rewrite <- H by reflexivity.
       auto. }
   Qed.
-
-  Local Existing Instance Transitive_Roption.
-  Local Existing Instance Symmetric_Roption.
-  Local Existing Instance Reflexive_Roption.
-  Local Existing Instance Transitive_RexprT.
-  Local Existing Instance Symmetric_RexprT.
-  Local Existing Instance Reflexive_RexprT.
 
   Lemma osgD_toGoal
   : forall tus tvs ctx s g,
