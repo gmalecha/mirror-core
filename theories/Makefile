@@ -1,5 +1,5 @@
 GENERIC :=
-UTIL := Approx Iteration ListMapT Forwardy
+UTIL := Approx Iteration ListMapT Forwardy Quant
 PROVERS := ProverTac AssumptionProver DefaultProver AutoProver
 SUBST   := UVarMap FMapSubst CascadeSubst # SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
@@ -40,7 +40,8 @@ RTAC := Core \
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := OpenT Generic \
-	      TypesI EnvI ExprI ExprProp ExprSem \
+	      TypesI EnvI ExprI VariablesI \
+	      ExprProp ExprSem \
 	      ExprDAs \
 	      SymI \
 	      SubstI \

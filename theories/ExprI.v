@@ -34,6 +34,30 @@ Section Expr.
   |}.
   Existing Instance Functor_exprT.
 
+  Definition RexprT (tus tvs : tenv typ) {T} (R : relation T)
+  : relation (exprT tus tvs T) :=
+    OpenTeq (OpenTeq R).
+  Arguments RexprT _ _ {_} _ _ _.
+
+  Instance Reflexive_RexprT tus tvs T (R : relation T) (_ : Reflexive R)
+  : Reflexive (RexprT tus tvs R).
+  Proof.
+    red. eapply Reflexive_OpenTeq. eapply Reflexive_OpenTeq. assumption.
+  Qed.
+
+  Instance Symmetric_RexprT tus tvs T (R : relation T) (_ : Symmetric R)
+  : Symmetric (RexprT tus tvs R).
+  Proof.
+    red. eapply Symmetric_OpenTeq. eapply Symmetric_OpenTeq. assumption.
+  Qed.
+
+  Instance Transitive_RexprT tus tvs T (R : relation T) (_ : Transitive R)
+  : Transitive (RexprT tus tvs R).
+  Proof.
+    red. eapply Transitive_OpenTeq. eapply Transitive_OpenTeq. assumption.
+  Qed.
+
+
   Theorem eq_exprT_eq_F tus tvs
   : forall (T : Type) (F : T -> Type) (a b : T) (pf : a = b)
          (val : exprT tus tvs (F a)),
@@ -401,6 +425,7 @@ Arguments mentionsV {_ RType _ Expr} _ _ : rename.
 Arguments exprT_Inj {_ _} _ _ {_} _ _ _ : rename.
 Arguments exprT_UseU {_ _} tus tvs n : rename.
 Arguments exprT_UseV {_ _} tus tvs n : rename.
+Arguments RexprT {typ RType} tus tvs {_} _ _ _ : rename.
 
 Export MirrorCore.TypesI.
 Export MirrorCore.EnvI.
