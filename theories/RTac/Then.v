@@ -18,26 +18,14 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
-  (** c2 is put closer to the goal **)
-  Fixpoint Ctx_append (c1 c2 : Ctx typ expr) {struct c2} : Ctx typ expr :=
-    match c2 with
-      | CTop => c1
-      | CAll c2' t => CAll (Ctx_append c1 c2') t
-      | CEx  c2' t => CEx  (Ctx_append c1 c2') t
-      | CHyp c2' h => CHyp (Ctx_append c1 c2') h
-    end.
-
   Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
     fun ctx sub g =>
       match c1 ctx sub g with
-        | More sub' g' =>
-          runRTac c2 ctx sub' g'
-        | Solved sub =>
-          Solved sub
+        | More_ sub' g' => c2 ctx sub' g'
+        | Solved sub => Solved sub
         | Fail => Fail
       end.
 
-(*
   Theorem THEN_sound
   : forall (tus tvs : list typ) (tac1 tac2 : rtac typ expr subst),
       rtac_sound tus tvs tac1 ->
@@ -46,15 +34,20 @@ Section parameterized.
   Proof.
     unfold THEN.
     intros.
-    red. intros.
-    forward.
-    eapply H in H1; clear H.
-    eapply H1 in H2; clear H1.
-    destruct H2.
-    eapply H0 in H3; eauto.
-    specialize (H3 H). forward_reason.
-    split; auto.
-    forward. eauto.
+    red. intros. subst.
+    specialize (H ctx s g _ eq_refl).
+    destruct (tac1 ctx s g); auto.
+    specialize (H0 ctx s0 g0 _ eq_refl); auto.
+    simpl in *.
+    destruct (tac2 ctx s0 g0); auto.
+    - simpl in *; intros; forward_reason.
+      split; eauto.
+      forward.
+      firstorder.
+    - simpl in *; intros; forward_reason.
+      split; eauto.
+      forward.
+      firstorder.
   Qed.
-*)
+
 End parameterized.

@@ -14,6 +14,7 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Subst_subst : Subst subst expr}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition SOLVE (tac : rtac typ expr subst) : rtac typ expr subst :=
@@ -29,7 +30,8 @@ Section parameterized.
     intros.
     specialize (H ctx s g).
     subst; destruct (tac ctx s g); auto.
-    specialize (H _ eq_refl). apply H.
+    specialize (H _ eq_refl).
+    exact I.
   Qed.
 
 End parameterized.

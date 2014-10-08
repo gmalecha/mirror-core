@@ -15,10 +15,11 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Subst_subst : Subst subst expr}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition IDTAC : rtac typ expr subst :=
-    fun ctx sub gl => More sub (GGoal gl).
+    fun ctx sub gl => More_ sub gl.
 
   Theorem IDTAC_sound
   : forall tus tvs, rtac_sound tus tvs IDTAC.
@@ -27,7 +28,6 @@ Section parameterized.
     intros; subst.
     split; auto.
     simpl. intros. forward.
-    eapply ctxD'_no_hyps. intros. split; assumption.
   Qed.
 
 End parameterized.

@@ -15,6 +15,7 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Subst_subst : Subst subst expr}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition FAIL : rtac typ expr subst :=
@@ -25,7 +26,7 @@ Section parameterized.
   Proof.
     unfold FAIL, rtac_sound.
     intros; subst.
-    trivial.
+    exact I.
   Qed.
 
 End parameterized.

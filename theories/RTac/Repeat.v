@@ -39,12 +39,12 @@ Section parameterized.
     : rtac typ expr subst :=
       fun ctx sub gl =>
         match n with
-          | 0 => More sub (GGoal gl)
+          | 0 => More_ sub gl
           | S n =>
             match tac ctx sub gl with
-              | Fail => More sub (GGoal gl)
-              | More sub' gl' =>
-                runRTac (REPEAT' n) ctx sub' gl'
+              | Fail => More_ sub gl
+              | More_ sub' gl' =>
+                (REPEAT' n) ctx sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -65,15 +65,20 @@ Section parameterized.
       intro; split; auto.
       simpl.
       forward.
-      eapply ctxD'_no_hyps. tauto.
     - simpl. red; intros; subst.
       specialize (H ctx s g _ eq_refl).
       destruct (tac ctx s g); auto.
       + intros; split; auto.
         simpl. forward.
-        eapply ctxD'_no_hyps.
-        auto.
-      + admit.
+      + simpl in *.
+        unfold rtac_sound in *.
+        specialize (IHn ctx s0 g0 _ eq_refl).
+        unfold rtac_spec in *.
+        destruct (REPEAT' tac n ctx s0 g0); auto.
+        * intros; forward_reason; split; auto.
+          forward. firstorder.
+        * intros; forward_reason; split; auto.
+          forward. firstorder.
   Qed.
 
 End parameterized.

@@ -33,7 +33,7 @@ Section parameterized.
       match ctx with
         | CTop => None
         | CAll ctx' _ => findHyp ctx' s
-        | CEx  ctx' _ => findHyp ctx' s
+        | CExs ctx' _ => findHyp ctx' s
         | CHyp ctx' h => match check h s with
                            | None => findHyp ctx' s
                            | Some e => Some e
