@@ -528,6 +528,17 @@ Section parameterized.
         end
     end.
 
+  Definition subst_pctxD {T} {tus tvs} (v : option (subst * (T -> exprT tus tvs Prop)))
+  : option (T -> exprT tus tvs Prop) :=
+    match v with
+      | None => None
+      | Some (s,D) =>
+        match substD tus tvs s with
+          | None => None
+          | Some sD => Some (fun k us vs => sD us vs -> D k us vs)
+        end
+    end.
+
   Definition RCtx {tus tvs tus' tvs'} :=
     (RexprT tus tvs Basics.impl ==> RexprT tus' tvs' Basics.impl)%signature.
 
@@ -888,9 +899,9 @@ Section parameterized.
       | Solved s' =>
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        match subst_ctxD (pctxD tus tvs ctx s)
+        match subst_pctxD (pctxD tus tvs ctx s)
             , goalD _ _ g
-            , subst_ctxD (pctxD tus tvs ctx s')
+            , subst_pctxD (pctxD tus tvs ctx s')
         with
           | None , _ , _
           | Some _ , None , _ => True
@@ -906,9 +917,9 @@ Section parameterized.
       | More_ s' g' =>
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        match subst_ctxD (pctxD tus tvs ctx s)
+        match subst_pctxD (pctxD tus tvs ctx s)
             , goalD _ _ g
-            , subst_ctxD (pctxD tus tvs ctx s')
+            , subst_pctxD (pctxD tus tvs ctx s')
             , goalD _ _ g'
         with
           | None , _ , _ , _
@@ -975,6 +986,7 @@ Section parameterized.
     Proof.
       clear. red. red. intuition.
       specialize (H1 us vs).
+      red
       eapply H0. 2: eapply H. 3: eassumption.
       eapply H1. auto.
     Qed.
@@ -1042,6 +1054,57 @@ Section parameterized.
     : Result :=
       runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx) ctx s g.
 
+    Theorem Proper_subst_pctxD_impl
+    : forall tus tvs c1 s,
+        Proper (Roption (RexprT (tus ++ getUVars c1) (tvs ++ getVars c1) Basics.impl ==>
+                                (RexprT tus tvs Basics.impl)))%signature
+               (subst_pctxD (pctxD tus tvs c1 s)).
+    Proof.
+      intros. unfold subst_pctxD.
+      generalize (Proper_pctxD_impl tus tvs c1 s).
+      inversion 1. red. constructor.
+      destruct x.
+      destruct (substD tus tvs s0); try constructor.
+      subst. inversion H2; subst; eauto.
+      do 7 red. intros.
+      eapply H7; eauto.
+      apply equiv_eq_eq in H3; apply equiv_eq_eq in H4; subst.
+      auto.
+    Qed.
+
+    Theorem Applicative_subst_pctxD
+    : forall tus tvs ctx s p,
+        subst_pctxD (pctxD tus tvs ctx s) = Some p ->
+        (forall us vs (P Q : exprT _ _ Prop),
+           p (fun a b => P a b -> Q a b) us vs ->
+           p P us vs ->
+           p Q us vs) /\
+        (forall us vs (P : exprT _ _ Prop),
+           (forall a b, P a b) -> p P us vs).
+    Proof.
+      clear. induction ctx; simpl; intros.
+      { forward; inv_all; subst.
+        forward_reason; split; eauto. }
+      { specialize (IHctx s).
+        unfold subst_pctxD in *.
+        forward; inv_all; subst.
+        specialize (IHctx _ eq_refl).
+        destruct IHctx as [ Hap Hpure ].
+        rewrite H5 in *; subst; inv_all; subst.
+        split.
+        { intros. revert H1.
+          eapply Hap. 2: eapply H0.
+          eapply Hap. 2: eapply H.
+          eapply Hpure. intros.
+          eapply H1. eauto. }
+        { intros. revert H0.
+          eapply Hap. 2: eapply Hpure.
+          eapply Hpure. intros a b X. eapply X.
+          simpl. eauto. } }
+      { admit. }
+      { admit. }
+    Qed.
+
     Theorem runOnGoals'_sound
     : forall tus tvs,
         (forall ctx s ge result,
@@ -1052,9 +1115,39 @@ Section parameterized.
                                                        (length tvs + countVars ctx)
                                                        ctx s g).
     Proof.
+(*
       red. intros tus tvs Htac.
       induction g; fold runOnGoals' in *.
-      { admit. }
+      { (* All *)
+        intros.
+        specialize (IHg (CAll ctx t) s).
+        simpl in *.
+        match goal with
+          | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
+            replace Y with X
+        end; [ | f_equal ; omega ].
+        destruct (runOnGoals' (length tus + countUVars ctx)
+                              (length tvs + S (countVars ctx)) (CAll ctx t) s g);
+          auto; intros; forward_reason; split; auto.
+        { generalize (Proper_subst_pctxD_impl tus tvs ctx s).
+          forward.
+          unfold subst_pctxD in *.
+          revert H7. Cases.rewrite_all_goal.
+          forward. subst.
+          red in H6.
+          inv_all; subst.
+          simpl in *.
+          rewrite H12 in H16. inv_all; subst.
+          Cases.rewrite_all_goal.
+          destruct H10.
+          split.
+          { red; intros.
+            revert H11. red in H1.
+            specialize (H1 (fun a b => forall x, P a (hlist_app b (Hcons x Hnil)))).
+            
+            
+ }
+        { admit. } }
       { admit. }
       { admit. }
       { simpl; intros; clear Htac.
@@ -1069,7 +1162,6 @@ Section parameterized.
                                 ctx s0 B); auto.
           rename g into B'.
           { intros; forward_reason; split; auto.
-            unfold subst_ctxD in *.
             generalize (Proper_pctxD_impl tus tvs ctx s).
             generalize (Proper_pctxD_impl tus tvs ctx s0).
             generalize (Proper_pctxD_impl tus tvs ctx s1).
@@ -1077,206 +1169,35 @@ Section parameterized.
             generalize (@Applicative_pctxD tus tvs ctx s0).
             generalize (@Applicative_pctxD tus tvs ctx s1).
             simpl. forward.
-            simpl in *. rewrite H10 in *.
-            rewrite H21 in *.
-            rewrite H18 in *.
-            repeat match goal with
-                     | H : forall x, _ -> _ |- _ => specialize (@H _ eq_refl)
-                     | H : Proper _ _ |- _ => red in H
-                     | H : pctxD _ _ _ _ = _ |- _ => clear H
-                   end.
-            inv_all; subst.
-            split.
-            - admit.
-            - intros.
-
-              assert (e9 us vs /\ e8 (fun us vs => e2 us vs /\ e3 us vs -> e0 us vs /\ e3 us vs) us vs).
-              { eapply onLeft_subst with (s' := e7) (c' := e6).
-                eauto.
-                admit.
-                admit.
-                admit.
-                destruct H16; auto.
-                
-                
-                
-
-
-
-              simpl in *.
-              unfold CtxMorphism in *.
-              rename e0 into AD.
-              rename e2 into AD'.
-              rename e3 into BD.
-              rename e5 into BD'.
-                
-                
-                
-                eapply Hap' in H.
-                
-                 
-
-
-
-              { clear H13. clear H23.
-                eapply H9.
-                eapply H16. 2: eapply H1.
-                simpl. instantiate (1 := fun a b => BD' a b -> BD a b).
-                destruct H1; split; auto.
-                eapply H26. 2: reflexivity. 2: reflexivity.
-                2: eapply H3.
-                { do 6 red. intros. tauto. }
-                destruct H16. eapply H9.
-                2: eapply H5.
-                Focus 2.
-                destruct H1; split; [ auto | ].
-                eapply H26. 4: eapply H13.
-                2: reflexivity. 2: reflexivity.
-                do 6 red. clear.
-                intros.
-                eapply equiv_eq_eq in H; eapply equiv_eq_eq in H0; subst.
-                intros; tauto.
-                
-                2
-
-              eapply H23.
-              { eapply H13.
-                instantiate (1 := e2). instantiate (1 := fun us vs => (e2 us vs -> e3 us vs) /\ e5 us vs).
-                2: eapply H16.
-                3: eapply H1. 2: simpl.
-                simpl.
-                eapply H16.
-                { intros. eapply H9.
-                  eapply H16. eapply H1.
-                
-
-
-              cut (e9 us vs /\ e8 (fun us vs => e0 us vs /\ e5 us vs) us vs).
-              { admit. }
-              { eapply H16; [ | eapply H1 ].
-                simpl; intros.
-                eapply H14.
-
-              eapply H23; clear H23.
-              instantiate (1 := fun us vs => e0 us vs /\ e5 us vs); simpl.
-              eapply H13.
-              
-              
-
-              assert (e1 (fun us vs => e0 us vs /\ e5 us vs) us vs).
-              { eapply H10.
-              eapply H7.
-              2: eapply H10. 3: eapply H13.
-              { instantiate (1 := fun us vs => e0 us vs /\ e3 us vs).
-                simpl. auto. }
-              { simpl.
-            
-            
- }
-      { clear - Htac; simpl; intros.
-        specialize (Htac ctx s e _ eq_refl).
-        eapply Htac. }
-      { clear. simpl.
-        intros. split; auto.
-        forward.
-        split.
-        { red. intros.
-          (** This is due to the properness of [e] **)
-          admit. }
-        { intros. assumption. } }
-    Qed.
-
-}
-
-      { (* All *)
-        (*
-        clear Htac. simpl; intros.
-        specialize (IHg (CAll ctx t) s).
-        simpl in *.
-        rewrite <- plus_n_Sm in IHg.
-        match goal with
-          | H : match ?X with _ => _ end
-          |- match match ?Y with _ => _ end with _ => _ end =>
-            change Y with X ; consider X; intros; auto
-        end.
-        intros; forward_reason; split; auto.
-        forward.
-        generalize (osgD_toGoal tus tvs ctx s0 GSolved).
-        generalize (osgD_toGoal tus tvs ctx s0 (GAll t GSolved)).
-        rewrite H3.
-        intro XXX; inversion XXX; clear XXX.
-        simpl.
-        forward; inv_all; subst.
-        inversion H9; clear H9; subst.
-        intros. eapply H4; clear H4.
-        eapply H10 in H8; [ clear H10 | reflexivity | reflexivity ].
-        eapply H7. reflexivity. reflexivity.
-        generalize (Proper_ctxD' tus tvs ctx s0).
-        rewrite H6. inversion 1. subst.
-        eapply H11. 4: eassumption.
-        2: reflexivity.
-        2: reflexivity.
-        repeat red. auto. *) admit. }
-      { (* Ex *)
-        admit. }
-      { (* Hyp *)
-        clear Htac.
-        simpl in *. intros.
-        specialize (IHg (CHyp ctx e) s).
-        simpl in *.
-        forward.
-        forward_reason.
-        destruct (runOnGoals' (length tus + countUVars ctx)
-                           (length tvs + countVars ctx)
-                           (CHyp ctx e) s g); auto.
-        { intros; forward_reason.
-          split; auto. simpl.
-          unfold subst_ctxD in *.
-          forward; inv_all; subst.
-          inversion H15; clear H15; subst.
-          simpl.
-          generalize (Proper_pctxD tus tvs ctx s0).
-          generalize (Proper_pctxD tus tvs ctx s).
-          Cases.rewrite_all_goal.
-          inversion 1. subst. inversion 1; subst.
-          clear H1 H5.
-          inversion H8; clear H8; subst.
-          inversion H13; clear H13; subst.
-
-          admit. }
-        { intros; forward_reason; split; auto.
-          unfold subst_ctxD in *.
-          forward; inv_all; subst.
-          admit. } }
-      { (* Conj *)
-        fold runOnGoals' in *. clear Htac. intros ctx s.
-        specialize (IHg1 ctx s).
-        simpl.
-        destruct (runOnGoals' (length tus + countUVars ctx)
-                           (length tvs + countVars ctx) ctx s g1); auto.
+            admit. }
+          { admit. } }
         { specialize (IHg2 ctx s0).
-          destruct (runOnGoals' (length tus + countUVars ctx)
-                             (length tvs + countVars ctx) ctx s0 g2); auto.
+          destruct (runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx)
+                                ctx s0 B); auto.
+          rename g into B'.
           { intros; forward_reason; split; auto.
-            simpl.
-            forward. admit. }
-          { simpl. admit. } }
-        { specialize (IHg2 ctx s0).
-          destruct (runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx) ctx
-                             s0 g2); auto.
-          { intros; forward_reason.
-            split; auto.
             admit. }
           { admit. } } }
-      { (* Goal *)
-        intros.
-        specialize (Htac ctx s e _ eq_refl).
-        assumption. }
       { (* Solved *)
+        clear - Htac; simpl; intros.
+        specialize (Htac ctx s e _ eq_refl).
+        eapply Htac. }
+      { (* Goal *)
+        clear. simpl.
         intros. split; auto.
-        clear Htac.
-        forward. }
-    Qed.
+        generalize (Proper_subst_pctxD_impl tus tvs ctx s).
+        generalize (@Applicative_subst_pctxD tus tvs ctx s).
+        forward.
+        specialize (H1 _ eq_refl).
+        destruct H1 as [ Hap Hpure ].
+        red in H2; inv_all.
+        split.
+        { red. intros.
+          eapply Hap. eapply H1. assumption. }
+        { intros.
+          eapply Hpure. auto. } }
+*)
+    Admitted.
   End runOnGoals'.
 
 (*
