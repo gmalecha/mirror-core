@@ -101,6 +101,11 @@ Instance Injective_Roption_Some_Some T (R : T -> T -> Prop) a b : Injective (Rop
 inversion 1. auto.
 Defined.
 
+Instance Injective_Proper_Roption_Some {T} (rT : relation T) x
+: Injective (Proper (Roption rT) (Some x)) :=
+  { result := rT x x }.
+abstract (inversion 1; assumption).
+Defined.
 
 Section parameterized.
   Variable typ : Type.
@@ -320,23 +325,24 @@ Section parameterized.
        | eq_refl => hlist_nth h (length a)
      end).
 
-  Fixpoint goal_substD (tus tvs : list typ) (tes : list (typ * option expr))
-  : option (exprT (tus ++ map fst tes) tvs Prop) :=
-    match tes as tes return option (exprT (tus ++ map fst tes) tvs Prop) with
-      | nil => Some (fun _ _ => True)
-      | (t,None) :: tes =>
-        match app_ass_trans tus (t :: nil) (map fst tes) in _ = t
+  Fixpoint goal_substD (tus tvs : list typ)
+           (ts : list typ) (es : list (option expr))
+  : option (exprT (tus ++ ts) tvs Prop) :=
+    match ts as ts , es return option (exprT (tus ++ ts) tvs Prop) with
+      | nil , nil => Some (fun _ _ => True)
+      | t :: ts , None :: es =>
+        match app_ass_trans tus (t :: nil) ts in _ = t
               return option (exprT _ tvs Prop) ->
                      option (exprT t tvs Prop)
         with
           | eq_refl => fun x => x
-        end (goal_substD (tus ++ t :: nil) tvs tes)
-      | (t,Some e) :: tes =>
-        match exprD' (tus ++ t :: map fst tes) tvs e t
-            , goal_substD (tus ++ t :: nil) tvs tes
+        end (goal_substD (tus ++ t :: nil) tvs ts es)
+      | t :: ts , (Some e) :: es =>
+        match exprD' (tus ++ t :: ts) tvs e t
+            , goal_substD (tus ++ t :: nil) tvs ts es
         with
           | Some eD , Some sD =>
-            Some (match eq_sym (app_ass_trans tus (t :: nil) (map fst tes)) in _ = t
+            Some (match eq_sym (app_ass_trans tus (t :: nil) ts) in _ = t
                         return exprT t tvs Prop -> exprT _ tvs Prop
                   with
                     | eq_refl => fun sD =>
@@ -345,6 +351,8 @@ Section parameterized.
                   end sD)
           | _ , _ => None
         end
+      | nil , _ :: _ => None
+      | _ :: _ , nil => None
     end.
 
   (** NOTE:
@@ -365,7 +373,7 @@ Section parameterized.
       | GExs tes goal' =>
         let tus_ext := map fst tes in
         match goalD (tus ++ tus_ext) tvs goal'
-            , goal_substD tus tvs tes with
+            , goal_substD tus tvs tus_ext (map snd tes) with
           | None , _ => None
           | Some _ , None => None
           | Some D , Some sD =>
@@ -410,25 +418,14 @@ Section parameterized.
   Qed.
 
   Fixpoint forgets (from : nat) (ts : list typ) (s : subst)
-  : subst * list (typ * option expr) :=
+  : subst * list (option expr) :=
     match ts with
       | nil => (s,nil)
       | t :: ts =>
         let '(s',rr) := forgets (S from) ts s in
         let '(s'',ne) := forget from s' in
-        (s'',(t,ne) :: rr)
+        (s'',ne :: rr)
     end.
-
-  Theorem forgets_map_fst : forall ts from s,
-                              map fst (snd (forgets from ts s)) = ts.
-  Proof.
-    clear.
-    induction ts; simpl; auto.
-    intros. specialize (IHts (S from) s).
-    destruct (forgets (S from) ts s).
-    destruct (forget from s0).
-    simpl. f_equal. assumption.
-  Defined.
 
   Fixpoint remembers (from : nat) (tes : list (typ * option expr)) (s : subst)
   : option subst :=
@@ -439,6 +436,68 @@ Section parameterized.
         match set from e s with
           | None => None
           | Some s' => remembers from tes' s'
+        end
+    end.
+
+  Fixpoint ctxD (tus tvs : tenv typ) (ctx : Ctx) (s : subst)
+           {struct ctx}
+  : option (subst *
+            (   exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop
+             -> exprT tus tvs Prop)) :=
+    match ctx as ctx
+          return option (subst *
+                         (   exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop
+                          -> exprT tus tvs Prop))
+    with
+      | CTop =>
+        Some (s, fun k us vs => k (hlist_app us Hnil) (hlist_app vs Hnil))
+      | CAll ctx' t =>
+          match ctxD tus tvs ctx' s with
+            | Some (s,cD) =>
+              Some (s,
+                    fun k : exprT _ _ Prop =>
+                      cD (fun us vs =>
+                            forall x : typD t,
+                              k us
+                                match
+                                  app_ass_trans tvs (getVars ctx') (t :: nil) in (_ = t0)
+                                  return (hlist typD t0)
+                                with
+                                  | eq_refl => hlist_app vs (Hcons x Hnil)
+                                end))
+            | None => None
+          end
+      | CExs ctx' ts =>
+        match forgets (length (tus ++ getUVars ctx')) ts s with
+          | (s',tes) =>
+            match goal_substD (tus ++ getUVars ctx') (tvs ++ getVars ctx') ts tes
+                , ctxD tus tvs ctx' s'
+            with
+              | Some sD , Some (s'',cD) =>
+                Some (s'',
+                      fun k : exprT (tus ++ getUVars ctx' ++ ts) (tvs ++ getVars ctx') Prop =>
+                        cD (fun us vs =>
+                              _exists typD ts (fun us' =>
+                                                 sD (hlist_app us us') vs /\
+                                                 k match
+                                                     app_ass_trans tus _ ts in (_ = t0)
+                                                     return (hlist typD t0)
+                                                   with
+                                                     | eq_refl => hlist_app us us'
+                                                   end
+                                                   vs)))
+              | _ , _ => None
+            end
+        end
+      | CHyp ctx' h =>
+        match propD (tus ++ getUVars ctx') (tvs ++ getVars ctx') h with
+          | None => None
+          | Some pD => match ctxD tus tvs ctx' s with
+                         | None => None
+                         | Some (s',cD) =>
+                           Some (s',fun k : exprT _ _ Prop =>
+                                      cD (fun us vs => pD us vs -> k us vs))
+                       end
         end
     end.
 
@@ -454,14 +513,7 @@ Section parameterized.
     with
       | CTop =>
         Some (s, fun k us vs => k (hlist_app us Hnil) (hlist_app vs Hnil))
-(*        match substD tus tvs s with
-          | None => None
-          | Some sD =>
-            Some (fun k us vs => sD us vs /\ k (hlist_app us Hnil) (hlist_app vs Hnil))
-        end
-*)
       | CAll ctx' t =>
-(*        if strengthenV (length (tvs ++ getVars ctx')) 1 s then *)
           match pctxD tus tvs ctx' s with
             | Some (s,cD) =>
               Some (s,
@@ -477,14 +529,10 @@ Section parameterized.
                                 end))
             | None => None
           end
-(*        else
-          None *)
       | CExs ctx' ts =>
-        match forgets (length (tus ++ getUVars ctx')) ts s as Z
-              return map fst (snd Z) = ts -> _
-        with
-          | (s',tes) => fun pf =>
-            match goal_substD (tus ++ getUVars ctx') (tvs ++ getVars ctx') tes
+        match forgets (length (tus ++ getUVars ctx')) ts s with
+          | (s',tes) =>
+            match goal_substD (tus ++ getUVars ctx') (tvs ++ getVars ctx') ts tes
                 , pctxD tus tvs ctx' s'
             with
               | Some sD , Some (s'',cD) =>
@@ -492,9 +540,7 @@ Section parameterized.
                       fun k : exprT (tus ++ getUVars ctx' ++ ts) (tvs ++ getVars ctx') Prop =>
                         cD (fun us vs =>
                               _foralls typD ts (fun us' =>
-                                                 sD (hlist_app us match eq_sym pf in _ = t return hlist _ t with
-                                                                    | eq_refl => us'
-                                                                  end) vs ->
+                                                 sD (hlist_app us us') vs ->
                                                  k match
                                                      app_ass_trans tus _ ts in (_ = t0)
                                                      return (hlist typD t0)
@@ -504,7 +550,7 @@ Section parameterized.
                                                    vs)))
               | _ , _ => None
             end
-        end (forgets_map_fst _ _ _)
+        end
       | CHyp ctx' h =>
         match propD (tus ++ getUVars ctx') (tvs ++ getVars ctx') h with
           | None => None
@@ -548,9 +594,9 @@ Section parameterized.
       | Solved s' =>
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        match subst_ctxD (pctxD tus tvs ctx s)
+        match subst_ctxD (ctxD tus tvs ctx s)
             , goalD _ _ g
-            , subst_ctxD (pctxD tus tvs ctx s')
+            , subst_ctxD (ctxD tus tvs ctx s')
         with
           | None , _ , _
           | Some _ , None , _ => True
@@ -562,9 +608,9 @@ Section parameterized.
       | More_ s' g' =>
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        match subst_ctxD (pctxD tus tvs ctx s)
+        match subst_ctxD (ctxD tus tvs ctx s)
             , goalD _ _ g
-            , subst_ctxD (pctxD tus tvs ctx s')
+            , subst_ctxD (ctxD tus tvs ctx s')
             , goalD _ _ g'
         with
           | None , _ , _ , _
@@ -609,12 +655,19 @@ Section parameterized.
 
   Instance Reflexive_EqResult tus tvs : Reflexive (EqResult tus tvs).
   Proof.
-    red. red. intros. destruct (fromResult x); try constructor; reflexivity.
+    red. red. intros. reflexivity.
   Qed.
   Instance Symmetric_EqResult tus tvs : Symmetric (EqResult tus tvs).
-  Admitted.
+  Proof.
+    red. unfold EqResult; inversion 1; constructor.
+    symmetry; eauto.
+  Qed.
   Instance Transitive_EqResult tus tvs : Transitive (EqResult tus tvs).
-  Admitted.
+  Proof.
+    red; unfold EqResult; inversion 1; inversion 1; constructor.
+    subst.
+    etransitivity; eauto.
+  Qed.
 
   Theorem Proper_pctxD
   : forall tus tvs c1 s,
@@ -630,9 +683,45 @@ Section parameterized.
       intros. eapply H.
       apply equiv_eq_eq in H0; subst; reflexivity.
       apply equiv_eq_eq in H1; subst; reflexivity. }
-    { admit. }
-    { admit. }
-    { admit. }
+    { red; simpl.
+      specialize (IHc1 s).
+      destruct (pctxD tus tvs c1 s); try constructor.
+      destruct p; constructor.
+      constructor; auto. inv_all.
+      intro. intro. intro.
+      eapply H0.
+      do 5 red. intros.
+      eapply forall_iff. intros.
+      eapply H1; eauto.
+      apply equiv_eq_eq in H2; eapply equiv_eq_eq in H3; subst.
+      reflexivity. }
+    { (* generalize dependent ((forgets_map_fst l (length (tus ++ getUVars c1)) s)).
+      destruct (forgets (length (tus ++ getUVars c1)) l s); simpl.
+      intros; subst.
+      specialize (IHc1 s0).
+      destruct (goal_substD (tus ++ getUVars c1) (tvs ++ getVars c1) l0);
+        try constructor.
+      destruct (pctxD tus tvs c1 s0); try constructor.
+      destruct p. constructor. inv_all; subst.
+      constructor; auto.
+      do 3 intro. eapply H0.
+      do 5 red; intros.
+      eapply _forall_iff; intro.
+      eapply equiv_eq_eq in H2; eapply equiv_eq_eq in H3; subst.
+      eapply impl_iff; [ reflexivity | intro ].
+      eapply H1; reflexivity. *) admit. }
+    { specialize (IHc1 s).
+      destruct (propD (tus ++ getUVars c1) (tvs ++ getVars c1) e);
+        try constructor.
+      destruct (pctxD tus tvs c1 s); try constructor.
+      destruct p.
+      constructor. inv_all. constructor; auto.
+      do 3 intro. eapply H0.
+      do 5 red.
+      intros.
+      eapply equiv_eq_eq in H2; eapply equiv_eq_eq in H3; subst.
+      eapply impl_iff; try reflexivity.
+      intro. eapply H1; reflexivity. }
   Qed.
 
   Theorem Proper_pctxD_impl
@@ -654,7 +743,7 @@ Section parameterized.
     { admit. }
   Qed.
 
-
+(*
   Theorem rtac_spec_respects tus tvs ctx s
   : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
             EqResult (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==> iff)
@@ -758,7 +847,7 @@ Section parameterized.
         { intro. apply and_iff. reflexivity. intro.
           eapply H21. assumption. reflexivity. reflexivity. } } }
   Qed.
-
+*)
   Lemma More_More_ tus tvs :
     (@eq subst ==> EqGoal tus tvs ==> EqResult tus tvs)%signature
                                                        More More_.
@@ -796,7 +885,8 @@ Section parameterized.
   Qed.
 
   Lemma GConj_GConj_ tus tvs :
-    (EqGoal tus tvs ==> EqGoal tus tvs ==> EqGoal tus tvs)%signature GConj GConj_.
+    (EqGoal tus tvs ==> EqGoal tus tvs ==> EqGoal tus tvs)%signature
+                                                          GConj GConj_.
   Proof.
     unfold EqGoal, respectful; simpl.
     intros.
@@ -815,19 +905,16 @@ Section parameterized.
       tac ctx s g = result ->
       rtac_spec tus tvs ctx s g result.
 
-  Definition CtxMorphism {tus tvs tus' tvs'} (c1 c2 : exprT tus tvs Prop -> exprT tus' tvs' Prop) : Prop :=
-    forall P Q : exprT _ _ Prop,
-      (** TODO: Is this the right binding for [forall] **)
-      forall us vs, c1 (fun us vs => P us vs -> Q us vs) us vs -> c1 P us vs -> c2 Q us vs.
-
   Theorem Applicative_pctxD
-  : forall tus tvs ctx s p,
-      subst_ctxD (pctxD tus tvs ctx s) = Some p ->
-      forall us vs (P Q : exprT _ _ Prop),
-        p (fun a b => P a b -> Q a b) us vs ->
-        p P us vs ->
-        p Q us vs.
+  : forall tus tvs ctx s p s',
+      pctxD tus tvs ctx s = Some (s',p) ->
+      (forall us vs (P Q : exprT _ _ Prop),
+         p (fun a b => P a b -> Q a b) us vs ->
+         p P us vs ->
+         p Q us vs) /\
+      (forall us vs (Q : exprT _ _ Prop), (forall a b, Q a b) -> p Q us vs).
   Proof.
+(*
     clear. induction ctx; simpl; intros.
     { forward; inv_all; subst.
       forward_reason; split; eauto. }
@@ -849,7 +936,7 @@ Section parameterized.
       do 6 red. intros.
       eapply equiv_eq_eq in H; eapply equiv_eq_eq in H0; subst.
       eauto. }
-    { generalize dependent (forgets_map_fst l (length (tus ++ getUVars ctx)) s).
+    { (* generalize dependent (forgets_map_fst l (length (tus ++ getUVars ctx)) s).
       unfold subst_ctxD in *.
       forward; inv_all; subst.
       simpl in *.
@@ -873,7 +960,7 @@ Section parameterized.
       eapply _forall_sem in H1.
       specialize (H2 H).
       specialize (H1 H).
-      eauto. }
+      eauto. *) admit. }
     { specialize (IHctx s).
       unfold subst_ctxD in *.
       forward; inv_all; subst.
@@ -891,7 +978,56 @@ Section parameterized.
       do 6 red. intros.
       eapply equiv_eq_eq in H; eapply equiv_eq_eq in H0; subst.
       eauto. }
-  Qed.
+*)
+  Admitted.
+
+(*
+  Definition CtxMorphism {tus tvs tus' tvs'} (c1 c2 : exprT tus tvs Prop -> exprT tus' tvs' Prop) : Prop :=
+    forall P Q : exprT _ _ Prop,
+      (** TODO: Is this the right binding for [forall] **)
+      forall us vs, c1 (fun us vs => P us vs -> Q us vs) us vs -> c1 P us vs -> c2 Q us vs.
+*)
+
+  Definition CtxMorphism {tus tvs tus' tvs'}
+             (c1 c2 : exprT tus tvs Prop -> exprT tus' tvs' Prop) : Prop :=
+    forall (P : exprT _ _ Prop) us vs, c1 P us vs -> c2 P us vs.
+
+  Inductive SubstMorphism (tus tvs : tenv typ) : Ctx -> subst -> subst -> Prop :=
+  | SMall : forall c t s1 s2,
+              SubstMorphism tus tvs c s1 s2 ->
+              SubstMorphism tus tvs (CAll c t) s1 s2
+  | SMexs : forall c ts s1 s2,
+              (let '(s1',es1) := forgets (length (tus ++ getUVars c)) ts s1 in
+               let '(s2',es2) := forgets (length (tus ++ getUVars c)) ts s2 in
+               match subst_pctxD (pctxD tus tvs c s2')
+                     , goal_substD (tus ++ getUVars c) (tvs ++ getVars c) ts es1
+                     , goal_substD (tus ++ getUVars c) (tvs ++ getVars c) ts es2
+               with
+                 | None , _ , _ => True
+                 | Some _ , None , _ => True
+                 | Some _ , Some _ , None => False
+                 | Some cD , Some s1D , Some s2D =>
+                   forall us vs, cD (fun us vs =>
+                                       forall us',
+                                         s2D (hlist_app us us') vs ->
+                                         s1D (hlist_app us us') vs) us vs
+               end) ->
+              SubstMorphism tus tvs c
+                            (fst (forgets (length (tus ++ getUVars c)) ts s1))
+                            (fst (forgets (length (tus ++ getUVars c)) ts s2)) ->
+              SubstMorphism tus tvs (CExs c ts) s1 s2
+  | SMhyp : forall c h s1 s2,
+              SubstMorphism tus tvs c s1 s2 ->
+              SubstMorphism tus tvs (CHyp c h) s1 s2
+  | SMtop : forall s1 s2,
+              match subst_pctxD (pctxD tus tvs CTop s1)
+                  , subst_pctxD (pctxD tus tvs CTop s2)
+              with
+                | None , _ => True
+                | Some _ , None => False
+                | Some a , Some b => CtxMorphism a b
+              end ->
+              SubstMorphism tus tvs CTop s1 s2.
 
   Definition rtac_local_spec tus tvs ctx s g r : Prop :=
     match r with
@@ -907,11 +1043,8 @@ Section parameterized.
           | Some _ , None , _ => True
           | Some _ , Some _ , None => False
           | Some cD , Some gD , Some cD' =>
-            CtxMorphism cD' cD /\
+            SubstMorphism tus tvs ctx s s' /\
             forall us vs,
-(*
-              cD' (fun _ _ => True) us vs -> cD gD us vs
-*)
               cD' gD us vs
         end
       | More_ s' g' =>
@@ -927,11 +1060,421 @@ Section parameterized.
           | Some _ , Some _ , None , _
           | Some _ , Some _ , Some _ , None => False
           | Some cD , Some gD , Some cD' , Some gD' =>
-            CtxMorphism cD' cD /\
-(*             forall us vs, cD' gD' us vs -> cD gD us vs *)
+            SubstMorphism tus tvs ctx s s' /\
             forall us vs, cD' (fun us vs => gD' us vs -> gD us vs) us vs
         end
     end.
+
+  Lemma onLeft {tus tvs tus' tvs'}
+        (c c' : exprT tus' tvs' Prop -> exprT tus tvs Prop)
+        (P Q P' : exprT _ _ Prop)
+  : forall
+      (Hap : forall (P Q : exprT _ _ Prop) us vs,
+               c (fun us vs => P us vs -> Q us vs) us vs ->
+               c P us vs -> c Q us vs)
+      (Hpure : forall (P : exprT _ _ Prop) us vs,
+                 (forall us vs, P us vs) ->
+                 c P us vs)
+      (Hpure' : forall (P : exprT _ _ Prop) us vs,
+                  (forall us vs, P us vs) ->
+                  c' P us vs)
+      (Hf : forall us vs,
+              c' (fun us vs => P' us vs -> P us vs) us vs)
+      (Hinj : CtxMorphism c' c),
+    forall us vs,
+      c (fun us vs => P' us vs /\ Q us vs -> P us vs /\ Q us vs) us vs.
+  Proof.
+    clear; intros.
+    eapply Hap.
+    instantiate (1 := fun us vs => P' us vs -> P us vs); simpl.
+    eapply Hpure. intros. tauto.
+    eapply Hinj. eapply Hf.
+  Qed.
+
+  Lemma onLeft_subst {tus tvs tus' tvs'} (s s' : exprT tus tvs Prop)
+        (c c' : exprT tus' tvs' Prop -> exprT tus tvs Prop)
+        (P Q P' : exprT _ _ Prop)
+  : forall
+      (Hap : forall (P Q : exprT _ _ Prop) us vs,
+               s us vs /\ c (fun us vs => P us vs -> Q us vs) us vs ->
+               s us vs /\ c P us vs -> s us vs /\ c Q us vs)
+      (Hpure : forall (P : exprT _ _ Prop) us vs,
+                 (forall us vs, P us vs) ->
+                 c P us vs)
+      (Hpure' : forall (P : exprT _ _ Prop) us vs,
+                  (forall us vs, P us vs) ->
+                  c' P us vs)
+      (Hss' : forall us vs, s' us vs -> s us vs)
+      (Hinj : CtxMorphism (fun k us vs => s' us vs /\ c' k us vs)
+                          (fun k us vs => s us vs /\ c k us vs)),
+    forall us vs,
+      s' us vs /\ c' (fun us vs => P' us vs -> P us vs) us vs ->
+      s us vs /\ c (fun us vs => P' us vs /\ Q us vs -> P us vs /\ Q us vs) us vs.
+  Proof.
+    clear; intros ? ? ? ? ? us vs Hf.
+    pose (proj1 Hf).
+    eapply Hap.
+    instantiate (1 := fun us vs => P' us vs -> P us vs); simpl.
+    split. apply (Hss' _ _ s0).
+    eapply Hpure. clear. intros. tauto.
+    eapply Hinj. eapply Hf.
+  Qed.
+
+  Theorem Proper_subst_pctxD_impl
+  : forall tus tvs c1 s,
+      Proper (Roption (RexprT (tus ++ getUVars c1) (tvs ++ getVars c1) Basics.impl ==>
+                              (RexprT tus tvs Basics.impl)))%signature
+             (subst_pctxD (pctxD tus tvs c1 s)).
+  Proof.
+    intros. unfold subst_pctxD.
+    generalize (Proper_pctxD_impl tus tvs c1 s).
+    inversion 1. red. constructor.
+    destruct x.
+    destruct (substD tus tvs s0); try constructor.
+    subst. inversion H2; subst; eauto.
+    do 7 red. intros.
+    eapply H7; eauto.
+    apply equiv_eq_eq in H3; apply equiv_eq_eq in H4; subst.
+    auto.
+  Qed.
+
+  Theorem Applicative_subst_pctxD
+  : forall tus tvs ctx s p,
+      subst_pctxD (pctxD tus tvs ctx s) = Some p ->
+      (forall us vs (P Q : exprT _ _ Prop),
+         p (fun a b => P a b -> Q a b) us vs ->
+         p P us vs ->
+         p Q us vs) /\
+      (forall us vs (P : exprT _ _ Prop),
+         (forall a b, P a b) -> p P us vs).
+  Proof.
+    clear. induction ctx; simpl; intros.
+    { forward; inv_all; subst.
+      forward_reason; split; eauto. }
+    { specialize (IHctx s).
+      unfold subst_pctxD in *.
+      forward; inv_all; subst.
+      specialize (IHctx _ eq_refl).
+      destruct IHctx as [ Hap Hpure ].
+      rewrite H5 in *; subst; inv_all; subst.
+      split.
+      { intros. revert H1.
+        eapply Hap. 2: eapply H0.
+        eapply Hap. 2: eapply H.
+        eapply Hpure. intros.
+        eapply H1. eauto. }
+      { intros. revert H0.
+        eapply Hap. 2: eapply Hpure.
+        eapply Hpure. intros a b X. eapply X.
+        simpl. eauto. } }
+    { admit. }
+    { admit. }
+  Qed.
+
+  Instance Reflexive_SubstMorphism tus tvs ctx
+  : Reflexive (SubstMorphism tus tvs ctx).
+  Proof.
+    red. induction ctx; simpl; intros; try constructor;
+         forward; eauto.
+    eapply Applicative_subst_pctxD in H0.
+    destruct H0.
+    eapply H2. clear; auto.
+  Qed.
+
+  Lemma pctxD_ctxD
+  : forall tus tvs ctx s s' s'' pC C,
+      pctxD tus tvs ctx s = Some (s',pC) ->
+      ctxD tus tvs ctx s = Some (s'',C) ->
+      s' = s'' /\
+      forall us vs (P Q : exprT _ _ Prop),
+        pC (fun a b => P a b -> Q a b) us vs ->
+        C P us vs -> C Q us vs.
+  Proof.
+    induction ctx; simpl; intros; inv_all; subst; forward; inv_all; subst.
+    { split; auto. }
+    { specialize (@IHctx _ _ _ _ _ H3 H1).
+      forward_reason; split; auto.
+      intros. revert H4.
+      eapply H0; clear H0.
+      eapply Applicative_pctxD in H3. destruct H3 as [ Hap Hpure ].
+      eapply Hap; [ clear H2 | eapply H2 ].
+      eapply Hpure. clear. firstorder. }
+    { specialize (@IHctx _ _ _ _ _ H5 H3).
+      forward_reason; split; auto.
+      intros; revert H6.
+      eapply H2; clear H2.
+      eapply Applicative_pctxD in H5. destruct H5 as [ Hap Hpure ].
+      eapply Hap; [ clear H4 | eapply H4 ].
+      eapply Hpure. clear.
+      intros a b.
+      repeat rewrite _exists_sem.
+      rewrite _forall_sem.
+      intros.
+      destruct H0. exists x. forward_reason; split; auto. }
+    { specialize (@IHctx _ _ _ _ _ H4 H2).
+      forward_reason; split; auto.
+      intros. revert H5.
+      eapply H1; clear H1.
+      eapply Applicative_pctxD in H4. destruct H4 as [ Hap Hpure ].
+      eapply Hap; [ clear H3 | eapply H3 ].
+      eapply Hpure. clear. firstorder. }
+  Qed.
+(*
+  Lemma SubstMorphism_End_to_End
+  : forall tus tvs us vs ctx s s0 (H : SubstMorphism tus tvs ctx s s0),
+    forall (e4 : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop ->
+                 exprT tus tvs Prop) (s1 s2 : subst)
+           (e : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop ->
+                exprT tus tvs Prop),
+      pctxD tus tvs ctx s0 = Some (s2, e4) ->
+      pctxD tus tvs ctx s = Some (s1, e) ->
+      forall (e5 e0 : exprT tus tvs Prop),
+        substD tus tvs s2 = Some e5 ->
+        substD tus tvs s1 = Some e0 ->
+        forall (e1 e3 : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop),
+          (e5 us vs ->
+           e4
+             (fun (us0 : hlist typD (tus ++ getUVars ctx))
+                  (vs0 : hlist typD (tvs ++ getVars ctx)) =>
+                e3 us0 vs0 -> e1 us0 vs0) us vs) ->
+          e5 us vs /\ e4 e3 us vs -> e0 us vs /\ e e1 us vs.
+  Proof.
+    clear. induction 1; simpl; intros; forward; inv_all; subst.
+    { specialize (@IHSubstMorphism _ _ _ _ eq_refl eq_refl _ _ H2 H3).
+      eapply IHSubstMorphism; [ clear H5 | eapply H5 ].
+      generalize (@Applicative_subst_pctxD tus tvs c s2).
+      unfold subst_pctxD.
+      Cases.rewrite_all_goal.
+      intro XXX; specialize (XXX _ eq_refl); destruct XXX as [ Hap Hpure ].
+      eapply Hap; [ clear H4 | eapply H4 ].
+      simpl. eapply Hpure.
+      clear. simpl; intros; firstorder. }
+    { rewrite countUVars_getUVars in *.
+      rewrite <- app_length in *.
+      intros; forward; inv_all; subst.
+      simpl in *.
+      repeat match goal with
+               | H : ?X = _ , H' : ?X = _ |- _ =>
+                 rewrite H in H'
+             end; inv_all; subst.
+      specialize (@IHSubstMorphism _ _ _ _ H13 H9 _ _ H3 H4).
+      eapply IHSubstMorphism; [ clear H6 | eapply H6 ].
+      generalize (@Applicative_subst_pctxD tus tvs c s8).
+      unfold subst_pctxD in *.
+      Cases.rewrite_all_goal.
+      intro XXX; specialize (XXX _ eq_refl); destruct XXX as [ Hap Hpure ].
+      eapply Hap; [ clear H5 | eapply H5 ].
+      rewrite H13 in H15. rewrite H3 in H15.
+      simpl.
+      eapply Hap; [ clear H15 | eapply H15 ].
+      simpl. eapply Hpure.
+      clear. intros a b.
+      repeat rewrite _forall_sem.
+      clear. intros.
+      specialize (H0 x); specialize (H1 x).
+      specialize (H x). eapply H0.
+*)
+
+  Lemma pctxD_ctxD_safe
+  : forall tus tvs ctx s s' P,
+      pctxD tus tvs ctx s = Some (s',P) ->
+      exists P',
+        ctxD tus tvs ctx s = Some (s',P').
+  Proof.
+    induction ctx; simpl; intros; forward; inv_all; subst; eauto;
+    match goal with
+      | H : pctxD _ _ _ _ = _ |- _ =>
+        eapply IHctx in H; forward_reason;
+        Cases.rewrite_all_goal; eauto
+    end.
+  Qed.
+
+  Lemma ctxD_pctxD_safe
+  : forall tus tvs ctx s s' P,
+      ctxD tus tvs ctx s = Some (s',P) ->
+      exists P',
+        pctxD tus tvs ctx s = Some (s',P').
+  Proof.
+    induction ctx; simpl; intros; forward; inv_all; subst; eauto;
+    match goal with
+      | H : ctxD _ _ _ _ = _ |- _ =>
+        eapply IHctx in H; forward_reason;
+        Cases.rewrite_all_goal; eauto
+    end.
+  Qed.
+
+  Lemma pctxD_SubstMorphism
+  : forall tus tvs ctx s s',
+      SubstMorphism tus tvs ctx s s' ->
+      forall C C',
+      subst_pctxD (pctxD tus tvs ctx s) = Some C ->
+      subst_pctxD (pctxD tus tvs ctx s') = Some C' ->
+      forall us vs (P : exprT _ _ Prop),
+        C P us vs -> C' P us vs.
+  Admitted.
+
+  Lemma Proper_ctxD_iff tus tvs ctx s
+  : Proper (Roption (Eqpair (@eq _)
+                            (RexprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) iff ==>
+                                    (RexprT tus tvs iff))))%signature
+      (ctxD tus tvs ctx s).
+  Admitted.
+
+  Lemma Proper_ctxD_impl tus tvs ctx s
+  : Proper (Roption (Eqpair (@eq _)
+                            (RexprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Basics.impl ==>
+                                    (RexprT tus tvs Basics.impl))))%signature
+      (ctxD tus tvs ctx s).
+  Admitted.
+
+
+  Lemma pctxD_ctxD_and
+  : forall tus tvs ctx s pC C,
+      subst_pctxD (pctxD tus tvs ctx s) = Some pC ->
+      subst_ctxD (ctxD tus tvs ctx s) = Some C ->
+      forall us vs (P Q : exprT _ _ Prop),
+        pC P us vs ->
+        C Q us vs -> C (fun a b => P a b /\ Q a b) us vs.
+  Proof.
+    clear. induction ctx; simpl; intros; inv_all; subst; eauto.
+    { forward; inv_all; subst.
+      forward_reason; eauto. }
+    { forward; inv_all; subst.
+(*
+      specialize (IHctx _ _ _ _ H5 H3 us vs _ _ H1 H2).
+      generalize (Proper_ctxD_iff tus tvs ctx s).
+      Cases.rewrite_all_goal.
+      intros; inv_all; subst.
+      eapply H4; [ | reflexivity | reflexivity | eapply IHctx ].
+      do 6 red; intros.
+      apply equiv_eq_eq in H; apply equiv_eq_eq in H6; subst.
+      clear. firstorder. *) admit. }
+    { forward; inv_all; subst.
+      admit. }
+    { admit. }
+  Qed.
+
+(*
+  Lemma pctxD_ctxD_and
+  : forall tus tvs ctx s s' pC C,
+      pctxD tus tvs ctx s = Some (s',pC) ->
+      ctxD tus tvs ctx s = Some (s',C) ->
+      forall us vs (P Q : exprT _ _ Prop),
+        pC P us vs ->
+        C Q us vs -> C (fun a b => P a b /\ Q a b) us vs.
+  Proof.
+    clear. induction ctx; simpl; intros; inv_all; subst; eauto.
+    { forward; inv_all; subst.
+      specialize (IHctx _ _ _ _ H5 H3 us vs _ _ H1 H2).
+      generalize (Proper_ctxD_iff tus tvs ctx s).
+      Cases.rewrite_all_goal.
+      intros; inv_all; subst.
+      eapply H4; [ | reflexivity | reflexivity | eapply IHctx ].
+      do 6 red; intros.
+      apply equiv_eq_eq in H; apply equiv_eq_eq in H6; subst.
+      clear. firstorder. }
+    { forward; inv_all; subst.
+      admit. }
+    { admit. }
+  Qed.
+*)
+
+
+  Lemma ctxD_SubstMorphism
+  : forall tus tvs ctx s s',
+      SubstMorphism tus tvs ctx s s' ->
+      forall C C',
+      subst_ctxD (ctxD tus tvs ctx s) = Some C ->
+      subst_ctxD (ctxD tus tvs ctx s') = Some C' ->
+      forall us vs (P : exprT _ _ Prop),
+        C' P us vs -> C P us vs.
+  Proof.
+    clear. induction 1; simpl; intros.
+    { unfold subst_ctxD in *; forward; inv_all; subst.
+      specialize (IHSubstMorphism _ _ eq_refl eq_refl).
+      rewrite H4 in *. inv_all; subst.
+      eapply IHSubstMorphism; eauto. }
+    { forward; simpl in *.
+      unfold subst_pctxD, subst_ctxD in *.
+      forward. inv_all; subst.
+      specialize (IHSubstMorphism _ _ eq_refl eq_refl); simpl in *.
+      eapply IHSubstMorphism; clear IHSubstMorphism.
+      destruct (ctxD_pctxD_safe _ _ H11).
+      rewrite H2 in H7.
+      rewrite H9 in H7.
+      repeat match goal with
+               | H : ?X = _ , H' : ?X = _ |- _ =>
+                 rewrite H in H'
+             end; inv_all; subst.
+      forward_reason; split; auto.
+      revert H6.
+      generalize (Proper_ctxD_impl tus tvs c s).
+      Cases.rewrite_all_goal.
+      intro. inv_all.
+      eapply H7 in H3; clear H7.
+      intro.
+      generalize (@pctxD_ctxD_and tus tvs c s).
+      unfold subst_pctxD, subst_ctxD. Cases.rewrite_all_goal.
+      intro XXX; specialize (XXX _ _ eq_refl eq_refl us vs).
+      eapply H10; try reflexivity.
+      do 6 red.
+      clear. intros.
+      eapply equiv_eq_eq in H; eapply equiv_eq_eq in H0; subst.
+      destruct H1.
+      rewrite _exists_sem.
+      rewrite _exists_sem in H0.
+      destruct H0. exists x.
+      forward_reason; split; eauto. }
+    { admit. }
+    { forward; inv_all; subst.
+      revert H.
+      unfold subst_pctxD.
+      simpl. Cases.rewrite_all_goal.
+      intros.
+      red in H.
+      admit. }
+      
+  Qed.
+
+  Lemma rtac_local_spec_rtac_spec
+  : forall tus tvs ctx s g r,
+      rtac_local_spec tus tvs ctx s g r ->
+      rtac_spec tus tvs ctx s g r.
+  Proof.
+    clear.
+    unfold rtac_local_spec, rtac_spec.
+    destruct r; auto; intros; forward_reason; split; auto.
+    { unfold subst_ctxD, subst_pctxD in *.
+      forward. inv_all; subst.
+      destruct (ctxD_pctxD_safe _ _ H3).
+      forward. inv_all. subst.
+      destruct (pctxD_ctxD_safe _ _ H11).
+      Cases.rewrite_all_goal.
+      destruct H10.
+      repeat match goal with
+               | H : ?X = _ , H' : ?X = _ |- _ =>
+                 rewrite H in H'
+             end ; inv_all; subst.
+      repeat match goal with
+               | H : pctxD _ _ _ _ = _ , H' : ctxD _ _ _ _ = _ |- _ =>
+                 generalize (@pctxD_ctxD _ _ _ _ _ _ _ _ H H'); clear H'
+             end.
+      intros XXX YYY; forward_reason; subst.
+      generalize (@pctxD_SubstMorphism tus tvs ctx s s0 H7).
+      Cases.rewrite_all_goal. simpl. Cases.rewrite_all_goal.
+      intro XXX; specialize (XXX _ _ eq_refl eq_refl); simpl in XXX.
+      intros. forward_reason.
+      repeat match goal with
+               | H : _ |- _ => specialize (H us vs)
+             end.
+      forward_reason.
+      specialize (H3 _ _ H8).
+      eapply H3 in H14.
+      
+      
+
+ }
+
 
   Section runOnGoals'.
     Variable tac : Ctx -> subst -> expr -> Result.
@@ -952,12 +1495,18 @@ Section parameterized.
           match remembers nus tes s with
             | None => Fail
             | Some s' =>
-              match runOnGoals' (length tes + nus) nvs (CExs ctx (map fst tes)) s' g with
+              let ts := map fst tes in
+              match runOnGoals' (length tes + nus) nvs (CExs ctx ts) s' g with
                 | Fail => Fail
                 | Solved s'' =>
-                  Fail
+                  (** Here I can drop anything that is already instantiated. **)
+                  let '(s''',tes') := forgets nus ts s'' in
+                  let tes' := combine ts tes' in
+                  More_ s''' (GExs tes' GSolved)
                 | More_ s'' g' =>
-                  Fail
+                  let '(s''',tes') := forgets nus ts s'' in
+                  let tes' := combine ts tes' in
+                  More_ s''' (GExs tes' g')
               end
           end
         | GHyp h g =>
@@ -979,8 +1528,6 @@ Section parameterized.
           end
       end.
 
-
-
 (*
     Instance Transitive_CtxMorphism a b c d : Transitive (@CtxMorphism a b c d).
     Proof.
@@ -992,132 +1539,27 @@ Section parameterized.
     Qed.
 *)
 
-    Lemma onLeft {tus tvs tus' tvs'}
-          (c c' : exprT tus' tvs' Prop -> exprT tus tvs Prop)
-          (P Q P' : exprT _ _ Prop)
-    : forall
-        (Hap : forall (P Q : exprT _ _ Prop) us vs,
-                 c (fun us vs => P us vs -> Q us vs) us vs ->
-                 c P us vs -> c Q us vs)
-        (Hpure : forall (P : exprT _ _ Prop) us vs,
-                   (forall us vs, P us vs) ->
-                   c P us vs)
-        (Hpure' : forall (P : exprT _ _ Prop) us vs,
-                    (forall us vs, P us vs) ->
-                    c' P us vs)
-        (Hf : forall us vs,
-                c' (fun us vs => P' us vs -> P us vs) us vs)
-        (Hinj : CtxMorphism c' c),
-      forall us vs,
-        c (fun us vs => P' us vs /\ Q us vs -> P us vs /\ Q us vs) us vs.
-    Proof.
-      clear; intros.
-      eapply Hap.
-      instantiate (1 := fun us vs => P' us vs -> P us vs); simpl.
-      eapply Hpure. intros. tauto.
-      eapply Hinj. 2: eapply Hf. simpl.
-      eapply Hpure'. intros; tauto.
-    Qed.
-
-    Lemma onLeft_subst {tus tvs tus' tvs'} (s s' : exprT tus tvs Prop)
-          (c c' : exprT tus' tvs' Prop -> exprT tus tvs Prop)
-          (P Q P' : exprT _ _ Prop)
-    : forall
-        (Hap : forall (P Q : exprT _ _ Prop) us vs,
-                 s us vs /\ c (fun us vs => P us vs -> Q us vs) us vs ->
-                 s us vs /\ c P us vs -> s us vs /\ c Q us vs)
-        (Hpure : forall (P : exprT _ _ Prop) us vs,
-                   (forall us vs, P us vs) ->
-                   c P us vs)
-        (Hpure' : forall (P : exprT _ _ Prop) us vs,
-                    (forall us vs, P us vs) ->
-                    c' P us vs)
-        (Hss' : forall us vs, s' us vs -> s us vs)
-        (Hinj : CtxMorphism (fun k us vs => s' us vs /\ c' k us vs)
-                            (fun k us vs => s us vs /\ c k us vs)),
-      forall us vs,
-        s' us vs /\ c' (fun us vs => P' us vs -> P us vs) us vs ->
-        s us vs /\ c (fun us vs => P' us vs /\ Q us vs -> P us vs /\ Q us vs) us vs.
-    Proof.
-      clear; intros ? ? ? ? ? us vs Hf.
-      pose (proj1 Hf).
-      eapply Hap.
-      instantiate (1 := fun us vs => P' us vs -> P us vs); simpl.
-      split. apply (Hss' _ _ s0).
-      eapply Hpure. clear. intros. tauto.
-      eapply Hinj. 2: eapply Hf. simpl.
-      split; eauto.
-    Qed.
 
     Definition runOnGoals (tus : tenv typ) (tvs : tenv typ)
                (ctx : Ctx) (s : subst) (g : Goal)
     : Result :=
       runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx) ctx s g.
 
-    Theorem Proper_subst_pctxD_impl
-    : forall tus tvs c1 s,
-        Proper (Roption (RexprT (tus ++ getUVars c1) (tvs ++ getVars c1) Basics.impl ==>
-                                (RexprT tus tvs Basics.impl)))%signature
-               (subst_pctxD (pctxD tus tvs c1 s)).
-    Proof.
-      intros. unfold subst_pctxD.
-      generalize (Proper_pctxD_impl tus tvs c1 s).
-      inversion 1. red. constructor.
-      destruct x.
-      destruct (substD tus tvs s0); try constructor.
-      subst. inversion H2; subst; eauto.
-      do 7 red. intros.
-      eapply H7; eauto.
-      apply equiv_eq_eq in H3; apply equiv_eq_eq in H4; subst.
-      auto.
-    Qed.
 
-    Theorem Applicative_subst_pctxD
-    : forall tus tvs ctx s p,
-        subst_pctxD (pctxD tus tvs ctx s) = Some p ->
-        (forall us vs (P Q : exprT _ _ Prop),
-           p (fun a b => P a b -> Q a b) us vs ->
-           p P us vs ->
-           p Q us vs) /\
-        (forall us vs (P : exprT _ _ Prop),
-           (forall a b, P a b) -> p P us vs).
-    Proof.
-      clear. induction ctx; simpl; intros.
-      { forward; inv_all; subst.
-        forward_reason; split; eauto. }
-      { specialize (IHctx s).
-        unfold subst_pctxD in *.
-        forward; inv_all; subst.
-        specialize (IHctx _ eq_refl).
-        destruct IHctx as [ Hap Hpure ].
-        rewrite H5 in *; subst; inv_all; subst.
-        split.
-        { intros. revert H1.
-          eapply Hap. 2: eapply H0.
-          eapply Hap. 2: eapply H.
-          eapply Hpure. intros.
-          eapply H1. eauto. }
-        { intros. revert H0.
-          eapply Hap. 2: eapply Hpure.
-          eapply Hpure. intros a b X. eapply X.
-          simpl. eauto. } }
-      { admit. }
-      { admit. }
-    Qed.
+    Variables tus tvs : tenv typ.
+    Hypothesis Htac
+    : forall ctx s ge result,
+        tac ctx s ge = result ->
+        rtac_local_spec tus tvs ctx s (GGoal ge) result.
 
-    Theorem runOnGoals'_sound
-    : forall tus tvs,
-        (forall ctx s ge result,
-           tac ctx s ge = result ->
-           rtac_local_spec tus tvs ctx s (GGoal ge) result) ->
-        forall g ctx s,
-          rtac_local_spec tus tvs ctx s g (runOnGoals' (length tus + countUVars ctx)
-                                                       (length tvs + countVars ctx)
-                                                       ctx s g).
+    Lemma runOnGoals'_sound_ind
+    : forall g ctx s,
+        rtac_local_spec tus tvs ctx s g
+                        (runOnGoals' (length tus + countUVars ctx)
+                                     (length tvs + countVars ctx)
+                                     ctx s g).
     Proof.
-(*
-      red. intros tus tvs Htac.
-      induction g; fold runOnGoals' in *.
+      red. induction g; fold runOnGoals' in *.
       { (* All *)
         intros.
         specialize (IHg (CAll ctx t) s).
@@ -1130,27 +1572,95 @@ Section parameterized.
                               (length tvs + S (countVars ctx)) (CAll ctx t) s g);
           auto; intros; forward_reason; split; auto.
         { generalize (Proper_subst_pctxD_impl tus tvs ctx s).
-          forward.
+          generalize (Proper_subst_pctxD_impl tus tvs ctx s0).
           unfold subst_pctxD in *.
-          revert H7. Cases.rewrite_all_goal.
-          forward. subst.
-          red in H6.
-          inv_all; subst.
           simpl in *.
-          rewrite H12 in H16. inv_all; subst.
-          Cases.rewrite_all_goal.
-          destruct H10.
+          forward; inv_all; subst.
+          rewrite H12 in *. inv_all; subst.
+          red in H6,H16.
+          inv_all; subst.
           split.
-          { red; intros.
-            revert H11. red in H1.
-            specialize (H1 (fun a b => forall x, P a (hlist_app b (Hcons x Hnil)))).
-            
-            
- }
-        { admit. } }
-      { admit. }
-      { admit. }
-      { simpl; intros; clear Htac.
+          { destruct H10.
+            inversion H1; subst. auto. }
+          { destruct H10.
+            intros us vs.
+            eapply H16; [ | reflexivity | reflexivity | eapply H3 ].
+            do 6 red. clear.
+            intros. eapply equiv_eq_eq in H; eapply equiv_eq_eq in H0; subst.
+            eauto. } }
+        { generalize (Proper_subst_pctxD_impl tus tvs ctx s).
+          generalize (Proper_subst_pctxD_impl tus tvs ctx s0).
+          unfold subst_pctxD in *.
+          simpl in *.
+          forward; inv_all; subst.
+          destruct H9.
+          repeat match goal with
+                   | H : ?X = _ , H' : ?Y = _ |- _ =>
+                     rewrite H in H'
+                 end; inv_all; subst.
+          split.
+          { clear - H1. inversion H1; subst; auto. }
+          { red in H15.
+            inv_all.
+            intros us vs.
+            eapply H15; [ | reflexivity | reflexivity | eapply H3 ].
+            do 6 red; clear.
+            intros. eapply equiv_eq_eq in H; eapply equiv_eq_eq in H0; subst.
+            eauto. } } }
+      { intros; simpl.
+        simpl in *.
+        forward.
+        specialize (IHg (CExs ctx (map fst l)) s0).
+        match goal with
+          | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
+            replace Y with X; [ remember X as X' ; destruct X' | f_equal ; simpl ; rewrite map_length; omega ]
+        end; intros; auto ;
+        match goal with
+          | |- context [ forgets ?A ?B ?C ] =>
+            consider (forgets A B C)
+        end; intros; simpl in *.
+        { consider (forgets (length tus + countUVars ctx) (map fst l) s1); intros; auto.
+          inv_all; subst.
+          admit. }
+        { consider (forgets (length tus + countUVars ctx) (map fst l) s1); intros; auto.
+          inv_all; subst.
+          admit. } }
+      { simpl; intros.
+        specialize (IHg (CHyp ctx e) s).
+        match goal with
+          | H : match ?X with _ => _ end
+            |- match match ?Y with _ => _ end with _ => _ end =>
+            replace Y with X; [ remember X as X' ; destruct X' | f_equal ; simpl ; rewrite map_length; omega ]
+        end; auto;
+        intros; forward_reason; split; eauto; simpl in *;
+        unfold subst_pctxD in *; forward; subst; inv_all; subst.
+        { destruct H10.
+          inversion H1; clear H1; subst. split; auto.
+          generalize (Proper_subst_pctxD_impl tus tvs ctx s0).
+          simpl.
+          rewrite H12 in *; inv_all; subst.
+          unfold subst_pctxD.
+          Cases.rewrite_all_goal.
+          do 3 intro; inv_all.
+          eapply H1; [ | reflexivity | reflexivity | eapply H5 ].
+          do 6 red.
+          intros. eapply equiv_eq_eq in H6; eapply equiv_eq_eq in H8; subst.
+          tauto. }
+        { destruct H9.
+          inversion H1; clear H1; subst. split; auto.
+          generalize (Proper_subst_pctxD_impl tus tvs ctx s0).
+          simpl.
+          rewrite H11 in *. inv_all; subst.
+          unfold subst_pctxD.
+          Cases.rewrite_all_goal.
+          do 3 intro; inv_all.
+          eapply H1; [ | reflexivity | reflexivity | eapply H5 ].
+          do 6 red.
+          intros. eapply equiv_eq_eq in H6; eapply equiv_eq_eq in H8; subst.
+          tauto. } }
+      { (* Conj *)
+        admit. 
+(* simpl; intros; clear Htac.
         specialize (IHg1 ctx s).
         rename g1 into A.
         rename g2 into B.
@@ -1169,6 +1679,17 @@ Section parameterized.
             generalize (@Applicative_pctxD tus tvs ctx s0).
             generalize (@Applicative_pctxD tus tvs ctx s1).
             simpl. forward.
+            unfold subst_pctxD in *. forward.
+            red in H20, H24, H17.
+            simpl in *. inv_all; subst.
+            rewrite H21 in *. rewrite H10 in *. rewrite H18 in *.
+            specialize (H23 _ eq_refl). specialize (H9 _ eq_refl).
+            specialize (H14 _ eq_refl).
+            split.
+            { simpl in *.
+              intros us vs Hf.
+              
+              
             admit. }
           { admit. } }
         { specialize (IHg2 ctx s0).
@@ -1178,11 +1699,12 @@ Section parameterized.
           { intros; forward_reason; split; auto.
             admit. }
           { admit. } } }
-      { (* Solved *)
-        clear - Htac; simpl; intros.
-        specialize (Htac ctx s e _ eq_refl).
-        eapply Htac. }
+*) }
       { (* Goal *)
+        clear - Htac; simpl; intros.
+        specialize (@Htac ctx s e _ eq_refl).
+        eapply Htac. }
+      { (* Solved *)
         clear. simpl.
         intros. split; auto.
         generalize (Proper_subst_pctxD_impl tus tvs ctx s).
@@ -1192,13 +1714,22 @@ Section parameterized.
         destruct H1 as [ Hap Hpure ].
         red in H2; inv_all.
         split.
-        { red. intros.
-          eapply Hap. eapply H1. assumption. }
+        { reflexivity. }
         { intros.
           eapply Hpure. auto. } }
-*)
-    Admitted.
+    Qed.
+
+          
+
+    Theorem runOnGoals_sound
+    : rtac_local_spec tus tvs ctx s g
+                      (runOnGoals' (length tus + countUVars ctx)
+                                   (length tvs + countVars ctx)
+                                   ctx s g).
+
   End runOnGoals'.
+
+  
 
 (*
   Theorem ctxD'_no_hyps
@@ -1277,226 +1808,3 @@ Arguments Solved {typ expr subst} _ : rename.
 Export MirrorCore.ExprI.
 Export MirrorCore.SubstI.
 Export MirrorCore.ExprDAs.
-
-
-(**
-  (** TODO: I hope that there is a better way to reason about this **)
-  Inductive Path (f : nat -> nat -> Prop) : nat -> nat -> Prop :=
-  | PDirect : forall x y, f x y -> Path f x y
-  | PThrough : forall x y z, f x y -> Path f y z -> Path f x z.
-
-  Definition Acyclic_from (tus tvs : nat) (tes : list (typ * option expr))
-  : Prop :=
-    (forall x, ~Path (fun f t =>
-                        f > tus /\ t > tus /\
-                        exists z e,
-                          nth_error tes (f - tus) = Some (z, Some e) /\
-                          mentionsU t e = true) x x) /\
-    (forall t e, In (t,Some e) tes ->
-                 forall u, mentionsU u e = true ->
-                           u < tus + length tes).
-
-  Fixpoint WellFormed_goal (tus tvs : nat) (goal : Goal) : Prop :=
-    match goal with
-      | GAll _ goal' => WellFormed_goal tus (S tvs) goal'
-      | GExs tes goal' =>
-           Acyclic_from tus tvs tes
-        /\ WellFormed_goal (tus + length tes) tvs goal'
-      | GHyp _ goal' => WellFormed_goal tus tvs goal'
-      | GGoal _ => True
-      | GSolved => True
-      | GConj_ ls =>
-        (fix Forall (ls : list Goal) : Prop :=
-           match ls with
-             | nil => True
-             | l :: ls => WellFormed_goal tus tvs l /\ Forall ls
-           end) ls
-    end.
-
-
-
-          (** TODO: This can probably be more efficient because it can
-           ** co-operate with mapUnderEx
-           **)
-          (fix go (nus : nat) (tes : list (typ * option expr)) (s : subst)
-               (ctx : Ctx)
-           : Result :=
-             match tes with
-               | nil => runRTac' ctx s g nus nvs
-               | (t,e) :: tes =>
-                 match e with
-                   | None =>
-                     mapUnderEx t nus (go (S nus) tes s (CEx ctx t))
-                   | Some e' =>
-                     match set nus e' s with
-                       | None => Fail
-                       | Some s' =>
-                         mapUnderEx t nus (go (S nus) tes s' (CEx ctx t))
-                     end
-                 end
-             end) nus tes s ctx
-**)
-
-(**
-        
-        assert (
-            forall s gs,
-              
-              match r gs s with
-                | Fail => True
-                | More_ s' g' =>
-                  WellFormed_subst s ->
-                  WellFormed_subst s' /\
-                  match osgD tus tvs (toGoal (length tus) (length tvs) ctx s (GConj_ gs))
-                      , osgD tus tvs (toGoal (length tus) (length tvs) ctx s' g')
-                  with
-                    | Some gD , Some gD' =>
-                      forall (us : hlist typD tus) (vs : hlist typD tvs),
-                        gD' us vs -> gD us vs
-                    | Some _ , None => False
-                    | None , _ => True
-                  end
-                | Solved s' =>
-                  WellFormed_subst s ->
-                  WellFormed_subst s' /\
-                  match osgD tus tvs (toGoal (length tus) (length tvs) ctx s (GConj_ gs))
-                      , osgD tus tvs (toGoal (length tus) (length tvs) ctx s' GSolved)
-                  with
-                    | Some gD , Some sD' =>
-                      forall (us : hlist typD tus) (vs : hlist typD tvs),
-                        sD' us vs -> gD us vs
-                    | Some _ , None => False
-                    | None , _ => True
-                  end
-              end).
-        { subst. clear.
-          intros.
-          eapply rtac_spec_respects.
-          reflexivity.
-          eapply More_More_. reflexivity. eapply GConj_GConj_. reflexivity.
-          simpl. intros; split; auto.
-          forward. }
-        { clear Heqr. generalize dependent r.
-          revert H; induction 1.
-          { simpl; intros. eapply H0. }
-          { simpl; intros. clear H0.
-            specialize (H ctx s).
-            match goal with
-              | |- match match ?X with _ => _ end with _ => _ end =>
-                destruct X ; auto
-            end.
-            - specialize (fun Z => IHForall (fun (other : list Goal) (s1 : subst) => r (g :: other) s1) Z s0).
-              match type of IHForall with
-                | ?X -> _ => assert X
-              end.
-              { intros. specialize (H1 s1 (g :: gs)).
-                destruct (r (g :: gs) s1); auto.
-
-
-  (** Intensional functor
-  Inductive CtxFunctor tus tvs : Ctx * subst -> Ctx * subst -> Prop :=
-  | CtxF_CTop : forall s1 s2,
-                  (match substD tus tvs s1
-                       , substD tus tvs s2
-                   with
-                     | Some s1D , Some s2D =>
-                       forall us vs, s2D us vs -> s1D us vs
-                     | None , _ => True
-                     | Some _ , None => False
-                   end) ->
-                  CtxFunctor tus tvs (CTop, s1) (CTop, s2)
-  | CtxF_
-  **)
-
-  Definition CtxMorphism {tus tvs tus' tvs' tus'' tvs''}
-             (c1D : exprT tus' tvs' Prop -> exprT tus tvs Prop)
-             (c2D : exprT tus'' tvs'' Prop -> exprT tus tvs Prop)
-  : Prop :=
-    exists f : exprT _ _ (hlist typD _ * hlist typD _),
-      forall (P : exprT _ _ Prop) (Q : exprT _ _ Prop),
-        (forall x y, P x y -> Q (fst (f x y)) (snd (f x y))) ->
-        forall us vs,
-          c1D P us vs -> c2D Q us vs.
-
-
-  Definition CtxFunctor tus tvs : Ctx * subst -> Ctx * subst -> Prop :=
-    fun cs1 cs2 =>
-      let '(c1,s1) := cs1 in
-      let '(c2,s2) := cs2 in
-      match ctxD' tus tvs c1 s1
-          , ctxD' tus tvs c2 s2
-      with
-        | None , _ => True
-        | Some _ , None => False
-        | Some (s1,c1D) , Some (s2,c2D) =>
-          match substD tus tvs s1
-              , substD tus tvs s2
-          with
-            | Some s1D , Some s2D =>
-              CtxMorphism (fun k us vs => s1D us vs /\ c1D k us vs)
-                          (fun k us vs => s2D us vs /\ c2D k us vs)
-            | None , _ => True
-            | Some _ , None => False
-          end
-      end.
-
-            Lemma rinduction tus tvs ctx
-            : forall g s g',
-                (match osgD tus tvs (toGoal (length tus) (length tvs) ctx s g) with
-                 | Some gD =>
-                   match
-                     osgD tus tvs (toGoal (length tus) (length tvs) ctx s g')
-                   with
-                     | Some sD' =>
-                       forall (us : hlist typD tus) (vs : hlist typD tvs),
-                         (sD' us vs) -> (gD us vs)
-                     | None => False
-                   end
-                 | None => True
-               end) <->
-                (match ctxD' tus tvs ctx s
-                       , goalD _ _ g
-                       , goalD _ _ g'
-                 with
-                   | Some cD , Some gD , Some gD' =>
-                     forall us vs,
-                       cD (fun us' vs' =>
-                             gD' us' vs' -> gD us' vs') us vs
-                   | None , _ , _ => True
-                   | Some _ , None , _ => True
-                   | Some _ , _ , None => False
-                 end).
-            Proof.
-              induction ctx; simpl.
-              { intros.
-                rewrite goalD_conv with (pfu := eq_sym (app_nil_r_trans _))
-                                        (pfv := eq_sym (app_nil_r_trans _)).
-                autorewrite with eq_rw.
-                destruct (goalD tus tvs g);
-                  destruct (goalD tus tvs g');
-                  destruct (substD tus tvs s); try reflexivity.
-                admit. }
-              { intros. rewrite IHctx.
-                simpl. forward.
-                (** NOT TRUE **)
-              }
-              { intros.
-                generalize (forgets_map_fst l (length (tus ++ getUVars ctx)) s).
-                rewrite app_length.
-                rewrite countUVars_getUVars.
-                destruct (forgets (length tus + length (getUVars ctx)) l s).
-                simpl; intros; subst.
-                rewrite IHctx.
-                simpl.
-                rewrite goalD_conv with (pfu := eq_sym (app_ass_trans _ _ _)) (pfv := eq_refl).
-                autorewrite with eq_rw.
-                repeat match goal with
-                         | |- context [ match ?X with _ => _ end ] =>
-                           match X with
-                             | match _ with _ => _ end => fail 1
-                             | _ => destruct X
-                           end
-                       end; try reflexivity.
-                do 2 (eapply forall_iff; intro).
-                simpl.
-*)
