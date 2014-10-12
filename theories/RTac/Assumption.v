@@ -107,7 +107,7 @@ Section parameterized.
       rewrite H4 in H2.
       change_rewrite H3 in H2.
       forwardy.
-      rewrite 
+      rewrite
  }
     { specialize (IHctx (tus ++ t :: nil) tvs _ _ _ H H0).
       forward_reason; split; eauto.
@@ -119,8 +119,6 @@ Section parameterized.
         forward_reason; split; eauto.
         forward.
         destruct o0; inv_all; subst.
-        { admit. }
-        { 
 *)
   Admitted.
 
