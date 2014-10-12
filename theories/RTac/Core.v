@@ -566,30 +566,6 @@ Section parameterized.
         end
     end.
 
-(*
-  Definition subst_ctxD {T} {tus tvs} (v : option (subst * (T -> exprT tus tvs Prop)))
-  : option (T -> exprT tus tvs Prop) :=
-    match v with
-      | None => None
-      | Some (s,D) =>
-        match substD tus tvs s with
-          | None => None
-          | Some sD => Some (fun k us vs => sD us vs /\ D k us vs)
-        end
-    end.
-
-  Definition subst_pctxD {T} {tus tvs} (v : option (subst * (T -> exprT tus tvs Prop)))
-  : option (T -> exprT tus tvs Prop) :=
-    match v with
-      | None => None
-      | Some (s,D) =>
-        match substD tus tvs s with
-          | None => None
-          | Some sD => Some (fun k us vs => sD us vs -> D k us vs)
-        end
-    end.
-*)
-
   Definition RCtx {tus tvs tus' tvs'} :=
     (RexprT tus tvs Basics.impl ==> RexprT tus' tvs' Basics.impl)%signature.
 
@@ -702,21 +678,19 @@ Section parameterized.
       eapply forall_iff. intros.
       eapply H; eauto.
       equivs. reflexivity. }
-    { (* generalize dependent ((forgets_map_fst l (length (tus ++ getUVars c1)) s)).
-      destruct (forgets (length (tus ++ getUVars c1)) l s); simpl.
+    { destruct (forgets (length (tus ++ getUVars c1)) l s); simpl.
       intros; subst.
       specialize (IHc1 s0).
-      destruct (goal_substD (tus ++ getUVars c1) (tvs ++ getVars c1) l0);
+      destruct (goal_substD (tus ++ getUVars c1) (tvs ++ getVars c1) l l0);
         try constructor.
       destruct (pctxD tus tvs c1 s0); try constructor.
-      destruct p. constructor. inv_all; subst.
-      constructor; auto.
-      do 3 intro. eapply H0.
-      do 5 red; intros.
-      eapply _forall_iff; intro.
-      eapply equiv_eq_eq in H2; eapply equiv_eq_eq in H3; subst.
-      eapply impl_iff; [ reflexivity | intro ].
-      eapply H1; reflexivity. *) admit. }
+      inv_all.
+      do 6 red; intros; equivs.
+      eapply IHc1; try reflexivity.
+      do 5 red; intros; equivs.
+      eapply _forall_iff. intros.
+      eapply impl_iff; try reflexivity.
+      intros. eapply H; reflexivity. }
     { specialize (IHc1 s).
       destruct (propD (tus ++ getUVars c1) (tvs ++ getVars c1) e);
         try constructor.
