@@ -746,6 +746,7 @@ Section parameterized.
       generalize (H2 H3). eapply H; reflexivity. }
   Qed.
 
+
 (*
   Theorem rtac_spec_respects tus tvs ctx s
   : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
@@ -1047,6 +1048,67 @@ Section parameterized.
         end
     end.
 
+  Lemma Fmap_pctxD_impl
+  : forall tus tvs c s C,
+      pctxD tus tvs c s = Some C ->
+      Proper (RexprT _ _ Basics.impl ==> RexprT tus tvs Basics.impl)%signature C.
+  Proof.
+    clear. intros.
+    generalize (Proper_pctxD_impl tus tvs c s).
+    rewrite H. intros; inv_all. auto.
+  Qed.
+
+  Lemma Fmap_pctxD_iff
+  : forall tus tvs c s C,
+      pctxD tus tvs c s = Some C ->
+      Proper (RexprT _ _ iff ==> RexprT tus tvs iff)%signature C.
+  Proof.
+    clear. intros.
+    generalize (Proper_pctxD_iff tus tvs c s).
+    rewrite H. intros; inv_all. auto.
+  Qed.
+
+  (** TODO: Move to Data.Prop **)
+  Lemma True_impl_iff : forall (P : Prop), (True -> P) <-> P.
+  Proof.
+    clear; intros; tauto.
+  Qed.
+
+  Theorem Proper_rtac_local_spec tus tvs ctx s
+  : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
+            EqResult (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==> iff)
+           (rtac_local_spec tus tvs ctx s).
+  Proof.
+    red. red. red. unfold rtac_local_spec.
+    inversion 2.
+    { destruct x0; destruct y0; simpl in *; try congruence.
+      reflexivity. }
+    { destruct x0; destruct y0; simpl in *;
+      try solve [ reflexivity | congruence ]; inv_all; subst; inv_all;
+      try (eapply impl_iff; try reflexivity; intros;
+           eapply and_iff; try reflexivity; intros;
+           try inversion H; try reflexivity;
+           try inversion H5; try reflexivity;
+           repeat match goal with
+                    | |- context [ match ?X with _ => _ end ] =>
+                      consider X; intros; try reflexivity; [ ]
+                  end;
+           eapply and_iff; try reflexivity; intros;
+           do 2 (eapply forall_iff; intro);
+           eapply Fmap_pctxD_iff; eauto; try reflexivity;
+           do 5 red; intros).
+      { apply impl_iff; [ eapply H10; eauto | intro ].
+        apply H7; eauto. }
+      { do 5 red in H10.
+        rewrite H10; try reflexivity.
+        rewrite True_impl_iff.
+        eapply H7; eauto. }
+      { do 5 red in H10.
+        rewrite <- H10; try reflexivity.
+        rewrite True_impl_iff.
+        eapply H7; eauto. } }
+  Qed.
+
   Lemma onLeft {tus tvs tus' tvs'}
         (c c' : exprT tus' tvs' Prop -> exprT tus tvs Prop)
         (P Q P' : exprT _ _ Prop)
@@ -1171,15 +1233,6 @@ Section parameterized.
       forward. eauto. }
   Qed.
 
-  Lemma Fmap_pctxD_impl
-  : forall tus tvs c s C,
-      pctxD tus tvs c s = Some C ->
-      Proper (RexprT _ _ Basics.impl ==> RexprT tus tvs Basics.impl)%signature C.
-  Proof.
-    clear. intros.
-    generalize (Proper_pctxD_impl tus tvs c s).
-    rewrite H. intros; inv_all. auto.
-  Qed.
 
   Lemma pctxD_ctxD
   : forall tus tvs ctx s pC C,
@@ -1555,7 +1608,6 @@ Section parameterized.
         specialize (IHg1 ctx s).
         rename g1 into A.
         rename g2 into B.
-(*
         destruct (runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx)
                               ctx s A); auto.
         { rename g into A'.
@@ -1564,37 +1616,69 @@ Section parameterized.
                                 ctx s0 B); auto.
           { rename g into B'.
             intros; forward_reason; split; auto.
-(*
-            generalize (Proper_pctxD_impl tus tvs ctx s).
-            generalize (Proper_pctxD_impl tus tvs ctx s0).
-            generalize (Proper_pctxD_impl tus tvs ctx s1).
-            generalize (@Applicative_pctxD tus tvs ctx s).
-            generalize (@Applicative_pctxD tus tvs ctx s0).
-            generalize (@Applicative_pctxD tus tvs ctx s1).
-*)
             simpl. forward. forward_reason.
-
-
-            red in H20, H24, H17.
-            simpl in *. inv_all; subst.
-            rewrite H21 in *. rewrite H10 in *. rewrite H18 in *.
-            specialize (H23 _ eq_refl). specialize (H9 _ eq_refl).
-            specialize (H14 _ eq_refl).
-            split.
-            { simpl in *.
-              intros us vs Hf.
-
-
-            admit. }
-          { admit. } }
+            split; [ etransitivity; eassumption | ].
+            intros us vs.
+            specialize (H11 us vs).
+            specialize (H12 us vs).
+            revert H11.
+            eapply (Applicative_pctxD _ _ H8).
+            eapply pctxD_SubstMorphism.
+            3: eassumption. eassumption. eassumption.
+            revert H12.
+            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            clear. do 6 red.
+            intros. equivs. firstorder. }
+          { change (rtac_local_spec tus tvs ctx s (GConj_ A B) (More s1 A')).
+            eapply Proper_rtac_local_spec; [ reflexivity | eapply More_More_ | ].
+            reflexivity. reflexivity.
+            simpl.
+            intros; forward_reason; split; auto.
+            simpl. forward. forward_reason.
+            split; [ etransitivity; eassumption | ].
+            intros us vs.
+            specialize (H11 us vs).
+            specialize (H10 us vs).
+            revert H10.
+            eapply (Applicative_pctxD _ _ H8).
+            eapply pctxD_SubstMorphism.
+            3: eassumption. eassumption. eassumption.
+            revert H11.
+            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            clear. do 6 red.
+            intros. equivs. firstorder. } }
         { specialize (IHg2 ctx s0).
           destruct (runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx)
                                 ctx s0 B); auto.
-          rename g into B'.
+          { rename g into B'.
+            intros; forward_reason; split; auto.
+            simpl. forward. forward_reason.
+            split; [ etransitivity; eassumption | ].
+            intros us vs.
+            specialize (H10 us vs).
+            specialize (H11 us vs).
+            revert H10.
+            eapply (Applicative_pctxD _ _ H7).
+            eapply pctxD_SubstMorphism.
+            3: eassumption. eassumption. eassumption.
+            revert H11.
+            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            clear. do 6 red.
+            intros. equivs. firstorder. }
           { intros; forward_reason; split; auto.
-            admit. }
-          { admit. } } }
-*) admit. }
+            simpl. forward. forward_reason.
+            split; [ etransitivity; eassumption | ].
+            intros us vs.
+            specialize (H9 us vs).
+            specialize (H10 us vs).
+            revert H9.
+            eapply (Applicative_pctxD _ _ H7).
+            eapply pctxD_SubstMorphism.
+            3: eassumption. eassumption. eassumption.
+            revert H10.
+            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            clear. do 6 red.
+            intros. equivs. firstorder. } } }
       { (* Goal *)
         clear - Htac; simpl; intros.
         specialize (@Htac ctx s e _ eq_refl).
