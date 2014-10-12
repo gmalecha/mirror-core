@@ -1512,7 +1512,8 @@ Section parameterized.
           forward_reason.
           inversion H6; clear H6; subst.
           split; eauto. } }
-      { intros; simpl in *.
+      { (* Exs *)
+        intros; simpl in *.
         forward.
         specialize (IHg (CExs ctx (map fst l)) s0).
         revert IHg. revert H; simpl.
@@ -1580,6 +1581,7 @@ Section parameterized.
         specialize (IHg1 ctx s).
         rename g1 into A.
         rename g2 into B.
+(*
         destruct (runOnGoals' (length tus + countUVars ctx) (length tvs + countVars ctx)
                               ctx s A); auto.
         { rename g into A'.
@@ -1618,7 +1620,7 @@ Section parameterized.
           { intros; forward_reason; split; auto.
             admit. }
           { admit. } } }
-*) }
+*) admit. }
       { (* Goal *)
         clear - Htac; simpl; intros.
         specialize (@Htac ctx s e _ eq_refl).
@@ -1626,25 +1628,20 @@ Section parameterized.
       { (* Solved *)
         clear. simpl.
         intros. split; auto.
-        generalize (Proper_subst_pctxD_impl tus tvs ctx s).
-        generalize (@Applicative_subst_pctxD tus tvs ctx s).
-        forward.
-        specialize (H1 _ eq_refl).
-        destruct H1 as [ Hap Hpure ].
-        red in H2; inv_all.
-        split.
-        { reflexivity. }
-        { intros.
-          eapply Hpure. auto. } }
+        forward. split.
+        reflexivity.
+        intros.
+        eapply (@Applicative_pctxD tus tvs ctx s); eauto. }
     Qed.
 
-
-
-    Theorem runOnGoals_sound
+    Theorem runOnGoals_sound ctx s g
     : rtac_local_spec tus tvs ctx s g
                       (runOnGoals' (length tus + countUVars ctx)
                                    (length tvs + countVars ctx)
                                    ctx s g).
+    Proof.
+      eapply runOnGoals'_sound_ind.
+    Qed.
 
   End runOnGoals'.
 
