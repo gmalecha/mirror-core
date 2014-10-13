@@ -119,6 +119,7 @@ Section subst.
   ; strengthenU : nat -> nat -> T -> bool
   }.
 
+
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { WellFormed_empty : WellFormed_subst empty
   ; substD_empty
@@ -167,7 +168,32 @@ Section subst.
             substD tus tvs s = Some sD' /\
             forall us vs us',
               sD (hlist_app us us') vs <-> sD' us vs
-
+  ; forget_sound
+    : forall s u s' oe,
+        forget u s = (s', oe) ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        forall tus tvs sD,
+          substD tus tvs s = Some sD ->
+          exists sD',
+            substD tus tvs s' = Some sD' /\
+            match oe with
+              | None =>
+                forall us vs,
+                  sD us vs <-> sD' us vs
+              | Some e =>
+                mentionsU u e = false /\
+                match nth_error_get_hlist_nth typD tus u with
+                  | Some (existT t get) =>
+                    match exprD' tus tvs e t with
+                      | None => False
+                      | Some eD =>
+                        forall us vs,
+                          sD us vs <-> (get us = eD us vs /\ sD' us vs)
+                    end
+                  | None => False
+                end
+            end
   }.
 
   Context {Subst_subst : Subst}.
