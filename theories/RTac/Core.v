@@ -20,7 +20,7 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** TODO: Move to Data.Hlist **)
+(** TODO: Move to Data.HList **)
 Theorem rev_app_distr_trans
 : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
 Proof. clear.
@@ -28,6 +28,14 @@ Proof. clear.
        - symmetry. apply app_nil_r_trans.
        - rewrite IHx. apply app_ass_trans.
 Defined.
+
+(** TODO: Move to Data.List **)
+Instance Injective_cons {T} (a : T) b c d
+: Injective (a :: b = c :: d) :=
+  { result := a = c /\ b = d }.
+abstract (inversion 1; auto).
+Defined.
+
 
 (** TODO: This is cubic! **)
 Theorem rev_involutive_trans (A : Type)
@@ -1012,6 +1020,9 @@ Section parameterized.
               end ->
               SubstMorphism tus tvs CTop s1 s2.
 
+
+
+
   Definition rtac_local_spec tus tvs ctx s g r : Prop :=
     match r with
       | Fail => True
@@ -1332,14 +1343,13 @@ Section parameterized.
                             (RexprT tus tvs iff)))%signature
       (ctxD tus tvs ctx s).
   Proof.
-    
-  Admitted.
+  Abort.
 
   Lemma Proper_ctxD_impl tus tvs ctx s
   : Proper (Roption (RexprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Basics.impl ==>
                             (RexprT tus tvs Basics.impl)))%signature
       (ctxD tus tvs ctx s).
-  Admitted.
+  Abort.
 
   Instance Transitive_CtxMorphism a b c d : Transitive (@CtxMorphism a b c d).
   Proof.
@@ -1504,6 +1514,29 @@ Section parameterized.
         WellFormed_subst s'.
     Admitted.
 
+    Lemma remembers_forgets_safe
+    : forall tes s s' s'' sD es eD,
+        remembers (length tus) tes s = Some s' ->
+        forgets (length tus) (map fst tes) s' = (s'',es) ->
+        substD tus tvs s = Some sD ->
+        goal_substD tus tvs (map fst tes) (map snd tes) = Some eD ->
+        exists eD',
+          goal_substD tus tvs (map fst tes) es = Some eD'.
+    Proof.
+      clear Htac tac.
+      induction tes; simpl; intros; inv_all; subst; eauto.
+      forward. subst. simpl in *.
+      inv_all; subst.
+      destruct o0; forward; inv_all; subst.
+      { (*
+        
+        eapply forget_sound in H3; eauto.
+        forward_reason.
+        specialize (@H5 _ _ _ _ H1).
+*)
+    Admitted.
+
+
     Lemma runOnGoals'_sound_ind
     : forall g ctx s,
         rtac_local_spec tus tvs ctx s g
@@ -1563,8 +1596,14 @@ Section parameterized.
           inv_all; subst.
           generalize (WellFormed_remembers _ _ _ H H4); intros.
           forward_reason.
-          split; [ admit | ].
+          split; [ eapply WellFormed_forgets; eauto | ].
           forward. inv_all; subst.
+          revert H8. revert H9.
+          
+              inv_all; subst
+            { admit. }
+            
+
           admit. }
         { consider (forgets (length tus + countUVars ctx) (map fst l) s1); intros; auto.
           inv_all; subst.
