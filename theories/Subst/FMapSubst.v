@@ -1094,12 +1094,41 @@ Module Make (FM : WS with Definition E.t := uvar
                sD (hlist_app us us') vs <-> sD' us vs).
     Admitted.
 
+    Theorem forget_sound
+    : forall s u s' oe,
+        forget u s = (s', oe) ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        forall tus tvs sD,
+          substD tus tvs s = Some sD ->
+          exists sD',
+            substD tus tvs s' = Some sD' /\
+            match oe with
+              | None =>
+                forall us vs,
+                  sD us vs <-> sD' us vs
+              | Some e =>
+                mentionsU u e = false /\
+                match nth_error_get_hlist_nth typD tus u with
+                  | Some (existT t get) =>
+                    match exprD' tus tvs e t with
+                      | None => False
+                      | Some eD =>
+                        forall us vs,
+                          sD us vs <-> (get us = eD us vs /\ sD' us vs)
+                    end
+                  | None => False
+                end
+            end.
+    Admitted.
+
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| WellFormed_empty := WellFormed_empty
      ; substD_empty := substD_empty
      ; set_sound := substD_set
      ; strengthenU_sound := strengthenU_sound
      ; strengthenV_sound := strengthenV_sound
+     ; forget_sound := forget_sound
      |}.
 
   End exprs.
