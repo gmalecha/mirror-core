@@ -27,6 +27,7 @@ Section parameterized.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Variable UVar : nat -> expr.
 
   Definition STAC_no_hyps (tac : stac typ expr subst)
   : rtac typ expr subst :=
@@ -35,12 +36,12 @@ Section parameterized.
       match tac tus tvs sub nil gl with
         | STac.Core.Fail => Fail
         | STac.Core.More tus' tvs' sub' hs' gl' =>
-          reduceGoal instantiate
+          reduceGoal instantiate UVar
                      (List.fold_right (fun x y => @CEx _ _ y x)
                          (List.fold_right (fun x y => @CAll _ _ y x)
                             CTop tvs') tus') sub' (GGoal gl') (length tus + length tus') (length tvs + length tvs')
         | STac.Core.Solved tus' tvs' sub' =>
-          reduceGoal instantiate
+          reduceGoal instantiate UVar
                      (List.fold_right (fun x y => @CEx _ _ y x)
                        (List.fold_right (fun x y => @CAll _ _ y x)
                           CTop tvs') tus') sub' GSolved (length tus + length tus') (length tvs + length tvs')

@@ -29,6 +29,7 @@ Section parameterized.
   Variable exprUnify :
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Variable UVar : nat -> expr.
 
   Let eapplicable :=
     @eapplicable typ _ expr _ subst vars_to_uvars
@@ -51,7 +52,7 @@ Section parameterized.
                                             (vars_to_uvars 0 len_uvars e))
                       lem.(premises)
               in
-              more_list instantiate CTop sub'' (map GGoal premises)
+              more_list instantiate UVar CTop sub'' (map GGoal premises)
               (** Solve the side conditions **)
             | None => Fail
           end

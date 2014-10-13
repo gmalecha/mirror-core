@@ -29,6 +29,7 @@ Section parameterized.
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Variable UVar : nat -> expr.
 
   Let eapplicable :=
     @eapplicable typ _ expr _ subst vars_to_uvars
@@ -45,7 +46,7 @@ Section parameterized.
         | Some sub' =>
           let len_uvars := length tus in
           let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
-          reduceGoal instantiate (fold_left (@CEx _ _) lem.(vars) CTop) sub'
+          reduceGoal instantiate UVar (fold_left (@CEx _ _) lem.(vars) CTop) sub'
                      (GConj premises) (countUVars ctx + len_vars) (countVars ctx)
       end.
 

@@ -25,6 +25,8 @@ Section parameterized.
 
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
+  Variable UVar : nat -> expr.
+
   Fixpoint instantiateGoal (f : nat -> option expr) (g : Goal typ expr)
   : Goal typ expr :=
     match g with
@@ -74,9 +76,14 @@ Section parameterized.
               | Some e =>
                 let g' :=
                     instantiateGoal
-                      (fun u => if u ?[ eq ] un' then Some e else None) g
+                      (fun u => if u ?[ eq ] un' then Some e
+                                else
+                                  if u ?[ gt ] un' then
+                                    Some (UVar (u - 1))
+                                  else
+                                    None) g
                 in
-                toGoal ctx' s' (GEx l (Some e) g') (S su) un' vn
+                toGoal ctx' s' (* (GEx l (Some e) *) g' (S su) un' vn
             end
         end
       | CHyp ctx' h =>

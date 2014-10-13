@@ -34,13 +34,13 @@ Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
                     (@vars_to_uvars _ _)
                     (fun tus tvs n l r t s =>
                        @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
-                    (@instantiate _ _).
+                    (@instantiate _ _) UVar.
 
-Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _ _
+Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _
                       (@vars_to_uvars _ _)
                       (fun tus tvs n l r t s =>
                          @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
-                      (@instantiate _ _).
+                      (@instantiate _ _) UVar.
 
 Let ASSUMPTION : rtac typ (expr typ func) subst :=
   ASSUMPTION (fun _ x y s => if x ?[ eq ] y then Some s else None).
