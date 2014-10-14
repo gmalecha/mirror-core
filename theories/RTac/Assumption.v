@@ -30,14 +30,14 @@ Section parameterized.
 
     Fixpoint findHyp (ctx : Ctx typ expr) (s : ctx_subst _ ctx) {struct ctx}
     : option subst :=
-      match ctx with
-        | CTop => None
-        | CAll ctx' _ => @findHyp ctx' s
-        | CExs ctx' _ => @findHyp ctx' s
-        | CHyp ctx' h => match check h s with
-                           | None => findHyp ctx' s
-                           | Some e => Some e
-                         end
+      match s with
+        | TopSubst _ => None
+        | AllSubst _ ctx' s' => @findHyp ctx' s'
+        | ExsSubst _ _ ctx' s' => @findHyp ctx' s'
+        | HypSubst h ctx' s' => match check h s' with
+                               | None => @findHyp ctx' s'
+                               | Some e => Some e
+                             end
       end.
   End findHyp.
 

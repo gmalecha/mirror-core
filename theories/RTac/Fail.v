@@ -19,14 +19,14 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition FAIL : rtac typ expr subst :=
-    fun _ _ _ => Fail.
+    fun _ _ _ _ _ _ _ => Fail.
 
   Theorem FAIL_sound
   : forall tus tvs, rtac_sound tus tvs FAIL.
   Proof.
     unfold FAIL, rtac_sound.
     intros; subst.
-    exact I.
+    eapply rtac_spec_Fail.
   Qed.
 
 End parameterized.

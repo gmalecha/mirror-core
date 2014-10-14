@@ -18,10 +18,11 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition SOLVE (tac : rtac typ expr subst) : rtac typ expr subst :=
-    fun ctx s g => match tac ctx s g with
-                     | Solved s => Solved s
-                     | _ => Fail
-                   end.
+    fun tus tvs nus nvs ctx s g =>
+      match tac tus tvs nus nvs ctx s g with
+        | Solved s => Solved s
+        | _ => Fail
+      end.
 
   Theorem SOLVE_sound
   : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (SOLVE tac).
@@ -29,9 +30,10 @@ Section parameterized.
     unfold SOLVE, rtac_sound.
     intros.
     specialize (H ctx s g).
-    subst; destruct (tac ctx s g); auto.
+    subst; destruct (tac (tus ++ getUVars ctx) (tvs ++ getVars ctx)
+           (length (tus ++ getUVars ctx)) (length (tvs ++ getVars ctx)) ctx s g); auto.
     specialize (H _ eq_refl).
-    exact I.
+    eapply rtac_spec_Fail.
   Qed.
 
 End parameterized.
