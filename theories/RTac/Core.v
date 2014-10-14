@@ -512,7 +512,7 @@ Section parameterized.
       | (_,Some e) :: tes' =>
         match set from e s with
           | None => None
-          | Some s' => remembers from tes' s'
+          | Some s' => remembers (S from) tes' s'
         end
     end.
 
@@ -1164,13 +1164,27 @@ Section parameterized.
   Global Instance Injective_SubstMorphism_HypSubst tus tvs t ctx s s'
   : Injective (@SubstMorphism tus tvs (CHyp ctx t) (HypSubst s) s') :=
   { result := exists s'', s' = HypSubst s'' /\ @SubstMorphism tus tvs ctx s s'' }.
-  admit.
+  intros.
+  exists (fromHyp s').
+  refine
+    (match H in @SubstMorphism _ _ C X Y
+           return match X in ctx_subst C' return ctx_subst C' -> Prop with
+                    | HypSubst t s c => fun s' =>
+                                            s' = HypSubst (fromHyp s') /\
+                                            SubstMorphism tus tvs c (fromHyp s')
+                    | _ => fun _ => True
+                  end Y
+     with
+       | SMhyp _ _ _ _ _ => _
+       | _ => I
+     end).
+  simpl; eauto.
   Defined.
 
   Global Instance Injective_SubstMorphism_TopSubst tus tvs s s'
   : Injective (@SubstMorphism tus tvs (CTop) (TopSubst s) s') :=
   { result := exists s'', s' = TopSubst s'' /\ match substD tus tvs s
-                                                     , substD tus tvs s''
+                                                   , substD tus tvs s''
                                                with
                                                  | None , _ => True
                                                  | Some _ , None => False
@@ -1179,15 +1193,69 @@ Section parameterized.
   admit.
   Defined.
 
-(*
-  Instance Injective_SubstMorphism_ExsSubst tus tvs ctx tes s s' sub
+  Global Instance Injective_SubstMorphism_ExsSubst tus tvs ctx tes s s' sub
   : Injective (@SubstMorphism tus tvs (CExs ctx tes) (ExsSubst sub s) s') :=
   { result := exists s'' sub',
                 s' = ExsSubst sub' s''
-                /\ True }.
-  admit.
+                /\ (match @pctxD tus tvs ctx sub
+                        , substD ((tus ++ getUVars ctx) ++ tes) (tvs ++ getVars ctx) s
+                        , @pctxD tus tvs ctx sub'
+                        , substD ((tus ++ getUVars ctx) ++ tes) (tvs ++ getVars ctx) s''
+                    with
+                      | None , _ , _ , _
+                      | Some _ , None , _ , _ => True
+                      | Some _ , Some _ , None , _
+                      | Some _ , Some _ , Some _ , None => False
+                      | Some c1D , Some s1D , Some c2D , Some s2D =>
+                        forall us vs, c2D (fun us vs =>
+                                             forall us',
+                                               s2D (hlist_app us us') vs ->
+                                               s1D (hlist_app us us') vs) us vs
+                    end)
+                /\ SubstMorphism tus tvs sub sub'}.
+  intros. exists (fst (fromExs s')). exists (snd (fromExs s')).
+  refine
+    (match H in @SubstMorphism _ _ C X Y
+           return match X in ctx_subst C' return ctx_subst C' -> Prop with
+                    | ExsSubst t s su c =>
+                      fun s' =>
+                        s' = ExsSubst (snd (fromExs s')) (fst (fromExs s')) /\
+                        match pctxD tus tvs su with
+                          | Some _ =>
+                            match
+                              substD ((tus ++ getUVars s) ++ t) (tvs ++ getVars s) c
+                            with
+                              | Some s1D =>
+                                match pctxD tus tvs (snd (fromExs s')) with
+                                  | Some c2D =>
+                                    match
+                                      substD ((tus ++ getUVars s) ++ t)
+                                             (tvs ++ getVars s) (fst (fromExs s'))
+                                    with
+                                      | Some s2D =>
+                                        forall us vs,
+                                          c2D
+                                            (fun us0 vs0 =>
+                                               forall us' : hlist typD t,
+                                                 s2D (hlist_app us0 us') vs0 ->
+                                                 s1D (hlist_app us0 us') vs0) us vs
+                                      | None => False
+                                    end
+                                  | None => False
+                                end
+                              | None => True
+                            end
+                          | None => True
+                        end /\
+                        SubstMorphism tus tvs su (snd (fromExs s'))
+                    | _ => fun _ => True
+                  end Y
+     with
+       | SMexs _ _ _ _ _ _ _ _ => _
+       | _ => I
+     end).
+  simpl; eauto.
   Defined.
-*)
 
   Global Instance Reflexive_SubstMorphism tus tvs ctx
   : Reflexive (@SubstMorphism tus tvs ctx).
