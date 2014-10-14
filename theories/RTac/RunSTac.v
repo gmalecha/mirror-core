@@ -6,7 +6,7 @@ Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprDAs.
-Require Import MirrorCore.STac.Core.
+Require MirrorCore.STac.Core.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Reduce.
 
@@ -29,10 +29,9 @@ Section parameterized.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
   Variable UVar : nat -> expr.
 
-  Definition STAC_no_hyps (tac : stac typ expr subst)
+  Definition STAC_no_hyps (tac : STac.Core.stac typ expr subst)
   : rtac typ expr subst :=
-    fun ctx sub gl =>
-      let '(tus,tvs) := getEnvs ctx in
+    fun tus tvs _ _ ctx sub gl =>
       match tac tus tvs sub nil gl with
         | STac.Core.Fail => Fail
         | STac.Core.More tus' tvs' sub' hs' gl' =>

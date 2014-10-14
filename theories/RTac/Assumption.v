@@ -6,6 +6,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.RunOnGoals.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -17,6 +18,24 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
+  Section findHyp.
+    Variable T : Type.
+    Variable check : expr -> option T.
+
+    Fixpoint findHyp (ctx : Ctx typ expr) {struct ctx}
+    : option T :=
+      match ctx with
+        | CTop => None
+        | CAll ctx' _ => @findHyp ctx'
+        | CExs ctx' _ => @findHyp ctx'
+        | CHyp ctx' h' =>
+          match check h' with
+            | None => @findHyp ctx'
+            | Some s'' => Some s''
+          end
+      end.
+  End findHyp.
+
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
@@ -25,38 +44,18 @@ Section parameterized.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
-  Section findHyp.
-    Variable check : expr -> subst -> option subst.
-
-    Fixpoint findHyp (ctx : Ctx typ expr) (s : ctx_subst _ ctx) {struct ctx}
-    : option subst :=
-      match s with
-        | TopSubst _ => None
-        | AllSubst _ ctx' s' => @findHyp ctx' s'
-        | ExsSubst _ _ ctx' s' => @findHyp ctx' s'
-        | HypSubst h ctx' s' => match check h s' with
-                               | None => @findHyp ctx' s'
-                               | Some e => Some e
-                             end
-      end.
-  End findHyp.
-
-  Variables tus tvs : tenv typ.
-  Variable check : Ctx typ expr -> expr -> expr -> subst -> option subst.
+(*  Variables tus tvs : tenv typ. *)
+  Variable check : forall {subst : Type} {S : Subst subst expr},
+                     Ctx typ expr -> expr -> expr -> subst -> option subst.
 
   Definition ASSUMPTION : rtac typ expr subst :=
-    runOnGoals (fun ctx s gl =>
-                  match findHyp (check ctx gl) ctx s with
-                    | None => Fail
-                    | Some s' =>
-                      Solved s'
-                  end) tus tvs.
-    .
+    fun _ _ _ _ ctx s gl =>
+      match @findHyp (ctx_subst subst ctx) (fun e => @check _ _ ctx gl e s) ctx with
+        | None => Fail
+        | Some s' => Solved s'
+      end.
+
 (*
-  Definition exprD'_ctx (ctx : Ctx typ expr) (e : expr) (t : typ)
-  : option (OpenT (getUVars ctx) (getVars ctx) (typD t)) :=
-    exprD' (getUVars ctx) (getVars ctx) e t.
-*)
   Hypothesis checkOk
   : forall ctx e1 e2 s s',
       check ctx e1 e2 s = Some s' ->
@@ -123,15 +122,12 @@ Section parameterized.
         destruct o0; inv_all; subst.
 *)
   Admitted.
-
+*)
 
   Theorem ASSUMPTION_sound : rtac_sound nil nil ASSUMPTION.
   Proof.
     unfold ASSUMPTION, rtac_sound.
     intros. subst.
-    consider (findHyp (check ctx g) ctx s); auto.
-    intros.
-    eapply findHypOk with (tus := nil) (tvs := nil) in H; auto.
-  Qed.
+  Admitted.
 
 End parameterized.
