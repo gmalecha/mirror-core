@@ -29,6 +29,7 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
 
   (** TODO: Write this with a positive **)
   Section repeater.
@@ -45,7 +46,7 @@ Section parameterized.
             match @tac tus tvs nus nvs ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals (REPEAT' n) tus tvs nus nvs _ sub' gl'
+                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -73,7 +74,7 @@ Section parameterized.
       do 2 rewrite app_length.
       rewrite <- countUVars_getUVars.
       rewrite <- countVars_getVars.
-      eapply runOnGoals_sound. eauto.
+      eapply runOnGoals_sound; eauto with typeclass_instances.
   Qed.
 
 End parameterized.

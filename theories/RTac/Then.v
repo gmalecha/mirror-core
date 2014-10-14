@@ -18,6 +18,7 @@ Section parameterized.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
 
   Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
     fun tus tvs nus nvs ctx sub g =>
@@ -42,7 +43,8 @@ Section parameterized.
         destruct X; auto
     end.
     eapply rtac_spec_trans; eauto.
-    eapply runOnGoals_sound with (ctx := ctx) (s := c) (g := g0) in H0.
+    eapply runOnGoals_sound with (ctx := ctx) (s := c) (g := g0) in H0;
+      eauto with typeclass_instances.
     rewrite countUVars_getUVars in H0.
     rewrite countVars_getVars in H0.
     do 2 rewrite <- app_length in H0.

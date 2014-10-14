@@ -20,6 +20,8 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+
+
 Section runOnGoals.
   Variable typ : Type.
   Variable expr : Type.
@@ -32,6 +34,152 @@ Section runOnGoals.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
+
+
+  Lemma remembers_spec
+  : forall l tus tvs s s' sD gsD,
+      WellFormed_subst s ->
+      remembers (length tus) l s = Some s' ->
+      substD (tus ++ map fst l) tvs s = Some sD ->
+      goal_substD tus tvs (map fst l) (map snd l) = Some gsD ->
+      exists s'D,
+        substD (tus ++ map fst l) tvs s' = Some s'D /\
+        forall us vs, (gsD us vs /\ s'D us vs) <-> sD us vs.
+  Proof.
+    induction l; simpl; intros.
+    { forward_reason; inv_all; subst.
+      eexists; split; eauto. intros. tauto. }
+    { forward_reason; inv_all; subst.
+      destruct a; simpl in *.
+      destruct o; forward; inv_all; subst.
+      admit. (*
+              { replace (S (length tus0)) with (length (tus0 ++ t :: nil)) in H4.
+                rewrite substD_conv with (pfu := app_ass_trans tus0 (t :: nil) (map fst l))
+                                         (pfv := eq_refl) in H0.
+                autorewrite with eq_rw in H0. forward; inv_all; subst.
+                admit. admit.
+(*                specialize (@IHl (tus0 ++ t :: nil) tvs0 _ _ _ _ H4 H0). *) }
+              { autorewrite with eq_rw in H1. forward; inv_all; subst.
+                replace (S (length tus0)) with (length (tus0 ++ t :: nil)) in H.
+                rewrite substD_conv with (pfu := app_ass_trans tus0 (t :: nil) (map fst l))
+                                         (pfv := eq_refl) in H0.
+                autorewrite with eq_rw in H0. forward; inv_all; subst.
+                specialize (@IHl (tus0 ++ t :: nil) tvs0 _ _ _ _ H H0 H1).
+                forward_reason.
+                rewrite substD_conv with (pfu := eq_sym (app_ass_trans tus0 (t :: nil) (map fst l)))
+                                         (pfv := eq_refl) in H2.
+                autorewrite with eq_rw in H2.
+                forward; inv_all; simpl in *; subst.
+                eexists; split; eauto.
+                intros.
+                autorewrite with eq_rw.
+                etransitivity; [ | eapply H3 ].
+                clear. revert e e1.
+                generalize (app_ass_trans tus0 (t :: nil) (map fst l)).
+                simpl. destruct e. simpl. reflexivity.
+                rewrite app_length. simpl. omega. } *) admit. }
+  Qed.
+  Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
+                            length ts = length us ->
+                            map fst (combine ts us) = ts.
+  Proof.
+    clear.
+    induction ts; simpl; intros; auto.
+    destruct us. inversion H.
+    simpl. f_equal. auto.
+  Qed.
+  Lemma map_snd_combine : forall {T U} (ts : list T) (us : list U),
+                            length ts = length us ->
+                            map snd (combine ts us) = us.
+  Proof.
+    clear.
+    induction ts; destruct us; simpl; intros; auto.
+    congruence. f_equal. auto.
+  Qed.
+  Lemma forgets_length : forall z y x,
+                           length y = length (forgets (typ:=typ) x y z).
+  Proof.
+    induction y; simpl; auto.
+  Qed.
+  Lemma forgets_spec
+    (** TODO: There needs to be an extra requirement here that says that
+     ** the domain of s is in some way related to the range.
+     **)
+  : forall tvs ts tus s sD,
+      WellFormed_subst s ->
+      substD (tus ++ ts) tvs s = Some sD ->
+      exists s'D,
+        goal_substD tus tvs ts (forgets (length tus) ts s) = Some s'D /\
+        forall us vs,
+          s'D us vs <-> sD us vs.
+  Proof.
+    induction ts; simpl; intros.
+    { admit. (* eexists; split; eauto. simpl; auto. *) }
+    { consider (lookup (length tus) s); intros.
+      { admit. (*eapply substD_lookup in H1; eauto.
+                forward_reason.
+                assert (x = a) by admit.
+                subst.
+                rewrite substD_conv with (pfu := app_ass_trans tus (a :: nil) ts)
+                                         (pfv := eq_refl) in H0.
+                autorewrite with eq_rw in H0.
+                forward; inv_all; subst.
+                specialize (IHts (tus ++ a :: nil) s _ H H0).
+                forward_reason.
+                rewrite app_length in H4. simpl in H4.
+                rewrite Plus.plus_comm in H4.
+                simpl in H4.
+                rewrite H4.
+                eexists; split; eauto.
+                intros us vs H'; generalize (H3 us vs H'); clear H3.
+                autorewrite with eq_rw.
+                intros.
+                split.
+                { eapply H5. revert H'.
+                  autorewrite with eq_rw.
+                  clear.
+                  Lemma eq_sym_eq_sym : forall T (x y : T) (pf : x = y),
+                                          eq_sym (eq_sym pf) = pf.
+                  Proof.
+                    clear. destruct pf. reflexivity.
+                  Qed.
+                  rewrite eq_sym_eq_sym.
+                  tauto. }
+                { unfold hlist_get_cons_after_app.
+                  rewrite <- H3. revert H1. clear. intro.
+                  induction tus; simpl.
+                  { simpl in *. inv_all; subst.
+                    unfold hlist_nth. rewrite (hlist_eta us); simpl.
+                    rewrite <- (hlist_eta us).
+                    rewrite H.
+                    clear. autorewrite with eq_rw.
+                    admit. (** UIP: There should be a more natural phrasing **) }
+                  { admit. } } *) }
+      { admit. } }
+  Qed.
+
+  Lemma eta_ctx_subst_exs c ts (s : ctx_subst subst (CExs c ts))
+  : exists y z,
+      s = ExsSubst (typ:=typ) (expr:=expr) z y.
+  Proof.
+  Admitted.
+  Instance Injective_WellFormed_ctx_subst_ExsSubst ctx ts c s
+  : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)) :=
+    { result := WellFormed_ctx_subst c /\ WellFormed_subst s }.
+  intro.
+  refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
+               return match C as C return ctx_subst subst C -> Prop with
+                        | CExs _ _ => fun s' =>
+                                        let (s,c) := fromExs s' in
+                                        WellFormed_ctx_subst c /\ WellFormed_subst s
+                        | _ => fun _ => True
+                      end S
+         with
+           | WF_ExsSubst t c s s' pfs' pfs => conj  pfs pfs'
+           | _ => I
+         end.
+  Defined.
+
 
   Variable tac : rtac typ expr subst.
 
@@ -167,6 +315,12 @@ Section runOnGoals.
     Qed.
     Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
 
+    Instance Injective_ExsSubst ts ctx a b c d
+    : Injective (ExsSubst (typ:=typ)(subst:=subst)(expr:=expr)(ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
+      { result := a = c /\ b = d }.
+    admit.
+    Defined.
+
     Lemma runOnGoals_sound_ind
     : forall g ctx s,
         @rtac_spec typ expr subst _ _ _ _ _
@@ -223,10 +377,9 @@ Section runOnGoals.
           destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
           simpl in *; eauto. } }
       { (* Exs *)
-(*
         intros; simpl in *.
         forward.
-        specialize (IHg (CExs ctx (map fst l)) s0).
+        specialize (@IHg (CExs _ (map (fst) l)) (ExsSubst s s0)).
         revert IHg. revert H; simpl.
         repeat rewrite countUVars_getUVars.
         repeat rewrite countVars_getVars.
@@ -238,27 +391,41 @@ Section runOnGoals.
               [ remember X as X' ; destruct X'
               | f_equal ; simpl; repeat rewrite app_length;
                 rewrite map_length; omega ]
-        end; intros; auto;
-        match goal with
-          | |- context [ forgets ?A ?B ?C ] =>
-            consider (forgets A B C)
-        end; intros; simpl in *.
-        { consider (forgets (length (tus ++ getUVars ctx)) (map fst l) s0); intros; auto.
-          inv_all; subst.
-          generalize (WellFormed_remembers _ _ _ H H4); intros.
+        end; intros; auto.
+        { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
+          simpl. intros.
+          generalize (WellFormed_remembers _ _ _ H (@WellFormed_empty _ _ _ _ _ _ _ _ _)); intros.
           forward_reason.
-          split; [ eapply WellFormed_forgets; eauto | ].
-          forward. inv_all; subst.
-          revert H8. revert H9.
-
-              inv_all; subst
-            { admit. }
-
-
-          admit. }
-        { consider (forgets (length tus + countUVars ctx) (map fst l) s1); intros; auto.
-          inv_all; subst.
-          admit. } *) admit. }
+          inv_all; split; auto.
+          simpl in *. forward; inv_all; subst.
+          destruct (substD_empty ((tus ++ getUVars ctx) ++ map fst l) (tvs ++ getVars ctx)) as [ ? [ ? ? ] ].
+          destruct (@remembers_spec _ _ _ _ _ _ _ (@WellFormed_empty _ _ _ _ _ _ _ _ _) H H10 H9) as [ ? [ ? ? ] ].
+          rewrite H12 in H8.
+          forward; inv_all; subst.
+          rewrite map_fst_combine in * by eauto using forgets_length.
+          rewrite map_snd_combine in * by eauto using forgets_length.
+          Cases.rewrite_all_goal.
+          eapply forgets_spec in H8; eauto.
+          destruct H8 as [ ? [ ? ? ] ].
+          Cases.rewrite_all_goal.
+          forward_reason.
+          split.
+          { inv_all. subst; auto. }
+          { intros us vs.
+            generalize (H18 us vs).
+            eapply Fmap_pctxD_impl; eauto; try reflexivity.
+            clear - H11 H13 H17. do 6 red.
+            intros. equivs.
+            rewrite _forall_sem in H1.
+            rewrite _exists_sem in H2.
+            destruct H2.
+            apply _exists_sem. exists x.
+            specialize (H11 (hlist_app y x) y0).
+            specialize (H13 (hlist_app y x) y0).
+            apply H13 in H11; clear H13.
+            firstorder. } }
+        { (** Same Proof as above **)
+          admit. } }
       { (* Hyp *)
         simpl; intros.
         specialize (IHg (CHyp ctx e) (HypSubst s)).
