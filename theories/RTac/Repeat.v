@@ -11,6 +11,7 @@ Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Try.
 Require Import MirrorCore.RTac.Idtac.
 Require Import MirrorCore.RTac.Then.
+Require Import MirrorCore.RTac.RunOnGoals.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -44,7 +45,7 @@ Section parameterized.
             match @tac tus tvs nus nvs ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals' (REPEAT' n) tus tvs nus nvs sub' gl'
+                runOnGoals (REPEAT' n) tus tvs nus nvs _ sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -72,7 +73,7 @@ Section parameterized.
       do 2 rewrite app_length.
       rewrite <- countUVars_getUVars.
       rewrite <- countVars_getVars.
-      eapply runOnGoals'_sound. eauto.
+      eapply runOnGoals_sound. eauto.
   Qed.
 
 End parameterized.

@@ -1,5 +1,6 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.RunOnGoals.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -21,7 +22,7 @@ Section parameterized.
   Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
     fun tus tvs nus nvs ctx sub g =>
       match c1 tus tvs nus nvs ctx sub g with
-        | More_ sub' g' => runOnGoals' c2 tus tvs nus nvs sub' g'
+        | More_ sub' g' => runOnGoals c2 tus tvs nus nvs _ sub' g'
         | Solved sub => Solved sub
         | Fail => Fail
       end.
@@ -41,7 +42,7 @@ Section parameterized.
         destruct X; auto
     end.
     eapply rtac_spec_trans; eauto.
-    eapply runOnGoals'_sound with (ctx := ctx) (s := c) (g := g0) in H0.
+    eapply runOnGoals_sound with (ctx := ctx) (s := c) (g := g0) in H0.
     rewrite countUVars_getUVars in H0.
     rewrite countVars_getVars in H0.
     do 2 rewrite <- app_length in H0.
