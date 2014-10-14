@@ -20,12 +20,12 @@ Section parameterized.
 
   Fixpoint FIRST (tacs : list (rtac typ expr subst))
   : rtac typ expr subst :=
-    fun ctx s gl =>
+    fun tus tvs nus nvs ctx s gl =>
       match tacs with
         | nil => Fail
         | tac :: tacs' =>
-          match tac ctx s gl with
-            | Fail => @FIRST tacs' ctx s gl
+          match tac tus tvs nus nvs ctx s gl with
+            | Fail => @FIRST tacs' tus tvs nus nvs ctx s gl
             | x => x
           end
       end.
@@ -38,7 +38,8 @@ Section parameterized.
     { unfold rtac_sound. intros; subst; simpl; auto. }
     { red. intros.
       specialize (H ctx s g _ eq_refl).
-      subst. destruct (x ctx s g); eauto. }
+      subst. destruct (x (tus ++ getUVars ctx) (tvs ++ getVars ctx)
+         (length (tus ++ getUVars ctx)) (length (tvs ++ getVars ctx)) ctx s g); eauto. }
   Qed.
 
 End parameterized.

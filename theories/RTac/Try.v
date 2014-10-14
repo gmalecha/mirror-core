@@ -18,10 +18,11 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
-    fun ctx s g => match tac ctx s g with
-                     | Fail => More_ s g
-                     | x => x
-                   end.
+    fun tus tvs nus nvs ctx s g =>
+      match tac tus tvs nus nvs ctx s g with
+        | Fail => More_ s (GGoal g)
+        | x => x
+      end.
 
   Theorem TRY_sound
   : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
@@ -29,10 +30,9 @@ Section parameterized.
     unfold TRY, rtac_sound.
     intros; subst.
     specialize (H ctx s g _ eq_refl).
-    destruct (tac ctx s g); auto.
-    + intros; split; auto.
-      simpl.
-      forward.
+    destruct (tac (tus ++ getUVars ctx) (tvs ++ getVars ctx)
+           (length (tus ++ getUVars ctx)) (length (tvs ++ getVars ctx)) ctx s
+           g); eauto using rtac_spec_More_.
   Qed.
 
 End parameterized.

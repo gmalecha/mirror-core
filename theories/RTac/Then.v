@@ -19,9 +19,9 @@ Section parameterized.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
 
   Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
-    fun ctx sub g =>
-      match c1 ctx sub g with
-        | More_ sub' g' => c2 ctx sub' g'
+    fun tus tvs nus nvs ctx sub g =>
+      match c1 tus tvs nus nvs ctx sub g with
+        | More_ sub' g' => runOnGoals' c2 tus tvs nus nvs sub' g'
         | Solved sub => Solved sub
         | Fail => Fail
       end.
@@ -36,18 +36,16 @@ Section parameterized.
     intros.
     red. intros. subst.
     specialize (H ctx s g _ eq_refl).
-    destruct (tac1 ctx s g); auto.
-    specialize (@H0 ctx c g0 _ eq_refl); auto.
-    simpl in *.
-    destruct (tac2 ctx c g0); auto.
-    - simpl in *; intros; forward_reason.
-      split; eauto.
-      forward.
-      firstorder.
-    - simpl in *; intros; forward_reason.
-      split; eauto.
-      forward.
-      firstorder.
+    match goal with
+      | |- context [ match ?X with _ => _ end ] =>
+        destruct X; auto
+    end.
+    eapply rtac_spec_trans; eauto.
+    eapply runOnGoals'_sound with (ctx := ctx) (s := c) (g := g0) in H0.
+    rewrite countUVars_getUVars in H0.
+    rewrite countVars_getVars in H0.
+    do 2 rewrite <- app_length in H0.
+    eauto.
   Qed.
 
 End parameterized.

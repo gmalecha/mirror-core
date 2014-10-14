@@ -37,14 +37,14 @@ Section parameterized.
 
     Fixpoint REPEAT' (n : nat) {struct n}
     : rtac typ expr subst :=
-      fun ctx sub gl =>
+      fun tus tvs nus nvs ctx sub gl =>
         match n with
-          | 0 => More_ sub gl
+          | 0 => More_ sub (GGoal gl)
           | S n =>
-            match @tac ctx sub gl with
-              | Fail => More_ sub gl
+            match @tac tus tvs nus nvs ctx sub gl with
+              | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                (REPEAT' n) ctx sub' gl'
+                runOnGoals' (REPEAT' n) tus tvs nus nvs sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -60,25 +60,19 @@ Section parameterized.
   Proof.
     unfold REPEAT. intros tus vs n tac H.
     induction n.
-    - simpl. intros. clear.
+    - simpl. clear.
       red; intros; subst.
-      intro; split; auto.
-      simpl.
-      forward.
+      eapply rtac_spec_More_.
     - simpl. red; intros; subst.
       specialize (H ctx s g _ eq_refl).
-      destruct (tac ctx s g); auto.
-      + intros; split; auto.
-        simpl. forward.
-      + simpl in *.
-        unfold rtac_sound in *.
-        specialize (IHn ctx c g0 _ eq_refl).
-        unfold rtac_spec in *.
-        destruct (@REPEAT' tac n ctx c g0); auto.
-        * intros; forward_reason; split; auto.
-          forward. firstorder.
-        * intros; forward_reason; split; auto.
-          forward. firstorder.
+      destruct (tac (tus ++ getUVars ctx) (vs ++ getVars ctx)
+                    (length (tus ++ getUVars ctx)) (length (vs ++ getVars ctx))
+                    ctx s g); auto using rtac_spec_More_.
+      eapply rtac_spec_trans; eauto.
+      do 2 rewrite app_length.
+      rewrite <- countUVars_getUVars.
+      rewrite <- countVars_getVars.
+      eapply runOnGoals'_sound. eauto.
   Qed.
 
 End parameterized.
