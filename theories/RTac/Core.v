@@ -222,6 +222,15 @@ Section parameterized.
         end
     end.
 
+  Fixpoint ctx_domain {c} (cs : ctx_subst c) : list nat :=
+    match cs with
+      | TopSubst s => domain s
+      | AllSubst _ _ c => ctx_domain c
+      | HypSubst _ _ c => ctx_domain c
+      | ExsSubst _ _ c s =>
+        ctx_domain c ++ domain s
+    end.
+
   Section ctx_set'.
     Variables (u : nat) (e : expr) (min : nat) (nus : nat).
 
@@ -252,6 +261,24 @@ Section parameterized.
 
   Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c) : option (ctx_subst c) :=
     ctx_set' u e cs (@Some _).
+
+  Fixpoint ctx_empty {c} : ctx_subst c :=
+    match c with
+      | CTop => TopSubst (@empty _ _ _)
+      | CHyp c h => HypSubst ctx_empty
+      | CAll c h => AllSubst ctx_empty
+      | CExs c h => ExsSubst ctx_empty (@empty _ _ _)
+    end.
+
+  Global Instance Subst_ctx_subst ctx : Subst (ctx_subst ctx) expr :=
+  { lookup := ctx_lookup
+  ; domain := ctx_domain
+  }.
+
+  Global Instance SubstUpdate_ctx_subst ctx : SubstUpdate (ctx_subst ctx) expr :=
+  { set := ctx_set
+  ; empty := ctx_empty
+  }.
 
   (** StateT subst Option Goal **)
   Inductive Result c :=
