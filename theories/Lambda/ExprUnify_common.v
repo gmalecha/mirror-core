@@ -64,8 +64,8 @@ Section typed.
     forward_reason.
     eexists; split; eauto.
     intros.
-    eapply H7 in H8; forward_reason; split; auto.
-    intros. rewrite <- H9.
+    eapply H8 in H9; forward_reason; split; auto.
+    intros. rewrite <- H10.
     inv_all; subst. reflexivity.
   Qed.
 
@@ -109,9 +109,9 @@ Section typed.
     forward_reason.
     eexists; split; eauto.
     intros.
-    eapply H8 in H9; clear H8.
+    eapply H9 in H10; clear H9.
     forward_reason; split; eauto.
-    rewrite H9. intros. eapply (H7 us Hnil vs' vs).
+    rewrite H10. intros. eapply (H7 us Hnil vs' vs).
   Qed.
 
   Definition unify_sound_ind
@@ -186,7 +186,6 @@ Section typed.
         simpl in *.
         autorewrite with exprD_rw in H5; simpl in H5.
         forward. inv_all; subst.
-(*        change_rewrite H5 in H9. inv_all; subst. *)
         eapply nth_error_get_hlist_nth_Some in H5.
         simpl in *. forward_reason.
         generalize (@exprD'_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x2).

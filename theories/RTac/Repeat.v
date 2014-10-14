@@ -41,7 +41,7 @@ Section parameterized.
         match n with
           | 0 => More_ sub gl
           | S n =>
-            match tac ctx sub gl with
+            match @tac ctx sub gl with
               | Fail => More_ sub gl
               | More_ sub' gl' =>
                 (REPEAT' n) ctx sub' gl'
@@ -72,9 +72,9 @@ Section parameterized.
         simpl. forward.
       + simpl in *.
         unfold rtac_sound in *.
-        specialize (IHn ctx s0 g0 _ eq_refl).
+        specialize (IHn ctx c g0 _ eq_refl).
         unfold rtac_spec in *.
-        destruct (REPEAT' tac n ctx s0 g0); auto.
+        destruct (@REPEAT' tac n ctx c g0); auto.
         * intros; forward_reason; split; auto.
           forward. firstorder.
         * intros; forward_reason; split; auto.

@@ -37,9 +37,9 @@ Section parameterized.
     red. intros. subst.
     specialize (H ctx s g _ eq_refl).
     destruct (tac1 ctx s g); auto.
-    specialize (H0 ctx s0 g0 _ eq_refl); auto.
+    specialize (@H0 ctx c g0 _ eq_refl); auto.
     simpl in *.
-    destruct (tac2 ctx s0 g0); auto.
+    destruct (tac2 ctx c g0); auto.
     - simpl in *; intros; forward_reason.
       split; eauto.
       forward.

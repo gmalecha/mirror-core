@@ -239,9 +239,11 @@ Module Make (FM : WS with Definition E.t := uvar
     Instance SubstUpdate_subst : SubstUpdate raw expr :=
     { set := raw_set
     ; empty := FM.empty _
+(*
     ; forget := raw_forget
     ; strengthenU := raw_strengthenU
     ; strengthenV := raw_strengthenV
+*)
     }.
 
     Lemma None_becomes_None
@@ -729,8 +731,7 @@ Module Make (FM : WS with Definition E.t := uvar
                 (fun t0 : typ => hlist typD tus -> typD t0) t
                 get) ->
            exprD' tus tvs e t = Some val ->
-           exists
-             sD' : hlist typD tus -> hlist typD tvs -> Prop,
+           exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
              raw_substD tus tvs s' = Some sD' /\
              (forall (us : hlist typD tus)
                      (vs : hlist typD tvs),
@@ -1055,6 +1056,7 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 *)
 
+(*
     Theorem strengthenV_sound
     : forall (s : raw) (n c : nat),
         raw_strengthenV n c s = true ->
@@ -1072,7 +1074,7 @@ Module Make (FM : WS with Definition E.t := uvar
                     (vs : hlist typD tvs)
                     (vs' : hlist typD tvs'),
                sD us (hlist_app vs vs') <-> sD' us vs).
-    Admitted.
+  Abort.
 
     Theorem strengthenU_sound
     : forall (s : raw) (n c : nat),
@@ -1092,7 +1094,7 @@ Module Make (FM : WS with Definition E.t := uvar
                     (vs : hlist typD tvs)
                     (us' : hlist typD tus'),
                sD (hlist_app us us') vs <-> sD' us vs).
-    Admitted.
+    Abort.
 
     Theorem forget_sound
     : forall s u s' oe,
@@ -1120,15 +1122,56 @@ Module Make (FM : WS with Definition E.t := uvar
                   | None => False
                 end
             end.
-    Admitted.
+     Abort.
+*)
+
+    Require Import ExtLib.Data.Option.
+
+    Definition raw_substR (tus tvs : tenv typ) (a b : raw) : Prop :=
+      Roption (RexprT tus tvs impl) (substD tus tvs b) (substD tus tvs a).
+
+    Theorem set_sound
+    : forall (uv : nat) (e : expr) (s s' : raw),
+        set uv e s = Some s' ->
+        lookup uv s = None ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        (forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
+                (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
+           substD tus tvs s = Some sD ->
+           nth_error_get_hlist_nth typD tus uv =
+           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
+           exprD' tus tvs e t = Some val ->
+           exists sD' : exprT tus tvs Prop,
+             substD tus tvs s' = Some sD' /\
+             raw_substR tus tvs s s' /\
+             (forall (us : hlist typD tus) (vs : hlist typD tvs),
+                sD' us vs -> sD us vs /\ get us = val us vs)).
+    Proof.
+      intros. eapply substD_set in H; eauto.
+      destruct H. split; auto. intros.
+      eapply H2 in H4; eauto.
+      destruct H4. exists x.
+      forward_reason; split; eauto.
+      unfold raw_substR.
+      simpl in *.
+      Cases.rewrite_all_goal.
+      split; eauto.
+      { constructor. do 6 red.
+        intros. apply equiv_eq_eq in H7; apply equiv_eq_eq in H8; subst.
+        eapply H6 in H9. tauto. }
+    Qed.
 
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
-    {| WellFormed_empty := WellFormed_empty
+    {| substR := raw_substR
+     ; WellFormed_empty := WellFormed_empty
      ; substD_empty := substD_empty
-     ; set_sound := substD_set
+     ; set_sound := set_sound
+(*
      ; strengthenU_sound := strengthenU_sound
      ; strengthenV_sound := strengthenV_sound
      ; forget_sound := forget_sound
+*)
      |}.
 
   End exprs.

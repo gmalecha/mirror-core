@@ -25,7 +25,7 @@ Section parameterized.
         | nil => Fail
         | tac :: tacs' =>
           match tac ctx s gl with
-            | Fail => FIRST tacs' ctx s gl
+            | Fail => @FIRST tacs' ctx s gl
             | x => x
           end
       end.

@@ -112,16 +112,24 @@ Section subst.
 
   Class SubstUpdate :=
   { set : uvar -> expr -> T -> option T
-(*  ; drop : uvar -> T -> option T *)
   ; empty : T
-  ; forget : uvar -> T -> (T * option expr)
+    (** NOTE: This doesn't seem to be used! It really should be specific to
+     *  the particular implementation
+     *)
+    (** NOTE: Things below this are all about context manipulation.
+     *  This makes less sense for this interface.
+     *)
+(*  ; drop : uvar -> T -> option T *)
+(*  ; split : uvar -> nat -> T -> option (T * list (option expr))
   ; strengthenV : nat -> nat -> T -> bool
   ; strengthenU : nat -> nat -> T -> bool
+*)
   }.
 
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
-  { WellFormed_empty : WellFormed_subst empty
+  { substR : forall (tus tvs : tenv typ), T -> T -> Prop
+  ; WellFormed_empty : WellFormed_subst empty
   ; substD_empty
     : forall tus tvs,
       exists P,
@@ -140,10 +148,11 @@ Section subst.
           exprD' tus tvs e t = Some val ->
           exists sD',
             substD tus tvs s' = Some sD' /\
+            substR tus tvs s s' /\
             forall us vs,
               sD' us vs ->
-              sD us vs /\
-              get us = val us vs
+              sD us vs /\ get us = val us vs
+(*
   ; strengthenV_sound
     : forall s n c,
         strengthenV n c s = true ->
@@ -194,6 +203,7 @@ Section subst.
                   | None => False
                 end
             end
+*)
   }.
 
   Context {Subst_subst : Subst}.
@@ -214,6 +224,7 @@ Section subst.
     clear. destruct pfu. destruct pfv. reflexivity.
   Qed.
 
+(*
   Definition drop (from : uvar) (s : T) : option T :=
     let (nsub,val) := forget from s in
     match val with
@@ -251,12 +262,15 @@ Section subst.
                    | Some s' => drop from s'
                   end
     end.
+*)
 
+(*
   Definition Subst_Extends (a b : T) : Prop :=
     forall tus tvs P Q,
       substD tus tvs b = Some P ->
       substD tus tvs a = Some Q ->
       forall us vs, P us vs -> Q us vs.
+*)
 
   (** TODO: Maybe this should be essential **)
   Class NormalizedSubstOk : Type :=
@@ -338,6 +352,7 @@ Section subst.
                            hlist_Forall2 (ls := ls) P xs ys ->
                            hlist_Forall2 P (Hcons x xs) (Hcons y ys).
 
+(*
   Theorem pull_sound
   : forall (Hnormalized : NormalizedSubstOk) n s s' u,
       pull u n s = Some s' ->
@@ -487,6 +502,7 @@ Section subst.
             forwardy. inv_all. subst.
             rewrite H1; auto. rewrite H. reflexivity. } } } }
   Qed.
+*)
 
   Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
 
@@ -523,6 +539,7 @@ Section subst.
     eexists; split; eauto.
   Qed.
 
+(*
   Theorem pull_for_instantiate_sound
   : forall (Hnormalized : NormalizedSubstOk) tus tus' tvs s s',
       pull (length tus) (length tus') s = Some s' ->
@@ -588,8 +605,10 @@ Section subst.
       { eapply sem_preserves_if_substD; eauto. } }
     { intros. eauto. }
   Qed.
-
+*)
 End subst.
 
+(*
 Arguments pull {T expr SU} _ _ _ : rename.
+*)
 Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.
