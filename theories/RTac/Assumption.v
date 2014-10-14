@@ -28,12 +28,12 @@ Section parameterized.
   Section findHyp.
     Variable check : expr -> subst -> option subst.
 
-    Fixpoint findHyp (ctx : Ctx typ expr) (s : subst) {struct ctx}
+    Fixpoint findHyp (ctx : Ctx typ expr) (s : ctx_subst _ ctx) {struct ctx}
     : option subst :=
       match ctx with
         | CTop => None
-        | CAll ctx' _ => findHyp ctx' s
-        | CExs ctx' _ => findHyp ctx' s
+        | CAll ctx' _ => @findHyp ctx' s
+        | CExs ctx' _ => @findHyp ctx' s
         | CHyp ctx' h => match check h s with
                            | None => findHyp ctx' s
                            | Some e => Some e
@@ -41,15 +41,17 @@ Section parameterized.
       end.
   End findHyp.
 
+  Variables tus tvs : tenv typ.
   Variable check : Ctx typ expr -> expr -> expr -> subst -> option subst.
 
   Definition ASSUMPTION : rtac typ expr subst :=
-    fun ctx s gl =>
-      match findHyp (check ctx gl) ctx s with
-        | None => Fail
-        | Some s' =>
-          Solved s'
-      end.
+    runOnGoals (fun ctx s gl =>
+                  match findHyp (check ctx gl) ctx s with
+                    | None => Fail
+                    | Some s' =>
+                      Solved s'
+                  end) tus tvs.
+    .
 (*
   Definition exprD'_ctx (ctx : Ctx typ expr) (e : expr) (t : typ)
   : option (OpenT (getUVars ctx) (getVars ctx) (typD t)) :=
