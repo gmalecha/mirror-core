@@ -592,14 +592,14 @@ Section parameterized.
                 (goalD tus tvs g1)
                 (goalD tus tvs g2).
 
-  Instance Reflexive_EqGoal tus tvs : Reflexive (EqGoal tus tvs).
+  Global Instance Reflexive_EqGoal tus tvs : Reflexive (EqGoal tus tvs).
   Proof. red. red. reflexivity. Qed.
-  Instance Transitive_EqGoal tus tvs : Transitive (EqGoal tus tvs).
+  Global Instance Transitive_EqGoal tus tvs : Transitive (EqGoal tus tvs).
   Proof.
     red. unfold EqGoal. intros.
     etransitivity; eauto.
   Qed.
-  Instance Symmetric_EqGoal tus tvs : Symmetric (EqGoal tus tvs).
+  Global Instance Symmetric_EqGoal tus tvs : Symmetric (EqGoal tus tvs).
   Proof.
     red; unfold EqGoal. intros.
     symmetry. eauto.
@@ -610,16 +610,19 @@ Section parameterized.
       Roption (Eqpair (@eq _) (EqGoal tus tvs))
               (fromResult r1) (fromResult r2).
 
-  Instance Reflexive_EqResult tus tvs c : Reflexive (@EqResult tus tvs c).
+  Global Instance Reflexive_EqResult tus tvs c
+  : Reflexive (@EqResult tus tvs c).
   Proof.
     red. red. intros. reflexivity.
   Qed.
-  Instance Symmetric_EqResult tus tvs c : Symmetric (@EqResult tus tvs c).
+  Global Instance Symmetric_EqResult tus tvs c
+  : Symmetric (@EqResult tus tvs c).
   Proof.
     red. unfold EqResult; inversion 1; constructor.
     symmetry; eauto.
   Qed.
-  Instance Transitive_EqResult tus tvs c : Transitive (@EqResult tus tvs c).
+  Global Instance Transitive_EqResult tus tvs c
+  : Transitive (@EqResult tus tvs c).
   Proof.
     red; unfold EqResult; inversion 1; inversion 1; constructor.
     subst.
@@ -1045,7 +1048,7 @@ Section parameterized.
   Qed.
 
 
-  Theorem Proper_rtac_local_spec tus tvs ctx s
+  Theorem Proper_rtac_spec tus tvs ctx s
   : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
             @EqResult (tus ++ getUVars ctx) (tvs ++ getVars ctx) ctx ==> iff)
            (@rtac_spec tus tvs ctx s).
@@ -1138,7 +1141,7 @@ Section parameterized.
       | _ => tt
     end.
 
-  Instance Injective_SubstMorphism_AllSubst tus tvs t ctx s s'
+  Global Instance Injective_SubstMorphism_AllSubst tus tvs t ctx s s'
   : Injective (@SubstMorphism tus tvs (CAll ctx t) (AllSubst s) s') :=
   { result := exists s'', s' = AllSubst s'' /\ @SubstMorphism tus tvs ctx s s'' }.
   intros.
@@ -1158,13 +1161,13 @@ Section parameterized.
   simpl; eauto.
   Defined.
 
-  Instance Injective_SubstMorphism_HypSubst tus tvs t ctx s s'
+  Global Instance Injective_SubstMorphism_HypSubst tus tvs t ctx s s'
   : Injective (@SubstMorphism tus tvs (CHyp ctx t) (HypSubst s) s') :=
   { result := exists s'', s' = HypSubst s'' /\ @SubstMorphism tus tvs ctx s s'' }.
   admit.
   Defined.
 
-  Instance Injective_SubstMorphism_TopSubst tus tvs s s'
+  Global Instance Injective_SubstMorphism_TopSubst tus tvs s s'
   : Injective (@SubstMorphism tus tvs (CTop) (TopSubst s) s') :=
   { result := exists s'', s' = TopSubst s'' /\ match substD tus tvs s
                                                      , substD tus tvs s''

@@ -138,13 +138,33 @@ Section runOnGoals.
         @WellFormed_ctx_subst typ expr subst _ _ _ _ (CAll c t) cs ->
         @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromAll cs).
     Proof.
-    Admitted.
+      intros.
+      refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
+                   return match C as C return ctx_subst subst C -> Prop with
+                            | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
+                            | _ => fun _ => True
+                          end S
+             with
+               | WF_AllSubst _ _ _ pf => pf
+               | _ => I
+             end.
+    Qed.
     Lemma WellFormed_ctx_subst_fromHyp
     : forall t c cs,
         @WellFormed_ctx_subst typ expr subst _ _ _ _ (CHyp c t) cs ->
         @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromHyp cs).
     Proof.
-    Admitted.
+      intros.
+      refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
+                   return match C as C return ctx_subst subst C -> Prop with
+                            | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
+                            | _ => fun _ => True
+                          end S
+             with
+               | WF_HypSubst _ _ _ pf => pf
+               | _ => I
+             end.
+    Qed.
     Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
 
     Lemma runOnGoals_sound_ind
@@ -162,15 +182,15 @@ Section runOnGoals.
         intros.
         specialize (@IHg (CAll ctx t) (AllSubst s)).
         simpl in *.
-(*
         match goal with
           | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
             replace Y with X
-        end; [ | f_equal ; omega ].
-        destruct (@runOnGoals (length tus + countUVars ctx)
-                               (length tvs + S (countVars ctx)) (CAll ctx t) (AllSubst s) g);
+        end; [ | f_equal ; try solve [ rewrite app_ass_trans ; reflexivity | omega ] ].
+        destruct (runOnGoals (tus ++ getUVars ctx) (tvs ++ getVars ctx ++ t :: nil)
+                             (length tus + countUVars ctx) (length tvs + S (countVars ctx))
+                             (AllSubst s) g);
           auto; intros; forward_reason; split; eauto.
-        { generalize (@Proper_pctxD_impl tus tvs ctx (fromAll c)).
+        { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
           simpl in *.
           rewrite goalD_conv with (pfu := eq_refl)
                                   (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
@@ -185,8 +205,8 @@ Section runOnGoals.
           do 6 red. clear.
           do 6 intro; equivs.
           destruct (app_ass_trans tvs (getVars ctx) (t :: nil)); simpl.
-          eauto.  }
-        { generalize (@Proper_pctxD_impl tus tvs ctx (fromAll c)).
+          eauto. }
+        { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
           simpl in *.
           rewrite goalD_conv with (pfu := eq_refl)
                                   (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
@@ -201,7 +221,7 @@ Section runOnGoals.
           clear.
           do 6 red. intros; equivs.
           destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
-          simpl in *; eauto. } *) admit. }
+          simpl in *; eauto. } }
       { (* Exs *)
 (*
         intros; simpl in *.
@@ -238,53 +258,42 @@ Section runOnGoals.
           admit. }
         { consider (forgets (length tus + countUVars ctx) (map fst l) s1); intros; auto.
           inv_all; subst.
-          admit. } }
-      { simpl; intros.
-        specialize (IHg (CHyp ctx e) s).
-(*        match goal with
+          admit. } *) admit. }
+      { (* Hyp *)
+        simpl; intros.
+        specialize (IHg (CHyp ctx e) (HypSubst s)).
+        match goal with
           | H : match ?X with _ => _ end
             |- match match ?Y with _ => _ end with _ => _ end =>
             replace Y with X; [ remember X as X' ; destruct X' | f_equal ; simpl ; rewrite map_length; omega ]
         end; auto;
         intros; forward_reason; split; eauto; simpl in *;
-        unfold subst_pctxD in *; forward; subst; inv_all; subst.
-        { destruct H10.
-          inversion H1; clear H1; subst. split; auto.
-          generalize (Proper_subst_pctxD_impl tus tvs ctx s0).
-          simpl.
-          rewrite H12 in *; inv_all; subst.
-          unfold subst_pctxD.
-          Cases.rewrite_all_goal.
-          do 3 intro; inv_all.
-          eapply H1; [ | reflexivity | reflexivity | eapply H5 ].
-          do 6 red.
-          intros. eapply equiv_eq_eq in H6; eapply equiv_eq_eq in H8; subst.
-          tauto. }
-        { destruct H9.
-          inversion H1; clear H1; subst. split; auto.
-          generalize (Proper_subst_pctxD_impl tus tvs ctx s0).
-          simpl.
-          rewrite H11 in *. inv_all; subst.
-          unfold subst_pctxD.
-          Cases.rewrite_all_goal.
-          do 3 intro; inv_all.
-          eapply H1; [ | reflexivity | reflexivity | eapply H5 ].
-          do 6 red.
-          intros. eapply equiv_eq_eq in H6; eapply equiv_eq_eq in H8; subst.
-          tauto. } *)
-       *) admit. }
+        forward; forward_reason; subst; inv_all; subst; simpl in *;
+        forward; subst; inv_all; subst.
+        { split; auto.
+          intros us vs.
+          generalize (H7 us vs).
+          eapply Fmap_pctxD_impl; try reflexivity; eauto.
+          clear; do 6 red; intros.
+          equivs; tauto. }
+        { split; auto. } }
       { (* Conj *)
-(*
         simpl; intros; clear Htac.
         specialize (IHg1 ctx s).
         rename g1 into A.
         rename g2 into B.
-        destruct (runOnGoals (length tus + countUVars ctx) (length tvs + countVars ctx)
-                              ctx s A); auto.
+        match goal with
+          | H : match ?X with _ => _ end
+          |- context [ match ?Y with _ => _ end ] =>
+            change Y with X ; destruct X; auto
+        end.
         { rename g into A'.
-          specialize (IHg2 ctx s0).
-          destruct (runOnGoals (length tus + countUVars ctx) (length tvs + countVars ctx)
-                                ctx s0 B); auto.
+          specialize (IHg2 ctx c).
+          match goal with
+            | H : match ?X with _ => _ end
+              |- context [ match ?Y with _ => _ end ] =>
+              change Y with X ; destruct X; auto
+          end.
           { rename g into B'.
             intros; forward_reason; split; auto.
             simpl. forward. forward_reason.
@@ -293,16 +302,16 @@ Section runOnGoals.
             specialize (H11 us vs).
             specialize (H12 us vs).
             revert H11.
-            eapply (Applicative_pctxD _ _ H8).
+            eapply (Applicative_pctxD _ H8).
             eapply pctxD_SubstMorphism.
             3: eassumption. eassumption. eassumption.
             revert H12.
-            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
             clear. do 6 red.
             intros. equivs. firstorder. }
-          { change (rtac_local_spec tus tvs ctx s (GConj_ A B) (More s1 A')).
-            eapply Proper_rtac_local_spec; [ reflexivity | eapply More_More_ | ].
-            reflexivity. reflexivity.
+          { change (rtac_spec tus tvs s (GConj_ A B) (More c0 A')).
+            eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
+            reflexivity.
             simpl.
             intros; forward_reason; split; auto.
             simpl. forward. forward_reason.
@@ -311,18 +320,19 @@ Section runOnGoals.
             specialize (H11 us vs).
             specialize (H10 us vs).
             revert H10.
-            eapply (Applicative_pctxD _ _ H8).
+            eapply (Applicative_pctxD _ H8).
             eapply pctxD_SubstMorphism.
             3: eassumption. eassumption. eassumption.
             revert H11.
-            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
             clear. do 6 red.
-            intros. equivs. firstorder. } *) admit. }
-        { (* Hyp *)
-(*
-          specialize (IHg2 ctx s0).
-          destruct (runOnGoals (length tus + countUVars ctx) (length tvs + countVars ctx)
-                                ctx s0 B); auto.
+            intros. equivs. firstorder. } }
+        { specialize (IHg2 ctx c).
+          match goal with
+            | H : match ?X with _ => _ end
+              |- context [ match ?Y with _ => _ end ] =>
+              change Y with X ; destruct X; auto
+          end.
           { rename g into B'.
             intros; forward_reason; split; auto.
             simpl. forward. forward_reason.
@@ -331,11 +341,11 @@ Section runOnGoals.
             specialize (H10 us vs).
             specialize (H11 us vs).
             revert H10.
-            eapply (Applicative_pctxD _ _ H7).
+            eapply (Applicative_pctxD _ H7).
             eapply pctxD_SubstMorphism.
             3: eassumption. eassumption. eassumption.
             revert H11.
-            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
             clear. do 6 red.
             intros. equivs. firstorder. }
           { intros; forward_reason; split; auto.
@@ -345,14 +355,13 @@ Section runOnGoals.
             specialize (H9 us vs).
             specialize (H10 us vs).
             revert H9.
-            eapply (Applicative_pctxD _ _ H7).
+            eapply (Applicative_pctxD _ H7).
             eapply pctxD_SubstMorphism.
             3: eassumption. eassumption. eassumption.
             revert H10.
-            eapply (Fmap_pctxD_impl _ _ H3); try reflexivity.
+            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
             clear. do 6 red.
-            intros. equivs. firstorder. } } *) admit. }
-
+            intros. equivs. firstorder. } } }
       { (* Goal *)
         clear - Htac; simpl; intros.
         red in Htac.
