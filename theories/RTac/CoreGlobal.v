@@ -14,6 +14,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.RunOnGoals.
 
 Require Import MirrorCore.Util.Quant.
 Require Import MirrorCore.Util.Forwardy.
@@ -95,7 +96,8 @@ Section parameterized.
         end
     end.
 
-  Definition rtac_global_spec tus tvs ctx (s : ctx_subst subst ctx) g (r : Result _ ctx) : Prop :=
+  Definition rtac_global_spec tus tvs ctx (s : ctx_subst subst ctx) g
+             (r : Result _ ctx) : Prop :=
     match r with
       | Fail => True
       | Solved s' =>
@@ -128,11 +130,6 @@ Section parameterized.
             forall us vs, cD' gD' us vs -> cD gD us vs
         end
     end.
-
-  Ltac equivs :=
-    repeat match goal with
-             | H : equiv_hlist _ _ _ |- _ => apply equiv_eq_eq in H
-           end; subst.
 
   Theorem Proper_rtac_global_spec tus tvs ctx s
   : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
@@ -458,6 +455,17 @@ Section parameterized.
       do 6 red. clear.
       intros; equivs; eauto. }
 *)
+  Admitted.
+
+  Definition runRTac (tac : rtac typ expr subst)
+             (ctx : Ctx typ expr) (cs : ctx_subst subst ctx)
+             (g : Goal typ expr)
+  : Result subst ctx :=
+    let tus := getUVars ctx in
+    let tvs := getVars ctx in
+    runOnGoals tac tus tvs (length tus) (length tvs) ctx cs g.
+
+  Theorem runRTac_sound : True.
   Admitted.
 
 End parameterized.

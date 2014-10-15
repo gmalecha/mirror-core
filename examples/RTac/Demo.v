@@ -32,18 +32,19 @@ Let INTRO :=
 
 Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
                     (@vars_to_uvars _ _)
-                    (fun tus tvs n l r t s =>
+                    (fun _ _ _ tus tvs n l r t s =>
                        @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
                     (@instantiate _ _) UVar.
 
 Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _
                       (@vars_to_uvars _ _)
-                      (fun tus tvs n l r t s =>
+                      (fun _ _ _ tus tvs n l r t s =>
                          @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
                       (@instantiate _ _) UVar.
 
+
 Let ASSUMPTION : rtac typ (expr typ func) subst :=
-  ASSUMPTION (fun _ x y s => if x ?[ eq ] y then Some s else None).
+  ASSUMPTION (fun _ _ _ x y s => if x ?[ eq ] y then Some s else None).
 
 Definition fAll (t : typ) (P : expr typ func) : expr typ func :=
   App (Inj (All t)) (Abs t P).
@@ -59,13 +60,12 @@ Definition tac : rtac typ (expr typ func) subst :=
   THEN (REPEAT 10 INTRO)
        (TRY ASSUMPTION).
 
+Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
+           (goal : expr typ func)  :=
+  @runRTac _ _ _ _ _ tac CTop (@empty _ _ _) (@GGoal typ (expr typ func) goal).
 
 Definition simple_goal : expr typ func :=
   fAll tyProp (fImpl (Var 0) (Var 0)).
-
-Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
-           (goal : expr typ func)  :=
-  runRTac tac CTop (@empty _ _ _) (@GGoal typ (expr typ func) goal).
 
 Eval compute in
     runRTac_empty_goal tac simple_goal.
@@ -95,7 +95,8 @@ Eval compute in
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
                              (THEN (APPLY and_lem)
-                                   (FIRST (FAIL :: ASSUMPTION :: nil)))) goal.
+                                   (FIRST (FAIL :: ASSUMPTION :: nil))))
+                       goal.
 
 Eval compute in
     let goal :=

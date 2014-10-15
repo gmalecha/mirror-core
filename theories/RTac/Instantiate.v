@@ -23,13 +23,15 @@ Section parameterized.
   Section instantiate.
     Definition INSTANTIATE
     : rtac typ expr subst :=
-      @SIMPLIFY typ expr subst
-                (fun _ sub => instantiate (fun u => lookup u sub) 0).
+      @SIMPLIFY typ expr subst _
+                (fun subst Subst_subst _ctx sub =>
+                   instantiate (fun u => lookup u sub) 0).
   End instantiate.
 
   Theorem INSTANTIATE_sound
   : forall tus tvs, rtac_sound tus tvs INSTANTIATE.
   Proof.
+    intros. eapply SIMPLIFY_sound.
   Admitted.
 
 End parameterized.
