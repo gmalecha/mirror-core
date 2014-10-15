@@ -332,7 +332,7 @@ Section parameterized.
           | HypSubst _ _ c => fun k =>
             ctx_set' _ _ c (fun c => k (HypSubst c))
           | ExsSubst _ ctx c s => fun k =>
-            if u ?[ gt ] (countUVars ctx + nus) then
+            if u ?[ ge ] (countUVars ctx + nus) then
               match set u e s with
                 | None => None
                 | Some s' => k (ExsSubst c s')

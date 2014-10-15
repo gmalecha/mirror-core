@@ -7,6 +7,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Nat.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprDFacts.
 Require Import MirrorCore.Lambda.ExprD.
@@ -19,29 +20,6 @@ Require Import FunctionalExtensionality.
 Section substitute.
   Variable typ : Type.
   Variable func : Type.
-
-  Fixpoint lt_rem (a b : nat) : option nat :=
-    match b with
-      | 0 => Some a
-      | S b' => match a with
-                  | 0 => None
-                  | S a' => lt_rem a' b'
-                end
-    end.
-
-  Lemma lt_rem_sound
-  : forall b a,
-      match lt_rem a b with
-        | None => a < b
-        | Some c => a >= b /\ a - b = c
-      end.
-  Proof.
-    induction b; destruct a; simpl; intros; auto.
-    { split; auto. red. omega. }
-    { omega. }
-    { specialize (IHb a).
-      destruct (lt_rem a b); intuition. }
-  Qed.
 
   Section subst'.
     Variable lookupU : uvar -> forall t, (expr typ func -> t) -> t -> t.

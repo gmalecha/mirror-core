@@ -20,8 +20,6 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-
-
 Section runOnGoals.
   Variable typ : Type.
   Variable expr : Type.
@@ -234,6 +232,10 @@ Section runOnGoals.
           | More_ s g => More_ (fromHyp s) (GHyp h g)
         end
       | GConj_ l r =>
+        (** NOTE: It would be nice if I could eagerly
+         ** instantiate [r] with any results that came
+         ** from [l].
+         **)
         match @runOnGoals tus tvs nus nvs ctx s l with
           | Fail => Fail
           | Solved s' => @runOnGoals tus tvs nus nvs ctx s' r
