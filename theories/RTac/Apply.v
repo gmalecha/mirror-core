@@ -26,6 +26,7 @@ Section parameterized.
   Context {SU : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
+  Variable UVar : nat -> expr.
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -34,7 +35,7 @@ Section parameterized.
   Variable lem : Lemma.lemma typ expr expr.
 
   Definition APPLY : rtac typ expr subst :=
-    @EAPPLY typ expr subst _ _ _ _ vars_to_uvars exprUnify lem.
+    @EAPPLY typ expr subst _ _ _ _ UVar vars_to_uvars exprUnify instantiate lem.
   Let tyProp := @typ0 _ _ Prop _.
 
   Let cast (e : typD tyProp) : Prop :=

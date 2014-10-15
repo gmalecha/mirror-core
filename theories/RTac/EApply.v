@@ -25,6 +25,7 @@ Section parameterized.
   Context {SU : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
+  Variable UVar : nat -> expr.
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -46,7 +47,8 @@ Section parameterized.
           let premises :=
               map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
           in
-          reduceGoal ctx (CExs CTop lem.(vars)) sub'
+          reduceGoal instantiate UVar
+                     ctx (CExs CTop lem.(vars)) sub'
                      (GConj_list premises) (len_vars + nus) nvs
       end.
 

@@ -37,11 +37,31 @@ Section parameterized.
     fun _ _ _ _ ctx sub gl =>
       More_ sub (GGoal (@simplify (ctx_subst subst ctx) _ ctx sub gl)).
 
-  Hypothesis simplify_sound : False.
+(*
+  Hypothesis simplify_sound
+  : forall subst Subst_subst tus tvs ctx s e e',
+      @simplify subst Subst_subst ctx s e = e' ->
+      match pctxD tus tvs ctx
+          , substD (tus ++ getUVars ctx) (tvs ++ getVars ctx) s
+          , propD (tus ++ getUVars ctx) (tvs ++ getVars ctx) e
+          , propD (tus ++ getUVars ctx) (tvs ++ getVars ctx) e'
+      with
+        | None , _ , _ , _ => True
+        | _ , None , _ , _ => True
+        | _ , _ , None , _ => True
+        | _ , _ , _ , None => False
+        | Some cD , Some sD , Some eD , Some eD' =>
+          forall us vs,
+            cD (fun us vs => sD us vs -> (eD us vs <-> eD' us vs)) us vs
+      end.
+*)
 
   Theorem SIMPLIFY_sound
   : forall tus tvs, rtac_sound tus tvs SIMPLIFY.
   Proof.
+    red; intros; subst.
+    simpl. intros; split; eauto.
+    forward.
   Admitted.
 
 End parameterized.
