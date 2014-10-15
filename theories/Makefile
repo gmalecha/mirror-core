@@ -30,7 +30,7 @@ STAC := Core Continuation Repeat \
 	STac
 RTAC := Core CoreGlobal RunOnGoals \
 	Then Try Repeat Idtac First Fail Solve \
-	Assumption RunSTac \
+	Assumption \
 	Intro Apply EApply \
 	Simplify Instantiate \
 	AtGoal Reduce \

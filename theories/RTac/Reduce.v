@@ -42,63 +42,71 @@ Section parameterized.
         GConj_ (instantiateGoal f a) (instantiateGoal f b)
     end.
 
-  Fixpoint toGoal (ctx : Ctx typ expr) (cs : ctx_subst subst ctx) (g : Goal typ expr)
+  Fixpoint toGoal (ctx ctx' : Ctx typ expr)
+           (cs : ctx_subst subst (Ctx_append ctx ctx')) (g : Goal typ expr)
            (su : nat)
            (un vn : nat)
-  : Result subst CTop :=
-    match cs with
-      | TopSubst s => More_ (TopSubst _ _ s) g
-      | AllSubst t ctx' cs' =>
+  : Result subst ctx :=
+    match ctx' as ctx'
+          return ctx_subst subst (Ctx_append ctx ctx') -> Result subst ctx
+    with
+      | CTop => fun cs => More_ cs g
+      | CAll ctx' t => fun cs =>
         match vn with
           | 0 => (** STUCK **)
             Fail
           | S vn' =>
-            toGoal cs' (GAll t g) 0 un vn'
+            @toGoal ctx ctx' (fromAll cs) (GAll t g) 0 un vn'
         end
-      | ExsSubst ts _ cs' s =>
+      | CHyp ctx' h => fun cs =>
+        @toGoal ctx ctx'  (fromHyp cs) (GHyp h g) 0 un vn
+      | CExs ctx' ts => fun cs =>
         match un with
           | 0 => (** STUCK **)
             Fail
           | S un' =>
+            let '(s,cs') := fromExs cs in
             let nes := forgets un' ts s in
-            toGoal cs' (GExs (List.combine ts nes) g) (S su) un' vn
+            @toGoal ctx ctx' cs' (GExs (List.combine ts nes) g) (S su) un' vn
         end
-      | HypSubst h _ cs' =>
-        toGoal cs' (GHyp h g) 0 un vn
-    end.
+    end cs.
 
   (** This assumes that the goal is a [GSolved] **)
-  Fixpoint solveGoal (ctx : Ctx typ expr) (cs : ctx_subst subst ctx)
+  Fixpoint solveGoal (ctx ctx' : Ctx typ expr)
+           (cs : ctx_subst subst (Ctx_append ctx ctx'))
            (su : nat) (un vn : nat)
-  : Result subst CTop :=
-    match cs with
-      | TopSubst s => Solved (TopSubst _ _ s)
-      | AllSubst t ctx' cs' =>
+  : Result subst ctx :=
+    match ctx' as ctx'
+          return ctx_subst subst (Ctx_append ctx ctx') -> Result subst ctx
+    with
+      | CTop => fun cs => Solved cs
+      | CAll ctx' t => fun cs =>
         match vn with
           | 0 => (** STUCK **)
             Fail
           | S vn' =>
-            (** TODO: Drop var **)
-            solveGoal cs' su un vn'
+            @solveGoal ctx ctx' (fromAll cs) 0 un vn'
         end
-      | ExsSubst ts _ cs' s =>
+      | CHyp ctx' h => fun cs =>
+        @solveGoal ctx ctx'  (fromHyp cs) 0 un vn
+      | CExs ctx' ts => fun cs =>
         match un with
           | 0 => (** STUCK **)
             Fail
           | S un' =>
+            let '(s,cs') := fromExs cs in
             let nes := forgets un' ts s in
-            toGoal cs' (GExs (List.combine ts nes) GSolved) (S su) un' vn
+            @toGoal ctx ctx' cs' (GExs (List.combine ts nes) GSolved) (S su) un' vn
         end
-      | HypSubst h _ cs' =>
-        solveGoal cs' 0 un vn
-    end.
+    end cs.
 
-  Definition reduceGoal (ctx : Ctx typ expr) (s : ctx_subst _ ctx) (g : Goal typ expr)
-           (un vn : nat)
-  : Result subst CTop :=
+  Definition reduceGoal (ctx ctx' : Ctx typ expr) (s : ctx_subst _ (Ctx_append ctx ctx'))
+             (g : Goal typ expr)
+             (un vn : nat)
+  : Result subst ctx :=
     match g with
-      | GSolved => solveGoal s 0 un vn
-      | _ => toGoal s g 0 un vn
+      | GSolved => @solveGoal ctx ctx' s 0 un vn
+      | _ => @toGoal ctx ctx' s g 0 un vn
     end.
 
 End parameterized.

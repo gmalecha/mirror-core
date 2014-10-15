@@ -197,117 +197,6 @@ Section parameterized.
       | l :: ls => CAlls (CAll c l) ls
     end.
 
-  Inductive ctx_subst : Ctx -> Type :=
-  | TopSubst : subst -> ctx_subst CTop
-  | AllSubst : forall {t c}, ctx_subst c -> ctx_subst (CAll c t)
-  | HypSubst : forall {t c}, ctx_subst c -> ctx_subst (CHyp c t)
-  | ExsSubst : forall {ts c}, ctx_subst c -> subst -> ctx_subst (CExs c ts).
-
-  Inductive WellFormed_ctx_subst : forall c, ctx_subst c -> Prop :=
-  | WF_TopSubst : forall s, WellFormed_subst s -> WellFormed_ctx_subst (TopSubst s)
-  | WF_AllSubst : forall t c s, WellFormed_ctx_subst s -> WellFormed_ctx_subst (@AllSubst t c s)
-  | WF_HypSubst : forall t c s, WellFormed_ctx_subst s -> WellFormed_ctx_subst (@HypSubst t c s)
-  | WF_ExsSubst : forall t c s s', WellFormed_subst s' ->
-                                   WellFormed_ctx_subst s -> WellFormed_ctx_subst (@ExsSubst t c s s').
-
-  Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
-    match cs with
-      | TopSubst s => lookup u s
-      | AllSubst _ _ c => ctx_lookup u c
-      | HypSubst _ _ c => ctx_lookup u c
-      | ExsSubst _ _ c s =>
-        match lookup u s with
-          | None => ctx_lookup u c
-          | Some e => Some e
-        end
-    end.
-
-  Fixpoint ctx_domain {c} (cs : ctx_subst c) : list nat :=
-    match cs with
-      | TopSubst s => domain s
-      | AllSubst _ _ c => ctx_domain c
-      | HypSubst _ _ c => ctx_domain c
-      | ExsSubst _ _ c s =>
-        ctx_domain c ++ domain s
-    end.
-
-  Section ctx_set'.
-    Variables (u : nat) (e : expr) (min : nat) (nus : nat).
-
-    Fixpoint ctx_set' {c T} (cs : ctx_subst c) {struct cs}
-    : (ctx_subst c -> option T) -> option T.
-      refine
-        match cs in ctx_subst c return (ctx_subst c -> option T) -> option T with
-          | TopSubst s => fun k =>
-            match set u e s with
-              | None => None
-              | Some s' => k (TopSubst s')
-            end
-          | AllSubst _ _ c => fun k =>
-            ctx_set' _ _ c (fun c => k (AllSubst c))
-          | HypSubst _ _ c => fun k =>
-            ctx_set' _ _ c (fun c => k (HypSubst c))
-          | ExsSubst _ _ s c => fun k =>
-            None (** TODO **)
-(*
-            if u ?[ gt ] (countUVars c + nus) then
-              None
-            else
-              None (* ctx_set' _ _ c (fun c => match k z (z c)) *)
-*)
-        end.
-    Defined.
-  End ctx_set'.
-
-  Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c) : option (ctx_subst c) :=
-    ctx_set' u e cs (@Some _).
-
-  Fixpoint ctx_empty {c} : ctx_subst c :=
-    match c with
-      | CTop => TopSubst (@empty _ _ _)
-      | CHyp c h => HypSubst ctx_empty
-      | CAll c h => AllSubst ctx_empty
-      | CExs c h => ExsSubst ctx_empty (@empty _ _ _)
-    end.
-
-  Global Instance Subst_ctx_subst ctx : Subst (ctx_subst ctx) expr :=
-  { lookup := ctx_lookup
-  ; domain := ctx_domain
-  }.
-
-  Global Instance SubstUpdate_ctx_subst ctx : SubstUpdate (ctx_subst ctx) expr :=
-  { set := ctx_set
-  ; empty := ctx_empty
-  }.
-
-  (** StateT subst Option Goal **)
-  Inductive Result c :=
-  | Fail
-  | More_  : ctx_subst c -> Goal -> Result c
-  | Solved : ctx_subst c -> Result c.
-
-  Definition More {c} (s : ctx_subst c) (g : Goal) : Result c :=
-    match g with
-      | GSolved => Solved s
-      | _ => More_ s g
-    end.
-
-  Definition fromResult {c} (r : Result c) : option (ctx_subst c * Goal) :=
-    match r with
-      | Fail => None
-      | More_ s g => Some (s, g)
-      | Solved s => Some (s, GSolved)
-    end.
-
-  Definition DEAD {c} : Result c.
-    exact (Fail c).
-  Qed.
-
-  (** Treat this as opaque! **)
-  Definition rtac : Type :=
-    tenv typ -> tenv typ -> nat -> nat ->
-    forall c : Ctx, ctx_subst c -> expr -> Result c.
-
   (** Auxiliary Functions **)
   Fixpoint countVars (ctx : Ctx) : nat :=
     match ctx with
@@ -391,6 +280,120 @@ Section parameterized.
   Defined.
   (** End: Auxiliary Functions **)
 
+
+  Inductive ctx_subst : Ctx -> Type :=
+  | TopSubst : subst -> ctx_subst CTop
+  | AllSubst : forall {t c}, ctx_subst c -> ctx_subst (CAll c t)
+  | HypSubst : forall {t c}, ctx_subst c -> ctx_subst (CHyp c t)
+  | ExsSubst : forall {ts c}, ctx_subst c -> subst -> ctx_subst (CExs c ts).
+
+  Inductive WellFormed_ctx_subst : forall c, ctx_subst c -> Prop :=
+  | WF_TopSubst : forall s, WellFormed_subst s -> WellFormed_ctx_subst (TopSubst s)
+  | WF_AllSubst : forall t c s, WellFormed_ctx_subst s -> WellFormed_ctx_subst (@AllSubst t c s)
+  | WF_HypSubst : forall t c s, WellFormed_ctx_subst s -> WellFormed_ctx_subst (@HypSubst t c s)
+  | WF_ExsSubst : forall t c s s', WellFormed_subst s' ->
+                                   WellFormed_ctx_subst s -> WellFormed_ctx_subst (@ExsSubst t c s s').
+
+  Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
+    match cs with
+      | TopSubst s => lookup u s
+      | AllSubst _ _ c => ctx_lookup u c
+      | HypSubst _ _ c => ctx_lookup u c
+      | ExsSubst _ _ c s =>
+        match lookup u s with
+          | None => ctx_lookup u c
+          | Some e => Some e
+        end
+    end.
+
+  Fixpoint ctx_domain {c} (cs : ctx_subst c) : list nat :=
+    match cs with
+      | TopSubst s => domain s
+      | AllSubst _ _ c => ctx_domain c
+      | HypSubst _ _ c => ctx_domain c
+      | ExsSubst _ _ c s =>
+        ctx_domain c ++ domain s
+    end.
+
+  Section ctx_set'.
+    Variables (u : nat) (e : expr) (min : nat) (nus : nat).
+
+    Fixpoint ctx_set' {c T} (cs : ctx_subst c) {struct cs}
+    : (ctx_subst c -> option T) -> option T.
+      refine
+        match cs in ctx_subst c return (ctx_subst c -> option T) -> option T with
+          | TopSubst s => fun k =>
+            match set u e s with
+              | None => None
+              | Some s' => k (TopSubst s')
+            end
+          | AllSubst _ _ c => fun k =>
+            ctx_set' _ _ c (fun c => k (AllSubst c))
+          | HypSubst _ _ c => fun k =>
+            ctx_set' _ _ c (fun c => k (HypSubst c))
+          | ExsSubst _ ctx c s => fun k =>
+            if u ?[ gt ] (countUVars ctx + nus) then
+              match set u e s with
+                | None => None
+                | Some s' => k (ExsSubst c s')
+              end
+            else
+              (** NOTE: This is incorrect! **)
+              @ctx_set' _ _ c (fun c => k (@ExsSubst _ ctx c s))
+        end.
+    Defined.
+  End ctx_set'.
+
+  Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c)
+  : option (ctx_subst c) :=
+    (** TODO: This is wrong! **)
+    ctx_set' u e 0 cs (@Some _).
+
+  Fixpoint ctx_empty {c} : ctx_subst c :=
+    match c with
+      | CTop => TopSubst (@empty _ _ _)
+      | CHyp c h => HypSubst ctx_empty
+      | CAll c h => AllSubst ctx_empty
+      | CExs c h => ExsSubst ctx_empty (@empty _ _ _)
+    end.
+
+  Global Instance Subst_ctx_subst ctx : Subst (ctx_subst ctx) expr :=
+  { lookup := ctx_lookup
+  ; domain := ctx_domain
+  }.
+
+  Global Instance SubstUpdate_ctx_subst ctx : SubstUpdate (ctx_subst ctx) expr :=
+  { set := ctx_set
+  ; empty := ctx_empty
+  }.
+
+  (** StateT subst Option Goal **)
+  Inductive Result c :=
+  | Fail
+  | More_  : ctx_subst c -> Goal -> Result c
+  | Solved : ctx_subst c -> Result c.
+
+  Definition More {c} (s : ctx_subst c) (g : Goal) : Result c :=
+    match g with
+      | GSolved => Solved s
+      | _ => More_ s g
+    end.
+
+  Definition fromResult {c} (r : Result c) : option (ctx_subst c * Goal) :=
+    match r with
+      | Fail => None
+      | More_ s g => Some (s, g)
+      | Solved s => Some (s, GSolved)
+    end.
+
+  Definition DEAD {c} : Result c.
+    exact (Fail c).
+  Qed.
+
+  (** Treat this as opaque! **)
+  Definition rtac : Type :=
+    tenv typ -> tenv typ -> nat -> nat ->
+    forall c : Ctx, ctx_subst c -> expr -> Result c.
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 

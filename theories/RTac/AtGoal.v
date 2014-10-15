@@ -13,15 +13,28 @@ Section parameterized.
   Variable expr : Type.
   Variable subst : Type.
 
-  Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
-  Variable Typ0_Prop : Typ0 _ Prop.
-  Variable Subst_subst : Subst subst expr.
-  Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+
+  Variable tac
+  : forall ctx : Ctx typ expr, ctx_subst subst ctx -> expr
+                               -> rtac typ expr subst.
 
   Definition AT_GOAL
-             (tac : Ctx typ expr -> subst -> expr -> rtac typ expr subst)
   : rtac typ expr subst :=
-    fun ctx s e => (tac ctx s e) ctx s e.
+    fun tus tvs nus nvs ctx s e => (@tac ctx s e) tus tvs nus nvs ctx s e.
+
+  Variables tus tvs : tenv typ.
+  Hypothesis tac_sound : forall c s e, rtac_sound tus tvs (@tac c s e).
+
+  Theorem AT_GOAL_sound : rtac_sound tus tvs AT_GOAL.
+  Proof.
+    unfold AT_GOAL; simpl.
+    red. intros; subst.
+    eapply tac_sound. reflexivity.
+  Qed.
 
 End parameterized.
