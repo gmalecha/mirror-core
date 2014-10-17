@@ -6,6 +6,7 @@ Require Export MirrorCore.RTac.Solve.
 Require Export MirrorCore.RTac.Then.
 Require Export MirrorCore.RTac.Try.
 Require Export MirrorCore.RTac.Repeat.
+Require Export MirrorCore.RTac.Rec.
 Require Export MirrorCore.RTac.Assumption.
 Require Export MirrorCore.RTac.Intro.
 Require Export MirrorCore.RTac.Apply.

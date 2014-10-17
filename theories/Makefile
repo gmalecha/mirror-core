@@ -29,7 +29,7 @@ STAC := Core Continuation Repeat \
 	UseForAll UseList \
 	STac
 RTAC := Core CoreGlobal RunOnGoals \
-	Then Try Repeat Idtac First Fail Solve \
+	Then Try Repeat Rec Idtac First Fail Solve \
 	Assumption \
 	Intro Apply EApply \
 	Simplify Instantiate \
