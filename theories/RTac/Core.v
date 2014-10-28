@@ -665,8 +665,7 @@ Section parameterized.
                               (RexprT tus tvs iff)))%signature
              (@pctxD tus tvs c1 s).
   Proof.
-(*
-    induction c1; simpl; intros.
+    induction s; simpl; intros.
     { destruct (substD tus tvs s); try constructor.
       do 6 red; intros.
       apply equiv_eq_eq in H0; subst.
@@ -674,41 +673,36 @@ Section parameterized.
       eapply impl_iff; try reflexivity.
       intro. eapply H; reflexivity. }
     { red; simpl.
-      specialize (IHc1 s).
-      destruct (pctxD tus tvs c1 s); try constructor.
+      destruct (pctxD tus tvs s); try constructor.
       inv_all.
       do 6 red. intros.
-      eapply IHc1; eauto.
+      eapply IHs; eauto.
       do 5 red; intros.
       eapply forall_iff. intros.
       eapply H; eauto.
       equivs. reflexivity. }
-    { destruct (forgets (length (tus ++ getUVars c1)) l s); simpl.
-      intros; subst.
-      specialize (IHc1 s0).
-      destruct (goal_substD (tus ++ getUVars c1) (tvs ++ getVars c1) l l0);
-        try constructor.
-      destruct (pctxD tus tvs c1 s0); try constructor.
-      inv_all.
-      do 6 red; intros; equivs.
-      eapply IHc1; try reflexivity.
+    { repeat match goal with
+               | |- context [ match ?X with _ => _ end ] => destruct X ; try constructor
+             end.
+      red; intros.
+      inv_all. eapply IHs.
+      do 5 red; intros.
+      apply equiv_eq_eq in H0.
+      apply equiv_eq_eq in H1. subst.
+      eapply impl_iff. reflexivity.
+      intro. eapply H; reflexivity. }
+    { repeat match goal with
+               | |- context [ match ?X with _ => _ end ] => destruct X ; try solve [ constructor ]
+             end.
+      constructor.
+      inv_all; do 6 red; intros.
+      equivs.
+      eapply IHs; try reflexivity.
       do 5 red; intros; equivs.
       eapply _forall_iff. intros.
-      eapply impl_iff; try reflexivity.
-      intros. eapply H; reflexivity. }
-    { specialize (IHc1 s).
-      destruct (propD (tus ++ getUVars c1) (tvs ++ getVars c1) e);
-        try constructor.
-      destruct (pctxD tus tvs c1 s); try constructor.
-      do 6 red. intros.
-      inv_all.
-      eapply IHc1; eauto.
-      do 5 red; intros.
-      equivs.
-      eapply impl_iff; try reflexivity.
-      intros; eapply H; reflexivity. }
-*)
-  Admitted.
+      eapply impl_iff. reflexivity.
+      intro. eapply H; reflexivity. }
+  Qed.
 
   Theorem Proper_pctxD_impl
   : forall tus tvs c1 s,
@@ -716,150 +710,40 @@ Section parameterized.
                               (RexprT tus tvs Basics.impl)))%signature
              (@pctxD tus tvs c1 s).
   Proof.
-(*
-    induction c1; simpl; intros.
+    induction s; simpl; intros.
     { destruct (substD tus tvs s); try constructor.
-      do 7 red.
-      intros; equivs; eauto.
+      do 7 red; intros.
+      equivs.
       eapply H; eauto; reflexivity. }
-    { consider (pctxD tus tvs c1 s); constructor.
-      specialize (IHc1 s). rewrite H in IHc1.
+    { red; simpl.
+      destruct (pctxD tus tvs s); try constructor.
       inv_all.
-      do 7 red; intros; equivs.
-      revert H3; eapply IHc1; try reflexivity.
-      do 6 red; intros; equivs.
-      eapply H0; eauto; reflexivity. }
-    { destruct (forgets (length (tus ++ getUVars c1)) l s).
-      destruct (goal_substD (tus ++ getUVars c1) (tvs ++ getVars c1) l l0);
-        try constructor.
-      specialize (IHc1 s0).
-      destruct (pctxD tus tvs c1 s0); try constructor.
-      inv_all.
-      do 7 red. intros; equivs.
-      revert H2. eapply IHc1; try reflexivity.
-      do 6 red; intros; equivs.
-      revert H2.
-      do 2 rewrite _forall_sem.
-      intros. generalize (H0 _ H1).
-      eapply H; reflexivity. }
-    { destruct (propD (tus ++ getUVars c1) (tvs ++ getVars c1) e);
-      try constructor.
-      specialize (IHc1 s).
-      destruct (pctxD tus tvs c1 s); constructor.
-      inv_all.
-      do 7 red; intros; equivs.
-      revert H2. eapply IHc1; try reflexivity.
-      do 6 red. intros. equivs.
-      generalize (H2 H3). eapply H; reflexivity. }
-*)
-  Admitted.
-
-
-(*
-  Theorem rtac_spec_respects tus tvs ctx s
-  : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
-            EqResult (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==> iff)
-           (rtac_spec tus tvs ctx s).
-  Proof.
-    red. red. red.
-    unfold rtac_spec.
-    unfold EqGoal.
-    unfold EqResult.
-    intros. unfold subst_ctxD.
-    inversion H0; clear H0.
-    { destruct x0; simpl in *; try congruence.
-      destruct y0; simpl in *; try congruence.
-      reflexivity. }
-    { destruct x0; simpl in *; try congruence;
-      destruct y0; simpl in *; try congruence; inv_all; subst;
-      inversion H3; clear H3; subst;
-      repeat match goal with
-               | |- (_ -> _) <-> (_ -> _) =>
-                 apply impl_iff; [ reflexivity | intro ]
-               | |- (_ /\ _) <-> (_ /\ _) =>
-                 apply and_iff; [ reflexivity | intro ]
+      do 7 red. intros.
+      eapply IHs; eauto.
+      do 6 red; intros.
+      equivs.
+      eapply H; eauto; reflexivity. }
+    { repeat match goal with
+               | |- context [ match ?X with _ => _ end ] => destruct X ; try constructor
              end.
-      { red in H6.
-        generalize (Proper_pctxD tus tvs ctx s).
-        generalize (Proper_pctxD tus tvs ctx s1).
-        destruct (pctxD tus tvs ctx s); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s0); try reflexivity.
-        inversion H; try reflexivity.
-        destruct (pctxD tus tvs ctx s1); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s2); try reflexivity.
-        inversion H6; clear H6; try reflexivity.
-        inversion 1; inversion 1; subst.
-        inversion H11; inversion H15; subst.
-        do 2 (apply forall_iff; intro).
-        apply impl_iff.
-        { apply and_iff. reflexivity. intro.
-          eapply H17. assumption. reflexivity. reflexivity. }
-        { intro. apply and_iff. reflexivity. intro.
-          eapply H23. assumption. reflexivity. reflexivity. } }
-      { red in H6.
-        simpl in H6.
-        generalize (Proper_pctxD tus tvs ctx s).
-        generalize (Proper_pctxD tus tvs ctx s1).
-        destruct (pctxD tus tvs ctx s); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s0); try reflexivity.
-        inversion H; try reflexivity.
-        destruct (pctxD tus tvs ctx s1); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s2); try reflexivity.
-        inversion H6; clear H6; try reflexivity.
-        inversion 1; inversion 1; subst.
-        inversion H11; inversion H15; subst.
-        do 2 (apply forall_iff; intro).
-        eapply impl_iff.
-        { apply and_iff. reflexivity. intro.
-          eapply H16. assumption. reflexivity. reflexivity. }
-        { intro. apply and_iff. reflexivity. intro.
-          eapply H22. assumption. reflexivity. reflexivity. } }
-      { red in H6.
-        simpl in H6.
-        generalize (Proper_pctxD tus tvs ctx s).
-        generalize (Proper_pctxD tus tvs ctx s1).
-        destruct (pctxD tus tvs ctx s); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s0); try reflexivity.
-        inversion H; try reflexivity.
-        destruct (pctxD tus tvs ctx s1); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s2); try reflexivity.
-        inversion H6; clear H6; try reflexivity.
-        inversion 1; inversion 1; subst.
-        inversion H11; inversion H15; subst.
-        do 2 (apply forall_iff; intro).
-        eapply impl_iff.
-        { apply and_iff. reflexivity. intro.
-          eapply H16. assumption. reflexivity. reflexivity. }
-        { intro. apply and_iff. reflexivity. intro.
-          eapply H22. assumption. reflexivity. reflexivity. } }
-      { red in H6.
-        simpl in H6.
-        generalize (Proper_pctxD tus tvs ctx s).
-        generalize (Proper_pctxD tus tvs ctx s1).
-        destruct (pctxD tus tvs ctx s); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s0); try reflexivity.
-        inversion H; try reflexivity.
-        destruct (pctxD tus tvs ctx s1); try reflexivity.
-        destruct p.
-        destruct (substD tus tvs s2); try reflexivity.
-        inversion H6; clear H6; try reflexivity.
-        inversion 1; inversion 1; subst.
-        inversion H11; inversion H15; subst.
-        do 2 (apply forall_iff; intro).
-        eapply impl_iff.
-        { apply and_iff. reflexivity. intro.
-          eapply H14. assumption. reflexivity. reflexivity. }
-        { intro. apply and_iff. reflexivity. intro.
-          eapply H21. assumption. reflexivity. reflexivity. } } }
+      red; intros.
+      inv_all. eapply IHs.
+      do 6 red; intros.
+      equivs.
+      eapply H; eauto; reflexivity. }
+    { repeat match goal with
+               | |- context [ match ?X with _ => _ end ] => destruct X ; try solve [ constructor ]
+             end.
+      constructor.
+      inv_all.
+      do 7 red; intros.
+      eapply IHs; eauto.
+      do 6 red; intros.
+      equivs.
+      eapply _forall_sem; intro.
+      eapply _forall_sem with (x := x0) in H5.
+      intros. eapply H; eauto; reflexivity. }
   Qed.
-*)
 
   Lemma More_More_ tus tvs c s :
     (EqGoal tus tvs ==> @EqResult tus tvs c)%signature
@@ -922,14 +806,12 @@ Section parameterized.
          C Q us vs) /\
       (forall us vs (Q : exprT _ _ Prop), (forall a b, Q a b) -> C Q us vs).
   Proof.
-(*
-    clear. induction ctx; simpl; intros.
+    clear. induction s; simpl; intros.
     { forward; inv_all; subst.
       forward_reason; split; eauto. }
-    { specialize (IHctx s).
-      forward; inv_all; subst.
-      destruct (IHctx _ eq_refl) as [ Hap Hpure ]; clear IHctx.
-      generalize (Proper_pctxD_impl tus tvs ctx s).
+    { forward; inv_all; subst.
+      destruct (IHs _ eq_refl) as [ Hap Hpure ]; clear IHs.
+      generalize (Proper_pctxD_impl tus tvs s).
       Cases.rewrite_all_goal.
       intros; inv_all.
       split.
@@ -941,26 +823,21 @@ Section parameterized.
       { intros us vs Q v.
         eapply Hpure. intros; eauto. } }
     { forward; inv_all; subst.
-      destruct (IHctx _ _ H1) as [ Hap Hpure ]; clear IHctx.
-      generalize (Proper_pctxD_impl tus tvs ctx s0).
+      destruct (IHs _ eq_refl) as [ Hap Hpure ]; clear IHs.
+      generalize (Proper_pctxD_impl tus tvs s).
       Cases.rewrite_all_goal; intros; inv_all.
       split.
       { intros us vs P Q f.
         eapply Hap.
-        eapply H2; [ | reflexivity | reflexivity | eapply f ].
+        eapply H1; [ | reflexivity | reflexivity | eapply f ].
         clear.
         do 6 red; intros; equivs.
-        rewrite _forall_sem.
-        rewrite _forall_sem in H1.
-        rewrite _forall_sem in H2.
-        firstorder. }
+        tauto. }
       { intros. eapply Hpure.
-        intros. eapply _forall_sem.
-        eauto. } }
-    { specialize (IHctx s).
-      forward; inv_all; subst.
-      destruct (IHctx _ eq_refl) as [ Hap Hpure ]; clear IHctx.
-      generalize (Proper_pctxD_impl tus tvs ctx s).
+        intros. eauto. } }
+    { forward; inv_all; subst.
+      destruct (IHs _ eq_refl) as [ Hap Hpure ]; clear IHs.
+      generalize (Proper_pctxD_impl tus tvs s).
       Cases.rewrite_all_goal.
       intros; inv_all.
       split.
@@ -968,11 +845,16 @@ Section parameterized.
         eapply Hap.
         eapply H1; [ | reflexivity | reflexivity | eapply f ].
         simpl. clear.
-        do 6 red. intros; equivs; eauto. }
+        do 6 red. intros; equivs; eauto.
+        eapply _forall_sem. intros.
+        rewrite _forall_sem in H2.
+        rewrite _forall_sem in H1.
+        eauto. }
       { intros us vs Q v.
-        eapply Hpure. intros; eauto. } }
-*)
-  Admitted.
+        eapply Hpure. intros.
+        eapply _forall_sem; intros.
+        eauto. } }
+  Qed.
 
   Definition CtxMorphism {tus tvs tus' tvs'}
              (c1 c2 : exprT tus tvs Prop -> exprT tus' tvs' Prop) : Prop :=
@@ -1138,6 +1020,18 @@ Section parameterized.
     { eapply IHSubstMorphism; eauto. }
   Qed.
 
+  Definition fromTop (cs : ctx_subst CTop) : subst :=
+    match cs in ctx_subst c
+          return match c with
+                   | CTop => subst
+                   | _ => unit
+                 end
+    with
+      | TopSubst c => c
+      | _ => tt
+    end.
+
+
   Definition fromAll {c t} (cs : ctx_subst (CAll c t)) : ctx_subst c :=
     match cs in ctx_subst c
           return match c with
@@ -1220,7 +1114,28 @@ Section parameterized.
                                                  | Some _ , None => False
                                                  | Some a , Some b => forall us vs, b us vs -> a us vs
                                                end }.
-  admit.
+  Proof.
+    intros.
+    exists (fromTop s').
+    refine
+      (match H in @SubstMorphism _ _ C X Y
+             return match X in ctx_subst C' return ctx_subst C' -> Prop with
+                      | TopSubst s => fun s' =>
+                                        s' = TopSubst (fromTop s') /\
+                                        match substD tus tvs s
+                                            , substD tus tvs (fromTop s')
+                                        with
+                                          | None , _ => True
+                                          | Some _ , None => False
+                                          | Some a , Some b => forall us vs, b us vs -> a us vs
+                                        end
+                      | _ => fun _ => True
+                    end Y
+       with
+         | SMtop _ _ _ => _
+         | _ => I
+       end).
+    simpl; eauto.
   Defined.
 
   Global Instance Injective_SubstMorphism_ExsSubst tus tvs ctx tes s s' sub
@@ -1303,8 +1218,7 @@ Section parameterized.
     induction H.
     { intros; inv_all; subst.
       constructor; eauto. }
-    { (*
-      intros; inv_all; subst.
+    { intros; inv_all; subst.
       forward. simpl in *.
       constructor.
       { forward. inv_all; subst.
@@ -1313,17 +1227,16 @@ Section parameterized.
                  | H : ?X = _ , H' : ?X = _ |- _ =>
                    rewrite H in H'
                end; inv_all; subst.
-        specialize (H16 us vs).
-        specialize (H14 us vs).
-        revert H16.
-        eapply (Applicative_pctxD _ _ H13).
-        eapply (pctxD_SubstMorphism H7 H4 H13 us vs).
-        revert H14.
-        eapply (Applicative_pctxD _ _ H4).
-        eapply (Applicative_pctxD _ _ H4).
-        clear. firstorder. }
-      { Cases.rewrite_all_goal; simpl.
-        eauto. } *) admit. }
+        specialize (H8 us vs).
+        specialize (H6 us vs).
+        revert H8.
+        eapply (Applicative_pctxD _ H5).
+        eapply (pctxD_SubstMorphism H4 H1 H5 us vs).
+        revert H6.
+        eapply (Fmap_pctxD_impl _ H1); try reflexivity.
+        clear.
+        do 6 red. intros. equivs. firstorder. }
+      { eapply IHSubstMorphism. eassumption. } }
     { intros; inv_all; subst. constructor; eauto. }
     { intros; inv_all; subst.
       constructor.

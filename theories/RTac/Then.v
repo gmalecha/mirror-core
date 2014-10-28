@@ -1,6 +1,6 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.RunOnGoals.
+Require Import MirrorCore.RTac.CoreK.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -20,18 +20,21 @@ Section parameterized.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
 
-  Definition THEN (c1 c2 : rtac typ expr subst) : rtac typ expr subst :=
+  Definition THEN (c1 : rtac typ expr subst)
+             (c2 : rtacK typ expr subst)
+  : rtac typ expr subst :=
     fun tus tvs nus nvs ctx sub g =>
       match c1 tus tvs nus nvs ctx sub g with
-        | More_ sub' g' => runOnGoals c2 tus tvs nus nvs _ sub' g'
+        | More_ sub' g' => c2 tus tvs nus nvs _ sub' g'
         | Solved sub => Solved sub
         | Fail => Fail
       end.
 
   Theorem THEN_sound
-  : forall (tus tvs : list typ) (tac1 tac2 : rtac typ expr subst),
+  : forall (tus tvs : list typ) (tac1 : rtac typ expr subst)
+                                (tac2 : rtacK typ expr subst),
       rtac_sound tus tvs tac1 ->
-      rtac_sound tus tvs tac2 ->
+      rtacK_sound tus tvs tac2 ->
       rtac_sound tus tvs (THEN tac1 tac2).
   Proof.
     unfold THEN.
@@ -43,12 +46,7 @@ Section parameterized.
         destruct X; auto
     end.
     eapply rtac_spec_trans; eauto.
-    eapply runOnGoals_sound with (ctx := ctx) (s := c) (g := g0) in H0;
-      eauto with typeclass_instances.
-    rewrite countUVars_getUVars in H0.
-    rewrite countVars_getVars in H0.
-    do 2 rewrite <- app_length in H0.
-    eauto.
+    eapply H0. reflexivity.
   Qed.
 
 End parameterized.

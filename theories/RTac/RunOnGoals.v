@@ -13,6 +13,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.CoreK.
 
 Require Import MirrorCore.Util.Quant.
 Require Import MirrorCore.Util.Forwardy.
@@ -248,15 +249,15 @@ Section runOnGoals.
         end
     end.
 
-    Variables tus tvs : tenv typ.
-    Hypothesis Htac : rtac_sound tus tvs tac.
+  Variables tus tvs : tenv typ.
+  Hypothesis Htac : rtac_sound tus tvs tac.
 
-    Lemma WellFormed_remembers
-    : forall a b s s',
-        remembers (typ:=typ) a b s = Some s' ->
-        WellFormed_subst s ->
-        WellFormed_subst s'.
-    Admitted.
+  Lemma WellFormed_remembers
+  : forall a b s s',
+      remembers (typ:=typ) a b s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s'.
+  Admitted.
 
 (*
     Lemma remembers_forgets_safe
@@ -282,281 +283,281 @@ Section runOnGoals.
     Admitted.
 *)
 
-    Local Hint Constructors WellFormed_ctx_subst.
-    Lemma WellFormed_ctx_subst_fromAll
-    : forall t c cs,
-        @WellFormed_ctx_subst typ expr subst _ _ _ _ (CAll c t) cs ->
-        @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromAll cs).
-    Proof.
-      intros.
-      refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
-                   return match C as C return ctx_subst subst C -> Prop with
-                            | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
-                            | _ => fun _ => True
-                          end S
-             with
-               | WF_AllSubst _ _ _ pf => pf
-               | _ => I
-             end.
-    Qed.
-    Lemma WellFormed_ctx_subst_fromHyp
-    : forall t c cs,
-        @WellFormed_ctx_subst typ expr subst _ _ _ _ (CHyp c t) cs ->
-        @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromHyp cs).
-    Proof.
-      intros.
-      refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
-                   return match C as C return ctx_subst subst C -> Prop with
-                            | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
-                            | _ => fun _ => True
-                          end S
-             with
-               | WF_HypSubst _ _ _ pf => pf
-               | _ => I
-             end.
-    Qed.
-    Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
+  Local Hint Constructors WellFormed_ctx_subst.
+  Lemma WellFormed_ctx_subst_fromAll
+  : forall t c cs,
+      @WellFormed_ctx_subst typ expr subst _ _ _ _ (CAll c t) cs ->
+      @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromAll cs).
+  Proof.
+    intros.
+    refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
+                 return match C as C return ctx_subst subst C -> Prop with
+                          | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
+                          | _ => fun _ => True
+                        end S
+           with
+             | WF_AllSubst _ _ _ pf => pf
+             | _ => I
+           end.
+  Qed.
+  Lemma WellFormed_ctx_subst_fromHyp
+  : forall t c cs,
+      @WellFormed_ctx_subst typ expr subst _ _ _ _ (CHyp c t) cs ->
+      @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromHyp cs).
+  Proof.
+    intros.
+    refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
+                 return match C as C return ctx_subst subst C -> Prop with
+                          | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
+                          | _ => fun _ => True
+                        end S
+           with
+             | WF_HypSubst _ _ _ pf => pf
+             | _ => I
+           end.
+  Qed.
+  Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
 
-    Instance Injective_ExsSubst ts ctx a b c d
-    : Injective (ExsSubst (typ:=typ)(subst:=subst)(expr:=expr)(ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
-      { result := a = c /\ b = d }.
-    admit.
-    Defined.
+  Instance Injective_ExsSubst ts ctx a b c d
+  : Injective (ExsSubst (typ:=typ)(subst:=subst)(expr:=expr)(ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
+    { result := a = c /\ b = d }.
+  admit.
+  Defined.
 
-    Lemma runOnGoals_sound_ind
-    : forall g ctx s,
-        @rtac_spec typ expr subst _ _ _ _ _
-                   tus tvs ctx s g
-                   (@runOnGoals (tus ++ getUVars ctx)
-                                (tvs ++ getVars ctx)
-                                (length tus + countUVars ctx)
-                                (length tvs + countVars ctx)
-                                ctx s g).
-    Proof.
-      red. induction g; fold runOnGoals in *.
-      { (* All *)
-        intros.
-        specialize (@IHg (CAll ctx t) (AllSubst s)).
-        simpl in *.
-        match goal with
-          | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
-            replace Y with X
-        end; [ | f_equal ; try solve [ rewrite app_ass_trans ; reflexivity | omega ] ].
-        destruct (runOnGoals (tus ++ getUVars ctx) (tvs ++ getVars ctx ++ t :: nil)
-                             (length tus + countUVars ctx) (length tvs + S (countVars ctx))
-                             (AllSubst s) g);
-          auto; intros; forward_reason; split; eauto.
-        { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
-          simpl in *.
-          rewrite goalD_conv with (pfu := eq_refl)
-                                  (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
-          autorewrite with eq_rw.
-          forward; inv_all; subst.
-          forward_reason.
-          inv_all; subst; simpl in *.
-          forward; inv_all; subst.
-          split; eauto.
-          intros us vs.
-          eapply H4; [ | reflexivity | reflexivity | eapply H7 ].
-          do 6 red. clear.
-          do 6 intro; equivs.
-          destruct (app_ass_trans tvs (getVars ctx) (t :: nil)); simpl.
-          eauto. }
-        { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
-          simpl in *.
-          rewrite goalD_conv with (pfu := eq_refl)
-                                  (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
-          autorewrite with eq_rw.
-          forward; inv_all; subst.
-          forward_reason.
-          inv_all; subst; simpl in *.
-          forward; inv_all; subst.
-          split; eauto. intros.
-          generalize (H6 us vs).
-          eapply Fmap_pctxD_impl; eauto; try reflexivity.
-          clear.
-          do 6 red. intros; equivs.
-          destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
-          simpl in *; eauto. } }
-      { (* Exs *)
-        intros; simpl in *.
-        forward.
-        specialize (@IHg (CExs _ (map (fst) l)) (ExsSubst s s0)).
-        revert IHg. revert H; simpl.
-        repeat rewrite countUVars_getUVars.
-        repeat rewrite countVars_getVars.
-        do 2 rewrite <- app_length.
-        intros; forward.
-        match goal with
-          | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
-            replace Y with X;
-              [ remember X as X' ; destruct X'
-              | f_equal ; simpl; repeat rewrite app_length;
-                rewrite map_length; omega ]
-        end; intros; auto.
-        { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
-          simpl. intros.
-          generalize (WellFormed_remembers _ _ _ H (@WellFormed_empty _ _ _ _ _ _ _ _ _)); intros.
-          forward_reason.
-          inv_all; split; auto.
-          simpl in *. forward; inv_all; subst.
-          destruct (substD_empty ((tus ++ getUVars ctx) ++ map fst l) (tvs ++ getVars ctx)) as [ ? [ ? ? ] ].
-          destruct (@remembers_spec _ _ _ _ _ _ _ (@WellFormed_empty _ _ _ _ _ _ _ _ _) H H10 H9) as [ ? [ ? ? ] ].
-          rewrite H12 in H8.
-          forward; inv_all; subst.
-          rewrite map_fst_combine in * by eauto using forgets_length.
-          rewrite map_snd_combine in * by eauto using forgets_length.
-          Cases.rewrite_all_goal.
-          eapply forgets_spec in H8; eauto.
-          destruct H8 as [ ? [ ? ? ] ].
-          Cases.rewrite_all_goal.
-          forward_reason.
-          split.
-          { inv_all. subst; auto. }
-          { intros us vs.
-            generalize (H18 us vs).
-            eapply Fmap_pctxD_impl; eauto; try reflexivity.
-            clear - H11 H13 H17. do 6 red.
-            intros. equivs.
-            rewrite _forall_sem in H1.
-            rewrite _exists_sem in H2.
-            destruct H2.
-            apply _exists_sem. exists x.
-            specialize (H11 (hlist_app y x) y0).
-            specialize (H13 (hlist_app y x) y0).
-            apply H13 in H11; clear H13.
-            firstorder. } }
-        { (** Same Proof as above **)
-          admit. } }
-      { (* Hyp *)
-        simpl; intros.
-        specialize (IHg (CHyp ctx e) (HypSubst s)).
-        match goal with
-          | H : match ?X with _ => _ end
-            |- match match ?Y with _ => _ end with _ => _ end =>
-            replace Y with X; [ remember X as X' ; destruct X' | f_equal ; simpl ; rewrite map_length; omega ]
-        end; auto;
-        intros; forward_reason; split; eauto; simpl in *;
-        forward; forward_reason; subst; inv_all; subst; simpl in *;
-        forward; subst; inv_all; subst.
-        { split; auto.
-          intros us vs.
-          generalize (H7 us vs).
-          eapply Fmap_pctxD_impl; try reflexivity; eauto.
-          clear; do 6 red; intros.
-          equivs; tauto. }
-        { split; auto. } }
-      { (* Conj *)
-        simpl; intros; clear Htac.
-        specialize (IHg1 ctx s).
-        rename g1 into A.
-        rename g2 into B.
-        match goal with
-          | H : match ?X with _ => _ end
-          |- context [ match ?Y with _ => _ end ] =>
-            change Y with X ; destruct X; auto
-        end.
-        { rename g into A'.
-          specialize (IHg2 ctx c).
-          match goal with
-            | H : match ?X with _ => _ end
-              |- context [ match ?Y with _ => _ end ] =>
-              change Y with X ; destruct X; auto
-          end.
-          { rename g into B'.
-            intros; forward_reason; split; auto.
-            simpl. forward. forward_reason.
-            split; [ etransitivity; eassumption | ].
-            intros us vs.
-            specialize (H11 us vs).
-            specialize (H12 us vs).
-            revert H11.
-            eapply (Applicative_pctxD _ H8).
-            eapply pctxD_SubstMorphism.
-            3: eassumption. eassumption. eassumption.
-            revert H12.
-            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
-            clear. do 6 red.
-            intros. equivs. firstorder. }
-          { change (rtac_spec tus tvs s (GConj_ A B) (More c0 A')).
-            eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
-            reflexivity.
-            simpl.
-            intros; forward_reason; split; auto.
-            simpl. forward. forward_reason.
-            split; [ etransitivity; eassumption | ].
-            intros us vs.
-            specialize (H11 us vs).
-            specialize (H10 us vs).
-            revert H10.
-            eapply (Applicative_pctxD _ H8).
-            eapply pctxD_SubstMorphism.
-            3: eassumption. eassumption. eassumption.
-            revert H11.
-            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
-            clear. do 6 red.
-            intros. equivs. firstorder. } }
-        { specialize (IHg2 ctx c).
-          match goal with
-            | H : match ?X with _ => _ end
-              |- context [ match ?Y with _ => _ end ] =>
-              change Y with X ; destruct X; auto
-          end.
-          { rename g into B'.
-            intros; forward_reason; split; auto.
-            simpl. forward. forward_reason.
-            split; [ etransitivity; eassumption | ].
-            intros us vs.
-            specialize (H10 us vs).
-            specialize (H11 us vs).
-            revert H10.
-            eapply (Applicative_pctxD _ H7).
-            eapply pctxD_SubstMorphism.
-            3: eassumption. eassumption. eassumption.
-            revert H11.
-            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
-            clear. do 6 red.
-            intros. equivs. firstorder. }
-          { intros; forward_reason; split; auto.
-            simpl. forward. forward_reason.
-            split; [ etransitivity; eassumption | ].
-            intros us vs.
-            specialize (H9 us vs).
-            specialize (H10 us vs).
-            revert H9.
-            eapply (Applicative_pctxD _ H7).
-            eapply pctxD_SubstMorphism.
-            3: eassumption. eassumption. eassumption.
-            revert H10.
-            eapply (Fmap_pctxD_impl _ H3); try reflexivity.
-            clear. do 6 red.
-            intros. equivs. firstorder. } } }
-      { (* Goal *)
-        clear - Htac; simpl; intros.
-        red in Htac.
-        specialize (@Htac ctx s e _ eq_refl).
-        rewrite countUVars_getUVars.
-        rewrite countVars_getVars.
-        do 2 rewrite <- app_length.
-        eauto. }
-      { (* Solved *)
-        clear. simpl.
-        intros. split; auto.
-        forward. split; [ reflexivity | ].
-        intros.
-        eapply (@Applicative_pctxD _ _ _ _ _ _ _ _ tus tvs ctx s); eauto. }
-    Qed.
-
-    Theorem runOnGoals_sound ctx s g
-    : @rtac_spec _ _ _ _ _ _ _ _ tus tvs ctx s g
+  Lemma runOnGoals_sound_ind
+  : forall g ctx s,
+      @rtac_spec typ expr subst _ _ _ _ _
+                 tus tvs ctx s g
                  (@runOnGoals (tus ++ getUVars ctx)
                               (tvs ++ getVars ctx)
                               (length tus + countUVars ctx)
                               (length tvs + countVars ctx)
                               ctx s g).
-    Proof.
-      eapply runOnGoals_sound_ind.
-    Qed.
+  Proof.
+    red. induction g; fold runOnGoals in *.
+    { (* All *)
+      intros.
+      specialize (@IHg (CAll ctx t) (AllSubst s)).
+      simpl in *.
+      match goal with
+        | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
+          replace Y with X
+      end; [ | f_equal ; try solve [ rewrite app_ass_trans ; reflexivity | omega ] ].
+      destruct (runOnGoals (tus ++ getUVars ctx) (tvs ++ getVars ctx ++ t :: nil)
+                           (length tus + countUVars ctx) (length tvs + S (countVars ctx))
+                           (AllSubst s) g);
+        auto; intros; forward_reason; split; eauto.
+      { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
+        simpl in *.
+        rewrite goalD_conv with (pfu := eq_refl)
+                                  (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
+        autorewrite with eq_rw.
+        forward; inv_all; subst.
+        forward_reason.
+        inv_all; subst; simpl in *.
+        forward; inv_all; subst.
+        split; eauto.
+        intros us vs.
+        eapply H4; [ | reflexivity | reflexivity | eapply H7 ].
+        do 6 red. clear.
+        do 6 intro; equivs.
+        destruct (app_ass_trans tvs (getVars ctx) (t :: nil)); simpl.
+        eauto. }
+      { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
+        simpl in *.
+        rewrite goalD_conv with (pfu := eq_refl)
+                                  (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
+        autorewrite with eq_rw.
+        forward; inv_all; subst.
+        forward_reason.
+        inv_all; subst; simpl in *.
+        forward; inv_all; subst.
+        split; eauto. intros.
+        generalize (H6 us vs).
+        eapply Fmap_pctxD_impl; eauto; try reflexivity.
+        clear.
+        do 6 red. intros; equivs.
+        destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
+        simpl in *; eauto. } }
+    { (* Exs *)
+      intros; simpl in *.
+      forward.
+      specialize (@IHg (CExs _ (map (fst) l)) (ExsSubst s s0)).
+      revert IHg. revert H; simpl.
+      repeat rewrite countUVars_getUVars.
+      repeat rewrite countVars_getVars.
+      do 2 rewrite <- app_length.
+      intros; forward.
+      match goal with
+        | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
+          replace Y with X;
+            [ remember X as X' ; destruct X'
+            | f_equal ; simpl; repeat rewrite app_length;
+              rewrite map_length; omega ]
+      end; intros; auto.
+      { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
+        simpl. intros.
+        generalize (WellFormed_remembers _ _ _ H (@WellFormed_empty _ _ _ _ _ _ _ _ _)); intros.
+        forward_reason.
+        inv_all; split; auto.
+        simpl in *. forward; inv_all; subst.
+        destruct (substD_empty ((tus ++ getUVars ctx) ++ map fst l) (tvs ++ getVars ctx)) as [ ? [ ? ? ] ].
+        destruct (@remembers_spec _ _ _ _ _ _ _ (@WellFormed_empty _ _ _ _ _ _ _ _ _) H H10 H9) as [ ? [ ? ? ] ].
+        rewrite H12 in H8.
+        forward; inv_all; subst.
+        rewrite map_fst_combine in * by eauto using forgets_length.
+        rewrite map_snd_combine in * by eauto using forgets_length.
+        Cases.rewrite_all_goal.
+        eapply forgets_spec in H8; eauto.
+        destruct H8 as [ ? [ ? ? ] ].
+        Cases.rewrite_all_goal.
+        forward_reason.
+        split.
+        { inv_all. subst; auto. }
+        { intros us vs.
+          generalize (H18 us vs).
+          eapply Fmap_pctxD_impl; eauto; try reflexivity.
+          clear - H11 H13 H17. do 6 red.
+          intros. equivs.
+          rewrite _forall_sem in H1.
+          rewrite _exists_sem in H2.
+          destruct H2.
+          apply _exists_sem. exists x.
+          specialize (H11 (hlist_app y x) y0).
+          specialize (H13 (hlist_app y x) y0).
+          apply H13 in H11; clear H13.
+          firstorder. } }
+      { (** Same Proof as above **)
+        admit. } }
+    { (* Hyp *)
+      simpl; intros.
+      specialize (IHg (CHyp ctx e) (HypSubst s)).
+      match goal with
+        | H : match ?X with _ => _ end
+          |- match match ?Y with _ => _ end with _ => _ end =>
+          replace Y with X; [ remember X as X' ; destruct X' | f_equal ; simpl ; rewrite map_length; omega ]
+      end; auto;
+      intros; forward_reason; split; eauto; simpl in *;
+      forward; forward_reason; subst; inv_all; subst; simpl in *;
+      forward; subst; inv_all; subst.
+      { split; auto.
+        intros us vs.
+        generalize (H7 us vs).
+        eapply Fmap_pctxD_impl; try reflexivity; eauto.
+        clear; do 6 red; intros.
+        equivs; tauto. }
+      { split; auto. } }
+    { (* Conj *)
+      simpl; intros; clear Htac.
+      specialize (IHg1 ctx s).
+      rename g1 into A.
+      rename g2 into B.
+      match goal with
+        | H : match ?X with _ => _ end
+          |- context [ match ?Y with _ => _ end ] =>
+          change Y with X ; destruct X; auto
+      end.
+      { rename g into A'.
+        specialize (IHg2 ctx c).
+        match goal with
+          | H : match ?X with _ => _ end
+            |- context [ match ?Y with _ => _ end ] =>
+            change Y with X ; destruct X; auto
+        end.
+        { rename g into B'.
+          intros; forward_reason; split; auto.
+          simpl. forward. forward_reason.
+          split; [ etransitivity; eassumption | ].
+          intros us vs.
+          specialize (H11 us vs).
+          specialize (H12 us vs).
+          revert H11.
+          eapply (Applicative_pctxD _ H8).
+          eapply pctxD_SubstMorphism.
+          3: eassumption. eassumption. eassumption.
+          revert H12.
+          eapply (Fmap_pctxD_impl _ H3); try reflexivity.
+          clear. do 6 red.
+          intros. equivs. firstorder. }
+        { change (rtac_spec tus tvs s (GConj_ A B) (More c0 A')).
+          eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
+          reflexivity.
+          simpl.
+          intros; forward_reason; split; auto.
+          simpl. forward. forward_reason.
+          split; [ etransitivity; eassumption | ].
+          intros us vs.
+          specialize (H11 us vs).
+          specialize (H10 us vs).
+          revert H10.
+          eapply (Applicative_pctxD _ H8).
+          eapply pctxD_SubstMorphism.
+          3: eassumption. eassumption. eassumption.
+          revert H11.
+          eapply (Fmap_pctxD_impl _ H3); try reflexivity.
+          clear. do 6 red.
+          intros. equivs. firstorder. } }
+      { specialize (IHg2 ctx c).
+        match goal with
+          | H : match ?X with _ => _ end
+            |- context [ match ?Y with _ => _ end ] =>
+            change Y with X ; destruct X; auto
+        end.
+        { rename g into B'.
+          intros; forward_reason; split; auto.
+          simpl. forward. forward_reason.
+          split; [ etransitivity; eassumption | ].
+          intros us vs.
+          specialize (H10 us vs).
+          specialize (H11 us vs).
+          revert H10.
+          eapply (Applicative_pctxD _ H7).
+          eapply pctxD_SubstMorphism.
+          3: eassumption. eassumption. eassumption.
+          revert H11.
+          eapply (Fmap_pctxD_impl _ H3); try reflexivity.
+          clear. do 6 red.
+          intros. equivs. firstorder. }
+        { intros; forward_reason; split; auto.
+          simpl. forward. forward_reason.
+          split; [ etransitivity; eassumption | ].
+          intros us vs.
+          specialize (H9 us vs).
+          specialize (H10 us vs).
+          revert H9.
+          eapply (Applicative_pctxD _ H7).
+          eapply pctxD_SubstMorphism.
+          3: eassumption. eassumption. eassumption.
+          revert H10.
+          eapply (Fmap_pctxD_impl _ H3); try reflexivity.
+          clear. do 6 red.
+          intros. equivs. firstorder. } } }
+    { (* Goal *)
+      clear - Htac; simpl; intros.
+      red in Htac.
+      specialize (@Htac ctx s e _ eq_refl).
+      rewrite countUVars_getUVars.
+      rewrite countVars_getVars.
+      do 2 rewrite <- app_length.
+      eauto. }
+    { (* Solved *)
+      clear. simpl.
+      intros. split; auto.
+      forward. split; [ reflexivity | ].
+      intros.
+      eapply (@Applicative_pctxD _ _ _ _ _ _ _ _ tus tvs ctx s); eauto. }
+  Qed.
+
+  Theorem runOnGoals_sound ctx s g
+  : @rtac_spec _ _ _ _ _ _ _ _ tus tvs ctx s g
+               (@runOnGoals (tus ++ getUVars ctx)
+                            (tvs ++ getVars ctx)
+                            (length tus + countUVars ctx)
+                            (length tvs + countVars ctx)
+                            ctx s g).
+  Proof.
+    eapply runOnGoals_sound_ind.
+  Qed.
 
 End runOnGoals.
 
