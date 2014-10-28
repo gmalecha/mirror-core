@@ -28,7 +28,7 @@ STAC := Core Continuation Repeat \
 	Simplify Instantiate \
 	UseForAll UseList \
 	STac
-RTAC := Core CoreGlobal RunOnGoals \
+RTAC := Core CoreK RunOnGoals \
 	Then Try Repeat Rec Idtac First Fail Solve \
 	Assumption \
 	Intro Apply EApply \
