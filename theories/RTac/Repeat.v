@@ -8,9 +8,6 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.Try.
-Require Import MirrorCore.RTac.Idtac.
-Require Import MirrorCore.RTac.Then.
 Require Import MirrorCore.RTac.RunOnGoals.
 
 Require Import MirrorCore.Util.Forwardy.
@@ -56,7 +53,7 @@ Section parameterized.
   : rtac typ expr subst :=
     REPEAT' tac n.
 
-  Theorem REAPEAT_sound
+  Theorem REPEAT_sound
   : forall tus tvs n tac, rtac_sound tus tvs tac ->
                           rtac_sound tus tvs (REPEAT n tac).
   Proof.
@@ -72,9 +69,8 @@ Section parameterized.
                     ctx s g); auto using rtac_spec_More_.
       eapply rtac_spec_trans; eauto.
       do 2 rewrite app_length.
-      rewrite <- countUVars_getUVars.
-      rewrite <- countVars_getVars.
       eapply runOnGoals_sound; eauto with typeclass_instances.
+      simpl. do 2 rewrite app_length. reflexivity.
   Qed.
 
 End parameterized.
