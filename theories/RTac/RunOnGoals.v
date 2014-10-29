@@ -548,17 +548,35 @@ Section runOnGoals.
       eapply (@Applicative_pctxD _ _ _ _ _ _ _ _ tus tvs ctx s); eauto. }
   Qed.
 
-  Theorem runOnGoals_sound ctx s g
-  : @rtac_spec _ _ _ _ _ _ _ _ tus tvs ctx s g
-               (@runOnGoals (tus ++ getUVars ctx)
-                            (tvs ++ getVars ctx)
-                            (length tus + countUVars ctx)
-                            (length tvs + countVars ctx)
-                            ctx s g).
-  Proof.
-    eapply runOnGoals_sound_ind.
-  Qed.
-
 End runOnGoals.
 
 Arguments runOnGoals {typ expr subst _ _} tac tus tvs nus nvs ctx csub goal : rename.
+
+Section runOnGoals_proof.
+  Variable typ : Type.
+  Variable expr : Type.
+  Variable subst : Type.
+
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Subst_subst : Subst subst expr}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
+
+  Theorem runOnGoals_sound
+  : forall tus tvs tac,
+      rtac_sound tus tvs tac -> rtacK_sound tus tvs (runOnGoals tac).
+  Proof.
+    intros.
+    generalize (@runOnGoals_sound_ind typ expr subst _ _ _ _ _ _ _ tac tus tvs H).
+    red. intros; subst.
+    specialize (H0 g ctx s). revert H0; clear.
+    unfold rtac_spec, rtacK_spec.
+    rewrite countUVars_getUVars.
+    rewrite countVars_getVars.
+    do 2 rewrite <- app_length.
+    exact (fun x => x).
+  Qed.
+End runOnGoals_proof.
