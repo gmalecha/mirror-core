@@ -36,16 +36,10 @@ Section parameterized.
 
   Definition APPLY : rtac typ expr subst :=
     @EAPPLY typ expr subst _ _ _ _ UVar vars_to_uvars exprUnify instantiate lem.
-  Let tyProp := @typ0 _ _ Prop _.
-
-  Let cast (e : typD tyProp) : Prop :=
-    match @typ0_cast typ _ Prop _ in _ = T return T with
-      | eq_refl => e
-    end.
 
   Hypothesis lemD :
-    @Lemma.lemmaD typ _ expr _ expr (@exprD'_typ0 _ _ _ _ Prop _)
-                  tyProp cast nil nil lem.
+    @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
+                  _ nil nil lem.
 
   Theorem APPLY_sound : rtac_sound nil nil APPLY.
   Proof.

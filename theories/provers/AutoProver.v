@@ -8,7 +8,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.EProverI.
-Require Import MirrorCore.ExprProp.
+Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.Util.Iteration.
@@ -41,30 +41,11 @@ Section parameterized.
   ; Extern : @EProver typ expr
   }.
 
-  Let provable (P : typD tyProp) : Prop :=
-    match typ0_cast (F:=Prop) in _ = T return T with
-      | eq_refl => P
-    end.
-
   Let lemmaD :=
-    @lemmaD _ _ _ Expr_expr expr
-            (fun tus tvs g =>
-               match typ0_cast (F:=Prop) in _ = T
-                     return option (exprT tus tvs T) with
-                 | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
-               end)
-            tyProp
-            provable.
+    @lemmaD _ _ _ Expr_expr expr (exprD'_typ0 (T:=Prop)) _.
 
   Let lemmaD' :=
-    @lemmaD' _ _ _ Expr_expr expr
-            (fun tus tvs g =>
-               match typ0_cast (F:=Prop) in _ = T
-                     return option (exprT tus tvs T) with
-                 | eq_refl => @exprD'  _ _ _ _ tus tvs g tyProp
-               end)
-            tyProp
-            provable.
+    @lemmaD' _ _ _ Expr_expr expr (exprD'_typ0 (T:=Prop)) _.
 
   Record HintsOk (h : Hints) : Type :=
   { ApplyOk : Forall (lemmaD nil nil) h.(Apply)
@@ -72,6 +53,7 @@ Section parameterized.
   }.
 
   (** TODO: This is essentially [filter_map] **)
+  (** TODO(gmalecha): building this lazily might be very helpful *)
   Section get_applicable.
     Variable subst : Type.
     Context {Subst_subst : Subst subst expr}.
@@ -97,6 +79,8 @@ Section parameterized.
   Context {SubstOk_subst : SubstOk Subst_subst}.
   Context {SU : SubstUpdate subst expr}.
   Context {SubstUpdateOk : SubstUpdateOk SU _}.
+  Context {SO : SubstOpen subst expr}.
+  Context {SubstOpenOk : SubstOpenOk _ SO}.
 
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
@@ -137,8 +121,7 @@ Section parameterized.
                           sub
             with
               | None => None
-              | Some sub =>
-                pull len_tus from sub
+              | Some sub => pull len_tus from sub
             end
         in
         first_success check
@@ -168,7 +151,7 @@ Section parameterized.
        forall fD sD gD,
          factsD Hok.(ExternOk) tus tvs facts = Some fD ->
          substD tus tvs s = Some sD ->
-         Provable tus tvs g = Some gD ->
+         exprD'_typ0 tus tvs g = Some gD ->
          exists sD',
            substD tus tvs s' = Some sD' /\
            forall us vs,
@@ -283,6 +266,29 @@ Section parameterized.
         (vs : hlist typD tvs0),
       val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
+  Lemma vars_to_uvars_sound_typ0
+  : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
+           (tvs' : list typ)
+           (val : exprT tus0 (tvs0 ++ tvs') Prop),
+      exprD'_typ0 tus0 (tvs0 ++ tvs') e = Some val ->
+      exists val' : exprT (tus0 ++ tvs') tvs0 Prop,
+        exprD'_typ0 (tus0 ++ tvs') tvs0 (vars_to_uvars (length tvs0) (length tus0) e)
+        = Some val' /\
+        (forall (us : hlist typD tus0) (vs' : hlist typD tvs')
+                (vs : hlist typD tvs0),
+           val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
+  Proof.
+    unfold exprD'_typ0; simpl; intros.
+    specialize (@vars_to_uvars_sound tus0 e tvs0 (typ0 (F:=Prop)) tvs').
+    forward; inv_all; subst.
+    specialize (@vars_to_uvars_sound _ eq_refl).
+    destruct vars_to_uvars_sound as [ ? [ ? ? ] ].
+    rewrite H0.
+    eexists; split; eauto.
+    intros; autorewrite with eq_rw. rewrite H1.
+    reflexivity.
+  Qed.
+
   Lemma applicable_sound
   : forall s tus tvs l0 g s1,
       eapplicable s tus tvs l0 g = Some s1 ->
@@ -291,19 +297,26 @@ Section parameterized.
       forall lD sD gD,
         lemmaD' nil nil l0 = Some lD ->
         substD tus tvs s = Some sD ->
-        exprD' tus tvs g tyProp = Some gD ->
-        exists s1D,
+        exprD'_typ0 tus tvs g = Some gD ->
+        exists s1D gD',
           substD (tus ++ l0.(vars)) tvs s1 = Some s1D /\
+          exprD'_typ0 tus (l0.(vars) ++ tvs) l0.(concl) = Some gD' /\
           forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
             s1D (hlist_app us us') vs ->
-            exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
-            Some (gD us vs)
-            /\ sD us vs.
+            (gD us vs <-> gD' us (hlist_app us' vs)) /\ sD us vs.
   Proof.
     intros. unfold eapplicable in H.
     eapply eapplicable_sound in H;
       eauto with typeclass_instances.
     forward_reason. split; eauto.
+    intros.
+    eapply H1 in H3; eauto.
+    forward_reason.
+    do 2 eexists; split; eauto.
+    split; eauto.
+    clear - H6. intros.
+    eapply H6 in H. clear - H.
+    intuition.
   Qed.
 
   Opaque Traversable.mapT impls.
@@ -366,7 +379,7 @@ Section parameterized.
           (forall fD sD gD,
               factsD (ExternOk Hok) tus tvs facts = Some fD ->
               substD (tus ++ vars l) tvs s0 = Some sD ->
-              Provable tus (vars l ++ tvs) (concl l) = Some gD ->
+              exprD'_typ0 tus (vars l ++ tvs) (concl l) = Some gD ->
               exists sD',
                 substD (tus ++ vars l) tvs s1 = Some sD' /\
                 (forall (us : hlist typD tus)
@@ -376,87 +389,56 @@ Section parameterized.
                    sD' (hlist_app us vs') vs ->
                       sD (hlist_app us vs') vs
                    /\ (impls
-                         (map (fun x => provable (x Hnil (hlist_app vs' Hnil))) l0)
+                         (map (fun x => x Hnil (hlist_app vs' Hnil)) l0)
                          (gD us (hlist_app vs' vs)) ->
                        gD us (hlist_app vs' vs))))).
       { (** This is actually applying the lemma **)
         clear H3 H5 H recurse H0.
         intros.
         forward_reason.
-        eapply pull_sound in H4; eauto.
+        eapply pull_sound_sem in H4; eauto.
         forward_reason.
-        split; auto. intros. (*
-        specialize (fun tvs0 sD => H4 _ _ tvs0 sD eq_refl eq_refl).
-        unfold Provable in H10.
-        forwardy.
-        specialize (H7 _ _ H9 H10).
-        forward_reason.
-        specialize (H0 _ _ _ H5 H7  *)
-        progress fill_holes. (** NOTE: This is very inefficient **)
-        assert (exists y,
-                  Provable tus (vars l ++ tvs) (concl l) = Some y /\
-                  forall a b c,
-                    e0 Hnil (hlist_app a Hnil) <-> y b (hlist_app a c)).
-        { autorewrite with eq_rw in H8.
-          forwardy.
-          eapply (@ExprI.exprD'_weaken _ _ _ Expr_expr)
-          with (tus' := tus) (tvs' := tvs) in H8; eauto with typeclass_instances.
-          simpl in H8. destruct H8 as [ ? [ ? ? ] ].
-          generalize (@exprD'_conv _ _ _ Expr_expr tus tus (vars l ++ tvs) ((vars l ++ nil) ++ tvs) (concl l) tyProp eq_refl (app_ass_trans _ _ _)).
-          rewrite H8.
-          unfold Provable.
-          intro XXX; change_rewrite XXX; clear XXX.
-          autorewrite with eq_rw.
-          eexists; split; eauto. inv_all.
-          subst.
-          intros. autorewrite with eq_rw.
-          erewrite H12.
-          instantiate (1 := c). instantiate (1 := b).
-          simpl.
-          rewrite hlist_app_assoc. simpl. reflexivity. }
-        destruct H11 as [ ? [ ? ? ] ].
-        unfold Provable in *. forwardy.
-        specialize (H7 _ H10).
-        forward_reason.
+        split; auto. intros.
+        fill_holes.
         autorewrite with eq_rw in H8.
-        forwardy.
-        rewrite H11 in *.
-        specialize (H0 _ _ H7 eq_refl).
+        forward; inv_all; subst.
+        eapply H14 in H16; clear H14.
+        eapply H13 in H16; clear H13.
         forward_reason.
-        specialize (H4 _ _ H0).
-        forward_reason.
-        eexists; split; eauto.
-        intros.
-        repeat match goal with
-                 | H : _ |- _ => specialize (H us vs)
-               end.
-        eapply H22 in H24; clear H22.
-        inv_all; subst.
+        eapply H12 in H13; clear H12.
+        destruct H13. split; auto.
+        eapply H12; clear H12.
+        eapply H14; clear H14.
         rewrite foralls_sem in H6.
-        remember (hlist_map
-                (fun (t : typ)
-                   (x : hlist typD tus ->
-                        hlist typD tvs -> typD t) =>
-                 x us vs) x4).
-        specialize (H6 h).
-        specialize (H17 _ H23 H24).
-        specialize (H12 h us vs).
-        rewrite impls_sem in H6.
-        rewrite H12 in H6; clear H12.
-        rewrite <- impls_sem in H6.
-        clear - Heqh H24 H6 H21 H17 H15 H11.
+        simpl in H6.
+        specialize (H6 (hlist_map (fun t (x : exprT tus tvs _) => x us vs) x3)).
+        simpl in *.
+        eapply impls_sem. intros.
+        eapply impls_sem in H6; eauto.
+        eapply exprD'_typ0_weaken with (tus' := tus) (tvs' := tvs) in H8; eauto.
         forward_reason.
-        eapply H15 in H; clear H15.
-        forward_reason. split; eauto.
-        unfold exprD in H.
-        rewrite join_env_app in H.
-        do 2 rewrite split_env_join_env in H.
-        change_rewrite H11 in H.
-        inv_all.
-        autorewrite with eq_rw.
-        rewrite <- H; clear H.
-        autorewrite with eq_rw in H0.
-        assumption. }
+        simpl in *.
+        rewrite exprD'_typ0_conv with (pfu := eq_refl)
+                                      (pfv := eq_sym (app_ass_trans l.(vars) nil tvs))
+          in H8.
+        simpl in H8.
+        autorewrite with eq_rw in H8.
+        rewrite H11 in H8.
+        inv_all; subst.
+        specialize (H14 Hnil (hlist_app (hlist_map (fun (t : typ) (x4 : exprT tus tvs (typD t)) => x4 us vs)
+           x3) Hnil) us vs).
+        change_rewrite H14 in H6.
+        clear - H6. simpl in *.
+        autorewrite with eq_rw in H6.
+        rewrite hlist_app_assoc in H6.
+        simpl in H6.
+        revert H6.
+        match goal with
+          | |- _ _ match _ with eq_refl => match ?P with eq_refl => ?X end end ->
+               _ _ ?Y =>
+            change Y with X; generalize X ; destruct P
+        end.
+        simpl. auto. }
       { clear H6 H4 H0 H7.
         generalize dependent l0.
         generalize dependent s0.
@@ -481,76 +463,53 @@ Section parameterized.
           forward_reason.
           specialize (fun gD => H3 _ _ gD H9 H10).
           assert (exists y,
-                    exprD' (tus ++ vars l) tvs
+                    exprD'_typ0 (tus ++ vars l) tvs
                            (instantiate (fun x => lookup x s0) 0
-                                        (vars_to_uvars 0 (length tus) a)) tyProp =
-                    Some y /\
+                                        (vars_to_uvars 0 (length tus) a)) = Some y /\
                     forall a b c,
                       sD (hlist_app a b) c ->
                       y (hlist_app a b) c = e Hnil (hlist_app b Hnil)).
-          { eapply (@exprD'_weakenU _ _ _ Expr_expr) with (tus' := tus) in H0;
-            eauto with typeclass_instances.
+          { eapply exprD'_typ0_weakenU with (tus' := tus) in H0; eauto.
             destruct H0 as [ ? [ ? ? ] ].
-            change (vars l ++ nil) with (nil ++ (vars l ++ nil)) in H0.
-            simpl ExprI.exprD' in H0.
-            eapply vars_to_uvars_sound in H0.
+            rewrite exprD'_typ0_conv with (pfu := eq_refl)
+                                          (pfv := eq_sym (app_nil_r_trans l.(vars))) in H0.
+            autorewrite with eq_rw in H0.
+            forwardy.
+            eapply vars_to_uvars_sound_typ0 with (tvs0 := nil) in H0; eauto.
             destruct H0 as [ ? [ ? ? ] ].
-            simpl in H0.
-            eapply exprD'_weakenV with (tvs' := tvs) (t := tyProp) in H0; eauto with typeclass_instances.
+            eapply exprD'_typ0_weakenV with (tvs' := tvs) in H0; eauto.
             destruct H0 as [ ? [ ? ? ] ].
-            simpl in H0.
-            assert (exists y,
-                      exprD' (tus ++ vars l) tvs (vars_to_uvars 0 (length tus) a)
-                             tyProp = Some y /\
-                      forall us vs vs',
-                        x2 (hlist_app us (hlist_app vs Hnil)) vs' =
-                        y (hlist_app us vs) vs').
-            { generalize (@exprD'_conv _ _ _ Expr_expr
-                                   (tus ++ vars l) (tus ++ vars l ++ nil)
-                                   tvs tvs
-                                   (vars_to_uvars 0 (length tus) a)
-                                   tyProp).
-              simpl. intro XXX; erewrite XXX; clear XXX.
-              instantiate (1 := eq_refl).
-              instantiate (1 := match eq_sym (app_nil_r_trans (vars l)) in _ = tvs'
-                                      return tus ++ tvs' = tus ++ vars l
-                                with
-                                  | eq_refl => eq_refl
-                                end).
-              simpl. rewrite H0.
-              autorewrite with eq_rw.
-              eexists; split; eauto.
-              { clear. intros.
-                rewrite hlist_app_nil_r.
-                revert x2. revert vs.
-                destruct (app_nil_r_trans (vars l)).
-                reflexivity. } }
-            destruct H16 as [ ? [ ? ? ] ].
+            simpl in *.
+            unfold exprD'_typ0 in *.
+            forwardy.
             edestruct (@exprD'_instantiate_subst_Some
                           (tus ++ vars l)
                           tvs
                           s0
                           (vars_to_uvars 0 (length tus) a)
                           tyProp) as [ ? [ ? ? ] ]; eauto.
-            simpl in *.
+            change_rewrite H20.
             eexists; split; eauto.
             intros.
-            fill_holes.
-            repeat match goal with
-                     | [ H : forall x : hlist _ _, _ , H' : _ |- _ ] =>
-                       specialize (H H') || specialize (H Hnil)
-                   end.
-            erewrite H13.
-            instantiate (1 := a0).
+            inv_all; subst.
+            autorewrite with eq_rw.
+            rewrite <- H21; clear H21; eauto.
+            specialize (H16 (hlist_app a0 b) Hnil c).
+            autorewrite with eq_rw in H16.
+            simpl in *. rewrite <- H16; clear H16.
+            clear - H15 H13.
+            rewrite <- H15; clear H15.
+            specialize (H13 Hnil a0 (hlist_app b Hnil)).
             simpl in *.
-            specialize (H14 (hlist_app b Hnil) Hnil). simpl in *.
-            rewrite H14; clear H14.
-            specialize (H15 (hlist_app a0 (hlist_app b Hnil)) Hnil c).
-            specialize (H13 (hlist_app b Hnil) a0). simpl in *.
-            etransitivity. 2: symmetry; eapply H15. clear H15.
-            rewrite H17; clear H17.
-            auto. }
-          unfold Provable in *.
+            rewrite H13.
+            autorewrite with eq_rw.
+            f_equal.
+            rewrite hlist_app_nil_r.
+            clear.
+            match goal with
+              | |- _ = match eq_sym ?X with eq_refl => match ?Y with _ => _ end end =>
+                change Y with X; destruct X
+            end. reflexivity. }
           forwardy.
           forward_reason.
           change_rewrite H13 in H3.
@@ -560,20 +519,16 @@ Section parameterized.
           forward_reason.
           eexists; split; eauto.
           intros.
-          specialize (H6 _ _ _ H17 H18).
+          specialize (H6 _ _ _ H16 H17).
           forward_reason.
-          eapply H12 in H17; clear H12.
-          specialize (H16 _ _ H17 H6).
+          eapply H12 in H16; clear H12.
+          specialize (H15 _ _ H16 H6).
           forward_reason; split; auto.
-          intro. apply H19.
-          simpl in H20.
-          Transparent impls. simpl impls in H20.
+          intro. eapply H18.
+          Transparent impls. simpl impls in H19.
           Opaque impls.
-          eapply H20; clear H20.
-          erewrite <- H15 by eassumption.
-          clear - H16.
-          red.
-          autorewrite with eq_rw in H16.
+          eapply H19; clear H19.
+          erewrite <- H14 by eassumption.
           assumption. } } }
   Qed.
 
