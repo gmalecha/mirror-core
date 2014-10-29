@@ -1,7 +1,7 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.ExprProp.
+Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.ProverI.
 
 Set Implicit Arguments.
@@ -38,7 +38,7 @@ Section proverI.
       (forall sumD subD goalD,
          Valid tus tvs sum = Some sumD ->
          substD tus tvs sub = Some subD ->
-         Provable tus tvs goal = Some goalD ->
+         exprD'_typ0 tus tvs goal = Some goalD ->
          exists subD',
            substD tus tvs sub' = Some subD' /\
            forall (us : HList.hlist typD tus)
@@ -48,6 +48,14 @@ Section proverI.
              subD us vs /\
              goalD us vs).
 
+  Definition AllProvable tus tvs (es : list expr)
+  : option (exprT tus tvs Prop) :=
+    match Traversable.mapT (T:=list) (F:=option) (exprD'_typ0 tus tvs) es with
+      | None => None
+      | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)
+    end.
+
+  (** TODO(gmalecha): Is is worthwhile to try to get rid of this? *)
   Record EProverOk (P : EProver) : Type :=
   { factsD : forall tus tvs, Facts P -> option (exprT tus tvs Prop)
   ; factsD_weaken

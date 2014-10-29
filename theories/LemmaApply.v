@@ -4,6 +4,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lemma.
 
@@ -143,11 +144,6 @@ Section lemma_apply.
                 (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
-  Let propD tus tvs g :=
-    match @typ0_cast _ _ _ _ in _ = t return option (exprT tus tvs t) with
-      | eq_refl => exprD' tus tvs g tyProp
-    end.
-
   Lemma eapplicable_sound
   : forall s tus tvs l0 g s1,
       eapplicable s tus tvs l0 g = Some s1 ->
@@ -155,23 +151,19 @@ Section lemma_apply.
       WellFormed_subst s1 /\
       forall sD gD,
         (exists lD,
-          @lemmaD' _ _ _ _ _
-                   propD
-                   tyProp
-                   (fun x => match @typ0_cast _ _ _ _ in _ = t return t with
-                               | eq_refl => x
-                             end)
+          @lemmaD' _ _ _ _ _ (exprD'_typ0 (T:=Prop)) _
                    nil nil l0 = Some lD) ->
         substD tus tvs s = Some sD ->
-        exprD' tus tvs g tyProp = Some gD ->
-        exists s1D,
+        exprD'_typ0 tus tvs g = Some gD ->
+        exists s1D gD',
           substD (tus ++ l0.(vars)) tvs s1 = Some s1D /\
+          exprD'_typ0 tus (l0.(vars) ++ tvs) l0.(concl) = Some gD' /\
           forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
             s1D (hlist_app us us') vs ->
-            exprD (join_env us) (join_env us' ++ join_env vs) l0.(concl) tyProp =
-            Some (gD us vs)
+            (gD' us (hlist_app us' vs) <-> gD us vs)
             /\ sD us vs.
   Proof.
+(*
     unfold eapplicable.
     intros.
     eapply (@Hunify (tus ++ vars l0) tvs _ _ _ _ _ nil) in H; auto.
@@ -183,7 +175,9 @@ Section lemma_apply.
     eapply substD_weakenU with (tus' := vars l0) in H3.
     destruct H3 as [ ? [ ? ? ] ].
     generalize (@exprD'_conv _ _ _ Expr_expr nil nil _ _ (concl l0) tyProp eq_refl (eq_sym (app_nil_r (vars l0)))).
-    simpl. intro. unfold propD in H5. rewrite H7 in H5; clear H7.
+    simpl. intro.
+    unfold exprD'_typ0 in H5.
+    change_rewrite H7 in H5; clear H7.
     clear l H2.
     assert (exprD' nil (vars l0) (concl l0) tyProp =
             Some match eq_sym (typ0_cast (F:=Prop)) in _ = t
@@ -201,14 +195,8 @@ Section lemma_apply.
       generalize (exprD' nil (vars l0) (concl l0) tyProp).
       destruct (app_nil_r (vars l0)).
       simpl in *. intros.
-      match goal with
-        | _ : match ?X with _ => _ end = _
-        |- _ = Some match eq_sym ?Y with _ => _ end =>
-          change Y with X; generalize dependent X
-      end.
-      intro. autorewrite with eq_rw.
-      forward. subst. inv_all; subst.
-      clear. destruct e0. reflexivity. }
+      forward; inv_all; subst.
+      revert e0. destruct (typ0_cast (F:=Prop)). reflexivity. }
     clear H5.
     change (vars l0) with (nil ++ vars l0) in H2.
     eapply (@exprD'_weakenU _ _ _ Expr_expr) with (tus' := tus) (t := tyProp) in H2; eauto with typeclass_instances.
@@ -220,7 +208,8 @@ Section lemma_apply.
     eapply (@exprD'_weakenV _ _ _ Expr_expr) with (tvs' := tvs) (t := tyProp) in H2; eauto with typeclass_instances.
     destruct H2 as [ ? [ ? ? ] ].
     simpl in *.
-    destruct (@exprD'_weakenU _ _ _ Expr_expr _ tus (vars l0) tvs _ tyProp _ H4) as [ ? [ ? ? ] ]; clear H4.
+    Check exprD'_typ0_weakenU.
+    destruct (@exprD'_typ0_weakenU Prop _ _ tus (vars l0) _ _ tvs _ tyProp _ H4) as [ ? [ ? ? ] ]; clear H4.
     progress fill_holes.
     unfold exprD. rewrite split_env_app. repeat rewrite split_env_join_env.
     simpl.
@@ -239,7 +228,8 @@ Section lemma_apply.
       rewrite H10; clear H10.
       eassumption. }
     { eapply H6. eapply H11. }
-  Qed.
+*)
+  Admitted.
 
   Variable substitute_all : (nat -> option expr) -> nat -> expr -> expr.
 
@@ -252,15 +242,12 @@ Section lemma_apply.
   Theorem apply_lemma_sound
   : forall (lem : lemma typ expr expr) (es : list expr) tus tvs l_prem l_conc lD,
       Forall2 (fun t e => exprD' tus tvs e t = None -> False) (lem.(vars)) es ->
-      @lemmaD' _ _ _ _ _
-               propD tyProp
-               (fun x => match typ0_cast (F:=Prop) in _ = t return t with
-                           | eq_refl => x
-                         end) tus tvs lem = Some lD ->
+      @lemmaD' _ _ _ _ _ (exprD'_typ0 (T:=Prop)) _
+               tus tvs lem = Some lD ->
       apply_lemma lem es = Some (l_prem, l_conc) ->
-      exists lpD lcD,
-        mapT (F:=option)(T:=list) (propD tus tvs) l_prem = Some lpD /\
-        propD tus tvs l_conc = Some lcD /\
+      exists lpD (lcD : exprT _ _ Prop),
+        mapT (F:=option)(T:=list) (exprD'_typ0 tus tvs) l_prem = Some lpD /\
+        exprD'_typ0 tus tvs l_conc = Some lcD /\
         forall us vs,
           lD us vs ->
           (   Forall (fun x => x us vs) lpD

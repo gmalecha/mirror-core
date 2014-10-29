@@ -19,7 +19,6 @@ Require Export MirrorCore.RTac.RunOnGoals.
 (*Require Export MirrorCore.RTac.RunSTac.*)
 Require Export MirrorCore.RTac.AtGoal.
 
-
 Ltac rtac_derive_soundness :=
   repeat first [ eapply IDTAC_sound
                | eapply FAIL_sound
@@ -31,6 +30,8 @@ Ltac rtac_derive_soundness :=
                | eapply TRY_sound ; rtac_derive_soundness
                | eapply REPEAT_sound ; rtac_derive_soundness
                | eapply AT_GOAL_sound ; [ intros ; rtac_derive_soundness ]
+               | eapply APPLY_sound ; [ simpl ] (* TODO(gmalecha): Needs to change *)
+               | eapply EAPPLY_sound ; [ simpl ]  (* TODO(gmalecha): Needs to change *)
                ]
 with rtacK_derive_soundness :=
   first [ eauto

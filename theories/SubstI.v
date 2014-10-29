@@ -116,14 +116,6 @@ Section subst.
     (** NOTE: This doesn't seem to be used! It really should be specific to
      *  the particular implementation
      *)
-    (** NOTE: Things below this are all about context manipulation.
-     *  This makes less sense for this interface.
-     *)
-(*  ; drop : uvar -> T -> option T *)
-(*  ; split : uvar -> nat -> T -> option (T * list (option expr))
-  ; strengthenV : nat -> nat -> T -> bool
-  ; strengthenU : nat -> nat -> T -> bool
-*)
   }.
 
 
@@ -139,7 +131,7 @@ Section subst.
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',
         set uv e s = Some s' ->
-        lookup uv s = None ->
+        lookup uv s = None -> (* How important is this? *)
         WellFormed_subst s ->
         WellFormed_subst s' /\
         forall tus tvs t val get sD,
@@ -152,7 +144,40 @@ Section subst.
             forall us vs,
               sD' us vs ->
               sD us vs /\ get us = val us vs
-(*
+  }.
+
+  Class SubstOpen : Type :=
+  { (* drop : uvar -> T -> option T *)
+    split : uvar -> nat -> T -> option (T * list (option expr))
+  ; strengthenV : nat -> nat -> T -> bool
+  ; strengthenU : nat -> nat -> T -> bool
+  }.
+
+  Class SubstOpenOk (S : Subst) (SO : SubstOk S) (OS : SubstOpen) : Type :=
+  { split_sound
+    : forall u n s s' oes,
+        split u n s = Some (s', oes) ->
+        WellFormed_subst s ->
+        WellFormed_subst s' /\
+        forall tus tvs tus' sD,
+          substD (tus ++ tus') tvs s = Some sD ->
+          u = length tus ->
+          n = length tus' ->
+          exists sD' eoD,
+            substD tus tvs s' = Some sD' /\
+            hlist_build (fun t => option (exprT _ _ (typD t)))
+                        (fun t e =>
+                           match e with
+                             | None => Some None
+                             | Some e =>
+                               match exprD' (tus ++ tus') tvs e t with
+                                 | None => None
+                                 | Some eD => Some (Some eD)
+                               end
+                           end) tus' oes = Some eoD /\
+            forall us vs us',
+              sD (hlist_app us us') vs <->
+              (sD' us vs /\ True)
   ; strengthenV_sound
     : forall s n c,
         strengthenV n c s = true ->
@@ -177,6 +202,7 @@ Section subst.
             substD tus tvs s = Some sD' /\
             forall us vs us',
               sD (hlist_app us us') vs <-> sD' us vs
+(*
   ; forget_sound
     : forall s u s' oe,
         forget u s = (s', oe) ->
@@ -210,6 +236,8 @@ Section subst.
   Context {SubstOk_subst : SubstOk Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate}.
   Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst SubstOk_subst}.
+  Context {SubstOpen_subst : SubstOpen}.
+  Context {SubstOpenOk_subst : @SubstOpenOk _ _ _}.
 
   Lemma substD_conv
   : forall tus tus' tvs tvs' (pfu : tus' = tus) (pfv : tvs' = tvs) s,
@@ -252,7 +280,23 @@ Section subst.
                 sD' us vs <->
                 sD (hlist_app us (Hcons (eD us vs) Hnil)) vs.
   Admitted.
+*)
 
+  Fixpoint all_Some (ls : list (option expr)) : bool :=
+    match ls with
+      | nil => true
+      | None :: _ => false
+      | Some _ :: ls => all_Some ls
+    end.
+
+  Definition pull (from : uvar) (len : nat) (s : T) : option T :=
+    match split from len s with
+      | None => None
+      | Some (t,es) =>
+        if all_Some es then Some t else None
+    end.
+
+(*
   (** This is the "obvious" extension of [drop] **)
   Fixpoint pull (from : uvar) (len : nat) (s : T) : option T :=
     match len with
@@ -263,7 +307,6 @@ Section subst.
                   end
     end.
 *)
-
 (*
   Definition Subst_Extends (a b : T) : Prop :=
     forall tus tvs P Q,
@@ -352,6 +395,31 @@ Section subst.
                            hlist_Forall2 (ls := ls) P xs ys ->
                            hlist_Forall2 P (Hcons x xs) (Hcons y ys).
 
+  Theorem pull_sound_sem
+  : forall (Hnormalized : NormalizedSubstOk) n s s' u,
+      pull u n s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      forall tus tus' tvs sD,
+        u = length tus ->
+        n = length tus' ->
+        substD (tus ++ tus') tvs s = Some sD ->
+        exists sD',
+          substD tus tvs s' = Some sD' /\
+          exists us' : hlist (fun t => exprT tus tvs (typD t)) tus',
+            forall us vs,
+              let us' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us' in
+              sD' us vs <->
+              sD (hlist_app us us') vs.
+  Proof.
+    Opaque mapT.
+    unfold pull; intros; forwardy.
+    eapply split_sound in H; eauto.
+    forward; inv_all; subst.
+    forward_reason.
+    split; eauto.
+    intros; subst.
+  Admitted.
 (*
   Theorem pull_sound
   : forall (Hnormalized : NormalizedSubstOk) n s s' u,
@@ -375,6 +443,18 @@ Section subst.
               sD' us vs <->
               sD (hlist_app us us') vs.
   Proof.
+    Opaque mapT.
+    unfold pull; intros; forwardy.
+    eapply split_sound in H; eauto.
+    forward; inv_all; subst.
+    forward_reason.
+    split; eauto.
+    intros; subst.
+    
+
+
+
+
     Opaque mapT.
     induction n.
     { intros. simpl in *.
@@ -608,7 +688,5 @@ Section subst.
 *)
 End subst.
 
-(*
 Arguments pull {T expr SU} _ _ _ : rename.
-*)
 Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.

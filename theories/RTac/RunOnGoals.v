@@ -51,32 +51,34 @@ Section runOnGoals.
     { forward_reason; inv_all; subst.
       destruct a; simpl in *.
       destruct o; forward; inv_all; subst.
-      admit. (*
-              { replace (S (length tus0)) with (length (tus0 ++ t :: nil)) in H4.
-                rewrite substD_conv with (pfu := app_ass_trans tus0 (t :: nil) (map fst l))
-                                         (pfv := eq_refl) in H0.
-                autorewrite with eq_rw in H0. forward; inv_all; subst.
-                admit. admit.
-(*                specialize (@IHl (tus0 ++ t :: nil) tvs0 _ _ _ _ H4 H0). *) }
-              { autorewrite with eq_rw in H1. forward; inv_all; subst.
-                replace (S (length tus0)) with (length (tus0 ++ t :: nil)) in H.
-                rewrite substD_conv with (pfu := app_ass_trans tus0 (t :: nil) (map fst l))
-                                         (pfv := eq_refl) in H0.
-                autorewrite with eq_rw in H0. forward; inv_all; subst.
-                specialize (@IHl (tus0 ++ t :: nil) tvs0 _ _ _ _ H H0 H1).
-                forward_reason.
-                rewrite substD_conv with (pfu := eq_sym (app_ass_trans tus0 (t :: nil) (map fst l)))
-                                         (pfv := eq_refl) in H2.
-                autorewrite with eq_rw in H2.
-                forward; inv_all; simpl in *; subst.
-                eexists; split; eauto.
-                intros.
-                autorewrite with eq_rw.
-                etransitivity; [ | eapply H3 ].
-                clear. revert e e1.
-                generalize (app_ass_trans tus0 (t :: nil) (map fst l)).
-                simpl. destruct e. simpl. reflexivity.
-                rewrite app_length. simpl. omega. } *) admit. }
+      { replace (S (length tus)) with (length (tus ++ t :: nil)) in H5
+          by (rewrite app_length; simpl; omega).
+        rewrite substD_conv with (pfu := app_ass_trans tus (t :: nil) (map fst l))
+                                   (pfv := eq_refl) in H1.
+        autorewrite with eq_rw in H1. forward; inv_all; subst.
+        specialize (@IHl (tus ++ t :: nil) tvs). (* _ _ _ _ H4 H5). *)
+        admit. }
+      { autorewrite with eq_rw in H1. forward; inv_all; subst.
+        replace (S (length tus)) with (length (tus ++ t :: nil)) in H
+          by (rewrite app_length; simpl; omega).
+        rewrite substD_conv with (pfu := app_ass_trans tus (t :: nil) (map fst l))
+                                   (pfv := eq_refl) in H1.
+        autorewrite with eq_rw in H1. forward; inv_all; subst.
+        admit. (*
+        specialize (@IHl (tus ++ t :: nil) tvs _ _ _ _ H H0 H1).
+        forward_reason.
+        rewrite substD_conv with (pfu := eq_sym (app_ass_trans tus0 (t :: nil) (map fst l)))
+                                   (pfv := eq_refl) in H2.
+        autorewrite with eq_rw in H2.
+        forward; inv_all; simpl in *; subst.
+        eexists; split; eauto.
+        intros.
+        autorewrite with eq_rw.
+        etransitivity; [ | eapply H3 ].
+        clear. revert e e1.
+        generalize (app_ass_trans tus0 (t :: nil) (map fst l)).
+        simpl. destruct e. simpl. reflexivity.
+        rewrite app_length. simpl. omega. } *) } }
   Qed.
   Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
                             length ts = length us ->
@@ -101,9 +103,9 @@ Section runOnGoals.
     induction y; simpl; auto.
   Qed.
   Lemma forgets_spec
-    (** TODO: There needs to be an extra requirement here that says that
-     ** the domain of s is in some way related to the range.
-     **)
+  (** TODO: There needs to be an extra requirement here that says that
+   ** the domain of s is in some way related to the range.
+   **)
   : forall tvs ts tus s sD,
       WellFormed_subst s ->
       substD (tus ++ ts) tvs s = Some sD ->
@@ -178,7 +180,6 @@ Section runOnGoals.
            | _ => I
          end.
   Defined.
-
 
   Variable tac : rtac typ expr subst.
 
