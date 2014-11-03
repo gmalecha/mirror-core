@@ -6,6 +6,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.InstantiateI.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.CoreK.
 
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.

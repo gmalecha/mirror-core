@@ -68,10 +68,10 @@ Section cascade_subst.
         |}, ne).
 
   Definition cascade_strengthenU (from len : nat) (c : CascadeSubst) : bool.
-  Admitted.
+  Abort.
 
   Definition cascade_strengthenV (from len : nat) (c : CascadeSubst) : bool.
-  Admitted.
+  Abort.
 *)
 
   Instance SubstUpdate_CascadeSubst : SubstUpdate CascadeSubst expr :=

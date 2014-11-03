@@ -29,14 +29,6 @@ Proof. clear.
        - rewrite IHx. apply app_ass_trans.
 Defined.
 
-(** TODO: Move to Data.List **)
-Instance Injective_cons {T} (a : T) b c d
-: Injective (a :: b = c :: d) :=
-  { result := a = c /\ b = d }.
-abstract (inversion 1; auto).
-Defined.
-
-
 (** TODO: This is cubic! **)
 Theorem rev_involutive_trans (A : Type)
 : forall (l : list A), rev (rev l) = l.
