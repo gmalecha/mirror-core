@@ -523,29 +523,6 @@ Section parameterized.
     clear. destruct pfu; destruct pfv. reflexivity.
   Qed.
 
-
-  Fixpoint forgets (from : nat) (ts : list typ) (s : subst)
-  : list (option expr) :=
-    match ts with
-      | nil => nil
-      | t :: ts =>
-        let rr := forgets (S from) ts s in
-        let ne := lookup from s in
-        ne :: rr
-    end.
-
-  Fixpoint remembers (from : nat) (tes : list (typ * option expr)) (s : subst)
-  : option subst :=
-    match tes with
-      | nil => Some s
-      | (_,None) :: tes' => remembers (S from) tes' s
-      | (_,Some e) :: tes' =>
-        match set from e s with
-          | None => None
-          | Some s' => remembers (S from) tes' s'
-        end
-    end.
-
   Fixpoint pctxD (tus tvs : tenv typ) (ctx : Ctx) (s : ctx_subst ctx) {struct s}
   : option (   exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop
             -> exprT tus tvs Prop) :=

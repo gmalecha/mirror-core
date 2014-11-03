@@ -107,8 +107,13 @@ Section subst.
       WellFormed_subst s ->
       domain s = ls ->
       (forall n, In n ls <-> lookup n s <> None)
+  ; lookup_normalized : forall s e u,
+      WellFormed_subst s ->
+      lookup u s = Some e ->
+      forall u' e',
+        lookup u' s = Some e' ->
+        mentionsU u' e = false
   }.
-
 
   Class SubstUpdate :=
   { set : uvar -> expr -> T -> option T
@@ -153,6 +158,33 @@ Section subst.
   ; strengthenU : nat -> nat -> T -> bool
   }.
 
+  Fixpoint models (tus tvs : tenv typ) (tus' : tenv typ) (es : list (option expr))
+  : option (hlist typD tus' -> exprT tus tvs Prop) :=
+    match tus' as tus' , es
+          return option (hlist typD tus' -> exprT tus tvs Prop)
+    with
+      | nil , nil => Some (fun _ _ _ => True)
+      | tu' :: tus' , None :: es =>
+        match models (tus ++ tu' :: nil) tvs tus' es with
+          | None => None
+          | Some x => Some (fun h us vs =>
+                              x (hlist_tl h) (hlist_app us (Hcons (hlist_hd h) Hnil)) vs)
+        end
+      | tu' :: tus' , Some e :: es =>
+        match models (tus ++ tu' :: nil) tvs tus' es with
+          | None => None
+          | Some x =>
+            match exprD' (tus ++ tu' :: tus') tvs e tu' with
+              | None => None
+              | Some eD =>
+                Some (fun h us vs =>
+                           hlist_hd h = eD (hlist_app us h) vs
+                        /\ x (hlist_tl h) (hlist_app us (Hcons (hlist_hd h) Hnil)) vs)
+            end
+        end
+      | _ , _ => None
+    end.
+
   Class SubstOpenOk (S : Subst) (SO : SubstOk S) (OS : SubstOpen) : Type :=
   { split_sound
     : forall u n s s' oes,
@@ -165,19 +197,10 @@ Section subst.
           n = length tus' ->
           exists sD' eoD,
             substD tus tvs s' = Some sD' /\
-            hlist_build (fun t => option (exprT _ _ (typD t)))
-                        (fun t e =>
-                           match e with
-                             | None => Some None
-                             | Some e =>
-                               match exprD' (tus ++ tus') tvs e t with
-                                 | None => None
-                                 | Some eD => Some (Some eD)
-                               end
-                           end) tus' oes = Some eoD /\
+            models tus tvs tus' oes = Some eoD /\
             forall us vs us',
               sD (hlist_app us us') vs <->
-              (sD' us vs /\ True)
+              (sD' us vs /\ eoD us' us vs)
   ; strengthenV_sound
     : forall s n c,
         strengthenV n c s = true ->
@@ -202,34 +225,6 @@ Section subst.
             substD tus tvs s = Some sD' /\
             forall us vs us',
               sD (hlist_app us us') vs <-> sD' us vs
-(*
-  ; forget_sound
-    : forall s u s' oe,
-        forget u s = (s', oe) ->
-        WellFormed_subst s ->
-        WellFormed_subst s' /\
-        forall tus tvs sD,
-          substD tus tvs s = Some sD ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            match oe with
-              | None =>
-                forall us vs,
-                  sD us vs <-> sD' us vs
-              | Some e =>
-                mentionsU u e = false /\
-                match nth_error_get_hlist_nth typD tus u with
-                  | Some (existT t get) =>
-                    match exprD' tus tvs e t with
-                      | None => False
-                      | Some eD =>
-                        forall us vs,
-                          sD us vs <-> (get us = eD us vs /\ sD' us vs)
-                    end
-                  | None => False
-                end
-            end
-*)
   }.
 
   Context {Subst_subst : Subst}.
@@ -252,36 +247,6 @@ Section subst.
     clear. destruct pfu. destruct pfv. reflexivity.
   Qed.
 
-(*
-  Definition drop (from : uvar) (s : T) : option T :=
-    let (nsub,val) := forget from s in
-    match val with
-      | None => None
-      | Some _ => Some nsub
-    end.
-
-  Theorem drop_sound
-  : forall s s' u,
-      drop u s = Some s' ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      exists e,
-        lookup u s = Some e /\
-        lookup u s' = None /\
-        (forall u', u' <> u -> lookup u' s = lookup u' s') /\
-        forall tus tu tvs sD,
-          u = length tus ->
-          substD (tus ++ tu :: nil) tvs s = Some sD ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            exists eD,
-              exprD' tus tvs e tu = Some eD /\
-              forall us vs,
-                sD' us vs <->
-                sD (hlist_app us (Hcons (eD us vs) Hnil)) vs.
-  Admitted.
-*)
-
   Fixpoint all_Some (ls : list (option expr)) : bool :=
     match ls with
       | nil => true
@@ -295,35 +260,6 @@ Section subst.
       | Some (t,es) =>
         if all_Some es then Some t else None
     end.
-
-(*
-  (** This is the "obvious" extension of [drop] **)
-  Fixpoint pull (from : uvar) (len : nat) (s : T) : option T :=
-    match len with
-      | 0 => Some s
-      | S len' => match pull (S from) len' s with
-                   | None => None
-                   | Some s' => drop from s'
-                  end
-    end.
-*)
-(*
-  Definition Subst_Extends (a b : T) : Prop :=
-    forall tus tvs P Q,
-      substD tus tvs b = Some P ->
-      substD tus tvs a = Some Q ->
-      forall us vs, P us vs -> Q us vs.
-*)
-
-  (** TODO: Maybe this should be essential **)
-  Class NormalizedSubstOk : Type :=
-  { lookup_normalized : forall s e u,
-      WellFormed_subst s ->
-      lookup u s = Some e ->
-      forall u' e',
-        lookup u' s = Some e' ->
-        mentionsU u' e = false
-  }.
 
   Lemma substD_weakenU
   : forall tus tvs tus' s sD,
@@ -395,8 +331,8 @@ Section subst.
                            hlist_Forall2 (ls := ls) P xs ys ->
                            hlist_Forall2 P (Hcons x xs) (Hcons y ys).
 
-  Theorem pull_sound_sem
-  : forall (Hnormalized : NormalizedSubstOk) n s s' u,
+  Lemma pull_sound_syn
+  : forall n s s' u,
       pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
@@ -404,25 +340,25 @@ Section subst.
         u = length tus ->
         n = length tus' ->
         substD (tus ++ tus') tvs s = Some sD ->
-        exists sD',
-          substD tus tvs s' = Some sD' /\
-          exists us' : hlist (fun t => exprT tus tvs (typD t)) tus',
-            forall us vs,
-              let us' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us' in
-              sD' us vs <->
-              sD (hlist_app us us') vs.
+        exists eus',
+          mapT (fun u => lookup u s) (seq u n) = Some eus' /\
+          (forall u', u' < u \/ u' > u + n -> lookup u' s = lookup u' s') /\
+          (forall u', u' < n -> lookup (u + u') s' = None).
   Proof.
-    Opaque mapT.
-    unfold pull; intros; forwardy.
-    eapply split_sound in H; eauto.
-    forward; inv_all; subst.
-    forward_reason.
-    split; eauto.
+    unfold pull.
+    intros. forward.
+    subst. inv_all; subst.
+    eapply split_sound in H1; eauto.
+    forward_reason; split; eauto.
     intros; subst.
-  Admitted.
-(*
+    specialize (H1 _ _ _ _ H5 eq_refl eq_refl).
+    forward_reason.
+    Print hlist_build.
+  Abort.
+
+
   Theorem pull_sound
-  : forall (Hnormalized : NormalizedSubstOk) n s s' u,
+  : forall n s s' u,
       pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
@@ -443,6 +379,7 @@ Section subst.
               sD' us vs <->
               sD (hlist_app us us') vs.
   Proof.
+(*
     Opaque mapT.
     unfold pull; intros; forwardy.
     eapply split_sound in H; eauto.
@@ -581,8 +518,35 @@ Section subst.
                    end.
             forwardy. inv_all. subst.
             rewrite H1; auto. rewrite H. reflexivity. } } } }
-  Qed.
 *)
+  Abort.
+
+  Theorem pull_sound_sem
+  : forall  n s s' u,
+      pull u n s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      forall tus tus' tvs sD,
+        u = length tus ->
+        n = length tus' ->
+        substD (tus ++ tus') tvs s = Some sD ->
+        exists sD',
+          substD tus tvs s' = Some sD' /\
+          exists us' : hlist (fun t => exprT tus tvs (typD t)) tus',
+            forall us vs,
+              let us' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us' in
+              sD' us vs <->
+              sD (hlist_app us us') vs.
+  Proof.
+    Opaque mapT.
+    unfold pull; intros; forwardy.
+    eapply split_sound in H; eauto.
+    forward; inv_all; subst.
+    forward_reason.
+    split; eauto.
+    intros; subst.
+  Admitted.
+
 
   Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
 
@@ -689,4 +653,52 @@ Section subst.
 End subst.
 
 Arguments pull {T expr SU} _ _ _ : rename.
-Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.
+(*Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.*)
+
+(*
+  Definition drop (from : uvar) (s : T) : option T :=
+    let (nsub,val) := forget from s in
+    match val with
+      | None => None
+      | Some _ => Some nsub
+    end.
+
+  Theorem drop_sound
+  : forall s s' u,
+      drop u s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      exists e,
+        lookup u s = Some e /\
+        lookup u s' = None /\
+        (forall u', u' <> u -> lookup u' s = lookup u' s') /\
+        forall tus tu tvs sD,
+          u = length tus ->
+          substD (tus ++ tu :: nil) tvs s = Some sD ->
+          exists sD',
+            substD tus tvs s' = Some sD' /\
+            exists eD,
+              exprD' tus tvs e tu = Some eD /\
+              forall us vs,
+                sD' us vs <->
+                sD (hlist_app us (Hcons (eD us vs) Hnil)) vs.
+*)
+
+(*
+  (** This is the "obvious" extension of [drop] **)
+  Fixpoint pull (from : uvar) (len : nat) (s : T) : option T :=
+    match len with
+      | 0 => Some s
+      | S len' => match pull (S from) len' s with
+                   | None => None
+                   | Some s' => drop from s'
+                  end
+    end.
+*)
+(*
+  Definition Subst_Extends (a b : T) : Prop :=
+    forall tus tvs P Q,
+      substD tus tvs b = Some P ->
+      substD tus tvs a = Some Q ->
+      forall us vs, P us vs -> Q us vs.
+*)

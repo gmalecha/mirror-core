@@ -90,7 +90,6 @@ Section parameterized.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Hypothesis exprUnify_sound : unify_sound exprUnify.
-  Context {NormlizedSubst : NormalizedSubstOk _}.
 
   Let eapplicable :=
     @eapplicable typ _ expr Typ0_Prop subst vars_to_uvars exprUnify.

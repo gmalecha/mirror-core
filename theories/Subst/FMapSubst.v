@@ -524,12 +524,30 @@ Module Make (FM : WS with Definition E.t := uvar
         { right; auto. } }
     Qed.
 
+    Lemma normalized_fmapsubst
+    : forall (s : raw) (e : expr) (u : nat),
+        WellFormed s ->
+        raw_lookup u s = Some e ->
+        forall (u' : nat) (e' : expr),
+          raw_lookup u' s = Some e' -> mentionsU u' e = false.
+    Proof.
+      unfold WellFormed, normalized, raw_lookup; simpl; intros.
+      eapply FM.find_2 in H1.
+      eapply FM.find_2 in H0.
+      consider (mentionsU u' e); auto.
+      intros. exfalso.
+      eapply H in H0.
+      eapply H0.
+      red. eexists. eauto. eauto.
+    Qed.
+
     Instance SubstOk_subst : SubstOk Subst_subst :=
     {| WellFormed_subst := WellFormed
      ; substD := raw_substD
      ; substD_weaken := substD_weaken
      ; substD_lookup := substD_lookup
      ; WellFormed_domain := WellFormed_domain
+     ; lookup_normalized := normalized_fmapsubst
      |}.
 
     Lemma WellFormed_empty : WellFormed_subst (FM.empty expr).
