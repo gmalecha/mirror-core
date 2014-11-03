@@ -34,16 +34,44 @@ Section runOnGoals.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
+  Fixpoint forgets (from : nat) (ts : list typ) (s : subst)
+  : list (option expr) :=
+    match ts with
+      | nil => nil
+      | t :: ts =>
+        let rr := forgets (S from) ts s in
+        let ne := lookup from s in
+        ne :: rr
+    end.
+
+  Fixpoint remembers (from : nat) (tes : list (typ * option expr)) (s : subst)
+  : option subst :=
+    match tes with
+      | nil => Some s
+      | (_,None) :: tes' => remembers (S from) tes' s
+      | (_,Some e) :: tes' =>
+        (* This should not be necessary but to eliminate it, we must have a
+         * syntactic soundness condition for [set] *)
+        match lookup from s with
+          | None =>
+            match set from e s with
+              | None => None
+              | Some s' => remembers (S from) tes' s'
+            end
+          | Some _ => None
+        end
+    end.
 
   Lemma remembers_spec
   : forall l tus tvs s s' sD gsD,
       WellFormed_subst s ->
+(*      (forall x, x >= length tus -> lookup x s = None) -> *)
       remembers (length tus) l s = Some s' ->
       substD (tus ++ map fst l) tvs s = Some sD ->
       goal_substD tus tvs (map fst l) (map snd l) = Some gsD ->
       exists s'D,
         substD (tus ++ map fst l) tvs s' = Some s'D /\
-        forall us vs, (gsD us vs /\ s'D us vs) <-> sD us vs.
+        forall us vs, (gsD us vs /\ sD us vs) <-> s'D us vs.
   Proof.
     induction l; simpl; intros.
     { forward_reason; inv_all; subst.
@@ -51,13 +79,95 @@ Section runOnGoals.
     { forward_reason; inv_all; subst.
       destruct a; simpl in *.
       destruct o; forward; inv_all; subst.
-      { replace (S (length tus)) with (length (tus ++ t :: nil)) in H5
+      { replace (S (length tus)) with (length (tus ++ t :: nil)) in H6
           by (rewrite app_length; simpl; omega).
         rewrite substD_conv with (pfu := app_ass_trans tus (t :: nil) (map fst l))
                                    (pfv := eq_refl) in H1.
-        autorewrite with eq_rw in H1. forward; inv_all; subst.
-        specialize (@IHl (tus ++ t :: nil) tvs). (* _ _ _ _ H4 H5). *)
-        admit. }
+        rewrite exprD'_conv with (pfu := app_ass_trans tus (t :: nil) (map fst l))
+                                   (pfv := eq_refl) in H2.
+        autorewrite with eq_rw in H1.
+        autorewrite with eq_rw in H2.
+        forward; inv_all; subst.
+        specialize (@IHl (tus ++ t :: nil) tvs).
+        eapply set_sound in H5; eauto. destruct H5.
+        assert (lookup (length tus) s = None) by eauto.
+        specialize (fun x y => H5 H7 _ _ t _ x _ H1 y H2); clear H7.
+        assert (exists get,
+                  nth_error_get_hlist_nth typD ((tus ++ t :: nil) ++ map fst l)
+                                          (length tus) =
+                  Some
+                    (existT
+                       (fun t0 : typ =>
+                          hlist typD ((tus ++ t :: nil) ++ map fst l) -> typD t0) t get) /\
+                  forall us us',
+                    get (hlist_app us us') = hlist_get_cons_after_app us).
+        { clear.
+          induction tus; simpl.
+          { eexists; split; eauto.
+            unfold hlist_get_cons_after_app. simpl.
+            intros. rewrite (hlist_eta us). reflexivity. }
+          { destruct IHtus as [ ? [ ? ? ] ].
+            rewrite H. eexists; split; eauto.
+            intros. unfold hlist_get_cons_after_app.
+            simpl. rewrite (hlist_eta us). simpl.
+            rewrite H0.
+            unfold hlist_get_cons_after_app.
+            reflexivity. } }
+        destruct H7 as [ ? [ ? ? ] ].
+        eapply H5 in H7; clear H5.
+        forward_reason.
+        specialize (IHl _ _ _ _ H4 H6 H5 H3).
+        forward_reason.
+        rewrite substD_conv with (pfu := eq_sym (app_ass_trans tus (t :: nil) (map fst l)))
+                                   (pfv := eq_refl) in H10.
+        autorewrite with eq_rw in H10. simpl in *.
+        forward.
+        eexists; split; eauto.
+        inv_all; subst. intros.
+        autorewrite with eq_rw.
+        specialize (H11 (hlist_app (hlist_app (fst (hlist_split _ _ us))
+                                              (Hcons (hlist_hd (snd (hlist_split _ _ us))) Hnil))
+                                   (hlist_tl (snd (hlist_split _ _ us)))) vs).
+        specialize (H9 (hlist_app (hlist_app (fst (hlist_split _ _ us))
+                                              (Hcons (hlist_hd (snd (hlist_split _ _ us))) Hnil))
+                                   (hlist_tl (snd (hlist_split _ _ us)))) vs).
+        specialize (H8 (hlist_app (fst (hlist_split _ _ us))
+                                  (Hcons (hlist_hd (snd (hlist_split _ _ us))) Hnil))
+                                   (hlist_tl (snd (hlist_split _ _ us)))).
+        rewrite <- (hlist_app_hlist_split _ _ us).
+        revert H9. revert H8. revert H11.
+        clear. rewrite hlist_app_assoc.
+        simpl.
+        generalize dependent (app_ass_trans tus (t :: nil) (map fst l)).
+        generalize dependent (hlist_split tus (t :: map fst l) us).
+        clear.
+        generalize dependent ((tus ++ t :: nil) ++ map fst l).
+        intros; subst. simpl in *.
+        assert ((Hcons (hlist_hd (snd p)) (hlist_tl (snd p))) = snd p).
+        { rewrite (hlist_eta (snd p)). f_equal. }
+        rewrite H in *.
+        rewrite And_comm.
+        rewrite And_assoc. rewrite And_comm in H11.
+        rewrite <- H11; clear H11.
+        rewrite H8 in H9; clear H8.
+        rewrite H9; clear H9.
+        repeat rewrite <- And_assoc.
+        eapply and_iff. reflexivity.
+        intro. rewrite And_comm.
+        eapply and_iff; eauto.
+        { Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
+          Proof. clear; intros; subst; reflexivity. Qed.
+          eapply iff_to_eq. f_equal. rewrite <- H. simpl.
+          clear.
+          generalize dependent (fst p).
+          generalize dependent (hlist_hd (snd p)).
+          generalize dependent (hlist_tl (snd p)).
+          clear.
+          induction h0.
+          { reflexivity. }
+          { simpl. unfold hlist_get_cons_after_app in *. simpl.
+            eauto. } }
+        { intros. reflexivity. } }
       { autorewrite with eq_rw in H1. forward; inv_all; subst.
         replace (S (length tus)) with (length (tus ++ t :: nil)) in H
           by (rewrite app_length; simpl; omega).
@@ -80,6 +190,7 @@ Section runOnGoals.
         simpl. destruct e. simpl. reflexivity.
         rewrite app_length. simpl. omega. } *) } }
   Qed.
+
   Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
                             length ts = length us ->
                             map fst (combine ts us) = ts.
@@ -89,6 +200,7 @@ Section runOnGoals.
     destruct us. inversion H.
     simpl. f_equal. auto.
   Qed.
+
   Lemma map_snd_combine : forall {T U} (ts : list T) (us : list U),
                             length ts = length us ->
                             map snd (combine ts us) = us.
@@ -97,11 +209,13 @@ Section runOnGoals.
     induction ts; destruct us; simpl; intros; auto.
     congruence. f_equal. auto.
   Qed.
+
   Lemma forgets_length : forall z y x,
-                           length y = length (forgets (typ:=typ) x y z).
+                           length y = length (forgets x y z).
   Proof.
     induction y; simpl; auto.
   Qed.
+
   Lemma forgets_spec
   (** TODO: There needs to be an extra requirement here that says that
    ** the domain of s is in some way related to the range.
@@ -114,6 +228,7 @@ Section runOnGoals.
         forall us vs,
           s'D us vs <-> sD us vs.
   Proof.
+(*
     induction ts; simpl; intros.
     { admit. (* eexists; split; eauto. simpl; auto. *) }
     { consider (lookup (length tus) s); intros.
@@ -157,13 +272,26 @@ Section runOnGoals.
                     admit. (** UIP: There should be a more natural phrasing **) }
                   { admit. } } *) }
       { admit. } }
-  Qed.
+*)
+  Admitted.
+
 
   Lemma eta_ctx_subst_exs c ts (s : ctx_subst subst (CExs c ts))
   : exists y z,
       s = ExsSubst (typ:=typ) (expr:=expr) z y.
   Proof.
-  Admitted.
+    refine (match s in ctx_subst _ X
+                  return match X as X return ctx_subst _ X -> Prop with
+                           | CExs c ts => fun s =>
+                             exists (y : subst) (z : ctx_subst subst c), s = ExsSubst z y
+                           | _ => fun _ => True
+                         end s
+            with
+              | ExsSubst _ _ _ s => _
+              | _ => I
+            end).
+    eauto.
+  Qed.
   Instance Injective_WellFormed_ctx_subst_ExsSubst ctx ts c s
   : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)) :=
     { result := WellFormed_ctx_subst c /\ WellFormed_subst s }.
@@ -254,12 +382,20 @@ Section runOnGoals.
   Hypothesis Htac : rtac_sound tus tvs tac.
 
   Lemma WellFormed_remembers
-  : forall a b s s',
-      remembers (typ:=typ) a b s = Some s' ->
+  : forall b a s s',
+      remembers a b s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s'.
-  Admitted.
-
+  Proof.
+    induction b; simpl; intros.
+    { inv_all; subst; auto. }
+    { forward. subst.
+      destruct o; forward.
+      { eapply IHb. eauto.
+        eapply set_sound in H1; eauto.
+        destruct H1; assumption. }
+      { eauto. } }
+  Qed.
 (*
     Lemma remembers_forgets_safe
     : forall tes s s' s'' sD es eD,
@@ -281,7 +417,7 @@ Section runOnGoals.
         forward_reason.
         specialize (@H5 _ _ _ _ H1).
 *)
-    Admitted.
+    Abort.
 *)
 
   Local Hint Constructors WellFormed_ctx_subst.
@@ -322,7 +458,15 @@ Section runOnGoals.
   Instance Injective_ExsSubst ts ctx a b c d
   : Injective (ExsSubst (typ:=typ)(subst:=subst)(expr:=expr)(ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
     { result := a = c /\ b = d }.
-  admit.
+  intro pf.
+  refine (match pf in _ = X return
+                match X with
+                  | ExsSubst _ _ c d => fun a b => a = c /\ b = d
+                  | _ => True
+                end a b
+          with
+            | eq_refl => conj eq_refl eq_refl
+          end).
   Defined.
 
   Lemma runOnGoals_sound_ind
@@ -337,7 +481,7 @@ Section runOnGoals.
   Proof.
     red. induction g; fold runOnGoals in *.
     { (* All *)
-      intros.
+(*    intros.
       specialize (@IHg (CAll ctx t) (AllSubst s)).
       simpl in *.
       match goal with
@@ -379,7 +523,8 @@ Section runOnGoals.
         clear.
         do 6 red. intros; equivs.
         destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
-        simpl in *; eauto. } }
+        simpl in *; eauto. } *)
+      admit. (* temporary *) }
     { (* Exs *)
       intros; simpl in *.
       forward.
@@ -426,8 +571,10 @@ Section runOnGoals.
           apply _exists_sem. exists x.
           specialize (H11 (hlist_app y x) y0).
           specialize (H13 (hlist_app y x) y0).
+          (** what is missing is somethign about x2 *)
+          admit. (*
           apply H13 in H11; clear H13.
-          firstorder. } }
+          firstorder. *) } }
       { (** Same Proof as above **)
         admit. } }
     { (* Hyp *)

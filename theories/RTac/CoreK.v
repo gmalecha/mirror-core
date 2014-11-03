@@ -34,6 +34,36 @@ Section parameterized.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
+  (** TODO(gmalecha): These should go somewhere more useful *)
+  Fixpoint forgets (from : nat) (ts : list typ) (s : subst)
+  : list (option expr) :=
+    match ts with
+      | nil => nil
+      | t :: ts =>
+        let rr := forgets (S from) ts s in
+        let ne := lookup from s in
+        ne :: rr
+    end.
+
+  Fixpoint remembers (from : nat) (tes : list (typ * option expr)) (s : subst)
+  : option subst :=
+    match tes with
+      | nil => Some s
+      | (_,None) :: tes' => remembers (S from) tes' s
+      | (_,Some e) :: tes' =>
+        (* This should not be necessary but to eliminate it, we must have a
+         * syntactic soundness condition for [set] *)
+        match lookup from s with
+          | None =>
+            match set from e s with
+              | None => None
+              | Some s' => remembers (S from) tes' s'
+            end
+          | Some _ => None
+        end
+    end.
+
+
   Definition rtacK_spec tus tvs ctx (s : ctx_subst subst ctx) (g : Goal _ _)
              (r : Result _ ctx) : Prop :=
     match r with

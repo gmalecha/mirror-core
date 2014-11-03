@@ -733,10 +733,10 @@ Module Make (FM : WS with Definition E.t := uvar
     Theorem substD_set
     : forall (uv : nat) (e : expr) (s s' : raw),
         raw_set uv e s = Some s' ->
-        raw_lookup uv s = None ->
         WellFormed s ->
         WellFormed s' /\
-        (forall (tus tvs : tenv typ) (t : typ)
+        (raw_lookup uv s = None ->
+        forall (tus tvs : tenv typ) (t : typ)
                 (val : hlist typD tus ->
                        hlist typD tvs -> typD t)
                 (get : (fun t0 : typ =>
@@ -753,7 +753,7 @@ Module Make (FM : WS with Definition E.t := uvar
              raw_substD tus tvs s' = Some sD' /\
              (forall (us : hlist typD tus)
                      (vs : hlist typD tvs),
-                sD' us vs -> sD us vs /\ get us = val us vs)).
+                sD' us vs <-> (sD us vs /\ get us = val us vs))).
     Proof.
       unfold set; simpl; intros. unfold raw_set in *.
       forward. inv_all; subst.
@@ -777,15 +777,23 @@ Module Make (FM : WS with Definition E.t := uvar
         { forward_reason.
           eexists; split; [ eapply H2 | ].
           intros.
-          eapply H7 in H8.
-          forward_reason.
-          cut (sD us vs).
-          + intros; split; auto.
-            rewrite H9. symmetry. apply (H5 us vs Hnil); assumption.
-          + apply H6; auto. }
+          rewrite H7.
+          clear - H7 H5 H6.
+          specialize (H6 us vs).
+          specialize (H5 us vs Hnil).
+          specialize (H7 us vs).
+          split; intros.
+          { cut (sD us vs); intuition.
+            simpl in *. etransitivity; eauto.
+            rewrite <- H6; eauto. }
+          { simpl in *. destruct H.
+            specialize (H5 H).
+            rewrite <- H6 in H; eauto.
+            split; eauto. rewrite <- H5. auto.
+            rewrite <- H5. auto. } }
         { unfold raw_lookup.
           rewrite FACTS.map_o.
-          unfold raw_lookup in H0. rewrite H0. reflexivity. }
+          unfold raw_lookup in H1. rewrite H1. reflexivity. }
         { red. intros.
           forward. inv_all; subst.
           change_rewrite H7 in H3.
@@ -1151,10 +1159,10 @@ Module Make (FM : WS with Definition E.t := uvar
     Theorem set_sound
     : forall (uv : nat) (e : expr) (s s' : raw),
         set uv e s = Some s' ->
-        lookup uv s = None ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        (forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
+        (lookup uv s = None ->
+         forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
                 (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
            substD tus tvs s = Some sD ->
            nth_error_get_hlist_nth typD tus uv =
@@ -1164,11 +1172,11 @@ Module Make (FM : WS with Definition E.t := uvar
              substD tus tvs s' = Some sD' /\
              raw_substR tus tvs s s' /\
              (forall (us : hlist typD tus) (vs : hlist typD tvs),
-                sD' us vs -> sD us vs /\ get us = val us vs)).
+                sD' us vs <-> (sD us vs /\ get us = val us vs))).
     Proof.
       intros. eapply substD_set in H; eauto.
       destruct H. split; auto. intros.
-      eapply H2 in H4; eauto.
+      eapply H1 in H4; eauto.
       destruct H4. exists x.
       forward_reason; split; eauto.
       unfold raw_substR.

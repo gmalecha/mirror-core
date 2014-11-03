@@ -136,19 +136,19 @@ Section subst.
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',
         set uv e s = Some s' ->
-        lookup uv s = None -> (* How important is this? *)
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        forall tus tvs t val get sD,
-          substD tus tvs s = Some sD ->
-          nth_error_get_hlist_nth typD tus uv = Some (@existT _ _ t get) ->
-          exprD' tus tvs e t = Some val ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            substR tus tvs s s' /\
-            forall us vs,
-              sD' us vs ->
-              sD us vs /\ get us = val us vs
+        (lookup uv s = None -> (* How important is this? *)
+         forall tus tvs t val get sD,
+           substD tus tvs s = Some sD ->
+           nth_error_get_hlist_nth typD tus uv = Some (@existT _ _ t get) ->
+           exprD' tus tvs e t = Some val ->
+           exists sD',
+             substD tus tvs s' = Some sD' /\
+             substR tus tvs s s' /\
+             forall us vs,
+               sD' us vs <->
+               (sD us vs /\ get us = val us vs))
   }.
 
   Class SubstOpen : Type :=
@@ -353,7 +353,6 @@ Section subst.
     intros; subst.
     specialize (H1 _ _ _ _ H5 eq_refl eq_refl).
     forward_reason.
-    Print hlist_build.
   Abort.
 
 
