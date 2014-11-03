@@ -163,7 +163,6 @@ Section lemma_apply.
             (gD' us (hlist_app us' vs) <-> gD us vs)
             /\ sD us vs.
   Proof.
-(*
     unfold eapplicable.
     intros.
     eapply (@Hunify (tus ++ vars l0) tvs _ _ _ _ _ nil) in H; auto.
@@ -208,29 +207,33 @@ Section lemma_apply.
     eapply (@exprD'_weakenV _ _ _ Expr_expr) with (tvs' := tvs) (t := tyProp) in H2; eauto with typeclass_instances.
     destruct H2 as [ ? [ ? ? ] ].
     simpl in *.
-    Check exprD'_typ0_weakenU.
-    destruct (@exprD'_typ0_weakenU Prop _ _ tus (vars l0) _ _ tvs _ tyProp _ H4) as [ ? [ ? ? ] ]; clear H4.
+    Check @exprD'_typ0_weakenU.
+    destruct (@exprD'_typ0_weakenU _ _ _ _ Prop _ _ tus tvs (vars l0) _ _ H4) as [ ? [ ? ? ] ]; clear H4.
     progress fill_holes.
-    unfold exprD. rewrite split_env_app. repeat rewrite split_env_join_env.
-    simpl.
+    unfold exprD'_typ0 in H9.
+    forward.
+    specialize (H1 _ H9); clear H9.
+    inv_all; subst.
+    forward_reason.
     eapply (@ExprI.exprD'_weakenV _ _ _ Expr_expr) with (t := tyProp) (tvs' := tvs) in H4; eauto with typeclass_instances.
-    destruct H4 as [ ? [ ? ? ] ].
-    simpl in *. rewrite H4.
+    forward_reason.
+    do 2 eexists; split; eauto.
     split.
-    { f_equal. rewrite <- H14; clear H14.
-      repeat match goal with
-               | [ H : forall x, _ , H' : hlist _ _ |- _ ] =>
-                 specialize (H H') || specialize (H Hnil)
-             end.
-      specialize (H8 (hlist_app us us') Hnil vs).
-      simpl in *. rewrite H7; clear H7.
-      etransitivity; [ eapply H8 | clear H8 ].
-      rewrite H10; clear H10.
-      eassumption. }
-    { eapply H6. eapply H11. }
-*)
-  Admitted.
+    { unfold exprD'_typ0. change_rewrite H4. reflexivity. }
+    intros.
+    eapply H9 in H12; clear H9.
+    forward_reason.
+    erewrite H6; clear H6; split; eauto.
+    autorewrite with eq_rw.
+    rewrite <- H11; clear H11.
+    specialize (H7 us us' Hnil); simpl in H7. rewrite H7; clear H7.
+    erewrite H8; clear H8.
+    rewrite H12; clear H12.
+    erewrite H10. instantiate (1 := us').
+    autorewrite with eq_rw. reflexivity.
+  Qed.
 
+(*
   Variable substitute_all : (nat -> option expr) -> nat -> expr -> expr.
 
   (** NOTE: Will I ever do partial evaluation? **)
@@ -253,6 +256,6 @@ Section lemma_apply.
           (   Forall (fun x => x us vs) lpD
            -> lcD us vs).
   Proof.
-  Admitted.
+*)
 
 End lemma_apply.
