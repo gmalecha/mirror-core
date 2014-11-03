@@ -207,7 +207,6 @@ Section lemma_apply.
     eapply (@exprD'_weakenV _ _ _ Expr_expr) with (tvs' := tvs) (t := tyProp) in H2; eauto with typeclass_instances.
     destruct H2 as [ ? [ ? ? ] ].
     simpl in *.
-    Check @exprD'_typ0_weakenU.
     destruct (@exprD'_typ0_weakenU _ _ _ _ Prop _ _ tus tvs (vars l0) _ _ H4) as [ ? [ ? ? ] ]; clear H4.
     progress fill_holes.
     unfold exprD'_typ0 in H9.
