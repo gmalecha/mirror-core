@@ -109,22 +109,15 @@ Section lem.
       | _ , _ => None
     end.
 
-  Hypothesis conclusionD_weakenU
+  Hypothesis conclusionD_weaken
   : forall tus tvs l lD,
       conclusionD tus tvs l = Some lD ->
-      forall tus',
+      forall tus' tvs',
         exists lD',
-          conclusionD (tus ++ tus') tvs l = Some lD' /\
-          forall us us' vs,
-            lD us vs <-> lD' (hlist_app us us') vs.
-  Hypothesis conclusionD_weakenV
-  : forall tus tvs l lD,
-      conclusionD tus tvs l = Some lD ->
-      forall tvs',
-        exists lD',
-          conclusionD tus (tvs ++ tvs') l = Some lD' /\
-          forall us vs vs',
-            lD us vs <-> lD' us (hlist_app vs vs').
+          conclusionD (tus ++ tus') (tvs ++ tvs') l = Some lD' /\
+          forall us us' vs vs',
+            lD us vs <-> lD' (hlist_app us us') (hlist_app vs vs').
+
 
   Opaque Traversable.mapT.
 
@@ -155,7 +148,7 @@ Section lem.
       { inversion H. subst. constructor; auto. eapply IHls. eauto. }
       { inversion H. subst. constructor; auto. eapply IHls. eauto. } }
   Qed.
-(*
+
   Lemma lemmaD'_weaken
   : forall tus tvs l lD,
       lemmaD' tus tvs l = Some lD ->
@@ -172,9 +165,9 @@ Section lem.
                   @mapT_Forall2 _ _
                                  (fun e v =>
                                     exists v',
-                                      exprD'_typ0 tus (vars l ++ tvs ++ tvs') e = Some v' /\
-                                      forall a b c d,
-                                        v a (hlist_app b c) = v' a (hlist_app b (hlist_app c d)))
+                                      exprD'_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e = Some v' /\
+                                      forall a b c d e,
+                                        v a (hlist_app b c) = v' (hlist_app a e) (hlist_app b (hlist_app c d)))
                    _
                    H'
                    _ _ H).
@@ -185,7 +178,7 @@ Section lem.
           [ | intro XXX; specialize (XXX H) ]
     end.
     { simpl. intros.
-      eapply (exprD'_typ0_weakenV tvs') in H1;
+      eapply (exprD'_typ0_weaken tus' tvs') in H1;
         eauto with typeclass_instances.
       forward_reason.
       rewrite exprD'_typ0_conv with (pfu := eq_refl)
@@ -193,7 +186,7 @@ Section lem.
       autorewrite with eq_rw in H1. forward.
       inv_all; subst.
       eexists; split; eauto.
-      intros. specialize (H2 a0 (hlist_app b c) d).
+      intros. specialize (H2 a0 (hlist_app b c) e1 d).
       rewrite H2.
       autorewrite with eq_rw.
       rewrite hlist_app_assoc.
@@ -203,25 +196,24 @@ Section lem.
     eapply mapT_Forall
     with (P := fun e =>
                  exists v,
-                   exprD'_typ0 tus (vars l ++ tvs) e = Some v) in H.
-    generalize H.
-    eapply mapT_Forall2'
-      with (f := fun e : expr => exprD'_typ0 tus (vars l ++ tvs ++ tvs') e)
-           (V := exprT (tus ++ tus') _ Prop)
+                   exprD'_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e = Some v) in H.
+    { eapply mapT_Forall2'
+      with (f := fun e : expr => exprD'_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e)
+           (ls := l.(premises))
            (R :=
-              fun e v' =>
-                forall v,
+              fun e (v' : exprT (tus ++ tus') (vars l ++ tvs ++ tvs') Prop) =>
+                forall v : exprT tus (vars l ++ tvs) Prop,
                   exprD'_typ0 tus (vars l ++ tvs) e = Some v ->
-                  forall us vs vs' vs'',
-                    v us (hlist_app vs vs') = v' us  (hlist_app vs (hlist_app vs' vs''))) in H.
+                  forall us us' vs vs' vs'',
+                    v us (hlist_app vs vs') = v' (hlist_app us us')  (hlist_app vs (hlist_app vs' vs''))) in H.
     { destruct H as [ ? [ ? ? ] ].
       rewrite H.
-      eapply conclusionD_weakenV with (tvs' := tvs') in H0.
+      eapply conclusionD_weaken with (tus' := tus') (tvs' := tvs') in H0.
       forward_reason.
       Cases.rewrite_all_goal.
-      assert (conclusionD tus (vars l ++ tvs ++ tvs') (concl l) =
+      assert (conclusionD (tus ++ tus') (vars l ++ tvs ++ tvs') (concl l) =
               Some match app_ass_trans (vars l) tvs tvs' in _ = tvs
-                         return hlist _ tus -> hlist _ tvs -> Prop
+                         return hlist _ (tus ++ tus') -> hlist _ tvs -> Prop
                    with
                      | eq_refl => x0
                    end).
@@ -236,53 +228,50 @@ Section lem.
       simpl. eapply foralls_iff. intros.
       eapply impls_iff.
       { rewrite Forall2_map2. rewrite Forall2_map1.
-        clear H. generalize dependent x. revert H5.
-        clear H4 conclusionD_weakenU conclusionD_weakenV H0.
-        induction XXX; inversion 2; subst; auto.
-        clear H8.
-        inversion H5; clear H5; subst.
-        inversion H2; clear H2; subst.
-        constructor; eauto.
-        forward_reason.
-        generalize H0. eapply H9 in H0; clear H9.
-        rewrite <- H0; clear H0.
-        erewrite H2; clear H2. instantiate (1 := vs').
-        intros. eapply H1 in H0.
-        forward_reason. revert H0. Cases.rewrite_all_goal.
-        intros; inv_all; subst. reflexivity. }
-      { rewrite H3. instantiate (1 := vs').
-        rewrite hlist_app_assoc. unfold eq_sym.
-        generalize (app_ass_trans (vars l) tvs tvs').
-        clear. intros.
-        match goal with
-          | |- _ _ match _ with eq_refl => ?Y end <-> _ _ ?X =>
-            change Y with X; generalize dependent X
-        end. revert x0. destruct e. reflexivity. } }
-    { simpl. intros.
-      destruct H2. generalize H2.
-      eapply exprD'_weakenV with (tvs' := tvs') in H2; eauto.
+        generalize dependent x.
+        clear H4 conclusionD_weaken.
+        induction XXX.
+        { inversion 2; subst; auto. }
+        { intros.
+          inversion H4; clear H4; subst.
+          rewrite list_mapT_cons in H2.
+          destruct H as [ ? [ ? ? ] ].
+          rewrite H in H2.
+          forward. inv_all. subst.
+          specialize (IHXXX _ eq_refl H9).
+          constructor; eauto.
+          { rewrite <- H4. reflexivity. } } }
+      { autorewrite with eq_rw.
+        rewrite <- hlist_app_assoc.
+        rewrite H3. reflexivity. } }
+    { intros. destruct H2.
+      rewrite H2. eexists; split; eauto.
+      intros.
+      eapply (exprD'_typ0_weaken tus' tvs') in H3.
+      destruct H3 as [ ? [ ? ? ] ].
+      rewrite H4 with (us' := us') (vs' := vs''); clear H4.
+      rewrite hlist_app_assoc.
+      rewrite exprD'_typ0_conv with (pfu := eq_refl) (pfv := app_ass_trans _ _ _) in H2.
+      autorewrite with eq_rw in H2.
+      rewrite H3 in *. inv_all; subst.
+      autorewrite with eq_rw.
+      reflexivity. } }
+    { intros.
+      eapply (exprD'_typ0_weaken tus' tvs') in H2.
       destruct H2 as [ ? [ ? ? ] ].
-      intro. rewrite H4.
-      erewrite exprD'_conv with (pfu := eq_refl) (pfv := app_ass_trans (vars l) tvs tvs').
-      rewrite H2.
-      exists (match
-                 app_ass_trans (vars l) tvs tvs' in (_ = tvs'0)
-                 return hlist _ tus -> hlist _ tvs'0 -> typD tyProp
-               with
-                 | eq_refl => x1
-               end).
-      split.
-      { clear. revert x1.
-        destruct (app_ass_trans (vars l) tvs tvs'). reflexivity. }
-      { intros. inv_all; subst.
-        erewrite H3. instantiate (1 := vs'').
-        rewrite hlist_app_assoc.
-        clear. revert x1.
-        generalize dependent (hlist_app vs (hlist_app vs' vs'')).
-        destruct (app_ass_trans (vars l) tvs tvs').
-        reflexivity. } }
-    { eauto. }
-*)
+      rewrite exprD'_typ0_conv with (pfu := eq_refl)
+                                      (pfv := eq_sym (app_ass_trans _ _ _)) in H2.
+      autorewrite with eq_rw in H2.
+      forward. eauto. }
+  Qed.
+
+  Lemma lemmaD'_conv
+  : forall tus tvs tus' tvs' (pfu : tus' = tus) (pfv : tvs' = tvs),
+      lemmaD' tus tvs =
+      match pfu in _ = X , pfv in _ = Y return _ -> option (exprT X Y Prop) with
+        | eq_refl , eq_refl => lemmaD' tus' tvs'
+      end.
+  Proof. destruct pfu; destruct pfv; reflexivity. Qed.
 
   Lemma lemmaD'_weakenU
   : forall tus tvs l lD,
@@ -293,71 +282,18 @@ Section lem.
           forall us us' vs,
             lD us vs <-> lD' (hlist_app us us') vs.
   Proof.
-    unfold lemmaD'; simpl; intros.
-    forward.
-    inv_all; subst.
-    generalize (fun H' =>
-                  @mapT_Forall2 _ _
-                                 (fun e v =>
-                                    exists v',
-                                      exprD'_typ0 (tus ++ tus') (vars l ++ tvs) e = Some v' /\
-                                      forall a b c,
-                                        v a b = v' (hlist_app a c) b)
-                   _
-                   H'
-                   _ _ H).
-    match goal with
-      | |- (?X -> _) -> _ =>
-        let H := fresh in
-        assert (H : X) ;
-          [ | intro XXX; specialize (XXX H) ]
-    end.
-    { simpl. intros.
-      eapply (exprD'_typ0_weakenU tus') in H1;
-        eauto with typeclass_instances.
-      clear - H1.
-      destruct H1 as [ ? [ ? ? ] ].
-      eexists; split; eauto. }
-    eapply mapT_Forall
-    with (P := fun e =>
-                 exists v,
-                   exprD'_typ0 tus (vars l ++ tvs) e = Some v) in H; eauto.
-    generalize H.
-    eapply mapT_Forall2'
-      with (f := exprD'_typ0 (tus ++ tus') (vars l ++ tvs))
-           (V := exprT (tus ++ tus') _ Prop)
-           (R :=
-              fun e v' =>
-                forall v,
-                  exprD'_typ0 tus (vars l ++ tvs) e = Some v ->
-                  forall us vs us',
-                    v us vs = v' (hlist_app us us') vs) in H.
+    intros.
+    eapply lemmaD'_weaken with (tus' := tus') (tvs' := nil) in H.
     destruct H as [ ? [ ? ? ] ].
-    change_rewrite H.
-    { eapply conclusionD_weakenU with (tus' := tus') in H0.
-      forward_reason.
-      Cases.rewrite_all_goal.
-      eexists; split; eauto. intros.
-      simpl. eapply foralls_iff. intros.
-      eapply impls_iff.
-      { rewrite Forall2_map2. rewrite Forall2_map1.
-        clear H. generalize dependent x. revert H4.
-        induction XXX; inversion 2; subst; auto.
-        inversion H4; clear H4; subst.
-        eapply IHXXX in H9; clear IHXXX; eauto.
-        constructor; auto.
-        forward_reason.
-        generalize H4.
-        eapply H7 in H4; clear H7.
-        rewrite <- H4; clear H4.
-        erewrite H5; clear H5. intros.
-        eapply (exprD'_typ0_weakenU tus') in H4; eauto.
-        forward_reason. rewrite H4 in *.
-        inv_all; subst. instantiate (1 := us'). rewrite <- H5. reflexivity. }
-      { eapply H3. } }
-    { intros. destruct H2. rewrite H2. eapply H1 in H2.
-      destruct H2 as [ ? [ ? ? ] ].
-      eexists; split; eauto. intros; inv_all; subst; eauto. }
+    rewrite lemmaD'_conv with (pfu := eq_refl) (pfv := app_nil_r_trans tvs).
+    autorewrite with eq_rw.
+    rewrite H. eexists; split; eauto.
+    intros.
+    etransitivity.
+    eapply H0 with (us' := us') (vs' := Hnil).
+    rewrite hlist_app_nil_r.
+    autorewrite with eq_rw.
+    reflexivity.
   Qed.
 
   Lemma lemmaD'_weakenV
@@ -369,157 +305,18 @@ Section lem.
           forall us vs vs',
             lD us vs <-> lD' us (hlist_app vs vs').
   Proof.
-(*
-    (** NOTE: This proof is horrible! **)
-    unfold lemmaD'; simpl; intros.
-    forward.
-    inv_all; subst.
-    generalize (fun H' =>
-                  @mapT_Forall2 _ _
-                                 (fun e v =>
-                                    exists v',
-                                      exprD'_typ0 tus (vars l ++ tvs ++ tvs') e = Some v' /\
-                                      forall a b c d,
-                                        v a (hlist_app b c) = v' a (hlist_app b (hlist_app c d)))
-                   _
-                   H'
-                   _ _ H).
-    match goal with
-      | |- (?X -> _) -> _ =>
-        let H := fresh in
-        assert (H : X) ;
-          [ | intro XXX; specialize (XXX H) ]
-    end.
-    { simpl. intros.
-      eapply exprD'_weakenV with (tvs' := tvs') in H1;
-        eauto with typeclass_instances.
-      forward_reason.
-      erewrite (@exprD'_conv _ _ _ _ tus tus
-                            (vars l ++ tvs ++ tvs')
-                            ((vars l ++ tvs) ++ tvs')
-                             _ _ eq_refl).
-      rewrite H1.
-      instantiate (1 := app_ass_trans (vars l) tvs tvs').
-      exists match app_ass_trans (vars l) tvs tvs' in _ = tvs'
-                   return hlist (typD) tus ->
-                          hlist (typD) tvs' -> typD tyProp
-             with
-               | eq_refl => x0
-             end.
-      split.
-      { clear. revert x0.
-        destruct (app_ass_trans (vars l) tvs tvs'). reflexivity. }
-      { intros. erewrite H2. instantiate (1 := d).
-        rewrite hlist_app_assoc.
-        clear.
-        match goal with
-          | |- _ _ match _ with eq_refl => ?Y end = _ _ ?X =>
-            change Y with X; generalize dependent X
-        end.
-        revert x0.
-        destruct (app_ass_trans (vars l) tvs tvs').
-        simpl. reflexivity. } }
-    eapply mapT_Forall
-    with (P := fun e =>
-                 exists v,
-                   exprD' tus (vars l ++ tvs) e tyProp = Some v) in H.
-    generalize H.
-    eapply mapT_Forall2'
-      with (f := fun e : expr => exprD' tus (vars l ++ tvs ++ tvs') e tyProp)
-           (R :=
-              fun e v' =>
-                forall v,
-                  exprD' tus (vars l ++ tvs) e tyProp = Some v ->
-                  forall us vs vs' vs'',
-                    v us (hlist_app vs vs') = v' us  (hlist_app vs (hlist_app vs' vs''))) in H.
-    { destruct H as [ ? [ ? ? ] ].
-      rewrite H.
-      eapply conclusionD_weakenV with (tvs' := tvs') in H0.
-      forward_reason.
-      Cases.rewrite_all_goal.
-      assert (conclusionD tus (vars l ++ tvs ++ tvs') (concl l) =
-              Some match app_ass_trans (vars l) tvs tvs' in _ = tvs
-                         return hlist _ tus -> hlist _ tvs -> Prop
-                   with
-                     | eq_refl => x0
-                   end).
-      { clear - H0.
-        generalize dependent (app_ass_trans (vars l) tvs tvs').
-        generalize dependent ((vars l ++ tvs) ++ tvs').
-        generalize dependent (vars l ++ tvs ++ tvs').
-        intros. subst. assumption. }
-      rewrite H4.
-      intros.
-      eexists; split; eauto. intros.
-      simpl. eapply foralls_iff. intros.
-      eapply impls_iff.
-      { rewrite Forall2_map2. rewrite Forall2_map1.
-        clear H. generalize dependent x. revert H5.
-        clear H4 conclusionD_weakenU conclusionD_weakenV H0.
-        induction XXX; inversion 2; subst; auto.
-        clear H8.
-        inversion H5; clear H5; subst.
-        inversion H2; clear H2; subst.
-        constructor; eauto.
-        forward_reason.
-        generalize H0. eapply H9 in H0; clear H9.
-        rewrite <- H0; clear H0.
-        erewrite H2; clear H2. instantiate (1 := vs').
-        intros. eapply H1 in H0.
-        forward_reason. revert H0. Cases.rewrite_all_goal.
-        intros; inv_all; subst. reflexivity. }
-      { rewrite H3. instantiate (1 := vs').
-        rewrite hlist_app_assoc. unfold eq_sym.
-        generalize (app_ass_trans (vars l) tvs tvs').
-        clear. intros.
-        match goal with
-          | |- _ _ match _ with eq_refl => ?Y end <-> _ _ ?X =>
-            change Y with X; generalize dependent X
-        end. revert x0. destruct e. reflexivity. } }
-    { simpl. intros.
-      destruct H2. generalize H2.
-      eapply exprD'_weakenV with (tvs' := tvs') in H2; eauto.
-      destruct H2 as [ ? [ ? ? ] ].
-      intro. rewrite H4.
-      erewrite exprD'_conv with (pfu := eq_refl) (pfv := app_ass_trans (vars l) tvs tvs').
-      rewrite H2.
-      exists (match
-                 app_ass_trans (vars l) tvs tvs' in (_ = tvs'0)
-                 return hlist _ tus -> hlist _ tvs'0 -> typD tyProp
-               with
-                 | eq_refl => x1
-               end).
-      split.
-      { clear. revert x1.
-        destruct (app_ass_trans (vars l) tvs tvs'). reflexivity. }
-      { intros. inv_all; subst.
-        erewrite H3. instantiate (1 := vs'').
-        rewrite hlist_app_assoc.
-        clear. revert x1.
-        generalize dependent (hlist_app vs (hlist_app vs' vs'')).
-        destruct (app_ass_trans (vars l) tvs tvs').
-        reflexivity. } }
-    { eauto. }
-*)
-  Admitted.
-
-  Lemma lemmaD'_weaken
-  : forall tus tvs l lD,
-      lemmaD' tus tvs l = Some lD ->
-      forall tus' tvs',
-        exists lD',
-          lemmaD' (tus ++ tus') (tvs ++ tvs') l = Some lD' /\
-          forall us us' vs vs',
-            lD us vs <-> lD' (hlist_app us us') (hlist_app vs vs').
-  Proof.
-    clear. intros.
-    eapply lemmaD'_weakenU with (tus' := tus') in H.
-    destruct H as [ ? [ ? ? ] ].
-    eapply lemmaD'_weakenV with (tvs' := tvs') in H.
-    destruct H as [ ? [ ? ? ] ].
-    eexists; split; eauto.
     intros.
-    etransitivity. eapply H0. eapply H1.
+    eapply lemmaD'_weaken with (tvs' := tvs') (tus' := nil) in H.
+    destruct H as [ ? [ ? ? ] ].
+    rewrite lemmaD'_conv with (pfv := eq_refl) (pfu := app_nil_r_trans tus).
+    autorewrite with eq_rw.
+    rewrite H. eexists; split; eauto.
+    intros.
+    etransitivity.
+    eapply H0 with (vs' := vs') (us' := Hnil).
+    rewrite hlist_app_nil_r.
+    autorewrite with eq_rw.
+    reflexivity.
   Qed.
 
   Definition lemmaD (us vs : env) (l : lemma) : Prop :=
