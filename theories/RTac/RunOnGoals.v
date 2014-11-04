@@ -62,6 +62,9 @@ Section runOnGoals.
         end
     end.
 
+  Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
+  Proof. clear; intros; subst; reflexivity. Qed.
+
   Lemma remembers_spec
   : forall l tus tvs s s' sD gsD,
       WellFormed_subst s ->
@@ -155,9 +158,7 @@ Section runOnGoals.
         eapply and_iff. reflexivity.
         intro. rewrite And_comm.
         eapply and_iff; eauto.
-        { Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
-          Proof. clear; intros; subst; reflexivity. Qed.
-          eapply iff_to_eq. f_equal. rewrite <- H. simpl.
+        { eapply iff_to_eq. f_equal. rewrite <- H. simpl.
           clear.
           generalize dependent (fst p).
           generalize dependent (hlist_hd (snd p)).
@@ -168,27 +169,23 @@ Section runOnGoals.
           { simpl. unfold hlist_get_cons_after_app in *. simpl.
             eauto. } }
         { intros. reflexivity. } }
-      { autorewrite with eq_rw in H1. forward; inv_all; subst.
-        replace (S (length tus)) with (length (tus ++ t :: nil)) in H
+      { autorewrite with eq_rw in H2. forward; inv_all; subst.
+        replace (S (length tus)) with (length (tus ++ t :: nil)) in H0
           by (rewrite app_length; simpl; omega).
         rewrite substD_conv with (pfu := app_ass_trans tus (t :: nil) (map fst l))
                                    (pfv := eq_refl) in H1.
         autorewrite with eq_rw in H1. forward; inv_all; subst.
-        admit. (*
-        specialize (@IHl (tus ++ t :: nil) tvs _ _ _ _ H H0 H1).
+        specialize (@IHl (tus ++ t :: nil) tvs _ _ _ _ H H0 H1 H2).
         forward_reason.
-        rewrite substD_conv with (pfu := eq_sym (app_ass_trans tus0 (t :: nil) (map fst l)))
-                                   (pfv := eq_refl) in H2.
-        autorewrite with eq_rw in H2.
+        rewrite substD_conv with (pfu := eq_sym (app_ass_trans tus (t :: nil) (map fst l)))
+                                   (pfv := eq_refl) in H3.
+        autorewrite with eq_rw in H3.
         forward; inv_all; simpl in *; subst.
         eexists; split; eauto.
         intros.
         autorewrite with eq_rw.
-        etransitivity; [ | eapply H3 ].
-        clear. revert e e1.
-        generalize (app_ass_trans tus0 (t :: nil) (map fst l)).
-        simpl. destruct e. simpl. reflexivity.
-        rewrite app_length. simpl. omega. } *) } }
+        etransitivity; [ eapply H4 | clear H4 ].
+        autorewrite with eq_rw. reflexivity. } }
   Qed.
 
   Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
@@ -274,7 +271,6 @@ Section runOnGoals.
       { admit. } }
 *)
   Admitted.
-
 
   Lemma eta_ctx_subst_exs c ts (s : ctx_subst subst (CExs c ts))
   : exists y z,
@@ -396,29 +392,6 @@ Section runOnGoals.
         destruct H1; assumption. }
       { eauto. } }
   Qed.
-(*
-    Lemma remembers_forgets_safe
-    : forall tes s s' s'' sD es eD,
-        remembers (length tus) tes s = Some s' ->
-        forgets (length tus) (map fst tes) s' = (s'',es) ->
-        substD tus tvs s = Some sD ->
-        goal_substD tus tvs (map fst tes) (map snd tes) = Some eD ->
-        exists eD',
-          goal_substD tus tvs (map fst tes) es = Some eD'.
-    Proof.
-      clear Htac tac.
-      induction tes; simpl; intros; inv_all; subst; eauto.
-      forward. subst. simpl in *.
-      inv_all; subst.
-      destruct o0; forward; inv_all; subst.
-      { (*
-
-        eapply forget_sound in H3; eauto.
-        forward_reason.
-        specialize (@H5 _ _ _ _ H1).
-*)
-    Abort.
-*)
 
   Local Hint Constructors WellFormed_ctx_subst.
   Lemma WellFormed_ctx_subst_fromAll
