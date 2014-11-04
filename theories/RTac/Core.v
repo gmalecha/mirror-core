@@ -825,6 +825,31 @@ Section parameterized.
         eauto. } }
   Qed.
 
+  Lemma Ap_pctxD
+  : forall tus tvs (ctx : Ctx) (s : ctx_subst ctx)
+           (C : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop ->
+                exprT tus tvs Prop),
+      pctxD tus tvs s = Some C ->
+      forall (us : hlist typD tus) (vs : hlist typD tvs)
+             (P Q : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop),
+        C (fun us vs => P us vs -> Q us vs) us vs -> C P us vs -> C Q us vs.
+  Proof.
+    intros. revert H1. revert H0. eapply Applicative_pctxD in H; eauto.
+    destruct H. eapply H.
+  Qed.
+
+  Lemma Pure_pctxD
+  : forall tus tvs (ctx : Ctx) (s : ctx_subst ctx)
+           (C : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop ->
+                exprT tus tvs Prop),
+      pctxD tus tvs s = Some C ->
+      forall (P : exprT (tus ++ getUVars ctx) (tvs ++ getVars ctx) Prop),
+        (forall us vs, P us vs) -> forall us vs, C P us vs.
+  Proof.
+    intros. eapply Applicative_pctxD in H; eauto.
+    destruct H. eapply H1; eauto.
+  Qed.
+
   Definition CtxMorphism {tus tvs tus' tvs'}
              (c1 c2 : exprT tus tvs Prop -> exprT tus' tvs' Prop) : Prop :=
     forall (P : exprT _ _ Prop) us vs, c1 P us vs -> c2 P us vs.
