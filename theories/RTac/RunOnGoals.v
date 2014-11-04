@@ -481,7 +481,7 @@ Section runOnGoals.
   Proof.
     red. induction g; fold runOnGoals in *.
     { (* All *)
-(*    intros.
+      intros.
       specialize (@IHg (CAll ctx t) (AllSubst s)).
       simpl in *.
       match goal with
@@ -523,8 +523,7 @@ Section runOnGoals.
         clear.
         do 6 red. intros; equivs.
         destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
-        simpl in *; eauto. } *)
-      admit. (* temporary *) }
+        simpl in *; eauto. } }
     { (* Exs *)
       intros; simpl in *.
       forward.
@@ -558,25 +557,83 @@ Section runOnGoals.
         destruct H8 as [ ? [ ? ? ] ].
         Cases.rewrite_all_goal.
         forward_reason.
-        split.
-        { inv_all. subst; auto. }
+        inv_all. subst.
+        split; auto.
         { intros us vs.
-          generalize (H18 us vs).
-          eapply Fmap_pctxD_impl; eauto; try reflexivity.
-          clear - H11 H13 H17. do 6 red.
-          intros. equivs.
-          rewrite _forall_sem in H1.
-          rewrite _exists_sem in H2.
-          destruct H2.
-          apply _exists_sem. exists x.
-          specialize (H11 (hlist_app y x) y0).
-          specialize (H13 (hlist_app y x) y0).
-          (** what is missing is somethign about x2 *)
-          admit. (*
-          apply H13 in H11; clear H13.
-          firstorder. *) } }
+          specialize (H18 us vs); revert H18.
+          rewrite H12 in H15. rewrite H16 in *.
+          rewrite H1 in *.
+          forwardy.
+          eapply forgets_spec in H15; eauto.
+          specialize (H18 us vs).
+          eapply Ap_pctxD; eauto.
+          revert H18.
+          eapply Ap_pctxD; eauto.
+          eapply Pure_pctxD; eauto.
+          intros.
+          forward_reason.
+          rewrite H8 in H15. inv_all. subst.
+          clear - H11 H13 H17 H18 H19 H20 H22.
+          rewrite _forall_sem in H19.
+          rewrite _exists_sem in H20.
+          destruct H20.
+          apply _exists_sem. exists x0.
+          specialize (H11 (hlist_app us0 x0) vs0).
+          specialize (H13 (hlist_app us0 x0) vs0).
+          destruct H.
+          split.
+          { destruct H13. destruct H2; eauto.
+            eapply H18. eapply H22. assumption. }
+          { eapply H19; auto. apply H17. auto. } } }
       { (** Same Proof as above **)
-        admit. } }
+        destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
+        simpl. intros.
+        generalize (WellFormed_remembers _ _ _ H (@WellFormed_empty _ _ _ _ _ _ _ _ _)); intros.
+        forward_reason.
+        inv_all; split; auto.
+        simpl in *. forward; inv_all; subst.
+        destruct (substD_empty ((tus ++ getUVars ctx) ++ map fst l) (tvs ++ getVars ctx)) as [ ? [ ? ? ] ].
+        destruct (@remembers_spec _ _ _ _ _ _ _ (@WellFormed_empty _ _ _ _ _ _ _ _ _) H H10 H9) as [ ? [ ? ? ] ].
+        rewrite H12 in H8.
+        forward; inv_all; subst.
+        rewrite map_fst_combine in * by eauto using forgets_length.
+        rewrite map_snd_combine in * by eauto using forgets_length.
+        Cases.rewrite_all_goal.
+        eapply forgets_spec in H8; eauto.
+        destruct H8 as [ ? [ ? ? ] ].
+        Cases.rewrite_all_goal.
+        forward_reason.
+        inv_all. subst.
+        split; auto.
+        { intros us vs.
+          specialize (H17 us vs); revert H17.
+          repeat match goal with
+                   | H : _ = _ , H' : _ |- _ =>
+                     rewrite H in H'
+                 end.
+          forwardy.
+          eapply forgets_spec in H14; eauto.
+          specialize (H17 us vs).
+          eapply Ap_pctxD; eauto.
+          revert H17.
+          eapply Ap_pctxD; eauto.
+          eapply Pure_pctxD; eauto.
+          intros.
+          forward_reason.
+          rewrite H8 in H14. inv_all. subst.
+          clear - H21 H17 H18 H16 H19 H13.
+          rewrite _forall_sem in H18.
+          rewrite _exists_sem in H19.
+          destruct H19.
+          apply _exists_sem. exists x0.
+          specialize (H16 (hlist_app us0 x0) vs0).
+          specialize (H21 (hlist_app us0 x0) vs0).
+          specialize (H13 (hlist_app us0 x0) vs0).
+          destruct H.
+          split.
+          { destruct H13. destruct H2; eauto.
+            eapply H17. eapply H21. assumption. }
+          { eapply H18; auto. apply H16. auto. } } } }
     { (* Hyp *)
       simpl; intros.
       specialize (IHg (CHyp ctx e) (HypSubst s)).
