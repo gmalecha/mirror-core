@@ -37,12 +37,21 @@ Section parameterized.
     fun _ _ _ _ ctx sub gl =>
       More_ sub (GGoal (@simplify (ctx_subst subst ctx) _ ctx sub gl)).
 
-(*
+  Lemma pctxD_substD
+  : forall tus tvs ctx (s : ctx_subst subst ctx) cD,
+      WellFormed_subst s ->
+      pctxD tus tvs s = Some cD ->
+      exists sD,
+        substD (tus ++ getUVars ctx) (tvs ++ getVars ctx) s = Some sD /\
+        forall us vs, cD sD us vs.
+  Admitted.
+
   Hypothesis simplify_sound
-  : forall subst Subst_subst tus tvs ctx s e e',
-      @simplify subst Subst_subst ctx s e = e' ->
-      match pctxD tus tvs ctx
-          , substD (tus ++ getUVars ctx) (tvs ++ getVars ctx) s
+  : forall (tus tvs : tenv typ) ctx (s : ctx_subst subst ctx) e e',
+      @simplify (ctx_subst subst ctx) _ ctx s e = e' ->
+      WellFormed_subst s ->
+      match @pctxD typ expr subst RType_typ Expr_expr _ Subst_subst _ tus tvs ctx s
+          , substD (tus ++ getUVars ctx) (tvs ++ getVars ctx) s (* necessary? *)
           , propD (tus ++ getUVars ctx) (tvs ++ getVars ctx) e
           , propD (tus ++ getUVars ctx) (tvs ++ getVars ctx) e'
       with
@@ -52,16 +61,29 @@ Section parameterized.
         | _ , _ , _ , None => False
         | Some cD , Some sD , Some eD , Some eD' =>
           forall us vs,
-            cD (fun us vs => sD us vs -> (eD us vs <-> eD' us vs)) us vs
+            cD (fun us vs => sD us vs -> (eD' us vs -> eD us vs)) us vs
       end.
-*)
 
   Theorem SIMPLIFY_sound
   : forall tus tvs, rtac_sound tus tvs SIMPLIFY.
   Proof.
     red; intros; subst.
     simpl. intros; split; eauto.
+    remember (simplify (Subst_ctx_subst ctx) ctx s g).
+    symmetry in Heqe.
+    specialize (@simplify_sound tus tvs _ _ _ _ Heqe).
     forward.
-  Admitted.
+    destruct (Applicative_pctxD _ H0) as [ Hap Hpure ].
+    eapply pctxD_substD in H0; eauto.
+    forward_reason.
+    rewrite H0 in *.
+    forward.
+    split.
+    { reflexivity. }
+    { intros. specialize (simplify_sound us vs); revert simplify_sound.
+      eapply Hap. specialize (H2 us vs); revert H2.
+      eapply Hap. eapply Hpure.
+      clear. intros. tauto. }
+  Qed.
 
 End parameterized.
