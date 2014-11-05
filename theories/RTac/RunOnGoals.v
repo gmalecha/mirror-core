@@ -374,6 +374,77 @@ Section runOnGoals.
         end
     end.
 
+  Fixpoint runOnGoals_list (tacs : list (rtac typ expr subst)) (tus tvs : tenv typ) (nus nvs : nat)
+           (ctx : Ctx typ expr) (s : ctx_subst subst ctx) (g : Goal typ expr)
+           {struct g}
+  : Result subst ctx * list (rtac typ expr subst) :=
+    match g with
+      | GGoal e =>
+        match tacs with
+          | nil => (Fail, nil)
+          | tac :: tacs => (@tac tus tvs nus nvs ctx s e, tacs)
+        end
+      | GSolved => (Solved s, tacs)
+      | GAll t g =>
+        match @runOnGoals_list tacs tus (tvs ++ t :: nil) nus (S nvs) (CAll ctx t) (AllSubst s) g with
+          | (Fail, tacs) => (Fail,tacs)
+          | (Solved s, tacs) => (Solved (fromAll s), tacs)
+          | (More_ s g, tacs) => (More (fromAll s) (GAll t g), tacs)
+        end
+      | GExs tes g =>
+        (* TODO: Is it meaningful to make this a [list typ * subst]?
+          match remembers nus tes s with
+            | None => Fail
+            | Some s' =>
+         *)
+        let ts := map fst tes in
+        (** TODO: This returning an error is redundant **)
+        match remembers nus tes (@empty _ _ _) with
+          | None => (Fail, tacs)
+          | Some s' =>
+            let s' := ExsSubst s s' in
+            match @runOnGoals_list tacs (tus ++ ts) tvs (length tes + nus) nvs (CExs ctx ts) s' g with
+              | (Fail, tacs) => (Fail, tacs)
+              | (Solved s'', tacs) =>
+                let '(shere,cs') := fromExs s'' in
+                (** Here I can drop anything that is already instantiated. **)
+                let tes' := forgets nus ts shere in
+                let tes' := combine ts tes' in
+                (More_ cs' (GExs tes' GSolved), tacs)
+              | (More_ s'' g', tacs) =>
+                let '(shere,cs') := fromExs s'' in
+                (** Here I need to drop already instantiated vars and
+                 ** substitute through. Ideally, I should collapse as much
+                 ** as possible.
+                 **)
+                let tes' := forgets nus ts shere in
+                let tes' := combine ts tes' in
+                (More_ cs' (GExs tes' g'), tacs)
+            end
+        end
+      | GHyp h g =>
+        match @runOnGoals_list tacs tus tvs nus nvs (CHyp ctx h) (HypSubst s) g with
+          | (Fail, tacs) => (Fail, tacs)
+          | (Solved s, tacs) => (Solved (fromHyp s), tacs)
+          | (More_ s g, tacs) => (More_ (fromHyp s) (GHyp h g), tacs)
+        end
+      | GConj_ l r =>
+        (** NOTE: It would be nice if I could eagerly
+         ** instantiate [r] with any results that came
+         ** from [l].
+         **)
+        match @runOnGoals_list tacs tus tvs nus nvs ctx s l with
+          | (Fail, tacs) => (Fail, tacs)
+          | (Solved s', tacs) => @runOnGoals_list tacs tus tvs nus nvs ctx s' r
+          | (More_ s' g', tacs) =>
+            match @runOnGoals_list tacs tus tvs nus nvs ctx s' r with
+              | (Fail, tacs) => (Fail, tacs)
+              | (Solved s'', tacs) => (More s'' g', tacs)
+              | (More_ s'' g'', tacs) => (More s'' (GConj_ g' g''), tacs)
+            end
+        end
+    end.
+
   Variables tus tvs : tenv typ.
   Hypothesis Htac : rtac_sound tus tvs tac.
 
@@ -441,6 +512,20 @@ Section runOnGoals.
             | eq_refl => conj eq_refl eq_refl
           end).
   Defined.
+
+(*
+  Lemma runOnGoals_list_sound_ind
+  : forall tacs g ctx s,
+      Forall (rtac_sound tus tvs) tacs ->
+      @rtac_spec typ expr subst _ _ _ _ _
+                 tus tvs ctx s g
+                 (@runOnGoals_list tacs
+                                   (tus ++ getUVars ctx)
+                                   (tvs ++ getVars ctx)
+                                   (length tus + countUVars ctx)
+                                   (length tvs + countVars ctx)
+                                   ctx s g).
+*)
 
   Lemma runOnGoals_sound_ind
   : forall g ctx s,

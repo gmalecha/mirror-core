@@ -237,7 +237,7 @@ Section parameterized.
         ctx_domain c ++ domain s
     end.
 
-  Fixpoint ctx_substD {c} tus tvs (cs : ctx_subst c) 
+  Fixpoint ctx_substD {c} tus tvs (cs : ctx_subst c)
   : option (exprT tus tvs Prop).
   Admitted.
 
