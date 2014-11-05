@@ -1,7 +1,8 @@
-Require Import Morphisms.
+Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.InstantiateI.
@@ -69,7 +70,7 @@ Section parameterized.
       inversion H; constructor.
       clear - H2; do 5 red; intros; equivs.
       rewrite and_comm.
-      rewrite Data.Prop.And_True_iff.
+      rewrite and_True_iff.
       rewrite HList.hlist_app_nil_r.
       autorewrite with eq_rw.
       eapply H2; reflexivity. }

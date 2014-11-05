@@ -130,11 +130,11 @@ Section parameterized.
         apply H7; eauto. }
       { do 5 red in H10.
         rewrite H10; try reflexivity.
-        rewrite True_impl_iff.
+        rewrite impl_True_iff.
         eapply H7; eauto. }
       { do 5 red in H10.
         rewrite <- H10; try reflexivity.
-        rewrite True_impl_iff.
+        rewrite impl_True_iff.
         eapply H7; eauto. } }
   Qed.
 
@@ -142,7 +142,7 @@ Section parameterized.
   Definition rtacK : Type :=
     tenv typ -> tenv typ -> nat -> nat ->
     forall c : Ctx typ expr, ctx_subst subst c -> Goal typ expr -> Result subst c.
-
+  
   Definition rtacK_sound (tus tvs : tenv typ) (tac : rtacK)
   : Prop :=
     forall ctx s g result,
