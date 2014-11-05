@@ -149,14 +149,14 @@ Section runOnGoals.
         assert ((Hcons (hlist_hd (snd p)) (hlist_tl (snd p))) = snd p).
         { rewrite (hlist_eta (snd p)). f_equal. }
         rewrite H in *.
-        rewrite And_comm.
-        rewrite And_assoc. rewrite And_comm in H11.
+        rewrite and_comm.
+        rewrite and_assoc. rewrite and_comm in H11.
         rewrite <- H11; clear H11.
         rewrite H8 in H9; clear H8.
         rewrite H9; clear H9.
-        repeat rewrite <- And_assoc.
+        repeat rewrite <- and_assoc.
         eapply and_iff. reflexivity.
-        intro. rewrite And_comm.
+        intro. rewrite and_comm.
         eapply and_iff; eauto.
         { eapply iff_to_eq. f_equal. rewrite <- H. simpl.
           clear.

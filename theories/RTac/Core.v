@@ -43,76 +43,6 @@ Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))
     | eq_refl => hlist_rev h
   end.
 
-
-(** TODO: Move to Data.Prop **)
-Lemma impl_iff
-: forall P Q R S : Prop,
-    (P <-> R) ->
-    (P -> (Q <-> S)) ->
-    ((P -> Q) <-> (R -> S)).
-Proof. clear. intuition. Qed.
-
-Lemma and_iff
-: forall P Q R S : Prop,
-    (P <-> R) ->
-    (P -> (Q <-> S)) ->
-    ((P /\ Q) <-> (R /\ S)).
-Proof. clear; intuition. Qed.
-
-Lemma True_impl_iff : forall (P : Prop), (True -> P) <-> P.
-Proof.
-  clear; intros; tauto.
-Qed.
-
-
-(** TODO: Move to Data.Pair *)
-Section Eqpair.
-  Context {T U} (rT : relation T) (rU : relation U).
-
-  Inductive Eqpair : relation (T * U) :=
-  | Eqpair_both : forall a b c d, rT a b -> rU c d -> Eqpair (a,c) (b,d).
-
-  Global Instance Reflexive_Eqpair {RrT : Reflexive rT} {RrU : Reflexive rU}
-  : Reflexive Eqpair.
-  Proof. red. destruct x. constructor; reflexivity. Qed.
-
-  Global Instance Symmetric_Eqpair {RrT : Symmetric rT} {RrU : Symmetric rU}
-  : Symmetric Eqpair.
-  Proof. red. inversion 1; constructor; symmetry; assumption. Qed.
-
-  Global Instance Transitive_Eqpair {RrT : Transitive rT} {RrU : Transitive rU}
-  : Transitive Eqpair.
-  Proof. red. inversion 1; inversion 1; constructor; etransitivity; eauto. Qed.
-
-  Global Instance Injective_Eqpair a b c d : Injective (Eqpair (a,b) (c,d)) :=
-  { result := rT a c /\ rU b d }.
-  abstract (inversion 1; auto).
-  Defined.
-End Eqpair.
-
-Instance Injective_Roption_None T (R : T -> T -> Prop) : Injective (Roption R None None) :=
-  { result := True }.
-auto.
-Defined.
-Instance Injective_Roption_None_Some T (R : T -> T -> Prop) a : Injective (Roption R None (Some a)) :=
-  { result := False }.
-inversion 1.
-Defined.
-Instance Injective_Roption_Some_None T (R : T -> T -> Prop) a : Injective (Roption R (Some a) None) :=
-  { result := False }.
-inversion 1.
-Defined.
-Instance Injective_Roption_Some_Some T (R : T -> T -> Prop) a b : Injective (Roption R (Some a) (Some b)) :=
-  { result := R a b }.
-inversion 1. auto.
-Defined.
-
-Instance Injective_Proper_Roption_Some {T} (rT : relation T) x
-: Injective (Proper (Roption rT) (Some x)) :=
-  { result := rT x x }.
-abstract (inversion 1; assumption).
-Defined.
-
 Ltac equivs :=
   repeat match goal with
            | H : equiv_hlist _ _ _ |- _ => apply equiv_eq_eq in H
@@ -751,11 +681,11 @@ Section parameterized.
     clear. inversion 1; subst; red; simpl.
     - destruct (goalD tus tvs g); constructor.
       do 5 red; intros.
-      rewrite And_comm. rewrite And_True_iff.
+      rewrite and_comm. rewrite and_True_iff.
       apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst; reflexivity.
     - destruct (goalD tus tvs g); constructor.
       do 5 red; intros.
-      rewrite And_True_iff.
+      rewrite and_True_iff.
       apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst; reflexivity.
     - reflexivity.
   Qed.
@@ -996,11 +926,11 @@ Section parameterized.
         apply H7; eauto. }
       { do 5 red in H10.
         rewrite H10; try reflexivity.
-        rewrite True_impl_iff.
+        rewrite impl_True_iff.
         eapply H7; eauto. }
       { do 5 red in H10.
         rewrite <- H10; try reflexivity.
-        rewrite True_impl_iff.
+        rewrite impl_True_iff.
         eapply H7; eauto. } }
   Qed.
 
@@ -1039,7 +969,6 @@ Section parameterized.
       | TopSubst c => c
       | _ => tt
     end.
-
 
   Definition fromAll {c t} (cs : ctx_subst (CAll c t)) : ctx_subst c :=
     match cs in ctx_subst c
