@@ -307,6 +307,10 @@ Section parameterized.
         ctx_domain c ++ domain s
     end.
 
+  Fixpoint ctx_substD {c} tus tvs (cs : ctx_subst c) 
+  : option (exprT tus tvs Prop).
+  Admitted.
+
   Section ctx_set'.
     Variables (u : nat) (e : expr) (min : nat) (nus : nat).
 
@@ -353,6 +357,17 @@ Section parameterized.
   { lookup := ctx_lookup
   ; domain := ctx_domain
   }.
+
+  Global Instance SubstOk_cxt_subst ctx
+  : @SubstOk (ctx_subst ctx) typ expr _ _ _ :=
+  { WellFormed_subst := @WellFormed_ctx_subst ctx
+  ; substD := @ctx_substD _
+  }.
+  admit.
+  admit.
+  admit.
+  admit.
+  Defined.
 
   Global Instance SubstUpdate_ctx_subst ctx : SubstUpdate (ctx_subst ctx) expr :=
   { set := ctx_set

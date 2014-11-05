@@ -79,7 +79,7 @@ Section parameterized.
   Context {SubstOk_subst : SubstOk Subst_subst}.
   Context {SU : SubstUpdate subst expr}.
   Context {SubstUpdateOk : SubstUpdateOk SU _}.
-  Context {SO : SubstOpen subst expr}.
+  Context {SO : SubstOpen subst}.
   Context {SubstOpenOk : SubstOpenOk _ SO}.
 
   Variable hints : Hints.

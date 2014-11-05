@@ -153,7 +153,7 @@ Section subst.
 
   Class SubstOpen : Type :=
   { (* drop : uvar -> T -> option T *)
-    split : uvar -> nat -> T -> option (T * list (option expr))
+    split : uvar -> nat -> T -> option (T * T)
   ; strengthenV : nat -> nat -> T -> bool
   ; strengthenU : nat -> nat -> T -> bool
   }.
@@ -187,20 +187,24 @@ Section subst.
 
   Class SubstOpenOk (S : Subst) (SO : SubstOk S) (OS : SubstOpen) : Type :=
   { split_sound
-    : forall u n s s' oes,
-        split u n s = Some (s', oes) ->
+    : forall u n s s' s'',
+        split u n s = Some (s', s'') ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
+        WellFormed_subst s'' /\
         forall tus tvs tus' sD,
           substD (tus ++ tus') tvs s = Some sD ->
           u = length tus ->
           n = length tus' ->
-          exists sD' eoD,
+          (forall uv,
+             uv < length tus ->
+             lookup uv s' = None) /\
+          exists sD' sD'',
             substD tus tvs s' = Some sD' /\
-            models tus tvs tus' oes = Some eoD /\
+            substD (tus ++ tus') tvs s'' = Some sD'' /\
             forall us vs us',
               sD (hlist_app us us') vs <->
-              (sD' us vs /\ eoD us' us vs)
+              (sD' us vs /\ sD'' (hlist_app us us') vs)
   ; strengthenV_sound
     : forall s n c,
         strengthenV n c s = true ->
@@ -254,11 +258,21 @@ Section subst.
       | Some _ :: ls => all_Some ls
     end.
 
+  Fixpoint all_defined (from : uvar) (len : nat) (s : T) : bool :=
+    match len with
+      | 0 => true
+      | S len =>
+        match lookup from s with
+          | None => false
+          | Some _ => all_defined (S from) len s
+        end
+    end.
+
   Definition pull (from : uvar) (len : nat) (s : T) : option T :=
     match split from len s with
       | None => None
-      | Some (t,es) =>
-        if all_Some es then Some t else None
+      | Some (t,s') =>
+        if all_defined from len s' then Some t else None
     end.
 
   Lemma substD_weakenU
@@ -351,7 +365,7 @@ Section subst.
     eapply split_sound in H1; eauto.
     forward_reason; split; eauto.
     intros; subst.
-    specialize (H1 _ _ _ _ H5 eq_refl eq_refl).
+    specialize (H3 _ _ _ _ H6 eq_refl eq_refl).
     forward_reason.
   Abort.
 
@@ -651,7 +665,7 @@ Section subst.
 *)
 End subst.
 
-Arguments pull {T expr SU} _ _ _ : rename.
+Arguments pull {T expr SS SO} _ _ _ : rename.
 (*Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.*)
 
 (*
