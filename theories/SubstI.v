@@ -132,7 +132,6 @@ Section subst.
      *)
   }.
 
-
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { substR : forall (tus tvs : tenv typ), T -> T -> Prop
   ; WellFormed_empty : WellFormed_subst subst_empty
@@ -159,6 +158,37 @@ Section subst.
                sD' us vs <->
                (sD us vs /\ get us = val us vs))
   }.
+
+  Class SubstInstantiatable :=
+  { subst_instantiate : (uvar -> option expr) -> T -> T }.
+
+  (** the range of [f] does not include anything in the domain of s **)
+  Definition disjoint_from (f : uvar -> option expr) (ls : list uvar) : Prop :=
+    (forall u, In u ls -> f u = None) /\
+    (forall u e, f u = Some e ->
+                 forall u', In u' ls -> mentionsU u' e = false).
+
+  Class SubstInstantiatableOk (S : Subst) (SO : SubstOk S) (SI : SubstInstantiatable) :=
+  { instantiate_sound
+    : forall f s s',
+        subst_instantiate f s = s' ->
+        WellFormed_subst s ->
+        forall tus tvs P sD,
+          sem_preserves_if tus tvs P f ->
+          substD tus tvs s = Some sD ->
+          exists s'D,
+            substD tus tvs s' = Some s'D /\
+            forall us vs,
+              P us vs ->
+              (sD us vs <-> s'D us vs)
+  ; WellFormed_instantiate
+    : forall f s s',
+        subst_instantiate f s = s' ->
+        WellFormed_subst s ->
+        disjoint_from f (subst_domain s) ->
+        WellFormed_subst s'
+  }.
+
 
   Class SubstOpen : Type :=
   { (* drop : uvar -> T -> option T *)

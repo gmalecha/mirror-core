@@ -54,14 +54,17 @@ Module Make (FM : WS with Definition E.t := uvar
     Definition raw_subst (s : raw) : nat -> expr -> expr :=
       instantiate (fun x => raw_lookup x s).
 
+    Definition raw_instantiate (f : uvar -> option expr) (s : raw) : raw :=
+      FM.map (instantiate f 0) s.
+
     Definition raw_set (u : uvar) (e : expr) (s : raw) : option raw :=
       let v' := raw_subst s 0 e in
       if mentionsU u v'
       then None
       else let s :=
-               FM.add u v' (FM.map (instantiate (fun u' => if u ?[ eq ] u' then
-                                                              Some v'
-                                                           else None) 0) s)
+               FM.add u v' (raw_instantiate (fun u' => if u ?[ eq ] u' then
+                                                         Some v'
+                                                       else None) s)
            in Some s.
 
 
@@ -182,7 +185,8 @@ Module Make (FM : WS with Definition E.t := uvar
           destruct H2.
           - forward.
           - forward_reason. forward.
-        + rewrite FACTS.map_in_iff in H4.
+        + unfold raw_instantiate in H4.
+          rewrite FACTS.map_in_iff in H4.
           eapply instantiate_mentionsU in H2.
           destruct H2; forward_reason; forward.
           - eapply H0 in H3. red in H3. eapply H3 in H5; eauto.

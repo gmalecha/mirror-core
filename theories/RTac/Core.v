@@ -60,6 +60,8 @@ Section parameterized.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
   Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
+  Context {SubstInstantiatable_subst : SubstInstantiatable subst expr}.
+  Context {SubstInstantiatableOk_subst : @SubstInstantiatableOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
@@ -264,30 +266,6 @@ Section parameterized.
     else
       None.
 
-(*
-  (** This needs to be 'drop the exact from the end!' **)
-  Fixpoint drop_exact (tus ts : tenv typ)
-  : option { ts' : tenv typ & hlist typD tus -> hlist typD ts' } :=
-    match tus as tus , ts
-          return option { ts' : tenv typ & hlist typD tus -> hlist typD ts' }
-    with
-      | tus , nil =>
-        Some (@existT _ (fun ts' => hlist typD tus -> hlist typD ts')
-                      tus (fun x => x))
-      | nil , _ :: _ => None
-      | tu :: tus , t :: ts =>
-        if type_cast tu t then
-          match drop_exact tus ts with
-            | None => None
-            | Some (existT res f) =>
-              Some (@existT _ (fun ts' => hlist typD (tu :: tus) -> hlist typD ts')
-                            res (fun x => f (hlist_tl x)))
-          end
-        else
-          None
-    end.
-*)
-
   Fixpoint ctx_substD {c} tus tvs (cs : ctx_subst c) {struct cs}
   : option (exprT tus tvs Prop) :=
     match cs with
@@ -321,35 +299,46 @@ Section parameterized.
     Variables (u : nat) (e : expr) (min : nat) (nus : nat).
 
     Fixpoint ctx_set' {c T} (cs : ctx_subst c) {struct cs}
-    : (ctx_subst c -> option T) -> option T.
-      refine
-        match cs in ctx_subst c return (ctx_subst c -> option T) -> option T with
-          | TopSubst s => fun k =>
+    : ((nat -> option expr) -> ctx_subst c -> option T) -> option T :=
+      match cs in ctx_subst c
+            return ((nat -> option expr) -> ctx_subst c -> option T) -> option T
+      with
+        | TopSubst s => fun k =>
+          match subst_set u e s with
+            | None => None
+            | Some s' =>
+              match subst_lookup u s with
+                | None => None
+                | Some e' => k (fun x => if x ?[ eq ] u then Some e' else None)
+                               (TopSubst s')
+              end
+          end
+        | AllSubst _ _ c => fun k =>
+          ctx_set' c (fun f c => k f (AllSubst c))
+        | HypSubst _ _ c => fun k =>
+          ctx_set' c (fun f c => k f (HypSubst c))
+        | ExsSubst _ ctx c s => fun k =>
+          if u ?[ ge ] (countUVars ctx + nus) then
             match subst_set u e s with
               | None => None
-              | Some s' => k (TopSubst s')
+              | Some s' =>
+                match subst_lookup u s with
+                  | None => None
+                  | Some e' =>
+                    k (fun x => if x ?[ eq ] u then Some e' else None)
+                      (ExsSubst c s')
+                end
             end
-          | AllSubst _ _ c => fun k =>
-            ctx_set' _ _ c (fun c => k (AllSubst c))
-          | HypSubst _ _ c => fun k =>
-            ctx_set' _ _ c (fun c => k (HypSubst c))
-          | ExsSubst _ ctx c s => fun k =>
-            if u ?[ ge ] (countUVars ctx + nus) then
-              match subst_set u e s with
-                | None => None
-                | Some s' => k (ExsSubst c s')
-              end
-            else
-              (** NOTE: This is incorrect! **)
-              @ctx_set' _ _ c (fun c => k (@ExsSubst _ ctx c s))
-        end.
-    Defined.
+          else
+            ctx_set' c
+                     (fun f c => k f (@ExsSubst _ ctx c
+                                                (subst_instantiate f s)))
+      end.
   End ctx_set'.
 
   Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c)
   : option (ctx_subst c) :=
-    (** TODO: This is wrong! **)
-    ctx_set' u e 0 cs (@Some _).
+    ctx_set' u e 0 cs (fun _ => @Some _).
 
   Fixpoint ctx_empty {c} : ctx_subst c :=
     match c with
@@ -369,7 +358,7 @@ Section parameterized.
   { WellFormed_subst := @WellFormed_ctx_subst ctx
   ; substD := @ctx_substD _
   }.
-  admit.
+  { admit. }
   admit.
   admit.
   Defined.
