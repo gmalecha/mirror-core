@@ -240,9 +240,82 @@ Section parameterized.
         ctx_domain c ++ domain s
     end.
 
-  Fixpoint ctx_substD {c} tus tvs (cs : ctx_subst c)
-  : option (exprT tus tvs Prop).
-  Admitted.
+  Instance RelDec_eq_typ : RelDec (@eq typ) :=
+  { rel_dec := fun t u => match type_cast t u with
+                            | None => false
+                            | Some _ => true
+                          end }.
+
+  Definition drop_exact (tus ts : tenv typ)
+  : option { ts' : tenv typ & hlist typD tus -> hlist typD ts' } :=
+    let rem_len := length tus - length ts in
+    let x := skipn rem_len tus in
+    if x ?[ eq ] ts then
+      Some (@existT _ (fun ts' => hlist typD tus -> hlist typD ts')
+                    (firstn rem_len tus)
+                    (fun x =>
+                       fst (hlist_split
+                              (firstn rem_len tus)
+                              (skipn rem_len tus)
+                              match eq_sym (firstn_skipn _ _) in _ = l
+                                    return hlist _ l with
+                                | eq_refl => x
+                              end)))
+    else
+      None.
+
+(*
+  (** This needs to be 'drop the exact from the end!' **)
+  Fixpoint drop_exact (tus ts : tenv typ)
+  : option { ts' : tenv typ & hlist typD tus -> hlist typD ts' } :=
+    match tus as tus , ts
+          return option { ts' : tenv typ & hlist typD tus -> hlist typD ts' }
+    with
+      | tus , nil =>
+        Some (@existT _ (fun ts' => hlist typD tus -> hlist typD ts')
+                      tus (fun x => x))
+      | nil , _ :: _ => None
+      | tu :: tus , t :: ts =>
+        if type_cast tu t then
+          match drop_exact tus ts with
+            | None => None
+            | Some (existT res f) =>
+              Some (@existT _ (fun ts' => hlist typD (tu :: tus) -> hlist typD ts')
+                            res (fun x => f (hlist_tl x)))
+          end
+        else
+          None
+    end.
+*)
+
+  Fixpoint ctx_substD {c} tus tvs (cs : ctx_subst c) {struct cs}
+  : option (exprT tus tvs Prop) :=
+    match cs with
+      | TopSubst s => substD tus tvs s
+      | HypSubst _ _ c => ctx_substD tus tvs c
+      | AllSubst t _ c =>
+        match drop_exact tvs (t :: nil) with
+          | None => None
+          | Some (existT tvs' get) =>
+            match ctx_substD tus tvs' c with
+              | None => None
+              | Some sD => Some (fun us vs => sD us (get vs))
+            end
+        end
+      | ExsSubst ts _ c s =>
+        match drop_exact tus ts with
+          | None => None
+          | Some (existT tus' get) =>
+            match substD tus tvs s
+                , ctx_substD tus' tvs c
+            with
+              | Some sD' , Some sD =>
+                Some (fun us vs => sD' us vs /\ sD (get us) vs)
+              | None , _ => None
+              | Some _ , None => None
+            end
+        end
+    end.
 
   Section ctx_set'.
     Variables (u : nat) (e : expr) (min : nat) (nus : nat).
