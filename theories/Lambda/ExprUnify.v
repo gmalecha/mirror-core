@@ -50,35 +50,35 @@ Section typed.
         | UVar u1 , UVar u2 =>
           if EqNat.beq_nat u1 u2 then Some s
           else
-            match lookup u1 s , lookup u2 s with
+            match subst_lookup u1 s , subst_lookup u2 s with
               | None , None =>
-                match set u1 (UVar u2) s with
+                match subst_set u1 (UVar u2) s with
                   | None =>
-                    set u2 (UVar u1) s
+                    subst_set u2 (UVar u1) s
                   | Some s => Some s
                 end
               | Some e1' , None =>
-                set u2 e1' s
+                subst_set u2 e1' s
               | None , Some e2' =>
-                set u1 e2' s
+                subst_set u1 e2' s
               | Some e1' , Some e2' =>
                 exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
             end
         | UVar u1 , _ =>
-          match lookup u1 s with
+          match subst_lookup u1 s with
             | None =>
               match lower 0 n e2 with
                 | None => None
-                | Some e2 => set u1 e2 s
+                | Some e2 => subst_set u1 e2 s
               end
             | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
           end
         | _ , UVar u2 =>
-          match lookup u2 s with
+          match subst_lookup u2 s with
             | None =>
               match lower 0 n e1 with
                 | None => None
-                | Some e1 => set u2 e1 s
+                | Some e1 => subst_set u2 e1 s
               end
             | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
           end
@@ -232,7 +232,7 @@ Section typed.
         { split; eauto; intros.
           change_rewrite H0 in H2. inv_all. subst.
           eauto. }
-        { consider (lookup u s); consider (lookup u0 s); intros.
+        { consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
           { eapply H in H4.
             forward_reason.
             split; eauto. intros.
@@ -277,7 +277,7 @@ Section typed.
             forward_reason. split; eauto.
             etransitivity; [ symmetry; eapply H12 | symmetry ; eapply H9 ].
             assumption. }
-          { consider (set u (UVar u0) s); intros; inv_all; subst.
+          { consider (subst_set u (UVar u0) s); intros; inv_all; subst.
             { eapply handle_uvar'; eauto.
               rewrite H3. simpl. assumption. }
             { eapply handle_uvar; eauto.

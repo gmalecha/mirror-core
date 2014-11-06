@@ -25,7 +25,7 @@ Section parameterized.
     : rtac typ expr subst :=
       @SIMPLIFY typ expr subst _
                 (fun subst Subst_subst _ctx sub =>
-                   instantiate (fun u => lookup u sub) 0).
+                   instantiate (fun u => subst_lookup u sub) 0).
   End instantiate.
 
   Theorem INSTANTIATE_sound
