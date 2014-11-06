@@ -2,6 +2,7 @@ Require Coq.FSets.FMapFacts.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Data.Nat.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
@@ -197,8 +198,8 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Instance Subst_subst : Subst raw expr :=
-    { lookup := raw_lookup
-    ; domain := fun x => List.map (@fst _ _) (FM.elements x)
+    { subst_lookup := raw_lookup
+    ; subst_domain := fun x => List.map (@fst _ _) (FM.elements x)
     }.
 
     Definition raw_drop (from : nat) (sub : raw) : option raw :=
@@ -237,8 +238,8 @@ Module Make (FM : WS with Definition E.t := uvar
               s true.
 
     Instance SubstUpdate_subst : SubstUpdate raw expr :=
-    { set := raw_set
-    ; empty := FM.empty _
+    { subst_set := raw_set
+    ; subst_empty := FM.empty _
 (*
     ; forget := raw_forget
     ; strengthenU := raw_strengthenU
@@ -544,7 +545,7 @@ Module Make (FM : WS with Definition E.t := uvar
     Instance SubstOk_subst : SubstOk Subst_subst :=
     {| WellFormed_subst := WellFormed
      ; substD := raw_substD
-     ; substD_weaken := substD_weaken
+(*     ; substD_weaken := substD_weaken *)
      ; substD_lookup := substD_lookup
      ; WellFormed_domain := WellFormed_domain
      ; lookup_normalized := normalized_fmapsubst
@@ -559,7 +560,7 @@ Module Make (FM : WS with Definition E.t := uvar
     Lemma substD_empty
     : forall tus tvs : tenv typ,
       exists P : hlist typD tus -> hlist typD tvs -> Prop,
-        substD tus tvs (empty (expr:=expr)) = Some P /\
+        substD tus tvs (FM.empty _) = Some P /\
         (forall (us : hlist typD tus) (vs : hlist typD tvs),
            P us vs).
     Proof.
@@ -755,7 +756,7 @@ Module Make (FM : WS with Definition E.t := uvar
                      (vs : hlist typD tvs),
                 sD' us vs <-> (sD us vs /\ get us = val us vs))).
     Proof.
-      unfold set; simpl; intros. unfold raw_set in *.
+      simpl; intros. unfold raw_set in *.
       forward. inv_all; subst.
       split.
       { generalize (@raw_set_WellFormed uv e s).
@@ -1151,17 +1152,15 @@ Module Make (FM : WS with Definition E.t := uvar
      Abort.
 *)
 
-    Require Import ExtLib.Data.Option.
-
     Definition raw_substR (tus tvs : tenv typ) (a b : raw) : Prop :=
       Roption (RexprT tus tvs impl) (substD tus tvs b) (substD tus tvs a).
 
     Theorem set_sound
     : forall (uv : nat) (e : expr) (s s' : raw),
-        set uv e s = Some s' ->
+        subst_set uv e s = Some s' ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        (lookup uv s = None ->
+        (subst_lookup uv s = None ->
          forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
                 (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
            substD tus tvs s = Some sD ->

@@ -40,7 +40,7 @@ Section parameterized.
       match @eapplicable typ _ expr _
                          (ctx_subst subst (CExs ctx lem.(vars)))
                          vars_to_uvars (@exprUnify _ _ _)
-                         (@ExsSubst _ _ _ lem.(vars) ctx sub (@empty _ _ _))
+                         (@ExsSubst _ _ _ lem.(vars) ctx sub (@subst_empty _ _ _))
                          tus tvs lem goal
       with
         | None => Fail

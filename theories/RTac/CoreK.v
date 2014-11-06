@@ -41,7 +41,7 @@ Section parameterized.
       | nil => nil
       | t :: ts =>
         let rr := forgets (S from) ts s in
-        let ne := lookup from s in
+        let ne := subst_lookup from s in
         ne :: rr
     end.
 
@@ -53,9 +53,9 @@ Section parameterized.
       | (_,Some e) :: tes' =>
         (* This should not be necessary but to eliminate it, we must have a
          * syntactic soundness condition for [set] *)
-        match lookup from s with
+        match subst_lookup from s with
           | None =>
-            match set from e s with
+            match subst_set from e s with
               | None => None
               | Some s' => remembers (S from) tes' s'
             end
@@ -142,7 +142,7 @@ Section parameterized.
   Definition rtacK : Type :=
     tenv typ -> tenv typ -> nat -> nat ->
     forall c : Ctx typ expr, ctx_subst subst c -> Goal typ expr -> Result subst c.
-  
+
   Definition rtacK_sound (tus tvs : tenv typ) (tac : rtacK)
   : Prop :=
     forall ctx s g result,

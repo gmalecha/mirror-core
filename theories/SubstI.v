@@ -77,24 +77,17 @@ Section subst.
   Let uvar : Type := nat.
 
   Class Subst :=
-  { lookup : uvar -> T -> option expr
-  ; domain : T -> list uvar
+  { subst_lookup : uvar -> T -> option expr
+  ; subst_domain : T -> list uvar
   }.
 
   Class SubstOk (S : Subst) : Type :=
   { WellFormed_subst : T -> Prop
   ; substD : forall (tus tvs : tenv typ), T -> option (exprT tus tvs Prop)
-  ; substD_weaken
-    : forall tus tvs tus' tvs' s sD,
-        substD tus tvs s = Some sD ->
-        exists sD',
-          substD (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
-          forall us us' vs vs',
-            sD us vs <-> sD' (hlist_app us us') (hlist_app vs vs')
   ; substD_lookup
     : forall s uv e,
         WellFormed_subst s ->
-        lookup uv s = Some e ->
+        subst_lookup uv s = Some e ->
         forall tus tvs sD,
           substD tus tvs s = Some sD ->
           exists t val get,
@@ -105,19 +98,35 @@ Section subst.
               get us = val us vs
   ; WellFormed_domain : forall s ls,
       WellFormed_subst s ->
-      domain s = ls ->
-      (forall n, In n ls <-> lookup n s <> None)
+      subst_domain s = ls ->
+      (forall n, In n ls <-> subst_lookup n s <> None)
   ; lookup_normalized : forall s e u,
       WellFormed_subst s ->
-      lookup u s = Some e ->
+      subst_lookup u s = Some e ->
       forall u' e',
-        lookup u' s = Some e' ->
+        subst_lookup u' s = Some e' ->
         mentionsU u' e = false
   }.
 
+  Class SubstWeakenable :=
+  { subst_weakenU : nat -> T -> T }.
+
+  Class SubstWeakenableOk S (SOk : SubstOk S) (SW : SubstWeakenable) :=
+  { substD_weakenU
+    : forall n s s',
+        subst_weakenU n s = s' ->
+        forall tus tvs tus' s sD,
+          n = length tus' ->
+          substD tus tvs s = Some sD ->
+          exists sD',
+            substD (tus ++ tus') tvs s' = Some sD' /\
+            forall us us' vs,
+              sD us vs <-> sD' (hlist_app us us') vs
+  }.
+
   Class SubstUpdate :=
-  { set : uvar -> expr -> T -> option T
-  ; empty : T
+  { subst_set : uvar -> expr -> T -> option T
+  ; subst_empty : T
     (** NOTE: This doesn't seem to be used! It really should be specific to
      *  the particular implementation
      *)
@@ -126,19 +135,19 @@ Section subst.
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { substR : forall (tus tvs : tenv typ), T -> T -> Prop
-  ; WellFormed_empty : WellFormed_subst empty
+  ; WellFormed_empty : WellFormed_subst subst_empty
   ; substD_empty
     : forall tus tvs,
       exists P,
-        substD tus tvs empty = Some P /\
+        substD tus tvs subst_empty = Some P /\
         forall us vs, P us vs
   ; set_sound
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',
-        set uv e s = Some s' ->
+        subst_set uv e s = Some s' ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        (lookup uv s = None -> (* How important is this? *)
+        (subst_lookup uv s = None -> (* How important is this? *)
          forall tus tvs t val get sD,
            substD tus tvs s = Some sD ->
            nth_error_get_hlist_nth typD tus uv = Some (@existT _ _ t get) ->
@@ -154,8 +163,7 @@ Section subst.
   Class SubstOpen : Type :=
   { (* drop : uvar -> T -> option T *)
     split : uvar -> nat -> T -> option (T * T)
-  ; strengthenV : nat -> nat -> T -> bool
-  ; strengthenU : nat -> nat -> T -> bool
+  ; strengthenV : nat -> nat -> T -> option T
   }.
 
   Fixpoint models (tus tvs : tenv typ) (tus' : tenv typ) (es : list (option expr))
@@ -198,7 +206,7 @@ Section subst.
           n = length tus' ->
           (forall uv,
              uv < length tus ->
-             lookup uv s' = None) /\
+             subst_lookup uv s' = None) /\
           exists sD' sD'',
             substD tus tvs s' = Some sD' /\
             substD (tus ++ tus') tvs s'' = Some sD'' /\
@@ -206,17 +214,19 @@ Section subst.
               sD (hlist_app us us') vs <->
               (sD' us vs /\ sD'' (hlist_app us us') vs)
   ; strengthenV_sound
-    : forall s n c,
-        strengthenV n c s = true ->
+    : forall s n c s',
+        strengthenV n c s = Some s' ->
         WellFormed_subst s ->
+        WellFormed_subst s' /\
         forall tus tvs tvs' sD,
           substD tus (tvs ++ tvs') s = Some sD ->
           n = length tvs ->
           c = length tvs' ->
           exists sD',
-            substD tus tvs s = Some sD' /\
+            substD tus tvs s' = Some sD' /\
             forall us vs vs',
               sD us (hlist_app vs vs') <-> sD' us vs
+(*
   ; strengthenU_sound
     : forall s n c,
         strengthenU n c s = true ->
@@ -229,6 +239,7 @@ Section subst.
             substD tus tvs s = Some sD' /\
             forall us vs us',
               sD (hlist_app us us') vs <-> sD' us vs
+*)
   }.
 
   Context {Subst_subst : Subst}.
@@ -262,19 +273,20 @@ Section subst.
     match len with
       | 0 => true
       | S len =>
-        match lookup from s with
+        match subst_lookup from s with
           | None => false
           | Some _ => all_defined (S from) len s
         end
     end.
 
-  Definition pull (from : uvar) (len : nat) (s : T) : option T :=
+  Definition subst_pull (from : uvar) (len : nat) (s : T) : option T :=
     match split from len s with
       | None => None
       | Some (t,s') =>
         if all_defined from len s' then Some t else None
     end.
 
+(*
   Lemma substD_weakenU
   : forall tus tvs tus' s sD,
       substD tus tvs s = Some sD ->
@@ -330,6 +342,7 @@ Section subst.
       clear. revert x. revert a.
       destruct (app_nil_r_trans tus). reflexivity. }
   Qed.
+*)
 
   Fixpoint seq (start : nat) (len : nat) : list nat :=
     match len with
@@ -347,7 +360,7 @@ Section subst.
 
   Lemma pull_sound_syn
   : forall n s s' u,
-      pull u n s = Some s' ->
+      subst_pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall tus tus' tvs sD,
@@ -355,11 +368,11 @@ Section subst.
         n = length tus' ->
         substD (tus ++ tus') tvs s = Some sD ->
         exists eus',
-          mapT (fun u => lookup u s) (seq u n) = Some eus' /\
-          (forall u', u' < u \/ u' > u + n -> lookup u' s = lookup u' s') /\
-          (forall u', u' < n -> lookup (u + u') s' = None).
+          mapT (fun u => subst_lookup u s) (seq u n) = Some eus' /\
+          (forall u', u' < u \/ u' > u + n -> subst_lookup u' s = subst_lookup u' s') /\
+          (forall u', u' < n -> subst_lookup (u + u') s' = None).
   Proof.
-    unfold pull.
+    unfold subst_pull.
     intros. forward.
     subst. inv_all; subst.
     eapply split_sound in H1; eauto.
@@ -370,9 +383,9 @@ Section subst.
   Abort.
 
 
-  Theorem pull_sound
+  Theorem subst_pull_sound
   : forall n s s' u,
-      pull u n s = Some s' ->
+      subst_pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall tus tus' tvs sD,
@@ -380,9 +393,9 @@ Section subst.
         n = length tus' ->
         substD (tus ++ tus') tvs s = Some sD ->
         exists eus',
-          mapT (fun u => lookup u s) (seq u n) = Some eus' /\
-          (forall u', u' < u \/ u' > u + n -> lookup u' s = lookup u' s') /\
-          (forall u', u' < n -> lookup (u + u') s' = None) /\
+          mapT (fun u => subst_lookup u s) (seq u n) = Some eus' /\
+          (forall u', u' < u \/ u' > u + n -> subst_lookup u' s = subst_lookup u' s') /\
+          (forall u', u' < n -> subst_lookup (u + u') s' = None) /\
         exists sD',
           substD tus tvs s' = Some sD' /\
           exists us' : hlist (fun t => hlist typD tus -> hlist typD tvs -> typD t) tus',
@@ -534,9 +547,9 @@ Section subst.
 *)
   Abort.
 
-  Theorem pull_sound_sem
+  Theorem subst_pull_sound_sem
   : forall  n s s' u,
-      pull u n s = Some s' ->
+      subst_pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall tus tus' tvs sD,
@@ -552,7 +565,7 @@ Section subst.
               sD (hlist_app us us') vs.
   Proof.
     Opaque mapT.
-    unfold pull; intros; forwardy.
+    unfold subst_pull; intros; forwardy.
     eapply split_sound in H; eauto.
     forward; inv_all; subst.
     forward_reason.
@@ -584,7 +597,7 @@ Section subst.
   : forall tus tvs s sD,
       WellFormed_subst s ->
       substD tus tvs s = Some sD ->
-      sem_preserves_if tus tvs sD (fun u => lookup u s).
+      sem_preserves_if tus tvs sD (fun u => subst_lookup u s).
   Proof.
     red. intros.
     eapply substD_lookup in H1; eauto.
@@ -665,7 +678,7 @@ Section subst.
 *)
 End subst.
 
-Arguments pull {T expr SS SO} _ _ _ : rename.
+Arguments subst_pull {T expr SS SO} _ _ _ : rename.
 (*Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.*)
 
 (*

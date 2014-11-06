@@ -40,7 +40,7 @@ Section runOnGoals.
       | nil => nil
       | t :: ts =>
         let rr := forgets (S from) ts s in
-        let ne := lookup from s in
+        let ne := subst_lookup from s in
         ne :: rr
     end.
 
@@ -52,9 +52,9 @@ Section runOnGoals.
       | (_,Some e) :: tes' =>
         (* This should not be necessary but to eliminate it, we must have a
          * syntactic soundness condition for [set] *)
-        match lookup from s with
+        match subst_lookup from s with
           | None =>
-            match set from e s with
+            match subst_set from e s with
               | None => None
               | Some s' => remembers (S from) tes' s'
             end
@@ -93,7 +93,7 @@ Section runOnGoals.
         forward; inv_all; subst.
         specialize (@IHl (tus ++ t :: nil) tvs).
         eapply set_sound in H5; eauto. destruct H5.
-        assert (lookup (length tus) s = None) by eauto.
+        assert (subst_lookup (length tus) s = None) by eauto.
         specialize (fun x y => H5 H7 _ _ t _ x _ H1 y H2); clear H7.
         assert (exists get,
                   nth_error_get_hlist_nth typD ((tus ++ t :: nil) ++ map fst l)
@@ -330,7 +330,7 @@ Section runOnGoals.
       | GExs tes g =>
         let ts := map fst tes in
         (** TODO: This returning an error is redundant **)
-        match remembers nus tes (@empty _ _ _) with
+        match remembers nus tes (@subst_empty _ _ _) with
           | None => Fail
           | Some s' =>
             let s' := ExsSubst s s' in
@@ -404,7 +404,7 @@ Section runOnGoals.
          *)
         let ts := map fst tes in
         (** TODO: This returning an error is redundant **)
-        match remembers nus tes (@empty _ _ _) with
+        match remembers nus tes (@subst_empty _ _ _) with
           | None => (Fail, tacs)
           | Some s' =>
             let s' := ExsSubst s s' in

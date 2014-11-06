@@ -57,35 +57,35 @@ Section typed.
         | UVar u1 , UVar u2 =>
           if EqNat.beq_nat u1 u2 then Some s
           else
-            match lookup u1 s , lookup u2 s with
+            match subst_lookup u1 s , subst_lookup u2 s with
               | None , None =>
-                match set u1 (UVar u2) s with
+                match subst_set u1 (UVar u2) s with
                   | None =>
-                    set u2 (UVar u1) s
+                    subst_set u2 (UVar u1) s
                   | Some s => Some s
                 end
               | Some e1' , None =>
-                set u2 e1' s
+                subst_set u2 e1' s
               | None , Some e2' =>
-                set u1 e2' s
+                subst_set u1 e2' s
               | Some e1' , Some e2' =>
                 exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
             end
         | UVar u1 , _ =>
-          match lookup u1 s with
+          match subst_lookup u1 s with
             | None =>
               match lower 0 n e2 with
                 | None => None
-                | Some e2 => set u1 e2 s
+                | Some e2 => subst_set u1 e2 s
               end
             | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
           end
         | _ , UVar u2 =>
-          match lookup u2 s with
+          match subst_lookup u2 s with
             | None =>
               match lower 0 n e1 with
                 | None => None
-                | Some e1 => set u2 e1 s
+                | Some e1 => subst_set u2 e1 s
               end
             | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
           end
@@ -129,17 +129,17 @@ Section typed.
               | Some t1 , Some t2 =>
                 if t1 ?[ Rty ] t2 then
                   match
-                    match lookup u1 s , lookup u2 s with
+                    match subst_lookup u1 s , subst_lookup u2 s with
                       | None , None =>
-                        match set u1 (UVar u2) s with
+                        match subst_set u1 (UVar u2) s with
                           | None =>
-                            set u2 (UVar u1) s
+                            subst_set u2 (UVar u1) s
                           | Some s => Some s
                         end
                       | Some e1' , None =>
-                        set u2 e1' s
+                        subst_set u2 e1' s
                       | None , Some e2' =>
-                        set u1 e2' s
+                        subst_set u1 e2' s
                       | Some e1' , Some e2' =>
                         exprUnify tus tvs n s (lift 0 n e1') (lift 0 n e2') t1
                     end
@@ -152,7 +152,7 @@ Section typed.
               | _ , _ => None
             end
         | UVar u1 , _ =>
-          match lookup u1 s with
+          match subst_lookup u1 s with
             | None =>
               match lower 0 n e2 with
                 | None => None
@@ -162,7 +162,7 @@ Section typed.
                   with
                     | Some t1 , Some t2 =>
                       if t1 ?[ Rty ] t2 then
-                        match set u1 e2' s with
+                        match subst_set u1 e2' s with
                           | Some s => Some (t1, s)
                           | None => None
                         end
@@ -187,7 +187,7 @@ Section typed.
               end
           end
         | _ , UVar u2 =>
-          match lookup u2 s with
+          match subst_lookup u2 s with
             | None =>
               match lower 0 n e1 with
                 | None => None
@@ -197,7 +197,7 @@ Section typed.
                   with
                     | Some t1 , Some t2 =>
                       if t1 ?[ Rty ] t2 then
-                        match set u2 e1' s with
+                        match subst_set u2 e1' s with
                           | Some s => Some (t1, s)
                           | None => None
                         end
@@ -340,7 +340,7 @@ Section typed.
   Lemma exprD_from_subst : forall tus tvs tvs' s e u t sD eD,
     WellFormed_subst s ->
     substD tus tvs s = Some sD ->
-    lookup u s = Some e ->
+    subst_lookup u s = Some e ->
     exprD' tus (tvs' ++ tvs) t (UVar u) = Some eD ->
     exists eD',
       exprD' tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
@@ -384,17 +384,17 @@ Section typed.
               | Some t1 , Some t2 =>
                 if t1 ?[ Rty ] t2 then
                   match
-                    match lookup u1 s , lookup u2 s with
+                    match subst_lookup u1 s , subst_lookup u2 s with
                       | None , None =>
-                        match set u1 (UVar u2) s with
+                        match subst_set u1 (UVar u2) s with
                           | None =>
-                            set u2 (UVar u1) s
+                            subst_set u2 (UVar u1) s
                           | Some s => Some s
                         end
                       | Some e1' , None =>
-                        set u2 e1' s
+                        subst_set u2 e1' s
                       | None , Some e2' =>
-                        set u1 e2' s
+                        subst_set u1 e2' s
                       | Some e1' , Some e2' =>
                         u tus tvs n s (lift 0 n e1') (lift 0 n e2') t1
                     end
@@ -407,7 +407,7 @@ Section typed.
               | _ , _ => None
             end
         | UVar u1 , _ =>
-          match lookup u1 s with
+          match subst_lookup u1 s with
             | None =>
               match lower 0 n e2 with
                 | None => None
@@ -417,7 +417,7 @@ Section typed.
                   with
                     | Some t1 , Some t2 =>
                       if t1 ?[ Rty ] t2 then
-                        match set u1 e2' s with
+                        match subst_set u1 e2' s with
                           | Some s => Some (t1, s)
                           | None => None
                         end
@@ -442,7 +442,7 @@ Section typed.
               end
           end
         | _ , UVar u2 =>
-          match lookup u2 s with
+          match subst_lookup u2 s with
             | None =>
               match lower 0 n e1 with
                 | None => None
@@ -452,7 +452,7 @@ Section typed.
                   with
                     | Some t1 , Some t2 =>
                       if t1 ?[ Rty ] t2 then
-                        match set u2 e1' s with
+                        match subst_set u2 e1' s with
                           | Some s => Some (t1, s)
                           | None => None
                         end
@@ -538,7 +538,7 @@ Section typed.
   Lemma handle_uvar_simul
   : forall u s s' t (e : expr typ func) tv tu tv' unify
            (unifyOk : unify_sound unify),
-      match lookup u s with
+      match subst_lookup u s with
         | Some e2' =>
           match typeof_expr tu (tv' ++ tv) e with
             | Some t1 =>
@@ -567,7 +567,7 @@ Section typed.
                     | Some t2 =>
                       if t1 ?[ Rty ] t2
                       then
-                        match set u e' s with
+                        match subst_set u e' s with
                           | Some s0 => Some (t1, s0)
                           | None => None
                         end
@@ -606,7 +606,7 @@ Section typed.
              change Y with X in H ; consider X; intros; forward
          end.
     generalize (fun e => handle_uvar unifyOk tu tv e u s).
-    consider (lookup u s); intros.
+    consider (subst_lookup u s); intros.
     { forwardy. inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
@@ -633,7 +633,7 @@ Section typed.
   Lemma handle_uvar_simul'
   : forall u s s' t (e : expr typ func) tv tu tv' unify
            (unifyOk : unify_sound unify),
-      match lookup u s with
+      match subst_lookup u s with
         | Some e2' =>
           match typeof_expr tu (tv' ++ tv) (UVar u) with
             | Some t1 =>
@@ -662,7 +662,7 @@ Section typed.
                     | Some t2 =>
                       if t1 ?[ Rty ] t2
                       then
-                        match set u e' s with
+                        match subst_set u e' s with
                           | Some s0 => Some (t1, s0)
                           | None => None
                         end
@@ -701,7 +701,7 @@ Section typed.
              change Y with X in H ; consider X; intros; forward
          end.
     generalize (fun e => handle_uvar' unifyOk tu tv e u s).
-    consider (lookup u s); intros.
+    consider (subst_lookup u s); intros.
     { forwardy. inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
@@ -972,7 +972,7 @@ Section typed.
           inv_all; subst.
           eauto. }
         { intro XXX; clear XXX.
-          consider (lookup u s); consider (lookup u0 s); intros.
+          consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
           { eapply unifyOk in H2.
             forward_reason. split; auto.
             intros.
@@ -1014,7 +1014,7 @@ Section typed.
             eapply H3 in H10; forward_reason; split; eauto.
             intros. symmetry.
             etransitivity; [ eapply H8; eauto | eapply H11 ]. }
-          { consider (set u (UVar u0) s); intros.
+          { consider (subst_set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H2; eauto.
               forward_reason; split; auto.
@@ -1065,7 +1065,7 @@ Section typed.
         { intro XXX; clear XXX.
           forward. inv_all; subst.
           destruct H2.
-          consider (lookup u s); consider (lookup u0 s); intros.
+          consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
           { eapply unifyOk in H4.
             forward_reason. split; auto.
             intros. clear H6 H7.
@@ -1120,7 +1120,7 @@ Section typed.
             forward_reason; split; eauto.
             intros. symmetry.
             etransitivity; [ eapply H7; eauto | eapply H11 ]. }
-          { consider (set u (UVar u0) s); intros.
+          { consider (subst_set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H4; eauto.
               forward_reason; split; auto.

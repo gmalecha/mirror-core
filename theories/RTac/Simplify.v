@@ -21,18 +21,6 @@ Section parameterized.
                         Subst subst expr ->
                         Ctx typ expr -> subst -> expr -> expr.
 
-  Fixpoint ctx_domain ctx (s : @ctx_subst typ expr subst ctx) : list nat :=
-    match s with
-      | TopSubst s => domain s
-      | AllSubst _ _ cs' => ctx_domain cs'
-      | HypSubst _ _ cs' => ctx_domain cs'
-      | ExsSubst _ _ cs' s' => ctx_domain cs' ++ domain s'
-    end.
-
-  Instance Subst_ctx_subst ctx : Subst (@ctx_subst typ expr subst ctx) expr :=
-  { lookup := @ctx_lookup _ _ _ _ ctx
-  ; domain := @ctx_domain ctx }.
-
   Definition SIMPLIFY : rtac typ expr subst :=
     fun _ _ _ _ ctx sub gl =>
       More_ sub (GGoal (@simplify (ctx_subst subst ctx) _ ctx sub gl)).

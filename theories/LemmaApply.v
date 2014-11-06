@@ -144,23 +144,41 @@ Section lemma_apply.
                 (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
+  Lemma eapplicable_sound'
+  : forall s tus tvs lem g s1,
+      eapplicable s tus tvs lem g = Some s1 ->
+      WellFormed_subst s ->
+      WellFormed_subst s1 /\
+      forall sD (gD : exprT _ _ Prop),
+        (@lemmaD _ _ _ _ _ (exprD'_typ0 (T:=Prop)) _ nil nil lem) ->
+        substD (tus ++ lem.(vars)) tvs s = Some sD ->
+        exprD'_typ0 (tus ++ lem.(vars)) tvs g = Some gD ->
+        exists s1D (pDs : list (exprT _ _ Prop)),
+          substD (tus ++ lem.(vars)) tvs s1 = Some s1D /\
+          mapT (fun e => exprD'_typ0 (tus ++ lem.(vars)) tvs (vars_to_uvars 0 (length tus) e)) lem.(premises) = Some pDs /\
+          forall (us : hlist _ tus) (us' : hlist _ lem.(vars)) (vs : hlist _ tvs),
+            s1D (hlist_app us us') vs ->
+            (Forall (fun pD => pD (hlist_app us us') vs) pDs -> gD (hlist_app us us') vs)
+            /\ sD (hlist_app us us') vs.
+  Proof.
+  Admitted.
+
+(*
   Lemma eapplicable_sound
-  : forall s tus tvs l0 g s1,
-      eapplicable s tus tvs l0 g = Some s1 ->
+  : forall s tus tvs lem g s1,
+      eapplicable s tus tvs lem g = Some s1 ->
       WellFormed_subst s ->
       WellFormed_subst s1 /\
       forall sD gD,
-        (exists lD,
-          @lemmaD' _ _ _ _ _ (exprD'_typ0 (T:=Prop)) _
-                   nil nil l0 = Some lD) ->
+        (@lemmaD _ _ _ _ _ (exprD'_typ0 (T:=Prop)) _ nil nil lem) ->
         substD tus tvs s = Some sD ->
-        exprD'_typ0 tus tvs g = Some gD ->
+        exprD'_typ0 (tus ++ lem.(vars)) tvs g = Some gD ->
         exists s1D gD',
-          substD (tus ++ l0.(vars)) tvs s1 = Some s1D /\
-          exprD'_typ0 tus (l0.(vars) ++ tvs) l0.(concl) = Some gD' /\
-          forall (us : hlist _ tus) (us' : hlist _ l0.(vars)) (vs : hlist _ tvs),
+          substD (tus ++ lem.(vars)) tvs s1 = Some s1D /\
+          exprD'_typ0 tus (lem.(vars) ++ tvs) lem.(concl) = Some gD' /\
+          forall (us : hlist _ tus) (us' : hlist _ lem.(vars)) (vs : hlist _ tvs),
             s1D (hlist_app us us') vs ->
-            (gD' us (hlist_app us' vs) <-> gD us vs)
+            (gD' us (hlist_app us' vs) -> gD us vs)
             /\ sD us vs.
   Proof.
     unfold eapplicable.
@@ -231,6 +249,7 @@ Section lemma_apply.
     erewrite H10. instantiate (1 := us').
     autorewrite with eq_rw. reflexivity.
   Qed.
+*)
 
 (*
   Variable substitute_all : (nat -> option expr) -> nat -> expr -> expr.

@@ -29,8 +29,8 @@ Section typed.
 
   Lemma handle_set
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)
-    (Hnot_found : lookup u s = None),
-      set u e0 s = Some s' ->
+    (Hnot_found : subst_lookup u s = None),
+      subst_set u e0 s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall (tu : tenv typ) (tv : list typ)
@@ -71,8 +71,8 @@ Section typed.
 
   Lemma handle_set_lower
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)
-           (Hnot_found : lookup u s = None),
-      set u e0 s = Some s' ->
+           (Hnot_found : subst_lookup u s = None),
+      subst_set u e0 s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall (tu : tenv typ) (tv : list typ)
@@ -143,13 +143,13 @@ Section typed.
       unify_sound_ind unify ->
       forall (tu : tenv typ) (tv : list typ) e
              (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
-        match lookup u s with
+        match subst_lookup u s with
           | Some e2' =>
             unify tu (tv' ++ tv) (length tv') s e
                   (lift 0 (length tv') e2') t
           | None =>
             match lower 0 (length tv') e with
-              | Some e1 => set u e1 s
+              | Some e1 => subst_set u e1 s
               | None => None
             end
         end = Some s' ->
@@ -172,7 +172,7 @@ Section typed.
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
   Proof.
     intros.
-    consider (lookup u s); intros.
+    consider (subst_lookup u s); intros.
     { eapply H in H2.
       forward_reason.
       split; eauto; intros.
@@ -215,13 +215,13 @@ Section typed.
         unify_sound_ind unify ->
         forall (tu : tenv typ) (tv : list typ) e
                (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
-          match lookup u s with
+          match subst_lookup u s with
             | Some e2' =>
               unify tu (tv' ++ tv) (length tv') s
                     (lift 0 (length tv') e2') e t
             | None =>
               match lower 0 (length tv') e with
-                | Some e1 => set u e1 s
+                | Some e1 => subst_set u e1 s
                 | None => None
               end
           end = Some s' ->
@@ -245,7 +245,7 @@ Section typed.
                       v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)))).
   Proof.
     intros.
-    consider (lookup u s); intros.
+    consider (subst_lookup u s); intros.
     { eapply H in H2.
       forward_reason.
       split; eauto; intros.
@@ -287,7 +287,7 @@ Section typed.
 
   Lemma lookup_lift
   : forall u s e tu tv tv' t sD v1,
-      lookup u s = Some e ->
+      subst_lookup u s = Some e ->
       WellFormed_subst s ->
       substD tu tv s = Some sD ->
       exprD' tu (tv' ++ tv) t (UVar u) = Some v1 ->

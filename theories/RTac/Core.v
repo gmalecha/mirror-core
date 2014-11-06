@@ -221,11 +221,11 @@ Section parameterized.
 
   Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
     match cs with
-      | TopSubst s => lookup u s
+      | TopSubst s => subst_lookup u s
       | AllSubst _ _ c => ctx_lookup u c
       | HypSubst _ _ c => ctx_lookup u c
       | ExsSubst _ _ c s =>
-        match lookup u s with
+        match subst_lookup u s with
           | None => ctx_lookup u c
           | Some e => Some e
         end
@@ -233,11 +233,11 @@ Section parameterized.
 
   Fixpoint ctx_domain {c} (cs : ctx_subst c) : list nat :=
     match cs with
-      | TopSubst s => domain s
+      | TopSubst s => subst_domain s
       | AllSubst _ _ c => ctx_domain c
       | HypSubst _ _ c => ctx_domain c
       | ExsSubst _ _ c s =>
-        ctx_domain c ++ domain s
+        ctx_domain c ++ subst_domain s
     end.
 
   Instance RelDec_eq_typ : RelDec (@eq typ) :=
@@ -325,7 +325,7 @@ Section parameterized.
       refine
         match cs in ctx_subst c return (ctx_subst c -> option T) -> option T with
           | TopSubst s => fun k =>
-            match set u e s with
+            match subst_set u e s with
               | None => None
               | Some s' => k (TopSubst s')
             end
@@ -335,7 +335,7 @@ Section parameterized.
             ctx_set' _ _ c (fun c => k (HypSubst c))
           | ExsSubst _ ctx c s => fun k =>
             if u ?[ ge ] (countUVars ctx + nus) then
-              match set u e s with
+              match subst_set u e s with
                 | None => None
                 | Some s' => k (ExsSubst c s')
               end
@@ -353,15 +353,15 @@ Section parameterized.
 
   Fixpoint ctx_empty {c} : ctx_subst c :=
     match c with
-      | CTop => TopSubst (@empty _ _ _)
+      | CTop => TopSubst (@subst_empty _ _ _)
       | CHyp c h => HypSubst ctx_empty
       | CAll c h => AllSubst ctx_empty
-      | CExs c h => ExsSubst ctx_empty (@empty _ _ _)
+      | CExs c h => ExsSubst ctx_empty (@subst_empty _ _ _)
     end.
 
   Global Instance Subst_ctx_subst ctx : Subst (ctx_subst ctx) expr :=
-  { lookup := ctx_lookup
-  ; domain := ctx_domain
+  { subst_lookup := ctx_lookup
+  ; subst_domain := ctx_domain
   }.
 
   Global Instance SubstOk_cxt_subst ctx
@@ -374,9 +374,10 @@ Section parameterized.
   admit.
   Defined.
 
-  Global Instance SubstUpdate_ctx_subst ctx : SubstUpdate (ctx_subst ctx) expr :=
-  { set := ctx_set
-  ; empty := ctx_empty
+  Global Instance SubstUpdate_ctx_subst ctx
+  : SubstUpdate (ctx_subst ctx) expr :=
+  { subst_set := ctx_set
+  ; subst_empty := ctx_empty
   }.
 
   (** StateT subst Option Goal **)
