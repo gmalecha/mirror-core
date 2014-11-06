@@ -1,7 +1,7 @@
 GENERIC :=
 UTIL := Approx Iteration ListMapT Forwardy Quant Nat
 PROVERS := ProverTac AssumptionProver DefaultProver AutoProver
-SUBST   := UVarMap FMapSubst CascadeSubst # SealedSubst RawSubst2 FastSubst
+SUBST   := UVarMap FMapSubst # CascadeSubst SealedSubst RawSubst2 FastSubst
 EXTENSIBLE := Types ExprCore \
 	      ExprT \
 	      ExprDI ExprDFacts ExprD3 ExprD \

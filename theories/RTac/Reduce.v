@@ -271,7 +271,8 @@ Section parameterized.
         end
     end cs.
 
-  Definition reduceGoal (ctx ctx' : Ctx typ expr) (s : ctx_subst _ (Ctx_append ctx ctx'))
+  Definition reduceGoal (ctx ctx' : Ctx typ expr)
+             (s : ctx_subst _ (Ctx_append ctx ctx'))
              (g : Goal typ expr)
              (un vn : nat)
   : Result subst ctx :=
