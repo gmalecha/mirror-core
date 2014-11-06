@@ -100,8 +100,11 @@ Section parameterized.
   Fixpoint GConj_list_filter (ls : list Goal) : Goal :=
     match ls with
       | nil => GSolved
-      | GSolved :: gs => GConj_list gs
-      | g :: gs => GConj g (GConj_list gs)
+      | GSolved :: gs => GConj_list_filter gs
+      | g :: gs => match GConj_list_filter gs with
+                     | GSolved => g
+                     | g' => GConj_ g g'
+                   end
     end.
 
   Inductive Ctx :=

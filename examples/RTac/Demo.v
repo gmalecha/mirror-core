@@ -31,17 +31,18 @@ Let INTRO :=
   INTRO (subst:=subst) (@Var typ func) (@UVar _ _) open.
 
 Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
+                    UVar
                     (@vars_to_uvars _ _)
                     (fun _ _ _ tus tvs n l r t s =>
                        @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
-                    (@instantiate _ _) UVar.
+                    (@instantiate _ _).
 
-Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _
+Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _ _
+                      UVar
                       (@vars_to_uvars _ _)
                       (fun _ _ _ tus tvs n l r t s =>
                          @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
-                      (@instantiate _ _) UVar.
-
+                      (@instantiate _ _).
 
 Let ASSUMPTION : rtac typ (expr typ func) subst :=
   ASSUMPTION (fun _ _ _ x y s => if x ?[ eq ] y then Some s else None).
@@ -58,7 +59,7 @@ Definition fAnd (P Q : expr typ func) : expr typ func :=
 
 Definition tac : rtac typ (expr typ func) subst :=
   THEN (REPEAT 10 INTRO)
-       (TRY ASSUMPTION).
+       (runOnGoals (TRY ASSUMPTION)).
 
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
            (goal : expr typ func)  :=

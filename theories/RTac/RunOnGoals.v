@@ -307,6 +307,13 @@ Section runOnGoals.
 
   Variable tac : rtac typ expr subst.
 
+  Fixpoint all_instantiated (tes : list (typ * option expr)) : bool :=
+    match tes with
+      | nil => true
+      | (_,None) :: _ => false
+      | (_,Some _) :: tes => all_instantiated tes
+    end.
+
   Fixpoint runOnGoals (tus tvs : tenv typ) (nus nvs : nat)
            (ctx : Ctx typ expr) (s : ctx_subst subst ctx) (g : Goal typ expr)
            {struct g}
@@ -321,11 +328,6 @@ Section runOnGoals.
           | More_ s g => More (fromAll s) (GAll t g)
         end
       | GExs tes g =>
-        (* TODO: Is it meaningful to make this a [list typ * subst]?
-          match remembers nus tes s with
-            | None => Fail
-            | Some s' =>
-         *)
         let ts := map fst tes in
         (** TODO: This returning an error is redundant **)
         match remembers nus tes (@empty _ _ _) with
@@ -339,7 +341,10 @@ Section runOnGoals.
                 (** Here I can drop anything that is already instantiated. **)
                 let tes' := forgets nus ts shere in
                 let tes' := combine ts tes' in
-                More_ cs' (GExs tes' GSolved)
+                if all_instantiated tes' then
+                  Solved cs'
+                else
+                  More_ cs' (GExs tes' GSolved)
               | More_ s'' g' =>
                 let '(shere,cs') := fromExs s'' in
                 (** Here I need to drop already instantiated vars and
@@ -369,7 +374,7 @@ Section runOnGoals.
             match @runOnGoals tus tvs nus nvs ctx s' r with
               | Fail => Fail
               | Solved s'' => More s'' g'
-              | More_ s'' g'' => More s'' (GConj_ g' g'')
+              | More_ s'' g'' => More_ s'' (GConj_ g' g'')
             end
         end
     end.
@@ -410,7 +415,10 @@ Section runOnGoals.
                 (** Here I can drop anything that is already instantiated. **)
                 let tes' := forgets nus ts shere in
                 let tes' := combine ts tes' in
-                (More_ cs' (GExs tes' GSolved), tacs)
+                (if all_instantiated tes' then
+                   Solved cs'
+                 else
+                   More_ cs' (GExs tes' GSolved), tacs)
               | (More_ s'' g', tacs) =>
                 let '(shere,cs') := fromExs s'' in
                 (** Here I need to drop already instantiated vars and
@@ -583,6 +591,7 @@ Section runOnGoals.
         destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
         simpl in *; eauto. } }
     { (* Exs *)
+      admit. (*
       intros; simpl in *.
       forward.
       specialize (@IHg (CExs _ (map (fst) l)) (ExsSubst s s0)).
@@ -691,7 +700,7 @@ Section runOnGoals.
           split.
           { destruct H13. destruct H2; eauto.
             eapply H17. eapply H21. assumption. }
-          { eapply H18; auto. apply H16. auto. } } } }
+          { eapply H18; auto. apply H16. auto. } } }  *)}
     { (* Hyp *)
       simpl; intros.
       specialize (IHg (CHyp ctx e) (HypSubst s)).
@@ -833,7 +842,7 @@ Section runOnGoals_proof.
       rtac_sound tus tvs tac -> rtacK_sound tus tvs (runOnGoals tac).
   Proof.
     intros.
-    generalize (@runOnGoals_sound_ind typ expr subst _ _ _ _ _ _ _ tac tus tvs H).
+    generalize (@runOnGoals_sound_ind typ expr subst _ _ _ _ _ _ tac tus tvs H).
     red. intros; subst.
     specialize (H0 g ctx s). revert H0; clear.
     unfold rtac_spec, rtacK_spec.
