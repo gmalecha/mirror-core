@@ -55,6 +55,7 @@ Section parameterized.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
@@ -207,19 +208,31 @@ Section parameterized.
   Defined.
   (** End: Auxiliary Functions **)
 
-
   Inductive ctx_subst : Ctx -> Type :=
   | TopSubst : subst -> ctx_subst CTop
   | AllSubst : forall {t c}, ctx_subst c -> ctx_subst (CAll c t)
   | HypSubst : forall {t c}, ctx_subst c -> ctx_subst (CHyp c t)
   | ExsSubst : forall {ts c}, ctx_subst c -> subst -> ctx_subst (CExs c ts).
 
+  Definition only_in_range (min len : nat) (s : subst) : Prop :=
+    forall u e, subst_lookup u s = Some e -> min <= u < min + len.
+
   Inductive WellFormed_ctx_subst : forall c, ctx_subst c -> Prop :=
-  | WF_TopSubst : forall s, WellFormed_subst s -> WellFormed_ctx_subst (TopSubst s)
-  | WF_AllSubst : forall t c s, WellFormed_ctx_subst s -> WellFormed_ctx_subst (@AllSubst t c s)
-  | WF_HypSubst : forall t c s, WellFormed_ctx_subst s -> WellFormed_ctx_subst (@HypSubst t c s)
-  | WF_ExsSubst : forall t c s s', WellFormed_subst s' ->
-                                   WellFormed_ctx_subst s -> WellFormed_ctx_subst (@ExsSubst t c s s').
+  | WF_TopSubst : forall s,
+                    WellFormed_subst s ->
+                    only_in_range 0 0 s -> (** eeks **)
+                    WellFormed_ctx_subst (TopSubst s)
+  | WF_AllSubst : forall t c s,
+                    WellFormed_ctx_subst s ->
+                    WellFormed_ctx_subst (@AllSubst t c s)
+  | WF_HypSubst : forall t c s,
+                    WellFormed_ctx_subst s ->
+                    WellFormed_ctx_subst (@HypSubst t c s)
+  | WF_ExsSubst : forall t c s s',
+                    WellFormed_subst s' ->
+                    only_in_range (countUVars c) (length t) s' ->
+                    WellFormed_ctx_subst s ->
+                    WellFormed_ctx_subst (@ExsSubst t c s s').
 
   Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
     match cs with
@@ -242,17 +255,32 @@ Section parameterized.
         ctx_domain c ++ subst_domain s
     end.
 
-  Instance RelDec_eq_typ : RelDec (@eq typ) :=
-  { rel_dec := fun t u => match type_cast t u with
-                            | None => false
-                            | Some _ => true
-                          end }.
+  Fixpoint all_convertible (xs ys : tenv typ) : bool :=
+    match xs , ys with
+      | nil , nil => true
+      | x :: xs , y :: ys =>
+        match type_cast x y with
+          | None => false
+          | Some _ => all_convertible xs ys
+        end
+      | _ , _ => false
+    end.
+
+  Theorem all_convertible_sound
+  : forall xs ys,
+      all_convertible xs ys = true -> xs = ys.
+  Proof.
+    induction xs; destruct ys; simpl; intros; try congruence.
+    destruct (type_cast a t).
+    { destruct r. f_equal; eauto. }
+    { congruence. }
+  Qed.
 
   Definition drop_exact (tus ts : tenv typ)
   : option { ts' : tenv typ & hlist typD tus -> hlist typD ts' } :=
     let rem_len := length tus - length ts in
     let x := skipn rem_len tus in
-    if x ?[ eq ] ts then
+    if all_convertible x ts then
       Some (@existT _ (fun ts' => hlist typD tus -> hlist typD ts')
                     (firstn rem_len tus)
                     (fun x =>
@@ -353,14 +381,112 @@ Section parameterized.
   ; subst_domain := ctx_domain
   }.
 
+  Lemma drop_exact_sound
+  : forall tus ts tus' cast,
+      drop_exact tus ts = Some (@existT _ _ tus' cast) ->
+      exists pf : tus' ++ ts = tus,
+        forall a b, cast match pf in _ = tus return hlist _ tus with
+                           | eq_refl => hlist_app a b
+                         end = a.
+  Proof.
+    clear. unfold drop_exact. intros.
+    forward; inv_all; subst.
+    subst.
+    eapply all_convertible_sound in H.
+    exists (match H in _ = z return firstn _ tus ++ z = tus with
+              | eq_refl => firstn_skipn _ _
+            end).
+    intros.
+    generalize (firstn_skipn (length tus - length ts) tus).
+    generalize dependent (skipn (length tus - length ts) tus).
+    generalize dependent (firstn (length tus - length ts) tus).
+    intros; subst. simpl. rewrite hlist_split_hlist_app.
+    reflexivity.
+  Qed.
+
+  Theorem ctx_substD_lookup ctx
+  : forall (s : ctx_subst ctx) (uv : nat) (e : expr),
+      WellFormed_ctx_subst s ->
+      subst_lookup uv s = Some e ->
+      forall (tus tvs : tenv typ) (sD : exprT tus tvs Prop),
+        ctx_substD tus tvs s = Some sD ->
+        exists (t : typ) (val : exprT tus tvs (typD t))
+               (get : hlist typD tus -> typD t),
+          nth_error_get_hlist_nth typD tus uv =
+          Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) /\
+          exprD' tus tvs e t = Some val /\
+          (forall (us : hlist typD tus) (vs : hlist typD tvs),
+             sD us vs -> get us = val us vs).
+  Proof.
+    induction 1; simpl; intros.
+    { eapply substD_lookup in H1; eauto. }
+    { forward; inv_all; subst.
+      eapply IHWellFormed_ctx_subst in H3; eauto.
+      forward_reason.
+      exists x0.
+      eapply drop_exact_sound in H2.
+      forward_reason.
+      revert H2.
+      eapply exprD'_weakenV with (tvs' := t :: nil) in H3; eauto.
+      subst tvs.
+      intros. forward_reason.
+      do 2 eexists; split; eauto.
+      split; eauto.
+      intros. erewrite H4; clear H4; eauto.
+      rewrite <- (hlist_app_hlist_split _ _ vs).
+      rewrite <- H5. rewrite H2. reflexivity. }
+    { eauto. }
+    { forward; inv_all; subst.
+      consider (subst_lookup uv s'); intros; inv_all; subst.
+      { eapply substD_lookup in H2; eauto.
+        forward_reason.
+        do 3 eexists; split; eauto. split; eauto.
+        intros. destruct H8. eauto. }
+      { eapply IHWellFormed_ctx_subst in H3; eauto.
+        forward_reason.
+        eapply drop_exact_sound in H4.
+        forward_reason.
+        revert H4. subst tus; intros.
+        exists x0.
+        eapply nth_error_get_hlist_nth_weaken with (ls' := t) in H3.
+        simpl in *. forward_reason.
+        eapply exprD'_weakenU with (tus' := t) in H7; eauto.
+        forward_reason.
+        do 2 eexists; split; eauto; split; eauto.
+        do 2 intro.
+        rewrite <- (hlist_app_hlist_split _ _ us).
+        rewrite <- H9; clear H9.
+        rewrite <- H10; clear H10. destruct 1.
+        eapply H8. rewrite H4 in H10. assumption. } }
+  Qed.
+
+  Lemma ctx_subst_domain ctx
+  : forall (s : ctx_subst ctx),
+      WellFormed_ctx_subst s ->
+      forall (ls : list nat),
+      subst_domain s = ls ->
+      forall n : nat, In n ls <-> subst_lookup n s <> None.
+  Proof.
+    induction 1; simpl; intros; eauto using WellFormed_domain.
+    { subst. rewrite in_app_iff.
+      split; intro.
+      { forward.
+        destruct H2.
+        { eapply IHWellFormed_ctx_subst in H2; eauto. }
+        { eapply WellFormed_domain in H2; eauto. } }
+      { rewrite IHWellFormed_ctx_subst; eauto.
+        rewrite WellFormed_domain; eauto.
+        destruct (subst_lookup n s'); eauto. } }
+  Qed.
+
   Global Instance SubstOk_cxt_subst ctx
   : @SubstOk (ctx_subst ctx) typ expr _ _ _ :=
   { WellFormed_subst := @WellFormed_ctx_subst ctx
   ; substD := @ctx_substD _
   }.
+  { eapply ctx_substD_lookup. }
+  { intros; eapply ctx_subst_domain; eauto. }
   { admit. }
-  admit.
-  admit.
   Defined.
 
   Global Instance SubstUpdate_ctx_subst ctx
