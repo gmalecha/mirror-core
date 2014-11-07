@@ -13,11 +13,8 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
-  Definition TRY (tac : rtac typ expr subst) : rtac typ expr subst :=
+  Definition TRY (tac : rtac typ expr) : rtac typ expr :=
     fun tus tvs nus nvs ctx s g =>
       match tac tus tvs nus nvs ctx s g with
         | Fail => More_ s (GGoal g)

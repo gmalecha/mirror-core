@@ -24,17 +24,13 @@ Set Strict Implicit.
 Section runOnGoals.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
-  Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
-  Fixpoint forgets (from : nat) (ts : list typ) (s : subst)
+(*
+  Fixpoint forgets (from : nat) (ts : list typ) (s : FMapSubst.SUBST.raw expr)
   : list (option expr) :=
     match ts with
       | nil => nil
@@ -61,10 +57,12 @@ Section runOnGoals.
           | Some _ => None
         end
     end.
+*)
 
   Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
   Proof. clear; intros; subst; reflexivity. Qed.
 
+(*
   Lemma remembers_spec
   : forall l tus tvs s s' sD gsD,
       WellFormed_subst s ->
@@ -187,6 +185,7 @@ Section runOnGoals.
         etransitivity; [ eapply H4 | clear H4 ].
         autorewrite with eq_rw. reflexivity. } }
   Qed.
+*)
 
   Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
                             length ts = length us ->
@@ -207,6 +206,7 @@ Section runOnGoals.
     congruence. f_equal. auto.
   Qed.
 
+(*
   Lemma forgets_length : forall z y x,
                            length y = length (forgets x y z).
   Proof.
@@ -271,15 +271,16 @@ Section runOnGoals.
       { admit. } }
 *)
   Admitted.
+*)
 
-  Lemma eta_ctx_subst_exs c ts (s : ctx_subst subst (CExs c ts))
+  Lemma eta_ctx_subst_exs c ts (s : ctx_subst (CExs c ts))
   : exists y z,
       s = ExsSubst (typ:=typ) (expr:=expr) z y.
   Proof.
-    refine (match s in ctx_subst _ X
-                  return match X as X return ctx_subst _ X -> Prop with
+    refine (match s in @ctx_subst _ _ X
+                  return match X as X return @ctx_subst _ _ X -> Prop with
                            | CExs c ts => fun s =>
-                             exists (y : subst) (z : ctx_subst subst c), s = ExsSubst z y
+                             exists (y : _) (z : ctx_subst  c), s = ExsSubst z y
                            | _ => fun _ => True
                          end s
             with
@@ -288,6 +289,7 @@ Section runOnGoals.
             end).
     eauto.
   Qed.
+(*
   Instance Injective_WellFormed_ctx_subst_ExsSubst ctx ts c s
   : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)) :=
     { result := WellFormed_ctx_subst c /\ WellFormed_subst s }.
@@ -304,8 +306,9 @@ Section runOnGoals.
            | _ => I
          end.
   Defined.
+*)
 
-  Variable tac : rtac typ expr subst.
+  Variable tac : rtac typ expr.
 
   Fixpoint all_instantiated (tes : list (typ * option expr)) : bool :=
     match tes with
@@ -315,9 +318,9 @@ Section runOnGoals.
     end.
 
   Fixpoint runOnGoals (tus tvs : tenv typ) (nus nvs : nat)
-           (ctx : Ctx typ expr) (s : ctx_subst subst ctx) (g : Goal typ expr)
+           (ctx : Ctx typ expr) (s : ctx_subst ctx) (g : Goal typ expr)
            {struct g}
-  : Result subst ctx :=
+  : Result ctx :=
     match g with
       | GGoal e => @tac tus tvs nus nvs ctx s e
       | GSolved => Solved s
@@ -327,34 +330,21 @@ Section runOnGoals.
           | Solved s => Solved (fromAll s)
           | More_ s g => More (fromAll s) (GAll t g)
         end
-      | GExs tes g =>
-        let ts := map fst tes in
-        (** TODO: This returning an error is redundant **)
-        match remembers nus tes (@subst_empty _ _ _) with
-          | None => Fail
-          | Some s' =>
-            let s' := ExsSubst s s' in
-            match @runOnGoals (tus ++ ts) tvs (length tes + nus) nvs (CExs ctx ts) s' g with
-              | Fail => Fail
-              | Solved s'' =>
-                let '(shere,cs') := fromExs s'' in
-                (** Here I can drop anything that is already instantiated. **)
-                let tes' := forgets nus ts shere in
-                let tes' := combine ts tes' in
-                if all_instantiated tes' then
-                  Solved cs'
-                else
-                  More_ cs' (GExs tes' GSolved)
-              | More_ s'' g' =>
-                let '(shere,cs') := fromExs s'' in
-                (** Here I need to drop already instantiated vars and
-                 ** substitute through. Ideally, I should collapse as much
-                 ** as possible.
-                 **)
-                let tes' := forgets nus ts shere in
-                let tes' := combine ts tes' in
-                More_ cs' (GExs tes' g')
-            end
+      | GExs ts sub g =>
+        let s' := ExsSubst s sub in
+        match @runOnGoals (tus ++ ts) tvs (length ts + nus) nvs (CExs ctx ts) s' g with
+          | Fail => Fail
+          | Solved s'' =>
+            let '(shere,cs') := fromExs s'' in
+            (** Here I can drop anything that is already instantiated. **)
+            More_ cs' (GExs ts shere GSolved)
+          | More_ s'' g' =>
+            let '(shere,cs') := fromExs s'' in
+            (** Here I need to drop already instantiated vars and
+             ** substitute through. Ideally, I should collapse as much
+             ** as possible.
+             **)
+            More_ cs' (GExs ts shere g')
         end
       | GHyp h g =>
         match @runOnGoals tus tvs nus nvs (CHyp ctx h) (HypSubst s) g with
@@ -379,10 +369,10 @@ Section runOnGoals.
         end
     end.
 
-  Fixpoint runOnGoals_list (tacs : list (rtac typ expr subst)) (tus tvs : tenv typ) (nus nvs : nat)
-           (ctx : Ctx typ expr) (s : ctx_subst subst ctx) (g : Goal typ expr)
+  Fixpoint runOnGoals_list (tacs : list (rtac typ expr)) (tus tvs : tenv typ) (nus nvs : nat)
+           (ctx : Ctx typ expr) (s : ctx_subst ctx) (g : Goal typ expr)
            {struct g}
-  : Result subst ctx * list (rtac typ expr subst) :=
+  : Result ctx * list (rtac typ expr) :=
     match g with
       | GGoal e =>
         match tacs with
@@ -396,40 +386,22 @@ Section runOnGoals.
           | (Solved s, tacs) => (Solved (fromAll s), tacs)
           | (More_ s g, tacs) => (More (fromAll s) (GAll t g), tacs)
         end
-      | GExs tes g =>
-        (* TODO: Is it meaningful to make this a [list typ * subst]?
-          match remembers nus tes s with
-            | None => Fail
-            | Some s' =>
-         *)
-        let ts := map fst tes in
-        (** TODO: This returning an error is redundant **)
-        match remembers nus tes (@subst_empty _ _ _) with
-          | None => (Fail, tacs)
-          | Some s' =>
-            let s' := ExsSubst s s' in
-            match @runOnGoals_list tacs (tus ++ ts) tvs (length tes + nus) nvs (CExs ctx ts) s' g with
+      | GExs ts sub g =>
+        let s' := ExsSubst s sub in
+            match @runOnGoals_list tacs (tus ++ ts) tvs (length ts + nus) nvs (CExs ctx ts) s' g with
               | (Fail, tacs) => (Fail, tacs)
               | (Solved s'', tacs) =>
                 let '(shere,cs') := fromExs s'' in
                 (** Here I can drop anything that is already instantiated. **)
-                let tes' := forgets nus ts shere in
-                let tes' := combine ts tes' in
-                (if all_instantiated tes' then
-                   Solved cs'
-                 else
-                   More_ cs' (GExs tes' GSolved), tacs)
+                (More_ cs' (GExs ts shere GSolved), tacs)
               | (More_ s'' g', tacs) =>
                 let '(shere,cs') := fromExs s'' in
                 (** Here I need to drop already instantiated vars and
                  ** substitute through. Ideally, I should collapse as much
                  ** as possible.
                  **)
-                let tes' := forgets nus ts shere in
-                let tes' := combine ts tes' in
-                (More_ cs' (GExs tes' g'), tacs)
+                (More_ cs' (GExs ts shere g'), tacs)
             end
-        end
       | GHyp h g =>
         match @runOnGoals_list tacs tus tvs nus nvs (CHyp ctx h) (HypSubst s) g with
           | (Fail, tacs) => (Fail, tacs)
@@ -456,6 +428,7 @@ Section runOnGoals.
   Variables tus tvs : tenv typ.
   Hypothesis Htac : rtac_sound tus tvs tac.
 
+(*
   Lemma WellFormed_remembers
   : forall b a s s',
       remembers a b s = Some s' ->
@@ -471,16 +444,17 @@ Section runOnGoals.
         destruct H1; assumption. }
       { eauto. } }
   Qed.
+*)
 
   Local Hint Constructors WellFormed_ctx_subst.
   Lemma WellFormed_ctx_subst_fromAll
   : forall t c cs,
-      @WellFormed_ctx_subst typ expr subst _ _ _ _ (CAll c t) cs ->
-      @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromAll cs).
+      @WellFormed_ctx_subst typ expr _ _ (CAll c t) cs ->
+      @WellFormed_ctx_subst typ expr _ _ c (fromAll cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
-                 return match C as C return ctx_subst subst C -> Prop with
+    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
+                 return match C as C return ctx_subst C -> Prop with
                           | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
                           | _ => fun _ => True
                         end S
@@ -491,12 +465,12 @@ Section runOnGoals.
   Qed.
   Lemma WellFormed_ctx_subst_fromHyp
   : forall t c cs,
-      @WellFormed_ctx_subst typ expr subst _ _ _ _ (CHyp c t) cs ->
-      @WellFormed_ctx_subst typ expr subst _ _ _ _ c (fromHyp cs).
+      @WellFormed_ctx_subst typ expr _ _ (CHyp c t) cs ->
+      @WellFormed_ctx_subst typ expr _ _ c (fromHyp cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ _ _ _ _ C S
-                 return match C as C return ctx_subst subst C -> Prop with
+    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
+                 return match C as C return ctx_subst C -> Prop with
                           | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
                           | _ => fun _ => True
                         end S
@@ -508,7 +482,7 @@ Section runOnGoals.
   Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
 
   Instance Injective_ExsSubst ts ctx a b c d
-  : Injective (ExsSubst (typ:=typ)(subst:=subst)(expr:=expr)(ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
+  : Injective (ExsSubst (typ:=typ)(expr:=expr)(ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
     { result := a = c /\ b = d }.
   intro pf.
   refine (match pf in _ = X return
@@ -535,9 +509,19 @@ Section runOnGoals.
                                    ctx s g).
 *)
 
+  Global Instance Injective_WellFormed_Goal_GAll tus tvs t g
+  : Injective (WellFormed_Goal tus tvs (GAll t g)) :=
+    { result := WellFormed_Goal tus (tvs ++ t :: nil) g }.
+  Proof. inversion 1; auto. Defined.
+  Global Instance Injective_WellFormed_Goal_GHyp tus tvs t g
+  : Injective (WellFormed_Goal tus tvs (GHyp t g)) :=
+    { result := WellFormed_Goal tus tvs g }.
+  Proof. inversion 1; auto. Defined.
+
+
   Lemma runOnGoals_sound_ind
   : forall g ctx s,
-      @rtac_spec typ expr subst _ _ _ _ _
+      @rtac_spec typ expr _ _ _
                  tus tvs ctx s g
                  (@runOnGoals (tus ++ getUVars ctx)
                               (tvs ++ getVars ctx)
@@ -557,24 +541,31 @@ Section runOnGoals.
       destruct (runOnGoals (tus ++ getUVars ctx) (tvs ++ getVars ctx ++ t :: nil)
                            (length tus + countUVars ctx) (length tvs + S (countVars ctx))
                            (AllSubst s) g);
-        auto; intros; forward_reason; split; eauto.
-      { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
-        simpl in *.
-        rewrite goalD_conv with (pfu := eq_refl)
-                                  (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
-        autorewrite with eq_rw.
-        forward; inv_all; subst.
-        forward_reason.
-        inv_all; subst; simpl in *.
-        forward; inv_all; subst.
-        split; eauto.
-        intros us vs.
-        eapply H4; [ | reflexivity | reflexivity | eapply H7 ].
-        do 6 red. clear.
-        do 6 intro; equivs.
-        destruct (app_ass_trans tvs (getVars ctx) (t :: nil)); simpl.
-        eauto. }
-      { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
+        auto; intros; forward_reason; inv_all.
+      { destruct IHg as [ ? [ ? ? ] ].
+        { rewrite app_assoc. assumption. }
+        { constructor. auto. }
+        split.
+        { apply WellFormed_ctx_subst_fromAll; auto. }
+        split.
+        { constructor. rewrite <- app_assoc; eauto. }
+        { generalize (Proper_pctxD_impl tus tvs (fromAll c)).
+          simpl in *.
+          rewrite goalD_conv with (pfu := eq_refl)
+                                    (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
+          autorewrite with eq_rw.
+          forward; inv_all; subst.
+          forward_reason.
+          inv_all; subst; simpl in *.
+          forward; inv_all; subst.
+          split; eauto.
+          intros us vs.
+          eapply H6; [ | reflexivity | reflexivity | eapply H9 ].
+          do 6 red. clear.
+          do 6 intro; equivs.
+          destruct (app_ass_trans tvs (getVars ctx) (t :: nil)); simpl.
+          eauto. } }
+      { admit. (* generalize (Proper_pctxD_impl tus tvs (fromAll c)).
         simpl in *.
         rewrite goalD_conv with (pfu := eq_refl)
                                   (pfv := eq_sym (app_ass_trans tvs (getVars ctx) (t :: nil))).
@@ -589,13 +580,12 @@ Section runOnGoals.
         clear.
         do 6 red. intros; equivs.
         destruct (app_ass_trans tvs (getVars ctx) (t :: nil)).
-        simpl in *; eauto. } }
+        simpl in *; eauto. } *) } }
     { (* Exs *)
-      admit. (*
       intros; simpl in *.
       forward.
-      specialize (@IHg (CExs _ (map (fst) l)) (ExsSubst s s0)).
-      revert IHg. revert H; simpl.
+      specialize (@IHg (CExs _ l) (ExsSubst s r)).
+      revert IHg.
       repeat rewrite countUVars_getUVars.
       repeat rewrite countVars_getVars.
       do 2 rewrite <- app_length.
@@ -604,11 +594,15 @@ Section runOnGoals.
         | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
           replace Y with X;
             [ remember X as X' ; destruct X'
-            | f_equal ; simpl; repeat rewrite app_length;
-              rewrite map_length; omega ]
+            |  ]
       end; intros; auto.
       { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
         simpl. intros.
+        destruct IHg as [ ? [ ? ? ] ].
+        { inversion H; subst; auto. simpl in *.
+          rewrite app_assoc. assumption. }
+        { inversion H; subst. constructor; auto.
+          
         generalize (WellFormed_remembers _ _ _ H (@WellFormed_empty _ _ _ _ _ _ _ _ _)); intros.
         forward_reason.
         inv_all; split; auto.
