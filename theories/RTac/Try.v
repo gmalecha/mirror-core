@@ -22,13 +22,13 @@ Section parameterized.
       end.
 
   Theorem TRY_sound
-  : forall tus tvs tac, rtac_sound tus tvs tac -> rtac_sound tus tvs (TRY tac).
+  : forall tac, rtac_sound tac -> rtac_sound (TRY tac).
   Proof.
     unfold TRY, rtac_sound.
     intros; subst.
     specialize (H ctx s g _ eq_refl).
-    destruct (tac (tus ++ getUVars ctx) (tvs ++ getVars ctx)
-           (length (tus ++ getUVars ctx)) (length (tvs ++ getVars ctx)) ctx s
+    destruct (tac (getUVars ctx) (getVars ctx)
+           (length (getUVars ctx)) (length (getVars ctx)) ctx s
            g); eauto using rtac_spec_More_.
   Qed.
 

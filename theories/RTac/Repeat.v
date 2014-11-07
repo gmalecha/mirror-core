@@ -18,24 +18,19 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
-  Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
 
   (** TODO: Write this with a positive **)
   Section repeater.
     (** TODO: To be efficient, this must be written in CPS
      **)
-    Variable tac : rtac typ expr subst.
+    Variable tac : rtac typ expr.
 
     Fixpoint REPEAT' (n : nat) {struct n}
-    : rtac typ expr subst :=
+    : rtac typ expr :=
       fun tus tvs nus nvs ctx sub gl =>
         match n with
           | 0 => More_ sub (GGoal gl)
@@ -49,28 +44,26 @@ Section parameterized.
         end.
   End repeater.
 
-  Definition REPEAT n (tac : rtac typ expr subst)
-  : rtac typ expr subst :=
+  Definition REPEAT n (tac : rtac typ expr)
+  : rtac typ expr :=
     REPEAT' tac n.
 
   Theorem REPEAT_sound
-  : forall tus tvs n tac, rtac_sound tus tvs tac ->
-                          rtac_sound tus tvs (REPEAT n tac).
+  : forall n tac, rtac_sound tac ->
+                  rtac_sound (REPEAT n tac).
   Proof.
-    unfold REPEAT. intros tus vs n tac H.
+    unfold REPEAT. intros n tac H.
     induction n.
     - simpl. clear.
       red; intros; subst.
       eapply rtac_spec_More_.
     - simpl. red; intros; subst.
       specialize (H ctx s g _ eq_refl).
-      destruct (tac (tus ++ getUVars ctx) (vs ++ getVars ctx)
-                    (length (tus ++ getUVars ctx)) (length (vs ++ getVars ctx))
+      destruct (tac (getUVars ctx) (getVars ctx)
+                    (length (getUVars ctx)) (length (getVars ctx))
                     ctx s g); auto using rtac_spec_More_.
       eapply rtac_spec_trans; eauto.
-      do 2 rewrite app_length.
       eapply runOnGoals_sound; eauto with typeclass_instances.
-      simpl. do 2 rewrite app_length. reflexivity.
   Qed.
 
 End parameterized.

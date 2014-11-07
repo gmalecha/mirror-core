@@ -11,13 +11,10 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
@@ -33,16 +30,16 @@ Section parameterized.
   Variable open : expr -> option OpenAs.
 
   Definition INTRO
-  : rtac typ expr subst :=
+  : rtac typ expr :=
     fun tus tvs nus nvs ctx sub gl =>
       match open gl with
         | None => Fail
         | Some (AsAl t g') =>
-          More sub (GAll t (GGoal (g' (Var nvs))))
+          More_ sub (GAll t (GGoal (g' (Var nvs))))
         | Some (AsEx t g') =>
-          More sub (GEx t None (GGoal (g' (UVar nus))))
+          More_ sub (GEx_empty nus t (GGoal (g' (UVar nus))))
         | Some (AsHy h g') =>
-          More sub (GHyp h (GGoal g'))
+          More_ sub (GHyp h (GGoal g'))
       end.
 
   Definition open_sound : Prop :=
@@ -82,7 +79,7 @@ Section parameterized.
 
   Hypothesis Hopen : open_sound.
 
-  Theorem INTRO_sound : rtac_sound nil nil INTRO.
+  Theorem INTRO_sound : rtac_sound INTRO.
   Proof.
     unfold rtac_sound, INTRO.
     intros; subst.

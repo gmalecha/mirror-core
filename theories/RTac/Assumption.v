@@ -16,7 +16,6 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Section findHyp.
     Variable T : Type.
@@ -25,7 +24,7 @@ Section parameterized.
     Fixpoint findHyp (ctx : Ctx typ expr) {struct ctx}
     : option T :=
       match ctx with
-        | CTop => None
+        | CTop _ _ => None
         | CAll ctx' _ => @findHyp ctx'
         | CExs ctx' _ => @findHyp ctx'
         | CHyp ctx' h' =>
@@ -39,18 +38,13 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
-  Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
-(*  Variables tus tvs : tenv typ. *)
   Variable check : forall {subst : Type} {S : Subst subst expr},
                      Ctx typ expr -> expr -> expr -> subst -> option subst.
 
-  Definition ASSUMPTION : rtac typ expr subst :=
+  Definition ASSUMPTION : rtac typ expr :=
     fun _ _ _ _ ctx s gl =>
-      match @findHyp (ctx_subst subst ctx) (fun e => @check _ _ ctx gl e s) ctx with
+      match @findHyp (ctx_subst ctx) (fun e => @check _ _ ctx gl e s) ctx with
         | None => Fail
         | Some s' => Solved s'
       end.
@@ -124,7 +118,7 @@ Section parameterized.
   Admitted.
 *)
 
-  Theorem ASSUMPTION_sound : rtac_sound nil nil ASSUMPTION.
+  Theorem ASSUMPTION_sound : rtac_sound ASSUMPTION.
   Proof.
     unfold ASSUMPTION, rtac_sound.
     intros. subst.
