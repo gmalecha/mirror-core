@@ -24,16 +24,12 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
-  Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
 
+(*
   (** TODO(gmalecha): These should go somewhere more useful *)
   Fixpoint forgets (from : nat) (ts : list typ) (s : subst)
   : list (option expr) :=
@@ -62,13 +58,15 @@ Section parameterized.
           | Some _ => None
         end
     end.
+*)
 
 
-  Definition rtacK_spec tus tvs ctx (s : ctx_subst subst ctx) (g : Goal _ _)
-             (r : Result _ ctx) : Prop :=
+  Definition rtacK_spec tus tvs ctx (s : ctx_subst ctx) (g : Goal _ _)
+             (r : Result ctx) : Prop :=
     match r with
       | Fail => True
       | Solved s' =>
+        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g ->
         WellFormed_ctx_subst s ->
         WellFormed_ctx_subst s' /\
         match pctxD tus tvs s
@@ -83,8 +81,10 @@ Section parameterized.
             forall us vs, cD' gD us vs
         end
       | More_ s' g' =>
+        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g ->
         WellFormed_ctx_subst s ->
         WellFormed_ctx_subst s' /\
+        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g' /\
         match pctxD tus tvs s
             , goalD _ _ g
             , pctxD tus tvs s'
@@ -103,10 +103,11 @@ Section parameterized.
 
   Theorem Proper_rtacK_spec tus tvs ctx s
   : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
-            @EqResult _ _ _ _ _ _ (tus ++ getUVars ctx) (tvs ++ getVars ctx) ctx
+            @EqResult _ _ _ _ _ (tus ++ getUVars ctx) (tvs ++ getVars ctx) ctx
             ==> iff)
            (@rtacK_spec tus tvs ctx s).
   Proof.
+(*
     red. red. red.
     unfold rtacK_spec.
     inversion 2.
@@ -136,12 +137,13 @@ Section parameterized.
         rewrite <- H10; try reflexivity.
         rewrite impl_True_iff.
         eapply H7; eauto. } }
-  Qed.
+*)
+  Admitted. (** Port **)
 
   (** Treat this as opaque! **)
   Definition rtacK : Type :=
     tenv typ -> tenv typ -> nat -> nat ->
-    forall c : Ctx typ expr, ctx_subst subst c -> Goal typ expr -> Result subst c.
+    forall c : Ctx typ expr, ctx_subst c -> Goal typ expr -> Result c.
 
   Definition rtacK_sound (tus tvs : tenv typ) (tac : rtacK)
   : Prop :=
@@ -156,3 +158,4 @@ End parameterized.
 Export MirrorCore.ExprI.
 Export MirrorCore.SubstI.
 Export MirrorCore.ExprDAs.
+Export MirrorCore.RTac.Core.
