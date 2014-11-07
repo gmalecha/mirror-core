@@ -15,18 +15,10 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
-  Context {SU : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : @SubstUpdateOk _ _ _ _ Expr_expr Subst_subst _ _}.
-  Context {SubstInstantiatable_subst : SubstInstantiatable subst expr}.
-  Context {SubstInstantiatableOk_subst : @SubstInstantiatableOk _ _ _ _ Expr_expr Subst_subst _ _}.
-
 
   Variable UVar : nat -> expr.
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
@@ -37,13 +29,18 @@ Section parameterized.
 
   Variable lem : Lemma.lemma typ expr expr.
 
-  Definition EAPPLY : rtac typ expr subst :=
+  Definition freshUVars (ts : list typ) (c : Ctx typ expr) (s : ctx_subst c)
+  : ctx_subst (CExs c ts) :=
+    ExsSubst s (amap_empty _).
+
+  Definition EAPPLY : rtac typ expr :=
     let len_vars := length lem.(vars) in
     fun tus tvs nus nvs ctx sub goal =>
       match @eapplicable typ _ expr _
-                         (ctx_subst subst (CExs ctx lem.(vars)))
-                         vars_to_uvars (@exprUnify _ _ _)
-                         (@ExsSubst _ _ _ lem.(vars) ctx sub (@subst_empty _ _ _))
+                         _ (* (ctx_subst (CExs ctx lem.(vars))) *)
+                         vars_to_uvars
+                         (@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _))
+                         (freshUVars lem.(vars) sub)
                          tus tvs lem goal
       with
         | None => Fail
@@ -58,8 +55,23 @@ Section parameterized.
     @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
                   _ nil nil lem.
 
-  Theorem EAPPLY_sound : rtac_sound nil nil EAPPLY.
+  Theorem EAPPLY_sound : rtac_sound EAPPLY.
   Proof.
-  Admitted.
+    red. unfold EAPPLY. intros.
+    subst. unfold rtac_spec. forward.
+    (** Soundness of [reduceGoal]!
+     ** 
+     **)
+
+    Theorem reduceGoal_sound
+    : forall ctx ctx' sub sub' gl,
+        @rtac_spec typ expr _ _ _ ctx sub' gl
+                   (@reduceGoal typ expr ctx ctx' sub gl 0 0).
+    Proof.
+      About rtac_spec.
+      unfold rtac_spec. unfold reduceGoal.
+      induction ctx'; simpl; intros.
+      { (* Top *)
+        Print rtac_spec.
 
 End parameterized.

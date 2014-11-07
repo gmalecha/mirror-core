@@ -60,11 +60,9 @@ Section parameterized.
 
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
-  Local Notation "'rsubst'" := (FMapSubst.SUBST.raw expr) (at level 0).
-
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
-  | GExs    : list typ -> rsubst -> Goal -> Goal
+  | GExs    : list typ -> amap expr -> Goal -> Goal
   | GHyp    : expr -> Goal -> Goal
   | GConj_  : Goal -> Goal -> Goal
   | GGoal   : expr -> Goal
@@ -86,16 +84,61 @@ Section parameterized.
   | WFGoal : forall g, WellFormed_Goal tus tvs (GGoal g)
   | WFSovled : WellFormed_Goal tus tvs GSolved.
 
+
+  Global Instance Injective_WellFormed_Goal_GAll tus tvs t g
+  : Injective (WellFormed_Goal tus tvs (GAll t g)) :=
+    { result := WellFormed_Goal tus (tvs ++ t :: nil) g }.
+  Proof. inversion 1; auto. Defined.
+  Global Instance Injective_WellFormed_Goal_GHyp tus tvs t g
+  : Injective (WellFormed_Goal tus tvs (GHyp t g)) :=
+    { result := WellFormed_Goal tus tvs g }.
+  Proof. inversion 1; auto. Defined.
+  Global Instance Injective_WellFormed_Goal_GExs tus tvs l a g
+  : Injective (WellFormed_Goal tus tvs (GExs l a g)) :=
+    { result := WellFormed_Goal (tus ++ l) tvs g /\
+                WellFormed_amap a /\
+                only_in_range (length tus) (length l) a }.
+  Proof.
+    refine (fun pf =>
+              match pf in WellFormed_Goal _ _ G
+                    return match G return Prop with
+                             | GExs l a g => WellFormed_Goal (tus ++ l) tvs g /\
+                                             WellFormed_amap a /\
+                                             only_in_range (length tus) (length l) a
+                             | _ => True
+                           end
+              with
+                | WFExs _ _ _ a b c => conj c (conj a b)
+                | _ => I
+              end).
+  Defined.
+
   Definition GAlls (ts : list typ) (g : Goal) : Goal :=
     fold_right (fun x y => GAll x y) g ts.
 
-(*
-  Definition GEx (t : typ) (e : option expr) (g : Goal) : Goal :=
+  Definition GEx_empty (nus : nat) (t : typ) (g : Goal) : Goal :=
     match g with
-      | GExs tes g' => GExs ((t,e) :: tes) g'
-      | _ => GExs ((t, e) :: nil) g
+      | GExs ts sub g' => GExs (t :: ts) sub g'
+      | _ => GExs (t :: nil) (amap_empty _) g
+    end.
+
+(*
+  Definition GEx nus (t : typ) (e : option expr) (g : Goal) : Goal :=
+    match g with
+      | GExs ts sub g' =>
+        match e with
+          | None => GExs (t :: ts) sub g'
+          | Some e => GExs (t :: ts) (amap_check_set nus e sub) g'
+        end
+      | _ =>
+        GExs (t :: nil)
+             match e with
+               | None => amap_empty
+               | Some e => amap_check_set _ nus e (amap_empty _)
+             end g
     end.
 *)
+
 
   Definition GConj l r : Goal :=
     match l with
@@ -396,51 +439,51 @@ Section parameterized.
       eapply H10; eauto.
   Qed.
 
-  Definition rtac_spec tus tvs ctx (s : CSUBST ctx) g r : Prop :=
+  Definition rtac_spec ctx (s : CSUBST ctx) g r : Prop :=
     match r with
       | Fail => True
       | Solved s' =>
-        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g ->
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
         WellFormed_ctx_subst s ->
         WellFormed_ctx_subst s' /\
-        match pctxD tus tvs s
-            , goalD (tus ++ getUVars ctx) (tvs ++ getVars ctx) g
-            , pctxD tus tvs s'
+        match pctxD s
+            , goalD (getUVars ctx) (getVars ctx) g
+            , pctxD s'
         with
           | None , _ , _
           | Some _ , None , _ => True
           | Some _ , Some _ , None => False
           | Some cD , Some gD , Some cD' =>
-            SubstMorphism tus tvs s s' /\
+            SubstMorphism s s' /\
             forall us vs,
               cD' gD us vs
         end
       | More_ s' g' =>
-        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g ->
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
         WellFormed_ctx_subst s ->
         WellFormed_ctx_subst s' /\
-        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g' /\
-        match pctxD tus tvs s
-            , goalD (tus ++ getUVars ctx) (tvs ++ getVars ctx) g
-            , pctxD tus tvs s'
-            , goalD (tus ++ getUVars ctx) (tvs ++ getVars ctx) g'
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g' /\
+        match pctxD s
+            , goalD (getUVars ctx) (getVars ctx) g
+            , pctxD s'
+            , goalD (getUVars ctx) (getVars ctx) g'
         with
           | None , _ , _ , _
           | Some _ , None , _ , _ => True
           | Some _ , Some _ , None , _
           | Some _ , Some _ , Some _ , None => False
           | Some cD , Some gD , Some cD' , Some gD' =>
-            SubstMorphism tus tvs s s' /\
+            SubstMorphism s s' /\
             forall us vs, cD' (fun us vs => gD' us vs -> gD us vs) us vs
         end
     end.
 
-  Definition rtac_sound (tus tvs : tenv typ) (tac : rtac) : Prop :=
+  Definition rtac_sound (tac : rtac) : Prop :=
     forall ctx s g result,
-      (let tus := tus ++ getUVars ctx in
-       let tvs := tvs ++ getVars ctx in
+      (let tus := getUVars ctx in
+       let tvs := getVars ctx in
        tac tus tvs (length tus) (length tvs) ctx s g = result) ->
-      @rtac_spec tus tvs ctx s (GGoal g) result.
+      @rtac_spec ctx s (GGoal g) result.
 
   Lemma left_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
@@ -453,10 +496,10 @@ Section parameterized.
   Proof. tauto. Qed.
 
 
-  Theorem Proper_rtac_spec tus tvs ctx s
-  : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
-            @EqResult (tus ++ getUVars ctx) (tvs ++ getVars ctx) ctx ==> iff)
-           (@rtac_spec tus tvs ctx s).
+  Theorem Proper_rtac_spec ctx s
+  : Proper (EqGoal (getUVars ctx) (getVars ctx) ==>
+            @EqResult (getUVars ctx) (getVars ctx) ctx ==> iff)
+           (@rtac_spec ctx s).
   Proof.
     red. red. red. unfold rtac_spec.
     inversion 2.
@@ -507,8 +550,8 @@ Section parameterized.
   Qed.
 
   Theorem rtac_spec_More_
-  : forall tus tvs ctx (s : ctx_subst ctx) g,
-      rtac_spec tus tvs s (GGoal g) (More_ s (GGoal g)).
+  : forall ctx (s : ctx_subst ctx) g,
+      rtac_spec s (GGoal g) (More_ s (GGoal g)).
   Proof.
     unfold rtac_spec.
     intros; subst.
@@ -520,17 +563,17 @@ Section parameterized.
   Qed.
 
   Theorem rtac_spec_Fail
-  : forall tus tvs ctx (s : ctx_subst ctx) g,
-      rtac_spec tus tvs s g (Fail _).
+  : forall ctx (s : ctx_subst ctx) g,
+      rtac_spec s g (Fail _).
   Proof.
     intros. exact I.
   Qed.
 
   Lemma rtac_spec_trans
-  : forall tus tvs ctx (c c' : ctx_subst ctx) g g' r,
-      rtac_spec tus tvs c g (More_ c' g') ->
-      rtac_spec tus tvs c' g' r ->
-      rtac_spec tus tvs c g r.
+  : forall ctx (c c' : ctx_subst ctx) g g' r,
+      rtac_spec c g (More_ c' g') ->
+      rtac_spec c' g' r ->
+      rtac_spec c g r.
   Proof.
     destruct r; simpl; intros; auto; forward; forward_reason;
     split; eauto.
@@ -557,7 +600,7 @@ Section parameterized.
 
 End parameterized.
 
-Arguments rtac_sound {typ expr _ _ _} tus tvs tac : rename.
+Arguments rtac_sound {typ expr _ _ _} tac : rename.
 
 (*Arguments GEx {typ expr} _ _ _ : rename. *)
 Arguments GAll {typ expr} _ _ : rename.

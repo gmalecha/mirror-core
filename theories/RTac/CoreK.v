@@ -61,33 +61,33 @@ Section parameterized.
 *)
 
 
-  Definition rtacK_spec tus tvs ctx (s : ctx_subst ctx) (g : Goal _ _)
+  Definition rtacK_spec ctx (s : ctx_subst ctx) (g : Goal _ _)
              (r : Result ctx) : Prop :=
     match r with
       | Fail => True
       | Solved s' =>
-        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g ->
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
         WellFormed_ctx_subst s ->
         WellFormed_ctx_subst s' /\
-        match pctxD tus tvs s
+        match pctxD s
             , goalD _ _ g
-            , pctxD tus tvs s'
+            , pctxD s'
         with
           | None , _ , _
           | Some _ , None , _ => True
           | Some _ , Some _ , None => False
           | Some cD , Some gD , Some cD' =>
-            SubstMorphism tus tvs s s' /\
+            SubstMorphism s s' /\
             forall us vs, cD' gD us vs
         end
       | More_ s' g' =>
-        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g ->
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
         WellFormed_ctx_subst s ->
         WellFormed_ctx_subst s' /\
-        WellFormed_Goal (tus ++ getUVars ctx) (tvs ++ getVars ctx) g' /\
-        match pctxD tus tvs s
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g' /\
+        match pctxD s
             , goalD _ _ g
-            , pctxD tus tvs s'
+            , pctxD s'
             , goalD _ _ g'
         with
           | None , _ , _ , _
@@ -95,17 +95,17 @@ Section parameterized.
           | Some _ , Some _ , None , _
           | Some _ , Some _ , Some _ , None => False
           | Some cD , Some gD , Some cD' , Some gD' =>
-            SubstMorphism tus tvs s s' /\
+            SubstMorphism s s' /\
             forall us vs,
               cD' (fun us vs => gD' us vs -> gD us vs) us vs
         end
     end.
 
-  Theorem Proper_rtacK_spec tus tvs ctx s
-  : Proper (EqGoal (tus ++ getUVars ctx) (tvs ++ getVars ctx) ==>
-            @EqResult _ _ _ _ _ (tus ++ getUVars ctx) (tvs ++ getVars ctx) ctx
+  Theorem Proper_rtacK_spec ctx s
+  : Proper (EqGoal (getUVars ctx) (getVars ctx) ==>
+            @EqResult _ _ _ _ _ (getUVars ctx) (getVars ctx) ctx
             ==> iff)
-           (@rtacK_spec tus tvs ctx s).
+           (@rtacK_spec ctx s).
   Proof.
 (*
     red. red. red.
@@ -145,13 +145,13 @@ Section parameterized.
     tenv typ -> tenv typ -> nat -> nat ->
     forall c : Ctx typ expr, ctx_subst c -> Goal typ expr -> Result c.
 
-  Definition rtacK_sound (tus tvs : tenv typ) (tac : rtacK)
+  Definition rtacK_sound (tac : rtacK)
   : Prop :=
     forall ctx s g result,
-      (let tus := tus ++ getUVars ctx in
-       let tvs := tvs ++ getVars ctx in
+      (let tus := getUVars ctx in
+       let tvs := getVars ctx in
        tac tus tvs (length tus) (length tvs) ctx s g = result) ->
-      @rtacK_spec tus tvs ctx s g result.
+      @rtacK_spec ctx s g result.
 
 End parameterized.
 

@@ -6,13 +6,12 @@ Set Strict Implicit.
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
-  Variable subst : Type.
 
   Definition REC (n : nat)
-             (b : rtac typ expr subst -> rtac typ expr subst)
-             (last : rtac typ expr subst)
-  : rtac typ expr subst :=
-    (fix rec (n : nat) : rtac typ expr subst :=
+             (b : rtac typ expr -> rtac typ expr)
+             (last : rtac typ expr)
+  : rtac typ expr :=
+    (fix rec (n : nat) : rtac typ expr :=
        match n with
          | 0 => b last
          | S n => fun e sub tus tvs =>
@@ -24,20 +23,16 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
-
-  Variables tus tvs : tenv typ.
 
   Theorem REC_sound
-  : forall b l, (forall t, rtac_sound tus tvs t -> rtac_sound tus tvs (b t)) ->
-                rtac_sound tus tvs l ->
+  : forall b l, (forall t, rtac_sound t -> rtac_sound (b t)) ->
+                rtac_sound l ->
                 forall n,
-                  rtac_sound tus tvs (REC n b l).
+                  rtac_sound (REC n b l).
   Proof.
     induction n; simpl; intros; eauto.
   Qed.
 
 End parameterized.
 
-Arguments REC {_ _ _} n f last _ _ _ _ _ _ _ : rename.
+Arguments REC {_ _} n f last _ _ _ _ _ _ _ : rename.
