@@ -21,27 +21,19 @@ Section parameterized.
                         Subst subst expr ->
                         Ctx typ expr -> subst -> expr -> expr.
 
-  Definition SIMPLIFY : rtac typ expr subst :=
+  Definition SIMPLIFY : rtac typ expr :=
     fun _ _ _ _ ctx sub gl =>
-      More_ sub (GGoal (@simplify (ctx_subst subst ctx) _ ctx sub gl)).
+      More_ sub (GGoal (@simplify (ctx_subst ctx) _ ctx sub gl)).
 
-  Lemma pctxD_substD
-  : forall tus tvs ctx (s : ctx_subst subst ctx) cD,
-      WellFormed_subst s ->
-      pctxD tus tvs s = Some cD ->
-      exists sD,
-        substD (tus ++ getUVars ctx) (tvs ++ getVars ctx) s = Some sD /\
-        forall us vs, cD sD us vs.
-  Admitted.
 
   Hypothesis simplify_sound
-  : forall (tus tvs : tenv typ) ctx (s : ctx_subst subst ctx) e e',
-      @simplify (ctx_subst subst ctx) _ ctx s e = e' ->
+  : forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e',
+      @simplify (ctx_subst ctx) _ ctx s e = e' ->
       WellFormed_subst s ->
-      match @pctxD typ expr subst RType_typ Expr_expr _ Subst_subst _ tus tvs ctx s
-          , substD (tus ++ getUVars ctx) (tvs ++ getVars ctx) s (* necessary? *)
-          , propD (tus ++ getUVars ctx) (tvs ++ getVars ctx) e
-          , propD (tus ++ getUVars ctx) (tvs ++ getVars ctx) e'
+      match @pctxD typ expr RType_typ _ Expr_expr ctx s
+          , substD (getUVars ctx) (getVars ctx) s (* necessary? *)
+          , propD (getUVars ctx) (getVars ctx) e
+          , propD (getUVars ctx) (getVars ctx) e'
       with
         | None , _ , _ , _ => True
         | _ , None , _ , _ => True
