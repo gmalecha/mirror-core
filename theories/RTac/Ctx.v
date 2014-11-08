@@ -249,8 +249,34 @@ Section parameterized.
       | _ => tt
     end.
 
+  Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
+    match cs with
+      | TopSubst _ _ => None
+      | AllSubst _ _ c => ctx_lookup u c
+      | HypSubst _ _ c => ctx_lookup u c
+      | ExsSubst _ _ c s =>
+        match amap_lookup u s with
+          | None => ctx_lookup u c
+          | Some e => Some e
+        end
+    end.
+
   Definition only_in_range (min len : nat) (s : amap) : Prop :=
     forall u e, amap_lookup u s = Some e -> min <= u < min + len.
+
+  (** - doesn't mention anything above
+   ** - acyclic
+   ** - in range
+   **)
+  Definition WellFormed_entry ctx (cs : ctx_subst ctx) (ts : nat) (s : amap)
+  : Prop :=
+    forall u e,
+      amap_lookup u s = Some e ->
+      countUVars ctx <= u < countUVars ctx + ts /\ (* in range *)
+      (forall u'', mentionsU u'' e = true -> u'' <= countUVars ctx + ts) /\
+      forall u',
+        ctx_lookup u' cs <> None \/ amap_lookup u' s <> None ->
+        mentionsU u' e = false.
 
   (** [tus] and [tvs] are only the environments for Top! **)
   Inductive WellFormed_ctx_subst
@@ -263,22 +289,9 @@ Section parameterized.
                     WellFormed_ctx_subst s ->
                     WellFormed_ctx_subst (@HypSubst t c s)
   | WF_ExsSubst : forall ts c s s',
-                    SUBST.WellFormed s' ->
-                    only_in_range (countUVars c) (length ts) s' ->
+                    WellFormed_entry s (length ts) s' ->
                     WellFormed_ctx_subst s ->
                     WellFormed_ctx_subst (@ExsSubst ts c s s').
-
-  Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
-    match cs with
-      | TopSubst _ _ => None
-      | AllSubst _ _ c => ctx_lookup u c
-      | HypSubst _ _ c => ctx_lookup u c
-      | ExsSubst _ _ c s =>
-        match amap_lookup u s with
-          | None => ctx_lookup u c
-          | Some e => Some e
-        end
-    end.
 
   Fixpoint ctx_domain {c} (cs : ctx_subst c) : list nat :=
     match cs with
@@ -361,7 +374,11 @@ Section parameterized.
         end
     end.
 
-  Axiom mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
+  About mentionsU.
+
+  (** TODO: This should be primitive **)
+  Theorem mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
+  Admitted.
 
   Section ctx_set'.
     Variables (u : nat) (e : expr).
@@ -629,7 +646,9 @@ fun k =>
   }.
   { clear instantiate. intros. eapply ctx_substD_lookup; eauto. }
   { clear instantiate. intros; eapply ctx_subst_domain; eauto. }
-  { clear instantiate. admit. }
+  { clear instantiate.
+
+ admit. }
   Defined.
 
   Global Instance SubstUpdate_ctx_subst ctx
