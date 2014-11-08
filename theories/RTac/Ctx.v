@@ -533,7 +533,7 @@ Section parameterized.
     end.
 
   (** TODO: This should be primitive **)
-  Variable mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
+  Variable mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool.
   Variable mentionsAny_spec : forall P Q R S e,
     mentionsAny P Q e || mentionsAny R S e = mentionsAny (fun x => P x || R x)
                                                          (fun x => Q x || S x) e.

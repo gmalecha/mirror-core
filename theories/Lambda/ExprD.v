@@ -1,3 +1,6 @@
+Require Import Coq.Bool.Bool.
+Require Import Coq.Classes.Morphisms.
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
@@ -26,13 +29,46 @@ Section Expr.
   Instance Expr_expr : @Expr typ _ (@expr typ func) :=
   { exprD' := fun tus tvs e t => @exprD' _ _ _ _ _ tus tvs t e
   ; wf_Expr_acc := @wf_expr_acc typ func
-  ; mentionsU := mentionsU
-  ; mentionsV := mentionsV
+  ; mentionsAny := mentionsAny
   }.
 
   Context {RTOk : RTypeOk}
           {T2Ok : Typ2Ok T2}
           {RSOk : RSymOk RS}.
+
+  Lemma Proper_mentionsAny
+  : Proper ((@eq uvar ==> @eq bool) ==>
+            (@eq var ==> @eq bool) ==>
+            @eq (expr typ func) ==> @eq bool) mentionsAny.
+  Proof.
+    repeat red. intros; subst.
+    revert x0 y0 x y H0 H.
+    induction y1; simpl; intros; auto.
+    { erewrite IHy1_1; eauto. erewrite IHy1_2; eauto. }
+    { eapply IHy1; eauto.
+      red. intros; subst. destruct y2; eauto. }
+  Qed.
+
+  Lemma mentionsU_ind u
+  : forall (P : expr typ func -> bool -> Prop),
+      (forall v, P (Var v) false) ->
+      (forall s, P (Inj s) false) ->
+      (forall u', P (UVar u') (u ?[ eq ] u')) ->
+      (forall f x rf rx (IHf : P f rf) (IHx : P x rx), P (App f x) (rf || rx)) ->
+      (forall t x rx (IHx : P x rx), P (Abs t x) rx) ->
+      forall e, P e (mentionsU u e).
+  Proof.
+    unfold mentionsU.
+    assert (forall x, (fun _ : ExprI.var => false) x = false) by reflexivity.
+    generalize dependent (fun _ : ExprI.var => false).
+    induction e; simpl; intros; eauto.
+    - rewrite H. auto.
+    - eapply H4. rewrite Proper_mentionsAny.
+      simpl in IHe. eapply IHe.
+      reflexivity.
+      red; intros. subst. destruct y; rewrite H; eauto.
+      reflexivity.
+  Qed.
 
   Theorem typeof_expr_strengthenU_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
@@ -41,19 +77,22 @@ Section Expr.
       typeof_expr (tus ++ t :: nil) tvs e = Some t' ->
       typeof_expr tus tvs e = Some t'.
   Proof.
-    intros tus tvs e t t'.
-    revert tvs t'.
-    induction e; simpl; intros; auto.
-    { forward.
-      erewrite H3; eauto.
-      erewrite IHe2; eauto. }
-    { forward.
-      erewrite IHe; eauto. }
-    { consider (EqNat.beq_nat (length tus) u); intros; try congruence.
+    intros tus tvs e t t' H.
+    revert H tvs t'.
+    eapply (mentionsU_ind (length tus)); simpl; intros; auto.
+    { unfold rel_dec in H; simpl in H.
+      consider (EqNat.beq_nat (length tus) u'); intros; try congruence.
       generalize (ListNth.nth_error_length_lt _ _ H0).
       rewrite app_length. simpl. intros.
       rewrite ListNth.nth_error_app_L in H0; auto.
       omega. }
+    { forward.
+      eapply orb_false_iff in H.
+      destruct H.
+      erewrite IHf; eauto.
+      erewrite IHx; eauto. }
+    { forward.
+      erewrite IHx; eauto. }
   Qed.
 
   Theorem exprD'_strengthenU_single
@@ -71,7 +110,7 @@ Section Expr.
                 (vs : HList.hlist typD tvs) (u : typD t),
            val (HList.hlist_app us (HList.Hcons u HList.Hnil)) vs = val' us vs).
   Proof.
-    intros tus tvs e; revert tvs.
+    intros tus tvs e. simpl. rewrite <- _mentionsU_mentionsU. revert tvs.
     induction e; simpl; intros; autorewrite with exprD_rw in *; simpl in *.
     { forward. eexists; split; eauto.
       simpl. intros. inv_all; subst. reflexivity. }
@@ -88,17 +127,13 @@ Section Expr.
       intros.
       unfold exprT_App.
       autorewrite with eq_rw.
-      rewrite H6; rewrite H7; reflexivity. }
+      rewrite H6; rewrite H7; reflexivity.
+      simpl; rewrite <- _mentionsU_mentionsU. assumption. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
         autorewrite with eq_rw in *.
-(*
-        repeat first [ rewrite eq_Const_eq in *
-                     | rewrite eq_option_eq in *
-                     | rewrite eq_Arr_eq in * ].
-*)
         forward.
         eapply IHe in H3; eauto.
         forward_reason.
@@ -165,7 +200,7 @@ Section Expr.
                 (vs : HList.hlist typD tvs) (u : typD t),
            val us (HList.hlist_app vs (HList.Hcons u HList.Hnil)) = val' us vs).
   Proof.
-    intros tus tvs e; revert tvs.
+    intros tus tvs e. simpl. rewrite <- _mentionsV_mentionsV. revert tvs.
     induction e; simpl; intros; autorewrite with exprD_rw in *; simpl in *.
     { forward. inv_all; subst.
       cut (v < length tvs); intros.
@@ -194,7 +229,8 @@ Section Expr.
       intros.
       unfold exprT_App.
       autorewrite with eq_rw.
-      rewrite H6; rewrite H7; reflexivity. }
+      rewrite H6; rewrite H7; reflexivity.
+      simpl. rewrite <- _mentionsV_mentionsV. assumption. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
@@ -227,6 +263,8 @@ Section Expr.
       eapply ExprFacts.exprD'_weaken; eauto. }
     { eapply exprD'_strengthenU_single. }
     { eapply exprD'_strengthenV_single. }
+    { simpl. eapply Proper_mentionsAny. }
+    { simpl. intros; eapply mentionsAny_factor. }
   Qed.
 
 End Expr.

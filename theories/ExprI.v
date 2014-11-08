@@ -1,4 +1,7 @@
-Require Import Relations.Relation_Definitions.
+Require Import Coq.Bool.Bool.
+Require Import Coq.Relations.Relation_Definitions.
+Require Import Coq.Classes.Morphisms.
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Tactics.
@@ -10,6 +13,9 @@ Require Import MirrorCore.OpenT.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Definition var := nat.
+Definition uvar := nat.
 
 Section Expr.
   Variable typ : Type.
@@ -23,9 +29,9 @@ Section Expr.
   Definition Applicative_exprT tus tvs : Applicative (exprT tus tvs) :=
     Eval cbv beta iota zeta delta [ ap pure Applicative_OpenT ] in
   {| pure := fun _ x => pure (pure x)
-  ; ap := fun _ _ f x => ap (T:=OpenT typD tus)
-         (ap (T:=OpenT typD tus) (pure (ap (T:=OpenT typD tvs))) f) x
-  |}.
+   ; ap := fun _ _ f x => ap (T:=OpenT typD tus)
+          (ap (T:=OpenT typD tus) (pure (ap (T:=OpenT typD tvs))) f) x
+   |}.
   Existing Instance Applicative_exprT.
 
   Definition Functor_exprT tus tvs : Functor (exprT tus tvs) :=
@@ -148,8 +154,7 @@ Section Expr.
                          option (exprT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
-  ; mentionsU : nat -> expr -> bool
-  ; mentionsV : nat -> expr -> bool
+  ; mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool
   }.
 
   Theorem exprD'_conv (E : Expr)
@@ -184,6 +189,11 @@ Section Expr.
       | Some f => Some (f us vs)
     end.
 
+  Definition mentionsV {Expr : Expr} (v : var) (e : expr) : bool :=
+    mentionsAny (fun _ => false) (fun v' => v ?[ eq ] v') e.
+  Definition mentionsU {Expr : Expr} (u : uvar) (e : expr) : bool :=
+    mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e.
+
   Class ExprOk (E : Expr) : Type :=
   { exprD'_weaken
     : forall tus tvs e t val,
@@ -209,6 +219,12 @@ Section Expr.
         exprD' tus tvs e t' = Some val' /\
         forall us vs u,
           val us (hlist_app vs (Hcons u Hnil)) = val' us vs
+  ; Proper_mentionsAny
+    : Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq) mentionsAny
+  ; mentionsAny_factor
+    : forall fu fu' fv fv' e,
+          mentionsAny (fun u => fu u || fu' u) (fun v => fv v || fv' v) e
+        = mentionsAny fu fv e || mentionsAny fu' fv' e
   }.
 
   Context {Expr_expr : Expr}.
@@ -306,7 +322,6 @@ Section Expr.
     apply H.
     simpl. auto.
   Qed.
-
 
   Theorem exprD'_strengthenU_multi (EOk : ExprOk Expr_expr)
   : forall tus tvs e  t' tus' val,
