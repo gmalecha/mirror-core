@@ -1,3 +1,4 @@
+Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
@@ -109,28 +110,91 @@ Section env.
     constructor. eapply expr_eq_dec_eq.
   Qed.
 
+  Section mentionsAny.
+    Variable (uP : uvar -> bool).
+
+    Fixpoint mentionsAny (vP : var -> bool) (e : expr) : bool :=
+      match e with
+        | Var v => vP v
+        | Inj _ => false
+        | UVar u => uP u
+        | App f e => if mentionsAny vP f then true else mentionsAny vP e
+        | Abs _ e => mentionsAny (fun v => match v with
+                                             | 0 => false
+                                             | S v => vP v
+                                           end) e
+      end.
+  End mentionsAny.
+
+  Lemma Proper_mentionsAny
+  : Proper ((@eq uvar ==> @eq bool) ==>
+            (@eq var ==> @eq bool) ==>
+            @eq _ ==> @eq bool) mentionsAny.
+  Proof.
+    repeat red. intros; subst.
+    revert x0 y0 x y H0 H.
+    induction y1; simpl; intros; auto.
+    { erewrite IHy1_1; eauto. erewrite IHy1_2; eauto. }
+    { eapply IHy1; eauto.
+      red. intros; subst. destruct y2; eauto. }
+  Qed.
+
+  Lemma mentionsAny_factor
+  : forall (fu fu' : uvar -> bool) (e : expr) (fv fv' : var -> bool),
+      mentionsAny (fun u : uvar => fu u || fu' u)
+                  (fun v : var => fv v || fv' v) e =
+      mentionsAny fu fv e || mentionsAny fu' fv' e.
+  Proof.
+    Require Import ExtLib.Tactics.
+    induction e; simpl; auto; intros; Cases.rewrite_all_goal.
+    { forward. simpl. rewrite orb_true_r. reflexivity. }
+    { rewrite <- IHe. eapply Proper_mentionsAny; eauto.
+      reflexivity. clear. red. intros; subst.
+      destruct y; auto. }
+  Qed.
+
   Section mentionsU.
     Variable u : uvar.
 
-    Fixpoint mentionsU (e : expr) : bool :=
+    Fixpoint _mentionsU (e : expr) : bool :=
       match e with
         | Var _
         | Inj _ => false
         | UVar u' => EqNat.beq_nat u u'
-        | App f e => if mentionsU f then true else mentionsU e
-        | Abs _ e => mentionsU e
+        | App f e => if _mentionsU f then true else _mentionsU e
+        | Abs _ e => _mentionsU e
       end.
+
+    Theorem _mentionsU_mentionsU
+    : forall e,
+        _mentionsU e = mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e.
+    Proof.
+      induction e; simpl; intros; auto.
+      - rewrite <- IHe1. rewrite <- IHe2. reflexivity.
+      - rewrite IHe. eapply Proper_mentionsAny; eauto.
+        reflexivity. red. intros; subst; destruct y; reflexivity.
+    Qed.
   End mentionsU.
 
   Section mentionsV.
-    Fixpoint mentionsV (v : var) (e : expr) : bool :=
+    Fixpoint _mentionsV (v : var) (e : expr) : bool :=
       match e with
         | Var v' => v ?[ eq ] v'
         | Inj _
         | UVar _ => false
-        | App a b => if mentionsV v a then true else mentionsV v b
-        | Abs _ e => mentionsV (S v) e
+        | App a b => if _mentionsV v a then true else _mentionsV v b
+        | Abs _ e => _mentionsV (S v) e
       end.
+
+    Theorem _mentionsV_mentionsV
+    : forall e v,
+        _mentionsV v e = mentionsAny (fun _ => false) (fun v' => v ?[ eq ] v') e.
+    Proof.
+      induction e; simpl; intros; auto.
+      - rewrite <- IHe1. rewrite <- IHe2. reflexivity.
+      - rewrite IHe. eapply Proper_mentionsAny; eauto.
+        reflexivity. red. intros; subst; destruct y; reflexivity.
+    Qed.
   End mentionsV.
 
 End env.
@@ -140,5 +204,6 @@ Arguments Inj {typ func} _.
 Arguments UVar {typ func} _.
 Arguments App {typ func} _ _.
 Arguments Abs {typ func} _ _.
-Arguments mentionsU {typ func} _ _.
-Arguments mentionsV {typ func} _ _.
+Arguments mentionsAny {typ func} uP vP _.
+Arguments _mentionsU {typ func} _ _.
+Arguments _mentionsV {typ func} _ _.

@@ -343,8 +343,8 @@ Section substitute.
 
   Definition mentions (uv : nat + nat) (e : expr typ func) : bool :=
     match uv with
-      | inl u => mentionsU u e
-      | inr v => mentionsV v e
+      | inl u => _mentionsU u e
+      | inr v => _mentionsV v e
     end.
 
   Lemma mentions_App
@@ -375,7 +375,7 @@ Section substitute.
 
   Lemma mentionsV_lift
   : forall n n0 (x : expr typ func) z,
-      mentionsV (z + n0 + n) (lift z n x) = mentionsV (z + n0) x.
+      _mentionsV (z + n0 + n) (lift z n x) = _mentionsV (z + n0) x.
   Proof.
     induction x; simpl; intros; auto.
     { consider (v ?[ lt ] z).

@@ -25,8 +25,9 @@ Section mentionsU.
   Variable typ : Type.
   Variable func : Type.
 
-  Lemma mentionsU_lift : forall u e a b,
-    mentionsU u (lift (typ := typ) (func := func) a b e) = mentionsU u e.
+  Lemma mentionsU_lift
+  : forall u e a b,
+      _mentionsU u (lift (typ := typ) (func := func) a b e) = _mentionsU u e.
   Proof.
     induction e; simpl; intros; intuition;
     Cases.rewrite_all_goal; intuition.
@@ -55,13 +56,13 @@ Section instantiate.
   Definition instantiates (u : uvar) : Prop :=
     lookup u <> None /\
     forall u' e, lookup u' = Some e ->
-                 mentionsU u e = false.
+                 _mentionsU u e = false.
 
   Lemma instantiate_instantiates
   : forall u,
       instantiates u ->
       forall e under,
-        mentionsU u (instantiate under e) = false.
+        _mentionsU u (instantiate under e) = false.
   Proof.
     induction e; simpl; intros; auto.
     { rewrite IHe1. auto. }
@@ -235,8 +236,9 @@ Section instantiate_thm.
       forward_reason; auto. }
     { specialize (IHe1 n). specialize (IHe2 n).
       simpl in *.
-      transitivity (mentionsU u (instantiate f n e1) = true \/ mentionsU u (instantiate f n e2) = true).
-      { destruct (mentionsU u (instantiate f n e1)); intuition. }
+      repeat rewrite <- _mentionsU_mentionsU in *.
+      transitivity (_mentionsU u (instantiate f n e1) = true \/ _mentionsU u (instantiate f n e2) = true).
+      { destruct (_mentionsU u (instantiate f n e1)); intuition. }
       { rewrite IHe1. rewrite IHe2.
         split.
         { destruct 1.
@@ -246,46 +248,78 @@ Section instantiate_thm.
               rewrite H0. eauto. } }
           { destruct H; forward_reason.
             { rewrite H. rewrite H0.
-              left. split; auto. destruct (mentionsU u e1); reflexivity. }
+              left. split; auto. destruct (_mentionsU u e1); reflexivity. }
             { right. do 2 eexists; split; eauto.
               split; auto.
-              destruct (mentionsU x e1); eauto. } } }
+              repeat rewrite <- _mentionsU_mentionsU in *.
+              destruct (_mentionsU x e1); eauto. } } }
         { destruct 1; forward_reason.
-          { rewrite H. destruct (mentionsU u e1).
+          { rewrite H. destruct (_mentionsU u e1).
             { left. left; auto. }
             { right; left; auto. } }
-          { consider (mentionsU x e1).
-            { left; right. do 2 eexists; split; eauto. }
-            { intros. right; right; do 2 eexists; split; eauto. } } } } }
-    { specialize (IHe (S n)). simpl in IHe. eapply IHe. }
+          { repeat rewrite <- _mentionsU_mentionsU in *.
+            consider (_mentionsU x e1).
+            { left; right. do 2 eexists; split; eauto.
+              repeat rewrite <- _mentionsU_mentionsU in *. eauto. }
+            { intros. right; right; do 2 eexists; split; eauto.
+              repeat rewrite <- _mentionsU_mentionsU in *. eauto. } } } } }
+    { specialize (IHe (S n)). simpl in IHe.
+      assert (Morphisms.respectful eq eq (fun _ : ExprI.var => false)
+                                   (fun v : var => match v with
+                                                     | 0 => false
+                                                     | S _ => false
+                                                   end)).
+      { red. intros; subst; destruct y; auto. }
+      rewrite Proper_mentionsAny in IHe; [ | reflexivity | eassumption | reflexivity ].
+      rewrite IHe. clear - H.
+      split; destruct 1; intros;
+        try (rewrite Proper_mentionsAny; [ | reflexivity | symmetry; eassumption | reflexivity ]).
+      { left; auto. }
+      { right. do 2 destruct H0.
+        exists x; exists x0.
+        try (rewrite Proper_mentionsAny; [ | reflexivity | symmetry; eassumption | reflexivity ]). auto. }
+      { left; eauto.
+        try (rewrite Proper_mentionsAny in H0; [ | reflexivity | symmetry; eassumption | reflexivity ]).
+        auto. }
+      { right; do 2 destruct H0; exists x; exists x0.
+        try (rewrite Proper_mentionsAny in H0; [ | reflexivity | symmetry; eassumption | reflexivity ]). auto. } }
     { split.
       { consider (EqNat.beq_nat u u0).
         { intros; subst.
           consider (f u0).
           + intros. right.
+            rewrite <- _mentionsU_mentionsU in H0.
             rewrite mentionsU_lift in H0.
             do 2 eexists; split; eauto.
-            split. consider (EqNat.beq_nat u0 u0); auto. auto.
+            split. rewrite rel_dec_eq_true; eauto with typeclass_instances.
+            rewrite <- _mentionsU_mentionsU. assumption.
           + intros. left; auto. }
         { intros. right.
           consider (f u0); intros.
           { do 2 eexists.
-            split; eauto. rewrite mentionsU_lift in H1.
+            rewrite <- _mentionsU_mentionsU in H1.
+            split; eauto.
+            rewrite mentionsU_lift in H1.
+            rewrite _mentionsU_mentionsU in H1.
             split; auto.
-            consider (EqNat.beq_nat u0 u0); auto. }
+            rewrite rel_dec_eq_true; eauto with typeclass_instances. }
           { simpl in H1.
             exfalso.
-            consider (EqNat.beq_nat u u0). apply H. } } }
+            consider (u ?[ eq ] u0). apply H. } } }
       { intros. destruct H.
         { destruct H.
-          consider (EqNat.beq_nat u u0).
+          consider (u ?[ eq ] u0).
           intros; subst.
           rewrite H. simpl.
-          consider (EqNat.beq_nat u0 u0); auto. }
+          rewrite rel_dec_eq_true; eauto with typeclass_instances. }
         { forward_reason.
-          consider (EqNat.beq_nat x u0).
+          eapply (rel_dec_correct x u0)in H0.
           intros; subst.
-          rewrite H. rewrite mentionsU_lift. assumption. } } }
+          rewrite H.
+          rewrite <- _mentionsU_mentionsU.
+          rewrite mentionsU_lift.
+          rewrite _mentionsU_mentionsU.
+          assumption. } } }
   Qed.
 
 End instantiate_thm.

@@ -402,12 +402,4 @@ Section types.
       simpl. intros. f_equal. apply H1. }
   Qed.
 
-  Lemma mentionsU_lift
-  : forall u e a b,
-      mentionsU u (lift (typ := typ) (func := func) a b e) = mentionsU u e.
-  Proof.
-    induction e; simpl; intros; intuition;
-    Cases.rewrite_all_goal; intuition.
-  Qed.
-
 End types.
