@@ -243,8 +243,8 @@ Module Make (FM : WS with Definition E.t := uvar
 
     Instance SubstUpdate_subst : SubstUpdate raw expr :=
     { subst_set := raw_set
-    ; subst_empty := FM.empty _
 (*
+    ; subst_empty := FM.empty _
     ; forget := raw_forget
     ; strengthenU := raw_strengthenU
     ; strengthenV := raw_strengthenV
@@ -1193,8 +1193,10 @@ Module Make (FM : WS with Definition E.t := uvar
 
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| substR := raw_substR
+(*
      ; WellFormed_empty := WellFormed_empty
      ; substD_empty := substD_empty
+*)
      ; set_sound := set_sound
 (*
      ; strengthenU_sound := strengthenU_sound

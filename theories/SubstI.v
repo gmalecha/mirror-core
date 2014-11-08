@@ -126,7 +126,7 @@ Section subst.
 
   Class SubstUpdate :=
   { subst_set : uvar -> expr -> T -> option T
-  ; subst_empty : T
+(*  ; subst_empty : T *)
     (** NOTE: This doesn't seem to be used! It really should be specific to
      *  the particular implementation
      *)
@@ -134,12 +134,14 @@ Section subst.
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { substR : forall (tus tvs : tenv typ), T -> T -> Prop
+(*
   ; WellFormed_empty : WellFormed_subst subst_empty
   ; substD_empty
     : forall tus tvs,
       exists P,
         substD tus tvs subst_empty = Some P /\
         forall us vs, P us vs
+*)
   ; set_sound
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',

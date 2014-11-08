@@ -42,7 +42,8 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
-  Variable RelDec : RelDec (@eq typ).
+  Variable RelDec_eq_typ : RelDec (@eq typ).
+  Context {RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ}.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Inductive Ctx :=
@@ -113,9 +114,20 @@ Section parameterized.
     end.
 
   Definition getEnvs (ctx : Ctx) : tenv typ * tenv typ :=
-    let (x,y) := getEnvs' ctx nil nil in
-    (x, y).
+    getEnvs' ctx nil nil.
 
+  Fixpoint countEnvs' (ctx : Ctx) (nus nvs : nat) : nat * nat :=
+    match ctx with
+      | CTop tus' tvs' => (length tus' + nus, length tvs' + nvs)
+      | CAll ctx' t => countEnvs' ctx' nus (S nvs)
+      | CExs ctx' ts => countEnvs' ctx' (length ts + nus) nvs
+      | CHyp ctx' _ => countEnvs' ctx' nus nvs
+    end.
+
+  Definition countEnvs (ctx : Ctx) : nat * nat :=
+    countEnvs' ctx 0 0.
+
+  (** c2 goes on top! **)
   Fixpoint Ctx_append (c1 c2 : Ctx) : Ctx :=
     match c2 with
       | CTop _ _ => c1
@@ -349,8 +361,10 @@ Section parameterized.
         end
     end.
 
+  Axiom mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
+
   Section ctx_set'.
-    Variables (u : nat) (e : expr) (min : nat) (nus : nat).
+    Variables (u : nat) (e : expr).
 
     Fixpoint ctx_set' {c T} (cs : ctx_subst c) {struct cs}
     : ((nat -> option expr) -> ctx_subst c -> option T) -> option T :=
@@ -362,8 +376,49 @@ Section parameterized.
           ctx_set' c (fun f c => k f (AllSubst c))
         | HypSubst _ _ c => fun k =>
           ctx_set' c (fun f c => k f (HypSubst c))
-        | ExsSubst _ ctx c s => fun k =>
-          if u ?[ ge ] (countUVars ctx + nus) then
+        | ExsSubst ts ctx c s => fun k =>
+          let (nus,nvs) := countEnvs ctx in
+          if u ?[ ge ] nus then
+            let max_nus := length ts + nus in
+            if mentionsAny (fun x => x ?[ ge ] max_nus)
+                           (fun x => x ?[ gt ] nvs) e then
+              match amap_check_set u e s with
+                | None => None
+                | Some s' =>
+                  match amap_lookup u s with
+                    | None => None
+                    | Some e' =>
+                      k (fun x => if x ?[ eq ] u then Some e' else None)
+                        (ExsSubst c s')
+                  end
+              end
+            else
+              None
+          else
+            ctx_set' c
+                     (fun f c => k f (@ExsSubst _ ctx c
+                                                (SUBST.raw_instantiate instantiate f s)))
+      end.
+  End ctx_set'.
+
+  Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c)
+  : option (ctx_subst c) :=
+    ctx_set' u e cs (fun _ => @Some _).
+
+(*
+  Fixpoint simple_ctx_set' {c} (u : uvar) (e : expr) (cs : ctx_subst c)
+  : option (ctx_subst c * (nat -> option expr)).
+  refine (
+    match cs in ctx_subst c
+          return option (ctx_subst c * (nat -> option expr))
+    with
+      | TopSubst _ _ => None
+      | AllSubst t _ cs' => @simple_ctx_set' _ (CAll _ t) u e cs' (AllSubst rst)
+      | HypSubst _ _ c => _
+      | ExsSubst _ ctx c s => _
+    end).
+fun k =>
+          if u ?[ ge ] (countUVars ctx) then
             match amap_check_set u e s with
               | None => None
               | Some s' =>
@@ -378,12 +433,7 @@ Section parameterized.
             ctx_set' c
                      (fun f c => k f (@ExsSubst _ ctx c
                                                 (SUBST.raw_instantiate instantiate f s)))
-      end.
-  End ctx_set'.
-
-  Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c)
-  : option (ctx_subst c) :=
-    ctx_set' u e 0 cs (fun _ => @Some _).
+*)
 
   Fixpoint ctx_empty {c} : ctx_subst c :=
     match c with
@@ -584,13 +634,7 @@ Section parameterized.
 
   Global Instance SubstUpdate_ctx_subst ctx
   : SubstUpdate (ctx_subst ctx) expr :=
-  { subst_set := ctx_set
-  ; subst_empty := ctx_empty
-  }.
-
-  Global Instance SubstUpdateOk_ctx_subst ctx
-  : SubstUpdateOk (SubstUpdate_ctx_subst ctx) (SubstOk_ctx_subst ctx).
-  Proof. Admitted.
+  { subst_set := ctx_set }.
 
   Fixpoint ctx_subst_append (c1 c2 : Ctx)
            (s1 : ctx_subst c1) (s2 : ctx_subst c2)
@@ -603,7 +647,6 @@ Section parameterized.
       | AllSubst _ _ cs => AllSubst (ctx_subst_append s1 cs)
       | ExsSubst _ _ cs s => ExsSubst (ctx_subst_append s1 cs) s
     end.
-
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
@@ -901,7 +944,7 @@ Section parameterized.
       forall us vs (P : exprT _ _ Prop),
         C P us vs -> C' P us vs.
   Proof.
-    clear RelDec instantiate.
+    clear RelDecOk_eq_typ RelDec_eq_typ instantiate.
     induction 1; intros; simpl in *; forward; inv_all; subst; eauto.
     { eapply IHSubstMorphism; eauto. }
     { simpl in *.
@@ -1081,6 +1124,106 @@ Section parameterized.
       constructor. }
   Qed.
 
+  Lemma only_in_range_empty
+  : forall x y, only_in_range x y amap_empty.
+  Proof. clear. red; intros.
+         exfalso. unfold amap_lookup, amap_empty in H.
+         rewrite SUBST.FACTS.empty_o in H. congruence.
+  Qed.
+
+  (* Lemma WF_empty ctx : WellFormed_subst (@ctx_empty ctx). *)
+  (* Proof. *)
+  (*   induction ctx; simpl; intros; constructor; auto. *)
+  (*   eapply SUBST.WellFormed_empty. *)
+  (*   eapply only_in_range_empty. *)
+  (* Qed. *)
+
+  Lemma ctx_subst_eta ctx (s : ctx_subst ctx) :
+    s = match ctx as ctx return ctx_subst ctx -> ctx_subst ctx with
+          | CTop _ _ => fun _ => TopSubst _ _
+          | CAll _ _ => fun s => AllSubst (fromAll s)
+          | CHyp _ _ => fun s => HypSubst (fromHyp s)
+          | CExs _ _ => fun s => ExsSubst (snd (fromExs s)) (fst (fromExs s))
+        end s.
+  Proof.
+    clear. destruct s; reflexivity.
+  Qed.
+
+  Lemma AllSubst_fromAll ctx t (s : ctx_subst (CAll t ctx)) :
+    AllSubst (fromAll s) = s.
+  Proof.
+    rewrite ctx_subst_eta. reflexivity.
+  Qed.
+
+(*
+  Lemma ctx_substD_set' ctx
+  : forall (uv : nat) (e : expr) (s : ctx_subst ctx),
+      WellFormed_ctx_subst s ->
+      forall ctx' s'
+             (k : (nat -> option expr) -> ctx_subst ctx -> option (ctx_subst ctx'))
+             f,
+        (forall a b, k a b <> None) ->
+        ctx_set' uv e s k = k f s' ->
+        WellFormed_ctx_subst s' /\
+        (ctx_lookup uv s = None ->
+         forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
+                (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop) P,
+           ctx_substD tus tvs s = Some sD ->
+           nth_error_get_hlist_nth typD tus uv =
+           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
+           exprD' tus tvs e t = Some val ->
+           exists (sD' : exprT tus tvs Prop) fD,
+             InstantiateI.sem_preserves_if tus tvs fD f /\
+             ctx_substD tus tvs s' = Some sD' /\
+             SubstMorphism s s' /\
+             (forall (us : hlist typD tus) (vs : hlist typD tvs),
+                fD us vs ->
+                ((P us vs /\ sD' us vs) <-> (P us vs /\ sD us vs /\ get us = val us vs)))).
+  Proof.
+    (* k takes input of a substitution and returns a substitution
+     * The input substitution satisfies the property and the output
+     * substitution must also satisfy the property
+     *)
+    (* if the input substitution satisfies the property then the output
+     * substitution satisfies the "next" property
+     *)
+    (* k never fails *)
+    (* i only know that the term is well-typed in the larger environment
+     * the function checks when it tries to do the set
+     *)
+
+*)
+
+
+  Lemma ctx_substD_set ctx
+  : forall (uv : nat) (e : expr) (s s' : ctx_subst ctx),
+      ctx_set uv e s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      (ctx_lookup uv s = None ->
+       forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
+              (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
+         ctx_substD tus tvs s = Some sD ->
+         nth_error_get_hlist_nth typD tus uv =
+         Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
+         exprD' tus tvs e t = Some val ->
+         exists sD' : exprT tus tvs Prop,
+           ctx_substD tus tvs s' = Some sD' /\
+           SubstMorphism s s' /\
+           (forall (us : hlist typD tus) (vs : hlist typD tvs),
+              sD' us vs <-> sD us vs /\ get us = val us vs)).
+  Proof.
+    unfold ctx_set.
+  Admitted.
+
+  Global Instance SubstUpdateOk_ctx_subst ctx
+  : SubstUpdateOk (SubstUpdate_ctx_subst ctx) (SubstOk_ctx_subst ctx) :=
+  { substR := fun _ _ a b => SubstMorphism a b
+  ; set_sound := _ }.
+  Proof.
+    intros. eapply ctx_substD_set; eauto.
+  Defined.
+
   Require Import ExtLib.Data.ListFirstnSkipn.
 
   (** TODO: this seems to be the core problem!
@@ -1098,14 +1241,14 @@ Section parameterized.
     clear - RTypeOk_typ. unfold drop_exact.
     intros. rewrite app_length.
     cutrewrite (length xs + length ys - length ys = length xs); [ | omega ].
-
     assert (length xs <= length xs) by omega.
     generalize (skipn_app_R _ (length xs) xs ys H).
     intro. replace (length xs - length xs) with 0 in H0; [ | omega ].
     simpl in *.
     cutrewrite (all_convertible (skipn (length xs) (xs ++ ys)) ys = true).
-    { cut (firstn (length xs) (xs ++ ys) = xs); [ | admit ].
-      intro.
+    { assert (firstn (length xs) (xs ++ ys) = xs).
+      { rewrite firstn_app_L by omega.
+        rewrite firstn_all; auto. }
       generalize dependent (length xs). intros.
       exists (match H1 in _ = Z return hlist _ _ -> hlist typD Z with
                 | eq_refl => (fun x : hlist typD (xs ++ ys) =>
@@ -1140,11 +1283,23 @@ Section parameterized.
         forall us vs, cD sD us vs.
   Proof.
     intros ctx s cD H; revert cD; induction H; simpl; intros.
-    { inv_all; subst. admit. }
+    { inv_all; subst.
+      rewrite rel_dec_eq_true; eauto with typeclass_instances.
+      rewrite rel_dec_eq_true; eauto with typeclass_instances.
+      simpl.
+      eexists; split; eauto.
+      simpl; auto. }
     { simpl in *. forward.
       specialize (IHWellFormed_ctx_subst _ eq_refl).
       inv_all. forward_reason. subst.
-      admit. }
+      destruct (drop_exact_append_exact (t :: nil) (getVars c)) as [ ? [ ? ? ] ].
+      rewrite H1. rewrite H2.
+      eexists; split; eauto.
+      intros.
+      generalize (H3 us vs); clear H3.
+      eapply Fmap_pctxD_impl; eauto; try reflexivity.
+      do 6 red. intros.
+      equivs; auto. rewrite H4. assumption. }
     { simpl in *; forward; inv_all; subst.
       specialize (IHWellFormed_ctx_subst _ eq_refl).
       inv_all. forward_reason. subst.
