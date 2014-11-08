@@ -273,7 +273,7 @@ Section parameterized.
     forall u e,
       amap_lookup u s = Some e ->
       countUVars ctx <= u < countUVars ctx + ts /\ (* in range *)
-      (forall u'', mentionsU u'' e = true -> u'' <= countUVars ctx + ts) /\
+      (forall u'', mentionsU u'' e = true -> u'' < countUVars ctx + ts) /\
       forall u',
         ctx_lookup u' cs <> None \/ amap_lookup u' s <> None ->
         mentionsU u' e = false.
@@ -374,11 +374,13 @@ Section parameterized.
         end
     end.
 
-  About mentionsU.
-
   (** TODO: This should be primitive **)
-  Theorem mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
-  Admitted.
+  Variable mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
+  Variable mentionsAny_spec : forall P Q R S e,
+    mentionsAny P Q e || mentionsAny R S e = mentionsAny (fun x => P x || R x)
+                                                         (fun x => Q x || S x) e.
+  Variable Proper_mentionsAny :
+    Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq)%signature mentionsAny.
 
   Section ctx_set'.
     Variables (u : nat) (e : expr).
@@ -543,23 +545,37 @@ fun k =>
   Global Instance Injective_WellFormed_ctx_subst_ExsSubst ctx ts c s
   : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)) :=
   { result := WellFormed_ctx_subst c /\
-              WellFormed_amap s /\
-              only_in_range (countUVars ctx) (length ts) s }.
+              WellFormed_entry c (length ts) s }.
   intro.
   refine match H in @WellFormed_ctx_subst C S
                return match C as C return ctx_subst C -> Prop with
                         | CExs c0 ts => fun s' =>
                           let (s,c) := fromExs s' in
                           WellFormed_ctx_subst c /\
-                          WellFormed_amap s /\
-                          only_in_range (countUVars c0) (length ts) s
+                          WellFormed_entry c (length ts) s
                         | _ => fun _ => True
                       end S
          with
-           | WF_ExsSubst t c s s' pfs' pf'' pfs => conj pfs (conj pfs' pf'')
+           | WF_ExsSubst t c s s' pfs' pfs => conj pfs pfs'
            | _ => I
          end.
   Defined.
+
+  Lemma WellFormed_entry_WellFormed
+  : forall ctx (s : ctx_subst ctx) n s',
+      WellFormed_entry s n s' ->
+      SUBST.WellFormed s'.
+  Proof.
+    red. unfold WellFormed_entry. unfold SUBST.normalized.
+    intros.
+    rewrite SUBST.FACTS.find_mapsto_iff in H0.
+    eapply H in H0.
+    intro. destruct H0 as [ ? [ ? ? ] ].
+    rewrite H4 in H1. congruence.
+    right. red.
+    unfold amap_lookup. rewrite <- SUBST.FACTS.not_find_in_iff.
+    auto.
+  Qed.
 
   Theorem ctx_substD_lookup ctx
   : forall (s : ctx_subst ctx),
@@ -596,26 +612,27 @@ fun k =>
     { eauto. }
     { forward; inv_all; subst.
       consider (amap_lookup uv s'); intros; inv_all; subst.
-      { eapply SUBST.substD_lookup in H2; eauto.
+      { eapply SUBST.substD_lookup in H1; eauto.
         forward_reason.
         do 3 eexists; split; eauto. split; eauto.
-        intros. destruct H8. eauto. }
-      { eapply IHWellFormed_ctx_subst in H3; eauto.
+        intros. destruct H7. eauto.
+        eapply WellFormed_entry_WellFormed; eassumption. }
+      { eapply IHWellFormed_ctx_subst in H2; eauto.
         forward_reason.
-        eapply drop_exact_sound in H4.
+        eapply drop_exact_sound in H3.
         forward_reason.
-        revert H4. subst tus; intros.
+        revert H3. subst tus; intros.
         exists x0.
-        eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H3.
+        eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H2.
         simpl in *. forward_reason.
-        eapply exprD'_weakenU with (tus' := ts) in H7; eauto.
+        eapply exprD'_weakenU with (tus' := ts) in H6; eauto.
         forward_reason.
         do 2 eexists; split; eauto; split; eauto.
         do 2 intro.
         rewrite <- (hlist_app_hlist_split _ _ us).
-        rewrite <- H9; clear H9.
-        rewrite <- H10; clear H10. destruct 1.
-        eapply H8. rewrite H4 in H10. assumption. } }
+        rewrite <- H8; clear H8.
+        rewrite <- H9; clear H9. destruct 1.
+        eapply H7. rewrite H3 in H9. assumption. } }
   Qed.
 
   Lemma ctx_subst_domain ctx
@@ -630,13 +647,65 @@ fun k =>
     { subst. rewrite in_app_iff.
       split; intro.
       { forward.
-        destruct H2.
-        { eapply IHWellFormed_ctx_subst in H2; eauto. }
-        { eapply SUBST.WellFormed_domain in H2; eauto. } }
+        destruct H1.
+        { eapply IHWellFormed_ctx_subst in H1; eauto. }
+        { eapply SUBST.WellFormed_domain in H1; eauto.
+          eapply WellFormed_entry_WellFormed; eauto. } }
       { rewrite IHWellFormed_ctx_subst; eauto.
         rewrite SUBST.WellFormed_domain; eauto.
         unfold SUBST.raw_lookup, amap_lookup in *.
-        destruct (UVarMap.MAP.find n s'); eauto. } }
+        destruct (UVarMap.MAP.find n s'); eauto.
+        eapply WellFormed_entry_WellFormed; eauto. } }
+  Qed.
+
+  Lemma ctx_lookup_mentions_range ctx
+  : forall (s : ctx_subst ctx) (e : expr) (u : nat),
+      WellFormed_ctx_subst s ->
+      ctx_lookup u s = Some e ->
+      forall (u' : nat),
+        mentionsU u' e = true -> u' < countUVars ctx.
+  Proof.
+    induction 1; try solve [ simpl; intros; eauto; congruence ].
+    { simpl. intros.
+      consider (amap_lookup u s'); intros.
+      { inv_all; subst.
+        eapply H in H1. destruct H1 as [ ? [ ? ? ] ].
+        eapply H3 in H2. clear - H2. omega. }
+      { eapply IHWellFormed_ctx_subst in H3. 2: eauto.
+        clear - H3; omega. } }
+  Qed.
+
+  Lemma ctx_lookup_normalized ctx
+  : forall (s : ctx_subst ctx) (e : expr) (u : nat),
+      WellFormed_ctx_subst s ->
+      ctx_lookup u s = Some e ->
+      forall (u' : nat) (e' : expr),
+        ctx_lookup u' s = Some e' -> mentionsU u' e = false.
+  Proof.
+    induction 1; try solve [ simpl; intros; try congruence; eauto ].
+    { intro. simpl in H1.
+      consider (amap_lookup u s').
+      { do 3 intro. inv_all; subst.
+        red in H.
+        eapply H in H1.
+        destruct H1 as [ ? [ ? ? ] ].
+        intros. eapply H3. simpl in H4.
+        destruct (amap_lookup u' s'); auto.
+        { right; congruence. }
+        { left. congruence. } }
+      { intro X; clear X.
+        intro.
+        specialize (IHWellFormed_ctx_subst H2).
+        simpl. intros.
+        consider (amap_lookup u' s'); eauto.
+        intros; inv_all; subst.
+        consider (mentionsU u' e); auto.
+        intros; exfalso.
+        eapply ctx_lookup_mentions_range in H2.
+        2: eassumption.
+        2: eassumption.
+        eapply H in H1. destruct H1. clear - H2 H1.
+        omega. } }
   Qed.
 
   Global Instance SubstOk_ctx_subst ctx
@@ -646,9 +715,7 @@ fun k =>
   }.
   { clear instantiate. intros. eapply ctx_substD_lookup; eauto. }
   { clear instantiate. intros; eapply ctx_subst_domain; eauto. }
-  { clear instantiate.
-
- admit. }
+  { clear instantiate. intros; eapply ctx_lookup_normalized; eauto. }
   Defined.
 
   Global Instance SubstUpdate_ctx_subst ctx
