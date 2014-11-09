@@ -13,6 +13,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
   Variable simplify : forall subst : Type,
@@ -22,7 +23,6 @@ Section parameterized.
   Definition SIMPLIFY : rtac typ expr :=
     fun _ _ _ _ ctx sub gl =>
       More_ sub (GGoal (@simplify (ctx_subst ctx) _ ctx sub gl)).
-
 
   Hypothesis simplify_sound
   : forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e',
@@ -42,26 +42,28 @@ Section parameterized.
             cD (fun us vs => sD us vs -> (eD' us vs -> eD us vs)) us vs
       end.
 
-  Theorem SIMPLIFY_sound
-  : forall tus tvs, rtac_sound tus tvs SIMPLIFY.
+  Theorem SIMPLIFY_sound : rtac_sound SIMPLIFY.
   Proof.
     red; intros; subst.
     simpl. intros; split; eauto.
     remember (simplify (Subst_ctx_subst ctx) ctx s g).
     symmetry in Heqe.
-    specialize (@simplify_sound tus tvs _ _ _ _ Heqe).
+    specialize (@simplify_sound _ _ _ _ Heqe).
     forward.
-    destruct (Applicative_pctxD _ H0) as [ Hap Hpure ].
-    eapply pctxD_substD in H0; eauto.
-    forward_reason.
-    rewrite H0 in *.
+    specialize (@simplify_sound H0).
+    split; try constructor.
     forward.
+    destruct (pctxD_substD H0 H1) as [ ? [ ? ? ] ].
+    revert simplify_sound.
+    change_rewrite H3.
+    intros; forward.
     split.
     { reflexivity. }
-    { intros. specialize (simplify_sound us vs); revert simplify_sound.
-      eapply Hap. specialize (H2 us vs); revert H2.
-      eapply Hap. eapply Hpure.
-      clear. intros. tauto. }
+    { intros. specialize (@simplify_sound us vs); revert simplify_sound.
+      eapply Ap_pctxD; eauto.
+      specialize (H4 us vs); revert H4.
+      eapply Ap_pctxD; eauto.
+      eapply Pure_pctxD; eauto. }
   Qed.
 
 End parameterized.

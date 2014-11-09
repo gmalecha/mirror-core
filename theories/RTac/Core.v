@@ -200,8 +200,6 @@ Section parameterized.
     tenv typ -> tenv typ -> nat -> nat ->
     forall c : Ctx typ expr, ctx_subst c -> expr -> Result c.
 
-  Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
-
   Fixpoint hlist_mapT {T : Type} {F : T -> Type}
            {ls : list T} (h : HList.hlist (fun x => option (F x)) ls)
   : option (hlist F ls) :=
