@@ -11,6 +11,7 @@ Section parameterized.
   Context {typ : Type}.
   Context {expr : Type}.
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
@@ -22,7 +23,7 @@ Section parameterized.
   Proof.
     unfold IDTAC, rtac_sound.
     intros; subst.
-    eapply rtac_spec_More_.
+    eapply rtac_spec_More_; eauto.
   Qed.
 
 End parameterized.

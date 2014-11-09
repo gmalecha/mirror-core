@@ -8,6 +8,7 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.ListFirstnSkipn.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
@@ -42,20 +43,22 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
-  Variable RelDec_eq_typ : RelDec (@eq typ).
-  Context {RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ}.
+  Local Instance RelDec_eq_typ : RelDec (@eq typ) :=
+    RelDec_Rty _.
+  Local Instance RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ :=
+    @RelDec_Correct_Rty _ _ _.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Inductive Ctx :=
   | CTop : tenv typ -> tenv typ -> Ctx
   | CAll : Ctx -> typ -> Ctx
-  | CExs : Ctx -> list typ -> Ctx
+  | CExs : Ctx -> tenv typ -> Ctx
   | CHyp : Ctx -> expr -> Ctx.
 
   Fixpoint CEx (c : Ctx) (t : typ) : Ctx :=
     CExs c (t :: nil).
 
-  Fixpoint CAlls (c : Ctx) (ls : list typ) : Ctx :=
+  Fixpoint CAlls (c : Ctx) (ls : tenv typ) : Ctx :=
     match ls with
       | nil => c
       | l :: ls => CAlls (CAll c l) ls
@@ -209,6 +212,9 @@ Section parameterized.
     @SUBST.raw_set _ _ _ _ instantiate.
   Definition amap_instantiate (f : nat -> option expr) : amap -> amap :=
     UVarMap.MAP.map (fun e => instantiate f 0 e).
+  Definition amap_substD
+  : forall (tus tvs : tenv typ), amap -> option (exprT tus tvs Prop) :=
+    @SUBST.raw_substD _ _ _ _.
 
   Inductive ctx_subst : Ctx -> Type :=
   | TopSubst : forall tus tvs, ctx_subst (CTop tus tvs)
@@ -264,6 +270,14 @@ Section parameterized.
   Definition only_in_range (min len : nat) (s : amap) : Prop :=
     forall u e, amap_lookup u s = Some e -> min <= u < min + len.
 
+  Definition WellFormed_pre_entry (nus : nat) (ts : nat) (s : amap)
+  : Prop :=
+    forall u e,
+      amap_lookup u s = Some e ->
+      nus <= u < nus + ts /\ (* in range *)
+      (forall u'', mentionsU u'' e = true -> u'' < nus + ts) /\
+      forall u', amap_lookup u' s <> None -> mentionsU u' e = false.
+
   (** - doesn't mention anything above
    ** - acyclic
    ** - in range
@@ -277,6 +291,17 @@ Section parameterized.
       forall u',
         ctx_lookup u' cs <> None \/ amap_lookup u' s <> None ->
         mentionsU u' e = false.
+
+  Theorem WellFormed_entry_WellFormed_pre_entry
+  : forall ctx cs ts s,
+      @WellFormed_entry ctx cs ts s ->
+      WellFormed_pre_entry (countUVars ctx) ts s.
+  Proof.
+    clear. unfold WellFormed_entry, WellFormed_pre_entry.
+    intros.
+    eapply H in H0; clear H.
+    forward_reason. auto.
+  Qed.
 
   (** [tus] and [tvs] are only the environments for Top! **)
   Inductive WellFormed_ctx_subst
@@ -363,7 +388,7 @@ Section parameterized.
         match drop_exact tus ts with
           | None => None
           | Some (existT tus' get) =>
-            match SUBST.raw_substD tus tvs s
+            match amap_substD tus tvs s
                 , ctx_substD tus' tvs c
             with
               | Some sD' , Some sD =>
@@ -616,7 +641,8 @@ fun k =>
         forward_reason.
         do 3 eexists; split; eauto. split; eauto.
         intros. destruct H7. eauto.
-        eapply WellFormed_entry_WellFormed; eassumption. }
+        eapply WellFormed_entry_WellFormed; eassumption.
+        eapply H4. }
       { eapply IHWellFormed_ctx_subst in H2; eauto.
         forward_reason.
         eapply drop_exact_sound in H3.
@@ -761,7 +787,7 @@ fun k =>
           | None => None
         end
       | ExsSubst ts ctx' s' sub =>
-        match SUBST.raw_substD (getUVars ctx' ++ ts) (getVars ctx') sub
+        match amap_substD (getUVars ctx' ++ ts) (getVars ctx') sub
             , pctxD s'
         with
           | Some sD , Some cD =>
@@ -926,8 +952,7 @@ fun k =>
       Cases.rewrite_all_goal.
       intros; inv_all.
       split.
-      { rename P into P0.
-        intros us vs P Q f.
+      { intros us vs P Q f.
         eapply Hap.
         eapply H1; [ | reflexivity | reflexivity | eapply f ].
         simpl. clear.
@@ -1030,14 +1055,16 @@ fun k =>
       forall us vs (P : exprT _ _ Prop),
         C P us vs -> C' P us vs.
   Proof.
-    clear RelDecOk_eq_typ RelDec_eq_typ instantiate.
+    clear instantiate.
     induction 1; intros; simpl in *; forward; inv_all; subst; eauto.
     { eapply IHSubstMorphism; eauto. }
-    { simpl in *.
+    { change_rewrite H2 in H6.
+      change_rewrite H1 in H6.
+      simpl in *.
       eapply (IHSubstMorphism _ _ eq_refl eq_refl) in H3.
-      destruct (Applicative_pctxD _ H2) as [ Hap Hpure ].
+      destruct (Applicative_pctxD _ H) as [ Hap Hpure ].
       revert H3. eapply Hap.
-      generalize (H7 us vs).
+      generalize (H6 us vs).
       eapply Hap.
       eapply Hpure.
       clear. intros.
@@ -1310,8 +1337,6 @@ fun k =>
     intros. eapply ctx_substD_set; eauto.
   Defined.
 
-  Require Import ExtLib.Data.ListFirstnSkipn.
-
   (** TODO: this seems to be the core problem!
    ** This proof relies on UIP (decidable) but there is probably a nicer
    ** formulation that doesn't.
@@ -1395,17 +1420,38 @@ fun k =>
       do 6 red. intros.
       equivs; auto. }
     { destruct (drop_exact_append_exact ts (getUVars c)) as [ ? [ ? ? ] ].
-      rewrite H3.
+      rewrite H2.
       forward; inv_all; subst.
       specialize (IHWellFormed_ctx_subst _ eq_refl).
       forward_reason.
-      change_rewrite H6.
+      change_rewrite H5.
       eexists; split; eauto.
-      intros. generalize (H7 us vs); clear H7.
+      intros. generalize (H6 us vs); clear H6.
       eapply Fmap_pctxD_impl; eauto; try reflexivity.
       do 6 red; intros. eapply _forall_sem. intros.
-      split; auto. rewrite H4. equivs; assumption. }
+      split; auto. rewrite H3. equivs; assumption. }
   Qed.
+
+  Definition remembers (ctx : Ctx) (cs : ctx_subst ctx)
+             (ts : tenv typ) (m : amap)
+  : ctx_subst (CExs ctx ts) :=
+    @ExsSubst ts ctx cs (amap_instantiate (fun u => ctx_lookup u cs) m).
+
+  Theorem remembers_sound
+  : forall ctx (cs : ctx_subst ctx) ts m cs',
+      @remembers ctx cs ts m = cs' ->
+      WellFormed_ctx_subst cs ->
+      @WellFormed_pre_entry (countUVars ctx) (length ts) m ->
+      WellFormed_ctx_subst cs' /\
+      forall tus tvs csD mD,
+        ctx_substD tus tvs cs = Some csD ->
+        amap_substD (tus ++ ts) tvs m = Some mD ->
+        exists cs'D,
+          ctx_substD (tus ++ ts) tvs cs' = Some cs'D /\
+          (forall us us' vs,
+             (csD us vs /\ mD (hlist_app us us') vs) <-> cs'D (hlist_app us us') vs).
+  Proof.
+  Admitted.
 
 End parameterized.
 
