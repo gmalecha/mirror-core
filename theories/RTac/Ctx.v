@@ -98,12 +98,12 @@ Section parameterized.
     end.
 
   Lemma countVars_getVars : forall ctx, countVars ctx = length (getVars ctx).
-    induction ctx; simpl; auto.
+    clear. induction ctx; simpl; auto.
     rewrite app_length. simpl. omega.
   Qed.
 
   Lemma countUVars_getUVars : forall ctx, countUVars ctx = length (getUVars ctx).
-    induction ctx; simpl; auto.
+    clear. induction ctx; simpl; auto.
     rewrite app_length. simpl. omega.
   Qed.
 
@@ -167,7 +167,7 @@ Section parameterized.
   : forall c a b,
       getEnvs' c a b  = (getUVars c ++ a, getVars c ++ b).
   Proof.
-    induction c; simpl; intros; auto.
+    clear. induction c; simpl; intros; auto.
     { rewrite IHc. f_equal. rewrite <- app_assoc. reflexivity. }
     { rewrite IHc. f_equal. rewrite <- app_assoc. reflexivity. }
   Qed.
@@ -421,6 +421,7 @@ Section parameterized.
   : forall xs ys,
       all_convertible xs ys = true -> xs = ys.
   Proof.
+    clear.
     induction xs; destruct ys; simpl; intros; try congruence.
     destruct (type_cast a t).
     { destruct r. f_equal; eauto. }
@@ -640,6 +641,7 @@ Section parameterized.
       WellFormed_entry s n s' ->
       SUBST.WellFormed s'.
   Proof.
+    clear.
     red. unfold WellFormed_entry. unfold SUBST.normalized.
     intros.
     rewrite SUBST.FACTS.find_mapsto_iff in H0.
@@ -682,6 +684,7 @@ Section parameterized.
           (C (fun us vs =>
                 sD us vs -> get us = val us vs)).
   Proof.
+    clear - ExprOk_expr.
     induction 1; simpl; intros.
     { congruence. }
     { forward; inv_all; subst.
@@ -748,6 +751,7 @@ Section parameterized.
           (forall us vs,
              sD us vs -> get us = val us vs).
   Proof.
+    clear.
     intros.
     eapply ctx_substD_lookup_gen
       with (C := fun (P : exprT _ _ Prop) => forall us vs, P us vs); eauto.
@@ -761,6 +765,7 @@ Section parameterized.
       subst_domain s = ls ->
       forall n : nat, In n ls <-> subst_lookup n s <> None.
   Proof.
+    clear.
     induction 1; simpl; intros; eauto using WellFormed_domain.
     { subst. split; auto. congruence. }
     { subst. rewrite in_app_iff.
@@ -784,6 +789,7 @@ Section parameterized.
       forall (u' : nat),
         mentionsU u' e = true -> u' < countUVars ctx.
   Proof.
+    clear.
     induction 1; try solve [ simpl; intros; eauto; congruence ].
     { simpl. intros.
       consider (amap_lookup u s'); intros.
@@ -801,6 +807,7 @@ Section parameterized.
       forall (u' : nat) (e' : expr),
         ctx_lookup u' s = Some e' -> mentionsU u' e = false.
   Proof.
+    clear.
     induction 1; try solve [ simpl; intros; try congruence; eauto ].
     { intro. simpl in H1.
       consider (amap_lookup u s').
@@ -832,9 +839,9 @@ Section parameterized.
   { WellFormed_subst := @WellFormed_ctx_subst ctx
   ; substD := @ctx_substD ctx
   }.
-  { clear instantiate. intros. eapply ctx_substD_lookup; eauto. }
-  { clear instantiate. intros; eapply ctx_subst_domain; eauto. }
-  { clear instantiate. intros; eapply ctx_lookup_normalized; eauto. }
+  { clear instantiate. intros; eapply ctx_substD_lookup; eassumption. }
+  { clear instantiate. intros; eapply ctx_subst_domain; eassumption. }
+  { clear instantiate. intros; eapply ctx_lookup_normalized; eassumption. }
   Defined.
 
   Global Instance SubstUpdate_ctx_subst ctx
@@ -925,7 +932,7 @@ Section parameterized.
                               (RexprT _ _ iff)))%signature
              (@pctxD c1 s).
   Proof.
-    induction s; simpl; intros.
+    clear. induction s; simpl; intros.
     { constructor.
       do 6 red; simpl; intros.
       eapply H; auto. }
@@ -967,7 +974,7 @@ Section parameterized.
                               (RexprT _ _ Basics.impl)))%signature
              (@pctxD c1 s).
   Proof.
-    induction s; simpl; intros.
+    clear. induction s; simpl; intros.
     { constructor.
       do 6 red; intros.
       eapply H; auto. }
@@ -1170,7 +1177,7 @@ Section parameterized.
   Global Instance Injective_SubstMorphism_AllSubst t ctx s s'
   : Injective (@SubstMorphism (CAll ctx t) (AllSubst s) s') :=
   { result := exists s'', s' = AllSubst s'' /\ @SubstMorphism ctx s s'' }.
-  intros.
+  clear. intros.
   exists (fromAll s').
   refine
     (match H in @SubstMorphism C X Y
@@ -1190,7 +1197,7 @@ Section parameterized.
   Global Instance Injective_SubstMorphism_HypSubst t ctx s s'
   : Injective (@SubstMorphism (CHyp ctx t) (HypSubst s) s') :=
   { result := exists s'', s' = HypSubst s'' /\ @SubstMorphism ctx s s'' }.
-  intros.
+  clear. intros.
   exists (fromHyp s').
   refine
     (match H in @SubstMorphism C X Y
@@ -1211,7 +1218,7 @@ Section parameterized.
   : Injective (@SubstMorphism (CTop tus tvs) (TopSubst _ _) s') :=
   { result := s' = TopSubst tus tvs }.
   Proof.
-    intros.
+    clear. intros.
     refine
       (match H in @SubstMorphism C X Y
              return match X in ctx_subst C' return ctx_subst C' -> Prop with
@@ -1486,7 +1493,7 @@ Section parameterized.
         substD (getUVars ctx) (getVars ctx) s = Some sD /\
         forall us vs, cD sD us vs.
   Proof.
-    intros ctx s cD H; revert cD; induction H; simpl; intros.
+    clear. intros ctx s cD H; revert cD; induction H; simpl; intros.
     { inv_all; subst.
       rewrite rel_dec_eq_true; eauto with typeclass_instances.
       rewrite rel_dec_eq_true; eauto with typeclass_instances.
@@ -1568,6 +1575,16 @@ Section parameterized.
   Admitted.
 
 End parameterized.
+
+Ltac gather_facts :=
+  repeat match goal with
+           | H : forall us vs, ?C _ us vs |- ?C _ ?us ?vs =>
+             generalize (H us vs); clear H ;
+             eapply Ap_pctxD; [ eassumption | ]
+           | H : ?C _ ?us ?vs |- ?C _ ?us ?vs =>
+             revert H; clear H ;
+             eapply Ap_pctxD; [ eassumption | ]
+         end.
 
 Arguments CTop {typ expr} _ _ : rename.
 Arguments CEx {typ expr} _ _ : rename.

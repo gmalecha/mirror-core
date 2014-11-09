@@ -187,7 +187,7 @@ Section runOnGoals.
   Proof.
     simpl. intros.
     rewrite H0.
-    destruct (pctxD_substD (instantiate:=instantiate) H H0) as [ ? [ ? ? ] ].
+    destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
     eapply amap_instantiates_substD
       with (f := fun u => ctx_lookup u s)
            (C := fun (P : exprT (getUVars c ++ l) (getVars c) Prop) =>
@@ -226,7 +226,7 @@ Section runOnGoals.
         eapply Ap_pctxD; eauto.
         eapply Pure_pctxD; eauto. } }
     { red. intros.
-      destruct (pctxD_substD (instantiate:=instantiate) H H0) as [ ? [ ? ? ] ].
+      destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
       eapply ctx_substD_lookup in H4; eauto.
       forward_reason.
       eapply exprD'_weakenU with (tus' := l) in H8; eauto.
@@ -361,33 +361,28 @@ Section runOnGoals.
             inv_all. subst. assumption.
             Opaque remembers. }
           { destruct H14. intros.
-            specialize (H16 us vs); revert H16.
+            gather_facts.
             Transparent remembers. unfold remembers in H14.
             Opaque remembers.
             inv_all. subst. rewrite H3 in H14.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ instantiate _ _ _ H1 H3) as [ ? [ ? ? ] ].
+            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
             specialize (@H2 _ _ _ _ H16 H10).
             forward_reason.
             change_rewrite H9 in H14.
             rewrite H15 in H14.
-            eapply Ap_pctxD; eauto.
             Transparent remembers. unfold remembers in *.
             simpl in H11. simpl in H2.
             Opaque remembers.
             forward; inv_all; subst.
             revert H14. change_rewrite H2.
-            intros. specialize (H14 us vs).
-            revert H14.
-            eapply Ap_pctxD; eauto.
+            intros. gather_facts.
             eapply (@pctxD_SubstMorphism _ _ _ _ _ _ _ _ H18 _ _ H3 H15 us vs).
+            gather_facts.
             specialize (H12 us vs); revert H12.
-            specialize (H17 us vs); revert H17.
             destruct (drop_exact_append_exact l (getUVars ctx)) as [ ? [ ? ? ] ].
             rewrite H0 in *.
             inv_all. revert H12. revert H19.
             subst. intros; subst.
-            revert H17.
-            eapply Ap_pctxD; eauto.
             specialize (H14 P).
             cut (e
                    (fun (us0 : hlist typD (getUVars ctx))
@@ -442,7 +437,7 @@ Section runOnGoals.
             Transparent remembers. unfold remembers in H12.
             Opaque remembers.
             inv_all. subst. rewrite H3 in H12.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ instantiate _ _ _ H1 H3) as [ ? [ ? ? ] ].
+            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
             change_rewrite H8 in H12.
             specialize (@H2 _ _ _ _ H14 H9).
             forward_reason.
@@ -498,29 +493,20 @@ Section runOnGoals.
         destruct (eta_ctx_subst_hyp c); subst.
         simpl in *.
         forward.
-        change_rewrite H5 in H6.
-        forward.
-        inv_all; subst.
         forward_reason.
         inv_all.
         inv_all; subst.
         split; auto. intros.
-        generalize (H8 us vs); clear H8.
-        eapply Ap_pctxD; eauto.
+        gather_facts.
         eapply Pure_pctxD; eauto.
         intros us' vs'.
-        intro. eapply Ap_impls. exact H7. }
+        intro. eapply Ap_impls. exact H8. }
       { intros. inv_all; forward_reason.
         split; eauto.
         destruct (eta_ctx_subst_hyp c); subst.
         simpl in *.
-        forward.
-        change_rewrite H4 in H5.
-        forward.
-        inv_all; subst.
-        forward_reason.
-        inv_all.
-        inv_all; subst.
+        forward. inv_all; subst.
+        forward_reason. inv_all; subst.
         split; auto. } }
     { (* Conj *)
       simpl; intros; clear Htac.
