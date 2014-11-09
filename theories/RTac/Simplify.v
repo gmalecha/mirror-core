@@ -10,12 +10,10 @@ Set Strict Implicit.
 Section parameterized.
   Context {typ : Type}.
   Context {expr : Type}.
-  Context {subst : Type}.
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
 
   Variable simplify : forall subst : Type,
                         Subst subst expr ->
@@ -31,7 +29,7 @@ Section parameterized.
       @simplify (ctx_subst ctx) _ ctx s e = e' ->
       WellFormed_subst s ->
       match @pctxD typ expr RType_typ _ Expr_expr ctx s
-          , substD (getUVars ctx) (getVars ctx) s (* necessary? *)
+          , ctx_substD (getUVars ctx) (getVars ctx) s (* necessary? *)
           , propD (getUVars ctx) (getVars ctx) e
           , propD (getUVars ctx) (getVars ctx) e'
       with

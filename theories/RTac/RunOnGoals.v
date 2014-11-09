@@ -21,17 +21,22 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** TODO: Move to Data.Prop **)
+Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
+Proof. clear; intros; subst; reflexivity. Qed.
+
+
 Section runOnGoals.
-  Variable typ : Type.
-  Variable expr : Type.
+  Context {typ : Type}.
+  Context {expr : Type}.
 
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
-  Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
-  Proof. clear; intros; subst; reflexivity. Qed.
-
+  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
                             length ts = length us ->
@@ -92,7 +97,7 @@ Section runOnGoals.
           | More_ s g => More (fromAll s) (GAll t g)
         end
       | GExs ts sub g =>
-        let s' := ExsSubst s sub in
+        let s' := remembers instantiate s ts sub in
         match @runOnGoals (tus ++ ts) tvs (length ts + nus) nvs (CExs ctx ts) s' g with
           | Fail => Fail
           | Solved s'' =>
@@ -126,62 +131,6 @@ Section runOnGoals.
               | Fail => Fail
               | Solved s'' => More s'' g'
               | More_ s'' g'' => More_ s'' (GConj_ g' g'')
-            end
-        end
-    end.
-
-  Fixpoint runOnGoals_list (tacs : list (rtac typ expr)) (tus tvs : tenv typ) (nus nvs : nat)
-           (ctx : Ctx typ expr) (s : ctx_subst ctx) (g : Goal typ expr)
-           {struct g}
-  : Result ctx * list (rtac typ expr) :=
-    match g with
-      | GGoal e =>
-        match tacs with
-          | nil => (Fail, nil)
-          | tac :: tacs => (@tac tus tvs nus nvs ctx s e, tacs)
-        end
-      | GSolved => (Solved s, tacs)
-      | GAll t g =>
-        match @runOnGoals_list tacs tus (tvs ++ t :: nil) nus (S nvs) (CAll ctx t) (AllSubst s) g with
-          | (Fail, tacs) => (Fail,tacs)
-          | (Solved s, tacs) => (Solved (fromAll s), tacs)
-          | (More_ s g, tacs) => (More (fromAll s) (GAll t g), tacs)
-        end
-      | GExs ts sub g =>
-        let s' := ExsSubst s sub in
-            match @runOnGoals_list tacs (tus ++ ts) tvs (length ts + nus) nvs (CExs ctx ts) s' g with
-              | (Fail, tacs) => (Fail, tacs)
-              | (Solved s'', tacs) =>
-                let '(shere,cs') := fromExs s'' in
-                (** Here I can drop anything that is already instantiated. **)
-                (More_ cs' (GExs ts shere GSolved), tacs)
-              | (More_ s'' g', tacs) =>
-                let '(shere,cs') := fromExs s'' in
-                (** Here I need to drop already instantiated vars and
-                 ** substitute through. Ideally, I should collapse as much
-                 ** as possible.
-                 **)
-                (More_ cs' (GExs ts shere g'), tacs)
-            end
-      | GHyp h g =>
-        match @runOnGoals_list tacs tus tvs nus nvs (CHyp ctx h) (HypSubst s) g with
-          | (Fail, tacs) => (Fail, tacs)
-          | (Solved s, tacs) => (Solved (fromHyp s), tacs)
-          | (More_ s g, tacs) => (More_ (fromHyp s) (GHyp h g), tacs)
-        end
-      | GConj_ l r =>
-        (** NOTE: It would be nice if I could eagerly
-         ** instantiate [r] with any results that came
-         ** from [l].
-         **)
-        match @runOnGoals_list tacs tus tvs nus nvs ctx s l with
-          | (Fail, tacs) => (Fail, tacs)
-          | (Solved s', tacs) => @runOnGoals_list tacs tus tvs nus nvs ctx s' r
-          | (More_ s' g', tacs) =>
-            match @runOnGoals_list tacs tus tvs nus nvs ctx s' r with
-              | (Fail, tacs) => (Fail, tacs)
-              | (Solved s'', tacs) => (More s'' g', tacs)
-              | (More_ s'' g'', tacs) => (More s'' (GConj_ g' g''), tacs)
             end
         end
     end.
@@ -237,6 +186,90 @@ Section runOnGoals.
                                    (length tvs + countVars ctx)
                                    ctx s g).
 *)
+
+  Lemma pctxD_remembers {c s l a sD pD}
+  : WellFormed_ctx_subst s ->
+    pctxD s = Some sD ->
+    amap_substD (getUVars c ++ l) (getVars c) a = Some pD ->
+    exists sD',
+      pctxD (remembers instantiate s l a) = Some sD' /\
+      forall us vs (P : exprT _ _ Prop),
+        (sD (fun us vs =>
+               forall us', pD (hlist_app us us') vs -> P (hlist_app us us') vs) us vs <->
+         sD' P us vs).
+  Proof.
+    simpl. intros.
+    rewrite H0.
+    Lemma amap_instantiates_substD
+    : forall tus tvs f fD s sD,
+        amap_substD tus tvs s = Some sD ->
+        InstantiateI.sem_preserves_if _ _ fD f ->
+        exists sD',
+          amap_substD tus tvs (amap_instantiate instantiate f s) = Some sD' /\
+          forall us vs,
+            fD us vs ->
+            (sD us vs <-> sD' us vs).
+    Admitted.
+    Check pctxD_substD.
+    destruct (pctxD_substD (instantiate:=instantiate) H H0) as [ ? [ ? ? ] ].
+    eapply amap_instantiates_substD
+      with (f := fun u => ctx_lookup u s)
+           (fD := fun us vs => x (fst (hlist_split _ _ us)) vs) in H1.
+    forward_reason.
+    rewrite H1.
+    eexists; split; eauto.
+    simpl. intros.
+    split.
+    { eapply Ap_pctxD; eauto.
+      generalize (H3 us vs); clear H3.
+      eapply Ap_pctxD; eauto.
+      eapply Pure_pctxD; eauto.
+      intros.
+      eapply _forall_sem; intros.
+      eapply H5; clear H5.
+      eapply H4; eauto.
+      rewrite hlist_split_hlist_app. assumption. }
+    { eapply Ap_pctxD; eauto.
+      generalize (H3 us vs); clear H3.
+      eapply Ap_pctxD; eauto.
+      eapply Pure_pctxD; eauto.
+      intros.
+      eapply _forall_sem with (x := us') in H5; intros.
+      eapply H5; clear H5.
+      eapply H4; eauto.
+      rewrite hlist_split_hlist_app. assumption. }
+    { 
+      SearchAbout InstantiateI.sem_preserves_if.
+      red. intros.
+      destruct (pctxD_substD (instantiate:=instantiate) H H0) as [ ? [ ? ? ] ].
+      eapply ctx_substD_lookup in H4; eauto.
+      forward_reason.
+      eapply exprD'_weakenU with (tus' := l) in H8; eauto.
+      destruct H8 as [ ? [ ? ? ] ].
+      eapply nth_error_get_hlist_nth_weaken in H4.
+      revert H4. instantiate (1 := l).
+      simpl. destruct 1 as [ ? [ ? ? ] ].
+      rewrite H5 in H4. inv_all. subst.
+      eexists; split; eauto.
+      intros us vs.
+      rewrite <- (hlist_app_hlist_split _ _ us) at 2 3.
+      rewrite <- H11; clear H11; eauto.
+      rewrite <- H10; clear H10.
+      intro. eapply H9.
+      
+    
+
+
+  Lemma _exists_impl : forall l (P Q : hlist typD l -> Prop),
+                         (forall x, P x -> Q x) ->
+                         _exists _ l P -> _exists _ l Q.
+  Proof.
+    clear. intros.
+    eapply _exists_sem in H0. eapply _exists_sem.
+    destruct H0. exists x. auto.
+  Qed.
+
+  Opaque remembers.
 
 
   Lemma runOnGoals_sound_ind
@@ -300,47 +333,92 @@ Section runOnGoals.
     { (* Exs *)
       intros; simpl in *.
       forward.
-      specialize (@IHg (CExs _ l) (ExsSubst s a)).
-      revert IHg.
+      specialize (@IHg (CExs _ l) (remembers instantiate s l a)).
+      revert IHg. simpl.
       repeat rewrite countUVars_getUVars.
       repeat rewrite countVars_getVars.
-      intros; forward.
+      repeat rewrite app_length.
+      intros.
       match goal with
         | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
           replace Y with X;
             [ remember X as X' ; destruct X'
-            | simpl; f_equal; rewrite app_length; omega ]
+            |  ]
       end; intros; auto.
-      { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
-        simpl. intros.
-        destruct IHg as [ ? [ ? ? ] ].
-        { inversion H; subst; auto. }
-        { inversion H; subst. constructor; auto.
-          rewrite countUVars_getUVars. assumption. }
+      { forward.
+        destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
+        subst.
+        simpl in *. inv_all; subst.
+        rewrite <- countUVars_getUVars in H4.
+        destruct (remembers_sound (instantiate:=instantiate) eq_refl H1 H4).
+        destruct IHg as [ ? [ ? ? ] ]; auto.
         simpl in *.
         forward.
-        inv_all.
-        inv_all.
+        progress inv_all.
         split; auto. split.
         { constructor; eauto.
-          rewrite countUVars_getUVars in H8. assumption. }
+          rewrite <- countUVars_getUVars.
+          eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
         { forward. inv_all. subst.
-          forward_reason. inv_all; subst.
-          revert H12.
-          Cases.rewrite_all_goal. intros.
-          split; auto. reflexivity.
-          intros.
-          generalize (H14 us vs); clear H14.
-          eapply Ap_pctxD; eauto.
-          generalize (H12 us vs); clear H12.
-          eapply Fmap_pctxD_impl; eauto; try reflexivity.
-          clear.
-          do 6 red; intros.
-          eapply _exists_sem.
-          eapply _exists_sem in H3. destruct H3.
-          exists x1.
-          rewrite _forall_sem in H2.
-          equivs. firstorder. } }
+          forward_reason.
+
+          destruct (pctxD_remembers H3 H10) as [ ? [ ? ? ] ].
+          rewrite H11 in *.
+          forward. inv_all; subst.
+          change_rewrite H9.
+          split.
+          { admit. }
+          { destruct H14. intros.
+            specialize (H16 us vs); revert H16.
+            Transparent remembers. unfold remembers in H14.
+            Opaque remembers.
+            inv_all. subst. rewrite H3 in H14.
+            destruct (@pctxD_substD _ _ _ _ _ _ _ instantiate _ _ _ H1 H3) as [ ? [ ? ? ] ].
+            specialize (@H2 _ _ _ _ H16 H10).
+            forward_reason.
+            change_rewrite H9 in H14.
+            rewrite H15 in H14.
+            eapply Ap_pctxD; eauto.
+            Transparent remembers. unfold remembers in *.
+            simpl in H11. simpl in H2.
+            Opaque remembers.
+            forward; inv_all; subst.
+            revert H14. change_rewrite H2.
+            intros. specialize (H14 us vs).
+            revert H14.
+            eapply Ap_pctxD; eauto.
+            eapply (@pctxD_SubstMorphism _ _ _ _ _ _ _ _ _ H18 _ _ H3 H15 us vs).
+            specialize (H12 us vs); revert H12.
+            specialize (H17 us vs); revert H17.
+            destruct (drop_exact_append_exact l (getUVars ctx)) as [ ? [ ? ? ] ].
+            rewrite H0 in *.
+            inv_all. revert H12. revert H19.
+            subst. intros; subst.
+            revert H17.
+            eapply Ap_pctxD; eauto.
+            specialize (H14 P).
+            cut (e
+                   (fun (us0 : hlist typD (getUVars ctx))
+                        (vs0 : hlist typD (getVars ctx)) =>
+                      _foralls typD l
+                               (fun us' : hlist typD l =>
+                                  e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
+            { eapply Ap_pctxD; eauto.
+              clear H14.
+              eapply Pure_pctxD; eauto.
+              clear - H19 H11.
+              intros.
+              revert H3. eapply _exists_impl.
+              intros.
+              rewrite _forall_sem in H2.
+              rewrite _forall_sem in H.
+              specialize (H2 x).
+              specialize (H x).
+              specialize (H1 x).
+              specialize (H19 us x vs).
+              specialize (H11 us x).
+              tauto. }
+            { eapply H14. eapply Pure_pctxD; eauto. } } } }
       { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
         simpl. intros.
         inv_all.
@@ -508,3 +586,61 @@ Section runOnGoals_proof.
     exact (fun x => x).
   Qed.
 End runOnGoals_proof.
+
+(*
+  Fixpoint runOnGoals_list (tacs : list (rtac typ expr)) (tus tvs : tenv typ) (nus nvs : nat)
+           (ctx : Ctx typ expr) (s : ctx_subst ctx) (g : Goal typ expr)
+           {struct g}
+  : Result ctx * list (rtac typ expr) :=
+    match g with
+      | GGoal e =>
+        match tacs with
+          | nil => (Fail, nil)
+          | tac :: tacs => (@tac tus tvs nus nvs ctx s e, tacs)
+        end
+      | GSolved => (Solved s, tacs)
+      | GAll t g =>
+        match @runOnGoals_list tacs tus (tvs ++ t :: nil) nus (S nvs) (CAll ctx t) (AllSubst s) g with
+          | (Fail, tacs) => (Fail,tacs)
+          | (Solved s, tacs) => (Solved (fromAll s), tacs)
+          | (More_ s g, tacs) => (More (fromAll s) (GAll t g), tacs)
+        end
+      | GExs ts sub g =>
+        let s' := ExsSubst s sub in
+            match @runOnGoals_list tacs (tus ++ ts) tvs (length ts + nus) nvs (CExs ctx ts) s' g with
+              | (Fail, tacs) => (Fail, tacs)
+              | (Solved s'', tacs) =>
+                let '(shere,cs') := fromExs s'' in
+                (** Here I can drop anything that is already instantiated. **)
+                (More_ cs' (GExs ts shere GSolved), tacs)
+              | (More_ s'' g', tacs) =>
+                let '(shere,cs') := fromExs s'' in
+                (** Here I need to drop already instantiated vars and
+                 ** substitute through. Ideally, I should collapse as much
+                 ** as possible.
+                 **)
+                (More_ cs' (GExs ts shere g'), tacs)
+            end
+      | GHyp h g =>
+        match @runOnGoals_list tacs tus tvs nus nvs (CHyp ctx h) (HypSubst s) g with
+          | (Fail, tacs) => (Fail, tacs)
+          | (Solved s, tacs) => (Solved (fromHyp s), tacs)
+          | (More_ s g, tacs) => (More_ (fromHyp s) (GHyp h g), tacs)
+        end
+      | GConj_ l r =>
+        (** NOTE: It would be nice if I could eagerly
+         ** instantiate [r] with any results that came
+         ** from [l].
+         **)
+        match @runOnGoals_list tacs tus tvs nus nvs ctx s l with
+          | (Fail, tacs) => (Fail, tacs)
+          | (Solved s', tacs) => @runOnGoals_list tacs tus tvs nus nvs ctx s' r
+          | (More_ s' g', tacs) =>
+            match @runOnGoals_list tacs tus tvs nus nvs ctx s' r with
+              | (Fail, tacs) => (Fail, tacs)
+              | (Solved s'', tacs) => (More s'' g', tacs)
+              | (More_ s'' g'', tacs) => (More s'' (GConj_ g' g''), tacs)
+            end
+        end
+    end.
+*)
