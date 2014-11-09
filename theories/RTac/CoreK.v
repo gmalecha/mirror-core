@@ -107,7 +107,6 @@ Section parameterized.
             ==> iff)
            (@rtacK_spec ctx s).
   Proof.
-(*
     red. red. red.
     unfold rtacK_spec.
     inversion 2.
@@ -115,30 +114,47 @@ Section parameterized.
       reflexivity. }
     { destruct x0; destruct y0; simpl in *;
       try solve [ reflexivity | congruence ]; inv_all; subst; inv_all;
-      try (eapply impl_iff; try reflexivity; intros;
-           eapply and_iff; try reflexivity; intros;
-           try inversion H; try reflexivity;
-           try inversion H5; try reflexivity;
-           repeat match goal with
-                    | |- context [ match ?X with _ => _ end ] =>
-                      consider X; intros; try reflexivity; [ ]
-                  end;
-           eapply and_iff; try reflexivity; intros;
-           do 2 (eapply forall_iff; intro);
-           eapply Fmap_pctxD_iff; eauto; try reflexivity;
-           do 5 red; intros).
-      { apply impl_iff; [ eapply H10; eauto | intro ].
-        apply H7; eauto. }
-      { do 5 red in H10.
-        rewrite H10; try reflexivity.
+      repeat match goal with
+               | H : ?X , H' : ?X |- _ => clear H'
+               | H : EqGoal _ _ _ _ |- _ => destruct H
+               | |- (_ -> _) <-> (_ -> _) =>
+                 eapply impl_iff; [ solve [ eauto | reflexivity ] | ]; intros
+               | |- (_ /\ _) <-> (_ /\ _) =>
+                 eapply and_iff; [ solve [ eauto | reflexivity ] | ]; intros
+               | H : Roption _ _ _ |- _ => inversion H; clear H
+               | |- context [ match ?X with _ => _ end ] =>
+                 consider X; intros; try reflexivity; [ ]
+               | |- context [ match ?X with _ => _ end ] =>
+                 consider X; intros; reflexivity
+               | |- (forall x, _) <-> (forall y, _) =>
+                 eapply forall_iff; intro
+               | |- _ =>
+                 eapply left_side; [ match goal with
+                                       | H : _ <-> _ |- _ => apply H; constructor
+                                     end | ]
+               | |- _ =>
+                 eapply right_side; [ match goal with
+                                       | H : _ <-> _ |- _ => apply H; constructor
+                                     end | ]
+               | |- ?X _ _ _ <-> ?X _ _ _ =>
+                 (eapply Fmap_pctxD_iff; try reflexivity; eauto);
+                   [  ]
+             end.
+      { do 5 red; intros; equivs.
+        apply impl_iff; [ eapply H10; try reflexivity; eauto | intro ].
+        apply H12; reflexivity. }
+      { subst. do 5 red; intros; equivs.
+        do 5 red in H9.
+        rewrite H9; try reflexivity.
         rewrite impl_True_iff.
-        eapply H7; eauto. }
-      { do 5 red in H10.
-        rewrite <- H10; try reflexivity.
+        eapply H11; reflexivity. }
+      { subst. do 5 red in H9.
+        do 5 red; intros; equivs.
+        rewrite <- H9; try reflexivity.
         rewrite impl_True_iff.
-        eapply H7; eauto. } }
-*)
-  Admitted. (** Port **)
+        eapply H11; reflexivity. }
+      { eapply Fmap_pctxD_iff; try reflexivity; eauto. } }
+  Qed.
 
   (** Treat this as opaque! **)
   Definition rtacK : Type :=

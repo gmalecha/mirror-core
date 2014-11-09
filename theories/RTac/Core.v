@@ -111,6 +111,11 @@ Section parameterized.
                 | _ => I
               end).
   Defined.
+  Global Instance Injective_WellFormed_Goal_GConj tus tvs a b
+  : Injective (WellFormed_Goal tus tvs (GConj_ a b)) :=
+  { result := WellFormed_Goal tus tvs a /\ WellFormed_Goal tus tvs b }.
+  Proof. inversion 1. auto. Defined.
+
 
   Definition GAlls (ts : list typ) (g : Goal) : Goal :=
     fold_right (fun x y => GAll x y) g ts.
@@ -489,12 +494,12 @@ Section parameterized.
   Lemma left_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
                                            ((P /\ Q) <-> R).
-  Proof. tauto. Qed.
+  Proof. clear. tauto. Qed.
 
   Lemma right_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
                                            (Q <-> (P /\ R)).
-  Proof. tauto. Qed.
+  Proof. clear. tauto. Qed.
 
 
   Theorem Proper_rtac_spec ctx s
@@ -502,6 +507,7 @@ Section parameterized.
             @EqResult (getUVars ctx) (getVars ctx) ctx ==> iff)
            (@rtac_spec ctx s).
   Proof.
+    clear RTypeOk_typ ExprOk_expr.
     red. red. red. unfold rtac_spec.
     inversion 2.
     { destruct x0; destruct y0; simpl in *; try congruence.

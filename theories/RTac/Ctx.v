@@ -255,6 +255,85 @@ Section parameterized.
       | _ => tt
     end.
 
+  Global Instance Injective_HypSubst h c s s'
+  : Injective (@HypSubst h c s = @HypSubst h c s') :=
+    { result := s = s' }.
+  Proof. clear.
+   refine (fun pf =>
+             match pf in _ = Z
+                   return match Z in ctx_subst c return ctx_subst c -> Prop with
+                            | HypSubst _ _ x => fun y => fromHyp y = x
+                            | _ => fun _ => True
+                          end (HypSubst s)
+             with
+               | eq_refl => eq_refl
+             end).
+  Defined.
+
+  Global Instance Injective_AllSubst h c s s'
+  : Injective (@AllSubst h c s = @AllSubst h c s') :=
+    { result := s = s' }.
+  Proof. clear.
+   refine (fun pf =>
+             match pf in _ = Z
+                   return match Z in ctx_subst c return ctx_subst c -> Prop with
+                            | AllSubst _ _ x => fun y => fromAll y = x
+                            | _ => fun _ => True
+                          end (AllSubst s)
+             with
+               | eq_refl => eq_refl
+             end).
+  Defined.
+
+  Lemma eta_ctx_subst_exs c ts (s : ctx_subst (CExs c ts))
+  : exists y z, s = ExsSubst z y.
+  Proof.
+    refine (match s in @ctx_subst X
+                  return match X as X return @ctx_subst X -> Prop with
+                           | CExs c ts => fun s =>
+                             exists (y : _) (z : ctx_subst  c), s = ExsSubst z y
+                           | _ => fun _ => True
+                         end s
+            with
+              | ExsSubst _ _ _ s => _
+              | _ => I
+            end).
+    clear; eauto.
+  Qed.
+
+  Lemma eta_ctx_subst_hyp c ts (s : ctx_subst (CHyp c ts))
+  : exists z, s = HypSubst z.
+  Proof.
+    refine (match s in @ctx_subst X
+                  return match X as X return @ctx_subst X -> Prop with
+                           | CHyp c ts => fun s =>
+                                            exists (z : ctx_subst  c), s = HypSubst z
+                           | _ => fun _ => True
+                         end s
+            with
+              | HypSubst _ _ s => _
+              | _ => I
+            end).
+    clear; eauto.
+  Qed.
+
+  Lemma eta_ctx_subst_all c ts (s : ctx_subst (CAll c ts))
+  : exists z, s = AllSubst z.
+  Proof.
+    refine (match s in @ctx_subst X
+                  return match X as X return @ctx_subst X -> Prop with
+                           | CAll c ts => fun s =>
+                                            exists (z : ctx_subst  c), s = AllSubst z
+                           | _ => fun _ => True
+                         end s
+            with
+              | AllSubst _ _ s => _
+              | _ => I
+            end).
+    clear; eauto.
+  Qed.
+
+
   Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
     match cs with
       | TopSubst _ _ => None
@@ -449,36 +528,6 @@ Section parameterized.
   : option (ctx_subst c) :=
     ctx_set' u e cs (fun _ => @Some _).
 
-(*
-  Fixpoint simple_ctx_set' {c} (u : uvar) (e : expr) (cs : ctx_subst c)
-  : option (ctx_subst c * (nat -> option expr)).
-  refine (
-    match cs in ctx_subst c
-          return option (ctx_subst c * (nat -> option expr))
-    with
-      | TopSubst _ _ => None
-      | AllSubst t _ cs' => @simple_ctx_set' _ (CAll _ t) u e cs' (AllSubst rst)
-      | HypSubst _ _ c => _
-      | ExsSubst _ ctx c s => _
-    end).
-fun k =>
-          if u ?[ ge ] (countUVars ctx) then
-            match amap_check_set u e s with
-              | None => None
-              | Some s' =>
-                match amap_lookup u s with
-                  | None => None
-                  | Some e' =>
-                    k (fun x => if x ?[ eq ] u then Some e' else None)
-                      (ExsSubst c s')
-                end
-            end
-          else
-            ctx_set' c
-                     (fun f c => k f (@ExsSubst _ ctx c
-                                                (SUBST.raw_instantiate instantiate f s)))
-*)
-
   Fixpoint ctx_empty {c} : ctx_subst c :=
     match c with
       | CTop _ _ => TopSubst _ _
@@ -602,21 +651,36 @@ fun k =>
     auto.
   Qed.
 
-  Theorem ctx_substD_lookup ctx
+  Class ExprTApplicative {tus tvs} (C : exprT tus tvs Prop -> Prop) : Type :=
+  { exprTPure : forall (P : exprT _ _ Prop), (forall us vs, P us vs) -> C P
+  ; exprTAp   : forall (P Q : exprT _ _ Prop),
+                  C (fun us vs => P us vs -> Q us vs) ->
+                  C P -> C Q }.
+
+  Lemma ExprTApplicative_foralls tus tvs
+  : ExprTApplicative
+      (fun P : exprT tus tvs Prop =>
+         forall (us : hlist typD tus) (vs : hlist typD tvs), P us vs).
+  Proof.
+    clear. constructor; firstorder.
+  Defined.
+
+  Theorem ctx_substD_lookup_gen ctx
   : forall (s : ctx_subst ctx),
       WellFormed_ctx_subst s ->
       forall (uv : nat) (e : expr),
       ctx_lookup uv s = Some e ->
-      forall (tus tvs : tenv typ),
-        forall  (sD : exprT tus tvs Prop),
+      forall (tus tvs : tenv typ) (sD : exprT tus tvs Prop)
+             (C : exprT tus tvs Prop -> Prop)
+             (App_C : ExprTApplicative C),
         ctx_substD tus tvs s = Some sD ->
         exists (t : typ) (val : exprT tus tvs (typD t))
                (get : hlist typD tus -> typD t),
           nth_error_get_hlist_nth typD tus uv =
           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) /\
           exprD' tus tvs e t = Some val /\
-          (forall (us : hlist typD tus) (vs : hlist typD tvs),
-             sD us vs -> get us = val us vs).
+          (C (fun us vs =>
+                sD us vs -> get us = val us vs)).
   Proof.
     induction 1; simpl; intros.
     { congruence. }
@@ -624,41 +688,70 @@ fun k =>
       eapply drop_exact_sound in H2.
       forward_reason.
       revert H1; subst.
-      eapply IHWellFormed_ctx_subst in H3; eauto.
+      specialize (fun C Pure_C => @IHWellFormed_ctx_subst _ _ H0 _ _ _ C Pure_C H3).
+      destruct (@IHWellFormed_ctx_subst (fun P => C (fun us vs => P us (fst (hlist_split _ _ vs))))); clear IHWellFormed_ctx_subst.
+      { clear - App_C.
+        constructor.
+        { intros. eapply exprTPure. eauto. }
+        { intros P Q H. eapply exprTAp. eauto. } }
       forward_reason.
       eapply exprD'_weakenV with (tvs' := t :: nil) in H2; eauto.
       forward_reason.
       do 3 eexists; split; eauto. split; eauto.
-      intros. revert H6.
-      rewrite <- (hlist_app_hlist_split _ _ vs). intro.
-      rewrite <- H4; clear H4.
-      eapply H3.
-      rewrite H5 in H6. assumption. }
+      intros. revert H4.
+      eapply exprTAp. eapply exprTPure; intros.
+      revert H7.
+      rewrite <- (hlist_app_hlist_split _ _ vs).
+      rewrite <- H5; clear H5.
+      rewrite H6. assumption. }
     { eauto. }
     { forward; inv_all; subst.
       consider (amap_lookup uv s'); intros; inv_all; subst.
-      { eapply SUBST.substD_lookup in H1; eauto.
+      { eapply SUBST.substD_lookup in H1; eauto using WellFormed_entry_WellFormed.
         forward_reason.
         do 3 eexists; split; eauto. split; eauto.
-        intros. destruct H7. eauto.
-        eapply WellFormed_entry_WellFormed; eassumption.
-        eapply H4. }
-      { eapply IHWellFormed_ctx_subst in H2; eauto.
-        forward_reason.
-        eapply drop_exact_sound in H3.
-        forward_reason.
-        revert H3. subst tus; intros.
+        eapply exprTPure. clear - H6.
+        firstorder. }
+      { eapply drop_exact_sound in H3.
+        destruct H3. revert H3. subst.
+        destruct (fun Pure_C => @IHWellFormed_ctx_subst _ _ H2 _ _ _ (fun P => C (fun us vs => P (fst (hlist_split _ _ us)) vs)) Pure_C H5).
+        { clear - App_C. constructor.
+          { intros. eapply exprTPure. eauto. }
+          { intros P Q H. eapply exprTAp; eauto. } }
+        forward_reason. intros.
         exists x0.
-        eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H2.
+        eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H3.
         simpl in *. forward_reason.
         eapply exprD'_weakenU with (tus' := ts) in H6; eauto.
         forward_reason.
         do 2 eexists; split; eauto; split; eauto.
-        do 2 intro.
+        revert H7.
+        eapply exprTAp. eapply exprTPure. intros us vs ?.
         rewrite <- (hlist_app_hlist_split _ _ us).
-        rewrite <- H8; clear H8.
+        rewrite <- H10; clear H10.
         rewrite <- H9; clear H9. destruct 1.
-        eapply H7. rewrite H3 in H9. assumption. } }
+        eapply H7. rewrite H8 in H10. assumption. } }
+  Qed.
+
+  Theorem ctx_substD_lookup ctx
+  : forall (s : ctx_subst ctx),
+      WellFormed_ctx_subst s ->
+      forall (uv : nat) (e : expr),
+      ctx_lookup uv s = Some e ->
+      forall (tus tvs : tenv typ) (sD : exprT tus tvs Prop),
+        ctx_substD tus tvs s = Some sD ->
+        exists (t : typ) (val : exprT tus tvs (typD t))
+               (get : hlist typD tus -> typD t),
+          nth_error_get_hlist_nth typD tus uv =
+          Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) /\
+          exprD' tus tvs e t = Some val /\
+          (forall us vs,
+             sD us vs -> get us = val us vs).
+  Proof.
+    intros.
+    eapply ctx_substD_lookup_gen
+      with (C := fun (P : exprT _ _ Prop) => forall us vs, P us vs); eauto.
+    eapply ExprTApplicative_foralls.
   Qed.
 
   Lemma ctx_subst_domain ctx
@@ -1055,7 +1148,7 @@ fun k =>
       forall us vs (P : exprT _ _ Prop),
         C P us vs -> C' P us vs.
   Proof.
-    clear instantiate.
+    clear.
     induction 1; intros; simpl in *; forward; inv_all; subst; eauto.
     { eapply IHSubstMorphism; eauto. }
     { change_rewrite H2 in H6.
@@ -1450,6 +1543,27 @@ fun k =>
           ctx_substD (tus ++ ts) tvs cs' = Some cs'D /\
           (forall us us' vs,
              (csD us vs /\ mD (hlist_app us us') vs) <-> cs'D (hlist_app us us') vs).
+  Proof.
+  Admitted.
+
+  (** TODO: Move to Ctx **)
+  Definition sem_preserves_if_ho tus tvs
+             (P : exprT tus tvs Prop -> Prop)
+             (f : nat -> option expr) : Prop :=
+    forall u e t get,
+      f u = Some e ->
+      nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
+      exists eD,
+        exprD' tus tvs e t = Some eD /\
+        P (fun us vs => get us = eD us vs).
+
+  Lemma amap_instantiates_substD
+  : forall tus tvs C (_ : @ExprTApplicative tus tvs C) f s sD,
+      amap_substD tus tvs s = Some sD ->
+      sem_preserves_if_ho C f ->
+      exists sD',
+        amap_substD tus tvs (amap_instantiate f s) = Some sD' /\
+        C (fun us vs => sD us vs <-> sD' us vs).
   Proof.
   Admitted.
 
