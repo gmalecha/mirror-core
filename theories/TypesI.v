@@ -47,6 +47,8 @@ Section typed.
 
   Variable RType_typ : RType.
 
+  Require Coq.Classes.EquivDec.
+
   Class RTypeOk  : Type :=
   { Relim_refl
     : forall t F (val : F (typD t)),
@@ -64,6 +66,7 @@ Section typed.
   ; type_cast_refl : forall x, type_cast x x = Some (Rrefl x)
   ; type_cast_total : forall x y,
                         type_cast x y = None -> ~Rty x y
+  ; EquivDec_typ :> EquivDec.EqDec typ (@eq typ)
   }.
 
   Definition makeRTypeOk
@@ -80,6 +83,14 @@ Section typed.
     { destruct pf1; destruct pf2; reflexivity. }
     { assumption. }
     { assumption. }
+    { red.
+      refine (fun x y => match type_cast x y as Z return type_cast x y = Z -> _ with
+                           | Some pf => fun _ => left pf
+                           | None => fun pf => right _
+                         end eq_refl).
+      red; intro. red in H.
+      eapply tc' in pf. apply pf.
+      destruct H. reflexivity. }
   Qed.
 
   Global Instance RelDec_Rty : RelDec Rty :=
