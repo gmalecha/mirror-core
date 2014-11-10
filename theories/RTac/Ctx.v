@@ -1952,6 +1952,45 @@ Section parameterized.
     clear. induction ctx'; eauto.
   Qed.
 
+  Lemma only_in_range_0_empty
+  : forall a am, only_in_range a 0 am ->
+                 UVarMap.MAP.Equal am amap_empty.
+  Proof.
+    clear. unfold only_in_range. red.
+    intros.
+    specialize (H y). unfold amap_lookup in *.
+    rewrite SUBST.FACTS.empty_o.
+    destruct (UVarMap.MAP.find y am); auto.
+    exfalso. specialize (H _ eq_refl). omega.
+  Qed.
+
+  Lemma only_in_range_0_WellFormed_pre_entry
+  : forall a am, only_in_range a 0 am -> WellFormed_pre_entry a 0 am.
+  Proof.
+    clear. unfold only_in_range. red.
+    intros. eapply H in H0. exfalso.
+    omega.
+  Qed.
+
+  Lemma only_in_range_0_substD
+  : forall tus tvs a am,
+      only_in_range a 0 am ->
+      exists sD,
+        amap_substD tus tvs am = Some sD /\
+        forall us vs, sD us vs.
+  Proof.
+    intros.
+    destruct (SUBST.substD_empty tus tvs) as [ ? [ ? ? ] ].
+    generalize (SUBST.Proper_amap_substD tus tvs (only_in_range_0_empty H)).
+    intro. unfold amap_substD, amap_empty, substD in *; simpl in *.
+    eapply SUBST.eq_option_A_Roption in H2.
+    destruct H2; try congruence.
+    eexists; split; eauto. inv_all; subst.
+    clear - H2 H1.
+    do 5 red in H2.
+    intros. eapply H2; eauto; reflexivity.
+  Qed.
+
 End parameterized.
 
 Ltac gather_facts :=
