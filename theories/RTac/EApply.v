@@ -1,5 +1,6 @@
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
@@ -19,8 +20,9 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
-  Variable UVar : nat -> expr.
+(*  Variable UVar : nat -> expr. *)
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -39,7 +41,7 @@ Section parameterized.
       match @eapplicable typ _ expr _
                          _ (* (ctx_subst (CExs ctx lem.(vars))) *)
                          vars_to_uvars
-                         (@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _))
+                         (@exprUnify _ _ (SubstUpdate_ctx_subst instantiate mentionsAny))
                          (freshUVars lem.(vars) sub)
                          tus tvs lem goal
       with
