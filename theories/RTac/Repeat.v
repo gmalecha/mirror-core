@@ -16,12 +16,14 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-
+  Context {typ expr : Type}.
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+
+  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   (** TODO: Write this with a positive **)
   Section repeater.
@@ -38,7 +40,7 @@ Section parameterized.
             match @tac tus tvs nus nvs ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
+                runOnGoals instantiate (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -54,16 +56,19 @@ Section parameterized.
   Proof.
     unfold REPEAT. intros n tac H.
     induction n.
-    - simpl. clear.
+    - simpl.
       red; intros; subst.
-      eapply rtac_spec_More_.
+      eapply rtac_spec_More_; auto.
     - simpl. red; intros; subst.
       specialize (H ctx s g _ eq_refl).
       destruct (tac (getUVars ctx) (getVars ctx)
                     (length (getUVars ctx)) (length (getVars ctx))
                     ctx s g); auto using rtac_spec_More_.
       eapply rtac_spec_trans; eauto.
-      eapply runOnGoals_sound; eauto with typeclass_instances.
+      eapply runOnGoals_sound in IHn.
+      revert IHn. instantiate (1 := instantiate).
+      intro. eapply IHn.
+      simpl. reflexivity.
   Qed.
 
 End parameterized.

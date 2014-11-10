@@ -27,6 +27,23 @@ Global Instance Injective_app_cons {T} (a : list T) b c d
 : Injective (a ++ b :: nil = (c ++ d :: nil)) :=
   { result := a = c /\ b = d }.
 Proof. eapply app_inj_tail. Defined.
+Global Instance Injective_app_same_L {T} (a : list T) b c
+: Injective (b ++ a = b ++ c) :=
+  { result := a = c }.
+Proof. apply app_inv_head. Defined.
+Global Instance Injective_app_same_R {T} (a : list T) b c
+: Injective (a ++ b = c ++ b) :=
+{ result := a = c }.
+Proof. apply app_inv_tail. Defined.
+
+(** Move to Data.Prop **)
+Lemma exists_impl : forall {T} (P Q : T -> Prop),
+                      (forall x, P x -> Q x) ->
+                      (exists x, P x) -> (exists x, Q x).
+Proof.
+  clear. intuition.
+  destruct H0; eauto.
+Qed.
 
 Ltac equivs :=
   repeat match goal with
@@ -162,6 +179,42 @@ Section parameterized.
       | CExs ctx' _ => getAmbientUVars ctx'
       | CHyp ctx' _ => getAmbientUVars ctx'
     end.
+
+  Fixpoint getExtensionUVars (ctx : Ctx) : tenv typ :=
+    match ctx with
+      | CTop tus _ => nil
+      | CAll ctx' _ => getExtensionUVars ctx'
+      | CExs ctx' ts => getExtensionUVars ctx' ++ ts
+      | CHyp ctx' _ => getExtensionUVars ctx'
+    end.
+
+  Fixpoint getExtensionVars (ctx : Ctx) : tenv typ :=
+    match ctx with
+      | CTop tus _ => nil
+      | CAll ctx' t => getExtensionVars ctx' ++ t :: nil
+      | CExs ctx' _ => getExtensionVars ctx'
+      | CHyp ctx' _ => getExtensionVars ctx'
+    end.
+
+  Theorem getUVars_split
+  : forall ctx,
+      getUVars ctx = getAmbientUVars ctx ++ getExtensionUVars ctx.
+  Proof.
+    clear; induction ctx; simpl; eauto.
+    - symmetry. apply app_nil_r_trans.
+    - rewrite <- app_ass_trans.
+      f_equal; auto.
+  Qed.
+
+  Theorem getVars_split
+  : forall ctx,
+      getVars ctx = getAmbientVars ctx ++ getExtensionVars ctx.
+  Proof.
+    clear; induction ctx; simpl; eauto.
+    - symmetry. apply app_nil_r_trans.
+    - rewrite <- app_ass_trans.
+      f_equal; auto.
+  Qed.
 
   Lemma getEnvs'_getUVars_getVars
   : forall c a b,
@@ -653,20 +706,6 @@ Section parameterized.
     auto.
   Qed.
 
-  Class ExprTApplicative {tus tvs} (C : exprT tus tvs Prop -> Prop) : Type :=
-  { exprTPure : forall (P : exprT _ _ Prop), (forall us vs, P us vs) -> C P
-  ; exprTAp   : forall (P Q : exprT _ _ Prop),
-                  C (fun us vs => P us vs -> Q us vs) ->
-                  C P -> C Q }.
-
-  Lemma ExprTApplicative_foralls tus tvs
-  : ExprTApplicative
-      (fun P : exprT tus tvs Prop =>
-         forall (us : hlist typD tus) (vs : hlist typD tvs), P us vs).
-  Proof.
-    clear. constructor; firstorder.
-  Defined.
-
   Theorem ctx_substD_lookup_gen ctx
   : forall (s : ctx_subst ctx),
       WellFormed_ctx_subst s ->
@@ -674,7 +713,7 @@ Section parameterized.
       ctx_lookup uv s = Some e ->
       forall (tus tvs : tenv typ) (sD : exprT tus tvs Prop)
              (C : exprT tus tvs Prop -> Prop)
-             (App_C : ExprTApplicative C),
+             (App_C : CtxLogic.ExprTApplicative C),
         ctx_substD tus tvs s = Some sD ->
         exists (t : typ) (val : exprT tus tvs (typD t))
                (get : hlist typD tus -> typD t),
@@ -695,14 +734,14 @@ Section parameterized.
       destruct (@IHWellFormed_ctx_subst (fun P => C (fun us vs => P us (fst (hlist_split _ _ vs))))); clear IHWellFormed_ctx_subst.
       { clear - App_C.
         constructor.
-        { intros. eapply exprTPure. eauto. }
-        { intros P Q H. eapply exprTAp. eauto. } }
+        { intros. eapply CtxLogic.exprTPure. eauto. }
+        { intros P Q H. eapply CtxLogic.exprTAp. eauto. } }
       forward_reason.
       eapply exprD'_weakenV with (tvs' := t :: nil) in H2; eauto.
       forward_reason.
       do 3 eexists; split; eauto. split; eauto.
       intros. revert H4.
-      eapply exprTAp. eapply exprTPure; intros.
+      eapply CtxLogic.exprTAp. eapply CtxLogic.exprTPure; intros.
       revert H7.
       rewrite <- (hlist_app_hlist_split _ _ vs).
       rewrite <- H5; clear H5.
@@ -713,14 +752,14 @@ Section parameterized.
       { eapply SUBST.substD_lookup in H1; eauto using WellFormed_entry_WellFormed.
         forward_reason.
         do 3 eexists; split; eauto. split; eauto.
-        eapply exprTPure. clear - H6.
+        eapply CtxLogic.exprTPure. clear - H6.
         firstorder. }
       { eapply drop_exact_sound in H3.
         destruct H3. revert H3. subst.
         destruct (fun Pure_C => @IHWellFormed_ctx_subst _ _ H2 _ _ _ (fun P => C (fun us vs => P (fst (hlist_split _ _ us)) vs)) Pure_C H5).
         { clear - App_C. constructor.
-          { intros. eapply exprTPure. eauto. }
-          { intros P Q H. eapply exprTAp; eauto. } }
+          { intros. eapply CtxLogic.exprTPure. eauto. }
+          { intros P Q H. eapply CtxLogic.exprTAp; eauto. } }
         forward_reason. intros.
         exists x0.
         eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H3.
@@ -729,7 +768,7 @@ Section parameterized.
         forward_reason.
         do 2 eexists; split; eauto; split; eauto.
         revert H7.
-        eapply exprTAp. eapply exprTPure. intros us vs ?.
+        eapply CtxLogic.exprTAp. eapply CtxLogic.exprTPure. intros us vs ?.
         rewrite <- (hlist_app_hlist_split _ _ us).
         rewrite <- H10; clear H10.
         rewrite <- H9; clear H9. destruct 1.
@@ -755,7 +794,7 @@ Section parameterized.
     intros.
     eapply ctx_substD_lookup_gen
       with (C := fun (P : exprT _ _ Prop) => forall us vs, P us vs); eauto.
-    eapply ExprTApplicative_foralls.
+    eapply CtxLogic.ExprTApplicative_foralls.
   Qed.
 
   Lemma ctx_subst_domain ctx
@@ -1008,6 +1047,9 @@ Section parameterized.
       intros. eapply H; eauto; reflexivity. }
   Qed.
 
+  (** NOTE: This needs the generalized implementation of
+   ** CtxLogic.ExprTApplicative
+   **)
   Theorem Applicative_pctxD
   : forall ctx s C,
       @pctxD ctx s = Some C ->
@@ -1485,12 +1527,22 @@ Section parameterized.
       rewrite type_cast_refl; eauto with typeclass_instances. }
   Qed.
 
+  Ltac gather_facts :=
+    repeat match goal with
+             | H : forall us vs, ?C _ us vs |- ?C _ ?us ?vs =>
+               generalize (H us vs); clear H ;
+               eapply Ap_pctxD; [ eassumption | ]
+             | H : ?C _ ?us ?vs |- ?C _ ?us ?vs =>
+               revert H; clear H ;
+               eapply Ap_pctxD; [ eassumption | ]
+           end.
+
   Lemma pctxD_substD
   : forall ctx (s : ctx_subst ctx) cD,
       WellFormed_subst s ->
       pctxD s = Some cD ->
       exists sD,
-        substD (getUVars ctx) (getVars ctx) s = Some sD /\
+        ctx_substD (getUVars ctx) (getVars ctx) s = Some sD /\
         forall us vs, cD sD us vs.
   Proof.
     clear. intros ctx s cD H; revert cD; induction H; simpl; intros.
@@ -1532,6 +1584,65 @@ Section parameterized.
       split; auto. rewrite H3. equivs; assumption. }
   Qed.
 
+  Lemma substD_pctxD
+  : forall ctx (s s' : ctx_subst ctx) sD s'D,
+      WellFormed_subst s ->
+      pctxD s' = Some s'D ->
+      (** Maybe it is nicer to have the substitution include the propositions *)
+      ctx_substD (getUVars ctx) (getVars ctx) s = Some sD ->
+      exists cD,
+        pctxD s = Some cD /\
+        forall us vs, cD sD us vs.
+  Proof.
+    clear. intros ctx s s' cD c'D H; revert cD s' c'D; induction H; simpl; intros.
+    { rewrite rel_dec_eq_true in * by eauto with typeclass_instances.
+      rewrite rel_dec_eq_true in * by eauto with typeclass_instances.
+      simpl in *.
+      eexists; split; eauto.
+      inv_all; subst; simpl; auto. }
+    { destruct (eta_ctx_subst_all s'); subst.
+      simpl in *. forward.
+      inv_all; subst.
+      eapply drop_exact_sound in H3.
+      forward_reason.
+      generalize x1. intros; inv_all; subst.
+      specialize (@IHWellFormed_ctx_subst _ _ _ H0 H4).
+      forward_reason.
+      Cases.rewrite_all_goal.
+      eexists; split; eauto.
+      simpl; intros.
+      gather_facts.
+      eapply Pure_pctxD; eauto.
+      intros.
+      specialize (H1 vs0 (Hcons x2 Hnil)).
+      revert H3.
+      generalize dependent (hlist_app vs0 (Hcons x2 Hnil)).
+      generalize dependent (getVars c ++ t :: nil).
+      clear. intros; subst. admit. (** UIP **) }
+    { destruct (eta_ctx_subst_hyp s'); subst.
+      simpl in *. forward; inv_all; subst.
+      eapply IHWellFormed_ctx_subst in H1; clear IHWellFormed_ctx_subst; eauto.
+      forward_reason.
+      Cases.rewrite_all_goal.
+      eexists; split; eauto.
+      simpl; intros; gather_facts.
+      eapply Pure_pctxD; eauto. }
+    { destruct (eta_ctx_subst_exs s'0) as [ ? [ ? ? ] ]; subst.
+      simpl in *. forward; inv_all; subst.
+      eapply drop_exact_sound in H5.
+      destruct H5. generalize x2; intros; inv_all; subst.
+      eapply IHWellFormed_ctx_subst in H3; eauto.
+      forward_reason.
+      change_rewrite H3.
+      eexists; split; eauto.
+      simpl.
+      intros. gather_facts.
+      eapply Pure_pctxD; eauto.
+      intros. eapply _forall_sem; intros.
+      split; auto. revert H4. revert H2. clear.
+      admit. (** UIP **) }
+  Qed.
+
   Definition remembers (ctx : Ctx) (cs : ctx_subst ctx)
              (ts : tenv typ) (m : amap)
   : ctx_subst (CExs ctx ts) :=
@@ -1553,26 +1664,288 @@ Section parameterized.
   Proof.
   Admitted.
 
-  (** TODO: Move to Ctx **)
-  Definition sem_preserves_if_ho tus tvs
-             (P : exprT tus tvs Prop -> Prop)
-             (f : nat -> option expr) : Prop :=
-    forall u e t get,
-      f u = Some e ->
-      nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
-      exists eD,
-        exprD' tus tvs e t = Some eD /\
-        P (fun us vs => get us = eD us vs).
-
   Lemma amap_instantiates_substD
-  : forall tus tvs C (_ : @ExprTApplicative tus tvs C) f s sD,
+  : forall tus tvs C (_ : CtxLogic.ExprTApplicative C) f s sD,
       amap_substD tus tvs s = Some sD ->
-      sem_preserves_if_ho C f ->
+      InstantiateI.sem_preserves_if_ho _ _ C f ->
       exists sD',
         amap_substD tus tvs (amap_instantiate f s) = Some sD' /\
         C (fun us vs => sD us vs <-> sD' us vs).
   Proof.
   Admitted.
+
+  Lemma sem_preserves_if_ho_ctx_lookup
+  : forall ctx s cD,
+      WellFormed_subst s ->
+      pctxD s = Some cD ->
+      InstantiateI.sem_preserves_if_ho
+        (getUVars ctx) (getVars ctx)
+        (fun P => forall us vs, cD P us vs)
+        (fun u => subst_lookup u s).
+  Proof.
+    intros.
+    destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
+    red. intros.
+    eapply substD_lookup in H3; eauto.
+    forward_reason.
+    rewrite H4 in H3. inv_all. subst.
+    eexists; split; eauto.
+    intros. gather_facts.
+    eapply Pure_pctxD; eauto.
+  Qed.
+
+  Lemma Ctx_append_assoc : forall (c1 c2 c3 : Ctx),
+                             Ctx_append c1 (Ctx_append c2 c3) =
+                             Ctx_append (Ctx_append c1 c2) c3.
+  Proof.
+    clear. induction c3; simpl; auto; rewrite IHc3; auto.
+  Qed.
+
+  Lemma getUVars_Ctx_append
+  : forall c1 c2,
+      getUVars (Ctx_append c1 c2) = getUVars c1 ++ getExtensionUVars c2.
+  Proof.
+    induction c2; simpl; intros; auto.
+    symmetry. apply app_nil_r_trans.
+    rewrite IHc2. apply app_ass_trans.
+  Defined.
+
+  Lemma getVars_Ctx_append
+  : forall c1 c2,
+      getVars (Ctx_append c1 c2) = getVars c1 ++ getExtensionVars c2.
+  Proof.
+    induction c2; simpl; intros; auto.
+    symmetry. apply app_nil_r_trans.
+    rewrite IHc2. apply app_ass_trans.
+  Defined.
+
+  Definition hlist_getUVars_Ctx_append (c1 c2 : Ctx)
+  : hlist typD (getUVars (Ctx_append c1 c2)) ->
+    hlist typD (getUVars c1) :=
+    fun hs =>
+      fst (hlist_split _ _
+                       match getUVars_Ctx_append c1 c2 in _ = Z
+                             return hlist _ Z with
+                         | eq_refl => hs
+                       end).
+
+  Definition hlist_getVars_Ctx_append (c1 c2 : Ctx)
+  : hlist typD (getVars (Ctx_append c1 c2)) ->
+    hlist typD (getVars c1) :=
+    fun hs =>
+      fst (hlist_split _ _
+                       match getVars_Ctx_append c1 c2 in _ = Z
+                             return hlist _ Z with
+                         | eq_refl => hs
+                       end).
+
+
+  Fixpoint hlist_getAmbientUVars (c2 : Ctx) {struct c2}
+  : hlist typD (getUVars c2) -> hlist typD (getAmbientUVars c2) :=
+    match c2 as c2
+          return hlist typD (getUVars c2) -> hlist typD (getAmbientUVars c2)
+    with
+      | CTop _ _ => fun x => x
+      | CAll c2 _ => hlist_getAmbientUVars c2
+      | CExs _ _ => fun us => hlist_getAmbientUVars _ (fst (hlist_split _ _ us))
+      | CHyp c2 _ => hlist_getAmbientUVars c2
+    end.
+
+  Fixpoint hlist_getExtensionUVars (c2 : Ctx) {struct c2}
+  : hlist typD (getUVars c2) -> hlist typD (getExtensionUVars c2) :=
+    match c2 as c2
+          return hlist typD (getUVars c2) -> hlist typD (getExtensionUVars c2)
+    with
+      | CTop _ _ => fun x => Hnil
+      | CAll c2 _ => hlist_getExtensionUVars c2
+      | CExs c2 _ => fun us => hlist_app (hlist_getExtensionUVars c2 (fst (hlist_split _ _ us))) (snd (hlist_split _ _ us))
+      | CHyp c2 _ => hlist_getExtensionUVars c2
+    end.
+
+  Fixpoint hlist_getAmbientVars (c2 : Ctx) {struct c2}
+  : hlist typD (getVars c2) -> hlist typD (getAmbientVars c2) :=
+    match c2 as c2
+          return hlist typD (getVars c2) -> hlist typD (getAmbientVars c2)
+    with
+      | CTop _ _ => fun x => x
+      | CExs c2 _ => hlist_getAmbientVars c2
+      | CAll _ _ => fun us => hlist_getAmbientVars _ (fst (hlist_split _ _ us))
+      | CHyp c2 _ => hlist_getAmbientVars c2
+    end.
+
+  Fixpoint hlist_getExtensionVars (c2 : Ctx) {struct c2}
+  : hlist typD (getVars c2) -> hlist typD (getExtensionVars c2) :=
+    match c2 as c2
+          return hlist typD (getVars c2) -> hlist typD (getExtensionVars c2)
+    with
+      | CTop _ _ => fun x => Hnil
+      | CExs c2 _ => hlist_getExtensionVars c2
+      | CAll c2 _ => fun us => hlist_app (hlist_getExtensionVars c2 (fst (hlist_split _ _ us))) (snd (hlist_split _ _ us))
+      | CHyp c2 _ => hlist_getExtensionVars c2
+    end.
+
+
+  Lemma pctxD_get_hyp
+  : forall (ctx ctx' : Ctx) e
+           (s : ctx_subst (Ctx_append (CHyp ctx e) ctx')) sD,
+      WellFormed_subst s ->
+      pctxD s = Some sD ->
+      exists eD,
+        propD (getUVars ctx) (getVars ctx) e = Some eD /\
+        forall us vs,
+          sD (fun us vs => eD (hlist_getUVars_Ctx_append _ _ us)
+                              (hlist_getVars_Ctx_append _ _ vs)) us vs.
+  Proof.
+    clear instantiate.
+    induction ctx'; simpl.
+    { intros e s; rewrite (ctx_subst_eta s).
+      simpl. intros; forward; inv_all; subst; eauto.
+      eexists; split; eauto. intros.
+      eapply Pure_pctxD; eauto.
+      unfold hlist_getUVars_Ctx_append, hlist_getVars_Ctx_append. simpl.
+      clear.
+      intros.
+      do 2 rewrite <- hlist_app_nil_r.
+      do 2 rewrite hlist_split_hlist_app.
+      assumption. }
+    { intros e s; rewrite (ctx_subst_eta s).
+      simpl. intros; forward; inv_all; subst; eauto.
+      generalize H0; eapply IHctx' in H0; clear IHctx'; eauto.
+      forward_reason. intros.
+      eexists; split; eauto.
+      intros.
+      gather_facts.
+      eapply Pure_pctxD; eauto.
+      clear.
+      unfold hlist_getUVars_Ctx_append, hlist_getVars_Ctx_append. simpl.
+      unfold eq_ind_r, eq_ind, eq_rect.
+      intros.
+      match goal with
+        | H : ?X _ ?Y |- ?X _ ?Z =>
+          cutrewrite (Z = Y); auto
+      end.
+      clear.
+      generalize dependent (getVars_Ctx_append (CHyp ctx e) ctx').
+      generalize dependent (getVars (Ctx_append (CHyp ctx e) ctx')).
+      intros; subst. simpl.
+      generalize (hlist_app_hlist_split _ _ vs).
+      intro H. rewrite <- H. rewrite H at 2.
+      rewrite hlist_app_assoc.
+      simpl.
+      generalize dependent (app_ass_trans (getVars ctx) (getExtensionVars ctx') (t :: nil)).
+      generalize dependent (hlist_app
+                     (snd
+                        (hlist_split (getVars ctx) (getExtensionVars ctx') vs))
+                     (Hcons x0 Hnil)).
+      clear. simpl in *.
+      generalize dependent ((getVars ctx ++ getExtensionVars ctx') ++ t :: nil).
+      intros; subst. simpl.
+      rewrite hlist_split_hlist_app. reflexivity. }
+    { intros e s; rewrite (ctx_subst_eta s).
+      simpl; intros; forward; inv_all; subst; eauto.
+      generalize H1.
+      eapply IHctx' in H1; eauto.
+      forward_reason.
+      intro. eexists; split; eauto.
+      intros. gather_facts.
+      eapply Pure_pctxD; eauto.
+      intros.
+      eapply _forall_sem. intros.
+      revert H1. clear.
+      unfold hlist_getUVars_Ctx_append, hlist_getVars_Ctx_append.
+      simpl in *. unfold eq_ind_r, eq_ind, eq_rect, eq_rec.
+      match goal with
+        | |- _ ?X _ -> _ ?Y _ => cutrewrite (X = Y); auto
+      end.
+      generalize (getUVars_Ctx_append (CHyp ctx e) ctx').
+      intro.
+      generalize dependent (getUVars (Ctx_append (CHyp ctx e) ctx')).
+      intros; subst. simpl.
+      rewrite <- (hlist_app_hlist_split _ _ us0).
+      rewrite hlist_app_assoc.
+      rewrite Eq.match_eq_sym_eq.
+      do 2 rewrite hlist_split_hlist_app.
+      reflexivity. }
+    { intros e0 s; rewrite (ctx_subst_eta s).
+      simpl; intros; forward; inv_all; subst; eauto.
+      generalize H1.
+      eapply IHctx' in H1; eauto.
+      forward_reason.
+      intro. eexists; split; eauto.
+      intros. gather_facts.
+      eapply Pure_pctxD; eauto. }
+  Qed.
+
+  Lemma getEnvs'_getAmbient
+  : forall (ctx : Ctx) a b,
+    exists tus' tvs',
+      getEnvs' ctx a b = (fst (getAmbient ctx) ++ tus' ++ a,
+                          snd (getAmbient ctx) ++ tvs' ++ b).
+  Proof.
+    clear. induction ctx; simpl; intros; eauto.
+    { exists nil. exists nil. reflexivity. }
+    { destruct (IHctx a (t :: b)) as [ ? [ ? ? ] ].
+      rewrite H.
+      exists x. exists (x0 ++ t :: nil).
+      f_equal. f_equal. rewrite app_ass. reflexivity. }
+    { destruct (IHctx (t ++ a) b) as [ ? [ ? ? ] ].
+      rewrite H.
+      exists (x ++ t). exists x0.
+      f_equal. f_equal. rewrite app_ass; reflexivity. }
+  Qed.
+
+  Lemma getEnvs_getAmbient
+  : forall (ctx : Ctx),
+    exists tus' tvs',
+      getEnvs ctx = (fst (getAmbient ctx) ++ tus',
+                     snd (getAmbient ctx) ++ tvs').
+  Proof.
+    clear.
+    unfold getEnvs. intros.
+    generalize (getEnvs'_getAmbient ctx nil nil).
+    eapply exists_impl; intro.
+    eapply exists_impl; intro.
+    etransitivity. eassumption.
+    do 2 rewrite app_nil_r_trans.
+    reflexivity.
+  Qed.
+
+  Lemma propD_weaken_by_Ctx_append
+  : forall ctx ctx' p pD,
+      getAmbient ctx' = getEnvs ctx ->
+      propD (getUVars ctx) (getVars ctx) p = Some pD ->
+      exists p'D,
+        propD (getUVars (Ctx_append ctx ctx')) (getVars (Ctx_append ctx ctx')) p = Some p'D /\
+        forall us vs,
+          pD (hlist_getUVars_Ctx_append _ _ us)
+             (hlist_getVars_Ctx_append _ _ vs) <-> p'D us vs.
+  Proof.
+    clear - ExprOk_expr.
+    intros ctx ctx' p pD H.
+    unfold hlist_getUVars_Ctx_append, hlist_getVars_Ctx_append.
+    generalize (getUVars_Ctx_append ctx ctx').
+    generalize (getVars_Ctx_append ctx ctx').
+    generalize (getVars (Ctx_append ctx ctx')).
+    generalize (getUVars (Ctx_append ctx ctx')).
+    intros; subst.
+    unfold propD in *.
+    eapply exprD'_typ0_weaken with (tus' := getExtensionUVars ctx')
+                                   (tvs' := getExtensionVars ctx') in H0.
+    destruct H0 as [ ? [ ? ? ] ].
+    eexists; split; eauto.
+    intros.
+    rewrite <- (hlist_app_hlist_split _ _ vs).
+    rewrite <- (hlist_app_hlist_split _ _ us).
+    rewrite <- H1.
+    do 2 rewrite hlist_app_hlist_split. reflexivity.
+  Qed.
+
+  Lemma getAmbient_Ctx_append
+  : forall (ctx ctx' : Ctx),
+      getAmbient (Ctx_append ctx ctx') = getAmbient ctx.
+  Proof.
+    clear. induction ctx'; eauto.
+  Qed.
 
 End parameterized.
 

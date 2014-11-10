@@ -20,7 +20,7 @@ Section parameterized.
 
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
   Variable exprD'_instantiate
-  : @exprD'_instantiate _ _ _ _ instantiate.
+  : @sem_instantiate_ho _ _ _ _ _ _ iff (@propD _ _ _ _ _) instantiate.
 
   Definition INSTANTIATE
   : rtac typ expr :=
@@ -32,7 +32,20 @@ Section parameterized.
   Proof.
     intros. eapply SIMPLIFY_sound.
     intros; forward.
-    (** TODO: This needs higher-order instantiation *)
-  Admitted.
+    red in exprD'_instantiate.
+    eapply exprD'_instantiate with (tvs' := nil) in H3;
+      [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ].
+    { subst. forward_reason.
+      change_rewrite H.
+      intros.
+      gather_facts.
+      eapply Pure_pctxD; eauto.
+      clear. firstorder. specialize (H HList.Hnil). simpl in *.
+      destruct H. assumption. }
+    { clear - H1. constructor; eauto.
+      - intros. eapply Pure_pctxD; eauto.
+      - intros. gather_facts.
+        eapply Pure_pctxD; eauto. }
+  Qed.
 
 End parameterized.
