@@ -79,23 +79,33 @@ Section parameterized.
 
   Hypothesis Hopen : open_sound.
 
+  Lemma WellFormed_pre_entry_amap_empty
+  : forall a b, WellFormed_pre_entry a b (amap_empty expr).
+  Proof.
+    red. intros.
+    exfalso.
+    unfold amap_lookup in H.
+    rewrite FMapSubst.SUBST.FACTS.empty_o in H.
+    congruence.
+  Qed.
+
   Theorem INTRO_sound : rtac_sound INTRO.
   Proof.
     unfold rtac_sound, INTRO.
     intros; subst.
     red in Hopen.
-(*
-    specialize (@Hopen (getUVars ctx nil) (getVars ctx nil) g).
+    specialize (@Hopen (getUVars ctx) (getVars ctx) g).
     destruct (open g); auto.
     specialize (Hopen _ eq_refl).
     destruct o; intros; split; auto.
-    { simpl. forward.
-      eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H0; eauto.
+    { split.
+      { constructor;
+        [ eauto using WellFormed_pre_entry_amap_empty | constructor ]. }
+      simpl. forward.
+      eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
       forward_reason.
-      unfold exprD'_typ0 in H0.
-      autorewrite with eq_rw in H0; forwardy.
       assert (exists eD',
-                exprD' (getUVars ctx nil ++ t :: nil) (getVars ctx nil)
+                exprD' (getUVars ctx ++ t :: nil) (getVars ctx)
                        (UVar (countUVars ctx)) t = Some eD' /\
                 forall us vs x,
                   eD' (hlist_app us (Hcons x Hnil)) vs = x).
@@ -103,30 +113,46 @@ Section parameterized.
       forward_reason.
       specialize (@Hopen _ (UVar (countUVars ctx)) _ eq_refl H4).
       inv_all; subst.
-      destruct Hopen as [ ? [ ? ? ] ].
-      rewrite H3.
-      simpl. autorewrite with eq_rw.
-      eapply ctxD'_no_hyps; intros.
-      split; eauto.
-      eapply H6.
-      destruct H8. exists x1. destruct H8. revert H9. revert H5. clear.
-      generalize dependent (getVars ctx nil).
-      generalize dependent (getUVars ctx nil).
+      destruct Hopen as [ ? [ ? ? ] ]; clear Hopen.
+      rewrite <- countUVars_getUVars.
+      rewrite H6.
+      split; [ reflexivity | ].
       intros.
+      eapply Pure_pctxD; eauto. intros.
+      destruct H8 as [ ? [ ? ? ] ].
+      eapply H7; eauto.
+      exists x2.
       rewrite H5. assumption. }
-    { simpl. forward.
-      eapply exprD'_typ0_weakenV with (tvs' := t :: nil) in H0; eauto.
-      (** Same proof as above **)
-      admit. }
-    { simpl; forward.
+    { split.
+      { do 2 constructor. }
+      simpl. forward.
+      eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
+      forward_reason.
+      assert (exists eD',
+                exprD' (getUVars ctx) (getVars ctx ++ t :: nil)
+                       (Var (countVars ctx)) t = Some eD' /\
+                forall us vs x,
+                  eD' us (hlist_app vs (Hcons x Hnil)) = x).
+      { admit. }
+      forward_reason.
+      specialize (@Hopen _ (Var (countVars ctx)) _ eq_refl H4).
+      inv_all; subst.
+      destruct Hopen as [ ? [ ? ? ] ]; clear Hopen.
+      rewrite <- countVars_getVars.
+      rewrite H6.
+      split; [ reflexivity | ].
+      intros.
+      eapply Pure_pctxD; eauto. }
+    { split.
+      { do 2 constructor. }
+      simpl; forward.
       specialize (Hopen _ eq_refl).
       destruct Hopen as [ ? [ ? [ ? [ ? ? ] ] ] ]; clear Hopen.
-      rewrite H2.
-      rewrite H3.
-      simpl.
-      eapply ctxD'_no_hyps.
-      intros. split; auto. }
-*)
-  Admitted.
+      Cases.rewrite_all_goal.
+      split; try reflexivity.
+      intros.
+      eapply Pure_pctxD; eauto. }
+    { exact I. }
+  Qed.
 
 End parameterized.
