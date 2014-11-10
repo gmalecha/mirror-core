@@ -350,6 +350,18 @@ Module Make (FM : WS with Definition E.t := uvar
                        end
            end.
 
+    Theorem eq_option_A_Roption tus tvs
+    : forall x y, eq_option_A x y <-> (Roption (RexprT tus tvs iff)) x y.
+    Proof.
+      clear. split; intros.
+      { red in H. destruct x; destruct y; intuition; constructor.
+        do 5 red. intros.
+        apply equiv_eq_eq in H0.
+        apply equiv_eq_eq in H1. subst. auto. }
+      { red. inversion H; auto.
+        subst. intros. eapply H0; reflexivity. }
+    Qed.
+
     Theorem Proper_substD
     : forall tus tvs,
         Proper (eq ==> eq ==> @eq_option_A tus tvs ==> @eq_option_A tus tvs)
@@ -375,7 +387,7 @@ Module Make (FM : WS with Definition E.t := uvar
       unfold eq_option_A.
       do 4 red; intros.
       destruct x1; destruct y1; try solve [ intuition ].
-      { subst. forward. intuition; eapply H1; auto. }
+      { subst. forward. rewrite H1. intuition. }
       { subst. forward. }
     Qed.
 
@@ -408,10 +420,10 @@ Module Make (FM : WS with Definition E.t := uvar
                | |- context [ match ?X with _ => _ end ] =>
                  match X with
                    | match _ with _ => _ end => fail 1
-                   | _ => destruct X; auto
+                   | _ => destruct X; try constructor
                  end
              end.
-      intros. intuition.
+      intuition. intuition.
     Qed.
 
     Local Instance Equivalence_substD tus tvs
@@ -419,11 +431,22 @@ Module Make (FM : WS with Definition E.t := uvar
     Proof.
       unfold eq_option_A.
       clear. constructor; red; intros.
-      { destruct x; intuition. }
-      { destruct x; destruct y; intuition; eapply H; eauto. }
-      { destruct x; destruct y; destruct z; eauto; intros.
-        rewrite H. eauto.
+      { forward. }
+      { forward. firstorder. }
+      { destruct x; destruct y; destruct z; auto.
+        intros. etransitivity. eapply H. eauto.
         intuition. }
+    Qed.
+
+    Lemma Proper_amap_substD tus tvs
+    : Proper (FM.Equal ==> @eq_option_A tus tvs) (raw_substD tus tvs).
+    Proof.
+      red. red.
+      unfold raw_substD.
+      intros. eapply PROPS.fold_Equal; eauto.
+      { eauto with typeclass_instances. }
+      { eapply Proper_substD. }
+      { eapply Transpose_substD. }
     Qed.
 
     Lemma substD_lookup'

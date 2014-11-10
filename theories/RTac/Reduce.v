@@ -75,9 +75,20 @@ Section parameterized.
           inv_all. rewrite app_nil_r in *. assumption. }
         { rewrite app_nil_r in *.
           intros. apply H1 in H3.
-          constructor; auto. rewrite app_nil_r. assumption. } }
+          constructor; auto.
+          eapply only_in_range_0_WellFormed_pre_entry; eauto.
+          rewrite app_nil_r. assumption. } }
       { inversion H2; try constructor.
-        admit. (* breaks abstraction a bit *) } }
+        eapply only_in_range_0_substD with (tus := tus++nil) (tvs:=tvs) in H.
+        destruct H as [ ? [ ? ? ] ].
+        change_rewrite H.
+        constructor.
+        do 5 red; intros; equivs.
+        autorewrite with eq_rw.
+        do 5 red in H5.
+        rewrite H5; try reflexivity.
+        rewrite <- hlist_app_nil_r.
+        revert H6. clear. firstorder. } }
     { simpl in *.
       destruct H1.
       split.
@@ -140,7 +151,7 @@ Section parameterized.
                                 (pfv := eq_refl).
       autorewrite with eq_rw.
       destruct (goalD ((tus ++ map fst tes) ++ map fst l) tvs y); try constructor.
-      { forward. admit. } }
+      { forward. } }
     { unfold EqGoal. simpl.
       repeat rewrite map_app.
       rewrite goalD_conv with (pfu := HList.app_ass_trans tus (map fst tes) (map fst l))
@@ -149,7 +160,7 @@ Section parameterized.
       forward.
       destruct (goal_substD_app _ _ _ _ _ H0 H4) as [ ? [ ? ? ] ].
       rewrite H7. constructor.
-      admit. }
+      }
   Qed.
 *)
 
@@ -290,7 +301,7 @@ Section parameterized.
 (*
     match g with
       | GSolved => @solveGoal ctx ctx' s 0 un vn
-      | _ => 
+      | _ =>
     end.
 *)
 
