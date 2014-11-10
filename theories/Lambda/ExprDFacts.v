@@ -262,18 +262,18 @@ Module Make (ED : ExprDenote).
       { congruence. }
       { intros; inv_all; subst.
         autorewrite with exprD_rw in *; simpl.
-        eapply nth_error_get_hlist_nth_weaken in H2.
-        simpl in *. destruct H2 as [ ? [ ? ? ] ].
-        rewrite H2.
+        eapply nth_error_get_hlist_nth_weaken in H1.
+        simpl in *. destruct H1 as [ ? [ ? ? ] ].
+        rewrite H1.
         destruct pf. rewrite type_cast_refl; eauto. }
       { intros; inv_all; subst.
         autorewrite with exprD_rw in *; simpl.
-        eapply nth_error_get_hlist_nth_weaken in H2.
-        simpl in *. destruct H2 as [ ? [ ? ? ] ].
-        rewrite H2.
+        eapply nth_error_get_hlist_nth_weaken in H1.
+        simpl in *. destruct H1 as [ ? [ ? ? ] ].
+        rewrite H1.
         destruct pf. rewrite type_cast_refl; eauto.
         simpl. eexists; split; eauto. intros.
-        eapply H3. }
+        eapply H2. }
       { intros; inv_all; subst.
         autorewrite with exprD_rw. simpl.
         unfold ED.funcAs.
@@ -283,29 +283,28 @@ Module Make (ED : ExprDenote).
         eexists; split; eauto. }
       { simpl; intros.
         specialize (H3 _ eq_refl).
-        specialize (H4 _ eq_refl).
+        specialize (H2 _ eq_refl).
         forward_reason; inv_all; subst.
         autorewrite with exprD_rw. simpl.
         erewrite typeof_expr_weaken by eauto.
-        rewrite H4. rewrite H3.
+        rewrite H2. rewrite H3.
         eexists; split; eauto.
-        revert H6 H7. clear.
+        revert H5 H6. clear.
         unfold ED.exprT_App. intros.
         autorewrite with eq_rw.
         rewrite <- H6.
-        clear - H7.
-        rewrite <- H7. reflexivity. }
+        rewrite <- H5. reflexivity. }
       { intros. forward_reason; inv_all; subst.
-        specialize (H2 _ eq_refl).
-        destruct H2 as [ ? [ ? ? ] ].
+        specialize (H1 _ eq_refl).
+        destruct H1 as [ ? [ ? ? ] ].
         autorewrite with exprD_rw. simpl.
         rewrite typ2_match_zeta; eauto.
         rewrite type_cast_refl; eauto.
         simpl in *.
-        rewrite H2.
+        rewrite H1.
         rewrite eq_option_eq. eexists; split; eauto.
         intros.
-        clear - H3.
+        clear - H2.
         unfold ED.exprT_Abs, exprT.
         autorewrite with eq_rw; simpl.
         match goal with
@@ -314,7 +313,7 @@ Module Make (ED : ExprDenote).
         end.
         destruct e. eapply FunctionalExtensionality.functional_extensionality.
         intros.
-        erewrite H3. reflexivity. }
+        erewrite H2. reflexivity. }
     Qed.
 
     Theorem typeof_expr_exprD'
@@ -328,41 +327,41 @@ Module Make (ED : ExprDenote).
       autorewrite with exprD_rw; simpl.
       { consider (nth_error_get_hlist_nth typD tvs v); intros.
         { destruct s.
-          eapply nth_error_get_hlist_nth_Some in H3. simpl in *.
-          destruct H3. rewrite x0 in H2. inv_all; subst.
+          eapply nth_error_get_hlist_nth_Some in H2. simpl in *.
+          destruct H2. rewrite x0 in H1. inv_all; subst.
           rewrite type_cast_refl; eauto. }
-        { rewrite nth_error_get_hlist_nth_None in H3. congruence. } }
+        { rewrite nth_error_get_hlist_nth_None in H2. congruence. } }
       { unfold ED.funcAs.
-        generalize (symD f). rewrite H2.
+        generalize (symD f). rewrite H1.
         rewrite type_cast_refl; eauto.
         simpl. eauto. }
       { forward.
-        eapply IHe1 in H2.
-        eapply IHe2 in H3.
+        eapply IHe1 in H1.
+        eapply IHe2 in H2.
         forward_reason.
-        unfold ED.type_of_apply in H4.
+        unfold ED.type_of_apply in H3.
         destruct (typ2_match_case (F := Fun)  t0).
-        { forward_reason. rewrite H5 in H4; clear H5.
-          unfold Relim in H4.
-          rewrite eq_Const_eq in H4.
-          rewrite H3.
+        { forward_reason. rewrite H4 in H3; clear H4.
+          unfold Relim in H3.
+          rewrite eq_Const_eq in H3.
+          rewrite H2.
           generalize dependent (typ2_cast x1 x2).
           destruct e. simpl; intros; forward.
           inv_all; subst. red in r. red in x3. subst.
-          rewrite H2. eauto. }
-        { exfalso. rewrite H5 in H4. congruence. } }
+          rewrite H1. eauto. }
+        { exfalso. rewrite H4 in H3. congruence. } }
       { forward. inv_all; subst.
         rewrite typ2_match_zeta; eauto.
         rewrite type_cast_refl; eauto.
-        eapply IHe in H2. forward_reason.
-        rewrite H2.
+        eapply IHe in H1. forward_reason.
+        rewrite H1.
         destruct (eq_sym (typ2_cast t t1)). eauto. }
       { consider (nth_error_get_hlist_nth typD tus u); intros.
         { destruct s.
-          eapply nth_error_get_hlist_nth_Some in H3. simpl in *.
-          destruct H3. rewrite x0 in H2. inv_all; subst.
+          eapply nth_error_get_hlist_nth_Some in H2. simpl in *.
+          destruct H2. rewrite x0 in H1. inv_all; subst.
           rewrite type_cast_refl; eauto. }
-        { rewrite nth_error_get_hlist_nth_None in H3. congruence. } }
+        { rewrite nth_error_get_hlist_nth_None in H2. congruence. } }
     Qed.
 
     Theorem exprD'_single_type
@@ -551,10 +550,10 @@ Module Make (ED : ExprDenote).
           destruct (ED.exprD' tus tvs t0 e); reflexivity. }
         { consider (ED.exprD' tus tvs t e); auto; intros.
           exfalso.
-          rewrite exprD'_typeof_expr in H2.
-          destruct H2.
-          destruct (exprD'_single_type H2 H4).
-          destruct x0. rewrite type_cast_refl in H3; eauto.
+          rewrite exprD'_typeof_expr in H1.
+          destruct H1.
+          destruct (exprD'_single_type H1 H3).
+          destruct x0. rewrite type_cast_refl in H2; eauto.
           congruence. } }
       { consider (ED.exprD' tus tvs t e); auto.
         intros. exfalso.

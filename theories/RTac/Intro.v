@@ -1,6 +1,7 @@
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.RTac.Core.
 
 Require Import MirrorCore.Util.Forwardy.
@@ -9,18 +10,25 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-
+  Context {typ : Type}.
+  Context {expr : Type}.
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprVarOk_expr : ExprVarOk ExprVar_expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
+
   Variable substV : (nat -> option expr) -> expr -> expr.
+(*
   Variable Var : nat -> expr.
   Variable UVar : nat -> expr.
+*)
 
   Inductive OpenAs :=
   | AsEx : typ -> (expr -> expr) -> OpenAs
@@ -109,7 +117,10 @@ Section parameterized.
                        (UVar (countUVars ctx)) t = Some eD' /\
                 forall us vs x,
                   eD' (hlist_app us (Hcons x Hnil)) vs = x).
-      { admit. }
+      { clear - RTypeOk_typ ExprUVarOk_expr.
+        rewrite countUVars_getUVars.
+        destruct (exprD'_exact_uvar (getUVars ctx) nil (getVars ctx) t) as [ ? [ ? ?  ] ].
+        eexists; split; eauto. }
       forward_reason.
       specialize (@Hopen _ (UVar (countUVars ctx)) _ eq_refl H4).
       inv_all; subst.
@@ -133,7 +144,10 @@ Section parameterized.
                        (Var (countVars ctx)) t = Some eD' /\
                 forall us vs x,
                   eD' us (hlist_app vs (Hcons x Hnil)) = x).
-      { admit. }
+      { clear - RTypeOk_typ ExprVarOk_expr.
+        rewrite countVars_getVars.
+        destruct (exprD'_exact_var (getUVars ctx) (getVars ctx) nil t) as [ ? [ ? ?  ] ].
+        eexists; split; eauto. }
       forward_reason.
       specialize (@Hopen _ (Var (countVars ctx)) _ eq_refl H4).
       inv_all; subst.

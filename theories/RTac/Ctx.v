@@ -1479,7 +1479,8 @@ Section parameterized.
     intros. eapply ctx_substD_set; eauto.
   Defined.
 
-  (** TODO: this seems to be the core problem!
+  (** It is a bit annoying that these proofs require decidable equality on
+   ** [typ] but the system requires that anyways
    ** This proof relies on UIP (decidable) but there is probably a nicer
    ** formulation that doesn't.
    ** Granted, part of the problem is likely to be the fact that the
@@ -1521,7 +1522,8 @@ Section parameterized.
         generalize dependent (firstn n (xs ++ ys)).
         generalize dependent (skipn n (xs ++ ys)).
         intros; subst.
-        admit. (** UIP **) } }
+        revert e. uip_all'. simpl.
+        rewrite hlist_split_hlist_app. reflexivity. } }
     { rewrite H0.
       clear - RTypeOk_typ. induction ys; auto; simpl; intros.
       rewrite type_cast_refl; eauto with typeclass_instances. }
@@ -1594,7 +1596,8 @@ Section parameterized.
         pctxD s = Some cD /\
         forall us vs, cD sD us vs.
   Proof.
-    clear. intros ctx s s' cD c'D H; revert cD s' c'D; induction H; simpl; intros.
+    clear - RTypeOk_typ.
+    intros ctx s s' cD c'D H; revert cD s' c'D; induction H; simpl; intros.
     { rewrite rel_dec_eq_true in * by eauto with typeclass_instances.
       rewrite rel_dec_eq_true in * by eauto with typeclass_instances.
       simpl in *.
@@ -1618,7 +1621,8 @@ Section parameterized.
       revert H3.
       generalize dependent (hlist_app vs0 (Hcons x2 Hnil)).
       generalize dependent (getVars c ++ t :: nil).
-      clear. intros; subst. admit. (** UIP **) }
+      clear. intros; subst. 
+      revert H3. uip_all'. tauto. }
     { destruct (eta_ctx_subst_hyp s'); subst.
       simpl in *. forward; inv_all; subst.
       eapply IHWellFormed_ctx_subst in H1; clear IHWellFormed_ctx_subst; eauto.
@@ -1639,8 +1643,9 @@ Section parameterized.
       intros. gather_facts.
       eapply Pure_pctxD; eauto.
       intros. eapply _forall_sem; intros.
-      split; auto. revert H4. revert H2. clear.
-      admit. (** UIP **) }
+      split; auto. revert H4. revert H2. clear - RTypeOk_typ.
+      uip_all'.
+      intro X; rewrite X. assumption. }
   Qed.
 
   Definition remembers (ctx : Ctx) (cs : ctx_subst ctx)
