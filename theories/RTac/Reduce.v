@@ -216,7 +216,6 @@ Section parameterized.
 
   Fixpoint toGoal (ctx ctx' : Ctx typ expr)
            (cs : ctx_subst (Ctx_append ctx ctx')) (g : Goal typ expr)
-           (su : nat)
            (un vn : nat)
   : Result ctx :=
     match ctx' as ctx'
@@ -228,7 +227,7 @@ Section parameterized.
           | 0 => (** STUCK **)
             Fail
           | S vn' =>
-            @toGoal ctx ctx' (fromAll cs) (GAll t g) 0 un vn'
+            @toGoal ctx ctx' (fromAll cs) (GAll t g) un vn'
         end
       | CHyp ctx' h => fun cs =>
         @toGoal ctx ctx'  (fromHyp cs) (GHyp h g) 0 un vn
@@ -297,7 +296,7 @@ Section parameterized.
              (g : Goal typ expr)
              (un vn : nat)
   : Result ctx :=
-    @toGoal ctx ctx' s g 0 un vn.
+    @toGoal ctx ctx' s g un vn.
 (*
     match g with
       | GSolved => @solveGoal ctx ctx' s 0 un vn

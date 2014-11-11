@@ -45,19 +45,19 @@ Section Expr.
     OpenTeq (OpenTeq R).
   Arguments RexprT _ _ {_} _ _ _.
 
-  Instance Reflexive_RexprT tus tvs T (R : relation T) (_ : Reflexive R)
+  Global Instance Reflexive_RexprT tus tvs T (R : relation T) (_ : Reflexive R)
   : Reflexive (RexprT tus tvs R).
   Proof.
     red. eapply Reflexive_OpenTeq. eapply Reflexive_OpenTeq. assumption.
   Qed.
 
-  Instance Symmetric_RexprT tus tvs T (R : relation T) (_ : Symmetric R)
+  Global Instance Symmetric_RexprT tus tvs T (R : relation T) (_ : Symmetric R)
   : Symmetric (RexprT tus tvs R).
   Proof.
     red. eapply Symmetric_OpenTeq. eapply Symmetric_OpenTeq. assumption.
   Qed.
 
-  Instance Transitive_RexprT tus tvs T (R : relation T) (_ : Transitive R)
+  Global Instance Transitive_RexprT tus tvs T (R : relation T) (_ : Transitive R)
   : Transitive (RexprT tus tvs R).
   Proof.
     red. eapply Transitive_OpenTeq. eapply Transitive_OpenTeq. assumption.
