@@ -30,6 +30,11 @@ Section parameterized.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
   Variable UVar : nat -> expr.
 
+  Variable vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
+  Variable exprUnify_sound
+  : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
+      unify_sound (@exprUnify subst S SU).
+
   Variable lem : Lemma.lemma typ expr expr.
 
   Definition freshUVars (ts : list typ) (c : Ctx typ expr) (s : ctx_subst c)
@@ -110,6 +115,13 @@ Section parameterized.
     rewrite IHls. reflexivity.
   Qed.
 
+  Lemma WellFormed_entry_amap_empty
+  : forall c a b, WellFormed_entry (typ:=typ) (ctx:=c) a b (amap_empty expr).
+  Proof. clear. red. intros.
+         exfalso. unfold amap_empty, amap_lookup in *.
+         rewrite FMapSubst.SUBST.FACTS.empty_o in H. congruence.
+  Qed.
+
   Theorem EAPPLY_sound : rtac_sound EAPPLY.
   Proof.
     red. unfold EAPPLY. intros.
@@ -122,7 +134,8 @@ Section parameterized.
            (Subst_subst:=Subst_ctx_subst _)
            (SubstOk_subst:=SubstOk_ctx_subst _)
            (vars_to_uvars:=vars_to_uvars)
-           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _)) in H.
+           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _)) in H;
+      eauto.
     { forward_reason.
       rewrite (ctx_subst_eta c) in H; inv_all.
       split; eauto.
@@ -143,12 +156,12 @@ Section parameterized.
       destruct H5 as [ ? [ ? ? ] ].
       specialize (H2 _ _ lemD eq_refl H5).
       forward_reason.
-      rewrite (ctx_subst_eta c) in H2; simpl in *.
+      rewrite (ctx_subst_eta c) in H11; simpl in *.
       rewrite H6 in *.
       forward.
-      destruct (substD_pctxD _ H3 H H13) as [ ? [ ? ? ] ].
-      rewrite H15. inv_all; subst.
-      change_rewrite H2.
+      destruct (substD_pctxD _ H3 H H14) as [ ? [ ? ? ] ].
+      rewrite H16. inv_all; subst.
+      change_rewrite H11.
       assert (GOALSD : List.mapT_list (goalD (getUVars ctx ++ vars lem) (getVars ctx))
                              (map
                                 (fun e3 : expr => GGoal (vars_to_uvars 0 (length (getUVars ctx)) e3))
@@ -158,13 +171,16 @@ Section parameterized.
                     (getUVars ctx ++ vars lem) (getVars ctx)
                     (fun P => forall us vs, x4 (fun us vs => forall us', P (HList.hlist_app us us') vs) us vs) Z
                     _ _ GOALSD) as [ ? [ ? ? ] ]; clear GOALSD.
-      { admit. }
-      change_rewrite H14.
+      { clear - H16. constructor; intros.
+        eapply Pure_pctxD; eauto.
+        gather_facts.
+        eapply Pure_pctxD; eauto. }
+      change_rewrite H15.
       split.
-      { admit. }
+      { simpl. assumption. }
       intros. gather_facts.
       eapply Pure_pctxD; eauto.
-      clear - H10 H7 H12 H9.
+      clear - H11 H7 H13 H10.
       intros.
       eapply Quant._exists_sem in H1. destruct H1.
       rewrite (H10 us x4 vs); clear H10.
@@ -173,10 +189,10 @@ Section parameterized.
                  specialize (H H')
              end.
       rewrite H7 in *; clear H7.
-      destruct H12; eauto. tauto.
+      destruct H13; eauto. tauto.
       eapply H2. eapply H0. tauto. }
     { unfold freshUVars. constructor; eauto.
-      admit. }
+      eapply WellFormed_entry_amap_empty. }
   Qed.
 
 End parameterized.

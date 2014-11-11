@@ -22,6 +22,11 @@ Section lemma_apply.
   Context {subst : Type}.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : SubstOk Subst_subst}.
+  (** TODO: Ideally I wouldn't need these things, but they are necessary b/c of
+   ** where [substR] fits into things
+   **)
+  Context {SubstUpdate_subst : SubstUpdate subst expr}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable unify : tenv typ -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -38,7 +43,8 @@ Section lemma_apply.
         exprD' tu (tv' ++ tv) e2 t = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
-             substD tu tv s' = Some sD'
+             substR tu tv s s'
+          /\ substD tu tv s' = Some sD'
           /\ forall us vs,
                sD' us vs ->
                sD us vs /\
@@ -129,8 +135,8 @@ Section lemma_apply.
                        ]
            end.
 
-  Hypothesis vars_to_uvars_exprD'
-  : forall (tus : tenv typ) (e : expr) (tvs : list typ)
+  Definition vars_to_uvars_spec : Prop :=
+    forall (tus : tenv typ) (e : expr) (tvs : list typ)
            (t : typ) (tvs' : list typ)
            (val : hlist typD tus ->
                   hlist typD (tvs ++ tvs') -> typD t),
@@ -144,6 +150,8 @@ Section lemma_apply.
                 (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
+  Hypothesis vars_to_uvars_exprD' : vars_to_uvars_spec.
+
   Lemma eapplicable_sound'
   : forall s tus tvs lem g s1,
       eapplicable s tus tvs lem g = Some s1 ->
@@ -154,6 +162,7 @@ Section lemma_apply.
         substD (tus ++ lem.(vars)) tvs s = Some sD ->
         exprD'_typ0 (tus ++ lem.(vars)) tvs g = Some gD ->
         exists s1D (pDs : list (exprT _ _ Prop)),
+          substR (tus ++ lem.(vars)) tvs s s1 /\
           substD (tus ++ lem.(vars)) tvs s1 = Some s1D /\
           mapT (fun e => exprD'_typ0 (tus ++ lem.(vars)) tvs (vars_to_uvars 0 (length tus) e)) lem.(premises) = Some pDs /\
           forall (us : hlist _ tus) (us' : hlist _ lem.(vars)) (vs : hlist _ tvs),
@@ -161,7 +170,118 @@ Section lemma_apply.
             (Forall (fun pD => pD (hlist_app us us') vs) pDs -> gD (hlist_app us us') vs)
             /\ sD (hlist_app us us') vs.
   Proof.
-  Admitted.
+    unfold eapplicable. intros.
+    eapply (@Hunify (tus ++ vars lem) tvs _ _ _ _ _ nil) in H; auto.
+    forward_reason.
+    split; eauto.
+
+    simpl in *. intros.
+    unfold exprD'_typ0 in H4; forward.
+    inv_all; subst.
+    specialize (fun v1 Hv1 => @H1 v1 _ _ Hv1 H4 H3).
+
+    unfold lemmaD in H2. simpl in H2.
+    forward.
+    eapply lemmaD'_weakenU in H2; eauto.
+    { revert H2. instantiate (1 := tus). simpl. intro.
+      destruct H2 as [ ? [ ? ? ] ].
+      unfold lemmaD' in H2. forward; inv_all; subst.
+      rewrite exprD'_typ0_conv
+         with (pfu := eq_refl) (pfv := eq_sym (app_nil_r_trans lem.(vars))) in H7.
+      autorewrite with eq_rw in H7.
+      unfold exprD'_typ0 in H7. forward; inv_all; subst.
+      eapply (@vars_to_uvars_exprD' tus (concl lem) nil tyProp) in H7; eauto.
+      forward_reason.
+      eapply exprD'_weakenV with (tvs' := tvs) in H7; eauto.
+      forward_reason.
+      specialize (H1 _ H7).
+      forward_reason.
+      assert (exists pDs,
+                List.mapT_list (F:=option)
+                  (fun e1 : expr =>
+                     exprD'_typ0 (tus ++ vars lem) tvs (vars_to_uvars 0 (length tus) e1))
+                  (premises lem) = Some pDs /\
+                forall us vs vs',
+                  Forall (fun p => p (hlist_app us vs') vs) pDs <-> Forall (fun p => p us (hlist_app vs' Hnil)) l).
+      { clear - H2 ExprOk_expr vars_to_uvars_exprD'.
+        revert l H2. induction (premises lem); simpl; intros; inv_all; subst.
+        + eexists; split; eauto. intuition.
+        + forward; inv_all; subst.
+          eapply IHl in H0; clear IHl.
+          rewrite exprD'_typ0_conv
+             with (pfu := eq_refl) (pfv := eq_sym (app_nil_r_trans _)) in H.
+          autorewrite with eq_rw in H.
+          forward.
+          unfold exprD'_typ0 in H.
+          forward.
+          change (vars lem) with (nil ++ vars lem) in H.
+          eapply vars_to_uvars_exprD' in H.
+          forward_reason.
+          eapply exprD'_weakenV with (tvs' := tvs) in H; eauto.
+          forward_reason.
+          unfold exprD'_typ0.
+          change_rewrite H.
+          change_rewrite H0.
+          eexists; split; eauto.
+          inv_all; subst.
+          intros. autorewrite with eq_rw.
+          Lemma Forall_iff : forall {T} (P : T -> Prop) a b,
+                               Forall P (a :: b) <-> (P a /\ Forall P b).
+          Proof. clear. split.
+                 - inversion 1; auto.
+                 - constructor; tauto.
+          Qed.
+          do 2 rewrite Forall_iff.
+          Require Import ExtLib.Data.Prop.
+          Lemma and_split_iff : forall (P Q R S : Prop),
+                                  (P <-> R) -> (Q <-> S) ->
+                                  ((P /\ Q) <-> (R /\ S)).
+          Proof. clear. tauto. Qed.
+          eapply and_split_iff; eauto.
+          { specialize (H5 (hlist_app us vs') Hnil vs).
+            simpl in *.
+            rewrite <- H5; clear H5.
+            rewrite <- H3; clear H3.
+            simpl. rewrite hlist_app_nil_r.
+            clear.
+            generalize dependent (app_nil_r_trans (vars lem)).
+            generalize dependent (vars lem ++ nil).
+            intros; subst. reflexivity. } }
+      forward_reason.
+      do 2 eexists; split; eauto.
+      split; eauto.
+      split; eauto.
+      intros.
+      eapply H11 in H14; clear H11.
+      clear - H14 H13 H12 H6 H9 H8 H5.
+      destruct H14.
+      repeat match goal with
+               | H : _ , H' : _ |- _ =>
+                 first [ specialize (H H') | specialize (H Hnil) ]
+             end.
+      rewrite H13; clear H13.
+      split; auto.
+      intros. autorewrite with eq_rw.
+      simpl in *. rewrite <- H0; clear H0.
+      specialize (H9 (hlist_app us us') Hnil vs).
+      simpl in *. rewrite <- H9; clear H9.
+      rewrite <- H8; clear H8.
+      eapply H6 in H5; clear H6.
+      rewrite foralls_sem in H5.
+      specialize (H5 us').
+      eapply impls_sem in H5.
+      { revert H5.
+        autorewrite with eq_rw.
+        rewrite hlist_app_nil_r.
+        generalize (eq_sym (app_nil_r_trans (vars lem))).
+        generalize (vars lem ++ nil). intros; subst. eapply H5. }
+      { rewrite List.Forall_map. assumption. } }
+    { clear - ExprOk_expr.
+      intros. eapply exprD'_typ0_weaken in H.
+      destruct H. exists x.
+      forward_reason; split; eauto.
+      intros. rewrite <- H0. reflexivity. }
+  Qed.
 
 (*
   Lemma eapplicable_sound
