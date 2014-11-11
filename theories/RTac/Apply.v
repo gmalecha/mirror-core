@@ -30,6 +30,12 @@ Section parameterized.
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
+  Variable vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
+  Variable exprUnify_sound
+  : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
+      unify_sound (@exprUnify subst S SU).
+
+
   Variable lem : Lemma.lemma typ expr expr.
 
   Definition APPLY : rtac typ expr :=
