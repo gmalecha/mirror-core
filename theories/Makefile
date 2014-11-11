@@ -53,9 +53,9 @@ MODULES    := OpenT Generic \
 	      $(UTIL:%=Util/%) \
 	      $(SYMS:%=syms/%) \
 	      $(PROVERS:%=provers/%) \
+	      $(RTAC:%=RTac/%) \
 	      $(REIFY:%=Reify/%)
 
-#	      $(RTAC:%=RTac/%)
 #	      $(STAC:%=STac/%)
 #	      $(EXTENSIBLE:%=Ext/%)
 #	      $(POLY:%=Poly/%)

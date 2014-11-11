@@ -532,14 +532,6 @@ Section parameterized.
         end
     end.
 
-  (** TODO: This should be primitive **)
-  Variable mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool.
-  Variable mentionsAny_spec : forall P Q R S e,
-    mentionsAny P Q e || mentionsAny R S e = mentionsAny (fun x => P x || R x)
-                                                         (fun x => Q x || S x) e.
-  Variable Proper_mentionsAny :
-    Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq)%signature mentionsAny.
-
   Section ctx_set'.
     Variables (u : nat) (e : expr).
 

@@ -46,7 +46,7 @@ Section parameterized.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Let SubstUpdate_ctx_subst ctx :=
-    @SubstUpdate_ctx_subst _ _ _ _ instantiate mentionsAny ctx.
+    @SubstUpdate_ctx_subst _ _ _ _ instantiate ctx.
   Local Existing Instance SubstUpdate_ctx_subst.
 
 

@@ -215,7 +215,6 @@ Section parameterized.
 
   Fixpoint toGoal (ctx ctx' : Ctx typ expr)
            (cs : ctx_subst (Ctx_append ctx ctx')) (g : Goal typ expr)
-           (su : nat)
            (un vn : nat)
   : Result ctx :=
     match ctx' as ctx'
@@ -227,17 +226,17 @@ Section parameterized.
           | 0 => (** STUCK **)
             Fail
           | S vn' =>
-            @toGoal ctx ctx' (fromAll cs) (GAll t g) 0 un vn'
+            @toGoal ctx ctx' (fromAll cs) (GAll t g) un vn'
         end
       | CHyp ctx' h => fun cs =>
-        @toGoal ctx ctx'  (fromHyp cs) (GHyp h g) 0 un vn
+        @toGoal ctx ctx'  (fromHyp cs) (GHyp h g) un vn
       | CExs ctx' ts => fun cs : ctx_subst (CExs (Ctx_append ctx ctx') ts) =>
         let '(s,cs') := fromExs cs in
         (* NOTE: This doesn't do any reduction right now!!!
         let nes := forgets (un - length ts) ts s in
         let '(g',nus') := GExs_reduce (List.combine ts nes) g un in
 *)
-        @toGoal ctx ctx' cs' (GExs ts s g) (S su) (un - length ts) vn
+        @toGoal ctx ctx' cs' (GExs ts s g) (un - length ts) vn
     end cs.
 
 (*
@@ -281,7 +280,7 @@ Section parameterized.
              (g : Goal typ expr)
              (un vn : nat)
   : Result ctx :=
-    @toGoal ctx ctx' s g 0 un vn.
+    @toGoal ctx ctx' s g un vn.
 (*
     match g with
       | GSolved => @solveGoal ctx ctx' s 0 un vn

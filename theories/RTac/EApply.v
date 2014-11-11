@@ -18,11 +18,12 @@ Section parameterized.
   Variable expr : Type.
 
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
 
-(*  Variable UVar : nat -> expr. *)
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
@@ -40,7 +41,7 @@ Section parameterized.
       match @eapplicable typ _ expr _
                          _ (* (ctx_subst (CExs ctx lem.(vars))) *)
                          vars_to_uvars
-                         (@exprUnify _ _ (SubstUpdate_ctx_subst instantiate mentionsAny))
+                         (@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _))
                          (freshUVars lem.(vars) sub)
                          tus tvs lem goal
       with
@@ -58,23 +59,237 @@ Section parameterized.
     @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
                   _ nil nil lem.
 
+  Lemma goalD_GConj_list tus tvs C (ExprTApp : CtxLogic.ExprTApplicative C)
+  : forall ls gsD,
+      List.mapT_list (F:=option) (goalD tus tvs) ls = Some gsD ->
+      exists gsD',
+        goalD tus tvs (GConj_list (expr:=expr) ls) = Some gsD' /\
+        C (fun us vs =>
+             gsD' us vs <-> Forall (fun x => x us vs) gsD).
+  Proof.
+    induction ls; simpl; intros.
+    - inv_all; subst.
+      eexists; split; eauto.
+      eapply CtxLogic.exprTPure. intros.
+      clear. intuition.
+    - forward; inv_all; subst.
+      specialize (IHls _ eq_refl).
+      forward_reason. destruct ls.
+      + rewrite H. eexists; split; eauto.
+        eapply CtxLogic.exprTPure.
+        simpl in H1. inv_all; subst.
+        intros. intuition. inversion H0; subst; auto.
+      + simpl in *. rewrite H.
+        rewrite H1. eexists; split; eauto.
+        revert H2.
+        eapply CtxLogic.exprTAp.
+        forward; inv_all; subst.
+        eapply CtxLogic.exprTPure.
+        clear. intros. rewrite H.
+        clear. split.
+        { constructor; tauto. }
+        { inversion 1; tauto. }
+  Qed.
+
+  Lemma WellFormed_Goal_GConj_list tus tvs l :
+    Forall (WellFormed_Goal tus tvs) l ->
+    WellFormed_Goal tus tvs (GConj_list l).
+  Proof. clear.
+         induction 1; simpl.
+         - constructor.
+         - destruct l; auto.
+           constructor; auto.
+  Qed.
+
+  Lemma mapT_list_map
+  : forall {T U V} (g : T -> U) (f : U -> option V) ls,
+      List.mapT_list (fun x => f (g x)) ls =
+      List.mapT_list f (map g ls).
+  Proof.
+    clear. induction ls; simpl; intros; auto.
+    destruct (f (g a)); auto.
+    rewrite IHls. reflexivity.
+  Qed.
+
   Theorem EAPPLY_sound : rtac_sound EAPPLY.
   Proof.
     red. unfold EAPPLY. intros.
     subst. unfold rtac_spec. forward.
-    (** Soundness of [reduceGoal]!
-     ** 
-     **)
+    unfold reduceGoal.
+    rewrite (ctx_subst_eta c). simpl.
+    intros.
+    eapply eapplicable_sound'
+      with (Expr_expr:=Expr_expr)
+           (Subst_subst:=Subst_ctx_subst _)
+           (SubstOk_subst:=SubstOk_ctx_subst _)
+           (vars_to_uvars:=vars_to_uvars)
+           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _)) in H.
+    { forward_reason.
+      rewrite (ctx_subst_eta c) in H; inv_all.
+      split; eauto.
+      split.
+      { constructor.
+        { rewrite <- countUVars_getUVars.
+          eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
+        { eapply WellFormed_Goal_GConj_list. clear.
+          induction (premises lem); simpl; constructor.
+          - constructor.
+          - auto. } }
+      simpl in *. forward.
+      destruct (drop_exact_append_exact (vars lem) (getUVars ctx)) as [ ? [ ? ? ] ].
+      rewrite H6 in *.
+      destruct (pctxD_substD H1 H) as [ ? [ ? ? ] ].
+      rewrite H8 in *.
+      eapply exprD'_typ0_weakenU with (tus' := lem.(vars)) in H5.
+      destruct H5 as [ ? [ ? ? ] ].
+      specialize (H2 _ _ lemD eq_refl H5).
+      forward_reason.
+      rewrite (ctx_subst_eta c) in H2; simpl in *.
+      rewrite H6 in *.
+      forward.
+      destruct (substD_pctxD _ H3 H H13) as [ ? [ ? ? ] ].
+      rewrite H15. inv_all; subst.
+      change_rewrite H2.
+      assert (GOALSD : List.mapT_list (goalD (getUVars ctx ++ vars lem) (getVars ctx))
+                             (map
+                                (fun e3 : expr => GGoal (vars_to_uvars 0 (length (getUVars ctx)) e3))
+                                (premises lem)) = Some x3).
+      { rewrite <- mapT_list_map. simpl. assumption. }
+      destruct (fun Z => @goalD_GConj_list
+                    (getUVars ctx ++ vars lem) (getVars ctx)
+                    (fun P => forall us vs, x4 (fun us vs => forall us', P (HList.hlist_app us us') vs) us vs) Z
+                    _ _ GOALSD) as [ ? [ ? ? ] ]; clear GOALSD.
+      { admit. }
+      change_rewrite H14.
+      split.
+      { admit. }
+      intros. gather_facts.
+      eapply Pure_pctxD; eauto.
+      clear - H10 H7 H12 H9.
+      intros.
+      eapply Quant._exists_sem in H1. destruct H1.
+      rewrite (H10 us x4 vs); clear H10.
+      repeat match goal with
+               | H : forall x, _ , H' : _ |- _ =>
+                 specialize (H H')
+             end.
+      rewrite H7 in *; clear H7.
+      destruct H12; eauto. tauto.
+      eapply H2. eapply H0. tauto. }
+    { unfold freshUVars. constructor; eauto.
+      admit. }
+  Qed.
+
+End parameterized.
+
+(**
+    Fixpoint substSplit (ctx ctx' : Ctx typ expr)
+    : ctx_subst (Ctx_append ctx ctx') -> (ctx_subst ctx * ctx_subst ctx') :=
+      match ctx' as ctx' return ctx_subst (Ctx_append ctx ctx') -> (ctx_subst ctx * ctx_subst ctx') with
+        | CTop tus tvs => fun cs => (cs, TopSubst _ tus tvs)
+        | CHyp _ _ => fun cs => let (u,o) := substSplit _ _ (fromHyp cs) in
+                                (u, HypSubst o)
+        | CAll c t => fun cs => let (u,o) := substSplit _ _ (fromAll cs) in
+                                (u, AllSubst o)
+        | CExs _ _ => fun cs => let (u,o) := substSplit _ _ (snd (fromExs cs)) in
+                                (u, ExsSubst o (fst (fromExs cs)))
+      end.
+    SearchAbout pctxD Ctx_append.
+    Lemma foo
+    : forall ctx (ctx' : Ctx typ expr) (cs : ctx_subst (Ctx_append ctx ctx'))
+             (g : Goal typ expr),
+        match
+          toGoal ctx ctx' cs g
+                     (length (getUVars ctx) + length (getExtensionUVars ctx'))
+                     (length (getVars ctx) + length (getExtensionVars ctx'))
+        with
+          | Fail => True
+          | More_ s' g' =>
+            WellFormed_Goal (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g ->
+            WellFormed_ctx_subst cs ->
+            WellFormed_ctx_subst s' /\
+            WellFormed_Goal (getUVars ctx) (getVars ctx) g' /\
+            match pctxD cs with
+              | Some _ =>
+                match goalD (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g with
+                  | Some gD =>
+                    match pctxD s' with
+                      | Some cD' =>
+                        match goalD (getUVars ctx) (getVars ctx) g' with
+                          | Some gD' =>
+                            SubstMorphism (fst (substSplit _ _ cs)) s' /\
+                            (forall (us : HList.hlist typD (getAmbientUVars ctx))
+                                    (vs : HList.hlist typD (getAmbientVars ctx)),
+                               cD'
+                                 (fun (us0 : HList.hlist typD (getUVars ctx))
+                                      (vs0 : HList.hlist typD (getVars ctx)) =>
+                                    gD' us0 vs0 -> gD us0 vs0) us vs)
+                          | None => False
+                        end
+                      | None => False
+                    end
+                  | None => True
+                end
+              | None => True
+            end
+          | Solved s' =>
+            WellFormed_Goal (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g ->
+            WellFormed_ctx_subst cs ->
+            WellFormed_ctx_subst s' /\
+            match pctxD cs with
+              | Some _ =>
+                match goalD (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g with
+                  | Some gD =>
+                    match pctxD s' with
+                      | Some cD' =>
+                        SubstMorphism (substSplit _ _ cs) s' /\
+                        (forall (us : HList.hlist typD (getAmbientUVars ctx))
+                                (vs : HList.hlist typD (getAmbientVars ctx)),
+                           cD' gD us vs)
+                      | None => False
+                    end
+                  | None => True
+                end
+              | None => True
+            end
+        end.
+    Proof.
+      induction ctx'; simpl; intros.
+      { split; auto. split; auto.
+        { do 2 rewrite app_nil_r in H. assumption. }
+        forward.
+        split; [ reflexivity | ].
+        eapply Pure_pctxD; eauto. }
+      { rewrite (ctx_subst_eta cs). simpl.
+        forward.
+        rewrite app_length in H.
+        simpl in H.
+        assert (length (getVars ctx) + length (getExtensionVars ctx') = n) by omega.
+        clear H; subst.
+        specialize (IHctx' (fromAll cs) (GAll t g)).
+        match goal with
+          | H : match ?X with _ => _ end |- match ?Y with _ => _ end =>
+            change Y with X ; destruct X
+        end; auto.
+        { intros. inv_all.
+          destruct IHctx' as [ ? [ ? ? ] ]; eauto.
+          { constructor. rewrite app_ass. assumption. }
+          split; auto.
+          split; auto.
+          simpl in *.
+          forward.
+
+
+    clear. induction c; intros.
+    {
 
     Theorem reduceGoal_sound
     : forall ctx ctx' sub sub' gl,
         @rtac_spec typ expr _ _ _ ctx sub' gl
                    (@reduceGoal typ expr ctx ctx' sub gl 0 0).
     Proof.
-      About rtac_spec.
       unfold rtac_spec. unfold reduceGoal.
       induction ctx'; simpl; intros.
       { (* Top *)
-        Print rtac_spec.
 
-End parameterized.
+**)
