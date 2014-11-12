@@ -556,7 +556,7 @@ Section parameterized.
           if u ?[ ge ] nus then
             let max_nus := length ts + nus in
             if mentionsAny (fun x => x ?[ ge ] max_nus)
-                           (fun x => x ?[ gt ] nvs) e then
+                           (fun x => x ?[ ge ] nvs) e then
               None
             else
               match amap_check_set u e s with
