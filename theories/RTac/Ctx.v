@@ -557,6 +557,8 @@ Section parameterized.
             let max_nus := length ts + nus in
             if mentionsAny (fun x => x ?[ ge ] max_nus)
                            (fun x => x ?[ gt ] nvs) e then
+              None
+            else
               match amap_check_set u e s with
                 | None => None
                 | Some s' =>
@@ -567,8 +569,6 @@ Section parameterized.
                         (ExsSubst c s')
                   end
               end
-            else
-              None
           else
             ctx_set' c
                      (fun f c => k f (@ExsSubst _ ctx c
