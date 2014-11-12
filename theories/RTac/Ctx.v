@@ -562,7 +562,7 @@ Section parameterized.
               match amap_check_set u e s with
                 | None => None
                 | Some s' =>
-                  match amap_lookup u s with
+                  match amap_lookup u s' with
                     | None => None
                     | Some e' =>
                       k (fun x => if x ?[ eq ] u then Some e' else None)
@@ -1620,7 +1620,7 @@ Section parameterized.
       revert H3.
       generalize dependent (hlist_app vs0 (Hcons x2 Hnil)).
       generalize dependent (getVars c ++ t :: nil).
-      clear. intros; subst. 
+      clear. intros; subst.
       revert H3. uip_all'. tauto. }
     { destruct (eta_ctx_subst_hyp s'); subst.
       simpl in *. forward; inv_all; subst.
@@ -2167,6 +2167,9 @@ Section parameterized.
     do 5 red in H2.
     intros. eapply H2; eauto; reflexivity.
   Qed.
+
+
+
 
 End parameterized.
 
