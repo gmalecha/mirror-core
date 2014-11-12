@@ -7,7 +7,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Util.Forwardy.
@@ -32,11 +32,14 @@ Module Make (FM : WS with Definition E.t := uvar
     Variable expr : Type.
     Context {Expr_expr : Expr _ expr}.
     Context {ExprOk_expr : ExprOk Expr_expr}.
-(*  Context {EqDec_eq_typ : EqDec typ (@eq typ)}. *)
+    Context {ExprUVar_expr : ExprUVar expr}.
+    Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
+(*
     Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
     Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
     Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
+*)
 
     Definition raw : Type := FM.t expr.
 
@@ -90,7 +93,7 @@ Module Make (FM : WS with Definition E.t := uvar
       normalized s (raw_subst s n e).
     Proof.
       unfold WellFormed, normalized, raw_subst. intros.
-      eapply instantiate_mentionsU in H0.
+      eapply instantiate_mentionsU in H0; eauto.
       destruct H0.
       { destruct H0. unfold raw_lookup in H0.
         eapply FACTS.not_find_in_iff. assumption. }
@@ -141,8 +144,9 @@ Module Make (FM : WS with Definition E.t := uvar
          mentionsU u e' = true).
     Proof.
       intros. unfold raw_subst.
-      red in instantiate_mentionsU.
-      rewrite instantiate_mentionsU.
+      generalize (@instantiate_mentionsU _ _ _ _ ExprUVar_expr _); eauto.
+      unfold instantiate_mentionsU_spec. intros.
+      rewrite H.
       unfold raw_lookup.
       rewrite <- FACTS.not_find_in_iff.
       intuition.
@@ -181,17 +185,17 @@ Module Make (FM : WS with Definition E.t := uvar
         red; intros.
         intro. eapply FACTS.add_in_iff in H4.
         destruct H4.
-        + subst. eapply instantiate_mentionsU in H2.
+        + subst. eapply instantiate_mentionsU in H2; eauto.
           destruct H2.
           - forward.
           - forward_reason. forward.
         + unfold raw_instantiate in H4.
           rewrite FACTS.map_in_iff in H4.
-          eapply instantiate_mentionsU in H2.
+          eapply instantiate_mentionsU in H2; eauto.
           destruct H2; forward_reason; forward.
           - eapply H0 in H3. red in H3. eapply H3 in H5; eauto.
           - inv_all. subst.
-            eapply instantiate_mentionsU in H6.
+            eapply instantiate_mentionsU in H6; eauto.
             destruct H6; forward_reason.
             * unfold raw_lookup in H2.
               apply FACTS.not_find_in_iff in H2. auto.
@@ -228,18 +232,20 @@ Module Make (FM : WS with Definition E.t := uvar
       FM.fold (fun k e (a : bool) =>
                  if from ?[ le ] k && k ?[ lt ] (from + len) then
                    if a then
-                     mentionsRange mentionsV from len e
+                     mentionsRange mentionsU from len e
                    else false
                  else
                    true)
               s true.
 
+(*
     Definition raw_strengthenV (from len : nat) (s : raw) : bool :=
       FM.fold (fun k e (a : bool) =>
                  if a then
                    mentionsRange mentionsV from len e
                  else false)
               s true.
+*)
 
     Instance SubstUpdate_subst : SubstUpdate raw expr :=
     { subst_set := raw_set
@@ -649,15 +655,13 @@ Module Make (FM : WS with Definition E.t := uvar
           eapply H5; clear H5. } }
     Qed.
 
-    Lemma raw_substD_instantiate
-    : forall tus tvs s sD f P,
-        sem_preserves_if tus tvs P f ->
+    Lemma raw_substD_instantiate_ho
+    : forall tus tvs s sD f P (ExprTApp : CtxLogic.ExprTApplicative P),
+        sem_preserves_if_ho P f ->
         raw_substD tus tvs s = Some sD ->
         exists sD',
           raw_substD tus tvs (FM.map (instantiate f 0) s) = Some sD' /\
-          forall us vs,
-            P us vs ->
-            (sD' us vs <-> sD us vs).
+          P (fun us vs => sD' us vs <-> sD us vs).
     Proof.
       unfold raw_substD. intros.
       cut (exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
@@ -684,9 +688,7 @@ Module Make (FM : WS with Definition E.t := uvar
                (Some
                   (fun (_ : hlist typD tus) (_ : hlist typD tvs) => True)) =
              Some sD' /\
-             (forall (us : hlist typD tus) (vs : hlist typD tvs),
-                P us vs ->
-                (sD' us vs <-> sD us vs))).
+             P (fun us vs => sD' us vs <-> sD us vs)).
       { intros.
         forward_reason.
         match goal with
@@ -699,7 +701,9 @@ Module Make (FM : WS with Definition E.t := uvar
         change_rewrite H1 in XXX.
         forwardy.
         eexists; split; eauto.
-        intros. etransitivity; eauto. }
+        generalize H2. eapply CtxLogic.exprTAp.
+        eapply CtxLogic.exprTPure.
+        clear - H4. intros; etransitivity; eauto. }
       { revert H0. revert sD.
         match goal with
           | |- forall x, FM.fold ?F _ ?X = _ ->
@@ -708,20 +712,35 @@ Module Make (FM : WS with Definition E.t := uvar
         end.
         { intros. inv_all; subst.
           eexists; split; eauto.
-          simpl. reflexivity. }
+          eapply CtxLogic.exprTPure. reflexivity. }
         { intros.
           forwardy. inv_all; subst.
           specialize (H1 _ eq_refl).
           forward_reason. subst.
           change_rewrite H2.
-          red in exprD'_instantiate.
-          eapply exprD'_instantiate with (tvs' := nil) in H3; eauto.
+          eapply (@instantiate_sound_ho _ _ _ _ ExprUVar_expr _ _ _ _ _ nil) in H3; eauto.
           forward_reason. simpl in *.
           change_rewrite H1.
           eexists; split; [ reflexivity | ].
-          simpl. intros. rewrite H4 by eauto.
-          specialize (H3 us vs Hnil H5).
-          simpl in *. rewrite H3. reflexivity. } }
+          generalize H3; clear H3. eapply CtxLogic.exprTAp.
+          generalize H4; clear H4. eapply CtxLogic.exprTAp.
+          eapply CtxLogic.exprTPure.
+          intros. rewrite H3.
+          specialize (H4 Hnil). simpl in H4.
+          rewrite H4. reflexivity. } }
+    Qed.
+
+    Lemma raw_substD_instantiate
+    : forall tus tvs s sD f P,
+        sem_preserves_if P f ->
+        raw_substD tus tvs s = Some sD ->
+        exists sD',
+          raw_substD tus tvs (FM.map (instantiate f 0) s) = Some sD' /\
+          forall us vs, P us vs -> (sD' us vs <-> sD us vs).
+    Proof.
+      intros.
+      eapply raw_substD_instantiate_ho in H; eauto.
+      eapply CtxLogic.ExprTApplicative_foralls_impl.
     Qed.
 
     Lemma raw_substD_add
@@ -765,11 +784,9 @@ Module Make (FM : WS with Definition E.t := uvar
         WellFormed s' /\
         (raw_lookup uv s = None ->
         forall (tus tvs : tenv typ) (t : typ)
-                (val : hlist typD tus ->
-                       hlist typD tvs -> typD t)
-                (get : (fun t0 : typ =>
-                          hlist typD tus -> typD t0) t)
-                (sD : hlist typD tus -> hlist typD tvs -> Prop),
+               (val : exprT tus tvs (typD t))
+               (get : hlist typD tus -> typD t)
+               (sD : exprT tus tvs Prop),
            raw_substD tus tvs s = Some sD ->
            nth_error_get_hlist_nth typD tus uv =
            Some
@@ -777,10 +794,9 @@ Module Make (FM : WS with Definition E.t := uvar
                 (fun t0 : typ => hlist typD tus -> typD t0) t
                 get) ->
            exprD' tus tvs e t = Some val ->
-           exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
+           exists sD' : exprT tus tvs Prop,
              raw_substD tus tvs s' = Some sD' /\
-             (forall (us : hlist typD tus)
-                     (vs : hlist typD tvs),
+             (forall (us : hlist typD tus) (vs : hlist typD tvs),
                 sD' us vs <-> (sD us vs /\ get us = val us vs))).
     Proof.
       simpl; intros. unfold raw_set in *.
@@ -790,8 +806,7 @@ Module Make (FM : WS with Definition E.t := uvar
         unfold raw_set. rewrite H.
         intro XXX. specialize (XXX _ eq_refl). eauto. }
       { intros.
-        red in exprD'_instantiate.
-        eapply exprD'_instantiate with (tvs' := nil) (tvs := tvs) in H4.
+        eapply (@instantiate_sound _ _ _ _ _ _ _ _ _ _ nil) in H4; eauto.
         2: eapply sem_preserves_if_substD; eassumption.
         simpl in H4.
         forward_reason.
@@ -808,25 +823,29 @@ Module Make (FM : WS with Definition E.t := uvar
           rewrite H7.
           clear - H7 H5 H6.
           specialize (H6 us vs).
-          specialize (H5 us vs Hnil).
+          specialize (H5 us vs).
           specialize (H7 us vs).
           split; intros.
-          { cut (sD us vs); intuition.
-            simpl in *. etransitivity; eauto.
-            rewrite <- H6; eauto. }
+          { assert (x1 us vs) by tauto.
+            clear H7.
+            cut (sD us vs).
+            + intuition. rewrite H3. symmetry.
+              eapply (H5 Hnil). auto.
+            + intuition. symmetry in H2. tauto. }
           { simpl in *. destruct H.
-            specialize (H5 H).
-            rewrite <- H6 in H; eauto.
-            split; eauto. rewrite <- H5. auto.
-            rewrite <- H5. auto. } }
+            rewrite H0.
+            specialize (H5 Hnil). simpl in H5.
+            rewrite H5 in H0; auto. 
+            symmetry in H0. tauto. } }
         { unfold raw_lookup.
           rewrite FACTS.map_o.
           unfold raw_lookup in H1. rewrite H1. reflexivity. }
-        { red. intros.
+        { do 2 red; intros.
           forward. inv_all; subst.
           change_rewrite H7 in H3.
           inv_all; subst.
           eexists; split; [ eapply H4 | ].
+          intros. specialize (H5 us vs).
           auto. } }
     Qed.
 

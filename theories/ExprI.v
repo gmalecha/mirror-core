@@ -154,7 +154,10 @@ Section Expr.
                          option (exprT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
-  ; mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool
+    (** This is derivable from information in variables, it is also
+     ** bad for reasoning about
+     **)
+(*  ; mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool *)
   }.
 
   Theorem exprD'_conv (E : Expr)
@@ -189,10 +192,12 @@ Section Expr.
       | Some f => Some (f us vs)
     end.
 
+(*
   Definition mentionsV {Expr : Expr} (v : var) (e : expr) : bool :=
     mentionsAny (fun _ => false) (fun v' => v ?[ eq ] v') e.
   Definition mentionsU {Expr : Expr} (u : uvar) (e : expr) : bool :=
     mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e.
+*)
 
   Class ExprOk (E : Expr) : Type :=
   { exprD'_weaken
@@ -203,6 +208,8 @@ Section Expr.
              exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
           /\ forall us vs us' vs',
                val us vs = val' (hlist_app us us') (hlist_app vs vs')
+    (** TODO: These are in Variables **)
+(*
   ; exprD'_strengthenU_single
     : forall tus tvs e t t' val,
       mentionsU (length tus) e = false ->
@@ -225,6 +232,7 @@ Section Expr.
     : forall fu fu' fv fv' e,
           mentionsAny (fun u => fu u || fu' u) (fun v => fv v || fv' v) e
         = mentionsAny fu fv e || mentionsAny fu' fv' e
+*)
   }.
 
   Context {Expr_expr : Expr}.
@@ -323,6 +331,7 @@ Section Expr.
     simpl. auto.
   Qed.
 
+(*
   Theorem exprD'_strengthenU_multi (EOk : ExprOk Expr_expr)
   : forall tus tvs e  t' tus' val,
       (forall u, u < length tus' ->
@@ -428,6 +437,7 @@ Section Expr.
       + rewrite app_length.
         apply H0. rewrite app_length. simpl. omega. }
   Qed.
+*)
 
 End Expr.
 
@@ -435,8 +445,10 @@ Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprT {_ RType} _ _ _ : rename.
+(*
 Arguments mentionsU {_ RType _ Expr} _ _ : rename.
 Arguments mentionsV {_ RType _ Expr} _ _ : rename.
+*)
 Arguments exprT_Inj {_ _} _ _ {_} _ _ _ : rename.
 Arguments exprT_UseU {_ _} tus tvs n : rename.
 Arguments exprT_UseV {_ _} tus tvs n : rename.

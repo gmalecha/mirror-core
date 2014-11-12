@@ -3,6 +3,7 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
@@ -25,7 +26,7 @@ Section typed.
   Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
   Context {SubstOk_subst : SubstOk Subst_subst}.
   Context {SubstUpdateOk_subst
-  : @SubstUpdateOk _ _ _ _ Expr_expr _ SubstUpdate_subst _}.
+  : @SubstUpdateOk _ _ _ _ Expr_expr _ _ SubstUpdate_subst _}.
 
   Lemma handle_set
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)
@@ -317,3 +318,5 @@ Section typed.
   Qed.
 
 End typed.
+
+Export MirrorCore.Lambda.ExprVariables.

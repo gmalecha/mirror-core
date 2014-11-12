@@ -26,8 +26,16 @@ Section parameterized.
   Variable expr : Type.
 
   Context {RType_typ : RType typ}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprVarOk_expr : ExprVarOk _}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
+  Context {MentionsAny_expr : MentionsAny expr}.
+  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
 (*
   (** TODO(gmalecha): These should go somewhere more useful *)
@@ -103,7 +111,7 @@ Section parameterized.
 
   Theorem Proper_rtacK_spec ctx s
   : Proper (EqGoal (getUVars ctx) (getVars ctx) ==>
-            @EqResult _ _ _ _ _ (getUVars ctx) (getVars ctx) ctx
+            @EqResult _ _ _ _ _ _ (getUVars ctx) (getVars ctx) ctx
             ==> iff)
            (@rtacK_spec ctx s).
   Proof.

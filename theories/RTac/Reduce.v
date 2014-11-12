@@ -22,8 +22,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Variable UVar : nat -> expr.
 
@@ -34,7 +33,7 @@ Section parameterized.
       | GGoal g => GGoal (instantiate f 0 g)
       | GAll t g' => GAll t (instantiateGoal f g')
       | GExs ts sub g' =>
-        GExs ts (amap_instantiate instantiate f sub) (instantiateGoal f g')
+        GExs ts (amap_instantiate f sub) (instantiateGoal f g')
       | GHyp h g' => GHyp (instantiate f 0 h) (instantiateGoal f g')
       | GConj_ a b =>
         GConj_ (instantiateGoal f a) (instantiateGoal f b)
@@ -79,7 +78,7 @@ Section parameterized.
           eapply only_in_range_0_WellFormed_pre_entry; eauto.
           rewrite app_nil_r. assumption. } }
       { inversion H2; try constructor.
-        eapply only_in_range_0_substD with (tus := tus++nil) (tvs:=tvs) in H.
+        eapply only_in_range_0_substD with (tus := tus++nil) (tvs:=tvs) in H; eauto.
         destruct H as [ ? [ ? ? ] ].
         change_rewrite H.
         constructor.

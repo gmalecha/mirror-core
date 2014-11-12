@@ -14,6 +14,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprDAs.
 
 Require Import MirrorCore.Util.Quant.
@@ -59,12 +60,17 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprVarOk_expr : ExprVarOk _}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
+  Context {MentionsAny_expr : MentionsAny expr}.
+  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
   Local Instance RelDec_eq_typ : RelDec (@eq typ) :=
     RelDec_Rty _.
   Local Instance RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ :=
     @RelDec_Correct_Rty _ _ _.
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Inductive Ctx :=
   | CTop : tenv typ -> tenv typ -> Ctx
@@ -257,12 +263,12 @@ Section parameterized.
   Require Import MirrorCore.Subst.FMapSubst.
 
   Definition amap : Type := SUBST.raw expr.
-  Definition WellFormed_amap : amap -> Prop := @SUBST.WellFormed _ _ _ _.
+  Definition WellFormed_amap : amap -> Prop := @SUBST.WellFormed _ _.
   Definition amap_empty : amap := UVarMap.MAP.empty _.
   Definition amap_lookup : nat -> amap -> option expr :=
     @UVarMap.MAP.find _.
   Definition amap_check_set : nat -> expr -> amap -> option amap :=
-    @SUBST.raw_set _ _ _ _ instantiate.
+    @SUBST.raw_set _ _.
   Definition amap_instantiate (f : nat -> option expr) : amap -> amap :=
     UVarMap.MAP.map (fun e => instantiate f 0 e).
   Definition amap_substD
@@ -566,7 +572,7 @@ Section parameterized.
           else
             ctx_set' c
                      (fun f c => k f (@ExsSubst _ ctx c
-                                                (SUBST.raw_instantiate instantiate f s)))
+                                                (SUBST.raw_instantiate f s)))
       end.
   End ctx_set'.
 
@@ -686,16 +692,17 @@ Section parameterized.
       WellFormed_entry s n s' ->
       SUBST.WellFormed s'.
   Proof.
-    clear.
+    clear - ExprUVarOk_expr.
     red. unfold WellFormed_entry. unfold SUBST.normalized.
     intros.
     rewrite SUBST.FACTS.find_mapsto_iff in H0.
-    eapply H in H0.
-    intro. destruct H0 as [ ? [ ? ? ] ].
-    rewrite H4 in H1. congruence.
-    right. red.
-    unfold amap_lookup. rewrite <- SUBST.FACTS.not_find_in_iff.
-    auto.
+    eapply H in H0; clear H.
+    destruct H0 as [ ? [ ? ? ] ].
+    intro. red in H3. destruct H3.
+    rewrite SUBST.FACTS.find_mapsto_iff in H3.
+    rewrite H2 in H1. congruence.
+    right.
+    unfold amap_lookup. congruence.
   Qed.
 
   Theorem ctx_substD_lookup_gen ctx
@@ -866,13 +873,13 @@ Section parameterized.
   Qed.
 
   Global Instance SubstOk_ctx_subst ctx
-  : @SubstOk (ctx_subst ctx) typ expr _ _ _ :=
+  : @SubstOk (ctx_subst ctx) typ expr _ _ _ _ :=
   { WellFormed_subst := @WellFormed_ctx_subst ctx
   ; substD := @ctx_substD ctx
   }.
-  { clear instantiate. intros; eapply ctx_substD_lookup; eassumption. }
-  { clear instantiate. intros; eapply ctx_subst_domain; eassumption. }
-  { clear instantiate. intros; eapply ctx_lookup_normalized; eassumption. }
+  { intros; eapply ctx_substD_lookup; eassumption. }
+  { intros; eapply ctx_subst_domain; eassumption. }
+  { intros; eapply ctx_lookup_normalized; eassumption. }
   Defined.
 
   Global Instance SubstUpdate_ctx_subst ctx
@@ -1664,7 +1671,7 @@ Section parameterized.
   Lemma amap_instantiates_substD
   : forall tus tvs C (_ : CtxLogic.ExprTApplicative C) f s sD,
       amap_substD tus tvs s = Some sD ->
-      InstantiateI.sem_preserves_if_ho _ _ C f ->
+      sem_preserves_if_ho C f ->
       exists sD',
         amap_substD tus tvs (amap_instantiate f s) = Some sD' /\
         C (fun us vs => sD us vs <-> sD' us vs).
@@ -1672,11 +1679,10 @@ Section parameterized.
   Admitted.
 
   Lemma sem_preserves_if_ho_ctx_lookup
-  : forall ctx s cD,
+  : forall ctx (s : ctx_subst ctx) cD,
       WellFormed_subst s ->
       pctxD s = Some cD ->
-      InstantiateI.sem_preserves_if_ho
-        (getUVars ctx) (getVars ctx)
+      sem_preserves_if_ho
         (fun P => forall us vs, cD P us vs)
         (fun u => subst_lookup u s).
   Proof.
@@ -1793,7 +1799,6 @@ Section parameterized.
           sD (fun us vs => eD (hlist_getUVars_Ctx_append _ _ us)
                               (hlist_getVars_Ctx_append _ _ vs)) us vs.
   Proof.
-    clear instantiate.
     induction ctx'; simpl.
     { intros e s; rewrite (ctx_subst_eta s).
       simpl. intros; forward; inv_all; subst; eauto.
@@ -1985,6 +1990,8 @@ Section parameterized.
 
 End parameterized.
 
+(** TODO: Check all the instances here **)
+
 Ltac gather_facts :=
   repeat match goal with
            | H : forall us vs, ?C _ us vs |- ?C _ ?us ?vs =>
@@ -2002,3 +2009,4 @@ Arguments CHyp {typ expr} _ _ : rename.
 
 Export MirrorCore.ExprI.
 Export MirrorCore.ExprDAs.
+Export MirrorCore.VariablesI.

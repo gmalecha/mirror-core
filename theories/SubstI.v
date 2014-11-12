@@ -5,7 +5,8 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.VariablesI.
+Require Import MirrorCore.CtxLogic.
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
@@ -73,6 +74,8 @@ Section subst.
   Context {RType_type : RType typ}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk _}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Let uvar : Type := nat.
 
@@ -175,14 +178,12 @@ Section subst.
     : forall f s s',
         subst_instantiate f s = s' ->
         WellFormed_subst s ->
-        forall tus tvs P sD,
-          sem_preserves_if tus tvs P f ->
+        forall tus tvs P (EApp : ExprTApplicative P) sD,
+          sem_preserves_if_ho P f ->
           substD tus tvs s = Some sD ->
           exists s'D,
             substD tus tvs s' = Some s'D /\
-            forall us vs,
-              P us vs ->
-              (sD us vs <-> s'D us vs)
+            P (fun us vs => sD us vs <-> s'D us vs)
   ; WellFormed_instantiate
     : forall f s s',
         subst_instantiate f s = s' ->
@@ -606,11 +607,13 @@ Section subst.
   Admitted.
 
 
+(*
   Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
 
   Hypothesis exprD'_instantiate : InstantiateI.exprD'_instantiate _ _ instantiate.
 
   Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
+*)
 
   Lemma In_seq : forall a c b,
                    In a (seq b c) <-> (b <= a /\ a < b + c).
@@ -629,6 +632,24 @@ Section subst.
   : forall tus tvs s sD,
       WellFormed_subst s ->
       substD tus tvs s = Some sD ->
+      sem_preserves_if_ho (fun P => forall us vs, sD us vs -> P us vs)
+                          (fun u => subst_lookup u s).
+  Proof.
+    red. intros.
+    eapply substD_lookup in H1; eauto.
+    forward_reason.
+    rewrite H2 in H1.
+    inv_all; subst.
+    eapply nth_error_get_hlist_nth_Some in H2.
+    forward_reason. simpl in *.
+    eexists; split; eauto.
+  Qed.
+
+(*
+  Lemma sem_preserves_if_substD
+  : forall tus tvs s sD,
+      WellFormed_subst s ->
+      substD tus tvs s = Some sD ->
       sem_preserves_if tus tvs sD (fun u => subst_lookup u s).
   Proof.
     red. intros.
@@ -640,6 +661,7 @@ Section subst.
     forward_reason. simpl in *.
     eexists; split; eauto.
   Qed.
+*)
 
 (*
   Theorem pull_for_instantiate_sound

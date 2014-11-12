@@ -6,6 +6,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDFacts.
 Require MirrorCore.Lambda.ExprDsimul.
@@ -29,7 +30,7 @@ Section Expr.
   Instance Expr_expr : @Expr typ _ (@expr typ func) :=
   { exprD' := fun tus tvs e t => @exprD' _ _ _ _ _ tus tvs t e
   ; wf_Expr_acc := @wf_expr_acc typ func
-  ; mentionsAny := mentionsAny
+(*  ; mentionsAny := mentionsAny *)
   }.
 
   Context {RTOk : RTypeOk}
@@ -56,24 +57,17 @@ Section Expr.
       (forall u', P (UVar u') (u ?[ eq ] u')) ->
       (forall f x rf rx (IHf : P f rf) (IHx : P x rx), P (App f x) (rf || rx)) ->
       (forall t x rx (IHx : P x rx), P (Abs t x) rx) ->
-      forall e, P e (mentionsU u e).
+      forall e, P e (_mentionsU u e).
   Proof.
-    unfold mentionsU.
     assert (forall x, (fun _ : ExprI.var => false) x = false) by reflexivity.
     generalize dependent (fun _ : ExprI.var => false).
     induction e; simpl; intros; eauto.
-    - rewrite H. auto.
-    - eapply H4. rewrite Proper_mentionsAny.
-      simpl in IHe. eapply IHe.
-      reflexivity.
-      red; intros. subst. destruct y; rewrite H; eauto.
-      reflexivity.
   Qed.
 
   Theorem typeof_expr_strengthenU_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ),
-      mentionsU (length tus) e = false ->
+      _mentionsU (length tus) e = false ->
       typeof_expr (tus ++ t :: nil) tvs e = Some t' ->
       typeof_expr tus tvs e = Some t'.
   Proof.
@@ -100,7 +94,7 @@ Section Expr.
            (t t' : typ)
            (val : HList.hlist typD (tus ++ t :: nil) ->
                   HList.hlist typD tvs -> typD t'),
-      ExprI.mentionsU (length tus) e = false ->
+      _mentionsU (length tus) e = false ->
       ExprI.exprD' (tus ++ t :: nil) tvs e t' = Some val ->
       exists
         val' : HList.hlist typD tus ->
@@ -110,7 +104,7 @@ Section Expr.
                 (vs : HList.hlist typD tvs) (u : typD t),
            val (HList.hlist_app us (HList.Hcons u HList.Hnil)) vs = val' us vs).
   Proof.
-    intros tus tvs e. simpl. rewrite <- _mentionsU_mentionsU. revert tvs.
+    intros tus tvs e. simpl. revert tvs.
     induction e; simpl; intros; autorewrite with exprD_rw in *; simpl in *.
     { forward. eexists; split; eauto.
       simpl. intros. inv_all; subst. reflexivity. }
@@ -127,8 +121,7 @@ Section Expr.
       intros.
       unfold exprT_App.
       autorewrite with eq_rw.
-      rewrite H6; rewrite H7; reflexivity.
-      simpl; rewrite <- _mentionsU_mentionsU. assumption. }
+      rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
@@ -166,7 +159,7 @@ Section Expr.
   Theorem typeof_expr_strengthenV_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ),
-      mentionsV (length tvs) e = false ->
+      _mentionsV (length tvs) e = false ->
       typeof_expr tus (tvs ++ t :: nil) e = Some t' ->
       typeof_expr tus tvs e = Some t'.
   Proof.
@@ -190,7 +183,7 @@ Section Expr.
            (t t' : typ)
            (val : HList.hlist typD tus ->
                   HList.hlist typD (tvs ++ t :: nil) -> typD t'),
-      ExprI.mentionsV (length tvs) e = false ->
+      _mentionsV (length tvs) e = false ->
       ExprI.exprD' tus (tvs ++ t :: nil) e t' = Some val ->
       exists
         val' : HList.hlist typD tus ->
@@ -200,7 +193,7 @@ Section Expr.
                 (vs : HList.hlist typD tvs) (u : typD t),
            val us (HList.hlist_app vs (HList.Hcons u HList.Hnil)) = val' us vs).
   Proof.
-    intros tus tvs e. simpl. rewrite <- _mentionsV_mentionsV. revert tvs.
+    intros tus tvs e. simpl. revert tvs.
     induction e; simpl; intros; autorewrite with exprD_rw in *; simpl in *.
     { forward. inv_all; subst.
       cut (v < length tvs); intros.
@@ -229,8 +222,7 @@ Section Expr.
       intros.
       unfold exprT_App.
       autorewrite with eq_rw.
-      rewrite H6; rewrite H7; reflexivity.
-      simpl. rewrite <- _mentionsV_mentionsV. assumption. }
+      rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
@@ -261,11 +253,15 @@ Section Expr.
     constructor.
     { simpl. intros.
       eapply ExprFacts.exprD'_weaken; eauto. }
+  Qed.
+(*
     { eapply exprD'_strengthenU_single. }
     { eapply exprD'_strengthenV_single. }
     { simpl. eapply Proper_mentionsAny. }
     { simpl. intros; eapply mentionsAny_factor. }
   Qed.
+*)
+
 
 End Expr.
 

@@ -18,6 +18,7 @@ LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  WtExpr \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
 	  ExprSubst ExprSubstitute AppN \
+	  ExprVariables \
 	  AutoSetoidRewrite
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
@@ -49,10 +50,10 @@ MODULES    := OpenT Generic \
 	      InstantiateI \
 	      Lemma LemmaApply \
 	      $(LAMBDA:%=Lambda/%) \
+	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(SYMS:%=syms/%) \
-	      $(PROVERS:%=provers/%) \
 	      $(RTAC:%=RTac/%) \
 	      $(REIFY:%=Reify/%)
 

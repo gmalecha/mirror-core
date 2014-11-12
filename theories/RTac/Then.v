@@ -15,6 +15,7 @@ Section parameterized.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition THEN (c1 : rtac typ expr)
              (c2 : rtacK typ expr)
