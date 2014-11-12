@@ -36,6 +36,7 @@ Section runOnGoals.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Variable tac : rtac typ expr.
 
@@ -153,7 +154,8 @@ Section runOnGoals.
 
 
   Lemma pctxD_remembers {c s l a sD pD}
-  : WellFormed_ctx_subst s ->
+  : forall (WFp : WellFormed_pre_entry (length (getUVars c)) (length l) a),
+      WellFormed_ctx_subst s ->
     pctxD s = Some sD ->
     amap_substD (getUVars c ++ l) (getVars c) a = Some pD ->
     exists sD',
@@ -196,6 +198,7 @@ Section runOnGoals.
       eapply _forall_sem with (x := us') in H5; intros.
       eapply H5; clear H5.
       eapply H3; eauto. }
+    { eauto. }
     { clear - H0. constructor.
       { intros. eapply Pure_pctxD; eauto. }
       { intros. generalize (H1 us vs).
@@ -203,6 +206,7 @@ Section runOnGoals.
         generalize (H us vs).
         eapply Ap_pctxD; eauto.
         eapply Pure_pctxD; eauto. } }
+    { eassumption. }
     { red. intros.
       destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
       eapply ctx_substD_lookup in H4; eauto.
@@ -239,9 +243,7 @@ Section runOnGoals.
     clear. induction Ps; simpl; eauto.
   Qed.
 
-
   Opaque remembers.
-
 
   Lemma runOnGoals_sound_ind
   : forall g ctx s,
@@ -329,7 +331,8 @@ Section runOnGoals.
           eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
         { forward. inv_all. subst.
           forward_reason.
-          destruct (pctxD_remembers H1 H3 H10) as [ ? [ ? ? ] ].
+          rewrite countUVars_getUVars in H4.
+          destruct (pctxD_remembers H4 H1 H3 H10) as [ ? [ ? ? ] ].
           rewrite H11 in *.
           forward. inv_all; subst.
           change_rewrite H9.
@@ -401,7 +404,8 @@ Section runOnGoals.
           constructor. }
         { forward. inv_all. subst.
           forward_reason.
-          destruct (pctxD_remembers H1 H3 H9) as [ ? [ ? ? ] ].
+          rewrite countUVars_getUVars in H4.
+          destruct (pctxD_remembers H4 H1 H3 H9) as [ ? [ ? ? ] ].
           rewrite H10 in *.
           forward. inv_all; subst.
           change_rewrite H8.
@@ -597,13 +601,14 @@ Section runOnGoals_proof.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Theorem runOnGoals_sound
   : forall tac,
       rtac_sound tac -> rtacK_sound (runOnGoals tac).
   Proof.
     intros.
-    generalize (@runOnGoals_sound_ind typ expr _ _ _ _ _ _ tac H).
+    generalize (@runOnGoals_sound_ind typ expr _ _ _ _ _ _ _ tac H).
     red. intros; subst.
     specialize (H0 g ctx s). revert H0; clear.
     unfold rtac_spec, rtacK_spec.

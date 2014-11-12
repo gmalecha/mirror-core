@@ -23,8 +23,7 @@ Section parameterized.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
-
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   (** TODO: Write this with a positive **)
   Section repeater.
