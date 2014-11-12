@@ -186,8 +186,19 @@ Section parameterized.
       | Some r => adjust' ls nus r
     end.
 
+  Definition GExs_do_solved (tes : tenv typ) (m : amap expr) (g : Goal typ expr)
+  : Goal typ expr :=
+    match g with
+      | GSolved =>
+        if (UVarMap.MAP.cardinal m) ?[ eq ] length tes then
+          GSolved
+        else
+          GExs tes m g
+      | _ => GExs tes m g
+    end.
+
 (*
-  Fixpoint GExs_reduce' (tes : list (typ * option expr)) (g : Goal typ expr)
+  Fixpoint GExs_reduce' (tes : tenv typ) (m : amap) (g : Goal typ expr)
            (nus : nat) (acc : list (typ * option expr)) (k : list (option expr))
   : Goal typ expr * nat :=
     match tes with
@@ -235,7 +246,7 @@ Section parameterized.
         let nes := forgets (un - length ts) ts s in
         let '(g',nus') := GExs_reduce (List.combine ts nes) g un in
 *)
-        @toGoal ctx ctx' cs' (GExs ts s g) (un - length ts) vn
+        @toGoal ctx ctx' cs' (GExs_do_solved ts s g) (un - length ts) vn
     end cs.
 
 (*
