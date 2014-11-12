@@ -197,6 +197,20 @@ Section parameterized.
       | _ => GExs tes m g
     end.
 
+  Definition GHyp_do_solved (e : expr) (g : Goal typ expr)
+  : Goal typ expr :=
+    match g with
+      | GSolved => GSolved
+      | _ => GHyp e g
+    end.
+
+  Definition GAll_do_solved (ts : typ) (g : Goal typ expr)
+  : Goal typ expr :=
+    match g with
+      | GSolved => GSolved
+      | _ => GAll ts g
+    end.
+
 (*
   Fixpoint GExs_reduce' (tes : tenv typ) (m : amap) (g : Goal typ expr)
            (nus : nat) (acc : list (typ * option expr)) (k : list (option expr))
@@ -230,16 +244,16 @@ Section parameterized.
     match ctx' as ctx'
           return ctx_subst (Ctx_append ctx ctx') -> Result ctx
     with
-      | CTop _ _ => fun cs => More_ cs g
+      | CTop _ _ => fun cs => More cs g
       | CAll ctx' t => fun cs =>
         match vn with
           | 0 => (** STUCK **)
             Fail
           | S vn' =>
-            @toGoal ctx ctx' (fromAll cs) (GAll t g) un vn'
+            @toGoal ctx ctx' (fromAll cs) (GAll_do_solved t g) un vn'
         end
       | CHyp ctx' h => fun cs =>
-        @toGoal ctx ctx'  (fromHyp cs) (GHyp h g) un vn
+        @toGoal ctx ctx'  (fromHyp cs) (GHyp_do_solved h g) un vn
       | CExs ctx' ts => fun cs : ctx_subst (CExs (Ctx_append ctx ctx') ts) =>
         let '(s,cs') := fromExs cs in
         (* NOTE: This doesn't do any reduction right now!!!
