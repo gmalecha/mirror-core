@@ -17,10 +17,8 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
-  Variable exprD'_instantiate
-  : @sem_instantiate_ho _ _ _ _ _ _ iff (@propD _ _ _ _ _) instantiate.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Definition INSTANTIATE
   : rtac typ expr :=
@@ -32,20 +30,24 @@ Section parameterized.
   Proof.
     intros. eapply SIMPLIFY_sound.
     intros; forward.
-    red in exprD'_instantiate.
-    eapply exprD'_instantiate with (tvs' := nil) in H3;
-      [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ].
-    { subst. forward_reason.
-      change_rewrite H.
-      intros.
-      gather_facts.
-      eapply Pure_pctxD; eauto.
-      clear. firstorder. specialize (H HList.Hnil). simpl in *.
-      destruct H. assumption. }
-    { clear - H1. constructor; eauto.
-      - intros. eapply Pure_pctxD; eauto.
-      - intros. gather_facts.
-        eapply Pure_pctxD; eauto. }
+    unfold propD, exprD'_typ0 in *.
+    forward.
+    eapply (@instantiate_sound_ho  _ _ _ _ _ _ _ _ _ _ nil) in H3;
+      [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ]; eauto.
+    forward_reason; inv_all; subst.
+    change_rewrite H3.
+    intros.
+    gather_facts.
+    eapply Pure_pctxD; eauto.
+    clear. firstorder. specialize (H HList.Hnil).
+    revert H1. autorewrite with eq_rw.
+    simpl in *. rewrite H.
+    exact (fun x => x).
+    constructor.
+    { intros. eapply Pure_pctxD; eauto. }
+    { intros.
+      specialize (H6 us vs).
+      eapply Ap_pctxD; eauto. }
   Qed.
 
 End parameterized.

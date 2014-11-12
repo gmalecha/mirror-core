@@ -6,6 +6,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Lemma.
 
 Set Implicit Arguments.
@@ -20,6 +21,8 @@ Section lemma_apply.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Let tyProp : typ := @typ0 _ _ _ _.
   Context {subst : Type}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : SubstOk Subst_subst}.
   (** TODO: Ideally I wouldn't need these things, but they are necessary b/c of

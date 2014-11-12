@@ -32,32 +32,10 @@ Section runOnGoals.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {Typ0_Prop : Typ0 _ Prop}.
-
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
-
-(*
-  Lemma map_fst_combine : forall {T U} (ts : list T) (us : list U),
-                            length ts = length us ->
-                            map fst (combine ts us) = ts.
-  Proof.
-    clear.
-    induction ts; simpl; intros; auto.
-    destruct us. inversion H.
-    simpl. f_equal. auto.
-  Qed.
-
-  Lemma map_snd_combine : forall {T U} (ts : list T) (us : list U),
-                            length ts = length us ->
-                            map snd (combine ts us) = us.
-  Proof.
-    clear.
-    induction ts; destruct us; simpl; intros; auto.
-    congruence. f_equal. auto.
-  Qed.
-*)
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Variable tac : rtac typ expr.
 
@@ -82,7 +60,7 @@ Section runOnGoals.
           | More_ s g => More (fromAll s) (GAll t g)
         end
       | GExs ts sub g =>
-        let s' := remembers instantiate s ts sub in
+        let s' := remembers s ts sub in
         match @runOnGoals (tus ++ ts) tvs (length ts + nus) nvs (CExs ctx ts) s' g with
           | Fail => Fail
           | Solved s'' =>
@@ -124,12 +102,12 @@ Section runOnGoals.
 
   Local Hint Constructors WellFormed_ctx_subst.
   Lemma WellFormed_ctx_subst_fromAll
-  : forall t c cs,
-      @WellFormed_ctx_subst typ expr _ _ (CAll c t) cs ->
-      @WellFormed_ctx_subst typ expr _ _ c (fromAll cs).
+  : forall t (c : Ctx typ expr) (cs : ctx_subst (CAll c t)),
+      WellFormed_ctx_subst cs ->
+      WellFormed_ctx_subst (fromAll cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
+    refine match H in @WellFormed_ctx_subst _ _ _ C S
                  return match C as C return ctx_subst C -> Prop with
                           | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
                           | _ => fun _ => True
@@ -141,12 +119,12 @@ Section runOnGoals.
   Qed.
 
   Lemma WellFormed_ctx_subst_fromHyp
-  : forall t c cs,
-      @WellFormed_ctx_subst typ expr _ _ (CHyp c t) cs ->
-      @WellFormed_ctx_subst typ expr _ _ c (fromHyp cs).
+  : forall t (c : Ctx typ expr) (cs : ctx_subst (CHyp c t)),
+      WellFormed_ctx_subst cs ->
+      WellFormed_ctx_subst (fromHyp cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
+    refine match H in @WellFormed_ctx_subst _ _ _ C S
                  return match C as C return ctx_subst C -> Prop with
                           | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
                           | _ => fun _ => True
@@ -179,7 +157,7 @@ Section runOnGoals.
     pctxD s = Some sD ->
     amap_substD (getUVars c ++ l) (getVars c) a = Some pD ->
     exists sD',
-      pctxD (remembers instantiate s l a) = Some sD' /\
+      pctxD (remembers s l a) = Some sD' /\
       forall us vs (P : exprT _ _ Prop),
         (sD (fun us vs =>
                forall us', pD (hlist_app us us') vs -> P (hlist_app us us') vs) us vs <->
@@ -267,7 +245,7 @@ Section runOnGoals.
 
   Lemma runOnGoals_sound_ind
   : forall g ctx s,
-      @rtac_spec typ expr _ _ _
+      @rtac_spec typ expr _ _ _ _
                  ctx s g
                  (@runOnGoals (getUVars ctx)
                               (getVars ctx)
@@ -323,7 +301,7 @@ Section runOnGoals.
     { (* Exs *)
       intros; simpl in *.
       forward.
-      specialize (@IHg (CExs _ l) (remembers instantiate s l a)).
+      specialize (@IHg (CExs _ l) (remembers s l a)).
       revert IHg. simpl.
       repeat rewrite countUVars_getUVars.
       repeat rewrite countVars_getVars.
@@ -340,7 +318,7 @@ Section runOnGoals.
         subst.
         simpl in *. inv_all; subst.
         rewrite <- countUVars_getUVars in H4.
-        destruct (remembers_sound (instantiate:=instantiate) eq_refl H1 H4).
+        destruct (remembers_sound eq_refl H1 H4).
         destruct IHg as [ ? [ ? ? ] ]; auto.
         simpl in *.
         forward.
@@ -365,7 +343,7 @@ Section runOnGoals.
             Transparent remembers. unfold remembers in H14.
             Opaque remembers.
             inv_all. subst. rewrite H3 in H14.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
+            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
             specialize (@H2 _ _ _ _ H16 H10).
             forward_reason.
             change_rewrite H9 in H14.
@@ -411,7 +389,7 @@ Section runOnGoals.
         subst.
         simpl in *. inv_all; subst.
         rewrite <- countUVars_getUVars in H4.
-        destruct (remembers_sound (instantiate:=instantiate) eq_refl H1 H4).
+        destruct (remembers_sound eq_refl H1 H4).
         destruct IHg as [ ? ? ]; auto.
         simpl in *.
         forward.
@@ -437,7 +415,7 @@ Section runOnGoals.
             Transparent remembers. unfold remembers in H12.
             Opaque remembers.
             inv_all. subst. rewrite H3 in H12.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
+            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
             change_rewrite H8 in H12.
             specialize (@H2 _ _ _ _ H14 H9).
             forward_reason.
@@ -608,7 +586,7 @@ Section runOnGoals.
 
 End runOnGoals.
 
-Arguments runOnGoals {typ expr} instantiate tac tus tvs nus nvs ctx csub goal : rename.
+Arguments runOnGoals {typ expr ExprUVar} tac tus tvs nus nvs ctx csub goal : rename.
 
 Section runOnGoals_proof.
   Context {typ : Type}.
@@ -618,14 +596,14 @@ Section runOnGoals_proof.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Theorem runOnGoals_sound
   : forall tac,
-      rtac_sound tac -> rtacK_sound (runOnGoals instantiate tac).
+      rtac_sound tac -> rtacK_sound (runOnGoals tac).
   Proof.
     intros.
-    generalize (@runOnGoals_sound_ind typ expr _ _ _ _ _ instantiate tac H).
+    generalize (@runOnGoals_sound_ind typ expr _ _ _ _ _ _ tac H).
     red. intros; subst.
     specialize (H0 g ctx s). revert H0; clear.
     unfold rtac_spec, rtacK_spec.

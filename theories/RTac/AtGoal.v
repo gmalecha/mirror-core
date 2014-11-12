@@ -15,6 +15,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Variable tac
   : forall ctx : Ctx typ expr, ctx_subst ctx -> expr

@@ -12,6 +12,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition SOLVE (tac : rtac typ expr) : rtac typ expr :=
     fun tus tvs nus nvs ctx s g =>

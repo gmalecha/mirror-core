@@ -9,7 +9,7 @@ Section definitions.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
   (** instantiate **)
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+  Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
 
   Definition sem_preserves_if_ho tus tvs
              (P : exprT tus tvs Prop -> Prop)
@@ -33,6 +33,7 @@ Section definitions.
           P us vs ->
           get us = eD us vs.
 
+(*
   Definition instantiate_mentionsU : Prop :=
     forall f n e u,
       mentionsU u (instantiate f n e) = true <-> (** do i need iff? **)
@@ -63,6 +64,7 @@ Section definitions.
         exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) = Some eD' /\
         P (fun us vs => forall vs',
                           eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
+*)
 
 (*
   Goal (forall t : typ, @sem_instantiate_ho expr (typD t) (@eq _)

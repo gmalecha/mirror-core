@@ -7,12 +7,13 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
-
+  Context {typ : Type}.
+  Context {expr : Type}.
   Context {RType_typ : RType typ}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Fixpoint FIRST (tacs : list (rtac typ expr))
   : rtac typ expr :=

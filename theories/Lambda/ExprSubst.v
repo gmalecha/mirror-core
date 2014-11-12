@@ -11,7 +11,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
@@ -94,6 +94,7 @@ Section instantiate_thm.
   Context {RSymOk_func : RSymOk RSym_func}.
 
   Let Expr_expr := @Expr_expr _ _ RType_typ _ _.
+  Local Existing Instance Expr_expr.
 
   Lemma typeof_expr_instantiate
   : forall f tus tvs,
@@ -146,25 +147,34 @@ Section instantiate_thm.
       { eapply H0. } }
   Qed.
 
-  Theorem exprD'_instantiate
-  : @exprD'_instantiate typ (expr typ func) RType_typ Expr_expr (@instantiate typ func).
+  Theorem exprD'_instantiate_ho
+  : instantiate_spec_ho (@instantiate typ func).
   Proof.
-    red. induction e; simpl; intros; eauto.
+    red. unfold ExprI.exprD'; simpl.
+    induction e; simpl; intros.
+    { eexists; split; eauto.
+      eapply CtxLogic.exprTPure; eauto. }
+    { eexists; split; eauto.
+      eapply CtxLogic.exprTPure; eauto. }
     { autorewrite with exprD_rw in *; eauto.
       simpl in *.
       forwardy.
       eapply typeof_expr_instantiate' with (f := f) in H0.
       change_rewrite H0.
-      specialize (IHe1 tvs' (typ2 y t) _ _ H H1).
-      specialize (IHe2 _ _ _ _ H H2).
+      specialize (IHe1 tvs' (typ2 y t) _ _ EApp H H1).
+      specialize (IHe2 _ _ _ _ EApp H H2).
       forward_reason.
       change_rewrite H5. change_rewrite H4.
       eexists; split; [ reflexivity | ].
       intros. inv_all; subst.
       unfold exprT_App.
       autorewrite with eq_rw.
-      rewrite H6 by assumption.
-      rewrite H7 by assumption. reflexivity.
+      revert H6. eapply CtxLogic.exprTAp.
+      revert H7. eapply CtxLogic.exprTAp.
+      eapply CtxLogic.exprTPure.
+      clear. intros.
+      rewrite H by assumption.
+      rewrite H0 by assumption. reflexivity.
       clear - H RTypeOk_typD Typ2Ok_Fun RSymOk_func.
       red in H.
       intros.
@@ -188,20 +198,22 @@ Section instantiate_thm.
         autorewrite with eq_rw in *.
         forwardy.
         Cases.rewrite_all_goal.
-        specialize (IHe (t :: tvs')_ _ _ H H3).
+        specialize (IHe (t :: tvs')_ _ _ _ H H3).
         forward_reason.
         simpl in *.
         Cases.rewrite_all_goal.
         eexists; split; eauto.
         intros.
         inv_all; subst.
+        revert H6. eapply CtxLogic.exprTAp.
+        eapply CtxLogic.exprTPure.
         autorewrite with eq_rw.
+        intros.
         eapply match_eq_match_eq.
         eapply match_eq_match_eq with (F := fun x => x).
         apply functional_extensionality.
-        intro. eapply (H6 us vs (Hcons (Rcast_val y1 x3) vs')); auto. }
-      { rewrite H1 in H0.
-        exfalso. congruence. } }
+        intro. eapply (H1 (Hcons (Rcast_val y1 x3) vs')); auto. }
+      { rewrite H1 in H0. exfalso. congruence. } }
     { red in H.
       specialize (H u).
       destruct (f u).
@@ -216,14 +228,17 @@ Section instantiate_thm.
         eexists; split; [ eassumption | ].
         intros.
         inv_all; subst.
-        erewrite H3 by eauto. eapply (H5 us Hnil vs' vs). }
+        revert H3. eapply CtxLogic.exprTAp.
+        eapply CtxLogic.exprTPure. intros.
+        erewrite H2 by eauto. eapply (H5 us Hnil vs' vs). }
       { clear H.
         eexists; split; [ eassumption | ].
+        eapply CtxLogic.exprTPure. intros.
         reflexivity. } }
   Qed.
 
   Theorem instantiate_mentionsU
-  : @instantiate_mentionsU typ (expr typ func) RType_typ Expr_expr (@instantiate typ func).
+  : @instantiate_mentionsU_spec (expr typ func) (@instantiate typ func) _mentionsU.
   Proof.
     clear.
     red. intros f n e u. revert n.
@@ -259,10 +274,8 @@ Section instantiate_thm.
             { right; left; auto. } }
           { repeat rewrite <- _mentionsU_mentionsU in *.
             consider (_mentionsU x e1).
-            { left; right. do 2 eexists; split; eauto.
-              repeat rewrite <- _mentionsU_mentionsU in *. eauto. }
-            { intros. right; right; do 2 eexists; split; eauto.
-              repeat rewrite <- _mentionsU_mentionsU in *. eauto. } } } } }
+            { left; right. do 2 eexists; split; eauto. }
+            { intros. right; right; do 2 eexists; split; eauto. } } } } }
     { specialize (IHe (S n)). simpl in IHe.
       assert (Morphisms.respectful eq eq (fun _ : ExprI.var => false)
                                    (fun v : var => match v with
@@ -270,56 +283,43 @@ Section instantiate_thm.
                                                      | S _ => false
                                                    end)).
       { red. intros; subst; destruct y; auto. }
-      rewrite Proper_mentionsAny in IHe; [ | reflexivity | eassumption | reflexivity ].
+      (* rewrite Proper_mentionsAny in IHe; [ | reflexivity | eassumption | reflexivity ]. *)
       rewrite IHe. clear - H.
       split; destruct 1; intros;
         try (rewrite Proper_mentionsAny; [ | reflexivity | symmetry; eassumption | reflexivity ]).
       { left; auto. }
       { right. do 2 destruct H0.
-        exists x; exists x0.
-        try (rewrite Proper_mentionsAny; [ | reflexivity | symmetry; eassumption | reflexivity ]). auto. }
-      { left; eauto.
-        try (rewrite Proper_mentionsAny in H0; [ | reflexivity | symmetry; eassumption | reflexivity ]).
-        auto. }
-      { right; do 2 destruct H0; exists x; exists x0.
-        try (rewrite Proper_mentionsAny in H0; [ | reflexivity | symmetry; eassumption | reflexivity ]). auto. } }
+        exists x; exists x0. auto. }
+      { left; eauto. }
+      { right; do 2 destruct H0; exists x; exists x0. auto. } }
     { split.
       { consider (EqNat.beq_nat u u0).
         { intros; subst.
           consider (f u0).
           + intros. right.
-            rewrite <- _mentionsU_mentionsU in H0.
             rewrite mentionsU_lift in H0.
             do 2 eexists; split; eauto.
-            split. rewrite rel_dec_eq_true; eauto with typeclass_instances.
-            rewrite <- _mentionsU_mentionsU. assumption.
+            rewrite <- EqNat.beq_nat_refl. auto.
           + intros. left; auto. }
         { intros. right.
           consider (f u0); intros.
           { do 2 eexists.
-            rewrite <- _mentionsU_mentionsU in H1.
             split; eauto.
             rewrite mentionsU_lift in H1.
-            rewrite _mentionsU_mentionsU in H1.
-            split; auto.
-            rewrite rel_dec_eq_true; eauto with typeclass_instances. }
+            rewrite <- EqNat.beq_nat_refl. auto. }
           { simpl in H1.
             exfalso.
-            consider (u ?[ eq ] u0). apply H. } } }
+            eapply EqNat.beq_nat_true_iff in H1. auto. } } }
       { intros. destruct H.
         { destruct H.
-          consider (u ?[ eq ] u0).
-          intros; subst.
-          rewrite H. simpl.
-          rewrite rel_dec_eq_true; eauto with typeclass_instances. }
+          eapply EqNat.beq_nat_true_iff in H0.
+          subst. rewrite H.
+          simpl. rewrite <- EqNat.beq_nat_refl. auto. }
         { forward_reason.
-          eapply (rel_dec_correct x u0)in H0.
-          intros; subst.
+          eapply EqNat.beq_nat_true_iff in H0.
+          subst.
           rewrite H.
-          rewrite <- _mentionsU_mentionsU.
-          rewrite mentionsU_lift.
-          rewrite _mentionsU_mentionsU.
-          assumption. } } }
+          rewrite mentionsU_lift. assumption. } } }
   Qed.
 
 End instantiate_thm.

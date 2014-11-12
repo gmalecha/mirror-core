@@ -9,11 +9,11 @@ Set Strict Implicit.
 Section parameterized.
   Context {typ : Type}.
   Context {expr : Type}.
-  Context {subst : Type}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition TRY (tac : rtac typ expr) : rtac typ expr :=
     fun tus tvs nus nvs ctx s g =>

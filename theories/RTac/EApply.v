@@ -19,15 +19,19 @@ Section parameterized.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprVarOk_expr : ExprVarOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
+  Context {MentionsAny_expr : MentionsAny expr}.
+  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Variable vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
   Variable exprUnify_sound
@@ -46,7 +50,7 @@ Section parameterized.
       match @eapplicable typ _ expr _
                          _ (* (ctx_subst (CExs ctx lem.(vars))) *)
                          vars_to_uvars
-                         (@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _))
+                         (@exprUnify _ _ (SubstUpdate_ctx_subst _))
                          (freshUVars lem.(vars) sub)
                          tus tvs lem goal
       with
@@ -97,7 +101,7 @@ Section parameterized.
   Qed.
 
   Lemma WellFormed_Goal_GConj_list tus tvs l :
-    Forall (WellFormed_Goal tus tvs) l ->
+    Forall (WellFormed_Goal (typ:=typ) tus tvs) l ->
     WellFormed_Goal tus tvs (GConj_list l).
   Proof. clear.
          induction 1; simpl.
@@ -135,7 +139,7 @@ Section parameterized.
            (Subst_subst:=Subst_ctx_subst _)
            (SubstOk_subst:=SubstOk_ctx_subst _)
            (vars_to_uvars:=vars_to_uvars)
-           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst instantiate _)) in H;
+           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst _)) in H;
       eauto.
     { forward_reason.
       rewrite (ctx_subst_eta c) in H; inv_all.

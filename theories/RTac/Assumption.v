@@ -36,19 +36,22 @@ Section parameterized.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprVarOk_expr : ExprVarOk _}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
+  Context {MentionsAny_expr : MentionsAny expr}.
+  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
   Variable check : forall {subst : Type} {S : Subst subst expr} {SU : SubstUpdate subst expr},
                      Ctx typ expr -> expr -> expr -> subst -> option subst.
-  Variable mentionsAny : (nat -> bool) -> (nat -> bool) -> expr -> bool.
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
   Let SubstUpdate_ctx_subst ctx :=
-    @SubstUpdate_ctx_subst _ _ _ _ instantiate ctx.
+    @SubstUpdate_ctx_subst typ _ _ _ ctx.
   Local Existing Instance SubstUpdate_ctx_subst.
-
 
   Definition EASSUMPTION : rtac typ expr :=
     fun _ _ _ _ ctx s gl =>

@@ -12,9 +12,12 @@ Section parameterized.
   Context {expr : Type}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprVar_expr : ExprVar expr}.
+  Context {ExprVarOk_expr : ExprVarOk _}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Variable simplify : forall subst : Type,
                         Subst subst expr ->

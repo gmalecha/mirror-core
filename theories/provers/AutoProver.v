@@ -6,7 +6,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.EProverI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
@@ -30,6 +30,8 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Let tyProp : typ := @typ0 _ _ _ _.
 
@@ -87,7 +89,9 @@ Section parameterized.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+(*
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
+*)
 
   Hypothesis exprUnify_sound : unify_sound exprUnify.
 
@@ -320,8 +324,9 @@ Section parameterized.
   Qed.
 *)
   Opaque Traversable.mapT impls.
-
+(*
   Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
+*)
 
   Lemma exprD'_instantiate_subst_Some
   : forall tus tvs sub e t eD sD,
@@ -335,8 +340,8 @@ Section parameterized.
           eD us vs = eD' us vs.
   Proof.
     intros.
-    generalize exprD'_instantiate. unfold InstantiateI.exprD'_instantiate.
-    intro XXX; eapply XXX with (f := fun x => subst_lookup x sub) (tvs' := nil) in H1; eauto.
+    Print instantiate_spec.
+    eapply (@instantiate_sound _ _ _ _ _ _ _ _ _ _ nil) in H1; eauto.
     { forward_reason.
       eexists; split; [ eapply H1 | ].
       intros. specialize (H2 us vs Hnil).

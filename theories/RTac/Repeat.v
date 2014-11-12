@@ -22,6 +22,7 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
 
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
 
@@ -40,7 +41,7 @@ Section parameterized.
             match @tac tus tvs nus nvs ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals instantiate (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
+                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -66,7 +67,7 @@ Section parameterized.
                     ctx s g); auto using rtac_spec_More_.
       eapply rtac_spec_trans; eauto.
       eapply runOnGoals_sound in IHn.
-      revert IHn. instantiate (1 := instantiate).
+      revert IHn.
       intro. eapply IHn.
       simpl. reflexivity.
   Qed.

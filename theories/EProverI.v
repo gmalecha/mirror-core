@@ -1,6 +1,7 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.ProverI.
 
@@ -16,6 +17,8 @@ Section proverI.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr _ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Record EProver : Type :=
   { Facts : Type

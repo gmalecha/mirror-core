@@ -6,6 +6,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.

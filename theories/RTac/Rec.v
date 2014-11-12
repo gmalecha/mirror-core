@@ -4,8 +4,15 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Context {typ : Type}.
+  Context {expr : Type}.
+  Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
+  Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Definition REC (n : nat)
              (b : rtac typ expr -> rtac typ expr)
@@ -18,11 +25,6 @@ Section parameterized.
                     b (fun e sub tus tvs => rec n e sub tus tvs)
                       e sub tus tvs
        end) n.
-
-  Context {RType_typ : RType typ}.
-  Context {Expr_expr : Expr RType_typ expr}.
-  Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {Typ0_Prop : Typ0 _ Prop}.
 
   Theorem REC_sound
   : forall b l, (forall t, rtac_sound t -> rtac_sound (b t)) ->
