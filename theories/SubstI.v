@@ -66,18 +66,23 @@ Proof.
     simpl. eapply IHa in H0; eauto. rewrite H0. rewrite H2. reflexivity. }
 Qed.
 
+Inductive hlist_Forall2 T (F G : T -> Type) (P : forall t, F t -> G t -> Prop)
+: forall ls, hlist F ls -> hlist G ls -> Prop :=
+| hlist_Forall2_nil : hlist_Forall2 P Hnil Hnil
+| hlist_Forall2_cons : forall l ls x xs y ys,
+                         @P l x y ->
+                         hlist_Forall2 (ls := ls) P xs ys ->
+                         hlist_Forall2 P (Hcons x xs) (Hcons y ys).
+
 Section subst.
   Variable T : Type.
   Variable typ : Type.
-  (** the [expr] type requires a notion of unification variable **)
   Variable expr : Type.
   Context {RType_type : RType typ}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
-
-  Let uvar : Type := nat.
 
   Class Subst :=
   { subst_lookup : uvar -> T -> option expr
@@ -129,22 +134,10 @@ Section subst.
 
   Class SubstUpdate :=
   { subst_set : uvar -> expr -> T -> option T
-(*  ; subst_empty : T *)
-    (** NOTE: This doesn't seem to be used! It really should be specific to
-     *  the particular implementation
-     *)
   }.
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { substR : forall (tus tvs : tenv typ), T -> T -> Prop
-(*
-  ; WellFormed_empty : WellFormed_subst subst_empty
-  ; substD_empty
-    : forall tus tvs,
-      exists P,
-        substD tus tvs subst_empty = Some P /\
-        forall us vs, P us vs
-*)
   ; set_sound
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',
@@ -164,6 +157,7 @@ Section subst.
                (sD us vs /\ get us = val us vs))
   }.
 
+(**
   Class SubstInstantiatable :=
   { subst_instantiate : (uvar -> option expr) -> T -> T }.
 
@@ -191,12 +185,12 @@ Section subst.
         disjoint_from f (subst_domain s) ->
         WellFormed_subst s'
   }.
-
+**)
 
   Class SubstOpen : Type :=
   { (* drop : uvar -> T -> option T *)
     split : uvar -> nat -> T -> option (T * T)
-  ; strengthenV : nat -> nat -> T -> option T
+(*  ; strengthenV : nat -> nat -> T -> option T *)
   }.
 
   Fixpoint models (tus tvs : tenv typ) (tus' : tenv typ) (es : list (option expr))
@@ -246,6 +240,7 @@ Section subst.
             forall us vs us',
               sD (hlist_app us us') vs <->
               (sD' us vs /\ sD'' (hlist_app us us') vs)
+(*
   ; strengthenV_sound
     : forall s n c s',
         strengthenV n c s = Some s' ->
@@ -259,7 +254,6 @@ Section subst.
             substD tus tvs s' = Some sD' /\
             forall us vs vs',
               sD us (hlist_app vs vs') <-> sD' us vs
-(*
   ; strengthenU_sound
     : forall s n c,
         strengthenU n c s = true ->
@@ -319,77 +313,53 @@ Section subst.
         if all_defined from len s' then Some t else None
     end.
 
-(*
-  Lemma substD_weakenU
-  : forall tus tvs tus' s sD,
-      substD tus tvs s = Some sD ->
-      exists sD',
-        substD (tus ++ tus') tvs s = Some sD' /\
-        forall a b c,
-          sD a b <-> sD' (hlist_app a c) b.
-  Proof.
-    intros.
-    eapply substD_weaken with (tvs' := nil) in H.
-    revert H.
-    instantiate (1 := tus').
-    intro. destruct H as [ ? [ ? ? ] ].
-    exists (match app_nil_r_trans tvs in _ = t
-                  return hlist typD (tus ++ tus') -> hlist typD t -> Prop
-            with
-              | eq_refl => x
-            end).
-    split.
-    { clear - H. generalize dependent x.
-      destruct (app_nil_r_trans tvs). auto. }
-    { intros. rewrite H0.
-      instantiate (1 := Hnil). instantiate (1 := c).
-      rewrite hlist_app_nil_r.
-      clear. revert x. revert b.
-      destruct (app_nil_r_trans tvs). reflexivity. }
-  Qed.
-
-  Lemma substD_weakenV
-  : forall tus tvs tvs' s sD,
-      substD tus tvs s = Some sD ->
-      exists sD',
-        substD tus (tvs ++ tvs') s = Some sD' /\
-        forall a b c,
-          sD a b <-> sD' a (hlist_app b c).
-  Proof.
-    intros.
-    eapply substD_weaken with (tus' := nil) in H.
-    revert H.
-    instantiate (1 := tvs').
-    intro. destruct H as [ ? [ ? ? ] ].
-    exists (match app_nil_r_trans tus in _ = t
-                  return hlist typD t -> hlist typD _ -> Prop
-            with
-              | eq_refl => x
-            end).
-    split.
-    { clear - H. generalize dependent x.
-      destruct (app_nil_r_trans tus). auto. }
-    { intros. rewrite H0.
-      instantiate (1 := c). instantiate (1 := Hnil).
-      rewrite hlist_app_nil_r.
-      clear. revert x. revert a.
-      destruct (app_nil_r_trans tus). reflexivity. }
-  Qed.
-*)
-
   Fixpoint seq (start : nat) (len : nat) : list nat :=
     match len with
       | 0 => nil
       | S len => start :: seq (S start) len
     end.
 
-  Inductive hlist_Forall2 T (F G : T -> Type) (P : forall t, F t -> G t -> Prop)
-  : forall ls, hlist F ls -> hlist G ls -> Prop :=
-  | hlist_Forall2_nil : hlist_Forall2 P Hnil Hnil
-  | hlist_Forall2_cons : forall l ls x xs y ys,
-                           @P l x y ->
-                           hlist_Forall2 (ls := ls) P xs ys ->
-                           hlist_Forall2 P (Hcons x xs) (Hcons y ys).
+  Lemma getInstantiation_syntactic
+  : forall (s : T) tus tvs t (e : expr) sD,
+      subst_lookup (length tus) s = Some e ->
+      WellFormed_subst s ->
+      substD (tus ++ t :: nil) tvs s = Some sD ->
+      exists eD,
+        exprD' tus tvs e t = Some eD /\
+        forall us vs x,
+          sD (hlist_app us (Hcons x Hnil)) vs ->
+          x = eD us vs.
+  Proof.
+    intros.
+    eapply substD_lookup in H1; eauto.
+    forward_reason.
+    eapply exprD'_strengthenU_single in H2; eauto.
+    { forward_reason.
+      eapply nth_error_get_hlist_nth_appR in H1; simpl in *; try omega.
+      rewrite Minus.minus_diag in H1.
+      forward_reason; inv_all; subst.
+      eexists; split; eauto.
+      intros. eapply H3 in H1; clear H3.
+      rewrite H4 in H1. rewrite H5 in H1. subst.
+      assumption. }
+    { apply (@lookup_normalized _ _ _ _ _ H0 H _ _ H). }
+  Qed.
+
+  Lemma getInstantiation_syntactic_multi
+  : forall (s : T) tus tvs ts (es : list expr) sD,
+      mapT (fun u => subst_lookup u s) (seq (length tus) (length ts)) = Some es ->
+      WellFormed_subst s ->
+      substD (tus ++ ts) tvs s = Some sD ->
+      exists esD,
+        @hlist_build typ expr (fun t => exprT tus tvs (typD t))
+                     (fun t e => exprD' tus tvs e t) ts es = Some esD /\
+        forall us vs us',
+          sD (hlist_app us (hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us')) vs ->
+          hlist_Forall2 (fun t (x : exprT tus tvs (typD t))
+                             (y : exprT tus tvs (typD t)) =>
+                           x us vs = y us vs) us' esD.
+  Proof.
+  Admitted.
 
   Lemma pull_sound_syn
   : forall n s s' u,
@@ -414,7 +384,6 @@ Section subst.
     specialize (H3 _ _ _ _ H6 eq_refl eq_refl).
     forward_reason.
   Abort.
-
 
   Theorem subst_pull_sound
   : forall n s s' u,
@@ -606,15 +575,6 @@ Section subst.
     intros; subst.
   Admitted.
 
-
-(*
-  Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
-
-  Hypothesis exprD'_instantiate : InstantiateI.exprD'_instantiate _ _ instantiate.
-
-  Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
-*)
-
   Lemma In_seq : forall a c b,
                    In a (seq b c) <-> (b <= a /\ a < b + c).
   Proof.
@@ -646,27 +606,9 @@ Section subst.
   Qed.
 
 (*
-  Lemma sem_preserves_if_substD
-  : forall tus tvs s sD,
-      WellFormed_subst s ->
-      substD tus tvs s = Some sD ->
-      sem_preserves_if tus tvs sD (fun u => subst_lookup u s).
-  Proof.
-    red. intros.
-    eapply substD_lookup in H1; eauto.
-    forward_reason.
-    rewrite H2 in H1.
-    inv_all; subst.
-    eapply nth_error_get_hlist_nth_Some in H2.
-    forward_reason. simpl in *.
-    eexists; split; eauto.
-  Qed.
-*)
-
-(*
   Theorem pull_for_instantiate_sound
-  : forall (Hnormalized : NormalizedSubstOk) tus tus' tvs s s',
-      pull (length tus) (length tus') s = Some s' ->
+  : forall tus tus' tvs s s',
+      subst_pull (length tus) (length tus') s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall sD,
@@ -676,7 +618,7 @@ Section subst.
           (forall e t eD,
              exprD' (tus ++ tus') tvs e t = Some eD ->
              exists eD',
-               exprD' tus tvs (instantiate (fun u => lookup u s) 0 e) t = Some eD' /\
+               exprD' tus tvs (instantiate (fun u => subst_lookup u s) 0 e) t = Some eD' /\
                forall us vs us',
                  sD (hlist_app us us') vs ->
                  eD (hlist_app us us') vs = eD' us vs) /\
@@ -781,4 +723,62 @@ Arguments subst_pull {T expr SS SO} _ _ _ : rename.
       substD tus tvs b = Some P ->
       substD tus tvs a = Some Q ->
       forall us vs, P us vs -> Q us vs.
+*)
+
+(*
+  Lemma substD_weakenU
+  : forall tus tvs tus' s sD,
+      substD tus tvs s = Some sD ->
+      exists sD',
+        substD (tus ++ tus') tvs s = Some sD' /\
+        forall a b c,
+          sD a b <-> sD' (hlist_app a c) b.
+  Proof.
+    intros.
+    eapply substD_weaken with (tvs' := nil) in H.
+    revert H.
+    instantiate (1 := tus').
+    intro. destruct H as [ ? [ ? ? ] ].
+    exists (match app_nil_r_trans tvs in _ = t
+                  return hlist typD (tus ++ tus') -> hlist typD t -> Prop
+            with
+              | eq_refl => x
+            end).
+    split.
+    { clear - H. generalize dependent x.
+      destruct (app_nil_r_trans tvs). auto. }
+    { intros. rewrite H0.
+      instantiate (1 := Hnil). instantiate (1 := c).
+      rewrite hlist_app_nil_r.
+      clear. revert x. revert b.
+      destruct (app_nil_r_trans tvs). reflexivity. }
+  Qed.
+
+  Lemma substD_weakenV
+  : forall tus tvs tvs' s sD,
+      substD tus tvs s = Some sD ->
+      exists sD',
+        substD tus (tvs ++ tvs') s = Some sD' /\
+        forall a b c,
+          sD a b <-> sD' a (hlist_app b c).
+  Proof.
+    intros.
+    eapply substD_weaken with (tus' := nil) in H.
+    revert H.
+    instantiate (1 := tvs').
+    intro. destruct H as [ ? [ ? ? ] ].
+    exists (match app_nil_r_trans tus in _ = t
+                  return hlist typD t -> hlist typD _ -> Prop
+            with
+              | eq_refl => x
+            end).
+    split.
+    { clear - H. generalize dependent x.
+      destruct (app_nil_r_trans tus). auto. }
+    { intros. rewrite H0.
+      instantiate (1 := c). instantiate (1 := Hnil).
+      rewrite hlist_app_nil_r.
+      clear. revert x. revert a.
+      destruct (app_nil_r_trans tus). reflexivity. }
+  Qed.
 *)

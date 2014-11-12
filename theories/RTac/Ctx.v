@@ -2168,6 +2168,17 @@ Section parameterized.
     intros. eapply H2; eauto; reflexivity.
   Qed.
 
+  Lemma subst_getInstantiation
+  : forall tus tvs ts m P,
+      WellFormed_pre_entry (length tus) (length ts) m ->
+      amap_substD (tus ++ ts) tvs m = Some P ->
+      UVarMap.MAP.cardinal m = length ts ->
+      exists x : hlist (fun t => exprT tus tvs (typD t)) ts,
+      forall us vs,
+        let us' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) x in
+        P (HList.hlist_app us us') vs.
+  Proof.
+  Admitted.
 
 
 

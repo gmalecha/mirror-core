@@ -111,8 +111,7 @@ Section parameterized.
 
   Theorem Proper_rtacK_spec ctx s
   : Proper (EqGoal (getUVars ctx) (getVars ctx) ==>
-            @EqResult _ _ _ _ _ _ (getUVars ctx) (getVars ctx) ctx
-            ==> iff)
+            @EqResult _ _ _ _ _ _ ctx ==> iff)
            (@rtacK_spec ctx s).
   Proof.
     red. red. red.

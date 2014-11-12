@@ -15,11 +15,20 @@ Require Import MirrorCore.Util.Nat.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** TODO: Move to Data.Prop **)
+Lemma exists_iff : forall (T : Type) (P Q : T -> Prop),
+                     (forall x, P x <-> Q x) ->
+                     ((exists x, P x) <-> (exists x, Q x)).
+Proof.
+  clear. intros. setoid_rewrite H. reflexivity.
+Qed.
+
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
 
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
@@ -37,14 +46,6 @@ Section parameterized.
       | GConj_ a b =>
         GConj_ (instantiateGoal f a) (instantiateGoal f b)
     end.
-
-  (** TODO: Move to Data.Prop **)
-  Lemma exists_iff : forall (T : Type) (P Q : T -> Prop),
-                       (forall x, P x <-> Q x) ->
-                       ((exists x, P x) <-> (exists x, Q x)).
-  Proof.
-    clear. intros. setoid_rewrite H. reflexivity.
-  Qed.
 
   Definition GExs_nil_check (ts : list typ) (s : amap _)
              (g : Goal typ expr) : Goal typ expr :=
@@ -103,6 +104,379 @@ Section parameterized.
       eapply and_iff. reflexivity.
       intros. eapply H5; reflexivity. }
   Qed.
+
+  Definition GExs_do_solved (tes : tenv typ) (m : amap expr) (g : Goal typ expr)
+  : Goal typ expr :=
+    match g with
+      | GSolved =>
+        if (UVarMap.MAP.cardinal m) ?[ eq ] length tes then
+          GSolved
+        else
+          GExs tes m g
+      | _ => GExs tes m g
+    end.
+
+  Definition GHyp_do_solved (e : expr) (g : Goal typ expr)
+  : Goal typ expr :=
+    match g with
+      | GSolved => GSolved
+      | _ => GHyp e g
+    end.
+
+  Definition GAll_do_solved (ts : typ) (g : Goal typ expr)
+  : Goal typ expr :=
+    match g with
+      | GSolved => GSolved
+      | _ => GAll ts g
+    end.
+
+  Lemma WellFormed_Goal_All_iff
+  : forall tus tvs t (g : Goal typ expr),
+      WellFormed_Goal tus tvs (GAll t g) <->
+      WellFormed_Goal tus (tvs ++ t :: nil) g.
+  Proof.
+    split. intros; inv_all; subst. auto.
+    intros. constructor. auto.
+  Qed.
+
+  (** DUPLICATE **)
+  Lemma WellFormed_Goal_Solved_iff
+  : forall tus tvs,
+      WellFormed_Goal (typ:=typ) (expr:=expr) tus tvs GSolved <->
+      True.
+  Proof.
+    split. intros; inv_all; subst. auto.
+    intros. constructor.
+  Qed.
+
+  Lemma equiv_hlist_app'
+  : forall {T} (F : T -> Type)
+           (eqv : forall x : T, Relation_Definitions.relation (F x))
+           (a b : list T) (c c' : hlist F a) (d d' : hlist F b),
+      equiv_hlist eqv (hlist_app c d) (hlist_app c' d') <->
+      (equiv_hlist eqv c c' /\ equiv_hlist eqv d d').
+  Proof.
+    intros. symmetry. eapply equiv_hlist_app.
+  Qed.
+
+  Ltac solve_equiv_hlist :=
+    repeat match goal with
+             | |- _ => assumption
+             | |- _ => reflexivity
+             | |- equiv_hlist _ (hlist_app _ _) (hlist_app _ _) =>
+               eapply equiv_hlist_app'; split; auto
+             | |- _ => constructor
+           end.
+
+  Theorem GAll_do_solved_respects tus tvs t
+  : (EqGoal tus (tvs ++ t :: nil) ==> EqGoal tus tvs)%signature
+      (GAll_do_solved t) (@GAll typ expr t).
+  Proof.
+    red. red. simpl. unfold GAll_do_solved. simpl.
+    intros.  destruct H. split.
+    { clear - H.
+      destruct x;
+        (try rewrite WellFormed_Goal_All_iff);
+        (try rewrite H);
+        (try rewrite WellFormed_Goal_All_iff);
+        try reflexivity.
+      rewrite <- H.
+      split; constructor. }
+    { destruct x; simpl in *;
+      try solve [ destruct H0; constructor;
+                  do 5 red; intros; eapply forall_iff; intros; eapply H0; eauto;
+                  solve_equiv_hlist ].
+      inversion H0. subst.
+      constructor.
+      do 5 red; intros. split; auto.
+      intros. eapply H3. eauto.
+      eapply equiv_hlist_app'. split; eauto.
+      constructor. reflexivity. constructor. auto. }
+  Qed.
+
+  Lemma WellFormed_Goal_Hyp_iff
+  : forall tus tvs t (g : Goal typ expr),
+      WellFormed_Goal tus tvs (GHyp t g) <->
+      WellFormed_Goal tus tvs g.
+  Proof.
+    split. intros; inv_all; subst. auto.
+    intros. constructor. auto.
+  Qed.
+
+  Theorem GHyp_do_solved_respects tus tvs t tD
+  : propD tus tvs t = Some tD ->
+    (EqGoal tus tvs ==> EqGoal tus tvs)%signature
+      (GHyp_do_solved t) (@GHyp typ expr t).
+  Proof.
+    red. red. simpl. unfold GHyp_do_solved. simpl.
+    intros. destruct H0. split.
+    { clear - H0.
+      destruct x;
+        (try rewrite WellFormed_Goal_Hyp_iff);
+        (try rewrite H0);
+        (try rewrite WellFormed_Goal_Hyp_iff);
+        try reflexivity. }
+    { destruct x; simpl in *; rewrite H;
+      try solve
+          [ destruct H1; constructor;
+            do 5 red; intros;
+            eapply impl_iff; intros;
+            [ equivs; reflexivity |  eapply H1; eauto ] ].
+      inversion H1. subst.
+      constructor.
+      do 5 red; intros. split; auto.
+      simpl; intros. eapply H4; eauto. }
+  Qed.
+
+  Lemma WellFormed_Goal_iff_GExs_cancel
+  : forall (tus tvs ts : tenv typ) m x y,
+      (WellFormed_Goal (tus ++ ts) tvs x <->
+       WellFormed_Goal (tus ++ ts) tvs y) ->
+      (WellFormed_Goal tus tvs (GExs ts m x) <->
+       WellFormed_Goal tus tvs (GExs ts m y)).
+  Proof.
+    clear. intros. split; intros; inv_all; subst; constructor; tauto.
+  Qed.
+
+
+  Lemma GoalImplies_GExs_do_solved
+  : forall c (cs : ctx_subst c) ts m g,
+      GoalImplies (cs, GExs ts m g) (cs, GExs_do_solved ts m g).
+  Proof.
+    Transparent GoalImplies. simpl; intros.
+    split; auto.
+    split.
+    { destruct g; simpl; auto.
+      destruct (RelDec.rel_dec (UVarMap.MAP.cardinal m) (length ts));
+        auto. constructor. }
+    { forward; inv_all; subst.
+      destruct g; simpl in *; forwardy; inv_all; subst;
+      Cases.rewrite_all_goal.
+      * split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto.
+      * split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto.
+      * split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto.
+      * split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto.
+      * split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto.
+      * match goal with
+          | |- match _ _ _ (if ?X then _ else _) with _ => _ end =>
+            consider X; intros; simpl
+        end.
+      + split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto. intros.
+        clear - H H3 H6.
+        eapply Quant._exists_sem.
+        eapply subst_getInstantiation in H3; eauto.
+        destruct H3.
+        exists (hlist_map (fun t (x : exprT _ _ (typD t))=> x us0 vs0) x).
+        eauto.
+      + change_rewrite H3.
+        split; [ reflexivity | ].
+        intros. eapply Pure_pctxD; eauto. }
+  Qed.
+
+  Fixpoint toResult (ctx ctx' : Ctx typ expr)
+           (g : Goal typ expr)
+  : ctx_subst (Ctx_append ctx ctx') -> Result ctx :=
+    match ctx' as ctx'
+          return ctx_subst (Ctx_append ctx ctx') -> Result ctx
+    with
+      | CTop _ _ => fun cs => More_ cs g
+      | CAll ctx' t => fun cs =>
+        @toResult ctx ctx' (GAll t g) (fromAll cs)
+      | CHyp ctx' h => fun cs =>
+        @toResult ctx ctx'  (GHyp h g) (fromHyp cs)
+      | CExs ctx' ts => fun cs : ctx_subst (CExs (Ctx_append ctx ctx') ts) =>
+        let '(s,cs') := fromExs cs in
+        @toResult ctx ctx' (GExs ts s g) cs'
+    end.
+
+  Fixpoint reduceResult (ctx ctx' : Ctx typ expr)
+           (g : Goal typ expr)
+  : ctx_subst (Ctx_append ctx ctx') -> Result ctx :=
+    match ctx' as ctx'
+          return ctx_subst (Ctx_append ctx ctx') -> Result ctx
+    with
+      | CTop _ _ => fun cs =>
+        (** TODO: this should be More_ but to do the right reasoning,
+         ** I need to find a better equivalence relation
+         **)
+        More cs g
+      | CAll ctx' t => fun cs =>
+        @reduceResult ctx ctx' (GAll_do_solved t g) (fromAll cs)
+      | CHyp ctx' h => fun cs =>
+        @reduceResult ctx ctx'  (GHyp_do_solved h g) (fromHyp cs)
+      | CExs ctx' ts => fun cs : ctx_subst (CExs (Ctx_append ctx ctx') ts) =>
+        let '(s,cs') := fromExs cs in
+        @reduceResult ctx ctx' (GExs_do_solved ts s g) cs'
+    end.
+
+  (** This assumes that the goal is a [GSolved] **)
+  Fixpoint solveGoal (ctx ctx' : Ctx typ expr)
+  : ctx_subst (Ctx_append ctx ctx') -> Result ctx :=
+    match ctx' as ctx'
+          return ctx_subst (Ctx_append ctx ctx') -> Result ctx
+    with
+      | CTop _ _ => fun cs => Solved cs
+      | CAll ctx' t => fun cs =>
+        @solveGoal ctx ctx' (fromAll cs)
+      | CHyp ctx' h => fun cs =>
+        @solveGoal ctx ctx' (fromHyp cs)
+      | CExs ctx' ts => fun cs =>
+        let '(s,cs') := fromExs cs in
+        let g' := GExs_do_solved ts s GSolved in
+        match g' with
+          | GSolved => @solveGoal ctx ctx' cs'
+          | g' => @toResult ctx ctx' g' cs'
+        end
+    end.
+
+  Lemma solveGoal_toGoal
+  : forall ctx ctx' (cs : ctx_subst (Ctx_append ctx ctx')),
+      (EqResult)
+        (@solveGoal ctx ctx' cs) (toResult ctx ctx' GSolved cs).
+  Proof.
+  Abort.
+
+  Definition reduceGoal (ctx ctx' : Ctx typ expr)
+             (s : ctx_subst (Ctx_append ctx ctx'))
+             (g : Goal typ expr)
+  : Result ctx :=
+    match g with
+      | GSolved => @solveGoal ctx ctx' s
+      | _ => @reduceResult ctx ctx' g s
+    end.
+
+  Definition ResultImplies ctx (r1 r2 : Result ctx) : Prop :=
+    match fromResult r1 , fromResult r2 with
+      | _ , None => True
+      | Some a , Some b => GoalImplies a b
+      | None , _ => False
+    end.
+
+
+
+End parameterized.
+
+(* TODO: Making this work requires a better set of equivalence relations
+  Lemma reduceResult_toResult
+  : forall ctx ctx',
+      (GoalImplies (ctx:=Ctx_append ctx ctx') ==> @ResultImplies _)%signature
+        (fun sg => let (cs,g) := sg in toResult ctx ctx' g cs)
+        (fun sg => let (cs,g) := sg in @reduceResult ctx ctx' g cs).
+  Proof.
+    Opaque GoalImplies.
+    induction ctx'; simpl; intro; try rewrite (ctx_subst_eta cs).
+    { simpl. red. intros.
+      destruct x; destruct y; simpl in *; auto. }
+    { simpl. red; intros.
+      destruct x; destruct y; simpl in *; eauto.
+      apply (IHctx' (fromAll c, GAll t g)
+                    (fromAll c0, GAll_do_solved t g0)); clear IHctx'.
+      simpl. intros; inv_all; forward_reason.
+      Transparent GoalImplies.
+      simpl in *; intros. ; inv_all; forward_reason.
+
+      destruct WT. forwardy.
+      destruct (drop_exact_append_exact (t :: nil) (getVars (Ctx_append ctx ctx'))) as [ ? [ ? ? ] ].
+      rewrite H3 in *. inv_all; subst.
+      eapply IHctx'; eauto.
+      eapply GAll_do_solved_respects. auto. }
+    { simpl; red; intros.
+      destruct x; destruct y; simpl in *; auto.
+      specialize (IHctx'
+                    (snd (fromExs c), GExs t (fst (fromExs c)) g)
+                    (snd (fromExs c0), GExs_do_solved t (fst (fromExs c0)) g0)).
+      red in IHctx'.
+      consider (fromExs c); consider (fromExs c0); intros; apply IHctx'; clear IHctx'.
+      simpl in *.
+
+
+simpl. red; intros. inv_all.
+      destruct WT. forwardy.
+      destruct (drop_exact_append_exact t (getUVars (Ctx_append ctx ctx'))) as [ ? [ ? ? ] ].
+      rewrite H6 in *. inv_all; subst.
+      eapply IHctx'; eauto.
+      eapply GExs_do_solved_respects; eauto.
+      rewrite <- countUVars_getUVars.
+      eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
+    { simpl. red; intros. inv_all.
+      eapply IHctx'; eauto.
+      eapply GHyp_do_solved_respects; eauto. }
+  Qed.
+*)
+
+
+(*
+  Fixpoint GExs_reduce' (tes : tenv typ) (m : amap) (g : Goal typ expr)
+           (nus : nat) (acc : list (typ * option expr)) (k : list (option expr))
+  : Goal typ expr * nat :=
+    match tes with
+      | nil =>
+        let g' := instantiateGoal (adjust (List.rev k) nus) g in
+        (GExs_nil_check (List.rev acc) g', nus)
+      | te :: tes' =>
+        match te with
+          | (_,None) =>
+            GExs_reduce' tes' g (pred nus) (te :: acc) (None :: k)
+          | (_,Some e) =>
+            (** TODO: I probably want to do my instantiation here! **)
+            GExs_reduce' tes' g (pred nus) acc (Some e :: k)
+        end
+    end.
+
+  Definition GExs_reduce (tes : list (typ * option expr)) (g : Goal typ expr)
+             (nus : nat) : Goal typ expr * nat :=
+    GExs_reduce' tes g nus nil nil.
+
+  Eval cbv beta iota zeta delta - [ lt_rem instantiateGoal ] in
+      fun t g e => GExs_reduce' ((t,None) :: (t,Some e) :: (t,Some e) :: nil) g 0 nil nil.
+*)
+
+
+(*
+  Theorem GExs_do_solved_respects tus tvs ts m
+  : forall (WF : WellFormed_pre_entry (length tus) (length ts) m)
+           (WT : exists z, amap_substD (tus ++ ts) tvs m = Some z),
+    (EqGoal (tus ++ ts) tvs ==> EqGoal tus tvs)%signature
+      (GExs_do_solved ts m) (@GExs typ expr ts m).
+  Proof.
+    red. red. simpl. unfold GExs_do_solved.
+    intros. destruct H. split.
+    { clear H0.
+      destruct x; try eapply WellFormed_Goal_iff_GExs_cancel; eauto.
+      destruct (UVarMap.MAP.cardinal m ?[ eq ] length ts).
+      { split; constructor; eauto. apply H. constructor. }
+      { eapply WellFormed_Goal_iff_GExs_cancel; eauto. } }
+    { destruct WT.
+      destruct x; simpl in *; change_rewrite H1;
+      try solve [ destruct H0; constructor;
+                  do 5 red; intros;
+                  eapply Quant._exists_iff; intros;
+                  eapply and_iff; [ equivs; reflexivity | intro; eapply H0 ];
+                  solve_equiv_hlist ].
+      consider (UVarMap.MAP.cardinal m ?[ eq ] length ts).
+      { inversion H0; subst.
+        intros. simpl. constructor.
+        do 5 red; intros. equivs. split; auto.
+        intro X; clear X.
+        eapply Quant._exists_sem.
+        clear H H0 H3.
+        (...) }
+      { intros. simpl.
+        change_rewrite H1.
+        inversion H0. constructor. subst.
+        do 5 red; intros.
+        eapply Quant._exists_iff; intros;
+        eapply and_iff; [ equivs; reflexivity | intro ].
+        eapply H5. reflexivity. reflexivity. } }
+  Qed.
+
+*)
 
 (*
   Definition GExs_consolidate (tes : list (typ * option expr))
@@ -169,7 +543,7 @@ Section parameterized.
   7 -> 6
 *)
 
-  Variable UVar : nat -> expr.
+(*
   Fixpoint adjust' (ls : list (option expr)) (d u : nat) : option expr :=
     match ls , u with
       | nil , _ => Some (UVar (d + u))
@@ -184,132 +558,4 @@ Section parameterized.
     match lt_rem u nus with
       | None => None
       | Some r => adjust' ls nus r
-    end.
-
-  Definition GExs_do_solved (tes : tenv typ) (m : amap expr) (g : Goal typ expr)
-  : Goal typ expr :=
-    match g with
-      | GSolved =>
-        if (UVarMap.MAP.cardinal m) ?[ eq ] length tes then
-          GSolved
-        else
-          GExs tes m g
-      | _ => GExs tes m g
-    end.
-
-  Definition GHyp_do_solved (e : expr) (g : Goal typ expr)
-  : Goal typ expr :=
-    match g with
-      | GSolved => GSolved
-      | _ => GHyp e g
-    end.
-
-  Definition GAll_do_solved (ts : typ) (g : Goal typ expr)
-  : Goal typ expr :=
-    match g with
-      | GSolved => GSolved
-      | _ => GAll ts g
-    end.
-
-(*
-  Fixpoint GExs_reduce' (tes : tenv typ) (m : amap) (g : Goal typ expr)
-           (nus : nat) (acc : list (typ * option expr)) (k : list (option expr))
-  : Goal typ expr * nat :=
-    match tes with
-      | nil =>
-        let g' := instantiateGoal (adjust (List.rev k) nus) g in
-        (GExs_nil_check (List.rev acc) g', nus)
-      | te :: tes' =>
-        match te with
-          | (_,None) =>
-            GExs_reduce' tes' g (pred nus) (te :: acc) (None :: k)
-          | (_,Some e) =>
-            (** TODO: I probably want to do my instantiation here! **)
-            GExs_reduce' tes' g (pred nus) acc (Some e :: k)
-        end
-    end.
-
-  Definition GExs_reduce (tes : list (typ * option expr)) (g : Goal typ expr)
-             (nus : nat) : Goal typ expr * nat :=
-    GExs_reduce' tes g nus nil nil.
-
-  Eval cbv beta iota zeta delta - [ lt_rem instantiateGoal ] in
-      fun t g e => GExs_reduce' ((t,None) :: (t,Some e) :: (t,Some e) :: nil) g 0 nil nil.
 *)
-
-  Fixpoint toGoal (ctx ctx' : Ctx typ expr)
-           (cs : ctx_subst (Ctx_append ctx ctx')) (g : Goal typ expr)
-           (un vn : nat)
-  : Result ctx :=
-    match ctx' as ctx'
-          return ctx_subst (Ctx_append ctx ctx') -> Result ctx
-    with
-      | CTop _ _ => fun cs => More cs g
-      | CAll ctx' t => fun cs =>
-        match vn with
-          | 0 => (** STUCK **)
-            Fail
-          | S vn' =>
-            @toGoal ctx ctx' (fromAll cs) (GAll_do_solved t g) un vn'
-        end
-      | CHyp ctx' h => fun cs =>
-        @toGoal ctx ctx'  (fromHyp cs) (GHyp_do_solved h g) un vn
-      | CExs ctx' ts => fun cs : ctx_subst (CExs (Ctx_append ctx ctx') ts) =>
-        let '(s,cs') := fromExs cs in
-        (* NOTE: This doesn't do any reduction right now!!!
-        let nes := forgets (un - length ts) ts s in
-        let '(g',nus') := GExs_reduce (List.combine ts nes) g un in
-*)
-        @toGoal ctx ctx' cs' (GExs_do_solved ts s g) (un - length ts) vn
-    end cs.
-
-(*
-  (** This assumes that the goal is a [GSolved] **)
-  Fixpoint solveGoal (ctx ctx' : Ctx typ expr)
-           (cs : ctx_subst (Ctx_append ctx ctx'))
-           (su : nat) (un vn : nat)
-  : Result ctx :=
-    match ctx' as ctx'
-          return ctx_subst (Ctx_append ctx ctx') -> Result ctx
-    with
-      | CTop _ _ => fun cs => Solved cs
-      | CAll ctx' t => fun cs =>
-        match vn with
-          | 0 => (** STUCK **)
-            Fail
-          | S vn' =>
-            @solveGoal ctx ctx' (fromAll cs) 0 un vn'
-        end
-      | CHyp ctx' h => fun cs =>
-        @solveGoal ctx ctx'  (fromHyp cs) 0 un vn
-      | CExs ctx' ts => fun cs =>
-        match un with
-          | 0 => (** STUCK **)
-            Fail
-          | S un' =>
-            let '(s,cs') := fromExs cs in
-            let nes := forgets (un - length ts) ts s in
-            let '(g',nus') := GExs_reduce (List.combine ts nes) GSolved un in
-            match g' with
-              | GSolved => @solveGoal ctx ctx' cs' (S su) un' vn
-              | g' => @toGoal ctx ctx' cs' g' (S su) (S nus') vn
-            end
-(*            @toGoal ctx ctx' cs' (GExs (List.combine ts nes) GSolved) (S su) un' vn *)
-        end
-    end cs.
-*)
-
-  Definition reduceGoal (ctx ctx' : Ctx typ expr)
-             (s : ctx_subst (Ctx_append ctx ctx'))
-             (g : Goal typ expr)
-             (un vn : nat)
-  : Result ctx :=
-    @toGoal ctx ctx' s g un vn.
-(*
-    match g with
-      | GSolved => @solveGoal ctx ctx' s 0 un vn
-      | _ =>
-    end.
-*)
-
-End parameterized.
