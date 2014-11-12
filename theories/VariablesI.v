@@ -3,6 +3,7 @@ Require Import Coq.Lists.List.
 Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
@@ -19,6 +20,7 @@ Section with_Expr.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : @Expr typ _ expr}.
 
+  (** Variables **)
   Class ExprVar : Type :=
   { Var : var -> expr
   ; mentionsV : var -> expr -> bool
@@ -72,6 +74,61 @@ Section with_Expr.
       inversion H. apply H0. assumption. }
   Qed.
 
+  Theorem exprD'_strengthenV_multi (EV : ExprVar) (EVO : ExprVarOk EV)
+  : forall tus tvs e  t' tvs' val,
+      (forall v, v < length tvs' ->
+                 mentionsV (length tvs + v) e = false) ->
+      exprD' tus (tvs ++ tvs') e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs vs',
+          val us (hlist_app vs vs') = val' us vs.
+  Proof.
+    intros tus tvs e t'.
+    refine (@list_rev_ind _ _ _ _).
+    { simpl. intros.
+      rewrite exprD'_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
+      rewrite H0. autorewrite with eq_rw.
+      eexists; split; eauto.
+      intros. rewrite (hlist_eta vs').
+      rewrite hlist_app_nil_r.
+      reflexivity. }
+    { intros.
+      rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil)) (pfu := eq_refl) in H1.
+      autorewrite with eq_rw in H1.
+      forward.
+      eapply exprD'_strengthenV_single in H1.
+      + forward_reason.
+        eapply H in H1.
+        - forward_reason.
+          eexists; split; eauto.
+          intros. inv_all; subst.
+          clear - H3 H4.
+          specialize (H4 us vs (fst (hlist_split _ _ vs'))).
+          specialize (H3 us (hlist_app vs (fst (hlist_split _ _ vs')))
+                         (hlist_hd (snd (hlist_split _ _ vs')))).
+          rewrite <- H4; clear H4.
+          rewrite <- H3; clear H3.
+          autorewrite with eq_rw.
+          f_equal.
+          rewrite hlist_app_assoc.
+          apply match_eq_match_eq.
+          f_equal.
+          etransitivity.
+          symmetry.
+          eapply (hlist_app_hlist_split _ _ vs').
+          f_equal.
+          rewrite (hlist_eta (snd (hlist_split _ _ _))).
+          simpl. f_equal.
+          rewrite (hlist_eta (hlist_tl _)). reflexivity.
+        - intros.
+          eapply H0. rewrite app_length. simpl. omega.
+      + rewrite app_length.
+        apply H0. rewrite app_length. simpl. omega. }
+  Qed.
+
+
+  (** Unification Variables **)
   Class ExprUVar : Type :=
   { UVar : uvar -> expr
   ; mentionsU : uvar -> expr -> bool
@@ -188,6 +245,59 @@ Section with_Expr.
       inversion H. apply H0. assumption. }
   Qed.
 
+  Theorem exprD'_strengthenU_multi (EU : ExprUVar) (EUO : ExprUVarOk EU)
+  : forall tus tvs e  t' tus' val,
+      (forall u, u < length tus' ->
+                 mentionsU (length tus + u) e = false) ->
+      exprD' (tus ++ tus') tvs e t' = Some val ->
+      exists val',
+        exprD' tus tvs e t' = Some val' /\
+        forall us vs us',
+          val (hlist_app us us') vs = val' us vs.
+  Proof.
+    intros tus tvs e t'.
+    refine (@list_rev_ind _ _ _ _).
+    { simpl. intros.
+      rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
+      rewrite H0. autorewrite with eq_rw.
+      eexists; split; eauto.
+      intros. rewrite (hlist_eta us').
+      rewrite hlist_app_nil_r. reflexivity. }
+    { intros.
+      rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
+      autorewrite with eq_rw in H1.
+      forward.
+      eapply exprD'_strengthenU_single in H1.
+      + forward_reason.
+        eapply H in H1.
+        - forward_reason.
+          eexists; split; eauto.
+          intros. inv_all; subst.
+          clear - H3 H4.
+          specialize (H4 us vs (fst (hlist_split _ _ us'))).
+          specialize (H3 (hlist_app us (fst (hlist_split _ _ us')))
+                         vs (hlist_hd (snd (hlist_split _ _ us')))).
+          rewrite <- H4; clear H4.
+          rewrite <- H3; clear H3.
+          repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
+          f_equal.
+          rewrite hlist_app_assoc.
+          autorewrite with eq_rw.
+          f_equal.
+          eapply match_eq_match_eq.
+          f_equal.
+          etransitivity. symmetry. eapply (hlist_app_hlist_split _ _ us').
+          f_equal.
+          rewrite (hlist_eta (snd (hlist_split _ _ _))).
+          simpl. f_equal.
+          rewrite (hlist_eta (hlist_tl _)). reflexivity.
+        - intros.
+          eapply H0. rewrite app_length. simpl. omega.
+      + rewrite app_length.
+        apply H0. rewrite app_length. simpl. omega. }
+  Qed.
+
+  (** Mentions Any **)
   Class MentionsAny : Type :=
   { mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool }.
 

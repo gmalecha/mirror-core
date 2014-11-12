@@ -1,3 +1,4 @@
+Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.VariablesI.
@@ -127,13 +128,46 @@ Section parameterized.
          rewrite FMapSubst.SUBST.FACTS.empty_o in H. congruence.
   Qed.
 
+
+  Global Instance Reflexive_GoalImplies c : Reflexive (GoalImplies (ctx:=c)).
+  Proof.
+    red. destruct x; simpl; intros;
+         forward_reason.
+    split; auto.
+    split; auto.
+    forward.
+    split; [ reflexivity | ].
+    intros. eapply Pure_pctxD; eauto.
+  Qed.
+  Global Instance Transitive_GoalImplies c : Transitive (GoalImplies (ctx:=c)).
+  Proof.
+    red. destruct x; destruct y; destruct z; simpl; intros;
+         forward_reason.
+    split; auto.
+    split; auto.
+    forward. forward_reason.
+    split; [ etransitivity; eassumption | ].
+    intros. gather_facts.
+    eapply pctxD_SubstMorphism; [ eassumption | eauto | eauto | ].
+    gather_facts.
+    eapply Pure_pctxD; eauto.
+  Qed.
+
   Theorem EAPPLY_sound : rtac_sound EAPPLY.
   Proof.
-(*
     red. unfold EAPPLY. intros.
     subst. unfold rtac_spec. forward.
     unfold reduceGoal.
     rewrite (ctx_subst_eta c). simpl.
+    intros.
+    eapply Proper_rtac_spec.
+    { reflexivity. }
+    { eapply More_More_. reflexivity. }
+    eapply rtac_spec_rtac_spec_modular; eauto.
+    unfold rtac_spec_modular.
+    Opaque GoalImplies. simpl.
+    eapply Transitive_GoalImplies; [ | eapply GoalImplies_GExs_do_solved ]; eauto.
+    Transparent GoalImplies. simpl.
     intros.
     eapply eapplicable_sound'
       with (Expr_expr:=Expr_expr)
@@ -142,177 +176,63 @@ Section parameterized.
            (vars_to_uvars:=vars_to_uvars)
            (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst _)) in H;
       eauto.
-    { forward_reason.
-      rewrite (ctx_subst_eta c) in H; inv_all.
-      split; eauto.
+    { rewrite (ctx_subst_eta c) in H; simpl in *.
+      forward_reason; inv_all; subst.
+      split; auto.
       split.
-      { constructor.
-        { rewrite <- countUVars_getUVars.
-          eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
-        { eapply WellFormed_Goal_GConj_list. clear.
-          induction (premises lem); simpl; constructor.
-          - constructor.
-          - auto. } }
+      { constructor; auto.
+        rewrite <- countUVars_getUVars.
+        eapply WellFormed_entry_WellFormed_pre_entry; eauto.
+        eapply WellFormed_Goal_GConj_list. clear.
+        induction (premises lem); simpl; constructor.
+        - constructor.
+        - auto. }
       simpl in *. forward.
       destruct (drop_exact_append_exact (vars lem) (getUVars ctx)) as [ ? [ ? ? ] ].
-      rewrite H6 in *.
       destruct (pctxD_substD H1 H) as [ ? [ ? ? ] ].
-      rewrite H8 in *.
       eapply exprD'_typ0_weakenU with (tus' := lem.(vars)) in H5.
       destruct H5 as [ ? [ ? ? ] ].
-      specialize (H2 _ _ lemD eq_refl H5).
       forward_reason.
-      rewrite (ctx_subst_eta c) in H11; simpl in *.
-      rewrite H6 in *.
-      forward.
+      repeat match goal with
+               | H : _ = _ , H' : _ |- _ =>
+                 rewrite H in H'
+             end.
+      specialize (H2 _ _ lemD eq_refl eq_refl).
+      forward_reason. forwardy. inv_all; subst.
       destruct (substD_pctxD _ H3 H H14) as [ ? [ ? ? ] ].
-      rewrite H16. inv_all; subst.
+      rewrite H15. inv_all; subst.
+      clear H2.
       change_rewrite H11.
       assert (GOALSD : List.mapT_list (goalD (getUVars ctx ++ vars lem) (getVars ctx))
-                             (map
-                                (fun e3 : expr => GGoal (vars_to_uvars 0 (length (getUVars ctx)) e3))
-                                (premises lem)) = Some x3).
+                                      (map
+                                         (fun e3 : expr => GGoal (vars_to_uvars 0 (length (getUVars ctx)) e3))
+                                         (premises lem)) = Some x3).
       { rewrite <- mapT_list_map. simpl. assumption. }
       destruct (fun Z => @goalD_GConj_list
-                    (getUVars ctx ++ vars lem) (getVars ctx)
-                    (fun P => forall us vs, x4 (fun us vs => forall us', P (HList.hlist_app us us') vs) us vs) Z
-                    _ _ GOALSD) as [ ? [ ? ? ] ]; clear GOALSD.
-      { clear - H16. constructor; intros.
+                           (getUVars ctx ++ vars lem) (getVars ctx)
+                           (fun P => forall us vs, x2 (fun us vs => forall us', P (HList.hlist_app us us') vs) us vs) Z
+                           _ _ GOALSD) as [ ? [ ? ? ] ]; clear GOALSD.
+      { clear - H15. constructor; intros.
         eapply Pure_pctxD; eauto.
         gather_facts.
         eapply Pure_pctxD; eauto. }
-      change_rewrite H15.
+      change_rewrite H2.
       split.
       { simpl. assumption. }
-      intros. gather_facts.
-      eapply Pure_pctxD; eauto.
-      clear - H11 H7 H13 H10.
-      intros.
-      eapply Quant._exists_sem in H1. destruct H1.
-      rewrite (H10 us x4 vs); clear H10.
-      repeat match goal with
-               | H : forall x, _ , H' : _ |- _ =>
-                 specialize (H H')
-             end.
-      rewrite H7 in *; clear H7.
-      destruct H13; eauto. tauto.
-      eapply H2. eapply H0. tauto. }
+        intros. gather_facts.
+        eapply Pure_pctxD; eauto.
+        clear - H13 H9 H7 H10.
+        intros.
+        eapply Quant._exists_sem in H1. destruct H1.
+        repeat match goal with
+                 | H : forall x, _ , H' : _ |- _ =>
+                   specialize (H H')
+               end.
+        rewrite H10; clear H10.
+        rewrite H7 in *; clear H7.
+        destruct H13. tauto. tauto. }
     { unfold freshUVars. constructor; eauto.
       eapply WellFormed_entry_amap_empty. }
   Qed.
-*)
-  Admitted.
 
 End parameterized.
-
-(**
-    Fixpoint substSplit (ctx ctx' : Ctx typ expr)
-    : ctx_subst (Ctx_append ctx ctx') -> (ctx_subst ctx * ctx_subst ctx') :=
-      match ctx' as ctx' return ctx_subst (Ctx_append ctx ctx') -> (ctx_subst ctx * ctx_subst ctx') with
-        | CTop tus tvs => fun cs => (cs, TopSubst _ tus tvs)
-        | CHyp _ _ => fun cs => let (u,o) := substSplit _ _ (fromHyp cs) in
-                                (u, HypSubst o)
-        | CAll c t => fun cs => let (u,o) := substSplit _ _ (fromAll cs) in
-                                (u, AllSubst o)
-        | CExs _ _ => fun cs => let (u,o) := substSplit _ _ (snd (fromExs cs)) in
-                                (u, ExsSubst o (fst (fromExs cs)))
-      end.
-    SearchAbout pctxD Ctx_append.
-    Lemma foo
-    : forall ctx (ctx' : Ctx typ expr) (cs : ctx_subst (Ctx_append ctx ctx'))
-             (g : Goal typ expr),
-        match
-          toGoal ctx ctx' cs g
-                     (length (getUVars ctx) + length (getExtensionUVars ctx'))
-                     (length (getVars ctx) + length (getExtensionVars ctx'))
-        with
-          | Fail => True
-          | More_ s' g' =>
-            WellFormed_Goal (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g ->
-            WellFormed_ctx_subst cs ->
-            WellFormed_ctx_subst s' /\
-            WellFormed_Goal (getUVars ctx) (getVars ctx) g' /\
-            match pctxD cs with
-              | Some _ =>
-                match goalD (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g with
-                  | Some gD =>
-                    match pctxD s' with
-                      | Some cD' =>
-                        match goalD (getUVars ctx) (getVars ctx) g' with
-                          | Some gD' =>
-                            SubstMorphism (fst (substSplit _ _ cs)) s' /\
-                            (forall (us : HList.hlist typD (getAmbientUVars ctx))
-                                    (vs : HList.hlist typD (getAmbientVars ctx)),
-                               cD'
-                                 (fun (us0 : HList.hlist typD (getUVars ctx))
-                                      (vs0 : HList.hlist typD (getVars ctx)) =>
-                                    gD' us0 vs0 -> gD us0 vs0) us vs)
-                          | None => False
-                        end
-                      | None => False
-                    end
-                  | None => True
-                end
-              | None => True
-            end
-          | Solved s' =>
-            WellFormed_Goal (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g ->
-            WellFormed_ctx_subst cs ->
-            WellFormed_ctx_subst s' /\
-            match pctxD cs with
-              | Some _ =>
-                match goalD (getUVars ctx ++ getExtensionUVars ctx') (getVars ctx ++ getExtensionVars ctx') g with
-                  | Some gD =>
-                    match pctxD s' with
-                      | Some cD' =>
-                        SubstMorphism (substSplit _ _ cs) s' /\
-                        (forall (us : HList.hlist typD (getAmbientUVars ctx))
-                                (vs : HList.hlist typD (getAmbientVars ctx)),
-                           cD' gD us vs)
-                      | None => False
-                    end
-                  | None => True
-                end
-              | None => True
-            end
-        end.
-    Proof.
-      induction ctx'; simpl; intros.
-      { split; auto. split; auto.
-        { do 2 rewrite app_nil_r in H. assumption. }
-        forward.
-        split; [ reflexivity | ].
-        eapply Pure_pctxD; eauto. }
-      { rewrite (ctx_subst_eta cs). simpl.
-        forward.
-        rewrite app_length in H.
-        simpl in H.
-        assert (length (getVars ctx) + length (getExtensionVars ctx') = n) by omega.
-        clear H; subst.
-        specialize (IHctx' (fromAll cs) (GAll t g)).
-        match goal with
-          | H : match ?X with _ => _ end |- match ?Y with _ => _ end =>
-            change Y with X ; destruct X
-        end; auto.
-        { intros. inv_all.
-          destruct IHctx' as [ ? [ ? ? ] ]; eauto.
-          { constructor. rewrite app_ass. assumption. }
-          split; auto.
-          split; auto.
-          simpl in *.
-          forward.
-
-
-    clear. induction c; intros.
-    {
-
-    Theorem reduceGoal_sound
-    : forall ctx ctx' sub sub' gl,
-        @rtac_spec typ expr _ _ _ ctx sub' gl
-                   (@reduceGoal typ expr ctx ctx' sub gl 0 0).
-    Proof.
-      unfold rtac_spec. unfold reduceGoal.
-      induction ctx'; simpl; intros.
-      { (* Top *)
-
-**)

@@ -364,33 +364,33 @@ Section parameterized.
     intuition.
   Qed.
 
-  Definition EqResult tus tvs c : relation (Result c) :=
+  Definition EqResult c : relation (Result c) :=
     fun r1 r2 =>
-      Roption (Eqpair (@eq _) (EqGoal tus tvs))
+      Roption (Eqpair (@eq _) (EqGoal (getUVars c) (getVars c)))
               (fromResult r1) (fromResult r2).
 
-  Global Instance Reflexive_EqResult tus tvs c
-  : Reflexive (@EqResult tus tvs c).
+  Global Instance Reflexive_EqResult c
+  : Reflexive (@EqResult c).
   Proof.
     red. red. intros. reflexivity.
   Qed.
-  Global Instance Symmetric_EqResult tus tvs c
-  : Symmetric (@EqResult tus tvs c).
+  Global Instance Symmetric_EqResult c
+  : Symmetric (@EqResult c).
   Proof.
     red. unfold EqResult; inversion 1; constructor.
     symmetry; eauto.
   Qed.
-  Global Instance Transitive_EqResult tus tvs c
-  : Transitive (@EqResult tus tvs c).
+  Global Instance Transitive_EqResult c
+  : Transitive (@EqResult c).
   Proof.
     red; unfold EqResult; inversion 1; inversion 1; constructor.
     subst.
     etransitivity; eauto.
   Qed.
 
-  Lemma More_More_ tus tvs c s :
-    (EqGoal tus tvs ==> @EqResult tus tvs c)%signature
-                                            (@More c s) (@More_ c s).
+  Lemma More_More_ c s :
+    (EqGoal (getUVars c) (getVars c) ==> @EqResult c)%signature
+       (@More c s) (@More_ c s).
   Proof.
     red. red.
     simpl. intros; subst.
@@ -488,6 +488,63 @@ Section parameterized.
         end
     end.
 
+  Definition GoalImplies ctx (sg : CSUBST ctx * Goal) (sg' : CSUBST ctx * Goal)
+  : Prop :=
+    let (s,g) := sg in
+    let (s',g') := sg' in
+    WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+    WellFormed_ctx_subst s ->
+    WellFormed_ctx_subst s' /\
+    WellFormed_Goal (getUVars ctx) (getVars ctx) g' /\
+    match pctxD s
+        , goalD (getUVars ctx) (getVars ctx) g
+        , pctxD s'
+        , goalD (getUVars ctx) (getVars ctx) g'
+    with
+      | None , _ , _ , _
+      | Some _ , None , _ , _ => True
+      | Some _ , Some _ , None , _
+      | Some _ , Some _ , Some _ , None => False
+      | Some cD , Some gD , Some cD' , Some gD' =>
+        SubstMorphism s s' /\
+        forall us vs, cD' (fun us vs => gD' us vs -> gD us vs) us vs
+    end.
+
+  Definition rtac_spec_modular ctx (s : CSUBST ctx) g r : Prop :=
+    match fromResult r with
+      | None => True
+      | Some (s', g') => GoalImplies (s, g) (s', g')
+    end.
+
+  Lemma WellFormed_Goal_Solved_iff
+  : forall tus tvs, WellFormed_Goal tus tvs GSolved <-> True.
+  Proof.
+    split. intros; inv_all; subst. auto.
+    intros. constructor.
+  Qed.
+
+  Lemma rtac_spec_rtac_spec_modular ctx
+  : (eq ==> eq ==> eq ==> iff)%signature
+       (@rtac_spec ctx) (@rtac_spec_modular ctx).
+  Proof.
+    do 3 red; intros; subst.
+    destruct y1; unfold rtac_spec_modular; simpl; try reflexivity.
+    - unfold GoalImplies.
+      eapply impl_iff; try tauto; intro.
+      eapply impl_iff; try tauto; intro.
+      eapply and_iff; try tauto; intro.
+      rewrite WellFormed_Goal_Solved_iff.
+      rewrite and_comm. rewrite and_True_iff.
+      simpl.
+      forward.
+      apply and_iff; try tauto; intro.
+      apply forall_iff; intro.
+      apply forall_iff; intro.
+      eapply Fmap_pctxD_iff; eauto; try reflexivity.
+      do 5 red; intros.
+      rewrite impl_True_iff. equivs. reflexivity.
+  Qed.
+
   Definition rtac_sound (tac : rtac) : Prop :=
     forall ctx s g result,
       (let tus := getUVars ctx in
@@ -505,10 +562,23 @@ Section parameterized.
                                            (Q <-> (P /\ R)).
   Proof. clear. tauto. Qed.
 
+  Definition WellTyped_Goal tus tvs (g : Goal) : Prop :=
+    exists gD, goalD tus tvs g = Some gD.
+
+  Definition WellTyped_ctx_subst c (cs : ctx_subst c) : Prop :=
+    exists csD, ctx_substD (getUVars c) (getVars c) cs = Some csD.
+
+  Definition WellTyped_Result c (r : Result c) : Prop :=
+    match r with
+      | Fail => True
+      | Solved cs =>  WellTyped_ctx_subst cs
+      | More_ cs g => WellTyped_Goal (getUVars c) (getVars c) g /\
+                      WellTyped_ctx_subst cs
+    end.
 
   Theorem Proper_rtac_spec ctx s
   : Proper (EqGoal (getUVars ctx) (getVars ctx) ==>
-            @EqResult (getUVars ctx) (getVars ctx) ctx ==> iff)
+            @EqResult ctx ==> iff)
            (@rtac_spec ctx s).
   Proof.
     clear RTypeOk_typ ExprOk_expr.
