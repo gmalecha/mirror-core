@@ -94,7 +94,7 @@ Section runOnGoals.
             match @runOnGoals tus tvs nus nvs ctx s' r with
               | Fail => Fail
               | Solved s'' => More s'' g'
-              | More_ s'' g'' => More_ s'' (GConj_ g' g'')
+              | More_ s'' g'' => More s'' (GConj g' g'')
             end
         end
     end.
@@ -244,6 +244,75 @@ Section runOnGoals.
   Qed.
 
   Opaque remembers.
+
+  Lemma GoalImplies_GConj_
+  : forall c (cs : ctx_subst c) l r,
+      GoalImplies (cs, GConj l r) (cs, GConj_ l r).
+  Proof.
+    simpl; intros.
+    split; auto.
+    split.
+    { destruct l; destruct r; inversion H; try constructor; eauto;
+      try constructor. }
+    { forward.
+      assert (   (l = GSolved /\ r = GConj l r)
+                 \/ (r = GSolved /\ l = GConj l r)
+                 \/ (GConj_ l r = GConj l r)).
+      { clear. destruct l; destruct r; simpl;
+               try solve [ left; eauto | right; left; eauto | right; right; congruence ]. }
+      destruct H3 as [ ? | [ ? | ? ] ]; forward_reason.
+      { subst l. destruct H4. simpl.
+        rewrite H2.
+        split; [ reflexivity | ].
+        intros.
+        eapply Pure_pctxD; eauto. intros; tauto. }
+      { destruct H4; subst. simpl.
+        rewrite H2.
+        split; [ reflexivity | ].
+        intros.
+        eapply Pure_pctxD; eauto. intros; tauto. }
+      { destruct H3.
+        simpl in *. forward.
+        split; [ reflexivity | ].
+        inv_all; subst.
+        intros.
+        eapply Pure_pctxD; eauto. } }
+  Qed.
+
+  Lemma GoalImplies_GConj
+  : forall c (cs : ctx_subst c) l r,
+      GoalImplies (cs, GConj_ l r) (cs, GConj l r).
+  Proof.
+    simpl; intros.
+    split; auto.
+    split.
+    { inversion H; subst.
+      destruct l; destruct r; simpl; auto; try constructor; auto. }
+    { forward.
+      assert (   (l = GSolved /\ r = GConj l r)
+                 \/ (r = GSolved /\ l = GConj l r)
+                 \/ (GConj_ l r = GConj l r)).
+      { clear. destruct l; destruct r; simpl;
+               try solve [ left; eauto | right; left; eauto | right; right; congruence ]. }
+      destruct H5 as [ ? | [ ? | ? ] ]; forward_reason.
+      { subst l. destruct H6. simpl.
+        rewrite H3.
+        split; [ reflexivity | ].
+        intros.
+        eapply Pure_pctxD; eauto. inv_all; subst. intros; tauto. }
+      { destruct H6; subst. simpl.
+        rewrite H2.
+        split; [ reflexivity | ].
+        intros.
+        eapply Pure_pctxD; eauto. inv_all; subst. intros; tauto. }
+      { destruct H5.
+        simpl in *. forward.
+        split; [ reflexivity | ].
+        inv_all; subst.
+        intros.
+        eapply Pure_pctxD; eauto. } }
+  Qed.
+
 
   Lemma runOnGoals_sound_ind
   : forall g ctx s,
@@ -507,20 +576,22 @@ Section runOnGoals.
             |- context [ match ?Y with _ => _ end ] =>
             change Y with X ; destruct X; auto
         end.
-        { intros; inv_all.
-          forward_reason.
+        { change (rtac_spec s (GConj_ A B) (More c0 (GConj A' g))).
+          eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
+          reflexivity.
+          change (GoalImplies (ctx:=ctx) (s,GConj_ A B) (c0,GConj A' g)).
+          eapply Transitive_GoalImplies; [ eauto | | eapply GoalImplies_GConj ].
+          red. simpl.
+          intros; inv_all; forward_reason.
           split; auto.
-          split; [ constructor; auto | ].
-          simpl. forward. forward_reason.
+          split; [ constructor; eauto | ].
+          forward. forward_reason.
           split; [ etransitivity; eauto | ].
           intros us vs.
-          generalize (H15 us vs); clear H15.
-          eapply Ap_pctxD; eauto.
+          gather_facts.
           eapply pctxD_SubstMorphism; eauto.
-          generalize (H16 us vs); clear H16.
-          eapply Fmap_pctxD_impl; eauto; try reflexivity.
-          clear. do 6 red.
-          intros. equivs. firstorder. }
+          gather_facts.
+          eapply Pure_pctxD; eauto. tauto. }
         { change (rtac_spec s (GConj_ A B) (More c0 A')).
           eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
           reflexivity.
@@ -530,13 +601,10 @@ Section runOnGoals.
           forward. forward_reason.
           split; [ etransitivity; eassumption | ].
           intros us vs.
-          generalize (H13 us vs); clear H13.
-          eapply Ap_pctxD; eauto.
+          gather_facts.
           eapply pctxD_SubstMorphism; eauto.
-          generalize (H14 us vs); clear H14.
-          eapply Fmap_pctxD_impl; eauto; try reflexivity.
-          clear. do 6 red.
-          intros. equivs. firstorder. } }
+          gather_facts.
+          eapply Pure_pctxD; eauto. } }
       { specialize (IHg2 ctx c).
         match goal with
           | H : match ?X with _ => _ end
@@ -550,14 +618,9 @@ Section runOnGoals.
           forward. forward_reason.
           split; [ etransitivity; eassumption | ].
           intros us vs.
-          specialize (H13 us vs).
-          specialize (H14 us vs).
-          revert H13.
-          eapply Ap_pctxD; eauto.
-          eapply pctxD_SubstMorphism.
-          3: eassumption. eassumption. eassumption.
-          revert H14.
-          eapply Ap_pctxD; eauto.
+          gather_facts.
+          eapply pctxD_SubstMorphism; eauto.
+          gather_facts.
           eapply Pure_pctxD; eauto. }
         { intros; forward_reason; inv_all; subst.
           forward_reason.
@@ -565,12 +628,9 @@ Section runOnGoals.
           forward. forward_reason.
           split; [ etransitivity; eassumption | ].
           intros us vs.
-          specialize (H11 us vs); revert H11.
-          eapply Ap_pctxD; eauto.
-          eapply pctxD_SubstMorphism.
-          3: eassumption. eassumption. eassumption.
-          specialize (H12 us vs); revert H12.
-          eapply Ap_pctxD; eauto.
+          gather_facts.
+          eapply pctxD_SubstMorphism; eauto.
+          gather_facts.
           eapply Pure_pctxD; eauto. } } }
     { (* Goal *)
       clear - Htac; simpl; intros.
