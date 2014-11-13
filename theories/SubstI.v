@@ -229,7 +229,7 @@ Section subst.
   ; substD_weakenU
     : forall n s s',
         subst_weakenU n s = s' ->
-        forall tus tvs tus' s sD,
+        forall tus tvs tus' sD,
           n = length tus' ->
           substD tus tvs s = Some sD ->
           exists sD',

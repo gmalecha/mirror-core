@@ -1226,18 +1226,40 @@ Module Make (FM : WS with Definition E.t := uvar
 
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| substR := raw_substR
-(*
-     ; WellFormed_empty := WellFormed_empty
-     ; substD_empty := substD_empty
-*)
      ; set_sound := set_sound
-(*
-     ; strengthenU_sound := strengthenU_sound
-     ; strengthenV_sound := strengthenV_sound
-     ; forget_sound := forget_sound
-*)
      |}.
 
+    Instance SubstOpen_subst : SubstOpen raw :=
+    { subst_drop := raw_drop
+    ; subst_weakenU := fun _ x => x
+    }.
+
+    Print SubstOpenOk.
+
+    Instance SubstOpenOk_subst
+    : @SubstOpenOk raw typ expr _ _ _ Subst_subst _ SubstOpen_subst :=
+    { drop_sound := substD_drop' }.
+    Proof.
+      unfold subst_weakenU; simpl.
+      intros; subst.
+      eapply substD_weaken with (tus' := tus') (tvs' := nil) in H1.
+      forward_reason.
+      exists (match app_nil_r_trans tvs in _ = X return exprT _ X Prop with
+                | eq_refl => x
+              end).
+      split.
+      { transitivity (match app_nil_r_trans tvs in (_ = X)
+                            return option (exprT (tus ++ tus') X Prop)
+                      with
+                        | eq_refl => Some x
+                      end).
+        { rewrite <- H. clear.
+          destruct (app_nil_r_trans tvs). reflexivity. }
+        { intros. autorewrite with eq_rw.
+          reflexivity. } }
+      { intros. autorewrite with eq_rw.
+        rewrite <- hlist_app_nil_r. eapply H0. }
+    Qed.
   End exprs.
 End Make.
 
