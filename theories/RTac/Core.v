@@ -65,8 +65,6 @@ Section parameterized.
   Context {MentionsAny_expr : MentionsAny expr}.
   Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
-
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
   | GExs    : list typ -> amap expr -> Goal -> Goal
