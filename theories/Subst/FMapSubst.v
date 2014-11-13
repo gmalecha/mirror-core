@@ -988,23 +988,22 @@ Module Make (FM : WS with Definition E.t := uvar
         rewrite H5. reflexivity. }
     Qed.
 
-(*
     Theorem substD_drop
     : forall (s s' : raw) (u : nat),
-        drop u s = Some s' ->
+        raw_drop u s = Some s' ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
         (forall (tus : list typ) (tu : typ) (tvs : tenv typ)
                 (sD : hlist typD (tus ++ tu :: nil) ->
                       hlist typD tvs -> Prop),
            u = length tus ->
-           substD (tus ++ tu :: nil) tvs s = Some sD ->
+           raw_substD (tus ++ tu :: nil) tvs s = Some sD ->
            exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
-             substD tus tvs s' = Some sD' /\
+             raw_substD tus tvs s' = Some sD' /\
              (exists
                  (e : expr) (eD : hlist typD tus ->
                                   hlist typD tvs -> typD tu),
-                 lookup u s = Some e /\
+                 raw_lookup u s = Some e /\
                  exprD' tus tvs e tu = Some eD /\
                  (forall (us : hlist typD tus) (vs : hlist typD tvs),
                     sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs))).
@@ -1067,24 +1066,23 @@ Module Make (FM : WS with Definition E.t := uvar
         { rewrite FACTS.remove_in_iff.
           clear. intuition. } }
     Qed.
-*)
-(*
+
     Theorem substD_drop'
     : forall (s s' : raw) (u : nat),
-        drop u s = Some s' ->
+        raw_drop u s = Some s' ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
         (exists e : expr,
-           lookup u s = Some e /\
-           lookup u s' = None /\
-           (forall u' : nat, u' <> u -> lookup u' s = lookup u' s') /\
+           raw_lookup u s = Some e /\
+           raw_lookup u s' = None /\
+           (forall u' : nat, u' <> u -> raw_lookup u' s = raw_lookup u' s') /\
            (forall (tus : list typ) (tu : typ) (tvs : tenv typ)
                    (sD : hlist typD (tus ++ tu :: nil) ->
                          hlist typD tvs -> Prop),
               u = length tus ->
-              substD (tus ++ tu :: nil) tvs s = Some sD ->
+              raw_substD (tus ++ tu :: nil) tvs s = Some sD ->
               exists sD' : hlist typD tus -> hlist typD tvs -> Prop,
-                substD tus tvs s' = Some sD' /\
+                raw_substD tus tvs s' = Some sD' /\
                 (exists
                     eD : hlist typD tus -> hlist typD tvs -> typD tu,
                     exprD' tus tvs e tu = Some eD /\
@@ -1121,7 +1119,6 @@ Module Make (FM : WS with Definition E.t := uvar
           rewrite H in H4. inv_all; subst.
           eexists; split; eauto. } }
     Qed.
-*)
 
 (*
     Theorem strengthenV_sound
