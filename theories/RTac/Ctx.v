@@ -262,6 +262,8 @@ Section parameterized.
 
   Require Import MirrorCore.Subst.FMapSubst.
 
+  Local Existing Instance SUBST.SubstOpen_subst.
+
   Definition amap : Type := SUBST.raw expr.
   Definition WellFormed_amap : amap -> Prop := @SUBST.WellFormed _ _.
   Definition amap_empty : amap := UVarMap.MAP.empty _.
@@ -2187,11 +2189,196 @@ Section parameterized.
     intros. eapply H2; eauto; reflexivity.
   Qed.
 
+  Lemma WellFormed_pre_entry_WellFormed_subst
+  : forall a b (m : amap),
+      WellFormed_pre_entry a b m ->
+      SUBST.WellFormed m.
+  Proof.
+    red; red; intros.
+    rewrite SUBST.FACTS.find_mapsto_iff in H0.
+    eapply H in H0. destruct H0 as [ ? [ ? XXX ] ].
+    intro.
+    rewrite XXX in H1. congruence.
+    red in H3. destruct H3.
+    rewrite SUBST.FACTS.find_mapsto_iff in H3.
+    change_rewrite H3. congruence.
+  Qed.
+
+
+
+  (** Start pigeonhole stuff **)
+  Lemma cardinal_remove
+  : forall m x y,
+      amap_lookup x m = Some y ->
+      UVarMap.MAP.cardinal m = S (UVarMap.MAP.cardinal (UVarMap.MAP.remove x m)).
+  Proof.
+    clear. intros.
+    do 2 rewrite SUBST.PROPS.cardinal_fold.
+    assert (UVarMap.MAP.Equal m (UVarMap.MAP.add x y (UVarMap.MAP.remove x m))).
+    { red. intros.
+      rewrite SUBST.PROPS.F.add_o.
+      rewrite SUBST.PROPS.F.remove_o.
+      destruct (SUBST.PROPS.F.eq_dec x y0). subst; auto.
+      auto. }
+    etransitivity.
+    (rewrite SUBST.PROPS.fold_Equal with (eqA := @eq nat); try eassumption); eauto.
+    compute; intros; subst; auto.
+    compute; intros; subst; auto.
+    rewrite SUBST.PROPS.fold_add. reflexivity.
+    eauto.
+    compute; intros; subst; auto.
+    compute; intros; subst; auto.
+    eapply UVarMap.MAP.remove_1. reflexivity.
+  Qed.
+  Lemma cardinal_not_remove
+  : forall m x,
+      amap_lookup x m = None ->
+      UVarMap.MAP.cardinal m = UVarMap.MAP.cardinal (UVarMap.MAP.remove x m).
+  Proof.
+    clear. intros.
+    assert (UVarMap.MAP.Equal m (UVarMap.MAP.remove x m)).
+    { red. intros.
+      rewrite SUBST.PROPS.F.remove_o.
+      destruct (SUBST.PROPS.F.eq_dec x y). subst; auto.
+      auto. }
+    rewrite <- H0. reflexivity.
+  Qed.
+
+  Definition nothing_in_range a b m : Prop :=
+    forall u, u < b -> amap_lookup (a + u) m = None.
+  Lemma subst_pull_sound
+  : forall b a m m',
+      subst_pull a b m = Some m' ->
+      nothing_in_range a b m' /\
+      UVarMap.MAP.cardinal m' = UVarMap.MAP.cardinal m - b /\
+      (forall u, u < a \/ u >= a + b -> amap_lookup u m = amap_lookup u m') /\
+      (forall u, u < b -> amap_lookup (a + u) m <> None).
+  Proof.
+    clear.
+    induction b.
+    { simpl. intros. inv_all; subst.
+      split.
+      { red. intros; exfalso; omega. }
+      split.
+      { omega. }
+      split.
+      { auto. }
+      { intros. exfalso; omega. } }
+    { simpl. unfold SUBST.raw_drop.
+      intros. forwardy.
+      eapply IHb in H. forward_reason.
+      inv_all. subst.
+      split.
+      { red. intros.
+        unfold amap_lookup. rewrite SUBST.PROPS.F.remove_o.
+        destruct (SUBST.PROPS.F.eq_dec a (a + u)); auto.
+        destruct u.
+        { exfalso; omega. }
+        { replace (a + S u) with (S a + u) by omega.
+          red in H. eapply H. omega. } }
+      split.
+      { replace (UVarMap.MAP.cardinal m - S b) with
+        ((UVarMap.MAP.cardinal m - b) - 1) by omega.
+        rewrite <- H2. clear - H0.
+        rewrite (@cardinal_remove _ _ _ H0). omega. }
+      split.
+      { intros.
+        destruct H1.
+        + rewrite H3; [ | left; eauto ].
+          unfold amap_lookup.
+          rewrite SUBST.PROPS.F.remove_neq_o; auto.
+        + rewrite H3; [ | right; omega ].
+          unfold amap_lookup.
+          rewrite SUBST.PROPS.F.remove_neq_o; auto.
+          omega. }
+      { intros.
+        destruct u.
+        { rewrite H3; [ | left; omega ].
+          replace (a + 0) with a. change_rewrite H0. congruence.
+          clear. apply plus_n_O. }
+        { replace (a + S u) with (S a + u) by omega.
+          apply H4. omega. } } }
+  Qed.
+
+  Lemma subst_pull_complete
+  : forall b a m,
+      (forall u, u < b -> amap_lookup (a + u) m <> None) ->
+      exists m',
+        subst_pull a b m = Some m'.
+  Proof.
+    clear. induction b; simpl; intros; eauto.
+    { destruct (IHb (S a) m); clear IHb.
+      { intros. replace (S a + u) with (a + S u) by omega.
+        eapply H. omega. }
+      { rewrite H0.
+        eapply subst_pull_sound in H0.
+        forward_reason. unfold SUBST.raw_drop.
+        rewrite <- H2 by (left; omega).
+        specialize (H 0).
+        replace (a + 0) with a in H by omega.
+        destruct (amap_lookup a m); eauto.
+        exfalso. eapply H; auto. omega. } }
+  Qed.
+  Fixpoint test_range from len m :=
+    match len with
+      | 0 => true
+      | S len =>
+        match amap_lookup from m with
+          | None => false
+          | Some _ => test_range (S from) len (UVarMap.MAP.remove from m)
+        end
+    end.
+  Lemma test_range_true_all
+  : forall l f m,
+      test_range f l m = true ->
+      forall u, u < l -> amap_lookup (f + u) m <> None.
+  Proof.
+    clear. induction l.
+    { intros; exfalso; omega. }
+    { simpl; intros; forward.
+      specialize (IHl _ _ H1).
+      destruct u.
+      { replace (f + 0) with f by omega. congruence. }
+      { replace (f + S u) with (S f + u) by omega.
+        cutrewrite (amap_lookup (S f + u) m =
+                    amap_lookup (S f + u) (UVarMap.MAP.remove f m)).
+        { apply IHl. omega. }
+        unfold amap_lookup.
+        rewrite SUBST.PROPS.F.remove_neq_o; auto. omega. } }
+  Qed.
+  Lemma cardinal_le_range
+  : forall len min m,
+      only_in_range min len m ->
+      UVarMap.MAP.cardinal m <= len.
+  Proof.
+    clear.
+    induction len.
+    { intros.
+      eapply only_in_range_0_empty in H.
+      cut (UVarMap.MAP.cardinal m = 0); try omega.
+      apply SUBST.PROPS.cardinal_1.
+      rewrite H.
+      apply UVarMap.MAP.empty_1. }
+    { intros.
+      assert (only_in_range min len (UVarMap.MAP.remove (min + len) m)).
+      { red. red in H. intros.
+        unfold amap_lookup in H0.
+        rewrite SUBST.PROPS.F.remove_o in H0.
+        destruct (SUBST.PROPS.F.eq_dec (min + len) u); try congruence.
+        eapply H in H0. omega. }
+      { eapply IHlen in H0.
+        consider (UVarMap.MAP.find (min + len) m); intros.
+        { erewrite cardinal_remove; eauto.
+          omega. }
+        { erewrite cardinal_not_remove; eauto. } } }
+  Qed.
+
+
   Lemma subst_getInstantiation
   : forall tus tvs ts m P,
       WellFormed_pre_entry (length tus) (length ts) m ->
       amap_substD (tus ++ ts) tvs m = Some P ->
-      UVarMap.MAP.cardinal m = length ts ->
+      amap_is_full (length ts) m = true ->
       exists x : hlist (fun t => exprT tus tvs (typD t)) ts,
         forall us vs,
           let us' :=
@@ -2199,7 +2386,79 @@ Section parameterized.
           in
           P (HList.hlist_app us us') vs.
   Proof.
-  Admitted.
+    intros.
+    assert (exists m',
+              subst_pull (length tus) (length ts) m = Some m' /\
+              UVarMap.MAP.Empty m').
+    { unfold amap_is_full in H1.
+      consider (UVarMap.MAP.cardinal m ?[ eq ] length ts); intros.
+      assert (only_in_range (length tus) (length ts) m).
+      { clear - H. red in H. red; intros.
+        eapply H in H0. tauto. }
+      clear - H1 H2.
+      destruct (@subst_pull_complete (length ts) (length tus) m).
+      { eapply test_range_true_all.
+        generalize dependent (length tus).
+        generalize dependent m.
+        induction (length ts); intros.
+        { reflexivity. }
+        { simpl.
+          consider (amap_lookup n0 m).
+          { intros.
+            eapply IHn.
+            - erewrite cardinal_remove in H1; eauto.
+            - red. intros.
+              unfold amap_lookup in H0.
+              rewrite SUBST.PROPS.F.remove_o in H0.
+              destruct (SUBST.PROPS.F.eq_dec n0 u); try congruence.
+              eapply H2 in H0. omega. }
+          { intros. exfalso.
+            assert (only_in_range (S n0) n m).
+            { red. intros.
+              consider (n0 ?[ eq ] u); intros; subst; try congruence.
+              eapply H2 in H0. omega. }
+            eapply cardinal_le_range in H0. omega. } }  }
+      rewrite H. eexists; split; eauto.
+      eapply subst_pull_sound in H.
+      assert (only_in_range (length tus) 0 x).
+      { forward_reason.
+        red. intros.
+        exfalso.
+        assert ((u < length tus \/ u >= length tus + length ts) \/
+                (exists u', u' < length ts /\ u = length tus + u')).
+        { consider (u ?[ lt ] length tus); try auto; intros.
+          consider (u ?[ ge ] (length tus + length ts)); try auto; intros.
+          right. exists (u - length tus). split; try omega. }
+        destruct H6.
+        { rewrite <- H3 in H5; eauto.
+          eapply H2 in H5. omega. }
+        { forward_reason. subst.
+          red in H.
+          rewrite H in H5. congruence. auto. } }
+      { eapply  only_in_range_0_empty in H0.
+        rewrite H0.
+        eapply UVarMap.MAP.empty_1. } }
+    { forward_reason.
+      eapply pull_sound in H2; eauto using SUBST.SubstOpenOk_subst.
+      { forward_reason.
+        specialize (@H4 tus ts tvs _ eq_refl eq_refl H0).
+        forward_reason.
+        exists x2. simpl. intros.
+        eapply H9.
+        assert (UVarMap.MAP.Equal x (UVarMap.MAP.empty expr)).
+        { red. red in H3. intros.
+          rewrite SUBST.FACTS.empty_o.
+          eapply SUBST.FACTS.not_find_in_iff.
+          red. intro. destruct H10. eapply H3.
+          eauto. }
+        generalize (@SUBST.raw_substD_Equal typ _ expr _ tus tvs x (UVarMap.MAP.empty _) _ H7 H10).
+        destruct (SUBST.substD_empty tus tvs).
+        intros.
+        forward_reason.
+        eapply H13; clear H13.
+        change_rewrite H12 in H11. inv_all; subst. eauto. }
+      { eapply WellFormed_pre_entry_WellFormed_subst; eauto. } }
+  Qed.
 
 End parameterized.
 

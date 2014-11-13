@@ -30,8 +30,10 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr RType_typ expr}.
+  Context {ExprOk_expr : ExprOk _}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   (** TODO: This isn't a very good implementation **)
   Fixpoint instantiateGoal (f : nat -> option expr) (g : Goal typ expr)
@@ -263,21 +265,21 @@ Section parameterized.
         intros. eapply Pure_pctxD; eauto.
       * split; [ reflexivity | ].
         intros. eapply Pure_pctxD; eauto.
-      * match goal with
+      * Opaque amap_is_full.
+        match goal with
           | |- match _ _ _ (if ?X then _ else _) with _ => _ end =>
             consider X; intros; simpl
         end.
-      + split; [ reflexivity | ].
-        intros. eapply Pure_pctxD; eauto. intros.
-        clear - H H3 H6.
-        eapply Quant._exists_sem.
-        eapply subst_getInstantiation in H3; eauto.
-        destruct H3.
-        exists (hlist_map (fun t (x : exprT _ _ (typD t))=> x us0 vs0) x).
-        eauto.
-      + change_rewrite H3.
-        split; [ reflexivity | ].
-        intros. eapply Pure_pctxD; eauto. }
+        + split; [ reflexivity | ].
+          intros. eapply Pure_pctxD; eauto. intros.
+          eapply Quant._exists_sem.
+          eapply subst_getInstantiation in H3; eauto.
+          destruct H3.
+          exists (hlist_map (fun t (x : exprT _ _ (typD t))=> x us0 vs0) x).
+          eauto.
+        + change_rewrite H3.
+          split; [ reflexivity | ].
+          intros. eapply Pure_pctxD; eauto. }
   Qed.
 
   Fixpoint toResult (ctx ctx' : Ctx typ expr)
