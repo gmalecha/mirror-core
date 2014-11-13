@@ -290,7 +290,7 @@ Section parameterized.
       | GExs ts sub goal' =>
         let tus_ext := ts in
         match goalD (tus ++ ts) tvs goal'
-            , FMapSubst.SUBST.raw_substD (tus ++ ts) tvs sub with
+            , amap_substD (tus ++ ts) tvs sub with
           | None , _ => None
           | Some _ , None => None
           | Some D , Some sD =>

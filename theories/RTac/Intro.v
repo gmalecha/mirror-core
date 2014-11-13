@@ -25,10 +25,6 @@ Section parameterized.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Variable substV : (nat -> option expr) -> expr -> expr.
-(*
-  Variable Var : nat -> expr.
-  Variable UVar : nat -> expr.
-*)
 
   Inductive OpenAs :=
   | AsEx : typ -> (expr -> expr) -> OpenAs
@@ -86,16 +82,6 @@ Section parameterized.
       end.
 
   Hypothesis Hopen : open_sound.
-
-  Lemma WellFormed_pre_entry_amap_empty
-  : forall a b, WellFormed_pre_entry a b (amap_empty expr).
-  Proof.
-    red. intros.
-    exfalso.
-    unfold amap_lookup in H.
-    rewrite FMapSubst.SUBST.FACTS.empty_o in H.
-    congruence.
-  Qed.
 
   Theorem INTRO_sound : rtac_sound INTRO.
   Proof.

@@ -274,6 +274,8 @@ Section parameterized.
   Definition amap_substD
   : forall (tus tvs : tenv typ), amap -> option (exprT tus tvs Prop) :=
     @SUBST.raw_substD _ _ _ _.
+  Definition amap_is_full (* min : uvar *) (len : nat) (m : amap) : bool :=
+    UVarMap.MAP.cardinal m ?[ eq ] len.
 
   Inductive ctx_subst : Ctx -> Type :=
   | TopSubst : forall tus tvs, ctx_subst (CTop tus tvs)
@@ -439,6 +441,23 @@ Section parameterized.
     intros.
     eapply H in H0; clear H.
     forward_reason. auto.
+  Qed.
+
+  Lemma WellFormed_entry_amap_empty
+  : forall c a b, WellFormed_entry (ctx:=c) a b amap_empty.
+  Proof. clear. red. intros.
+         exfalso. unfold amap_empty, amap_lookup in *.
+         rewrite FMapSubst.SUBST.FACTS.empty_o in H. congruence.
+  Qed.
+
+  Lemma WellFormed_pre_entry_amap_empty
+  : forall a b, WellFormed_pre_entry a b amap_empty.
+  Proof.
+    red. intros.
+    exfalso.
+    unfold amap_lookup in H.
+    rewrite FMapSubst.SUBST.FACTS.empty_o in H.
+    congruence.
   Qed.
 
   (** [tus] and [tvs] are only the environments for Top! **)

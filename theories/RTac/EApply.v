@@ -121,15 +121,6 @@ Section parameterized.
     rewrite IHls. reflexivity.
   Qed.
 
-  Lemma WellFormed_entry_amap_empty
-  : forall c a b, WellFormed_entry (typ:=typ) (ctx:=c) a b (amap_empty expr).
-  Proof. clear. red. intros.
-         exfalso. unfold amap_empty, amap_lookup in *.
-         rewrite FMapSubst.SUBST.FACTS.empty_o in H. congruence.
-  Qed.
-
-
-
   Theorem EAPPLY_sound : rtac_sound EAPPLY.
   Proof.
     red. unfold EAPPLY. intros.
