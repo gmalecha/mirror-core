@@ -35,12 +35,6 @@ Module Make (FM : WS with Definition E.t := uvar
     Context {ExprUVar_expr : ExprUVar expr}.
     Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
-(*
-    Variable instantiate : (uvar -> option expr) -> nat -> expr -> expr.
-    Hypothesis instantiate_mentionsU : instantiate_mentionsU _ _ instantiate.
-    Hypothesis exprD'_instantiate : exprD'_instantiate _ _ instantiate.
-*)
-
     Definition raw : Type := FM.t expr.
 
     Definition normalized (this : raw) (e : expr) : Prop :=
@@ -835,7 +829,7 @@ Module Make (FM : WS with Definition E.t := uvar
           { simpl in *. destruct H.
             rewrite H0.
             specialize (H5 Hnil). simpl in H5.
-            rewrite H5 in H0; auto. 
+            rewrite H5 in H0; auto.
             symmetry in H0. tauto. } }
         { unfold raw_lookup.
           rewrite FACTS.map_o.

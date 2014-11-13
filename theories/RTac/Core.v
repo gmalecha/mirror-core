@@ -683,6 +683,31 @@ Section parameterized.
       intros; equivs. tauto.
   Qed.
 
+  Global Instance Reflexive_GoalImplies c : Reflexive (GoalImplies (ctx:=c)).
+  Proof.
+    red. destruct x; simpl; intros;
+         forward_reason.
+    split; auto.
+    split; auto.
+    forward.
+    split; [ reflexivity | ].
+    intros. eapply Pure_pctxD; eauto.
+  Qed.
+  Global Instance Transitive_GoalImplies c : Transitive (GoalImplies (ctx:=c)).
+  Proof.
+    red. destruct x; destruct y; destruct z; simpl; intros;
+         forward_reason.
+    split; auto.
+    split; auto.
+    forward. forward_reason.
+    split; [ etransitivity; eassumption | ].
+    intros. gather_facts.
+    eapply pctxD_SubstMorphism; [ eassumption | eauto | eauto | ].
+    gather_facts.
+    eapply Pure_pctxD; eauto.
+  Qed.
+
+
 End parameterized.
 
 Arguments rtac_sound {typ expr _ _ _ _} tac : rename.

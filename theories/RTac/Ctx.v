@@ -2174,17 +2174,15 @@ Section parameterized.
       amap_substD (tus ++ ts) tvs m = Some P ->
       UVarMap.MAP.cardinal m = length ts ->
       exists x : hlist (fun t => exprT tus tvs (typD t)) ts,
-      forall us vs,
-        let us' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) x in
-        P (HList.hlist_app us us') vs.
+        forall us vs,
+          let us' :=
+              hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) x
+          in
+          P (HList.hlist_app us us') vs.
   Proof.
   Admitted.
 
-
-
 End parameterized.
-
-(** TODO: Check all the instances here **)
 
 Ltac gather_facts :=
   repeat match goal with

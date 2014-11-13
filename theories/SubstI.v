@@ -189,7 +189,7 @@ Section subst.
 
   Class SubstOpen : Type :=
   { (* drop : uvar -> T -> option T *)
-    split : uvar -> nat -> T -> option (T * T)
+    subst_split : uvar -> nat -> T -> option (T * T)
 (*  ; strengthenV : nat -> nat -> T -> option T *)
   }.
 
@@ -223,7 +223,7 @@ Section subst.
   Class SubstOpenOk (S : Subst) (SO : SubstOk S) (OS : SubstOpen) : Type :=
   { split_sound
     : forall u n s s' s'',
-        split u n s = Some (s', s'') ->
+        subst_split u n s = Some (s', s'') ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
         WellFormed_subst s'' /\
@@ -233,7 +233,10 @@ Section subst.
           n = length tus' ->
           (forall uv,
              uv < length tus ->
-             subst_lookup uv s' = None) /\
+             subst_lookup uv s' = subst_lookup uv s /\ subst_lookup uv s'' = None) /\
+          (forall uv,
+             uv >= length tus ->
+             subst_lookup uv s' = None /\ subst_lookup uv s'' = subst_lookup uv s) /\
           exists sD' sD'',
             substD tus tvs s' = Some sD' /\
             substD (tus ++ tus') tvs s'' = Some sD'' /\
@@ -307,7 +310,7 @@ Section subst.
     end.
 
   Definition subst_pull (from : uvar) (len : nat) (s : T) : option T :=
-    match split from len s with
+    match subst_split from len s with
       | None => None
       | Some (t,s') =>
         if all_defined from len s' then Some t else None
@@ -350,7 +353,7 @@ Section subst.
       mapT (fun u => subst_lookup u s) (seq (length tus) (length ts)) = Some es ->
       WellFormed_subst s ->
       substD (tus ++ ts) tvs s = Some sD ->
-      exists esD,
+      exists esD : hlist (fun t => exprT tus tvs (typD t)) ts,
         @hlist_build typ expr (fun t => exprT tus tvs (typD t))
                      (fun t e => exprD' tus tvs e t) ts es = Some esD /\
         forall us vs us',
@@ -359,7 +362,7 @@ Section subst.
                              (y : exprT tus tvs (typD t)) =>
                            x us vs = y us vs) us' esD.
   Proof.
-  Admitted.
+  Abort.
 
   Lemma pull_sound_syn
   : forall n s s' u,
@@ -573,7 +576,7 @@ Section subst.
     forward_reason.
     split; eauto.
     intros; subst.
-  Admitted.
+  Abort.
 
   Lemma In_seq : forall a c b,
                    In a (seq b c) <-> (b <= a /\ a < b + c).
