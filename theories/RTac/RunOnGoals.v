@@ -404,7 +404,6 @@ Section runOnGoals.
           destruct (pctxD_remembers H4 H1 H3 H10) as [ ? [ ? ? ] ].
           rewrite H11 in *.
           forward. inv_all; subst.
-          change_rewrite H9.
           split.
           { forward_reason. clear - H14.
             Transparent remembers. unfold remembers in H14.
@@ -433,6 +432,7 @@ Section runOnGoals.
             rewrite H0 in *.
             inv_all. revert H12. revert H19.
             subst. intros; subst.
+            rename e2 into P.
             specialize (H14 P).
             cut (e
                    (fun (us0 : hlist typD (getUVars ctx))
@@ -477,7 +477,6 @@ Section runOnGoals.
           destruct (pctxD_remembers H4 H1 H3 H9) as [ ? [ ? ? ] ].
           rewrite H10 in *.
           forward. inv_all; subst.
-          change_rewrite H8.
           split.
           { forward_reason. clear - H12.
             Transparent remembers. unfold remembers in H12.
@@ -505,13 +504,14 @@ Section runOnGoals.
             eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
             specialize (H15 us vs); revert H15.
             eapply Ap_pctxD; eauto.
+            rename e2 into P.
             specialize (H11 us vs P).
             assert (e
                    (fun (us0 : hlist typD (getUVars ctx))
                         (vs0 : hlist typD (getVars ctx)) =>
                       _foralls typD l
                                (fun us' : hlist typD l =>
-                                  e4 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
+                                  e5 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
             { eapply H11. eapply Pure_pctxD; eauto. }
             { revert H0.
               eapply Ap_pctxD; eauto.

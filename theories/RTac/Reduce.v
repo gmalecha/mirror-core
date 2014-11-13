@@ -110,7 +110,7 @@ Section parameterized.
   : Goal typ expr :=
     match g with
       | GSolved =>
-        if (UVarMap.MAP.cardinal m) ?[ eq ] length tes then
+        if amap_is_full (length tes) m then
           GSolved
         else
           GExs tes m g
@@ -242,13 +242,14 @@ Section parameterized.
 
   Lemma GoalImplies_GExs_do_solved
   : forall c (cs : ctx_subst c) ts m g,
-      GoalImplies (cs, GExs ts m g) (cs, GExs_do_solved ts m g).
+      GoalImplies (cs, GExs ts m g)
+                  (cs, GExs_do_solved ts m g).
   Proof.
     Transparent GoalImplies. simpl; intros.
     split; auto.
     split.
     { destruct g; simpl; auto.
-      destruct (RelDec.rel_dec (UVarMap.MAP.cardinal m) (length ts));
+      destruct (amap_is_full (length ts) m);
         auto. constructor. }
     { forward; inv_all; subst.
       destruct g; simpl in *; forwardy; inv_all; subst;
@@ -359,8 +360,6 @@ Section parameterized.
       | None , _ => False
     end.
 
-
-
 End parameterized.
 
 (* TODO: Making this work requires a better set of equivalence relations
@@ -450,7 +449,7 @@ simpl. red; intros. inv_all.
     intros. destruct H. split.
     { clear H0.
       destruct x; try eapply WellFormed_Goal_iff_GExs_cancel; eauto.
-      destruct (UVarMap.MAP.cardinal m ?[ eq ] length ts).
+      destruct (cardinal m ?[ eq ] length ts).
       { split; constructor; eauto. apply H. constructor. }
       { eapply WellFormed_Goal_iff_GExs_cancel; eauto. } }
     { destruct WT.
@@ -460,7 +459,7 @@ simpl. red; intros. inv_all.
                   eapply Quant._exists_iff; intros;
                   eapply and_iff; [ equivs; reflexivity | intro; eapply H0 ];
                   solve_equiv_hlist ].
-      consider (UVarMap.MAP.cardinal m ?[ eq ] length ts).
+      consider (cardinal m ?[ eq ] length ts).
       { inversion H0; subst.
         intros. simpl. constructor.
         do 5 red; intros. equivs. split; auto.
