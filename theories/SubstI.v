@@ -79,6 +79,7 @@ Section subst.
   Variable typ : Type.
   Variable expr : Type.
   Context {RType_type : RType typ}.
+  Context {RTypeOk_type : RTypeOk}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
@@ -114,22 +115,6 @@ Section subst.
       forall u' e',
         subst_lookup u' s = Some e' ->
         mentionsU u' e = false
-  }.
-
-  Class SubstWeakenable :=
-  { subst_weakenU : nat -> T -> T }.
-
-  Class SubstWeakenableOk S (SOk : SubstOk S) (SW : SubstWeakenable) :=
-  { substD_weakenU
-    : forall n s s',
-        subst_weakenU n s = s' ->
-        forall tus tvs tus' s sD,
-          n = length tus' ->
-          substD tus tvs s = Some sD ->
-          exists sD',
-            substD (tus ++ tus') tvs s' = Some sD' /\
-            forall us us' vs,
-              sD us vs <-> sD' (hlist_app us us') vs
   }.
 
   Class SubstUpdate :=
@@ -188,8 +173,9 @@ Section subst.
 **)
 
   Class SubstOpen : Type :=
-  { (* drop : uvar -> T -> option T *)
-    subst_split : uvar -> nat -> T -> option (T * T)
+  { subst_drop : uvar -> T -> option T
+  ; subst_weakenU : nat -> T -> T
+(*  ; subst_split : uvar -> nat -> T -> option (T * T) *)
 (*  ; strengthenV : nat -> nat -> T -> option T *)
   }.
 
@@ -221,55 +207,35 @@ Section subst.
     end.
 
   Class SubstOpenOk (S : Subst) (SO : SubstOk S) (OS : SubstOpen) : Type :=
-  { split_sound
-    : forall u n s s' s'',
-        subst_split u n s = Some (s', s'') ->
+  { drop_sound
+    : forall s s' u,
+        subst_drop u s = Some s' ->
         WellFormed_subst s ->
         WellFormed_subst s' /\
-        WellFormed_subst s'' /\
-        forall tus tvs tus' sD,
-          substD (tus ++ tus') tvs s = Some sD ->
-          u = length tus ->
+        exists e,
+          subst_lookup u s = Some e /\
+          subst_lookup u s' = None /\
+          (forall u', u' <> u -> subst_lookup u' s = subst_lookup u' s') /\
+          forall tus tu tvs sD,
+            u = length tus ->
+            substD (tus ++ tu :: nil) tvs s = Some sD ->
+            exists sD',
+              substD tus tvs s' = Some sD' /\
+              exists eD,
+                exprD' tus tvs e tu = Some eD /\
+                forall us vs,
+                  sD' us vs <->
+                  sD (hlist_app us (Hcons (eD us vs) Hnil)) vs
+  ; substD_weakenU
+    : forall n s s',
+        subst_weakenU n s = s' ->
+        forall tus tvs tus' s sD,
           n = length tus' ->
-          (forall uv,
-             uv < length tus ->
-             subst_lookup uv s' = subst_lookup uv s /\ subst_lookup uv s'' = None) /\
-          (forall uv,
-             uv >= length tus ->
-             subst_lookup uv s' = None /\ subst_lookup uv s'' = subst_lookup uv s) /\
-          exists sD' sD'',
-            substD tus tvs s' = Some sD' /\
-            substD (tus ++ tus') tvs s'' = Some sD'' /\
-            forall us vs us',
-              sD (hlist_app us us') vs <->
-              (sD' us vs /\ sD'' (hlist_app us us') vs)
-(*
-  ; strengthenV_sound
-    : forall s n c s',
-        strengthenV n c s = Some s' ->
-        WellFormed_subst s ->
-        WellFormed_subst s' /\
-        forall tus tvs tvs' sD,
-          substD tus (tvs ++ tvs') s = Some sD ->
-          n = length tvs ->
-          c = length tvs' ->
+          substD tus tvs s = Some sD ->
           exists sD',
-            substD tus tvs s' = Some sD' /\
-            forall us vs vs',
-              sD us (hlist_app vs vs') <-> sD' us vs
-  ; strengthenU_sound
-    : forall s n c,
-        strengthenU n c s = true ->
-        WellFormed_subst s ->
-        forall tus tvs tus' sD,
-          substD (tus ++ tus') tvs s = Some sD ->
-          n = length tus ->
-          c = length tus' ->
-          exists sD',
-            substD tus tvs s = Some sD' /\
-            forall us vs us',
-              sD (hlist_app us us') vs <-> sD' us vs
-*)
+            substD (tus ++ tus') tvs s' = Some sD' /\
+            forall us us' vs,
+              sD us vs <-> sD' (hlist_app us us') vs
   }.
 
   Context {Subst_subst : Subst}.
@@ -309,11 +275,14 @@ Section subst.
         end
     end.
 
-  Definition subst_pull (from : uvar) (len : nat) (s : T) : option T :=
-    match subst_split from len s with
-      | None => None
-      | Some (t,s') =>
-        if all_defined from len s' then Some t else None
+  (** This is the "obvious" extension of [drop] **)
+  Fixpoint subst_pull (from : uvar) (len : nat) (s : T) : option T :=
+    match len with
+      | 0 => Some s
+      | S len' => match subst_pull (S from) len' s with
+                   | None => None
+                   | Some s' => subst_drop from s'
+                  end
     end.
 
   Fixpoint seq (start : nat) (len : nat) : list nat :=
@@ -364,31 +333,8 @@ Section subst.
   Proof.
   Abort.
 
-  Lemma pull_sound_syn
-  : forall n s s' u,
-      subst_pull u n s = Some s' ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      forall tus tus' tvs sD,
-        u = length tus ->
-        n = length tus' ->
-        substD (tus ++ tus') tvs s = Some sD ->
-        exists eus',
-          mapT (fun u => subst_lookup u s) (seq u n) = Some eus' /\
-          (forall u', u' < u \/ u' > u + n -> subst_lookup u' s = subst_lookup u' s') /\
-          (forall u', u' < n -> subst_lookup (u + u') s' = None).
-  Proof.
-    unfold subst_pull.
-    intros. forward.
-    subst. inv_all; subst.
-    eapply split_sound in H1; eauto.
-    forward_reason; split; eauto.
-    intros; subst.
-    specialize (H3 _ _ _ _ H6 eq_refl eq_refl).
-    forward_reason.
-  Abort.
 
-  Theorem subst_pull_sound
+  Theorem pull_sound
   : forall n s s' u,
       subst_pull u n s = Some s' ->
       WellFormed_subst s ->
@@ -410,19 +356,6 @@ Section subst.
               sD' us vs <->
               sD (hlist_app us us') vs.
   Proof.
-(*
-    Opaque mapT.
-    unfold pull; intros; forwardy.
-    eapply split_sound in H; eauto.
-    forward; inv_all; subst.
-    forward_reason.
-    split; eauto.
-    intros; subst.
-    
-
-
-
-
     Opaque mapT.
     induction n.
     { intros. simpl in *.
@@ -436,7 +369,7 @@ Section subst.
       split; [ inversion 1 | ].
       rewrite substD_conv with (pfu := eq_sym (app_nil_r_trans tus)) (pfv := eq_refl) in H2.
       autorewrite with eq_rw in H2.
-      forwardy.
+      forward.
       eexists; split; eauto.
       simpl. eexists; split; eauto.
       inv_all. subst.
@@ -495,7 +428,7 @@ Section subst.
             eapply mapT_In in H13; try eassumption.
             simpl in H13.
             forward_reason.
-            eapply Hnormalized.
+            eapply lookup_normalized.
             2: eassumption. eassumption.
             rewrite <- H10 in H3. eapply H3.
             left. omega. }
@@ -549,34 +482,7 @@ Section subst.
                    end.
             forwardy. inv_all. subst.
             rewrite H1; auto. rewrite H. reflexivity. } } } }
-*)
-  Abort.
-
-  Theorem subst_pull_sound_sem
-  : forall  n s s' u,
-      subst_pull u n s = Some s' ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      forall tus tus' tvs sD,
-        u = length tus ->
-        n = length tus' ->
-        substD (tus ++ tus') tvs s = Some sD ->
-        exists sD',
-          substD tus tvs s' = Some sD' /\
-          exists us' : hlist (fun t => exprT tus tvs (typD t)) tus',
-            forall us vs,
-              let us' := hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us' in
-              sD' us vs <->
-              sD (hlist_app us us') vs.
-  Proof.
-    Opaque mapT.
-    unfold subst_pull; intros; forwardy.
-    eapply split_sound in H; eauto.
-    forward; inv_all; subst.
-    forward_reason.
-    split; eauto.
-    intros; subst.
-  Abort.
+  Qed.
 
   Lemma In_seq : forall a c b,
                    In a (seq b c) <-> (b <= a /\ a < b + c).
@@ -608,7 +514,6 @@ Section subst.
     eexists; split; eauto.
   Qed.
 
-(*
   Theorem pull_for_instantiate_sound
   : forall tus tus' tvs s s',
       subst_pull (length tus) (length tus') s = Some s' ->
@@ -638,11 +543,10 @@ Section subst.
     eexists; split; eauto.
     split.
     { intros.
-      red in exprD'_instantiate.
-      eapply exprD'_instantiate with (tvs' := nil) in H8.
+      eapply (@instantiate_sound typ expr _ _ _ _ _ _ _ _ nil) in H8; eauto.
       revert H8.
       instantiate (1 := sD).
-      instantiate (1 := (fun u : uvar => lookup u s)).
+      instantiate (1 := (fun u : uvar => subst_lookup u s)).
       simpl. intros.
       forward_reason.
       eapply exprD'_strengthenU_multi in H8; try eassumption.
@@ -659,14 +563,14 @@ Section subst.
           | |- ?X = _ => consider X; auto
         end.
         intros. exfalso.
-        red in instantiate_mentionsU.
-        rewrite instantiate_mentionsU in H11.
+        generalize instantiate_mentionsU; intro XXX; red in XXX;
+        rewrite XXX in H11; clear XXX.
         eapply mapT_success with (x := length tus + u) in H1.
         { forward_reason.
           destruct H11.
           { forward_reason; congruence. }
           { forward_reason.
-            eapply Hnormalized in H0.
+            eapply lookup_normalized in H0.
             2: eapply H11.
             2: eapply H1.
             congruence. } }
@@ -674,114 +578,7 @@ Section subst.
       { eapply sem_preserves_if_substD; eauto. } }
     { intros. eauto. }
   Qed.
-*)
+
 End subst.
 
-Arguments subst_pull {T expr SS SO} _ _ _ : rename.
-(*Arguments NormalizedSubstOk {_ _ _ _ _} _ {_} : rename.*)
-
-(*
-  Definition drop (from : uvar) (s : T) : option T :=
-    let (nsub,val) := forget from s in
-    match val with
-      | None => None
-      | Some _ => Some nsub
-    end.
-
-  Theorem drop_sound
-  : forall s s' u,
-      drop u s = Some s' ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      exists e,
-        lookup u s = Some e /\
-        lookup u s' = None /\
-        (forall u', u' <> u -> lookup u' s = lookup u' s') /\
-        forall tus tu tvs sD,
-          u = length tus ->
-          substD (tus ++ tu :: nil) tvs s = Some sD ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            exists eD,
-              exprD' tus tvs e tu = Some eD /\
-              forall us vs,
-                sD' us vs <->
-                sD (hlist_app us (Hcons (eD us vs) Hnil)) vs.
-*)
-
-(*
-  (** This is the "obvious" extension of [drop] **)
-  Fixpoint pull (from : uvar) (len : nat) (s : T) : option T :=
-    match len with
-      | 0 => Some s
-      | S len' => match pull (S from) len' s with
-                   | None => None
-                   | Some s' => drop from s'
-                  end
-    end.
-*)
-(*
-  Definition Subst_Extends (a b : T) : Prop :=
-    forall tus tvs P Q,
-      substD tus tvs b = Some P ->
-      substD tus tvs a = Some Q ->
-      forall us vs, P us vs -> Q us vs.
-*)
-
-(*
-  Lemma substD_weakenU
-  : forall tus tvs tus' s sD,
-      substD tus tvs s = Some sD ->
-      exists sD',
-        substD (tus ++ tus') tvs s = Some sD' /\
-        forall a b c,
-          sD a b <-> sD' (hlist_app a c) b.
-  Proof.
-    intros.
-    eapply substD_weaken with (tvs' := nil) in H.
-    revert H.
-    instantiate (1 := tus').
-    intro. destruct H as [ ? [ ? ? ] ].
-    exists (match app_nil_r_trans tvs in _ = t
-                  return hlist typD (tus ++ tus') -> hlist typD t -> Prop
-            with
-              | eq_refl => x
-            end).
-    split.
-    { clear - H. generalize dependent x.
-      destruct (app_nil_r_trans tvs). auto. }
-    { intros. rewrite H0.
-      instantiate (1 := Hnil). instantiate (1 := c).
-      rewrite hlist_app_nil_r.
-      clear. revert x. revert b.
-      destruct (app_nil_r_trans tvs). reflexivity. }
-  Qed.
-
-  Lemma substD_weakenV
-  : forall tus tvs tvs' s sD,
-      substD tus tvs s = Some sD ->
-      exists sD',
-        substD tus (tvs ++ tvs') s = Some sD' /\
-        forall a b c,
-          sD a b <-> sD' a (hlist_app b c).
-  Proof.
-    intros.
-    eapply substD_weaken with (tus' := nil) in H.
-    revert H.
-    instantiate (1 := tvs').
-    intro. destruct H as [ ? [ ? ? ] ].
-    exists (match app_nil_r_trans tus in _ = t
-                  return hlist typD t -> hlist typD _ -> Prop
-            with
-              | eq_refl => x
-            end).
-    split.
-    { clear - H. generalize dependent x.
-      destruct (app_nil_r_trans tus). auto. }
-    { intros. rewrite H0.
-      instantiate (1 := c). instantiate (1 := Hnil).
-      rewrite hlist_app_nil_r.
-      clear. revert x. revert a.
-      destruct (app_nil_r_trans tus). reflexivity. }
-  Qed.
-*)
+Arguments subst_pull {T SO} _ _ _ : rename.

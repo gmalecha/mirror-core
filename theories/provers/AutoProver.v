@@ -340,7 +340,6 @@ Section parameterized.
           eD us vs = eD' us vs.
   Proof.
     intros.
-    Print instantiate_spec.
     eapply (@instantiate_sound _ _ _ _ _ _ _ _ _ _ nil) in H1; eauto.
     { forward_reason.
       eexists; split; [ eapply H1 | ].
