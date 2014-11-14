@@ -67,6 +67,13 @@ Section parametric.
     { simpl. eapply EqNat.beq_nat_true_iff. }
     { eapply instantiate_mentionsU. }
     { eapply exprD'_instantiate_ho; eauto. }
+    { repeat red. simpl. intros; subst.
+      generalize dependent y0.
+      generalize dependent x. revert y.
+      induction y1; simpl; intros; auto.
+      f_equal; eauto.
+      f_equal; eauto.
+      red in H. rewrite (H _ _ eq_refl). reflexivity. }
   Qed.
 
 
