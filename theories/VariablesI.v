@@ -210,6 +210,7 @@ Section with_Expr.
   ; mentionsU_UVar : forall v v', mentionsU v (UVar v') = true <-> v = v'
   ; instantiate_mentionsU : instantiate_mentionsU_spec instantiate mentionsU
   ; instantiate_sound_ho : instantiate_spec_ho instantiate
+  ; Proper_instantiate : Proper ((eq ==> eq) ==> eq ==> eq ==> eq) instantiate
   }.
 
   Theorem instantiate_sound (EU : ExprUVar) (EUO : ExprUVarOk EU)
@@ -301,15 +302,26 @@ Section with_Expr.
   Class MentionsAny : Type :=
   { mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool }.
 
-  Class MentionsAnyOk (MA : MentionsAny) (MV : ExprVar) (MU : ExprUVar) : Type :=
+  Class MentionsAnyOk (MA : MentionsAny) (MV : ExprVar) (MU : ExprUVar)
+  : Type :=
   { Proper_mentionsAny
     : Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq) mentionsAny
+  ; mentionsAny_weaken
+    : forall pu pu' pv pv',
+        (forall u, pu u = false -> pu' u = false) ->
+        (forall v, pv v = false -> pv' v = false) ->
+        forall e, mentionsAny pu pv e = false ->
+                  mentionsAny pu' pv' e = false
   ; mentionsAny_factor
     : forall fu fu' fv fv' e,
           mentionsAny (fun u => fu u || fu' u) (fun v => fv v || fv' v) e
         = mentionsAny fu fv e || mentionsAny fu' fv' e
   ; mentionsAny_mentionsU
-    : forall u e, mentionsU u e = mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e
+    : forall u e,
+        mentionsU u e = mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e
+  ; mentionsAny_mentionsV
+    : forall u e,
+        mentionsV u e = mentionsAny (fun _ => false) (fun u' => u ?[ eq ] u') e
   }.
 
 End with_Expr.

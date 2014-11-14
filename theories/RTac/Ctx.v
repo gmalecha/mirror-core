@@ -597,9 +597,66 @@ Section parameterized.
       end.
   End ctx_set'.
 
+  Section ctx_set_simple'.
+    Variables (u : nat) (e : expr).
+
+    Fixpoint ctx_set_simple' {c} (cs : ctx_subst c) {struct cs}
+    : option (ctx_subst c * expr) :=
+      match cs in ctx_subst c
+            return option (ctx_subst c * expr)
+      with
+        | TopSubst _ _ => None
+        | AllSubst _ _ c =>
+          match ctx_set_simple' c with
+            | None => None
+            | Some (c,e) => Some (AllSubst c, e)
+          end
+        | HypSubst _ _ c =>
+          match ctx_set_simple' c with
+            | None => None
+            | Some (c,e) => Some (HypSubst c, e)
+          end
+        | ExsSubst ts ctx c s =>
+          let (nus,nvs) := countEnvs ctx in
+          if u ?[ ge ] nus then
+            let max_nus := length ts + nus in
+            if u ?[ lt ] max_nus then (** NOTE: this check is redundant **)
+              if mentionsAny (fun x => x ?[ ge ] max_nus)
+                             (fun x => x ?[ ge ] nvs) e then
+                None
+              else
+                let e' := instantiate (fun u => ctx_lookup u cs) 0 e in
+                (** NOTE: This actually instantiates the term twice **)
+                match amap_check_set u e' s with
+                  | None => None
+                  | Some s' =>
+                    match amap_lookup u s' with
+                      | None => None
+                      | Some e'' =>
+                        Some (ExsSubst c s', e'')
+                    end
+                end
+            else
+              None
+          else
+            match ctx_set_simple' c with
+              | None => None
+              | Some (c,e) =>
+                let inst := (fun u' => if u ?[ eq ] u' then Some e else None) in
+                Some (@ExsSubst _ ctx c (SUBST.raw_instantiate inst s), e)
+            end
+      end.
+  End ctx_set_simple'.
+
   Definition ctx_set {c} (u : nat) (e : expr) (cs : ctx_subst c)
   : option (ctx_subst c) :=
-    ctx_set' u e cs (fun _ => @Some _).
+    if u ?[ lt ] countUVars c then
+      match ctx_set_simple' u e cs with
+        | None => None
+        | Some (s,_) => Some s
+      end
+    else
+      None.
 
   Fixpoint ctx_empty {c} : ctx_subst c :=
     match c with
@@ -1430,74 +1487,40 @@ Section parameterized.
     rewrite ctx_subst_eta. reflexivity.
   Qed.
 
-(*
-  Lemma ctx_substD_set' ctx
-  : forall (uv : nat) (e : expr) (s : ctx_subst ctx),
-      WellFormed_ctx_subst s ->
-      forall ctx' s'
-             (k : (nat -> option expr) -> ctx_subst ctx -> option (ctx_subst ctx'))
-             f,
-        (forall a b, k a b <> None) ->
-        ctx_set' uv e s k = k f s' ->
-        WellFormed_ctx_subst s' /\
-        (ctx_lookup uv s = None ->
-         forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
-                (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop) P,
-           ctx_substD tus tvs s = Some sD ->
-           nth_error_get_hlist_nth typD tus uv =
-           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
-           exprD' tus tvs e t = Some val ->
-           exists (sD' : exprT tus tvs Prop) fD,
-             InstantiateI.sem_preserves_if tus tvs fD f /\
-             ctx_substD tus tvs s' = Some sD' /\
-             SubstMorphism s s' /\
-             (forall (us : hlist typD tus) (vs : hlist typD tvs),
-                fD us vs ->
-                ((P us vs /\ sD' us vs) <-> (P us vs /\ sD us vs /\ get us = val us vs)))).
+  Lemma ctx_substD_envs
+  : forall c (cs : ctx_subst c) tus tvs csD,
+      ctx_substD tus tvs cs = Some csD ->
+      (tus,tvs) = (getUVars c, getVars c).
   Proof.
-    (* k takes input of a substitution and returns a substitution
-     * The input substitution satisfies the property and the output
-     * substitution must also satisfy the property
-     *)
-    (* if the input substitution satisfies the property then the output
-     * substitution satisfies the "next" property
-     *)
-    (* k never fails *)
-    (* i only know that the term is well-typed in the larger environment
-     * the function checks when it tries to do the set
-     *)
+    induction cs; simpl; intros; simpl; eauto.
+    { consider (tus0 ?[ eq ] tus && tvs0 ?[ eq ] tvs); intros; try congruence.
+      destruct H; subst; reflexivity. }
+    { forward; subst.
+      eapply drop_exact_sound in H0. destruct H0.
+      clear H; subst tvs. eapply IHcs in H1. clear - H1.
+      inv_all; subst; auto. }
+    { forward; subst.
+      eapply drop_exact_sound in H0. destruct H0.
+      clear H; subst tus. eapply IHcs in H2. clear - H2.
+      inv_all; subst; auto. }
+  Qed.
 
-*)
-
-
-  Lemma ctx_substD_set ctx
-  : forall (uv : nat) (e : expr) (s s' : ctx_subst ctx),
-      ctx_set uv e s = Some s' ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      (ctx_lookup uv s = None ->
-       forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
-              (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
-         ctx_substD tus tvs s = Some sD ->
-         nth_error_get_hlist_nth typD tus uv =
-         Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
-         exprD' tus tvs e t = Some val ->
-         exists sD' : exprT tus tvs Prop,
-           ctx_substD tus tvs s' = Some sD' /\
-           SubstMorphism s s' /\
-           (forall (us : hlist typD tus) (vs : hlist typD tvs),
-              sD' us vs <-> sD us vs /\ get us = val us vs)).
+  Lemma countEnvs'_spec
+  : forall c a b,
+      countEnvs' c a b = (length (getUVars c) + a, length (getVars c) + b).
   Proof.
-    unfold ctx_set.
-  Admitted.
+    clear.
+    induction c; simpl; intros; auto;
+    rewrite IHc; rewrite app_length; f_equal; auto; simpl; omega.
+  Qed.
 
-  Global Instance SubstUpdateOk_ctx_subst ctx
-  : SubstUpdateOk (SubstUpdate_ctx_subst ctx) (SubstOk_ctx_subst ctx) :=
-  { substR := fun _ _ a b => SubstMorphism a b
-  ; set_sound := _ }.
+  Lemma countEnvs_spec
+  : forall c, countEnvs c = (length (getUVars c), length (getVars c)).
   Proof.
-    intros. eapply ctx_substD_set; eauto.
-  Defined.
+    clear.
+    intros. unfold countEnvs. rewrite countEnvs'_spec.
+    f_equal; omega.
+  Qed.
 
   (** It is a bit annoying that these proofs require decidable equality on
    ** [typ] but the system requires that anyways
@@ -1606,6 +1629,598 @@ Section parameterized.
       split; auto. rewrite H3. equivs; assumption. }
   Qed.
 
+  Lemma amap_instantiates_substD
+  : forall tus tvs C (_ : CtxLogic.ExprTApplicative C) f s sD a b,
+      WellFormed_pre_entry a b s ->
+      amap_substD tus tvs s = Some sD ->
+      sem_preserves_if_ho C f ->
+      exists sD',
+        amap_substD tus tvs (amap_instantiate f s) = Some sD' /\
+        C (fun us vs => sD us vs <-> sD' us vs).
+  Proof.
+    unfold amap_instantiate.
+    intros.
+    eapply SUBST.raw_substD_instantiate_ho in H2; eauto.
+    forward_reason.
+    eexists; split; eauto.
+    revert H3.
+    eapply CtxLogic.exprTAp.
+    eapply CtxLogic.exprTPure.
+    intros us vs.
+    clear. tauto.
+  Qed.
+
+  Lemma syn_check_set
+  : forall uv e s s',
+      SUBST.WellFormed s ->
+      amap_check_set uv e s = Some s' ->
+      amap_lookup uv s' = Some (instantiate (fun u => amap_lookup u s) 0 e) /\
+      mentionsU uv (instantiate (fun u => amap_lookup u s) 0 e) = false /\
+      forall u,
+        u <> uv ->
+        amap_lookup u s' =
+        SUBST.FACTS.option_map
+          (instantiate (fun u =>
+                          if u ?[ eq ] uv then
+                            Some (instantiate (fun u => amap_lookup u s) 0 e)
+                          else
+                            None) 0)
+          (amap_lookup u s).
+  Proof.
+    intros. unfold amap_check_set, SUBST.raw_set in *.
+    forward. inv_all; subst.
+    split.
+    { unfold amap_lookup.
+      rewrite SUBST.FACTS.add_o.
+      destruct (SUBST.PROPS.F.eq_dec uv uv); auto.
+      exfalso; auto. }
+    split.
+    { assumption. }
+    { intros. unfold amap_lookup.
+      rewrite SUBST.FACTS.add_o.
+      destruct (SUBST.PROPS.F.eq_dec uv u); subst; try congruence.
+      unfold SUBST.raw_instantiate.
+      rewrite SUBST.FACTS.map_o.
+      unfold SUBST.FACTS.option_map.
+      destruct (UVarMap.MAP.find u s); auto.
+      f_equal.
+      eapply Proper_instantiate; eauto.
+      red. simpl; intros; subst.
+      consider (y ?[ eq ] uv); intros; subst.
+      rewrite rel_dec_eq_true; eauto with typeclass_instances.
+      rewrite rel_dec_neq_false; eauto with typeclass_instances. }
+  Qed.
+
+  Lemma mentionsU_instantiate_false
+  : forall uv f n e,
+      mentionsU uv (instantiate f n e) = false <->
+      (f uv = None -> mentionsU uv e = false) /\
+      (forall u e',
+         f u = Some e' ->
+         mentionsU u e = true ->
+         mentionsU uv e' = false).
+  Proof.
+    split; intros.
+    { destruct (instantiate_mentionsU f n e uv).
+      split. consider (mentionsU uv e); auto.
+      { intros. exfalso.
+        rewrite H2 in H. congruence.
+        left; auto. }
+      { intros.
+        consider (mentionsU uv e'); auto; intro.
+        rewrite H1 in H. congruence.
+        clear H0.
+        right. exists u. exists e'.
+        split; auto. } }
+    { consider (mentionsU uv (instantiate f n e)); auto.
+      intros.
+      eapply instantiate_mentionsU in H0.
+      forward_reason.
+      destruct H0.
+      { destruct H0. apply H in H0. congruence. }
+      { forward_reason.
+        eapply H1 in H0; eauto. } }
+  Qed.
+
+  Lemma WellFormed_entry_check_set
+  : forall uv e s c (cs : ctx_subst c) nts s',
+      amap_check_set uv e s = Some s' ->
+      (* amap_lookup uv s = None *) True ->
+      (forall u,
+         mentionsU u e = true ->
+         u < length (getUVars c) + nts /\
+         ctx_lookup u cs = None) ->
+      (forall u,
+         ctx_lookup u cs <> None -> mentionsU u e = false) ->
+      length (getUVars c) <= uv < length (getUVars c) + nts ->
+      WellFormed_ctx_subst cs ->
+      WellFormed_entry cs nts s ->
+      WellFormed_entry cs nts s'.
+  Proof.
+    intros.
+    eapply syn_check_set in H; eauto.
+    red; intros.
+    consider (u ?[ eq ] uv); intros; subst.
+    { rewrite countUVars_getUVars.
+      split; auto.
+      split.
+      { intros.
+        destruct H. rewrite H in H6.
+        inv_all; subst.
+        eapply instantiate_mentionsU in H7.
+        destruct H7.
+        { eapply H1; tauto. }
+        { forward_reason.
+          eapply H5 in H6.
+          forward_reason.
+          rewrite <- countUVars_getUVars.
+          eapply H12; auto. } }
+      { intros.
+        destruct H.
+        rewrite H in *; inv_all; subst.
+        consider (mentionsU u' (instantiate (fun u : ExprI.uvar => amap_lookup u s) 0 e)); auto.
+        intro. exfalso.
+        eapply instantiate_mentionsU in H6.
+        destruct H7.
+        + destruct H6.
+          - eapply H2 in H7. forward_reason; congruence.
+          - forward_reason.
+            eapply H5 in H6.
+            forward_reason. rewrite H14 in H10. congruence.
+            left; auto.
+        + destruct H6.
+          - destruct H6.
+            consider (u' ?[ eq ] uv).
+            { intros; subst.
+              destruct H8.
+              clear H1 H2.
+              eapply mentionsU_instantiate_false in H8.
+              destruct H8. apply H1 in H6. congruence. }
+            { destruct H8. intros; rewrite H10 in H7; auto.
+              rewrite H6 in H7. simpl in H7. congruence. }
+          - forward_reason.
+            eapply mentionsU_instantiate_false in H8.
+            forward_reason.
+            clear H2 H1.
+            eapply WellFormed_entry_WellFormed_pre_entry in H5.
+            consider (u' ?[ eq ] uv); intros; subst.
+            { eapply H13 in H6; congruence. }
+            { rewrite H12 in H7 by eassumption.
+              consider (amap_lookup u' s); simpl in *; try congruence.
+              intros. eapply H5 in H6. forward_reason.
+              rewrite H15 in H10; congruence. } } }
+    { forward_reason.
+      rewrite H10 in H6; eauto.
+      consider (amap_lookup u s); intros; simpl in *; try congruence.
+      inv_all; subst.
+      split.
+      { eapply H5 in H6. tauto. }
+      split.
+      { intros.
+        eapply instantiate_mentionsU in H11.
+        destruct H11.
+        { destruct H11. consider (u'' ?[ eq ] uv); intros; try congruence.
+          eapply WellFormed_entry_WellFormed_pre_entry in H5.
+          eapply H5 in H6. forward_reason.
+          eapply H14; eauto. }
+        { forward_reason.
+          consider (x ?[ eq ] uv); try congruence; intros; subst.
+          inv_all; subst.
+          eapply instantiate_mentionsU in H13.
+          destruct H13.
+          + destruct H11. apply H1 in H13.
+            rewrite countUVars_getUVars. tauto.
+          + forward_reason.
+            eapply WellFormed_entry_WellFormed_pre_entry in H5.
+            eapply H5 in H11. forward_reason.
+            eauto. } }
+      { intros.
+        eapply mentionsU_instantiate_false.
+        split.
+        { match goal with
+            | |- (if ?X then _ else _) = _ -> _ =>
+              consider X; intro; try congruence
+          end.
+          intro X; clear X.
+          eapply H5 in H6. forward_reason.
+          eapply H14.
+          destruct H11; try tauto.
+          + right. rewrite H10 in H11 by eauto.
+            destruct (amap_lookup u' s); simpl in *; try congruence. }
+        { intros u0 e'.
+          match goal with
+            | |- (if ?X then _ else _) = _ -> _ =>
+              consider X; intro; try congruence
+          end.
+          intros. inv_all; subst.
+          consider (u' ?[ eq ] uv); intros; subst; try assumption.
+          eapply mentionsU_instantiate_false.
+          split.
+          { intros. destruct H11.
+            + eapply H2; eauto.
+            + rewrite H10 in H11 by assumption.
+              consider (amap_lookup u' s); simpl; intros; try congruence. }
+          { intros.
+            eapply H5 in H13.
+            forward_reason. eapply H17.
+            destruct H11; auto.
+            right.
+            rewrite H10 in H11 by eauto.
+            intro. rewrite H19 in H11 by eauto.
+            apply H11. reflexivity. } } } }
+    { eapply WellFormed_entry_WellFormed; eauto. }
+  Qed.
+
+  Lemma sem_preserves_if_ho_ctx_lookup
+  : forall ctx (s : ctx_subst ctx) cD,
+      WellFormed_subst s ->
+      pctxD s = Some cD ->
+      sem_preserves_if_ho
+        (fun P => forall us vs, cD P us vs)
+        (fun u => subst_lookup u s).
+  Proof.
+    intros.
+    destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
+    red. intros.
+    eapply substD_lookup in H3; eauto.
+    forward_reason.
+    rewrite H4 in H3. inv_all. subst.
+    eexists; split; eauto.
+    intros. gather_facts.
+    eapply Pure_pctxD; eauto.
+  Qed.
+
+  Lemma sem_preserves_if_ctx_lookup
+  : forall ctx (s : ctx_subst ctx) cD,
+      WellFormed_subst s ->
+      ctx_substD (getUVars ctx) (getVars ctx) s = Some cD ->
+      sem_preserves_if cD (fun u => subst_lookup u s).
+  Proof.
+    intros. red. red. intros.
+    eapply substD_lookup in H1; eauto.
+    forward_reason.
+    rewrite H2 in H1. inv_all; subst.
+    eexists; split; eauto.
+  Qed.
+
+  Lemma WellFormed_entry_instantiate
+  : forall s c f (cs : ctx_subst c) nts s',
+      amap_instantiate f s = s' ->
+      (forall u e,
+         f u = Some e ->
+         forall u',
+           mentionsU u' e = true ->
+           u' < length (getUVars c) /\
+           ctx_lookup u' cs = None) ->
+      WellFormed_ctx_subst cs ->
+      WellFormed_entry cs nts s ->
+      WellFormed_entry cs nts s'.
+  Proof.
+    red; intros; subst.
+    unfold amap_lookup, amap_instantiate in H3.
+    rewrite SUBST.FACTS.map_o in H3.
+    consider (UVarMap.MAP.find u s); simpl; intros; try congruence.
+    inv_all; subst.
+    generalize H; intro SAVED.
+    eapply H2 in H. forward_reason.
+    split; auto.
+    split.
+    { intros. eapply instantiate_mentionsU in H6.
+      destruct H6; forward_reason.
+      - eauto.
+      - eapply H0 in H6; try eassumption.
+        rewrite countUVars_getUVars. omega. }
+    { intros.
+      eapply mentionsU_instantiate_false.
+      split.
+      { intros. eapply H4.
+        destruct H6; [ left; assumption | right ].
+        unfold amap_lookup, amap_instantiate in *.
+        rewrite SUBST.FACTS.map_o in H6.
+        destruct (UVarMap.MAP.find u' s); simpl in *; congruence. }
+      { intros.
+        consider (mentionsU u' e'); auto.
+        intro. exfalso.
+        specialize (H0 _ _ H7 _ H9).
+        destruct H0. destruct H6.
+        * congruence.
+        * unfold amap_lookup, amap_instantiate in *.
+          rewrite SUBST.FACTS.map_o in H6.
+          consider (UVarMap.MAP.find u' s); simpl in *; try congruence; intros.
+          clear H11.
+          eapply H2 in H6. forward_reason.
+          clear - H0 H6. rewrite countUVars_getUVars in H6.
+          omega. } }
+  Qed.
+
+
+  Lemma ctx_substD_set_simple' ctx
+  : forall (uv : nat) (Huv : uv < length (getUVars ctx)) (e : expr)
+           (s : ctx_subst ctx),
+      WellFormed_subst s ->
+      forall e' s',
+      ctx_set_simple' uv e s = Some (s',e') ->
+      uv < length (getUVars ctx) /\
+      mentionsAny (fun x => x ?[ ge ] length (getUVars ctx))
+                  (fun x => x ?[ ge ] length (getVars ctx)) e = false /\
+      mentionsAny (fun x => x ?[ ge ] length (getUVars ctx))
+                  (fun x => x ?[ ge ] length (getVars ctx)) e' = false /\
+      WellFormed_subst s' /\
+      (ctx_lookup uv s = None ->
+       forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
+              (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
+         ctx_substD tus tvs s = Some sD ->
+         nth_error_get_hlist_nth typD tus uv =
+         Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
+         exprD' tus tvs e t = Some val ->
+         exists (sD' : exprT tus tvs Prop) eD',
+           ctx_substD tus tvs s' = Some sD' /\
+           exprD' tus tvs e' t = Some eD' /\
+           SubstMorphism s s' /\
+           (forall us vs,
+              sD' us vs -> val us vs = eD' us vs) /\
+           (forall (us : hlist typD tus) (vs : hlist typD tvs),
+              sD' us vs <-> sD us vs /\ get us = val us vs)).
+  Proof.
+    induction 2; simpl; intros; try congruence;
+    try rename IHWellFormed_ctx_subst into IH.
+    { forwardy; inv_all; subst.
+      eapply IH in H0; clear IH; forward_reason.
+      split; eauto.
+      split.
+      { rewrite app_length; simpl.
+        clear - H1 MentionsAnyOk_expr.
+        eapply mentionsAny_weaken; try eassumption.
+        auto.
+        simpl. clear.
+        intros.
+        eapply neg_rel_dec_correct in H.
+        eapply neg_rel_dec_correct. omega. }
+      split.
+      { rewrite app_length; simpl.
+        clear - H2 MentionsAnyOk_expr.
+        eapply mentionsAny_weaken; try eassumption.
+        auto.
+        simpl. clear.
+        intros.
+        eapply neg_rel_dec_correct in H.
+        eapply neg_rel_dec_correct. omega. }
+      rename H2 into H1'.
+      rename H3 into H2.
+      rename H4 into H3.
+      split.
+      { constructor. auto. }
+      intros. forwardy; inv_all; subst.
+      destruct (drop_exact_sound _ H5). revert H9. subst.
+      intros.
+      assert (exists val',
+                exprD' tus x e t0 = Some val' /\
+                forall us vs vs',
+                  val us (hlist_app vs vs') = val' us vs).
+      { eapply ctx_substD_envs in H8. inv_all; subst.
+        cut (mentionsV (length (getVars c)) e = false).
+        { intro.
+          eapply exprD'_strengthenV_single in H7; eauto.
+          forward_reason; eexists; split; eauto.
+          intros.
+          rewrite (hlist_eta vs').
+          rewrite (hlist_eta (hlist_tl _)). eauto. }
+        erewrite mentionsAny_mentionsV; eauto.
+        eapply mentionsAny_weaken; [ eassumption | | | eauto ].
+        reflexivity.
+        simpl. clear.
+        intros.
+        eapply neg_rel_dec_correct in H.
+        eapply neg_rel_dec_correct. omega. }
+      forward_reason.
+      eapply H3 in H8; eauto.
+      forward_reason.
+      simpl. rewrite H5. rewrite H8.
+      eapply exprD'_weakenV with (tvs' := t :: nil) in H12; eauto.
+      forward_reason.
+      do 2 eexists; split; eauto.
+      split; eauto.
+      split.
+      { constructor. eauto. }
+      split.
+      { intros. revert H17.
+        rewrite <- (hlist_app_hlist_split _ _ vs).
+        rewrite H9. intros.
+        rewrite H11. rewrite H14; eauto. }
+      { intros.
+        rewrite <- (hlist_app_hlist_split _ _ vs).
+        rewrite H9; clear H9.
+        rewrite H11; clear H11.
+        rewrite <- H15; clear H15.
+        tauto. }
+      simpl in *; auto. }
+    { admit. }
+    { forward.
+      consider (uv ?[ ge ] n).
+      { rewrite countEnvs_spec in H1. inv_all; subst; auto; intros.
+        forward; inv_all; subst. clear IH.
+        split; auto.
+        split.
+        { rewrite app_length.
+          rewrite Plus.plus_comm. assumption. }
+        generalize H4; intro SAVED.
+        eapply SUBST.substD_set in H4;
+          eauto using WellFormed_entry_WellFormed.
+        forward_reason.
+        assert (SAVED_WF : WellFormed_ctx_subst (ExsSubst (ts:=ts) s a)).
+        { constructor; auto.
+          clear H6.
+          eapply WellFormed_entry_check_set; try eassumption.
+          + trivial.
+          + intros.
+            admit. (** This proof is going to be horrendous **)
+          + intros.
+            eapply mentionsU_instantiate_false.
+            split.
+            - intros; forward.
+            - intros.
+              consider (amap_lookup u0 s'); intros; inv_all; subst.
+              * eapply H in H7. forward_reason.
+                eapply H10. auto.
+              * consider (ctx_lookup u s); intros; try congruence.
+                eapply ctx_lookup_normalized in H6; eauto.
+          + omega. }
+        split.
+        { admit. }
+        split; [ assumption | ].
+        intros.
+        Definition hide (T : Prop) : Prop := T.
+        change (WellFormed_ctx_subst (ExsSubst s a))
+        with   (hide (WellFormed_ctx_subst (ExsSubst (ts:=ts) s a))) in SAVED_WF.
+        Opaque hide.
+        forward; inv_all; subst.
+        apply drop_exact_sound in H11; forward_reason.
+        revert H8. subst. intros.
+        generalize (ctx_substD_envs _ H13); intros; inv_all; subst.
+        destruct (drop_exact_append_exact ts (getUVars c)) as [ ? [ ? ? ] ].
+        eapply (instantiate_sound_ho (getUVars c ++ ts)) with (tvs':=nil) in H10;
+          [ | | eapply (@sem_preserves_if_substD) with (s :=ExsSubst (ts:=ts) s s')  ].
+        Focus 4. simpl.
+        rewrite H11. rewrite H12. rewrite H13. reflexivity.
+        3: constructor; auto.
+        2: eapply CtxLogic.ExprTApplicative_foralls_impl.
+        forward_reason.
+        simpl.
+        edestruct H6; eauto. forward_reason.
+        rewrite H11. change_rewrite H17. rewrite H13.
+        eapply SUBST.substD_lookup in H5; eauto.
+        forward_reason.
+        rewrite H9 in H5. inv_all; subst.
+        do 2 eexists; split; eauto.
+        split; [ eassumption | ].
+        split.
+        { constructor; try reflexivity.
+          + Cases.rewrite_all_goal. change_rewrite H12.
+            forward.
+            eapply Pure_pctxD; eauto.
+            intros. eapply H18 in H21. tauto. }
+        split.
+        { intros. destruct H5. rewrite <- H20 by tauto; clear H20.
+          eapply H18 in H5. destruct H5.
+          rewrite H20; clear H20.
+          specialize (H16 us vs (@conj _ _ H5 H21) Hnil).
+          simpl in H16. assumption. }
+        { intros.
+          rewrite H18.
+          repeat rewrite <- and_assoc.
+          eapply and_iff; [ tauto | ].
+          intros. rewrite and_comm.
+          rewrite <- (hlist_app_hlist_split _ _ us).
+          rewrite H14. rewrite H8.
+          eapply and_iff; [ tauto | ].
+          rewrite (hlist_app_hlist_split _ _ us).
+          intro.
+          specialize (fun H => H16 us vs H Hnil).
+          simpl in H16. rewrite H16. reflexivity.
+          revert H5.
+          rewrite <- (hlist_app_hlist_split _ _ us).
+          rewrite H14. tauto. } }
+      { rewrite countEnvs_spec in H1. inv_all; subst; auto; intros.
+        forwardy; inv_all; subst.
+        eapply IH in H1; clear IH.
+        2: omega.
+        forward_reason.
+        rewrite app_length.
+        split.
+        { omega. }
+        split.
+        { clear - H3 MentionsAnyOk_expr.
+          eapply mentionsAny_weaken; try eassumption.
+          simpl. clear.
+          intros.
+          eapply neg_rel_dec_correct in H.
+          eapply neg_rel_dec_correct. omega.
+          simpl. auto. }
+        split.
+        { clear - H4 MentionsAnyOk_expr.
+          eapply mentionsAny_weaken; try eassumption.
+          simpl. clear.
+          intros.
+          eapply neg_rel_dec_correct in H.
+          eapply neg_rel_dec_correct. omega.
+          simpl. auto. }
+        split.
+        { constructor; auto.
+          admit. }
+        admit. (* intros; inv_all; subst.
+        forward. inv_all; subst.
+        simpl.
+        rewrite H10.
+        eapply drop_exact_sound in H10; destruct H10.
+        revert H7. subst.
+        assert (exists val',
+                exprD' x tvs e t = Some val' /\
+                forall us us' vs,
+                  val (hlist_app us us') vs = val' us vs).
+        { eapply ctx_substD_envs in H12. inv_all; subst.
+          cut (forall u : nat,
+                 u < length ts -> mentionsU (length (getUVars c) + u) e = false).
+          { intro.
+            eapply exprD'_strengthenU_multi in H9; eauto.
+            forward_reason; eexists; split; eauto. }
+          intros.
+          erewrite mentionsAny_mentionsU; [ | eauto ].
+          eapply mentionsAny_weaken; [ eassumption | | | eauto ].
+          2: reflexivity.
+          simpl. clear.
+          intros.
+          eapply neg_rel_dec_correct in H.
+          eapply neg_rel_dec_correct. omega. }
+        forward_reason.
+        assert (uv < length (getUVars c)) by omega.
+        generalize (ctx_substD_envs _ H12); intros; inv_all; subst.
+        edestruct (nth_error_get_hlist_nth_appL); eauto.
+        destruct H15.
+        rewrite H15 in H8.
+        forward_reason.
+        inv_all; subst; simpl in *.
+        eapply H5 in H12; eauto.
+        forward_reason.
+        rewrite H8.
+        *) } }
+  Qed.
+
+  Lemma ctx_substD_set ctx
+  : forall (uv : nat) (e : expr) (s s' : ctx_subst ctx),
+      ctx_set uv e s = Some s' ->
+      WellFormed_subst s ->
+      WellFormed_subst s' /\
+      (ctx_lookup uv s = None ->
+       forall (tus tvs : tenv typ) (t : typ) (val : exprT tus tvs (typD t))
+              (get : hlist typD tus -> typD t) (sD : exprT tus tvs Prop),
+         ctx_substD tus tvs s = Some sD ->
+         nth_error_get_hlist_nth typD tus uv =
+         Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
+         exprD' tus tvs e t = Some val ->
+         exists sD' : exprT tus tvs Prop,
+           ctx_substD tus tvs s' = Some sD' /\
+           SubstMorphism s s' /\
+           (forall (us : hlist typD tus) (vs : hlist typD tvs),
+              sD' us vs <-> sD us vs /\ get us = val us vs)).
+  Proof.
+    unfold ctx_set.
+    intros. forward; inv_all; subst.
+    eapply ctx_substD_set_simple' in H2; eauto.
+    forward_reason.
+    split; eauto. intros.
+    eapply H5 in H6; eauto.
+    forward_reason. eexists; split; eauto.
+    rewrite <- countUVars_getUVars. assumption.
+  Qed.
+
+  Global Instance SubstUpdateOk_ctx_subst ctx
+  : SubstUpdateOk (SubstUpdate_ctx_subst ctx) (SubstOk_ctx_subst ctx) :=
+  { substR := fun _ _ a b => SubstMorphism a b
+  ; set_sound := _ }.
+  Proof.
+    intros. eapply ctx_substD_set; eauto.
+  Defined.
+
   Lemma substD_pctxD
   : forall ctx (s s' : ctx_subst ctx) sD s'D,
       WellFormed_subst s ->
@@ -1672,77 +2287,6 @@ Section parameterized.
              (ts : tenv typ) (m : amap)
   : ctx_subst (CExs ctx ts) :=
     @ExsSubst ts ctx cs (amap_instantiate (fun u => ctx_lookup u cs) m).
-
-  Lemma amap_instantiates_substD
-  : forall tus tvs C (_ : CtxLogic.ExprTApplicative C) f s sD a b,
-      WellFormed_pre_entry a b s ->
-      amap_substD tus tvs s = Some sD ->
-      sem_preserves_if_ho C f ->
-      exists sD',
-        amap_substD tus tvs (amap_instantiate f s) = Some sD' /\
-        C (fun us vs => sD us vs <-> sD' us vs).
-  Proof.
-    unfold amap_instantiate.
-    intros.
-    eapply SUBST.raw_substD_instantiate_ho in H2; eauto.
-    forward_reason.
-    eexists; split; eauto.
-    revert H3.
-    eapply CtxLogic.exprTAp.
-    eapply CtxLogic.exprTPure.
-    intros us vs.
-    clear. tauto.
-  Qed.
-
-  Lemma sem_preserves_if_ho_ctx_lookup
-  : forall ctx (s : ctx_subst ctx) cD,
-      WellFormed_subst s ->
-      pctxD s = Some cD ->
-      sem_preserves_if_ho
-        (fun P => forall us vs, cD P us vs)
-        (fun u => subst_lookup u s).
-  Proof.
-    intros.
-    destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
-    red. intros.
-    eapply substD_lookup in H3; eauto.
-    forward_reason.
-    rewrite H4 in H3. inv_all. subst.
-    eexists; split; eauto.
-    intros. gather_facts.
-    eapply Pure_pctxD; eauto.
-  Qed.
-
-  Lemma sem_preserves_if_ctx_lookup
-  : forall ctx (s : ctx_subst ctx) cD,
-      WellFormed_subst s ->
-      ctx_substD (getUVars ctx) (getVars ctx) s = Some cD ->
-      sem_preserves_if cD (fun u => subst_lookup u s).
-  Proof.
-    intros. red. red. intros.
-    eapply substD_lookup in H1; eauto.
-    forward_reason.
-    rewrite H2 in H1. inv_all; subst.
-    eexists; split; eauto.
-  Qed.
-
-  Lemma ctx_substD_envs
-  : forall c (cs : ctx_subst c) tus tvs csD,
-      ctx_substD tus tvs cs = Some csD ->
-      (tus,tvs) = (getUVars c, getVars c).
-  Proof.
-    induction cs; simpl; intros; simpl; eauto.
-    { consider (tus0 ?[ eq ] tus && tvs0 ?[ eq ] tvs); intros; try congruence.
-      destruct H; subst; reflexivity. }
-    { forward; subst.
-      eapply drop_exact_sound in H0. destruct H0.
-      clear H; subst tvs. eapply IHcs in H1. clear - H1.
-      inv_all; subst; auto. }
-    { forward; subst.
-      eapply drop_exact_sound in H0. destruct H0.
-      clear H; subst tus. eapply IHcs in H2. clear - H2.
-      inv_all; subst; auto. }
-  Qed.
 
   Definition WellFormed_ctx_subst_sem c (cs : ctx_subst c) : Prop :=
     forall u e,

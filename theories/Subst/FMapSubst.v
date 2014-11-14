@@ -1234,8 +1234,6 @@ Module Make (FM : WS with Definition E.t := uvar
     ; subst_weakenU := fun _ x => x
     }.
 
-    Print SubstOpenOk.
-
     Instance SubstOpenOk_subst
     : @SubstOpenOk raw typ expr _ _ _ Subst_subst _ SubstOpen_subst :=
     { drop_sound := substD_drop' }.

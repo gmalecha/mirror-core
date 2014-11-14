@@ -153,6 +153,20 @@ Section env.
       destruct y; auto. }
   Qed.
 
+  Lemma mentionsAny_weaken
+  : forall pu pu' pv pv',
+      (forall u, pu u = false -> pu' u = false) ->
+      (forall v, pv v = false -> pv' v = false) ->
+      forall e, mentionsAny pu pv e = false ->
+                mentionsAny pu' pv' e = false.
+  Proof.
+    intros pu pu' pv pv' Hu Hv e; revert pv pv' Hv.
+    induction e; simpl; intros; auto.
+    { forward. erewrite IHe1; eauto. }
+    { eapply IHe; eauto. simpl.
+      destruct v; auto. }
+  Qed.
+
   Section mentionsU.
     Variable u : uvar.
 
