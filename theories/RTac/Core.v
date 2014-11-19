@@ -75,7 +75,7 @@ Section parameterized.
 
   Inductive WellFormed_Goal (tus tvs : tenv typ) : Goal -> Prop :=
   | WFExs : forall ts s g,
-              WellFormed_pre_entry (length tus) (length ts) s ->
+              WellFormed_bimap (length tus) (length ts) s ->
               WellFormed_Goal (tus ++ ts) tvs g ->
               WellFormed_Goal tus tvs (GExs ts s g)
   | WFAll : forall t g, WellFormed_Goal tus (tvs ++ t :: nil) g ->
@@ -100,14 +100,14 @@ Section parameterized.
   Global Instance Injective_WellFormed_Goal_GExs tus tvs l a g
   : Injective (WellFormed_Goal tus tvs (GExs l a g)) :=
     { result := WellFormed_Goal (tus ++ l) tvs g /\
-                WellFormed_pre_entry (length tus) (length l) a }.
+                WellFormed_bimap (length tus) (length l) a }.
   Proof.
     refine (fun pf =>
               match pf in WellFormed_Goal _ _ G
                     return match G return Prop with
                              | GExs l a g =>
                                WellFormed_Goal (tus ++ l) tvs g /\
-                               WellFormed_pre_entry (length tus) (length l) a
+                               WellFormed_bimap (length tus) (length l) a
                              | _ => True
                            end
               with
@@ -700,7 +700,6 @@ Section parameterized.
     gather_facts.
     eapply Pure_pctxD; eauto.
   Qed.
-
 
 End parameterized.
 
