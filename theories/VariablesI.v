@@ -174,7 +174,7 @@ Section with_Expr.
         forall us vs vs', P us vs ->
           eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
 
-  Definition instantiate_mentionsU_spec
+  Definition mentionsU_instantiate_spec
              (instantiate : (uvar -> option expr) -> nat -> expr -> expr)
              (mentionsU : uvar -> expr -> bool)
   : Prop :=
@@ -208,7 +208,7 @@ Section with_Expr.
         forall us vs u,
           val (hlist_app us (Hcons u Hnil)) vs = val' us vs
   ; mentionsU_UVar : forall v v', mentionsU v (UVar v') = true <-> v = v'
-  ; instantiate_mentionsU : instantiate_mentionsU_spec instantiate mentionsU
+  ; mentionsU_instantiate : mentionsU_instantiate_spec instantiate mentionsU
   ; instantiate_sound_ho : instantiate_spec_ho instantiate
   ; Proper_instantiate : Proper ((eq ==> eq) ==> eq ==> eq ==> eq) instantiate
   }.
@@ -220,6 +220,37 @@ Section with_Expr.
     eapply (@instantiate_sound_ho _ EUO) in H0; try eassumption.
     - forward_reason; eauto.
     - eapply (ExprTApplicative_foralls_impl).
+  Qed.
+
+  Corollary mentionsU_instantiate_false (EU : ExprUVar) (EUO : ExprUVarOk EU)
+  : forall uv f n e,
+      mentionsU uv (instantiate f n e) = false <->
+      (f uv = None -> mentionsU uv e = false) /\
+      (forall u e',
+         f u = Some e' ->
+         mentionsU u e = true ->
+         mentionsU uv e' = false).
+  Proof.
+    split; intros.
+    { destruct (mentionsU_instantiate f n e uv).
+      split. consider (mentionsU uv e); auto.
+      { intros. exfalso.
+        rewrite H2 in H. congruence.
+        left; auto. }
+      { intros.
+        consider (mentionsU uv e'); auto; intro.
+        rewrite H1 in H. congruence.
+        clear H0.
+        right. exists u. exists e'.
+        split; auto. } }
+    { consider (mentionsU uv (instantiate f n e)); auto.
+      intros.
+      eapply mentionsU_instantiate in H0.
+      forward_reason.
+      destruct H0.
+      { destruct H0. apply H in H0. congruence. }
+      { forward_reason.
+        eapply H1 in H0; eauto. } }
   Qed.
 
   Lemma exprD'_exact_uvar {EU} {EUO : ExprUVarOk EU} tus tus' tvs t
@@ -316,6 +347,11 @@ Section with_Expr.
     : forall fu fu' fv fv' e,
           mentionsAny (fun u => fu u || fu' u) (fun v => fv v || fv' v) e
         = mentionsAny fu fv e || mentionsAny fu' fv' e
+  ; mentionsAny_complete
+    : forall pu pv e,
+        mentionsAny pu pv e = true <->
+        (exists u, mentionsU u e = true /\ pu u = true) \/
+        (exists v, mentionsV v e = true /\ pv v = true)
   ; mentionsAny_mentionsU
     : forall u e,
         mentionsU u e = mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e
@@ -323,6 +359,30 @@ Section with_Expr.
     : forall u e,
         mentionsV u e = mentionsAny (fun _ => false) (fun u' => u ?[ eq ] u') e
   }.
+
+  Corollary mentionsAny_complete_false
+            {MA : MentionsAny} {MV : ExprVar} {MU : ExprUVar}
+            {MAO : MentionsAnyOk MA MV MU}
+  : forall pu pv e,
+      mentionsAny pu pv e = false <->
+      (forall u, mentionsU u e = true -> pu u = false) /\
+      (forall v, mentionsV v e = true -> pv v = false).
+  Proof.
+    intros.
+    consider (mentionsAny pu pv e); intros; split; auto; intros; try congruence.
+    * eapply mentionsAny_complete in H. destruct H.
+      forward_reason. eauto.
+      forward_reason. eauto.
+    * destruct (mentionsAny_complete pu pv e).
+      clear H1.
+      split; intros.
+      + consider (pu u); auto; intros.
+        exfalso.
+        rewrite H2 in H; try congruence; eauto.
+      + consider (pv v); auto; intros.
+        exfalso.
+        rewrite H2 in H; try congruence; eauto.
+  Qed.
 
 End with_Expr.
 
@@ -336,4 +396,5 @@ Arguments mentionsV {expr ExprVar} _ _ : rename.
 Arguments mentionsAny {expr MentionsAny} _ _ _ : rename.
 Arguments instantiate_sound {typ expr RType Expr EU EUO} _ _ _ _ tvs' _ _ P _ _ : rename.
 Arguments instantiate_sound_ho {typ expr RType Expr EU EUO} _ _ _ _ tvs' _ _ P _ _ _ : rename.
-Arguments instantiate_mentionsU {typ expr RType Expr EU EUO} _ _ _ _ : rename.
+Arguments mentionsU_instantiate {typ expr RType Expr EU EUO} _ _ _ _ : rename.
+Arguments mentionsU_instantiate_false {typ expr RType Expr EU EUO} _ _ _ _ : rename.

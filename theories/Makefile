@@ -29,7 +29,7 @@ STAC := Core Continuation Repeat \
 	Simplify Instantiate \
 	UseForAll UseList \
 	STac
-RTAC := Ctx Core CoreK RunOnGoals \
+RTAC := BIMap Ctx Core CoreK RunOnGoals \
 	Then Try Repeat Rec Idtac First Fail Solve \
 	Assumption \
 	Intro Apply EApply \
@@ -49,12 +49,12 @@ MODULES    := OpenT Generic \
 	      ProverI EProverI \
 	      InstantiateI \
 	      Lemma LemmaApply \
-	      $(LAMBDA:%=Lambda/%) \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(SYMS:%=syms/%) \
 	      $(RTAC:%=RTac/%) \
+	      $(LAMBDA:%=Lambda/%) \
 	      $(REIFY:%=Reify/%)
 
 #	      $(STAC:%=STac/%)

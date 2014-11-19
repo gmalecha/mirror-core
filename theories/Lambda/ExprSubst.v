@@ -238,7 +238,7 @@ Section instantiate_thm.
   Qed.
 
   Theorem instantiate_mentionsU
-  : @instantiate_mentionsU_spec (expr typ func) (@instantiate typ func) _mentionsU.
+  : @mentionsU_instantiate_spec (expr typ func) (@instantiate typ func) _mentionsU.
   Proof.
     clear.
     red. intros f n e u. revert n.

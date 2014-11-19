@@ -94,7 +94,7 @@ Section parameterized.
     destruct o; intros; split; auto.
     { split.
       { constructor;
-        [ eauto using WellFormed_pre_entry_amap_empty | constructor ]. }
+        [ eauto using WellFormed_bimap_empty | constructor ]. }
       simpl. forward.
       eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
       forward_reason.

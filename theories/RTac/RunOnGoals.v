@@ -154,7 +154,7 @@ Section runOnGoals.
 
 
   Lemma pctxD_remembers {c s l a sD pD}
-  : forall (WFp : WellFormed_pre_entry (length (getUVars c)) (length l) a),
+  : forall (WFp : WellFormed_bimap (length (getUVars c)) (length l) a),
       WellFormed_ctx_subst s ->
     pctxD s = Some sD ->
     amap_substD (getUVars c ++ l) (getVars c) a = Some pD ->
@@ -388,7 +388,6 @@ Section runOnGoals.
         destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
         subst.
         simpl in *. inv_all; subst.
-        rewrite <- countUVars_getUVars in H4.
         destruct (remembers_sound eq_refl H1 H4).
         destruct IHg as [ ? [ ? ? ] ]; auto.
         simpl in *.
@@ -396,11 +395,9 @@ Section runOnGoals.
         progress inv_all.
         split; auto. split.
         { constructor; eauto.
-          rewrite <- countUVars_getUVars.
           eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
         { forward. inv_all. subst.
           forward_reason.
-          rewrite countUVars_getUVars in H4.
           destruct (pctxD_remembers H4 H1 H3 H10) as [ ? [ ? ? ] ].
           rewrite H11 in *.
           forward. inv_all; subst.
@@ -423,7 +420,7 @@ Section runOnGoals.
             simpl in H11. simpl in H2.
             Opaque remembers.
             forward; inv_all; subst.
-            revert H14. change_rewrite H2.
+(*            revert H14. change_rewrite H2. *)
             intros. gather_facts.
             eapply (@pctxD_SubstMorphism _ _ _ _ _ _ _ _ H18 _ _ H3 H15 us vs).
             gather_facts.
@@ -460,7 +457,7 @@ Section runOnGoals.
         destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
         subst.
         simpl in *. inv_all; subst.
-        rewrite <- countUVars_getUVars in H4.
+(*        rewrite <- countUVars_getUVars in H4. *)
         destruct (remembers_sound eq_refl H1 H4).
         destruct IHg as [ ? ? ]; auto.
         simpl in *.
@@ -468,12 +465,10 @@ Section runOnGoals.
         progress inv_all.
         split; auto. split.
         { constructor; eauto.
-          rewrite <- countUVars_getUVars.
           eapply WellFormed_entry_WellFormed_pre_entry; eauto.
           constructor. }
         { forward. inv_all. subst.
           forward_reason.
-          rewrite countUVars_getUVars in H4.
           destruct (pctxD_remembers H4 H1 H3 H9) as [ ? [ ? ? ] ].
           rewrite H10 in *.
           forward. inv_all; subst.
@@ -495,15 +490,17 @@ Section runOnGoals.
             simpl in H11. simpl in H2.
             Opaque remembers.
             simpl in *; forward; inv_all; subst.
-            revert H13. change_rewrite H2.
-            intros. specialize (H13 us vs).
+            gather_facts.
+(*            revert H13. change_rewrite H2. *)
+(*            intros. specialize (H13 us vs).
             revert H13.
             eapply Ap_pctxD; eauto.
             revert H19.
-            eapply Ap_pctxD; eauto.
+            eapply Ap_pctxD; eauto. *)
             eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
-            specialize (H15 us vs); revert H15.
-            eapply Ap_pctxD; eauto.
+            gather_facts.
+(*            specialize (H15 us vs); revert H15.
+            eapply Ap_pctxD; eauto. *)
             rename e2 into P.
             specialize (H11 us vs P).
             assert (e
@@ -511,7 +508,7 @@ Section runOnGoals.
                         (vs0 : hlist typD (getVars ctx)) =>
                       _foralls typD l
                                (fun us' : hlist typD l =>
-                                  e5 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
+                                  e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
             { eapply H11. eapply Pure_pctxD; eauto. }
             { revert H0.
               eapply Ap_pctxD; eauto.

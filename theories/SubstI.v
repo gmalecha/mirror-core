@@ -563,7 +563,7 @@ Section subst.
           | |- ?X = _ => consider X; auto
         end.
         intros. exfalso.
-        generalize instantiate_mentionsU; intro XXX; red in XXX;
+        generalize mentionsU_instantiate; intro XXX; red in XXX;
         rewrite XXX in H11; clear XXX.
         eapply mapT_success with (x := length tus + u) in H1.
         { forward_reason.

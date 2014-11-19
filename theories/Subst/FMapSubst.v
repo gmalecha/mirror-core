@@ -87,7 +87,7 @@ Module Make (FM : WS with Definition E.t := uvar
       normalized s (raw_subst s n e).
     Proof.
       unfold WellFormed, normalized, raw_subst. intros.
-      eapply instantiate_mentionsU in H0; eauto.
+      eapply mentionsU_instantiate in H0; eauto.
       destruct H0.
       { destruct H0. unfold raw_lookup in H0.
         eapply FACTS.not_find_in_iff. assumption. }
@@ -138,8 +138,8 @@ Module Make (FM : WS with Definition E.t := uvar
          mentionsU u e' = true).
     Proof.
       intros. unfold raw_subst.
-      generalize (@instantiate_mentionsU _ _ _ _ ExprUVar_expr _); eauto.
-      unfold instantiate_mentionsU_spec. intros.
+      generalize (@mentionsU_instantiate _ _ _ _ ExprUVar_expr _); eauto.
+      unfold mentionsU_instantiate_spec. intros.
       rewrite H.
       unfold raw_lookup.
       rewrite <- FACTS.not_find_in_iff.
@@ -179,17 +179,17 @@ Module Make (FM : WS with Definition E.t := uvar
         red; intros.
         intro. eapply FACTS.add_in_iff in H4.
         destruct H4.
-        + subst. eapply instantiate_mentionsU in H2; eauto.
+        + subst. eapply mentionsU_instantiate in H2; eauto.
           destruct H2.
           - forward.
           - forward_reason. forward.
         + unfold raw_instantiate in H4.
           rewrite FACTS.map_in_iff in H4.
-          eapply instantiate_mentionsU in H2; eauto.
+          eapply mentionsU_instantiate in H2; eauto.
           destruct H2; forward_reason; forward.
           - eapply H0 in H3. red in H3. eapply H3 in H5; eauto.
           - inv_all. subst.
-            eapply instantiate_mentionsU in H6; eauto.
+            eapply mentionsU_instantiate in H6; eauto.
             destruct H6; forward_reason.
             * unfold raw_lookup in H2.
               apply FACTS.not_find_in_iff in H2. auto.

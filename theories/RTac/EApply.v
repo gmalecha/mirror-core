@@ -151,6 +151,7 @@ Section parameterized.
       split.
       { constructor; auto.
         rewrite <- countUVars_getUVars.
+        rewrite countUVars_getUVars.
         eapply WellFormed_entry_WellFormed_pre_entry; eauto.
         eapply WellFormed_Goal_GConj_list. clear.
         induction (premises lem); simpl; constructor.
@@ -201,7 +202,7 @@ Section parameterized.
         rewrite H7 in *; clear H7.
         destruct H13. tauto. tauto. }
     { unfold freshUVars. constructor; eauto.
-      eapply WellFormed_entry_amap_empty. }
+      eapply WellFormed_entry_amap_empty; eauto. }
   Qed.
 
 End parameterized.
