@@ -25,6 +25,15 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** TODO: This has to be somewhere else **)
+Instance Reflexive_pointwise
+         {T U} {R : U -> U -> Prop} (Refl : Reflexive R)
+: Reflexive (pointwise_relation T R).
+Proof.
+  red. red. reflexivity.
+Qed.
+
+
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
@@ -335,6 +344,22 @@ Section parameterized.
     exfalso. specialize (H _ eq_refl). omega.
   Qed.
 
+  Lemma Forall_amap_Proper
+  : Proper (pointwise_relation _ (pointwise_relation _ iff) ==> UVarMap.MAP.Equal ==> iff)
+           Forall_amap.
+  Proof.
+    do 3 red; intros.
+    split; intros; red; intros;
+    eapply SUBST.FACTS.find_mapsto_iff in H2;
+    eapply SUBST.FACTS.Equal_mapsto_iff in H0; eauto.
+    - eapply H0 in H2.
+      eapply H1 in H2.
+      eapply H; eauto.
+    - eapply H0 in H2.
+      eapply H1 in H2.
+      eapply H; eauto.
+  Qed.
+
   Lemma only_in_range_0_WellFormed_pre_entry
   : forall a am,
       only_in_range a 0 am ->
@@ -342,7 +367,21 @@ Section parameterized.
   Proof.
     clear. unfold WellFormed_bimap.
     intros. eapply only_in_range_0_empty in H.
-    admit.
+    split.
+    - red. intros.
+      eapply SUBST.FACTS.Equal_mapsto_iff in H.
+      eapply H in H0. clear - H0.
+      eapply SUBST.FACTS.empty_mapsto_iff in H0.
+      destruct H0.
+    - split.
+      + eapply Forall_amap_Proper; eauto.
+        eapply Reflexive_pointwise.
+        eapply Reflexive_pointwise. eauto with typeclass_instances.
+        eapply Forall_amap_empty.
+      + eapply Forall_amap_Proper; eauto.
+        eapply Reflexive_pointwise.
+        eapply Reflexive_pointwise. eauto with typeclass_instances.
+        eapply Forall_amap_empty.
   Qed.
 
   (** Start pigeonhole stuff **)
