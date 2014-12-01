@@ -94,49 +94,49 @@ Section ways_to_do_terms.
         end
     end
   with to_wtexpr_simul tus tvs (e : expr typ func) {struct e}
-       : option { t : typ & wtexpr tus tvs t } :=
-         match e with
-           | Var v =>
-             match nth_member tvs v with
-               | None => None
-               | Some (existT t m) => Some (@existT _ _ t (wtVar _ m))
-             end
-           | UVar u =>
-             match nth_member tus u with
-               | None => None
-               | Some (existT t m) => Some (@existT _ _ t (wtUVar _ m))
-             end
-           | Inj f =>
-             match typeof_sym f as X return typeof_sym f = X -> _ with
-               | None => fun _ => None
-               | Some t => fun pf => Some (@existT _ _ t (wtInj _ _ _ pf))
-             end eq_refl
-           | App a b =>
-             match to_wtexpr_simul tus tvs a with
-               | None => None
-               | Some (existT t' a) =>
-                 typ2_match (fun _ => option _) t'
-                            (fun d r =>
-                               match to_wtexpr tus tvs d b with
-                                 | None => None
-                                 | Some b =>
-                                   match type_cast t' (typ2 d r) with
-                                     | None => None (** DEAD CODE **)
-                                     | Some pf =>
-                                       Some (@existT _ _ r (wtApp _ match pf in _ = t return wtexpr _ _ t with
-                                                                     | eq_refl => a
-                                                                   end
-                                                                 b))
-                                   end
-                               end)
-                            None
-             end
-           | Abs t b =>
-             match to_wtexpr_simul tus (t :: tvs) b with
-               | None => None
-               | Some (existT t' e) => Some (@existT _ _ (typ2 t t') (wtAbs e) )
-             end
-         end.
+  : option { t : typ & wtexpr tus tvs t } :=
+    match e with
+      | Var v =>
+        match nth_member tvs v with
+          | None => None
+          | Some (existT t m) => Some (@existT _ _ t (wtVar _ m))
+        end
+      | UVar u =>
+        match nth_member tus u with
+          | None => None
+          | Some (existT t m) => Some (@existT _ _ t (wtUVar _ m))
+        end
+      | Inj f =>
+        match typeof_sym f as X return typeof_sym f = X -> _ with
+          | None => fun _ => None
+          | Some t => fun pf => Some (@existT _ _ t (wtInj _ _ _ pf))
+        end eq_refl
+      | App a b =>
+        match to_wtexpr_simul tus tvs a with
+          | None => None
+          | Some (existT t' a) =>
+            typ2_match (fun _ => option _) t'
+                       (fun d r =>
+                          match to_wtexpr tus tvs d b with
+                            | None => None
+                            | Some b =>
+                              match type_cast t' (typ2 d r) with
+                                | None => None (** DEAD CODE **)
+                                | Some pf =>
+                                  Some (@existT _ _ r (wtApp _ match pf in _ = t return wtexpr _ _ t with
+                                                                 | eq_refl => a
+                                                               end
+                                                             b))
+                              end
+                          end)
+                       None
+        end
+      | Abs t b =>
+        match to_wtexpr_simul tus (t :: tvs) b with
+          | None => None
+          | Some (existT t' e) => Some (@existT _ _ (typ2 t t') (wtAbs e) )
+        end
+    end.
 
   (** An expr with types decorated **)
   Inductive texpr : Type :=
