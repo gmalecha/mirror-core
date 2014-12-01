@@ -8,7 +8,7 @@ Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SubstI3.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Util.Iteration.
 
 Set Implicit Arguments.
@@ -48,9 +48,9 @@ Section parametric.
 
   Let uvar := nat.
   Variables typ expr : Type.
-  Variable typD : list Type -> typ -> Type.
-  Variable Expr_expr : @Expr typ typD expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : @Expr _ _ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Definition pmap := t.
   Definition pset := pmap unit.
@@ -599,17 +599,17 @@ Section parametric.
   Definition fast_subst_pull (base : uvar) := fast_subst_pull' (to_key base).
 
   Instance Subst_fast_subst : Subst fast_subst expr :=
-  { lookup := fast_subst_lookup
-  ; domain := fun x => filter_map (fun x =>
-                                     match snd x with
-                                       | Mapped _ _ => Some (from_key (fst x))
-                                       | _ => None
-                                     end) (elements x)
+  { subst_lookup := fast_subst_lookup
+  ; subst_domain :=
+      fun x => filter_map (fun x =>
+                             match snd x with
+                               | Mapped _ _ => Some (from_key (fst x))
+                               | _ => None
+                             end) (elements x)
   }.
 
   Definition substD_fast_subst_list (tus tvs : EnvI.tenv typ) (s : fast_subst)
-  : option (list (HList.hlist (typD nil) tus ->
-                  HList.hlist (typD nil) tvs -> Prop)) :=
+  : option (list (exprT tus tvs Prop)) :=
     fold (fun p e acc =>
             match e with
               | UnMapped _ => acc
@@ -630,7 +630,7 @@ Section parametric.
             end) s (Some nil).
 
   Definition substD_fast_subst (tus tvs : EnvI.tenv typ) (s : fast_subst)
-  : ResType typD tus tvs Prop :=
+  : option (exprT tus tvs Prop) :=
     match substD_fast_subst_list tus tvs s with
       | None => None
       | Some ls => Some (fun us vs => Forall (fun P => P us vs) ls)
@@ -642,7 +642,7 @@ Section parametric.
 
 
   Definition substD_fast_subst' (tus tvs : EnvI.tenv typ) (s : fast_subst)
-  : ResType typD tus tvs Prop :=
+  : option (exprT tus tvs Prop) :=
     match
       mapT (F := option) (T := list) (fun t => match snd t with
                                                  | None => None
@@ -700,13 +700,15 @@ Section parametric.
     intros.
     unfold substD_fast_subst, substD_fast_subst_list, substD_fast_subst'.
     rewrite elements_mapi.
+(*
     rewrite mapT_map.
     rewrite fold_1.
     simpl.
     induction (elements s).
     { simpl. intuition. }
     { admit. (** TODO: this is not true, due to a weak inductive hyp **) }
-  Qed.
+*)
+  Admitted.
 
 (*
   Lemma substD_fast_subst_sem
@@ -723,15 +725,14 @@ Section parametric.
   Theorem substD_weaken
   : forall (tus tvs : tenv typ) (tus' tvs' : list typ)
            (s : fast_subst)
-           (sD : HList.hlist (typD nil) tus -> HList.hlist (typD nil) tvs -> Prop),
+           (sD : exprT tus tvs Prop),
       substD_fast_subst tus tvs s = Some sD ->
       exists
-        sD' : HList.hlist (typD nil) (tus ++ tus') ->
-              HList.hlist (typD nil) (tvs ++ tvs') -> Prop,
+        sD' : exprT (tus ++ tus') (tvs ++ tvs') Prop,
         substD_fast_subst (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
-        (forall (us : HList.hlist (typD nil) tus)
-                (us' : HList.hlist (typD nil) tus') (vs : HList.hlist (typD nil) tvs)
-                (vs' : HList.hlist (typD nil) tvs'),
+        (forall (us : HList.hlist typD tus)
+                (us' : HList.hlist typD tus') (vs : HList.hlist typD tvs)
+                (vs' : HList.hlist typD tvs'),
            sD us vs <-> sD' (HList.hlist_app us us') (HList.hlist_app vs vs')).
   Proof.
     admit.
@@ -740,10 +741,11 @@ Section parametric.
   Lemma WellFormed_domain_fast_subst
   : forall (s : fast_subst) (ls : list nat),
       WellFormed_fast_subst s ->
-      domain s = ls -> forall n : nat, List.In n ls <-> lookup n s <> None.
+      subst_domain s = ls ->
+      forall n : nat, List.In n ls <-> subst_lookup n s <> None.
   Proof.
     intros; subst.
-    unfold domain, fast_subst_lookup. simpl.
+    unfold subst_domain, fast_subst_lookup. simpl.
     unfold fast_subst_lookup.
     rewrite in_filter_map_iff.
     split; intros.
@@ -764,23 +766,22 @@ Section parametric.
   Theorem substD_lookup_fast_subst
   : forall (s : fast_subst) (uv : nat) (e : expr),
    WellFormed_fast_subst s ->
-   lookup uv s = Some e ->
+   subst_lookup uv s = Some e ->
    forall (tus tvs : tenv typ)
-     (sD : HList.hlist (typD nil) tus -> HList.hlist (typD nil) tvs -> Prop),
+     (sD : HList.hlist typD tus -> HList.hlist typD tvs -> Prop),
    substD_fast_subst tus tvs s = Some sD ->
    exists
-     (t0 : typ) (val : HList.hlist (typD nil) tus ->
-                       HList.hlist (typD nil) tvs -> typD nil t0)
+     (t0 : typ) (val : exprT tus tvs (typD t0))
    (pf : Some t0 = nth_error tus uv),
      exprD' tus tvs e t0 = Some val /\
-     (forall (us : HList.hlist (typD nil) tus)
-        (vs : HList.hlist (typD nil) tvs),
+     (forall (us : HList.hlist typD tus)
+        (vs : HList.hlist typD tvs),
       sD us vs ->
       HList.hlist_nth us uv =
       match
         pf in (_ = t1)
         return match t1 with
-               | Some x => typD nil x
+               | Some x => typD x
                | None => unit
                end
       with
@@ -1086,33 +1087,33 @@ Section parametric.
       WellFormed_subst s ->
       WellFormed_subst s' /\
       (forall (tus tus' : list typ) (tvs : tenv typ)
-              (sD : HList.hlist (typD nil) (tus ++ tus') ->
-                    HList.hlist (typD nil) tvs -> Prop),
+              (sD : HList.hlist typD (tus ++ tus') ->
+                    HList.hlist typD tvs -> Prop),
          u = length tus ->
          n = length tus' ->
          substD (tus ++ tus') tvs s = Some sD ->
          exists
-           sD' : HList.hlist (typD nil) tus -> HList.hlist (typD nil) tvs -> Prop,
+           sD' : HList.hlist typD tus -> HList.hlist typD tvs -> Prop,
            substD tus tvs s' = Some sD' /\
            (exists (eus' : list expr)
                    (us' : HList.hlist
                             (fun t : typ =>
-                               HList.hlist (typD nil) tus ->
-                               HList.hlist (typD nil) tvs -> typD nil t)
+                               HList.hlist typD tus ->
+                               HList.hlist typD tvs -> typD nil t)
                             tus'),
                hlist_build
                  (fun t0 : typ =>
-                    HList.hlist (typD nil) tus ->
-                    HList.hlist (typD nil) tvs -> typD nil t0)
+                    HList.hlist typD tus ->
+                    HList.hlist typD tvs -> typD nil t0)
                  (fun (t0 : typ) (e : expr) => exprD' tus tvs e t0) tus' eus' =
                Some us' /\
-               (forall (us : HList.hlist (typD nil) tus)
-                       (vs : HList.hlist (typD nil) tvs),
+               (forall (us : HList.hlist typD tus)
+                       (vs : HList.hlist typD tvs),
                   let us'0 :=
                       HList.hlist_map
                         (fun (t : typ)
-                             (x : HList.hlist (typD nil) tus ->
-                                  HList.hlist (typD nil) tvs -> typD nil t) =>
+                             (x : HList.hlist typD tus ->
+                                  HList.hlist typD tvs -> typD nil t) =>
                            x us vs) us' in
                   sD' us vs -> sD (HList.hlist_app us us'0) vs))).
   Proof.
