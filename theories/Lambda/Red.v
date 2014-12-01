@@ -25,45 +25,6 @@ Section substitute.
 
   Context {ED_typ : EqDec _ (@eq typ)}.
 
-  Section substitute_all.
-    Variable lookup : var -> option (expr typ sym).
-
-    Fixpoint remainder (a b : nat) : option nat :=
-      match a , b with
-        | 0 , S _ => None
-        | a , 0 => Some a
-        | S a , S b => remainder a b
-      end.
-
-    Theorem remainder_ok : forall a b c,
-                             remainder a b = Some c ->
-                             a >= b /\ a - b = c.
-    Proof.
-      clear.
-      induction a; destruct b; simpl; intros; inv_all; subst; auto; try congruence.
-      split; auto. omega.
-      eapply IHa in H. intuition.
-    Qed.
-
-    Fixpoint substitute_all (under : nat) (e : expr typ sym) : expr typ sym :=
-      match e with
-        | Var v' =>
-          match remainder v' under with
-            | None => Var v'
-            | Some v =>
-              match lookup v with
-                | None => Var v'
-                | Some e =>
-                  lift 0 under e
-              end
-          end
-        | UVar u => UVar u
-        | Inj i => Inj i
-        | App l' r' => App (substitute_all under l') (substitute_all under r')
-        | Abs t e => Abs t (substitute_all (S under) e)
-      end.
-  End substitute_all.
-
   Fixpoint substitute_one (v : var) (w : expr typ sym) (e : expr typ sym)
   : expr typ sym :=
     match e with
