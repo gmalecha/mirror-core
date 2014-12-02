@@ -33,7 +33,7 @@ RTAC := BIMap Ctx Core CoreK RunOnGoals \
 	Then Try Repeat Rec Idtac First Fail Solve \
 	Assumption \
 	Intro Apply EApply \
-	Simplify Instantiate \
+	Simplify Instantiate Minify \
 	AtGoal Reduce \
 	RTac
 # Apply EApply
