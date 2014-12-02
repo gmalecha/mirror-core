@@ -528,7 +528,6 @@ Section reducer.
           val us vs = val' us vs.
     Proof.
       intros.
-      Print full_reducer_ok.
       assert (var_termsP nil
                          (fun (us : hlist typD tus) (vs : hlist typD tvs)
                               (us' : hlist typD tus) (vs' : hlist typD tvs) =>

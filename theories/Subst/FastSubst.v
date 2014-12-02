@@ -9,6 +9,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Util.Iteration.
 
 Set Implicit Arguments.
@@ -51,6 +52,8 @@ Section parametric.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : @Expr _ _ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Definition pmap := t.
   Definition pset := pmap unit.
@@ -68,9 +71,11 @@ Section parametric.
                                  end) (pset_union ra rb)
     end.
 
+(*
   Variable mentionsU : expr -> uvar -> Prop.
-  Variable get_mentions_instantiate : (uvar -> option expr) -> expr -> pset * expr.
   Variable instantiate : (uvar -> option expr) -> expr -> expr.
+*)
+  Variable get_mentions_instantiate : (uvar -> option expr) -> expr -> pset * expr.
 
   Inductive ExprData : Type :=
   | Mapped (e : expr) (p : pset) (** [e] mentions only things in [p] **)
@@ -84,19 +89,19 @@ Section parametric.
 
   Definition mentionsOnly (e : expr) (s : pset) : Prop :=
     forall u,
-      mentionsU e u ->
+      mentionsU u e = true ->
       find (to_key u) s = Some tt.
 
   Definition mentionedBy (k : positive) (ps : pset) (fs : fast_subst) : Prop :=
     forall k' e m,
       find k' fs = Some (Mapped e m) ->
-      mentionsU e (from_key k) ->
+      mentionsU (from_key k) e = true ->
       find k' ps = Some tt.
 
   Definition mentionsNone u (fs : fast_subst) : Prop :=
     forall p' : positive,
       match find p' fs with
-        | Some (Mapped e _) => ~mentionsU e u
+        | Some (Mapped e _) => mentionsU u e = false
         | _ => True
       end.
 
@@ -189,7 +194,7 @@ Section parametric.
                    (fun m => remove up (pset_union mentions m))
                    (instantiate (fun x => if x ?[ eq ] u then
                                             Some e_inst
-                                          else None))
+                                          else None) 0)
                    mb
                    (add_mentionedBy up mentions fs))).
 
@@ -565,7 +570,7 @@ Section parametric.
             (the_update_function' up
                                  (instantiate (fun x => if x ?[ eq ] u then
                                                           Some e_inst
-                                                        else None))
+                                                        else None) 0)
                                  (fun m => remove up (pset_union mentions m)))
             mb mentions fs
       in
@@ -763,6 +768,39 @@ Section parametric.
       rewrite to_key_from_key. auto. }
   Qed.
 
+  Lemma mapT_In_bwd
+  : forall T U (f : T -> option U) (l : list T) (l' : list U) x',
+      mapT f l = Some l' ->
+      In x' l' ->
+      exists x,
+        f x = Some x' /\ In x l.
+  Proof.
+    clear. induction l; simpl; intros.
+    { inv_all. subst. inversion H0. }
+    { forward. inv_all; subst.
+      destruct H0; subst.
+      { eexists; split; eauto. }
+      { eapply IHl in H1; eauto.
+        forward_reason. eauto. } }
+  Qed.
+  Lemma mapT_In_fwd
+  : forall T U (f : T -> option U) (l : list T) (l' : list U) x,
+      mapT f l = Some l' ->
+      In x l ->
+      match f x with
+        | None => False
+        | Some x' => In x' l'
+      end.
+  Proof.
+    clear. induction l; simpl; intros.
+    { inversion H0. }
+    { forward. inv_all; subst.
+      destruct H0; subst.
+      { rewrite H. left. reflexivity. }
+      { eapply IHl in H1; eauto.
+        forward. right; assumption. } }
+  Qed.
+
   Theorem substD_lookup_fast_subst
   : forall (s : fast_subst) (uv : nat) (e : expr),
    WellFormed_fast_subst s ->
@@ -796,52 +834,20 @@ Section parametric.
     unfold substD_fast_subst' in H2.
     forward. inv_all; subst.
     rewrite elements_mapi in *.
-    rewrite mapT_map in *. Opaque mapT. simpl in *. Transparent mapT.
+    rewrite ListMapT.mapT_map in *. Opaque mapT. simpl in *. Transparent mapT.
     eapply elements_correct in H1.
-    Lemma mapT_In_bwd
-    : forall T U (f : T -> option U) (l : list T) (l' : list U) x',
-        mapT f l = Some l' ->
-        In x' l' ->
-        exists x,
-          f x = Some x' /\ In x l.
-    Proof.
-      clear. induction l; simpl; intros.
-      { inv_all. subst. inversion H0. }
-      { forward. inv_all; subst.
-        destruct H0; subst.
-        { eexists; split; eauto. }
-        { eapply IHl in H1; eauto.
-          forward_reason. eauto. } }
-    Qed.
-    Lemma mapT_In_fwd
-    : forall T U (f : T -> option U) (l : list T) (l' : list U) x,
-        mapT f l = Some l' ->
-        In x l ->
-        match f x with
-          | None => False
-          | Some x' => In x' l'
-        end.
-    Proof.
-      clear. induction l; simpl; intros.
-      { inversion H0. }
-      { forward. inv_all; subst.
-        destruct H0; subst.
-        { rewrite H. left. reflexivity. }
-        { eapply IHl in H1; eauto.
-          forward. right; assumption. } }
-    Qed.
     eapply mapT_In_fwd in H0; eauto.
     simpl in *.
     forward. inv_all; subst. subst.
     eapply nth_error_get_hlist_nth_Some in H5.
     destruct H5. simpl in *.
-    exists x. exists t1.
+    exists x. eexists.
     exists (eq_sym match to_key_from_key uv in _ = t
                          return nth_error tus t = Some x
                    with
                      | eq_refl => x0
                    end).
-    split; auto. intros.
+    split; eauto. intros.
     eapply H3 in H4.
     eapply Forall_forall in H4; eauto.
     simpl in *. rewrite <- H4. rewrite H0.
@@ -850,7 +856,7 @@ Section parametric.
     destruct (to_key_from_key uv). reflexivity.
   Qed.
 
-  Instance SubstOk_fast_subst : SubstOk _ Subst_fast_subst :=
+  Instance SubstOk_fast_subst : SubstOk Subst_fast_subst :=
   { WellFormed_subst := WellFormed_fast_subst
   ; substD := substD_fast_subst
   ; substD_weaken := substD_weaken

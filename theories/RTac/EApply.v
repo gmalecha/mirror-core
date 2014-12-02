@@ -6,6 +6,7 @@ Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Reduce.
 

@@ -7,6 +7,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.VariablesI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lemma.
 
 Set Implicit Arguments.
@@ -32,27 +33,7 @@ Section lemma_apply.
   Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable unify : tenv typ -> tenv  typ -> nat -> expr -> expr -> typ -> subst -> option subst.
-
-  Definition unify_sound
-    (unify : forall (us vs : tenv typ) (under : nat) (l r : expr)
-                    (t : typ) (s : subst), option subst) : Prop :=
-    forall tu tv e1 e2 s s' t tv',
-      unify tu (tv' ++ tv) (length tv') e1 e2 t s = Some s' ->
-      WellFormed_subst s ->
-      WellFormed_subst s' /\
-      forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) e1 t = Some v1 ->
-        exprD' tu (tv' ++ tv) e2 t = Some v2 ->
-        substD tu tv s = Some sD ->
-        exists sD',
-             substR tu tv s s'
-          /\ substD tu tv s' = Some sD'
-          /\ forall us vs,
-               sD' us vs ->
-               sD us vs /\
-               forall vs',
-                 v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs).
+  Variable unify : unifier typ expr subst.
 
   Hypothesis Hunify : unify_sound unify.
 
@@ -138,22 +119,7 @@ Section lemma_apply.
                        ]
            end.
 
-  Definition vars_to_uvars_spec : Prop :=
-    forall (tus : tenv typ) (e : expr) (tvs : list typ)
-           (t : typ) (tvs' : list typ)
-           (val : hlist typD tus ->
-                  hlist typD (tvs ++ tvs') -> typD t),
-      exprD' tus (tvs ++ tvs') e t = Some val ->
-      exists
-        val' : hlist typD (tus ++ tvs') ->
-               hlist typD tvs -> typD t,
-        exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
-               t = Some val' /\
-        (forall (us : hlist typD tus)
-                (vs' : hlist typD tvs') (vs : hlist typD tvs),
-           val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
-
-  Hypothesis vars_to_uvars_exprD' : vars_to_uvars_spec.
+  Hypothesis vars_to_uvars_exprD' : vars_to_uvars_spec vars_to_uvars.
 
   Lemma eapplicable_sound'
   : forall s tus tvs lem g s1,

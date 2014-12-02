@@ -76,6 +76,11 @@ Section parameterized.
     UVarMap.MAP.cardinal m ?[ eq ] len.
   Definition amap_domain (m : amap) : list uvar :=
     map fst (UVarMap.MAP.elements m).
+  Fixpoint amap_aslist (m : amap) (f n : nat) : list (option expr) :=
+    match n with
+      | O => nil
+      | S n => amap_lookup f m :: amap_aslist m (S f) n
+    end.
 
   Definition Forall_amap (P : uvar -> expr -> Prop) (m : amap) : Prop :=
     forall u e,

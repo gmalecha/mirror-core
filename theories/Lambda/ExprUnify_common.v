@@ -2,6 +2,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Lambda.ExprLift.
@@ -116,11 +117,9 @@ Section typed.
   Qed.
 
   Definition unify_sound_ind
-    (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
-                    (l r : expr typ func)
-                    (t : typ), option subst) : Prop :=
+    (unify : unifier typ (expr typ func) subst) : Prop :=
     forall tu tv e1 e2 s s' t tv',
-      unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      unify tu (tv' ++ tv) (length tv') e1 e2 t s = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
@@ -139,15 +138,14 @@ Section typed.
 
   Lemma handle_uvar
   : forall
-      (unify : tenv typ -> tenv typ ->
-               nat -> subst -> expr typ func -> expr typ func -> typ -> option subst),
+      (unify : unifier typ (expr typ func) subst),
       unify_sound_ind unify ->
       forall (tu : tenv typ) (tv : list typ) e
              (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
         match subst_lookup u s with
           | Some e2' =>
-            unify tu (tv' ++ tv) (length tv') s e
-                  (lift 0 (length tv') e2') t
+            unify tu (tv' ++ tv) (length tv') e
+                  (lift 0 (length tv') e2') t s
           | None =>
             match lower 0 (length tv') e with
               | Some e1 => subst_set u e1 s
@@ -210,16 +208,14 @@ Section typed.
   Qed.
 
   Lemma handle_uvar'
-  : forall
-        unify : tenv typ -> tenv typ ->
-                nat -> subst -> expr typ func -> expr typ func -> typ -> option subst,
+  : forall (unify : unifier typ (expr typ func) subst),
         unify_sound_ind unify ->
         forall (tu : tenv typ) (tv : list typ) e
                (u : uvar) (s s' : subst) (t : typ) (tv' : list typ),
           match subst_lookup u s with
             | Some e2' =>
-              unify tu (tv' ++ tv) (length tv') s
-                    (lift 0 (length tv') e2') e t
+              unify tu (tv' ++ tv) (length tv')
+                    (lift 0 (length tv') e2') e t s
             | None =>
               match lower 0 (length tv') e with
                 | Some e1 => subst_set u e1 s

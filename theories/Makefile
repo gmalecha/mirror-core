@@ -41,7 +41,7 @@ RTAC := BIMap Ctx Core CoreK RunOnGoals \
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := OpenT Generic \
-	      TypesI EnvI ExprI VariablesI \
+	      TypesI EnvI ExprI VariablesI UnifyI \
 	      ExprProp ExprSem \
 	      ExprDAs \
 	      SymI \
