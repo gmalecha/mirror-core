@@ -7,6 +7,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.VariablesI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.EProverI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
@@ -88,10 +89,7 @@ Section parameterized.
   Hypothesis hintsOk : HintsOk hints.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
-  Variable exprUnify : tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
-(*
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
-*)
+  Variable exprUnify : unifier typ expr subst.
 
   Hypothesis exprUnify_sound : unify_sound exprUnify.
 
@@ -255,19 +253,7 @@ Section parameterized.
                        ]
            end.
 
-  Hypothesis vars_to_uvars_sound : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
-     (t : typ) (tvs' : list typ)
-     (val : hlist typD tus0 ->
-            hlist typD (tvs0 ++ tvs') -> typD t),
-   exprD' tus0 (tvs0 ++ tvs') e t = Some val ->
-   exists
-     val' : hlist typD (tus0 ++ tvs') ->
-            hlist typD tvs0 -> typD t,
-     exprD' (tus0 ++ tvs') tvs0 (vars_to_uvars (length tvs0) (length tus0) e)
-       t = Some val' /\
-     (forall (us : hlist typD tus0) (vs' : hlist typD tvs')
-        (vs : hlist typD tvs0),
-      val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
+  Hypothesis vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
 
   Lemma vars_to_uvars_sound_typ0
   : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)

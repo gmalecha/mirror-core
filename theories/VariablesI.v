@@ -94,7 +94,8 @@ Section with_Expr.
       rewrite hlist_app_nil_r.
       reflexivity. }
     { intros.
-      rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil)) (pfu := eq_refl) in H1.
+      rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil))
+                               (pfu := eq_refl) in H1.
       autorewrite with eq_rw in H1.
       forward.
       eapply exprD'_strengthenV_single in H1.
@@ -383,6 +384,24 @@ Section with_Expr.
         exfalso.
         rewrite H2 in H; try congruence; eauto.
   Qed.
+
+  (** Converting Variables to Unification Variables **)
+  Definition vars_to_uvars_spec
+             (vars_to_uvars : nat -> nat -> expr -> expr)
+  : Prop :=
+    forall (tus : tenv typ) (e : expr) (tvs : list typ)
+           (t : typ) (tvs' : list typ)
+           (val : hlist typD tus ->
+                  hlist typD (tvs ++ tvs') -> typD t),
+      exprD' tus (tvs ++ tvs') e t = Some val ->
+      exists
+        val' : hlist typD (tus ++ tvs') ->
+               hlist typD tvs -> typD t,
+        exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
+               t = Some val' /\
+        (forall (us : hlist typD tus)
+                (vs' : hlist typD tvs') (vs : hlist typD tvs),
+           val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
 
 End with_Expr.
 

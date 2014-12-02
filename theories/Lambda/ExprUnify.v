@@ -40,11 +40,11 @@ Section typed.
 
   Section nested.
     (** n is the number of binders that we have gone under **)
-    Variable exprUnify : forall (tus tvs : tenv typ) (under : nat) (s : subst)
-                                (l r : expr typ func), typ -> option subst.
+    Variable exprUnify : forall (tus tvs : tenv typ) (under : nat)
+                                (l r : expr typ func), typ -> subst -> option subst.
 
-    Fixpoint exprUnify' (us vs : tenv typ) (n : nat) (s : subst)
-             (e1 e2 : expr typ func) (t : typ) {struct e1}
+    Fixpoint exprUnify' (us vs : tenv typ) (n : nat)
+             (e1 e2 : expr typ func) (t : typ) (s : subst) {struct e1}
     : option subst :=
       match e1 , e2 with
         | UVar u1 , UVar u2 =>
@@ -62,7 +62,7 @@ Section typed.
               | None , Some e2' =>
                 subst_set u1 e2' s
               | Some e1' , Some e2' =>
-                exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
+                exprUnify us vs n (lift 0 n e1') (lift 0 n e2') t s
             end
         | UVar u1 , _ =>
           match subst_lookup u1 s with
@@ -71,7 +71,7 @@ Section typed.
                 | None => None
                 | Some e2 => subst_set u1 e2 s
               end
-            | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
+            | Some e1' => exprUnify us vs n (lift 0 n e1') e2 t s
           end
         | _ , UVar u2 =>
           match subst_lookup u2 s with
@@ -80,7 +80,7 @@ Section typed.
                 | None => None
                 | Some e1 => subst_set u2 e1 s
               end
-            | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
+            | Some e2' => exprUnify us vs n e1 (lift 0 n e2') t s
           end
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then Some s else None
@@ -95,10 +95,10 @@ Section typed.
               if t1 ?[ Rty ] t2 then
                 typ2_match (fun _ => option subst) t1
                            (fun d r =>
-                              match exprUnify' us vs n s e1 e2 t1 with
+                              match exprUnify' us vs n e1 e2 t1 s with
                                 | None => None
                                 | Some s' =>
-                                  exprUnify' us vs n s' e1' e2' d
+                                  exprUnify' us vs n e1' e2' d s'
                               end)
                            None
               else
@@ -109,7 +109,7 @@ Section typed.
           (* t1 = t2 since both terms have the same type *)
           typ2_match (F := Fun) (fun _ => _) t
                      (fun _ t =>
-                        exprUnify' us (t1 :: vs) (S n) s e1 e2 t)
+                        exprUnify' us (t1 :: vs) (S n) e1 e2 t s)
                      None
         | _ , _ => None
       end%bool.
@@ -120,13 +120,13 @@ Section typed.
 
     (** Delaying the recursion is probably important **)
     Fixpoint exprUnify (fuel : nat)
-             (us vs : tenv typ) (under : nat) (s : subst)
-             (e1 e2 : expr typ func) (t : typ) : option subst :=
+             (us vs : tenv typ) (under : nat)
+             (e1 e2 : expr typ func) (t : typ) (s : subst) : option subst :=
       match fuel with
         | 0 => None
         | S fuel =>
           exprUnify' (fun tus tvs => exprUnify fuel tus tvs)
-                     us vs under s e1 e2 t
+                     us vs under e1 e2 t s
       end.
   End exprUnify.
 

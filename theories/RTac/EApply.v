@@ -6,6 +6,7 @@ Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Reduce.
 
@@ -32,7 +33,7 @@ Section parameterized.
 
   Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
-    tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
+    unifier typ expr subst.
 
   Variable vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
   Variable exprUnify_sound

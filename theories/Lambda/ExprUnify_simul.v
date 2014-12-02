@@ -10,6 +10,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprUnify_common.
 Require Import MirrorCore.Lambda.ExprD.
@@ -46,12 +47,11 @@ Section typed.
 
   Section nested.
     (** n is the number of binders that we have gone under **)
-    Variable exprUnify : forall (tus tvs : tenv typ) (under : nat) (s : subst)
-                                (l r : expr typ func), typ -> option subst.
+    Variable exprUnify : unifier typ (expr typ func) subst.
 
 
-    Fixpoint exprUnify' (us vs : tenv typ) (n : nat) (s : subst)
-             (e1 e2 : expr typ func) (t : typ) {struct e1}
+    Fixpoint exprUnify' (us vs : tenv typ) (n : nat)
+             (e1 e2 : expr typ func) (t : typ) (s : subst) {struct e1}
     : option subst :=
       match e1 , e2 with
         | UVar u1 , UVar u2 =>
@@ -69,7 +69,7 @@ Section typed.
               | None , Some e2' =>
                 subst_set u1 e2' s
               | Some e1' , Some e2' =>
-                exprUnify us vs n s (lift 0 n e1') (lift 0 n e2') t
+                exprUnify us vs n (lift 0 n e1') (lift 0 n e2') t s
             end
         | UVar u1 , _ =>
           match subst_lookup u1 s with
@@ -78,7 +78,7 @@ Section typed.
                 | None => None
                 | Some e2 => subst_set u1 e2 s
               end
-            | Some e1' => exprUnify us vs n s (lift 0 n e1') e2 t
+            | Some e1' => exprUnify us vs n (lift 0 n e1') e2 t s
           end
         | _ , UVar u2 =>
           match subst_lookup u2 s with
@@ -87,7 +87,7 @@ Section typed.
                 | None => None
                 | Some e1 => subst_set u2 e1 s
               end
-            | Some e2' => exprUnify us vs n s e1 (lift 0 n e2') t
+            | Some e2' => exprUnify us vs n e1 (lift 0 n e2') t s
           end
         | Var v1 , Var v2 =>
           if EqNat.beq_nat v1 v2 then Some s else None
@@ -97,10 +97,10 @@ Section typed.
             | _ => None
           end
         | App e1 e1' , App e2 e2' =>
-          match exprUnify_simul' us vs n s e1 e2 with
+          match exprUnify_simul' us vs n e1 e2 s with
             | Some (tarr,s') =>
               typ2_match (fun _ => option _) tarr
-                         (fun d _ => exprUnify' us vs n s' e1' e2' d)
+                         (fun d _ => exprUnify' us vs n e1' e2' d s')
                          None
             | None => None
           end
@@ -108,12 +108,12 @@ Section typed.
           (* t1 = t2 since both terms have the same type *)
           typ2_match (F := Fun) (fun _ => _) t
                      (fun _ t =>
-                        exprUnify' us (t1 :: vs) (S n) s e1 e2 t)
+                        exprUnify' us (t1 :: vs) (S n) e1 e2 t s)
                      None
         | _ , _ => None
       end
-    with exprUnify_simul' (tus tvs : tenv typ) (n : nat) (s : subst)
-                          (e1 e2 : expr typ func) {struct e1}
+    with exprUnify_simul' (tus tvs : tenv typ) (n : nat)
+                          (e1 e2 : expr typ func) (s : subst) {struct e1}
     : option (typ * subst) :=
       match e1 , e2 return option (typ * subst) with
         | UVar u1 , UVar u2 =>
@@ -141,7 +141,7 @@ Section typed.
                       | None , Some e2' =>
                         subst_set u1 e2' s
                       | Some e1' , Some e2' =>
-                        exprUnify tus tvs n s (lift 0 n e1') (lift 0 n e2') t1
+                        exprUnify tus tvs n (lift 0 n e1') (lift 0 n e2') t1 s
                     end
                   with
                     | Some s => Some (t1,s)
@@ -177,7 +177,7 @@ Section typed.
               with
                 | Some t1 , Some t2 =>
                   if t1 ?[ Rty ] t2 then
-                    match exprUnify tus tvs n s (lift 0 n e1') e2 t1 with
+                    match exprUnify tus tvs n (lift 0 n e1') e2 t1 s with
                       | Some s => Some (t1, s)
                       | None => None
                     end
@@ -211,7 +211,7 @@ Section typed.
               with
                 | Some t1 , Some t2 =>
                   if t1 ?[ Rty ] t2 then
-                    match exprUnify tus tvs n s e1 (lift 0 n e2') t1 with
+                    match exprUnify tus tvs n e1 (lift 0 n e2') t1 s with
                       | Some s => Some (t1, s)
                       | _ => None
                     end
@@ -241,11 +241,11 @@ Section typed.
             | _ => None
           end
         | App e1 e1' , App e2 e2' =>
-          match exprUnify_simul' tus tvs n s e1 e2 with
+          match exprUnify_simul' tus tvs n e1 e2 s with
             | Some (t,s) =>
               typ2_match (fun _ => option (typ * subst)) t
                          (fun d r =>
-                            match exprUnify' tus tvs n s e1' e2' d with
+                            match exprUnify' tus tvs n e1' e2' d s with
                               | Some s' => Some (r,s')
                               | None => None
                             end)
@@ -254,7 +254,7 @@ Section typed.
           end
         | Abs t1 e1 , Abs t2 e2 =>
           if t1 ?[ Rty ] t2 then
-            match exprUnify_simul' tus (t1 :: tvs) (S n) s e1 e2 with
+            match exprUnify_simul' tus (t1 :: tvs) (S n) e1 e2 s with
               | Some (t,s) => Some (typ2 t1 t, s)
               | _ => None
             end
@@ -269,13 +269,13 @@ Section typed.
 
     (** Delaying the recursion is important **)
     Fixpoint exprUnify (fuel : nat)
-             (us vs : tenv typ) (under : nat) (s : subst)
-             (e1 e2 : expr typ func) (t : typ) : option subst :=
+             (us vs : tenv typ) (under : nat)
+             (e1 e2 : expr typ func) (t : typ) (s : subst) : option subst :=
       match fuel with
         | 0 => None
         | S fuel =>
           exprUnify' (fun tus tvs => exprUnify fuel tus tvs)
-                     us vs under s e1 e2 t
+                     us vs under e1 e2 t s
       end.
   End exprUnify.
 
@@ -283,12 +283,10 @@ Section typed.
   Existing Instance SubstOk_subst.
 
   Definition unify_sound_mutual
-    (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
-                    (l r : expr typ func)
-                    (t : typ), option subst) : Prop :=
+    (unify : unifier typ (expr typ func) subst) : Prop :=
     unify_sound unify ->
     forall tu tv e1 e2 s s' t tv',
-      (exprUnify' unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      (exprUnify' unify tu (tv' ++ tv) (length tv') e1 e2 t s = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
@@ -302,7 +300,7 @@ Section typed.
                sD us vs /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)) /\
-      (exprUnify_simul' unify tu (tv' ++ tv) (length tv') s e1 e2 = Some (t,s') ->
+      (exprUnify_simul' unify tu (tv' ++ tv) (length tv') e1 e2 s = Some (t,s') ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
@@ -369,7 +367,7 @@ Section typed.
    **)
   Lemma exprUnify_simul'_eq
   : forall u tus tvs n s e1 e2,
-      exprUnify_simul' u tus tvs n s e1 e2 =
+      exprUnify_simul' u tus tvs n e1 e2 s =
       match e1 , e2 return option (typ * subst) with
         | UVar u1 , UVar u2 =>
           if EqNat.beq_nat u1 u2 then
@@ -396,7 +394,7 @@ Section typed.
                       | None , Some e2' =>
                         subst_set u1 e2' s
                       | Some e1' , Some e2' =>
-                        u tus tvs n s (lift 0 n e1') (lift 0 n e2') t1
+                        u tus tvs n (lift 0 n e1') (lift 0 n e2') t1 s
                     end
                   with
                     | Some s => Some (t1,s)
@@ -432,7 +430,7 @@ Section typed.
               with
                 | Some t1 , Some t2 =>
                   if t1 ?[ Rty ] t2 then
-                    match u tus tvs n s (lift 0 n e1') e2 t1 with
+                    match u tus tvs n (lift 0 n e1') e2 t1 s with
                       | Some s => Some (t1, s)
                       | None => None
                     end
@@ -466,7 +464,7 @@ Section typed.
               with
                 | Some t1 , Some t2 =>
                   if t1 ?[ Rty ] t2 then
-                    match u tus tvs n s e1 (lift 0 n e2') t1 with
+                    match u tus tvs n e1 (lift 0 n e2') t1 s with
                       | Some s => Some (t1, s)
                       | _ => None
                     end
@@ -496,11 +494,11 @@ Section typed.
             | _ => None
           end
         | App e1 e1' , App e2 e2' =>
-          match exprUnify_simul' u tus tvs n s e1 e2 with
+          match exprUnify_simul' u tus tvs n e1 e2 s with
             | Some (t,s) =>
               typ2_match (fun _ => option (typ * subst)) t
                          (fun d r =>
-                            match exprUnify' u tus tvs n s e1' e2' d with
+                            match exprUnify' u tus tvs n e1' e2' d s with
                               | Some s' => Some (r,s')
                               | None => None
                             end)
@@ -509,7 +507,7 @@ Section typed.
           end
         | Abs t1 e1 , Abs t2 e2 =>
           if t1 ?[ Rty ] t2 then
-            match exprUnify_simul' u tus (t1 :: tvs) (S n) s e1 e2 with
+            match exprUnify_simul' u tus (t1 :: tvs) (S n) e1 e2 s with
               | Some (t,s) => Some (typ2 t1 t, s)
               | _ => None
             end
@@ -547,8 +545,8 @@ Section typed.
                   if t1 ?[ Rty ] t2
                   then
                     match
-                      unify tu (tv' ++ tv) (length tv') s
-                            e (lift 0 (length tv') e2') t1
+                      unify tu (tv' ++ tv) (length tv')
+                            e (lift 0 (length tv') e2') t1 s
                     with
                       | Some s0 => Some (t1, s0)
                       | None => None
@@ -642,8 +640,8 @@ Section typed.
                   if t1 ?[ Rty ] t2
                   then
                     match
-                      unify tu (tv' ++ tv) (length tv') s
-                            (lift 0 (length tv') e2') e t1
+                      unify tu (tv' ++ tv) (length tv')
+                            (lift 0 (length tv') e2') e t1 s
                     with
                       | Some s0 => Some (t1, s0)
                       | None => None
@@ -726,12 +724,10 @@ Section typed.
   Qed.
 
   Lemma exprUnify'_sound_mutual
-  : forall (unify : forall (us vs : tenv typ) (under : nat) (s : subst)
-                           (l r : expr typ func)
-                           (t : typ), option subst)
+  : forall (unify : unifier typ (expr typ func) subst)
            (unifyOk : unify_sound unify),
     forall tu tv e1 e2 s s' t tv',
-      (exprUnify' unify tu (tv' ++ tv) (length tv') s e1 e2 t = Some s' ->
+      (exprUnify' unify tu (tv' ++ tv) (length tv') e1 e2 t s = Some s' ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
@@ -745,7 +741,7 @@ Section typed.
                sD us vs /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)) /\
-      (exprUnify_simul' unify tu (tv' ++ tv) (length tv') s e1 e2 = Some (t,s') ->
+      (exprUnify_simul' unify tu (tv' ++ tv) (length tv') e1 e2 s = Some (t,s') ->
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall sD,
