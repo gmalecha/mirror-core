@@ -67,10 +67,15 @@ Section runOnGoals.
           | Solved s'' =>
             let '(shere,cs') := fromExs s'' in
             (** Here I can drop anything that is already instantiated. **)
-            More_ cs' (GExs ts shere GSolved)
+            if amap_is_full (length ts) shere then
+              Solved cs'
+            else
+              (** TODO(gmalecha): I can be more aggressive here *)
+              More_ cs' (GExs ts shere GSolved)
           | More_ s'' g' =>
             let '(shere,cs') := fromExs s'' in
-            (** Here I need to drop already instantiated vars and
+            (** TODO(gmalecha)
+             ** Here I need to drop already instantiated vars and
              ** substitute through. Ideally, I should collapse as much
              ** as possible.
              **)
@@ -454,77 +459,125 @@ Section runOnGoals.
               tauto. }
             { eapply H14. eapply Pure_pctxD; eauto. } } } }
       { forward.
-        destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
-        subst.
-        simpl in *. inv_all; subst.
-(*        rewrite <- countUVars_getUVars in H4. *)
-        destruct (remembers_sound eq_refl H1 H4).
-        destruct IHg as [ ? ? ]; auto.
-        simpl in *.
-        forward.
-        progress inv_all.
-        split; auto. split.
-        { constructor; eauto.
-          eapply WellFormed_entry_WellFormed_pre_entry; eauto.
-          constructor. }
-        { forward. inv_all. subst.
-          forward_reason.
-          destruct (pctxD_remembers H4 H1 H3 H9) as [ ? [ ? ? ] ].
-          rewrite H10 in *.
+        remember (amap_is_full (length l) a0). symmetry in Heqb.
+        destruct b.
+        { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
+          simpl in *. intros; inv_all; subst.
+          destruct (remembers_sound eq_refl H1 H3).
+          destruct IHg; auto.
+          inv_all; subst.
+          split; auto.
           forward. inv_all; subst.
+          destruct (pctxD_remembers H3 H1 H4 H9) as [ ? [ ? ? ] ].
+          rewrite H10 in *.
+          forward; inv_all; subst.
           split.
-          { forward_reason. clear - H12.
+          { destruct H12. clear - H12.
             Transparent remembers. unfold remembers in H12.
             inv_all. subst. assumption.
             Opaque remembers. }
-          { destruct H12. intros.
-            specialize (H14 us vs); revert H14.
-            Transparent remembers. unfold remembers in H12.
-            Opaque remembers.
-            inv_all. subst. rewrite H3 in H12.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
+          { forward_reason. intros.
+            gather_facts.
+            Transparent remembers. unfold remembers in H12. Opaque remembers.
+            inv_all. subst. rewrite H4 in H12.
+            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H4) as [ ? [ ? ? ] ].
             change_rewrite H8 in H12.
-            specialize (@H2 _ _ _ _ H14 H9).
+            specialize (@H0 _ _ _ _ H14 H9).
             forward_reason.
             Transparent remembers. unfold remembers in *.
-            simpl in H11. simpl in H2.
+            simpl in H11. simpl in H0.
             Opaque remembers.
             simpl in *; forward; inv_all; subst.
             gather_facts.
-(*            revert H13. change_rewrite H2. *)
-(*            intros. specialize (H13 us vs).
-            revert H13.
-            eapply Ap_pctxD; eauto.
-            revert H19.
-            eapply Ap_pctxD; eauto. *)
             eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
             gather_facts.
-(*            specialize (H15 us vs); revert H15.
-            eapply Ap_pctxD; eauto. *)
             rename e2 into P.
             specialize (H11 us vs P).
+            eapply subst_getInstantiation in Heqb;
+              eauto using WellFormed_entry_WellFormed_pre_entry.
             assert (e
-                   (fun (us0 : hlist typD (getUVars ctx))
-                        (vs0 : hlist typD (getVars ctx)) =>
-                      _foralls typD l
-                               (fun us' : hlist typD l =>
-                                  e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
-            { eapply H11. eapply Pure_pctxD; eauto. }
-            { revert H0.
-              eapply Ap_pctxD; eauto.
-              clear H11.
-              eapply Pure_pctxD; eauto.
-              clear - H17.
-              intros.
-              revert H3. eapply _exists_impl.
-              intros.
-              rewrite _forall_sem in H1.
-              rewrite _forall_sem in H.
-              specialize (H2 x).
-              specialize (H x).
-              specialize (H1 x).
-              specialize (H17 us x vs).
-              tauto. } } } } }
+                        (fun (us0 : hlist typD (getUVars ctx))
+                             (vs0 : hlist typD (getVars ctx)) =>
+                           _foralls typD l
+                                    (fun us' : hlist typD l =>
+                                       e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
+              { eapply H11. eapply Pure_pctxD; eauto. }
+              { gather_facts.
+                eapply Pure_pctxD; eauto.
+                clear - H17 Heqb.
+                intros.
+                eapply _exists_sem.
+                forward_reason.
+                pose (inst := hlist_map (fun t (x : exprT _ _ (typD t)) => x us vs) x).
+                exists inst.
+                specialize (H3 us vs).
+                specialize (H17 us inst vs).
+                rewrite _forall_sem in H2.
+                rewrite _forall_sem in H.
+                specialize (H inst).
+                specialize (H1 inst).
+                specialize (H2 inst).
+                tauto. } } }
+        { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
+          subst. intros.
+          simpl in *. inv_all; subst.
+          destruct (remembers_sound eq_refl H1 H3).
+          destruct IHg as [ ? ? ]; auto.
+          simpl in *.
+          forward.
+          progress inv_all.
+          split; auto. split.
+          { constructor; eauto.
+            eapply WellFormed_entry_WellFormed_pre_entry; eauto.
+            constructor. }
+          { forward. inv_all. subst.
+            forward_reason.
+            destruct (pctxD_remembers H3 H1 H4 H9) as [ ? [ ? ? ] ].
+            rewrite H10 in *.
+            forward. inv_all; subst.
+            split.
+            { forward_reason. clear - H12.
+              Transparent remembers. unfold remembers in H12.
+              inv_all. subst. assumption.
+              Opaque remembers. }
+            { destruct H12. intros.
+              specialize (H14 us vs); revert H14.
+              Transparent remembers. unfold remembers in H12.
+              Opaque remembers.
+              inv_all. subst. rewrite H4 in H12.
+              destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H4) as [ ? [ ? ? ] ].
+              change_rewrite H8 in H12.
+              specialize (@H0 _ _ _ _ H14 H9).
+              forward_reason.
+              Transparent remembers. unfold remembers in *.
+              simpl in H11. simpl in H0.
+              Opaque remembers.
+              simpl in *; forward; inv_all; subst.
+              gather_facts.
+              eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
+              gather_facts.
+              rename e2 into P.
+              specialize (H11 us vs P).
+              assert (e
+                        (fun (us0 : hlist typD (getUVars ctx))
+                             (vs0 : hlist typD (getVars ctx)) =>
+                           _foralls typD l
+                                    (fun us' : hlist typD l =>
+                                       e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
+              { eapply H11. eapply Pure_pctxD; eauto. }
+              { gather_facts.
+                eapply Pure_pctxD; eauto.
+                clear - H17.
+                intros.
+                revert H3. eapply _exists_impl.
+                intros.
+                rewrite _forall_sem in H1.
+                rewrite _forall_sem in H.
+                specialize (H2 x).
+                specialize (H x).
+                specialize (H1 x).
+                specialize (H17 us x vs).
+                tauto. } } } } } }
     { (* Hyp *)
       simpl; intros.
       specialize (IHg (CHyp ctx e) (HypSubst s)).
