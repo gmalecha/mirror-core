@@ -12,6 +12,12 @@ module Std = Plugin_utils.Coqstd.Std
     let contrib_name = contrib_name
    end)
 
+let rec pr_constrs sep ks =
+  match ks with
+    [] -> Pp.(str) ""
+  | [k] -> Printer.pr_constr k
+  | k :: ks -> Pp.(Printer.pr_constr k ++ sep ++ pr_constrs sep ks)
+
 module type REIFICATION =
 sig
   type map_sort =
@@ -738,17 +744,11 @@ struct
 	    let build x =
 	      Term.mkApp (ctor, [| Std.Positive.to_positive x |])
 	    in
-	    let rec pr_constrs sep ks =
-	      match ks with
-		[] -> Pp.(str) ""
-	      | [k] -> Printer.pr_constr k
-	      | k :: ks -> Pp.(Printer.pr_constr k ++ sep ++ pr_constrs sep ks)
-	    in
 	    fun trm renv ->
 	      let tbl =
 		let tbls = !(renv.typed_tables) in
 		try
-		  Cmap.find tbl_name !(renv.typed_tables)
+		  Cmap.find tbl_name tbls
 		with
 		  Not_found ->
 		    let all_tables = List.map fst (Cmap.bindings tbls) in
@@ -758,14 +758,15 @@ struct
 			     ++ (Printer.pr_constr tbl_name)
 			     ++ (str "'. This will not be returned.\n")
 			     ++ (str "(available tables are: ")
-			     ++ pr_constrs (str " , ") all_tables))
+			     ++ (pr_constrs (str " , ") all_tables)
+			     ++ (str ")")))
 		    in
 		    { mappings = Cmap.empty
 		    ; next = 1 }
 	      in
 	      let full_term = get_term trm in
 	      try
-	            (** fast path something already in the table **)
+		(** fast path something already in the table **)
 		build (fst (Cmap.find full_term tbl.mappings))
 	      with
 		Not_found ->
@@ -789,16 +790,21 @@ struct
 	      Term.mkApp (ctor, [| Std.Positive.to_positive x |])
 	    in
 	    fun trm renv ->
+	      let tbls = !(renv.typed_tables) in
 	      let tbl =
 		try
-		  Cmap.find tbl_name !(renv.typed_tables)
+		  Cmap.find tbl_name tbls
 		with
 		  Not_found ->
+		    let all_tables = List.map fst (Cmap.bindings tbls) in
 		    let _ =
 		      Pp.(msg_warning
 			    (   (str "Implicitly adding table '")
-				++ (Printer.pr_constr tbl_name)
-				++ (str "'. This will not be returned.")))
+			     ++ (Printer.pr_constr tbl_name)
+			     ++ (str "'. This will not be returned.\n")
+			     ++ (str "(available tables are: ")
+			     ++ (pr_constrs (str " , ") all_tables)
+			     ++ (str ")")))
 		    in
 		    { mappings = Cmap.empty
 		    ; next = 1 }
@@ -807,7 +813,7 @@ struct
 	      let type_of = Typing.type_of renv.env renv.evm full_term in
 	      let rtyp = reify_term type_name (Term type_of) renv in
 	      try
-	            (** fast path something already in the table **)
+                (** fast path something already in the table **)
 		let x = Cmap.find full_term tbl.mappings in
 		build (fst x)
 	      with
