@@ -56,34 +56,35 @@ Section parameterized.
 
   Section minify.
     Variable base : nat.
+    Variables (c : Ctx typ expr)
+              (cs : ctx_subst c).
     Fixpoint minify_goal (es : list (option expr))
-             (nus : nat) (c : Ctx typ expr)
-             (cs : ctx_subst c) (g : Goal typ expr)
+             (nus : nat)  (g : Goal typ expr)
     : Goal typ expr :=
       match g with
         | GAll t g' =>
-          GAll t (minify_goal es nus cs g')
+          GAll t (minify_goal es nus g')
         | GExs ts m g' =>
           let len_ts := length ts in
           let mlist := amap_aslist m nus len_ts in
-          let mlist :=
+          let mlist_inst :=
               List.map (Functor.fmap
-                          (instantiate (lookup_compress (es ++ mlist) base)
+                          (instantiate (do_instantiate cs base (es ++ mlist))
                                        0)) mlist in
-          let tes := combine ts mlist in
+          let tes := combine ts mlist_inst in
           let tes' := filter (fun x => match snd x with
                                          | None => true
                                          | Some _ => false
                                        end) tes in
-          let (ts',m') := split tes' in
+          let (ts',_) := split tes' in
           GExs_nil_check ts' (amap_empty _)
-                         (minify_goal (es ++ mlist) (len_ts + nus) cs g')
+                         (minify_goal (es ++ mlist_inst) (len_ts + nus) g')
         | GHyp e g' =>
           GHyp (instantiate (do_instantiate cs base es) 0 e)
-               (minify_goal es nus cs g')
+               (minify_goal es nus g')
         | GConj_ g1 g2 =>
-          GConj (minify_goal es nus cs g1)
-                (minify_goal es nus cs g2)
+          GConj (minify_goal es nus g1)
+                (minify_goal es nus g2)
         | GGoal e =>
           GGoal (instantiate (do_instantiate cs base es) 0 e)
         | GSolved => GSolved
@@ -92,6 +93,19 @@ Section parameterized.
 
   Definition MINIFY : rtacK typ expr :=
     fun tus tvs nus nvs c cs g =>
-      More cs (@minify_goal nus nil nus c cs g).
+      More cs (@minify_goal nus c cs nil nus g).
+(*
+  Definition force_add (u : uvar) (e : expr) (m : amap expr) : amap expr :=
+    UVarMap.MAP.add u e m.
+
+  Axiom t1 t2 t3 : typ.
+  Axiom e1 e2 e3 eg : expr.
+  Axiom c : Ctx typ expr.
+  Axiom cs : ctx_subst c.
+  Eval cbv beta iota zeta delta - [ instantiate do_instantiate ]
+    in minify_goal 3 cs (None :: Some e1 :: nil) 5
+                   (GExs (t1 :: t2 :: nil)
+                         (force_add 6 e2 (amap_empty _)) (GGoal eg)).
+*)
 
 End parameterized.
