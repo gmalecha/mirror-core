@@ -2,6 +2,7 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
@@ -160,7 +161,6 @@ Section reducer.
     forall (vars : list (option (expr typ sym)))
            (e : expr typ sym)
            (args : list (expr typ sym)), expr typ sym.
-  Require Import MirrorCore.SubstI.
 
   Fixpoint applys {ts : tenv typ} {t : typ}
            (xs : hlist typD ts) : typD (fold_right (@typ2 _ _ Fun _) t ts) -> typD t :=
@@ -175,9 +175,6 @@ Section reducer.
   Definition full_reducer_ok (red : full_reducer) : Prop :=
     forall e var_terms tus tvs tus' tvs' P,
       @var_termsP tus tvs tus' tvs' var_terms P ->
-      (** TODO: This is wrong, the [es] have already been converted to
-       ** [tus',tvs']
-       **)
       forall es t targs fD esD,
       let arrow_type := fold_right (@typ2 _ _ Fun _) t targs in
       exprD' tus tvs arrow_type e = Some fD ->
@@ -237,6 +234,47 @@ Section reducer.
 
   Let exprD'_conv :=
     @ExprI.exprD'_conv typ RT (expr typ sym) (@Expr_expr typ sym RT _ _).
+
+  Lemma get_var_type_ok
+  : forall tus tvs tus'  tvs' var_terms P,
+      @var_termsP tus tvs tus' tvs' var_terms P ->
+      forall _tvs _tvs' v t,
+      let acc := length _tvs' in
+        typeof_expr tus  (_tvs ++ tvs) (Var (length _tvs + v)) = Some t ->
+        typeof_expr tus' (_tvs' ++ tvs') (get_var v var_terms acc) = Some t.
+  Proof.
+    induction 1; simpl; intros; auto.
+    { admit. }
+    { destruct v.
+      { simpl.
+        rewrite ListNth.nth_error_app_R in H1 by omega.
+        rewrite ListNth.nth_error_app_R by omega.
+        revert H1.
+        rewrite Plus.plus_0_r.
+        do 2 rewrite Minus.minus_diag. exact (fun x => x). }
+      { replace (length _tvs + S v)
+           with (length (_tvs ++ t :: nil) + v) in H1
+             by (rewrite app_length; simpl; omega).
+        replace (S (length _tvs'))
+           with (length (_tvs' ++ t :: nil))
+             by (rewrite app_length; simpl; omega).
+        replace (_tvs' ++ t :: tvs')
+           with ((_tvs' ++ t :: nil) ++ tvs')
+             by (rewrite app_ass; reflexivity).
+        replace (_tvs ++ t :: tvs)
+           with ((_tvs ++ t :: nil) ++ tvs) in H1
+             by (rewrite app_ass; reflexivity).
+        eapply IHvar_termsP; eauto. } }
+    { destruct v.
+      { admit. }
+      { replace (length _tvs + S v)
+           with (length (_tvs ++ t :: nil) + v) in H2
+             by (rewrite app_length; simpl; omega).
+        replace (_tvs ++ t :: tvs)
+           with ((_tvs ++ t :: nil) ++ tvs) in H2
+             by (rewrite app_ass; reflexivity).
+        eapply IHvar_termsP; eauto. } }
+  Qed.
 
   Lemma get_var_ok
   : forall tus tvs tus'  tvs' var_terms P,
@@ -394,6 +432,203 @@ Section reducer.
         eapply H1. } }
   Qed.
 
+  Section id.
+    Fixpoint idred' (vars : list (option (expr typ sym)))
+               (e : expr typ sym) : expr typ sym :=
+      match e with
+        | Inj i => Inj i
+        | UVar u => UVar u
+        | Var v => get_var v vars 0
+        | App e1 e2 => App (idred' vars e1) (idred' vars e2)
+        | Abs t e => Abs t (idred' (None :: vars) e)
+      end.
+
+    Definition idred (vars : list (option (expr typ sym)))
+               (e : expr typ sym)
+               (args : list (expr typ sym)) : expr typ sym :=
+      apps (idred' vars e) args.
+
+    Lemma idred'_type_ok
+    : forall e var_terms tus tvs tus' tvs' P,
+        @var_termsP tus tvs tus' tvs' var_terms P ->
+        forall t,
+          typeof_expr tus tvs e = Some t ->
+          typeof_expr tus' tvs' (idred' var_terms e) = Some t.
+    Proof.
+      induction e; simpl; intros; eauto.
+      { eapply get_var_type_ok with (_tvs' := nil) (_tvs := nil); eauto. }
+      { forward.
+        erewrite IHe1 by eauto.
+        erewrite IHe2 by eauto. eauto. }
+      { forward. inv_all; subst.
+        erewrite IHe; eauto.
+        econstructor. eassumption.
+        instantiate (1 := fun us vs us' vs' =>
+                            hlist_hd vs = hlist_hd vs' /\
+                            P us (hlist_tl vs) us' (hlist_tl vs')).
+        auto. }
+      { revert H0. clear - H.
+        (** This is because [var_termsP] also mentions unification
+         ** variables when it actually does not need to
+         **)
+        induction H; simpl; intros; eauto. }
+    Qed.
+
+    Lemma idred'_ok
+    : forall e var_terms tus tvs tus' tvs' P,
+        @var_termsP tus tvs tus' tvs' var_terms P ->
+        forall t fD,
+          exprD' tus tvs t e = Some fD ->
+          exists val',
+            exprD' tus' tvs' t (idred' var_terms e) = Some val' /\
+            forall us vs us' vs',
+              P us vs us' vs' ->
+              fD us vs = val' us' vs'.
+    Proof.
+      induction e; simpl; intros.
+      { admit. }
+      { revert H0.
+        autorewrite with exprD_rw. simpl.
+        intros; forward; inv_all; subst.
+        eexists; split; eauto. }
+      { revert H0. autorewrite with exprD_rw; simpl.
+        forward; inv_all; subst.
+        specialize (@IHe1 var_terms tus tvs tus' tvs' P H (typ2 t0 t) _ H1).
+        specialize (@IHe2 var_terms tus tvs tus' tvs' P H t0 _ H2).
+        forward_reason.
+        erewrite idred'_type_ok; eauto.
+        Cases.rewrite_all_goal.
+        eexists; split; eauto.
+        intros.
+        specialize (H6 _ _ _ _ H7).
+        specialize (H5 _ _ _ _ H7).
+        unfold exprT_App.
+        autorewrite with eq_rw.
+        destruct H6; destruct H5; reflexivity. }
+      { revert H0.
+        autorewrite with exprD_rw; simpl; intros.
+        arrow_case_any; try congruence.
+        clear H1.
+        red in x1; subst.
+        simpl in *.
+        revert H0.
+        autorewrite with eq_rw.
+        intros; forward; inv_all; subst.
+        eapply IHe with (P:=fun us vs us' vs' =>
+                            hlist_hd vs = hlist_hd vs' /\
+                            P us (hlist_tl vs) us' (hlist_tl vs')) in H2.
+        - destruct H2 as [ ? [ ? ? ] ].
+          rewrite H1. eexists; split; eauto.
+          intros.
+          autorewrite with eq_rw.
+          destruct (eq_sym (typ2_cast x x0)).
+          eapply functional_extensionality; intro.
+          eapply H2; eauto.
+        - econstructor; eauto. }
+      { admit. }
+    Qed.
+
+    Lemma idred_ok : full_reducer_ok idred.
+    Proof.
+      unfold idred. red.
+      admit.
+    Qed.
+
+  End id.
+
+  Section delta_list.
+    Variable orelse : full_reducer.
+    Variable delta : sym -> option (expr typ sym).
+
+    Definition delta_all (vars : list (option (expr typ sym)))
+               (e : expr typ sym)
+               (args : list (expr typ sym)) : expr typ sym :=
+      match e with
+        | Inj i => match delta i with
+                     | None => apps (Inj i) args
+                     | Some e => orelse vars e args
+                   end
+        | e => orelse vars e args
+      end.
+
+    Hypothesis orelse_ok : full_reducer_ok orelse.
+    Hypothesis delta_ok
+    : forall i e,
+        delta i = Some e ->
+        forall t eD,
+          exprD' nil nil t (Inj i) = Some eD ->
+          exists eD',
+            exprD' nil nil t e = Some eD' /\
+            eD Hnil Hnil = eD' Hnil Hnil.
+    Theorem delta_all_ok : full_reducer_ok delta_all.
+    Proof.
+      red. destruct e; eauto.
+      specialize (@delta_ok s).
+      simpl.
+      destruct (delta s).
+      - intros.
+        specialize (@delta_ok _ eq_refl (fold_right (typ2 (F:=Fun)) t targs)).
+        revert delta_ok. revert H0.
+        autorewrite with exprD_rw; simpl; intros.
+        forward. 
+        specialize (@delta_ok _ eq_refl).
+        destruct delta_ok. destruct H3. subst.
+        clear delta_ok.
+        inv_all; subst. clear H0.
+        eapply ExprFacts.exprD'_weaken in H3; eauto.
+        revert H3. instantiate (1 := tvs). instantiate (1 := tus).
+        simpl. intros.
+        forward_reason.
+        eapply orelse_ok in H0; eauto.
+        eapply H0 in H1; clear H0.
+        forward_reason; eexists; split; eauto.
+        intros. erewrite <- H1; eauto.
+        f_equal.
+        specialize (H2 Hnil Hnil us vs). assumption.
+      - intros.
+        rewrite exprD'_apps; eauto.
+        unfold apps_sem'.
+        cutrewrite (typeof_expr tus' tvs' (Inj s) =
+                    Some (fold_right (typ2 (F:=Fun)) t targs)).
+        + revert H0.
+          autorewrite with exprD_rw. simpl.
+          intro; forward; inv_all; subst.
+          change
+            (exists val' : ExprI.exprT tus' tvs' (typD t),
+               apply_sem' T2 RS (fold_right (typ2 (F:=Fun)) t targs)
+                          (fun (us : hlist typD tus') (vs : hlist typD tvs') =>
+                             (fun (_ : hlist typD tus') (_ : hlist typD tvs') => t0) us vs) es t =
+               Some val' /\
+               (forall (us : hlist typD tus) (vs : hlist typD tvs)
+                       (us' : hlist typD tus') (vs' : hlist typD tvs'),
+                  P us vs us' vs' ->
+                  applys
+                    (hlist_map
+                       (fun (t1 : typ) (x : ExprI.exprT tus' tvs' (typD t1)) => x us' vs')
+                       esD) ((fun (_ : hlist typD tus') (_ : hlist typD tvs') => t0) us' vs') = val' us' vs')).
+          generalize (fun (_ : hlist typD tus') (_ : hlist typD tvs') => t0).
+          revert H1. clear H0 H t0.
+          revert es.
+          induction targs; destruct es; simpl in *; try congruence;
+          intros; inv_all; subst.
+          * rewrite type_cast_refl; eauto.
+          * rewrite typ2_match_zeta; simpl; eauto.
+            forward; inv_all; subst.
+            autorewrite with eq_rw.
+            simpl.
+            eapply IHtargs in H; eauto.
+            forward_reason.
+            rewrite H. eexists; split; eauto.
+            simpl in *. intros. eapply H1 in H2; clear H1; eauto.
+            clear - H2.
+            generalize dependent (typ2_cast a (fold_right (typ2 (F:=Fun)) t targs)).
+            revert t0.
+            generalize (typD (typ2 a (fold_right (typ2 (F:=Fun)) t targs))).
+            intros; subst. assumption.
+        + eapply exprD_typeof_Some in H0; eauto.
+    Qed.
+  End delta_list.
+
   Section beta_all.
     Variable rec : full_reducer.
 
@@ -412,7 +647,8 @@ Section reducer.
         | Var v =>
           (** [get_var] has already done the conversion! **)
           rec nil (get_var v vars 0) args
-        | e => rec vars e args
+        | UVar u => rec vars (UVar u) args
+        | Inj i => rec vars (Inj i) args
       end.
 
     Hypothesis rec_sound : full_reducer_ok rec.
@@ -540,6 +776,27 @@ Section reducer.
     Qed.
 
   End beta_all.
+
+  Section interleave.
+    Variables f g : full_reducer -> full_reducer.
+
+    Fixpoint interleave (n : nat) : full_reducer :=
+      match n with
+        | 0 => idred
+        | S n => fun x => f (fun x => g (fun x => interleave n x) x) x
+      end.
+
+
+    Hypothesis f_ok : forall x, full_reducer_ok x -> full_reducer_ok (f x).
+    Hypothesis g_ok : forall x, full_reducer_ok x -> full_reducer_ok (g x).
+
+    Theorem interleave_ok : forall n, full_reducer_ok (interleave n).
+    Proof.
+      induction n; simpl; intros.
+      - eapply idred_ok.
+      - eapply f_ok. eapply g_ok. eapply IHn.
+    Qed.
+  End interleave.
 
 End reducer.
 
