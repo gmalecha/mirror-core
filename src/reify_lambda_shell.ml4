@@ -738,17 +738,27 @@ struct
 	    let build x =
 	      Term.mkApp (ctor, [| Std.Positive.to_positive x |])
 	    in
+	    let rec pr_constrs sep ks =
+	      match ks with
+		[] -> Pp.(str) ""
+	      | [k] -> Printer.pr_constr k
+	      | k :: ks -> Pp.(Printer.pr_constr k ++ sep ++ pr_constrs sep ks)
+	    in
 	    fun trm renv ->
 	      let tbl =
+		let tbls = !(renv.typed_tables) in
 		try
 		  Cmap.find tbl_name !(renv.typed_tables)
 		with
 		  Not_found ->
+		    let all_tables = List.map fst (Cmap.bindings tbls) in
 		    let _ =
 		      Pp.(msg_warning
 			    (   (str "Implicitly adding table '")
-				++ (Printer.pr_constr tbl_name)
-				++ (str "'. This will not be returned.")))
+			     ++ (Printer.pr_constr tbl_name)
+			     ++ (str "'. This will not be returned.\n")
+			     ++ (str "(available tables are: ")
+			     ++ pr_constrs (str " , ") all_tables))
 		    in
 		    { mappings = Cmap.empty
 		    ; next = 1 }
