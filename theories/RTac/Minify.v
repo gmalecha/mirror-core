@@ -68,7 +68,7 @@ Section parameterized.
           let mlist := amap_aslist m nus len_ts in
           let mlist :=
               List.map (Functor.fmap
-                          (instantiate (lookup_compress (es ++ mlist) nus)
+                          (instantiate (lookup_compress (es ++ mlist) base)
                                        0)) mlist in
           let tes := combine ts mlist in
           let tes' := filter (fun x => match snd x with
@@ -92,6 +92,6 @@ Section parameterized.
 
   Definition MINIFY : rtacK typ expr :=
     fun tus tvs nus nvs c cs g =>
-      More_ cs (@minify_goal nus nil nus c cs g).
+      More cs (@minify_goal nus nil nus c cs g).
 
 End parameterized.
