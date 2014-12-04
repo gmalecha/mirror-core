@@ -121,4 +121,19 @@ Section parametric.
     { simpl. eapply EqNat.beq_nat_true_iff. }
   Qed.
 
+  Global Instance MentionsAny_expr : MentionsAny (expr typ func) :=
+  { mentionsAny := @ExprCore.mentionsAny typ func }.
+
+  Global Instance MentionsAnyOk_expr
+  : @MentionsAnyOk _ MentionsAny_expr ExprVar_expr ExprUVar_expr.
+  Proof.
+    constructor.
+    { apply ExprD.Proper_mentionsAny. }
+    { eapply ExprCore.mentionsAny_weaken. }
+    { intros. eapply ExprCore.mentionsAny_factor. }
+    { intros; eapply ExprCore.mentionsAny_complete. }
+    { eapply _mentionsU_mentionsU. }
+    { intros; eapply _mentionsV_mentionsV. }
+  Qed.
+
 End parametric.
