@@ -14,6 +14,11 @@ Require Import FunctionalExtensionality.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Lemma eq_sym_eq_sym : forall (T : Type) (a b : T) (pf : a = b),
+                        eq_sym (eq_sym pf) = pf.
+Proof. clear. destruct pf. reflexivity. Qed.
+
+
 Section reducer.
   Context {sym : Type}.
   Context {typ : Type}.
@@ -244,7 +249,11 @@ Section reducer.
         typeof_expr tus' (_tvs' ++ tvs') (get_var v var_terms acc) = Some t.
   Proof.
     induction 1; simpl; intros; auto.
-    { admit. }
+    { rewrite ListNth.nth_error_app_R in H0 by omega.
+      rewrite ListNth.nth_error_app_R by omega.
+      cutrewrite (length _tvs + v - length _tvs = v) in H0; [ | omega ].
+      cutrewrite (length _tvs' + v - length _tvs' = v); [ | omega ].
+      assumption. }
     { destruct v.
       { simpl.
         rewrite ListNth.nth_error_app_R in H1 by omega.
@@ -266,7 +275,13 @@ Section reducer.
              by (rewrite app_ass; reflexivity).
         eapply IHvar_termsP; eauto. } }
     { destruct v.
-      { admit. }
+      { eapply exprD_typeof_Some in H0; eauto.
+        rewrite ListNth.nth_error_app_R in H2 by omega; eauto.
+        cutrewrite (length _tvs + 0 - length _tvs = 0) in H2; [ | omega ].
+        simpl in H2. inversion H2; clear H2; subst.
+        change 0 with (length (@nil typ)).
+        change (_tvs' ++ tvs') with (nil ++ _tvs' ++ tvs').
+        rewrite typeof_expr_lift. assumption. }
       { replace (length _tvs + S v)
            with (length (_tvs ++ t :: nil) + v) in H2
              by (rewrite app_length; simpl; omega).
@@ -486,7 +501,12 @@ Section reducer.
               fD us vs = val' us' vs'.
     Proof.
       induction e; simpl; intros.
-      { admit. }
+      { change v with (0 + v) in H0.
+        change tvs with (nil ++ tvs) in H0.
+        eapply get_var_ok in H0; eauto.
+        revert H0. instantiate (1 := nil). simpl.
+        intros. forward_reason. eexists; split; eauto.
+        intros. apply (H1 us Hnil vs us' Hnil vs' H2). }
       { revert H0.
         autorewrite with exprD_rw. simpl.
         intros; forward; inv_all; subst.
@@ -525,13 +545,72 @@ Section reducer.
           eapply functional_extensionality; intro.
           eapply H2; eauto.
         - econstructor; eauto. }
-      { admit. }
+      { 
+        Lemma var_termsP_tus_same
+        : forall tus tvs tus' tvs' vts P,
+            @var_termsP tus tvs tus' tvs' vts P ->
+            tus = tus'.
+        Proof.
+          clear. induction 1; auto.
+        Qed.
+        revert H0. autorewrite with exprD_rw. simpl.
+        intros; forward; inv_all; subst.
+        revert H1. destruct r.
+        induction H.
+        { intro. rewrite H1. rewrite H2.
+          eexists; split; eauto. simpl.
+          intros. eapply H in H0. destruct H0; subst.
+          reflexivity. }
+        { intro. eapply IHvar_termsP in H1.
+          forward_reason. forward.
+          inv_all; subst.
+          eexists; split; eauto.
+          intros. eapply H0 in H1.
+          destruct H1. eapply H3 in H6. auto. }
+        { intro. eapply IHvar_termsP in H3.
+          forward_reason. forward.
+          inv_all; subst.
+          eexists; split; eauto.
+          intros. eapply H1 in H3.
+          destruct H3. eapply H4 in H3. auto. } }
     Qed.
 
     Lemma idred_ok : full_reducer_ok idred.
     Proof.
       unfold idred. red.
-      admit.
+      intros.
+      eapply idred'_ok in H0; eauto.
+      forward_reason.
+      rewrite exprD'_apps by eauto.
+      unfold apps_sem'.
+      generalize H0.
+      eapply exprD_typeof_Some in H0; eauto.
+      rewrite H0. intro. rewrite H3.
+      clear H3.
+      cut (exists val' : ExprI.exprT tus' tvs' (typD t),
+             apply_sem' T2 RS (fold_right (typ2 (F:=Fun)) t targs) x es t = Some val' /\
+             (forall (us : hlist typD tus) (vs : hlist typD tvs)
+                     (us' : hlist typD tus') (vs' : hlist typD tvs'),
+                P us vs us' vs' ->
+                applys
+                  (hlist_map
+                     (fun (t0 : typ) (x0 : ExprI.exprT tus' tvs' (typD t0)) =>
+                        x0 us' vs') esD) (x us' vs') = val' us' vs')).
+      { intros; forward_reason; eexists; split; eauto.
+        intros. erewrite H2; eauto. }
+      { clear - H1 T2Ok RTOk. revert H1 x. revert t esD.
+        revert es; induction targs; destruct es; simpl; try congruence; intros.
+        - inv_all; subst. rewrite type_cast_refl; eauto.
+        - forward; inv_all; subst.
+          rewrite typ2_match_zeta; eauto.
+          rewrite H0.
+          autorewrite with eq_rw.
+          eapply IHtargs in H; eauto.
+          destruct H as [ ? [ ? ? ] ].
+          eexists; split; eauto.
+          intros. eapply H1 in H2.
+          simpl.
+          rewrite eq_sym_eq_sym in H2. eauto. }
     Qed.
 
   End id.
