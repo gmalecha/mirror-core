@@ -5,7 +5,7 @@ open Reify_gen
 open Reify_ext
 open Plugin_utils
 
-let contrib_name = "MirrorCore.Reify.Lambda"
+let contrib_name = "MirrorCore.Reify"
 
 module Std = Plugin_utils.Coqstd.Std
   (struct
@@ -38,8 +38,8 @@ sig
   val parse_tables : Term.constr -> map_type list
 
   (** Tables **)
-  val declare_table : Names.identifier -> Term.constr -> unit
-  val declare_typed_table : Names.identifier -> Term.constr -> Term.constr -> unit
+  val declare_table : Names.identifier -> Term.constr -> bool
+  val declare_typed_table : Names.identifier -> Term.constr -> Term.constr -> bool
   val seed_table    : Term.constr -> int -> Term.constr -> bool
   val seed_typed_table    : Term.constr -> int -> Term.constr -> Term.constr -> bool
 
@@ -232,23 +232,31 @@ struct
 
     let declare_table (ls : Term.constr) (kt : key_type) =
       if Cmap.mem ls !the_seed_table then
-	Pp.(msg_warning (   (str "Table '")
-			 ++ (Printer.pr_constr ls)
-			 ++ (str "' already exists.")))
+	let _ =
+	  Pp.(msg_warning (   (str "Table '")
+			   ++ (Printer.pr_constr ls)
+			   ++ (str "' already exists.")))
+	in false
       else
-	the_seed_table := Cmap.add ls { mappings = Cmap.empty
-				      ; next = 1
-				      } !the_seed_table
+	let _ =
+	  the_seed_table := Cmap.add ls { mappings = Cmap.empty
+					; next = 1
+					} !the_seed_table
+	in true
 
     let declare_typed_table (ls : Term.constr) (kt : key_type) =
       if Cmap.mem ls !the_seed_table then
-	Pp.(msg_warning (   (str "Table '")
-			 ++ (Printer.pr_constr ls)
-			 ++ (str "' already exists.")))
+	let _ =
+	  Pp.(msg_warning (   (str "Table '")
+			   ++ (Printer.pr_constr ls)
+			   ++ (str "' already exists.")))
+	in false
       else
-	the_seed_table := Cmap.add ls { mappings = Cmap.empty
-				      ; next = 1
-				      } !the_seed_table
+	let _ =
+	  the_seed_table := Cmap.add ls { mappings = Cmap.empty
+					; next = 1
+					} !the_seed_table
+	in true
 
   end
 
@@ -952,6 +960,40 @@ struct
   let typed_table_type = Std.resolve_symbol pattern_mod "typed_table"
   let typed_table_value = Std.resolve_symbol pattern_mod "a_typed_table"
 
+  let new_table
+      : Term.constr * Tables.key_type -> Libobject.obj =
+    Libobject.(declare_object
+		 { (default_object "REIFY_NEW_TABLE") with
+		   cache_function = (fun (_,_) ->
+		     (** TODO: I don't know what to do here. **)
+		     ())
+		 ; load_function = fun i (obj_name,value) ->
+		     (** TODO: What do I do about [i] and [obj_name]? **)
+		     let (name,typ) = value in
+		     if Tables.declare_table name typ then
+		       ()
+		     else
+		       Printf.fprintf stderr "error declaring table"
+		 })
+
+
+  let new_table_entry
+      : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
+    Libobject.(declare_object
+		 { (default_object "REIFY_NEW_TABLE_ENTRY") with
+		   cache_function = (fun (_,_) ->
+		     (** TODO: I don't know what to do here. **)
+		     ())
+		 ; load_function = fun i (obj_name,value) ->
+		     (** TODO: What do I do about [i] and [obj_name]? **)
+		     let (tbl_name, key, (ty,value)) = value in
+		     if Tables.seed_table tbl_name key ty value then
+		       ()
+		     else
+		       Printf.fprintf stderr "non-existant table"
+		 })
+
+
   let declare_table id key =
     let key_type =
       if Term.eq_constr key (Lazy.force Std.Nat.nat_type) then Tables.Nat
@@ -962,7 +1004,10 @@ struct
     let obj = decl_constant ~typ:(Term.mkApp (table_type, key_ary))
       id (Term.mkApp (table_value, key_ary))
     in
-    Tables.declare_table obj key_type
+    if Tables.declare_table obj key_type then
+      let _ = Lib.add_anonymous_leaf (new_table (obj, key_type))
+      in true
+    else false
 
   let declare_typed_table id key typ =
     let key_type =
@@ -974,14 +1019,28 @@ struct
     let obj = decl_constant ~typ:(Term.mkApp (typed_table_type, key_ary))
       id (Term.mkApp (typed_table_value, key_ary))
     in
-    Tables.declare_table obj key_type
+    if Tables.declare_table obj key_type then
+      let _ = Lib.add_anonymous_leaf (new_table (obj, key_type)) in
+      true
+    else false
 
 
   let seed_table name key value =
-    Tables.seed_table name key (Lazy.force Std.Unit.tt) value
+    let ty = Lazy.force Std.Unit.tt in
+    if Tables.seed_table name key ty value then
+      let _ =
+	Lib.add_anonymous_leaf (new_table_entry (name, key, (ty, value)))
+      in true
+    else
+      false
 
   let seed_typed_table name key ty value =
-    Tables.seed_table name key ty value
+    if Tables.seed_table name key ty value then
+      let _ =
+	Lib.add_anonymous_leaf (new_table_entry (name, key, (ty, value)))
+      in true
+    else
+      false
 
 
   let pattern_table_object : Term.constr -> Libobject.obj =
@@ -1118,13 +1177,19 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
       let key       = Constrintern.interp_constr evm env key in
-      Reification.declare_table name key
+      if Reification.declare_table name key then
+	()
+      else
+	() (** TODO(gmalecha): message? **)
     ]
   | [ "Reify" "Declare" "Typed" "Table" ident(name) ":" constr(key) "=>" constr(typ) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
       let key       = Constrintern.interp_constr evm env key in
       let typ       = Constrintern.interp_constr evm env typ in
-      Reification.declare_typed_table name key typ
+      if Reification.declare_typed_table name key typ then
+	()
+      else
+	() (** TODO(gmalecha): message? **)
     ]
 END;;
 

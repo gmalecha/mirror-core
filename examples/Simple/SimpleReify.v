@@ -103,3 +103,11 @@ Definition test_fail : expr typ func.
   reify (id nat 0).
 Defined.
 Print test_fail.
+
+Definition foo : nat := 6.
+Reify Seed Typed Table table_terms += 1 => [ Simple.tyNat , foo ].
+
+Definition test_table : expr typ func.
+  reify (foo).
+Defined.
+Print test_table.

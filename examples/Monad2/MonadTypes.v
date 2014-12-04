@@ -172,6 +172,9 @@ Section types.
   { induction x; simpl; intros; auto; Cases.rewrite_all_goal; auto.
     rewrite positive_eq_odec_refl. reflexivity. }
   { admit. }
+  { red. unfold equiv, complement.
+    change (forall x y : typ, {x = y} + {x <> y}).
+    decide equality. decide equality. }
   Qed.
 
 End types.
