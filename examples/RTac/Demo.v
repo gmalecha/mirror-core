@@ -12,40 +12,35 @@ Definition subst :=
 Local Instance Subst_subst : SubstI.Subst subst (expr typ func)
   := FMapSubst.SUBST.Subst_subst _.
 Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func)
-  := FMapSubst.SUBST.SubstUpdate_subst _.
-eapply instantiate.
-Defined.
+  := @FMapSubst.SUBST.SubstUpdate_subst _ _.
 
 
 Definition open (e : expr typ func)
-: option (OpenAs typ (expr typ func)) :=
+: option (@OpenAs typ (expr typ func)) :=
   match e with
     | App (Inj (All t)) e =>
       Some (AsAl t (fun x => beta (App e x)))
     | App (App (Inj Impl) P) Q =>
-      Some (AsHy _ P Q)
+      Some (AsHy P Q)
     | _ => None
   end.
 
-Let INTRO :=
-  INTRO (subst:=subst) (@Var typ func) (@UVar _ _) open.
+Let INTRO : rtac typ (expr typ func) := @INTRO _ _ _ _ open.
 
-Let APPLY := @APPLY typ (expr typ func) subst _ _ _ _
-                    UVar
-                    (@vars_to_uvars _ _)
-                    (fun _ _ _ tus tvs n l r t s =>
-                       @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
-                    (@instantiate _ _).
+Let APPLY
+: Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
+  @APPLY typ (expr typ func) _ _ _ _
+         (@vars_to_uvars _ _)
+         (fun _ _ _ => @exprUnify _ _ _ _ _ _ _ _ 10).
 
-Let EAPPLY := @EAPPLY typ (expr typ func) subst _ _ _ _
-                      UVar
-                      (@vars_to_uvars _ _)
-                      (fun _ _ _ tus tvs n l r t s =>
-                         @exprUnify _ _ _ _ _ _ _ _ 10 tus tvs n s l r t)
-                      (@instantiate _ _).
+Let EAPPLY
+: Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
+  @EAPPLY typ (expr typ func) _ _ _ _
+         (@vars_to_uvars _ _)
+         (fun _ _ _ => @exprUnify _ _ _ _ _ _ _ _ 10).
 
-Let ASSUMPTION : rtac typ (expr typ func) subst :=
-  ASSUMPTION (fun _ _ _ x y s => if x ?[ eq ] y then Some s else None).
+Let ASSUMPTION : rtac typ (expr typ func) :=
+  EASSUMPTION (fun _ _ _ _ x y s => if x ?[ eq ] y then Some s else None).
 
 Definition fAll (t : typ) (P : expr typ func) : expr typ func :=
   App (Inj (All t)) (Abs t P).
@@ -57,13 +52,17 @@ Definition fAnd (P Q : expr typ func) : expr typ func :=
   App (App (Inj And) P) Q.
 
 
-Definition tac : rtac typ (expr typ func) subst :=
+Definition tac : rtac typ (expr typ func) :=
   THEN (REPEAT 10 INTRO)
        (runOnGoals (TRY ASSUMPTION)).
 
-Definition runRTac_empty_goal (tac : rtac typ (expr typ func) subst)
+Check @runOnGoals.
+
+Definition runRTac_empty_goal (tac : rtac typ (expr typ func))
            (goal : expr typ func)  :=
-  @runRTac _ _ _ _ _ tac CTop (@empty _ _ _) (@GGoal typ (expr typ func) goal).
+  THENK (@runOnGoals _ _ _ tac) (@MINIFY _ _ _)
+        nil nil 0 0 (@TopSubst _ _ nil nil)
+        (@GGoal typ (expr typ func) goal).
 
 Definition simple_goal : expr typ func :=
   fAll tyProp (fImpl (Var 0) (Var 0)).
@@ -87,6 +86,12 @@ Definition and_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
  ; Lemma.concl := App (App (Inj And) (Var 0)) (Var 1)
  |}.
 
+Let to_rtacK : rtac typ (expr typ func) -> rtacK typ (expr typ func) :=
+  runOnGoals.
+
+(** TODO: How to do a coercion? **)
+Local Coercion to_rtacK : rtac >-> rtacK.
+
 Eval compute in
     let goal :=
         fAll tyProp (fAll tyProp
@@ -95,8 +100,8 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (THEN (APPLY and_lem)
-                                   (FIRST (FAIL :: ASSUMPTION :: nil))))
+                             (to_rtacK (THEN (APPLY and_lem)
+                                   (to_rtacK (FIRST (ASSUMPTION :: IDTAC :: nil))))))
                        goal.
 
 Eval compute in
@@ -107,7 +112,7 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (EAPPLY and_lem)) goal.
+                             (to_rtacK (EAPPLY and_lem))) goal.
 
 Definition random_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
 {| Lemma.vars := tyProp :: tyNat :: tyBool :: tyNat :: nil
@@ -123,4 +128,4 @@ Eval compute in
                                         (fAnd (Var 0) (Var 1)))))
     in
     runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (EAPPLY random_lem)) goal.
+                             (to_rtacK (EAPPLY random_lem))) goal.
