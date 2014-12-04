@@ -578,7 +578,9 @@ Module Make (FM : WS with Definition E.t := uvar
      ; lookup_normalized := normalized_fmapsubst
      |}.
 
-    Lemma WellFormed_empty : WellFormed_subst (FM.empty expr).
+    Definition raw_empty : raw := FM.empty expr.
+
+    Lemma WellFormed_empty : WellFormed_subst raw_empty.
     Proof.
       compute. intros.
       eapply FACTS.empty_mapsto_iff. eauto.
@@ -587,14 +589,14 @@ Module Make (FM : WS with Definition E.t := uvar
     Lemma substD_empty
     : forall tus tvs : tenv typ,
       exists P : hlist typD tus -> hlist typD tvs -> Prop,
-        substD tus tvs (FM.empty _) = Some P /\
+        substD tus tvs raw_empty = Some P /\
         (forall (us : hlist typD tus) (vs : hlist typD tvs),
            P us vs).
     Proof.
       clear. simpl; intros.
       unfold raw_substD.
       rewrite FM.fold_1.
-      cutrewrite (FM.elements (FM.empty expr) = nil).
+      cutrewrite (FM.elements raw_empty = nil).
       { simpl. eexists; split; eauto. simpl. auto. }
       { apply PROPS.elements_Empty.
         eapply FM.empty_1. }
