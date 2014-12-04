@@ -1,5 +1,6 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.CoreK.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -33,6 +34,30 @@ Section parameterized.
     unfold FIRST.
     induction 1.
     { unfold rtac_sound. intros; subst; simpl; auto. }
+    { red. intros.
+      specialize (H ctx s g _ eq_refl).
+      subst. destruct (x (getUVars ctx) (getVars ctx)
+         (length (getUVars ctx)) (length (getVars ctx)) ctx s g); eauto. }
+  Qed.
+
+  Fixpoint FIRSTK (tacs : list (rtacK typ expr))
+  : rtacK typ expr :=
+    fun tus tvs nus nvs ctx s gl =>
+      match tacs with
+        | nil => Fail
+        | tac :: tacs' =>
+          match tac tus tvs nus nvs ctx s gl with
+            | Fail => @FIRSTK tacs' tus tvs nus nvs ctx s gl
+            | x => x
+          end
+      end.
+
+  Theorem FIRSTK_sound
+  : forall tacs, Forall (rtacK_sound) tacs -> rtacK_sound (FIRSTK tacs).
+  Proof.
+    unfold FIRSTK.
+    induction 1.
+    { unfold rtacK_sound. intros; subst; simpl; auto. }
     { red. intros.
       specialize (H ctx s g _ eq_refl).
       subst. destruct (x (getUVars ctx) (getVars ctx)

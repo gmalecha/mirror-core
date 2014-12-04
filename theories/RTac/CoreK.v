@@ -178,6 +178,8 @@ Section parameterized.
 
 End parameterized.
 
+Arguments rtacK_sound {typ expr _ _ _ _} tac : rename.
+
 Export MirrorCore.ExprI.
 Export MirrorCore.SubstI.
 Export MirrorCore.ExprDAs.
