@@ -211,6 +211,60 @@ Section env.
     Qed.
   End mentionsV.
 
+  Lemma mentionsAny_complete
+  : forall (pu : uvar -> bool) (e : expr) (pv : var -> bool),
+      mentionsAny pu pv e = true <->
+      (exists u : uvar, _mentionsU u e = true /\ pu u = true) \/
+      (exists v : var, _mentionsV v e = true /\ pv v = true).
+  Proof.
+    induction e; simpl; intros.
+    { split.
+      - right.
+        eexists; split; try eassumption.
+        eapply rel_dec_correct. reflexivity.
+      - destruct 1.
+        + forward_reason; congruence.
+        + forward_reason.
+          eapply (@rel_dec_correct _ (@eq var)) in H;
+            eauto with typeclass_instances. }
+    { split; try congruence. destruct 1; forward_reason; congruence. }
+    { specialize (IHe1 pv); specialize (IHe2 pv).
+      destruct (mentionsAny pu pv e1).
+      - split; eauto. intro. apply IHe1 in H.
+        destruct H; forward_reason.
+        + left; eexists. split; try eassumption. rewrite H. reflexivity.
+        + right; eexists; split; try eassumption. rewrite H. reflexivity.
+      - rewrite IHe2; clear IHe2.
+        split.
+        + destruct 1; forward_reason;
+          try first [ left ; eexists; split; [ | eassumption ]
+                    | right ; eexists; split; [ | eassumption ] ].
+          * rewrite H. destruct (_mentionsU x e1); reflexivity.
+          * rewrite H. destruct (_mentionsV x e1); reflexivity.
+        + destruct 1; forward_reason.
+          { consider (_mentionsU x e1); intros.
+            - left; eexists; split; try eauto.
+              consider (_mentionsU x e2); auto.
+              intro. apply IHe1. left; eauto.
+            - left; eexists; split; try eauto. }
+          { consider (_mentionsV x e1); intros.
+            - cut (false = true); try congruence.
+              apply IHe1. right; eauto.
+            - right. eauto. } }
+    { rewrite IHe.
+      eapply or_iff_compat_l.
+      Require Import ExtLib.Data.Prop.
+      clear. split; intros; forward_reason.
+      - forward. subst. eauto.
+      - exists (S x). eauto. }
+    { split; intros.
+      - left; eexists; split; try eassumption.
+        consider (EqNat.beq_nat u u); auto.
+      - destruct H; forward_reason; try congruence.
+        consider (EqNat.beq_nat x u); auto.
+        destruct 1. assumption. }
+  Qed.
+
 End env.
 
 Arguments Var {typ func} _.
