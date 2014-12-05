@@ -110,14 +110,14 @@ struct
 
   exception ReificationFailure of (Term.constr Lazy.t)
 
-  (** [rule]s implement the pattern feature **)
-  type 'a rule =
-    ((int,int,reify_env) Term_match.pattern) *
-      ('a -> (int, Term.constr) Hashtbl.t -> Term.constr)
-
   (** [reifier]s are the actual functions that get run **)
   type 'a reifier =
     reify_env -> 'a
+
+  (** [rule]s implement the pattern feature **)
+  type 'a rule =
+    ((int,int,reify_env) Term_match.pattern) *
+      ('a -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)
 
   let empty_array : Term.constr array = [| |]
 
@@ -147,6 +147,8 @@ struct
 
   let reifier_ret (value : 'a) : 'a reifier =
     fun _ -> value
+  let reifier_get_env : reify_env reifier =
+    fun e -> e
 
   let reifier_local (f : reify_env -> reify_env) (c : 'a reifier) : 'a reifier =
     fun gl -> c (f gl)
@@ -451,15 +453,18 @@ struct
 	(effects : (int, (int, Term.constr) Hashtbl.t -> reify_env -> reify_env) Hashtbl.t)
 	(reify_term : Term.constr -> lazy_term -> Term.constr reifier) =
       let rec compile_template (tmp : Term.constr) (at : int)
-	  : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr =
+      : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t ->
+	Term.constr reifier =
 	match Term.kind_of_term tmp with
 	  Term.Lambda (_, typ, body) ->
 	    begin
 	      match parse_action typ with
 		None ->
-		  let _ = Format.eprintf "Got Lambda, but didn't have action: %a" Std.pp_constr typ in
-		  fun ls _ _ ->
-		    Term.substnl ls 0 tmp
+		let _ =
+		  Pp.(msgerrnl (    (str "Failed to parse action from lambda.Got term: \n")
+				 ++ (Printer.pr_constr typ)))
+		in
+		fun ls _ _ -> reifier_ret (Term.substnl ls 0 tmp)
 	      | Some act ->
 		let rest = compile_template body (at + 1) in
 		let eft =
@@ -477,7 +482,13 @@ struct
 		| Id ->
 		  fun vals gl s ->
 		    let cur_val = Hashtbl.find s at in
-		    rest (cur_val :: vals) gl s
+		    reifier_bind
+		      reifier_get_env
+		      (fun env ->
+		       if Term.noccur_between 1 (List.length env.bindings) cur_val then
+			 rest (cur_val :: vals) gl s
+		       else
+			 reifier_fail cur_val)
 		| Associate (tbl_name, key) ->
 		  assert false (*
 		  fun vals gl s ->
@@ -507,8 +518,7 @@ struct
 		  assert false
 	    end
 	| _ ->
-	  fun ls _ _ ->
-	    Term.substnl ls 0 tmp
+	  fun ls _ _ -> reifier_ret (Term.substnl ls 0 tmp)
       in compile_template
 
     let extend trm rul =
@@ -555,21 +565,22 @@ struct
 				      ++ (Printer.pr_constr name)
 				      ++ (str "'.")))
 
-    let reify_patterns (i : Term.constr) trm =
+    let reify_patterns (i : Term.constr) trm
+    : Term.constr reifier =
       fun gl ->
 	try
 	  match trm with
 	    Term trm ->
 	      Term_match.matches gl
 		(Cmap.find i !pattern_table)
-		trm
+		trm gl
 	  | App (trm,args,from) ->
 	    Term_match.matches_app gl
 	      (Cmap.find i !pattern_table)
-	      trm args from
+	      trm args from gl
 	with
 	  Term_match.Match_failure ->
-	    raise (ReificationFailure (lazy (get_term trm)))
+	    reifier_fail_lazy trm gl
 
     let add_empty_pattern name =
       if Cmap.mem name !pattern_table then
@@ -687,13 +698,8 @@ struct
       : lazy_term -> Term.constr reifier =
 	match l with
 	| Patterns i ->
-	  begin
-	    fun trm gl ->
-	      try
-		Patterns.reify_patterns i trm gl
-	      with
-		ReificationFailure t -> raise (ReificationFailure t)
-	  end
+	  fun trm gl ->
+	    Patterns.reify_patterns i trm gl
 	| Call t ->
 	  fun trm gl ->
 	    reify_term t trm gl
