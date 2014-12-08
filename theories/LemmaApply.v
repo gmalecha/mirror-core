@@ -242,7 +242,7 @@ Section lemma_apply.
       { revert H5.
         autorewrite with eq_rw.
         rewrite hlist_app_nil_r.
-        generalize (eq_sym (app_nil_r_trans (vars lem))).
+        generalize (app_nil_r_trans (vars lem)).
         generalize (vars lem ++ nil). intros; subst. eapply H5. }
       { rewrite List.Forall_map. assumption. } }
     { clear - ExprOk_expr.

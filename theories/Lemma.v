@@ -190,7 +190,7 @@ Section lem.
       rewrite H2.
       autorewrite with eq_rw.
       rewrite hlist_app_assoc.
-      generalize (eq_sym (app_ass_trans (vars l) tvs tvs')).
+      generalize (app_ass_trans (vars l) tvs tvs').
       generalize (hlist_app b (hlist_app c d)).
       clear. destruct e. reflexivity. }
     eapply mapT_Forall
