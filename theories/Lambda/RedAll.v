@@ -1,6 +1,7 @@
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
+Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lambda.ExprD.
@@ -13,11 +14,6 @@ Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Lemma eq_sym_eq_sym : forall (T : Type) (a b : T) (pf : a = b),
-                        eq_sym (eq_sym pf) = pf.
-Proof. clear. destruct pf. reflexivity. Qed.
-
 
 Section reducer.
   Context {sym : Type}.
@@ -379,7 +375,7 @@ Section reducer.
         autorewrite with eq_rw.
         f_equal. rewrite hlist_app_assoc.
         clear.
-        rewrite Eq.match_eq_sym_eq'.
+        rewrite Eq.match_eq_sym_eq.
         f_equal.
         symmetry. apply (hlist_eta vs'). } }
     { destruct v.
@@ -458,10 +454,13 @@ Section reducer.
         | Abs t e => Abs t (idred' (None :: vars) e)
       end.
 
+    Variable par_red : partial_reducer.
+    Hypothesis par_redOk : partial_reducer_ok par_red.
+
     Definition idred (vars : list (option (expr typ sym)))
                (e : expr typ sym)
                (args : list (expr typ sym)) : expr typ sym :=
-      apps (idred' vars e) args.
+      par_red (idred' vars e) args.
 
     Lemma idred'_type_ok
     : forall e var_terms tus tvs tus' tvs' P,
@@ -487,6 +486,14 @@ Section reducer.
          ** variables when it actually does not need to
          **)
         induction H; simpl; intros; eauto. }
+    Qed.
+
+    Lemma var_termsP_tus_same
+    : forall tus tvs tus' tvs' vts P,
+        @var_termsP tus tvs tus' tvs' vts P ->
+        tus = tus'.
+    Proof.
+      clear. induction 1; auto.
     Qed.
 
     Lemma idred'_ok
@@ -545,15 +552,7 @@ Section reducer.
           eapply functional_extensionality; intro.
           eapply H2; eauto.
         - econstructor; eauto. }
-      { 
-        Lemma var_termsP_tus_same
-        : forall tus tvs tus' tvs' vts P,
-            @var_termsP tus tvs tus' tvs' vts P ->
-            tus = tus'.
-        Proof.
-          clear. induction 1; auto.
-        Qed.
-        revert H0. autorewrite with exprD_rw. simpl.
+      { revert H0. autorewrite with exprD_rw. simpl.
         intros; forward; inv_all; subst.
         revert H1. destruct r.
         induction H.
@@ -581,36 +580,36 @@ Section reducer.
       intros.
       eapply idred'_ok in H0; eauto.
       forward_reason.
-      rewrite exprD'_apps by eauto.
-      unfold apps_sem'.
-      generalize H0.
-      eapply exprD_typeof_Some in H0; eauto.
-      rewrite H0. intro. rewrite H3.
-      clear H3.
-      cut (exists val' : ExprI.exprT tus' tvs' (typD t),
-             apply_sem' T2 RS (fold_right (typ2 (F:=Fun)) t targs) x es t = Some val' /\
-             (forall (us : hlist typD tus) (vs : hlist typD tvs)
-                     (us' : hlist typD tus') (vs' : hlist typD tvs'),
-                P us vs us' vs' ->
-                applys
-                  (hlist_map
-                     (fun (t0 : typ) (x0 : ExprI.exprT tus' tvs' (typD t0)) =>
-                        x0 us' vs') esD) (x us' vs') = val' us' vs')).
-      { intros; forward_reason; eexists; split; eauto.
-        intros. erewrite H2; eauto. }
-      { clear - H1 T2Ok RTOk. revert H1 x. revert t esD.
-        revert es; induction targs; destruct es; simpl; try congruence; intros.
-        - inv_all; subst. rewrite type_cast_refl; eauto.
-        - forward; inv_all; subst.
-          rewrite typ2_match_zeta; eauto.
-          rewrite H0.
+      assert (exists xD,
+                exprD' tus' tvs' t (apps (idred' var_terms e) es) = Some xD /\
+                forall us' vs',
+                  xD us' vs' =
+                  applys
+                    (hlist_map (fun t (x : ExprI.exprT tus' tvs' (typD t)) =>
+                                  x us' vs') esD) (x us' vs')).
+      { rewrite exprD'_apps by eauto.
+        unfold apps_sem'.
+        erewrite exprD_typeof_Some by eauto.
+        rewrite H0. clear H2.
+        clear H0. revert H1. revert esD.
+        revert x. clear fD. revert es.
+        induction targs; destruct es; try solve [ inversion 1 ]; simpl; intros.
+        { inversion H1; subst.
+          rewrite type_cast_refl; eauto. }
+        { rewrite typ2_match_zeta; eauto.
+          forward; inv_all; subst.
+          eapply IHtargs in H0; eauto.
+          forward_reason.
           autorewrite with eq_rw.
-          eapply IHtargs in H; eauto.
-          destruct H as [ ? [ ? ? ] ].
-          eexists; split; eauto.
-          intros. eapply H1 in H2.
-          simpl.
-          rewrite eq_sym_eq_sym in H2. eauto. }
+          eexists; split; [ eapply H0 | ].
+          simpl in *. eauto. } }
+      { forward_reason.
+        eapply par_redOk in H3; eauto.
+        forward_reason.
+        eexists; split; eauto.
+        intros. erewrite H2 by eauto; clear H2.
+        rewrite <- H5; eauto.
+        instantiate (1 := fun _ _ => True). exact I. }
     Qed.
 
   End id.
@@ -698,12 +697,6 @@ Section reducer.
             eapply IHtargs in H; eauto.
             forward_reason.
             rewrite H. eexists; split; eauto.
-            simpl in *. intros. eapply H1 in H2; clear H1; eauto.
-            clear - H2.
-            generalize dependent (typ2_cast a (fold_right (typ2 (F:=Fun)) t targs)).
-            revert t0.
-            generalize (typD (typ2 a (fold_right (typ2 (F:=Fun)) t targs))).
-            intros; subst. assumption.
         + eapply exprD_typeof_Some in H0; eauto.
     Qed.
   End delta_list.
@@ -861,7 +854,7 @@ Section reducer.
 
     Fixpoint interleave (n : nat) : full_reducer :=
       match n with
-        | 0 => idred
+        | 0 => idred (@apps _ _)
         | S n => fun x => f (fun x => g (fun x => interleave n x) x) x
       end.
 
@@ -872,7 +865,7 @@ Section reducer.
     Theorem interleave_ok : forall n, full_reducer_ok (interleave n).
     Proof.
       induction n; simpl; intros.
-      - eapply idred_ok.
+      - eapply idred_ok. eapply apps_partial_reducer_ok.
       - eapply f_ok. eapply g_ok. eapply IHn.
     Qed.
   End interleave.
