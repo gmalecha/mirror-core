@@ -94,18 +94,8 @@ Section parameterized.
   Definition MINIFY : rtacK typ expr :=
     fun tus tvs nus nvs c cs g =>
       More cs (@minify_goal nus c cs nil nus g).
-(*
-  Definition force_add (u : uvar) (e : expr) (m : amap expr) : amap expr :=
-    UVarMap.MAP.add u e m.
 
-  Axiom t1 t2 t3 : typ.
-  Axiom e1 e2 e3 eg : expr.
-  Axiom c : Ctx typ expr.
-  Axiom cs : ctx_subst c.
-  Eval cbv beta iota zeta delta - [ instantiate do_instantiate ]
-    in minify_goal 3 cs (None :: Some e1 :: nil) 5
-                   (GExs (t1 :: t2 :: nil)
-                         (force_add 6 e2 (amap_empty _)) (GGoal eg)).
-*)
+  Theorem MINIFY_sound : rtacK_sound MINIFY.
+  Admitted.
 
 End parameterized.
