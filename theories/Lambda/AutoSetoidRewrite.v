@@ -23,7 +23,7 @@ Section setoid.
   Context {RTypeOk_typD : RTypeOk}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
-  Variable Typ0_Prop : Typ0 _ Prop.
+  Context {Typ0_Prop : Typ0 _ Prop}.
   Context {RelDec_eq_typ : RelDec (@eq typ)}.
   Context {RelDec_eq_func : RelDec (@eq func)}.
 
@@ -35,7 +35,8 @@ Section setoid.
   Inductive RG : Type :=
   | RGinj (r : Rbase)
   | RGrespects (l r : RG)
-  | RGvar (n : positive).
+  | RGvar (n : positive)
+  | RGpointwise (t : typ) (r : RG).
 
   (** TODO: Can I just make this into a standard unification environment? **)
   Record rsubst :=
@@ -58,6 +59,7 @@ Section setoid.
     match rg with
       | RGinj _ => rg
       | RGrespects l r => RGrespects (rsubst_subst rs l) (rsubst_subst rs r)
+      | RGpointwise t r => RGpointwise t (rsubst_subst rs r)
       | RGvar n =>
         match rsubst_lookup rs n with
           | None => rg
@@ -66,7 +68,7 @@ Section setoid.
     end.
 
   Definition rsubst_empty : rsubst :=
-    {| mp := PositiveMap.empty _ ; max := 1 |}.
+  {| mp := PositiveMap.empty _ ; max := 1 |}.
 
   Section unifyRG.
     Variable (unifyRG : RG -> RG -> rsubst -> option (RG * rsubst)).
@@ -103,6 +105,15 @@ Section setoid.
               end
             | None => None
           end
+        | RGpointwise la lb , RGpointwise ra rb =>
+          match type_cast la ra with
+            | Some _ =>
+              match unifyRG' lb rb env with
+                | Some (r',env'') => Some (RGpointwise la r', env'')
+                | None => None
+              end
+            | None => None
+          end
         | _ , _ => None
       end.
   End unifyRG.
@@ -134,7 +145,6 @@ Section setoid.
       | Some x => Some x
       | None => Some (e, rs)
     end.
-
 
   Fixpoint setoid_rewrite
            (e : expr typ func) (rvars : list RG) (rg : RG) (rs : rsubst)
@@ -200,7 +210,7 @@ Section setoid.
       end).
   Defined.
 
-  (*
+(*
   (** This will be called on the head symbol to see what it
    ** respects
    **)
@@ -218,12 +228,14 @@ Section setoid.
 
   Inductive R : Type :=
   | Rinj (r : Rbase)
-  | Rrespects (l r : R).
+  | Rrespects (l r : R)
+  | Rpointwise (t : typ) (r : R).
 
   Fixpoint RtoRG (r : R) : RG :=
     match r with
       | Rinj r => RGinj r
       | Rrespects l r => RGrespects (RtoRG l) (RtoRG r)
+      | Rpointwise l r => RGpointwise l (RtoRG r)
     end.
 
   Fixpoint findRewrite (ls : list (expr typ func * RG * expr typ func))

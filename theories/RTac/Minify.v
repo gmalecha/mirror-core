@@ -89,6 +89,37 @@ Section parameterized.
           GGoal (instantiate (do_instantiate cs base es) 0 e)
         | GSolved => GSolved
       end.
+
+    Lemma WellFormed_Goal_GConj : forall tus tvs a b,
+                                    WellFormed_Goal (typ:=typ) tus tvs a ->
+                                    WellFormed_Goal tus tvs b ->
+                                    WellFormed_Goal tus tvs (GConj a b).
+    Proof.
+      destruct a; destruct b; simpl; intros; auto; constructor; auto.
+    Qed.
+
+    Lemma minify_goal_sound
+    : forall g tus tvs,
+        WellFormed_Goal (getUVars c ++ tus) (getVars c ++ tvs) g ->
+        forall es,
+        WellFormed_Goal (getUVars c ++ tus) (getVars c ++ tvs)
+                        (minify_goal es (length (getUVars c ++ tus)) g).
+    Proof.
+      induction 1; simpl; try solve [ constructor; eauto ].
+      { intros.
+        match goal with
+          | |- WellFormed_Goal _ _ match ?X with _ => _ end =>
+            consider X; intros
+        end.
+        destruct l. simpl.
+        rewrite Plus.plus_comm.
+        rewrite <- app_length.
+        admit. admit. }
+      { intros.
+        eapply WellFormed_Goal_GConj; auto. }
+    Qed.
+
+
   End minify.
 
   Definition MINIFY : rtacK typ expr :=
@@ -96,6 +127,12 @@ Section parameterized.
       More cs (@minify_goal nus c cs nil nus g).
 
   Theorem MINIFY_sound : rtacK_sound MINIFY.
+    red. unfold MINIFY.
+    intros; subst.
+    eapply Proper_rtacK_spec;
+      [ reflexivity | eapply More_More_; reflexivity | ].
+    red.
+    intros; split; auto.
   Admitted.
 
 End parameterized.
