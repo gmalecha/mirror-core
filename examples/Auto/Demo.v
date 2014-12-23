@@ -4,6 +4,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.EProverI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.Subst.FMapSubst.
@@ -97,7 +98,7 @@ Definition evenHints : Hints typ (expr typ func) :=
 Instance ExprOk_expr : ExprI.ExprOk Expr_expr :=
   @ExprOk_expr _ _ _ _ _ _ _ _.
 
-Theorem evenHintsOk : @HintsOk _ _ RType_typ _ _ evenHints.
+Theorem evenHintsOk : @HintsOk _ _ RType_typ _ _ _ evenHints.
 Proof.
   constructor.
   { unfold evenHints; simpl.
@@ -115,16 +116,14 @@ Qed.
 
 Let subst := FMapSubst.SUBST.raw (expr typ func).
 Local Instance Subst_subst : SubstI.Subst subst (expr typ func) := FMapSubst.SUBST.Subst_subst _.
-Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func) := FMapSubst.SUBST.SubstUpdate_subst _.
-eapply instantiate.
-Defined.
+Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func) :=
+  @FMapSubst.SUBST.SubstUpdate_subst _ _.
 
-Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ Subst_subst :=
+Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ _ Subst_subst :=
   @FMapSubst.SUBST.SubstOk_subst _ _ _ _ _.
 Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk _ _.
 eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
-eapply ExprSubst.instantiate_mentionsU.
-eapply ExprSubst.exprD'_instantiate; eauto with typeclass_instances.
+eauto with typeclass_instances.
 Qed.
 
 Require MirrorCore.Lambda.ExprUnify_simul.
@@ -138,7 +137,7 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
                    @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under sub el er t)
                 (@instantiate typ func) fuel facts
                 (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
-                (@SubstI.empty _ _ _) = Some s' ->
+                (@SubstI.subst_empty _ _ _) = Some s' ->
     (let (tus,us) := EnvI.split_env us in
      let (tvs,vs) := EnvI.split_env vs in
      match @SubstI.substD _ _ _ _ _ _ _ tus tvs s' with

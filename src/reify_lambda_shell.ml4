@@ -59,6 +59,8 @@ sig
     (Term.constr * Term.constr) list -> Term.constr list * all_tables
   val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
 
+
+  val pose_each : (string * Term.constr) list -> (Term.constr list -> Proof_type.tactic) -> Proof_type.tactic
 end
 
 module Reification : REIFICATION =
@@ -1125,6 +1127,11 @@ struct
 		  ]) tbls
 
 
+  let rec pose_each (ls : (string * Term.constr) list) (k : Term.constr list -> 'a) : 'a =
+    match ls with
+      [] -> k []
+    | (s,trm) :: ls ->
+       Plugin_utils.Use_ltac.pose s trm (fun var -> pose_each ls (fun vs -> k (var :: vs)))
 end
 
 let print_newline out () =
@@ -1237,6 +1244,41 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 		    (List.rev_append acc res)
 		in
 		Plugin_utils.Use_ltac.ltac_apply k ltac_args
+	    | tbl :: tbls ->
+	      let mp = Reification.export_table acc tbl tbl_data in
+	      Plugin_utils.Use_ltac.pose "tbl" mp
+		(fun var -> generate tbls (var :: acc))
+	  in
+	  generate tbls [] gl
+	with
+	  Reification.ReificationFailure trm ->
+	    let pr = lazy (Pp.(   (str "Failed to reify term '")
+			       ++ (Printer.pr_constr (Lazy.force trm))
+			       ++ (str "'."))) in
+	    Tacticals.tclFAIL_lazy 0 pr gl
+    ]
+END;;
+
+
+TACTIC EXTEND Reify_Lambda_Shell_reify_bind
+  | ["reify_expr" "bind" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
+    [ let tbls = Reification.parse_tables tbls in
+      fun gl ->
+        Printf.fprintf stderr "binding version!\n" ;
+	try
+	  let (res,tbl_data) =
+	    Reification.reify_all gl tbls (List.map (fun e -> (name,e)) es)
+	  in
+	  let rec generate tbls acc =
+	    match tbls with
+	      [] ->
+	      Reification.pose_each (List.map (fun x -> ("e",x)) res) (fun res ->
+		let ltac_args =
+		  List.map
+		    Plugin_utils.Use_ltac.to_ltac_val
+		    (List.rev_append acc res)
+		in
+		Plugin_utils.Use_ltac.ltac_apply k ltac_args)
 	    | tbl :: tbls ->
 	      let mp = Reification.export_table acc tbl tbl_data in
 	      Plugin_utils.Use_ltac.pose "tbl" mp
