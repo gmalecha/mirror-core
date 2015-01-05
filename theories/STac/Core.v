@@ -4,6 +4,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprDAs.
 
@@ -27,8 +28,10 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
   Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst}.
+  Context {SubstOk_subst : @SubstOk _ _ _ _ Expr_expr _ Subst_subst}.
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
 
@@ -233,12 +236,12 @@ Section parameterized.
     destruct (stateD x x0 x1 x2 x3).
     { destruct (tac x x0 x1 x2 x3); simpl.
       { intuition. }
-      { rewrite And_assoc.
-        rewrite And_And_iff. reflexivity. }
-      { rewrite And_assoc.
-        rewrite And_And_iff. reflexivity. } }
+      { rewrite and_assoc.
+        rewrite and_and_iff. reflexivity. }
+      { rewrite and_assoc.
+        rewrite and_and_iff. reflexivity. } }
     { destruct (tac x x0 x1 x2 x3); simpl; try reflexivity.
-      rewrite And_And_iff. reflexivity. }
+      rewrite and_and_iff. reflexivity. }
   Qed.
 
   Theorem stac_sound_stac_sound_old
@@ -255,18 +258,18 @@ Section parameterized.
       destruct (tac x x0 x1 x2 x3);
       try destruct (substD (x ++ l0) (x0 ++ l1) s);
       try reflexivity.
-    { eapply And_cancel; intros.
+    { eapply and_cancel; intros.
       do 2 (eapply forall_iff; intro).
       setoid_rewrite (and_comm (e x5 x6) (e0 x5 x6)).
       reflexivity. }
-    { eapply And_cancel; intros.
+    { eapply and_cancel; intros.
       destruct (propD (x ++ l0) (x0 ++ l1) e1);
         destruct (mapT (T:=list)(F:=option) (propD (x ++ l0) (x0 ++ l1)) l2);
         try reflexivity.
       do 2 (eapply forall_iff; intro).
       setoid_rewrite (and_comm (e x5 x6) (e0 x5 x6)).
       reflexivity. }
-    { apply And_cancel; intros.
+    { apply and_cancel; intros.
       destruct (propD (x ++ l0) (x0 ++ l1) e1);
         destruct (mapT (T:=list)(F:=option) (propD (x ++ l0) (x0 ++ l1)) l2);
         try reflexivity. }
@@ -376,7 +379,7 @@ Section parameterized.
 
 End parameterized.
 
-Arguments stac_sound {typ expr subst _ _ _ _ _} _.
+Arguments stac_sound {typ expr subst _ _ _ _ _ _} _.
 Arguments propD {typ expr RType Expr Typ0} tus tvs e : rename.
 Arguments Fail {typ expr subst}.
 Arguments Solved {typ expr subst} _ _ _.
