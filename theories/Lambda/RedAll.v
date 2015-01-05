@@ -648,7 +648,7 @@ Section reducer.
         specialize (@delta_ok _ eq_refl (fold_right (typ2 (F:=Fun)) t targs)).
         revert delta_ok. revert H0.
         autorewrite with exprD_rw; simpl; intros.
-        forward. 
+        forward.
         specialize (@delta_ok _ eq_refl).
         destruct delta_ok. destruct H3. subst.
         clear delta_ok.
