@@ -27,7 +27,19 @@ Section parameterized.
     fun _ _ _ _ ctx sub gl =>
       More_ sub (GGoal (@simplify (ctx_subst ctx) _ ctx sub gl)).
 
-  Hypothesis simplify_sound
+  Hypothesis simplify_sound'
+  : forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e' cD sD eD,
+      @simplify (ctx_subst ctx) _ ctx s e = e' ->
+      WellFormed_subst s ->
+      @pctxD typ expr RType_typ _ Expr_expr ctx s = Some cD ->
+      ctx_substD (getUVars ctx) (getVars ctx) s = Some sD ->
+      propD (getUVars ctx) (getVars ctx) e = Some eD ->
+      exists eD',
+        propD (getUVars ctx) (getVars ctx) e' = Some eD' /\
+        forall us vs,
+          cD (fun us vs => sD us vs -> (eD' us vs -> eD us vs)) us vs.
+
+  Lemma simplify_sound
   : forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e',
       @simplify (ctx_subst ctx) _ ctx s e = e' ->
       WellFormed_subst s ->
@@ -44,9 +56,17 @@ Section parameterized.
           forall us vs,
             cD (fun us vs => sD us vs -> (eD' us vs -> eD us vs)) us vs
       end.
+  Proof.
+    intros. forward.
+    eapply simplify_sound' in H; eauto.
+    forward_reason.
+    rewrite H. eauto.
+  Qed.
 
   Theorem SIMPLIFY_sound : rtac_sound SIMPLIFY.
   Proof.
+    generalize simplify_sound. clear simplify_sound'.
+    intro simplify_sound.
     red; intros; subst.
     simpl. intros; split; eauto.
     remember (simplify (Subst_ctx_subst ctx) ctx s g).
@@ -57,12 +77,12 @@ Section parameterized.
     split; try constructor.
     forward.
     destruct (pctxD_substD H0 H1) as [ ? [ ? ? ] ].
-    revert simplify_sound.
+    revert simplify_sound0.
     change_rewrite H3.
     intros; forward.
     split.
     { reflexivity. }
-    { intros. specialize (@simplify_sound us vs); revert simplify_sound.
+    { intros. specialize (@simplify_sound0 us vs); revert simplify_sound0.
       eapply Ap_pctxD; eauto.
       specialize (H4 us vs); revert H4.
       eapply Ap_pctxD; eauto.

@@ -19,8 +19,9 @@ Require Export MirrorCore.RTac.Instantiate.
 Require Export MirrorCore.RTac.RunOnGoals.
 Require Export MirrorCore.RTac.ThenK.
 Require Export MirrorCore.RTac.Minify.
-(*Require Export MirrorCore.RTac.RunSTac.*)
 Require Export MirrorCore.RTac.AtGoal.
+
+Require Export MirrorCore.RTac.Interface.
 
 Ltac rtac_derive_soundness :=
   repeat first [ eapply IDTAC_sound
