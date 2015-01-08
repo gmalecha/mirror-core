@@ -36,6 +36,7 @@ RTAC := BIMap Ctx Core CoreK RunOnGoals \
 	Intro Apply EApply \
 	Simplify Instantiate Minify \
 	AtGoal Reduce \
+	Interface \
 	RTac
 # Apply EApply
 #	Continuation ApplyToAll
