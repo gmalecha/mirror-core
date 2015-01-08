@@ -1,4 +1,5 @@
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.CoreK.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -35,6 +36,28 @@ Section parameterized.
     induction n; simpl; intros; eauto.
   Qed.
 
+  Definition RECK (n : nat)
+             (b : rtacK typ expr -> rtacK typ expr)
+             (last : rtacK typ expr)
+  : rtacK typ expr :=
+    (fix rec (n : nat) : rtacK typ expr :=
+       match n with
+         | 0 => b last
+         | S n => fun e sub tus tvs =>
+                    b (fun e sub tus tvs => rec n e sub tus tvs)
+                      e sub tus tvs
+       end) n.
+
+  Theorem RECK_sound
+  : forall b l, (forall t, rtacK_sound t -> rtacK_sound (b t)) ->
+                rtacK_sound l ->
+                forall n,
+                  rtacK_sound (RECK n b l).
+  Proof.
+    induction n; simpl; intros; eauto.
+  Qed.
+
 End parameterized.
 
 Arguments REC {_ _} n f last _ _ _ _ _ _ _ : rename.
+Arguments RECK {_ _} n f last _ _ _ _ _ _ _ : rename.
