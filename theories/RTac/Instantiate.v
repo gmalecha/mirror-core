@@ -34,15 +34,16 @@ Section parameterized.
     forward.
     eapply (@instantiate_sound_ho  _ _ _ _ _ _ _ _ _ _ nil) in H3;
       [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ]; eauto.
-    forward_reason; inv_all; subst.
-    change_rewrite H3.
-    intros.
-    gather_facts.
-    eapply Pure_pctxD; eauto.
-    clear. firstorder. specialize (H HList.Hnil).
-    revert H1. autorewrite with eq_rw.
-    simpl in *. rewrite H.
-    exact (fun x => x).
+    { forward_reason; inv_all; subst.
+      change_rewrite H3.
+      autorewrite with eq_rw. eexists; split; eauto.
+      intros.
+      gather_facts.
+      eapply Pure_pctxD; eauto.
+      clear. firstorder. specialize (H HList.Hnil).
+      revert H1. autorewrite with eq_rw.
+      simpl in *. rewrite H.
+      exact (fun x => x). }
     constructor.
     { intros. eapply Pure_pctxD; eauto. }
     { intros.
