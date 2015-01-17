@@ -17,41 +17,66 @@ Require Export MirrorCore.RTac.Simplify.
 Require Export MirrorCore.RTac.Instantiate.
 
 Require Export MirrorCore.RTac.RunOnGoals.
+Require Export MirrorCore.RTac.runTacK.
 Require Export MirrorCore.RTac.ThenK.
 Require Export MirrorCore.RTac.Minify.
 Require Export MirrorCore.RTac.AtGoal.
 
 Require Export MirrorCore.RTac.Interface.
 
-Ltac rtac_derive_soundness :=
-  repeat first [ eapply IDTAC_sound
-               | eapply FAIL_sound
-               | eapply FIRST_sound ; Forall_rtac_derive_soundness
-               | eapply SOLVE_sound ; rtac_derive_soundness
-               | eapply THEN_sound ;
-                 [ rtac_derive_soundness
-                 | rtacK_derive_soundness ]
-               | eapply TRY_sound ; rtac_derive_soundness
-               | eapply REPEAT_sound ; rtac_derive_soundness
-               | eapply AT_GOAL_sound ; [ intros ; rtac_derive_soundness ]
-               | eapply APPLY_sound ; [ simpl ] (* TODO(gmalecha): Needs to change *)
-               | eapply EAPPLY_sound ; [ simpl ]  (* TODO(gmalecha): Needs to change *)
-               ]
-with rtacK_derive_soundness :=
-  first [ eauto
-        | eapply runOnGoals_sound ; rtac_derive_soundness
-        ]
-with Forall_rtac_derive_soundness :=
-  repeat first [ eauto
-               | eapply Forall_nil
-               | eapply Forall_cons ;
-                 [ rtac_derive_soundness
-                 | Forall_rtac_derive_soundness ] ].
-
-Ltac rtac_derive_soundness_wrapper :=
-  match goal with
-    | |- rtacK_sound _ _ _ => rtacK_derive_soundness
-    | |- rtac_sound _ _ _ => rtac_derive_soundness
+Ltac one_of lems :=
+  match lems with
+    | (?X,?Y) => first [ one_of X | one_of Y ]
+    | _ => exact lems
   end.
 
-Tactic Notation "'derive' 'soundness'" := rtac_derive_soundness_wrapper.
+Ltac rtac_derive_soundness' tac tacK lems :=
+  let lems := (auto ; lems) in
+  let rec rtac :=
+      try first [ simple eapply IDTAC_sound
+                | simple eapply FAIL_sound
+                | simple eapply FIRST_sound ; Forall_rtac
+                | simple eapply SOLVE_sound ; rtac
+                | simple eapply THEN_sound ;
+                  [ rtac
+                  | rtacK ]
+                | simple eapply TRY_sound ; rtac
+                | simple eapply REPEAT_sound ; rtac
+                | simple eapply REC_sound ; intros; rtac
+                | simple eapply AT_GOAL_sound ; [ intros ; rtac ]
+                | simple eapply APPLY_sound ; [ lems ]
+                | simple eapply EAPPLY_sound ; [ lems ]
+                | solve [ eauto ]
+                | tac rtac rtacK lems
+                ]
+  with rtacK :=
+      try first [ simple eapply runOnGoals_sound ; rtac
+                | simple eapply MINIFY_sound
+                | simple eapply THENK_sound ; [ try rtacK | try rtacK ]
+                | solve [ eauto ]
+                | tacK rtac rtacK lems
+                | eapply runOnGoals_sound ; rtac
+                ]
+  with Forall_rtac :=
+      repeat first [ eapply Forall_nil
+                   | eapply Forall_cons ;
+                     [ rtac
+                     | Forall_rtac ]
+                   | solve [ eauto ] ]
+  in
+  match goal with
+    | |- rtac_sound _ => rtac
+    | |- rtacK_sound _ => rtacK
+    | |- Forall rtac_sound _ => Forall_rtac
+  end.
+
+Ltac rtac_derive_soundness_default :=
+  rtac_derive_soundness' ltac:(fun rtac _ _ =>
+                                 match goal with
+                                   | |- rtac_sound match ?X with _ => _ end =>
+                                     destruct X; rtac
+                                 end)
+                         ltac:(fun _ _ _ => fail)
+                         ltac:(idtac).
+
+Tactic Notation "'derive' 'soundness'" := rtac_derive_soundness_default.

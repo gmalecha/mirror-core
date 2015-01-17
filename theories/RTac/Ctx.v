@@ -2314,6 +2314,8 @@ Section parameterized.
   { substR := fun _ _ a b => SubstMorphism a b
   ; set_sound := _ }.
   Proof.
+    { intros; eapply Reflexive_SubstMorphism. }
+    { intros; eapply Transitive_SubstMorphism. }
     intros. eapply ctx_substD_set; eauto.
   Defined.
 
