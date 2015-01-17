@@ -123,6 +123,8 @@ Section subst.
 
   Class SubstUpdateOk (S : Subst) (SU : SubstUpdate) (SOk : SubstOk S) :=
   { substR : forall (tus tvs : tenv typ), T -> T -> Prop
+  ; Reflexive_substR :> forall tus tvs, Reflexive (substR tus tvs)
+  ; Transitive_substR :> forall tus tvs, Transitive (substR tus tvs)
   ; set_sound
       (** TODO(gmalecha): This seems to need to be rephrased as well **)
     : forall uv e s s',

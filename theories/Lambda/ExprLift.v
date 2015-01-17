@@ -403,4 +403,8 @@ Section types.
       simpl. intros. f_equal. apply H1. }
   Qed.
 
+  Theorem vars_to_uvars_spec_vars_to_uvars
+  : @VariablesI.vars_to_uvars_spec _ _ _ Expr_expr vars_to_uvars.
+  Proof. apply vars_to_uvars_exprD'. Qed.
+
 End types.
