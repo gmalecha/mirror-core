@@ -31,12 +31,12 @@ STAC := Core Continuation Repeat \
 	STac
 RTAC := BIMap Ctx Core CoreK RunOnGoals \
 	Then Try Repeat Rec Idtac First Fail Solve \
-	ThenK \
+	ThenK runTacK \
 	Assumption \
 	Intro Apply EApply \
 	Simplify Instantiate Minify \
 	AtGoal Reduce \
-	RTac
+	Interface RTac
 # Apply EApply
 #	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
