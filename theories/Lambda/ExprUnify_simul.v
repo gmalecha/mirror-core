@@ -587,6 +587,7 @@ Section typed.
            exprD' tu (tv' ++ tv) t e = Some v1 /\
            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
+              substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
               (forall (us : hlist typD tu) (vs : hlist typD tv),
                  sD' us vs ->
@@ -682,6 +683,7 @@ Section typed.
            exprD' tu (tv' ++ tv) t (UVar u) = Some v1 /\
            exprD' tu (tv' ++ tv) t e = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
+              substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
               (forall (us : hlist typD tu) (vs : hlist typD tv),
                  sD' us vs ->
@@ -735,7 +737,8 @@ Section typed.
         exprD' tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
-             substD (expr := expr typ func) tu tv s' = Some sD'
+             substR tu tv s s'
+          /\ substD (expr := expr typ func) tu tv s' = Some sD'
           /\ forall us vs,
                sD' us vs ->
                sD us vs /\
@@ -752,7 +755,8 @@ Section typed.
           exprD' tu (tv' ++ tv) t e1 = Some v1 /\
           exprD' tu (tv' ++ tv) t e2 = Some v2 /\
           exists sD',
-             substD (expr := expr typ func) tu tv s' = Some sD'
+             substR tu tv s s'
+          /\ substD (expr := expr typ func) tu tv s' = Some sD'
           /\ forall us vs,
                sD' us vs ->
                sD us vs /\
@@ -769,7 +773,7 @@ Section typed.
         inv_all; subst.
         split; auto. intros.
         change_rewrite H in H0.
-        inv_all; subst. eauto. }
+        inv_all; subst. eexists; split; [ reflexivity | ]; eauto. }
       { rewrite exprUnify_simul'_eq.
         destruct e2; try solve [ simpl; congruence | eapply handle_uvar_simul with (e := Var v); eauto ].
         forward. inv_all; subst. destruct H3.
@@ -777,7 +781,8 @@ Section typed.
         intros.
         eapply ExprFacts.typeof_expr_exprD' in H2; eauto.
         destruct H2.
-        do 2 eexists; split; eauto. } }
+        do 2 eexists; split; eauto.
+        split; eauto. eexists; split; [ reflexivity | eauto ]. } }
     { (** Inj **)
       simpl. split.
       { destruct e2; intros; try solve [ congruence | eapply handle_uvar; eauto ].
@@ -785,6 +790,7 @@ Section typed.
           forward. inv_all; subst.
           split; auto.
           intros. eexists; split; eauto.
+          reflexivity. split; eauto.
           match goal with
             | H : ?X = _ , H' : ?Y = _ |- _ =>
               change Y with X in H' ; rewrite H in H'
@@ -798,7 +804,8 @@ Section typed.
           split; auto; intros.
           remember (funcAs f0 t) as oF.
           destruct oF.
-          { simpl. do 2 eexists; split; eauto. }
+          { simpl. do 2 eexists; split; eauto.
+            split; eauto. eexists; split; [ reflexivity | eauto ]. }
           { exfalso. unfold funcAs in HeqoF.
             revert HeqoF.
             match goal with
@@ -827,12 +834,14 @@ Section typed.
             eapply H0 in H7; eauto using exprD_typeof_not_None.
             forward_reason.
             forward_exprD.
-            specialize (H4 _ _ _ H12 H9 H15).
+            specialize (H4 _ _ _ H12 H9 H16).
             forward_reason.
             eexists; split; eauto.
+            { etransitivity; eauto. }
+            split; eauto.
             intros.
-            eapply H10 in H13; clear H10.
-            destruct H13. eapply H16 in H10; clear H16.
+            eapply H13 in H19; clear H13.
+            destruct H19. eapply H17 in H13; clear H17.
             forward_reason; split; auto.
             repeat match goal with
                      | H : ?X = _ , H' : ?Y = _ |- _ =>
@@ -875,12 +884,14 @@ Section typed.
                        change Y with X ; rewrite H
                    end.
             do 2 eexists; split; [ | split ]; auto.
-            specialize (H4 _ _ _ H6 H8 H12).
+            specialize (H4 _ _ _ H6 H8 H13).
             forward_reason.
             eexists; split; eauto.
+            { etransitivity; eauto. }
+            split; eauto.
             intros.
-            eapply H16 in H17; clear H16; destruct H17.
-            eapply H13 in H16; clear H13; destruct H16.
+            eapply H18 in H19; clear H18; destruct H19.
+            eapply H14 in H18; clear H14; destruct H18.
             split; auto.
             intros.
             eapply Open_App_equal; eauto. }
@@ -908,10 +919,10 @@ Section typed.
           inv_all; subst. destruct r; destruct r0.
           eapply H1 in H4; eauto.
           forward_reason.
-          eexists; split; eauto.
-          intros. eapply H5 in H7; clear H5.
+          eexists; split; eauto. split; eauto.
+          intros. eapply H7 in H8; clear H7.
           forward_reason. split; auto. intros.
-          revert H7. clear.
+          revert H8. clear.
           autorewrite with eq_rw.
           repeat match goal with
                    | H : ?X = _ , H' : ?Y = _ |- _ =>
@@ -925,7 +936,7 @@ Section typed.
           end.
           intros. eapply match_eq_match_eq with (pf := e) (F := fun x => x).
           eapply functional_extensionality.
-          intros. specialize (H7 (Hcons (Rcast_val eq_refl x1) vs')).
+          intros. specialize (H8 (Hcons (Rcast_val eq_refl x1) vs')).
           auto. } }
       { rewrite exprUnify_simul'_eq.
         destruct e2; try solve [ congruence | intros; eapply handle_uvar_simul with (e := Abs t e1); eauto ].
@@ -947,9 +958,9 @@ Section typed.
         Cases.rewrite_all_goal.
         repeat rewrite eq_option_eq.
         do 2 eexists; split; eauto. split; eauto.
-        eexists; split; eauto.
+        eexists; split; eauto. split; eauto.
         intros.
-        eapply H9 in H10; clear H9.
+        eapply H10 in H11; clear H10.
         forward_reason; split; auto.
         intros.
         autorewrite with eq_rw.
@@ -958,7 +969,7 @@ Section typed.
             eapply match_eq_match_eq with (pf := X) (F := fun x => x)
         end.
         eapply functional_extensionality.
-        intros. exact (H10 (Hcons (Rcast_val (Rrefl t) x2) vs')). } }
+        intros. exact (H11 (Hcons (Rcast_val (Rrefl t) x2) vs')). } }
     { (** UVar **)
       split.
       { simpl; destruct e2; intros; try solve [ congruence | eapply handle_uvar'; eauto ].
@@ -966,7 +977,7 @@ Section typed.
         { intros; inv_all; subst.
           split; auto. intros. change_rewrite H in H1.
           inv_all; subst.
-          eauto. }
+          eexists; split. reflexivity. eauto. }
         { intro XXX; clear XXX.
           consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
           { eapply unifyOk in H2.
@@ -977,7 +988,8 @@ Section typed.
             forward_reason.
             eapply H3 in H; clear H3; eauto.
             forward_reason. eexists; split; eauto.
-            intros. eapply H3 in H9.
+            split; eauto.
+            intros. eapply H9 in H10.
             forward_reason. split; auto.
             intros. rewrite H8; eauto. rewrite H7; eauto. }
           { eapply handle_set in H2; eauto.
@@ -990,11 +1002,11 @@ Section typed.
             destruct y.
             specialize (H3 _ _ _ _ _ _ _ H7 H5 H6).
             forward_reason.
-            eexists; split; eauto.
-            intros. eapply H10 in H11; clear H10.
+            eexists; split; eauto. split; eauto.
+            intros. eapply H11 in H12; clear H11.
             forward_reason; split; eauto.
             intros. inv_all; subst.
-            etransitivity; [ eapply H8 ; eauto | eapply H11 ]. }
+            etransitivity; [ eapply H8 ; eauto | eapply H12 ]. }
           { eapply handle_set in H2; eauto.
             forward_reason; split; auto; intros.
             eapply substD_lookup in H; eauto.
@@ -1005,11 +1017,11 @@ Section typed.
             destruct r.
             specialize (H3 _ _ _ _ _ _ _ H7 H4 H6).
             forward_reason.
-            eexists; split; eauto.
+            eexists; split; eauto. split; eauto.
             intros.
-            eapply H3 in H10; forward_reason; split; eauto.
+            eapply H10 in H11; forward_reason; split; eauto.
             intros. symmetry.
-            etransitivity; [ eapply H8; eauto | eapply H11 ]. }
+            etransitivity; [ eapply H8; eauto | eapply H12 ]. }
           { consider (subst_set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H2; eauto.
@@ -1019,9 +1031,10 @@ Section typed.
               simpl. intros; forward_reason.
               eapply H3 in H6; eauto.
               forward_reason; eexists; split; eauto.
-              intros. eapply H9 in H10; eauto.
+              split; eauto.
+              intros. eapply H10 in H11; eauto.
               forward_reason; split; auto.
-              intros. rewrite <- H11.
+              intros. rewrite <- H12.
               symmetry.
               exact (H8 us Hnil vs' vs). }
             { clear H2. rename H3 into H2.
@@ -1032,10 +1045,10 @@ Section typed.
               specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl H4).
               simpl. intros; forward_reason.
               eapply H3 in H6; eauto.
-              forward_reason; eexists; split; eauto.
-              intros. eapply H9 in H10; eauto.
+              forward_reason; eexists; split; eauto. split; eauto.
+              intros. eapply H10 in H11; eauto.
               forward_reason; split; auto.
-              intros. rewrite <- H11.
+              intros. rewrite <- H12.
               exact (H8 us Hnil vs' vs). } } } }
       { rewrite exprUnify_simul'_eq.
         destruct e2; try solve [ congruence | intros; eapply handle_uvar_simul'; eauto ].
@@ -1054,7 +1067,8 @@ Section typed.
             assert (x0 = t) by congruence.
             subst.
             repeat rewrite type_cast_refl by eauto.
-            do 2 eexists; split; eauto. }
+            do 2 eexists; split; eauto. split; eauto.
+            eexists; split; eauto. reflexivity. }
           { exfalso.
             eapply nth_error_get_hlist_nth_None in H4.
             congruence. } }
@@ -1074,8 +1088,9 @@ Section typed.
             eapply H5 in H8; [ | eauto | eauto ].
             do 2 eexists; split; eauto. split; eauto.
             forward_reason.
-            eexists; split; eauto. intros.
-            eapply H9 in H10; clear H9.
+            eexists; split; eauto. split; eauto.
+            intros. 
+            eapply H10 in H11; clear H10.
             forward_reason; split; auto.
             intros.
             rewrite H7; eauto.
@@ -1093,10 +1108,10 @@ Section typed.
             forwardy. inv_all; subst; destruct y.
             specialize (H5 _ _ _ _ _ _ _ H6 H0 H8).
             forward_reason.
-            eexists; split; eauto.
-            intros. eapply H9 in H10; forward_reason; split; eauto.
+            eexists; split; eauto. split; eauto.
+            intros. eapply H10 in H11; forward_reason; split; eauto.
             intros.
-            etransitivity; [ eapply H7; eauto | eapply H11 ]. }
+            etransitivity; [ eapply H7; eauto | eapply H12 ]. }
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
             clear H6 H7.
@@ -1111,11 +1126,11 @@ Section typed.
             forwardy; inv_all; subst. destruct y.
             specialize (H5 _ _ _ _ _ _ _ H6 H H8).
             forward_reason.
-            eexists; split; eauto.
-            intros. eapply H9 in H10.
+            eexists; split; eauto. split; eauto.
+            intros. eapply H10 in H11.
             forward_reason; split; eauto.
             intros. symmetry.
-            etransitivity; [ eapply H7; eauto | eapply H11 ]. }
+            etransitivity; [ eapply H7; eauto | eapply H12 ]. }
           { consider (subst_set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H4; eauto.
@@ -1130,11 +1145,12 @@ Section typed.
               forward_reason.
               do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
               eexists; split; [ eassumption | ].
+              split; eauto.
               intros.
-              eapply H9 in H10; forward_reason; split; auto.
+              eapply H10 in H11; forward_reason; split; auto.
               intros.
               specialize (H7 us Hnil vs' vs); simpl in H7.
-              rewrite <- H11. auto. }
+              rewrite <- H12. auto. }
             { clear H4. rename H5 into H4.
               inv_all; subst.
               eapply handle_set in H4; eauto.
@@ -1148,12 +1164,12 @@ Section typed.
               simpl in *. eapply H5 in H8; eauto.
               forward_reason.
               do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
-              eexists; split; [ eassumption | ].
+              eexists; split; [ eassumption | ]. split; eauto.
               intros.
-              eapply H9 in H10; forward_reason; split; auto.
+              eapply H10 in H11; forward_reason; split; auto.
               intros.
               specialize (H7 us Hnil vs' vs); simpl in H7.
-              rewrite <- H11. auto. } } } } }
+              rewrite <- H12. auto. } } } } }
   Qed.
 
   Theorem exprUnify'_sound

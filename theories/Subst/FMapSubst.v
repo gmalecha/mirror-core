@@ -1226,9 +1226,29 @@ Module Make (FM : WS with Definition E.t := uvar
         eapply H6 in H9. tauto. }
     Qed.
 
+    Theorem Reflexive_substR
+    : forall tus tvs : tenv typ, Reflexive (raw_substR tus tvs).
+    Proof.
+      red. red. intros.
+      eapply Reflexive_Roption.
+      eapply Reflexive_RexprT. eauto with typeclass_instances.
+    Qed.
+
+    Theorem Transitive_substR
+    : forall tus tvs : tenv typ, Transitive (raw_substR tus tvs).
+    Proof.
+      do 2 red; intros.
+      eapply Transitive_Roption.
+      eapply Transitive_RexprT. eauto with typeclass_instances.
+      eassumption.
+      eassumption.
+    Qed.
+
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
     {| substR := raw_substR
      ; set_sound := set_sound
+     ; Transitive_substR := Transitive_substR
+     ; Reflexive_substR := Reflexive_substR
      |}.
 
     Instance SubstOpen_subst : SubstOpen raw :=

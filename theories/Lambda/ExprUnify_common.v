@@ -47,6 +47,7 @@ Section typed.
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
+              substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
               (forall (us : hlist typD tu)
                       (vs : hlist typD tv),
@@ -64,7 +65,7 @@ Section typed.
     destruct y.
     specialize (H1 _ _ _ _ _ _ H4 H3 H2).
     forward_reason.
-    eexists; split; eauto.
+    eexists; split; eauto. split; eauto.
     intros.
     eapply H8 in H9; forward_reason; split; auto.
     intros. rewrite <- H10.
@@ -90,6 +91,7 @@ Section typed.
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
+              substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
               (forall (us : hlist typD tu)
                       (vs : hlist typD tv),
@@ -109,7 +111,7 @@ Section typed.
     forward_reason.
     specialize (H1 _ _ _ _ _ _ H5 H4 H2).
     forward_reason.
-    eexists; split; eauto.
+    eexists; split; eauto. split; eauto.
     intros.
     eapply H9 in H10; clear H9.
     forward_reason; split; eauto.
@@ -127,7 +129,8 @@ Section typed.
         exprD' tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
-             substD (expr := expr typ func) tu tv s' = Some sD'
+             substR tu tv s s'
+          /\ substD (expr := expr typ func) tu tv s' = Some sD'
           /\ forall us vs,
                sD' us vs ->
                sD us vs /\
@@ -163,6 +166,7 @@ Section typed.
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
+              substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
               (forall (us : hlist typD tu) (vs : hlist typD tv),
                  sD' us vs ->
@@ -200,10 +204,10 @@ Section typed.
       forward_reason.
       specialize (H3 _ _ _ H4 H7 H6).
       forward_reason.
-      eexists; split; eauto.
-      intros. specialize (H9 _ _ H10).
+      eexists; split; eauto. split; eauto.
+      intros. specialize (H10 _ _ H11).
       forward_reason. split; intros; eauto.
-      rewrite H11. rewrite H8; eauto. }
+      rewrite H8; eauto. }
     { forward. eapply handle_set_lower in H3; intuition eauto. }
   Qed.
 
@@ -233,6 +237,7 @@ Section typed.
               substD tu tv s = Some sD ->
               exists
                 sD' : hlist typD tu -> hlist typD tv -> Prop,
+                substR tu tv s s' /\
                 substD tu tv s' = Some sD' /\
                 (forall (us : hlist typD tu)
                         (vs : hlist typD tv),
@@ -272,14 +277,14 @@ Section typed.
       forward_reason.
       specialize (H3 _ _ _ H7 H5 H6).
       forward_reason.
-      eexists; split; eauto.
-      intros. specialize (H9 _ _ H10).
+      eexists; split; eauto. split; eauto.
+      intros. specialize (H10 _ _ H11).
       forward_reason. split; intros; eauto.
       rewrite H8; eauto. }
     { forwardy. eapply handle_set_lower in H3; intuition eauto.
       specialize (H5 _ _ _ _ _ H2 _ _ _ H6 H3 H7).
-      forward_reason. eexists; split; eauto.
-      intros. specialize (H8 _ _ H9). forward_reason; split; eauto. }
+      forward_reason. eexists; split; eauto. split; eauto.
+      intros. specialize (H9 _ _ H10). forward_reason; split; eauto. }
   Qed.
 
   Lemma lookup_lift
