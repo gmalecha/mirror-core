@@ -108,6 +108,6 @@ Section proverI.
   eapply Build_ProverOk with (factsD := assumptionValid);
     eauto using assumptionValid_extensible, assumptionSummarizeCorrect, assumptionLearnCorrect, assumptionProveOk.
   { simpl. intros. eapply assumptionLearnCorrect; eauto. }
-  Qed.
+  Defined.
 
 End proverI.
