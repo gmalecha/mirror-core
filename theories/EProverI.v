@@ -249,7 +249,7 @@ Section proverI.
       eexists; split; eauto. intros. split; auto.
       eapply ProverI.Prove_sound in H; eauto.
       eapply H; eauto.
-    Qed.
+    Defined.
   End non_eprover.
 
 End proverI.
