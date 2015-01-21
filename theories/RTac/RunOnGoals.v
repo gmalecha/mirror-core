@@ -1,30 +1,24 @@
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
+Require Import MirrorCore.RTac.SpecLemmas.
 
 Require Import MirrorCore.Util.Quant.
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-(** TODO: Move to Data.Prop **)
-Lemma iff_to_eq : forall P Q : Prop, P = Q -> (P <-> Q).
-Proof. clear; intros; subst; reflexivity. Qed.
-
 
 Section runOnGoals.
   Context {typ : Type}.
@@ -106,203 +100,6 @@ Section runOnGoals.
 
   Hypothesis Htac : rtac_sound tac.
 
-  Local Hint Constructors WellFormed_ctx_subst.
-  Lemma WellFormed_ctx_subst_fromAll
-  : forall t (c : Ctx typ expr) (cs : ctx_subst (CAll c t)),
-      WellFormed_ctx_subst cs ->
-      WellFormed_ctx_subst (fromAll cs).
-  Proof.
-    intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ C S
-                 return match C as C return ctx_subst C -> Prop with
-                          | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
-                          | _ => fun _ => True
-                        end S
-           with
-             | WF_AllSubst _ _ _ pf => pf
-             | _ => I
-           end.
-  Qed.
-
-  Lemma WellFormed_ctx_subst_fromHyp
-  : forall t (c : Ctx typ expr) (cs : ctx_subst (CHyp c t)),
-      WellFormed_ctx_subst cs ->
-      WellFormed_ctx_subst (fromHyp cs).
-  Proof.
-    intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ C S
-                 return match C as C return ctx_subst C -> Prop with
-                          | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
-                          | _ => fun _ => True
-                        end S
-           with
-             | WF_HypSubst _ _ _ pf => pf
-             | _ => I
-           end.
-  Qed.
-  Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
-
-  Lemma pctxD_remembers {c s l a sD pD}
-  : forall (WFp : WellFormed_bimap (length (getUVars c)) (length l) a),
-      WellFormed_ctx_subst s ->
-    pctxD s = Some sD ->
-    amap_substD (getUVars c ++ l) (getVars c) a = Some pD ->
-    exists sD',
-      pctxD (remembers s l a) = Some sD' /\
-      forall us vs (P : exprT _ _ Prop),
-        (sD (fun us vs =>
-               forall us', pD (hlist_app us us') vs -> P (hlist_app us us') vs) us vs <->
-         sD' P us vs).
-  Proof.
-    simpl. intros.
-    rewrite H0.
-    destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
-    eapply amap_instantiates_substD
-      with (f := fun u => ctx_lookup u s)
-           (C := fun (P : exprT (getUVars c ++ l) (getVars c) Prop) =>
-                   forall us vs, sD (fun us vs => x us vs -> forall us', P (hlist_app us us') vs) us vs)
-           in H1.
-    forward_reason.
-    rewrite H1.
-    eexists; split; eauto.
-    simpl. intros.
-    split.
-    { eapply Ap_pctxD; eauto.
-      generalize (H3 us vs); clear H3.
-      eapply Ap_pctxD; eauto.
-      generalize (H4 us vs); clear H4.
-      eapply Ap_pctxD; eauto.
-      eapply Pure_pctxD; eauto.
-      intros.
-      eapply _forall_sem; intros.
-      eapply H5; clear H5.
-      eapply H3; eauto. }
-    { eapply Ap_pctxD; eauto.
-      generalize (H3 us vs); clear H3.
-      eapply Ap_pctxD; eauto.
-      generalize (H4 us vs); clear H4.
-      eapply Ap_pctxD; eauto.
-      eapply Pure_pctxD; eauto.
-      intros.
-      eapply _forall_sem with (x := us') in H5; intros.
-      eapply H5; clear H5.
-      eapply H3; eauto. }
-    { eauto. }
-    { clear - H0. constructor.
-      { intros. eapply Pure_pctxD; eauto. }
-      { intros. generalize (H1 us vs).
-        eapply Ap_pctxD; eauto.
-        generalize (H us vs).
-        eapply Ap_pctxD; eauto.
-        eapply Pure_pctxD; eauto. } }
-    { eassumption. }
-    { red. intros.
-      destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
-      eapply ctx_substD_lookup in H4; eauto.
-      forward_reason.
-      eapply exprD'_weakenU with (tus' := l) in H8; eauto.
-      destruct H8 as [ ? [ ? ? ] ].
-      eapply nth_error_get_hlist_nth_weaken in H4.
-      revert H4. instantiate (1 := l).
-      simpl. destruct 1 as [ ? [ ? ? ] ].
-      rewrite H5 in H4. inv_all. subst.
-      eexists; split; eauto.
-      intros us vs.
-      generalize (H7 us vs); clear H7.
-      eapply Ap_pctxD; eauto.
-      eapply Pure_pctxD; eauto. intros.
-      rewrite <- H11; clear H11; eauto.
-      rewrite <- H10; clear H10.
-      eauto. }
-  Qed.
-
-  Lemma _exists_impl : forall l (P Q : hlist typD l -> Prop),
-                         (forall x, P x -> Q x) ->
-                         _exists _ l P -> _exists _ l Q.
-  Proof.
-    clear. intros.
-    eapply _exists_sem in H0. eapply _exists_sem.
-    destruct H0. exists x. auto.
-  Qed.
-
-  Lemma Ap_impls : forall (Ps : list Prop) (P Q : Prop),
-                     _impls Ps (P -> Q) ->
-                     _impls Ps P -> _impls Ps Q.
-  Proof.
-    clear. induction Ps; simpl; eauto.
-  Qed.
-
-  Opaque remembers.
-
-  Lemma GoalImplies_GConj_
-  : forall c (cs : ctx_subst c) l r,
-      GoalImplies (cs, GConj l r) (cs, GConj_ l r).
-  Proof.
-    simpl; intros.
-    split; auto.
-    split.
-    { destruct l; destruct r; inversion H; try constructor; eauto;
-      try constructor. }
-    { forward.
-      assert (   (l = GSolved /\ r = GConj l r)
-                 \/ (r = GSolved /\ l = GConj l r)
-                 \/ (GConj_ l r = GConj l r)).
-      { clear. destruct l; destruct r; simpl;
-               try solve [ left; eauto | right; left; eauto | right; right; congruence ]. }
-      destruct H3 as [ ? | [ ? | ? ] ]; forward_reason.
-      { subst l. destruct H4. simpl.
-        rewrite H2.
-        split; [ reflexivity | ].
-        intros.
-        eapply Pure_pctxD; eauto. intros; tauto. }
-      { destruct H4; subst. simpl.
-        rewrite H2.
-        split; [ reflexivity | ].
-        intros.
-        eapply Pure_pctxD; eauto. intros; tauto. }
-      { destruct H3.
-        simpl in *. forward.
-        split; [ reflexivity | ].
-        inv_all; subst.
-        intros.
-        eapply Pure_pctxD; eauto. } }
-  Qed.
-
-  Lemma GoalImplies_GConj
-  : forall c (cs : ctx_subst c) l r,
-      GoalImplies (cs, GConj_ l r) (cs, GConj l r).
-  Proof.
-    simpl; intros.
-    split; auto.
-    split.
-    { inversion H; subst.
-      destruct l; destruct r; simpl; auto; try constructor; auto. }
-    { forward.
-      assert (   (l = GSolved /\ r = GConj l r)
-                 \/ (r = GSolved /\ l = GConj l r)
-                 \/ (GConj_ l r = GConj l r)).
-      { clear. destruct l; destruct r; simpl;
-               try solve [ left; eauto | right; left; eauto | right; right; congruence ]. }
-      destruct H5 as [ ? | [ ? | ? ] ]; forward_reason.
-      { subst l. destruct H6. simpl.
-        rewrite H3.
-        split; [ reflexivity | ].
-        intros.
-        eapply Pure_pctxD; eauto. inv_all; subst. intros; tauto. }
-      { destruct H6; subst. simpl.
-        rewrite H2.
-        split; [ reflexivity | ].
-        intros.
-        eapply Pure_pctxD; eauto. inv_all; subst. intros; tauto. }
-      { destruct H5.
-        simpl in *. forward.
-        split; [ reflexivity | ].
-        inv_all; subst.
-        intros.
-        eapply Pure_pctxD; eauto. } }
-  Qed.
-
-
   Lemma runOnGoals_sound_ind
   : forall g ctx s,
       @rtac_spec typ expr _ _ _ _
@@ -317,355 +114,56 @@ Section runOnGoals.
      ** abstract this proof to avoid proving both the case of [Solved]
      ** and the case of [More]
      **)
-    red. induction g; fold runOnGoals in *.
+    induction g; simpl.
     { (* All *)
       intros.
-      specialize (@IHg (CAll ctx t) (AllSubst s)).
-      simpl in *.
-      match goal with
-        | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
-          replace Y with X
-      end; [ | f_equal ; try solve [ rewrite app_ass_trans ; reflexivity | omega ] ].
+      specialize (IHg (CAll ctx t) (AllSubst s)). simpl in *.
       destruct (runOnGoals (getUVars ctx) (getVars ctx ++ t :: nil)
-                           (countUVars ctx) (S (countVars ctx))
-                           (AllSubst s) g);
-        auto; intros; forward_reason; inv_all.
-      { destruct IHg as [ ? [ ? ? ] ].
-        { assumption. }
-        { constructor. auto. }
-        split.
-        { apply WellFormed_ctx_subst_fromAll; auto. }
-        split.
-        { constructor. eauto. }
-        { generalize (Proper_pctxD_impl (fromAll c)).
-          simpl in *.
-          forward; inv_all; subst.
-          forward_reason.
-          inv_all; subst; simpl in *.
-          forward; inv_all; subst.
-          split; eauto.
-          intros us vs.
-          eapply H6; [ | reflexivity | reflexivity | eapply H9 ].
-          do 6 red. clear.
-          do 6 intro; equivs.
-          eauto. } }
-      { destruct IHg.
-        { assumption. }
-        { constructor. auto. }
-        split.
-        { apply WellFormed_ctx_subst_fromAll; auto. }
-        destruct (eta_ctx_subst_all c); subst.
-        simpl in *.
-        forward. forward_reason. inv_all; subst.
-        split; auto. } }
-    { (* Exs *)
-      intros; simpl in *.
-      forward.
-      specialize (@IHg (CExs _ l) (remembers s l a)).
-      revert IHg. simpl.
-      repeat rewrite countUVars_getUVars.
-      repeat rewrite countVars_getVars.
-      repeat rewrite app_length.
-      intros.
-      match goal with
-        | H : match ?X with _ => _ end |- match match ?Y with _ => _ end with _ => _ end =>
-          replace Y with X;
-            [ remember X as X' ; destruct X'
-            |  ]
-      end; intros; auto.
-      { forward.
-        destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
-        subst.
-        simpl in *. inv_all; subst.
-        destruct (remembers_sound eq_refl H1 H4).
-        destruct IHg as [ ? [ ? ? ] ]; auto.
-        simpl in *.
-        forward.
-        progress inv_all.
-        split; auto. split.
-        { constructor; eauto.
-          eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
-        { forward. inv_all. subst.
-          forward_reason.
-          destruct (pctxD_remembers H4 H1 H3 H10) as [ ? [ ? ? ] ].
-          rewrite H11 in *.
-          forward. inv_all; subst.
-          split.
-          { forward_reason. clear - H14.
-            Transparent remembers. unfold remembers in H14.
-            inv_all. subst. assumption.
-            Opaque remembers. }
-          { destruct H14. intros.
-            gather_facts.
-            Transparent remembers. unfold remembers in H14.
-            Opaque remembers.
-            inv_all. subst. rewrite H3 in H14.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H3) as [ ? [ ? ? ] ].
-            specialize (@H2 _ _ _ _ H16 H10).
-            forward_reason.
-            change_rewrite H9 in H14.
-            rewrite H15 in H14.
-            Transparent remembers. unfold remembers in *.
-            simpl in H11. simpl in H2.
-            Opaque remembers.
-            forward; inv_all; subst.
-(*            revert H14. change_rewrite H2. *)
-            intros. gather_facts.
-            eapply (@pctxD_SubstMorphism _ _ _ _ _ _ _ _ H18 _ _ H3 H15 us vs).
-            gather_facts.
-            specialize (H12 us vs); revert H12.
-            destruct (drop_exact_append_exact l (getUVars ctx)) as [ ? [ ? ? ] ].
-            rewrite H0 in *.
-            inv_all. revert H12. revert H19.
-            subst. intros; subst.
-            rename e2 into P.
-            specialize (H14 P).
-            cut (e
-                   (fun (us0 : hlist typD (getUVars ctx))
-                        (vs0 : hlist typD (getVars ctx)) =>
-                      _foralls typD l
-                               (fun us' : hlist typD l =>
-                                  e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
-            { eapply Ap_pctxD; eauto.
-              clear H14.
-              eapply Pure_pctxD; eauto.
-              clear - H19 H11.
-              intros.
-              revert H3. eapply _exists_impl.
-              intros.
-              rewrite _forall_sem in H2.
-              rewrite _forall_sem in H.
-              specialize (H2 x).
-              specialize (H x).
-              specialize (H1 x).
-              specialize (H19 us x vs).
-              specialize (H11 us x).
-              tauto. }
-            { eapply H14. eapply Pure_pctxD; eauto. } } } }
-      { forward.
-        remember (amap_is_full (length l) a0). symmetry in Heqb.
+             (countUVars ctx) (S (countVars ctx)) (AllSubst s) g).
+      { constructor. }
+      { eapply rtac_spec_All_More; auto. }
+      { eauto using rtac_spec_All_Solved. } }
+    { intros. specialize (IHg _ (remembers s l a)).
+      simpl in IHg.
+      destruct (runOnGoals (getUVars ctx ++ l) (getVars ctx)
+                           (length l + countUVars ctx) (countVars ctx)
+                           (remembers s l a) g).
+      { constructor. }
+      { rewrite (ctx_subst_eta c).
+        simpl fromExs. cbv iota beta.
+        eapply rtac_spec_Exs_More.
+        auto. }
+      { rewrite (ctx_subst_eta c).
+        simpl fromExs. cbv iota beta.
+        remember (amap_is_full (length l) (fst (fromExs c))).
         destruct b.
-        { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ]; subst.
-          simpl in *. intros; inv_all; subst.
-          destruct (remembers_sound eq_refl H1 H3).
-          destruct IHg; auto.
-          inv_all; subst.
-          split; auto.
-          forward. inv_all; subst.
-          destruct (pctxD_remembers H3 H1 H4 H9) as [ ? [ ? ? ] ].
-          rewrite H10 in *.
-          forward; inv_all; subst.
-          split.
-          { destruct H12. clear - H12.
-            Transparent remembers. unfold remembers in H12.
-            inv_all. subst. assumption.
-            Opaque remembers. }
-          { forward_reason. intros.
-            gather_facts.
-            Transparent remembers. unfold remembers in H12. Opaque remembers.
-            inv_all. subst. rewrite H4 in H12.
-            destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H4) as [ ? [ ? ? ] ].
-            change_rewrite H8 in H12.
-            specialize (@H0 _ _ _ _ H14 H9).
-            forward_reason.
-            Transparent remembers. unfold remembers in *.
-            simpl in H11. simpl in H0.
-            Opaque remembers.
-            simpl in *; forward; inv_all; subst.
-            gather_facts.
-            eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
-            gather_facts.
-            rename e2 into P.
-            specialize (H11 us vs P).
-            eapply subst_getInstantiation in Heqb;
-              eauto using WellFormed_entry_WellFormed_pre_entry.
-            assert (e
-                        (fun (us0 : hlist typD (getUVars ctx))
-                             (vs0 : hlist typD (getVars ctx)) =>
-                           _foralls typD l
-                                    (fun us' : hlist typD l =>
-                                       e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
-              { eapply H11. eapply Pure_pctxD; eauto. }
-              { gather_facts.
-                eapply Pure_pctxD; eauto.
-                clear - H17 Heqb.
-                intros.
-                eapply _exists_sem.
-                forward_reason.
-                pose (inst := hlist_map (fun t (x : exprT _ _ (typD t)) => x us vs) x).
-                exists inst.
-                specialize (H3 us vs).
-                specialize (H17 us inst vs).
-                rewrite _forall_sem in H2.
-                rewrite _forall_sem in H.
-                specialize (H inst).
-                specialize (H1 inst).
-                specialize (H2 inst).
-                tauto. } } }
-        { destruct (eta_ctx_subst_exs c) as [ ? [ ? ? ] ].
-          subst. intros.
-          simpl in *. inv_all; subst.
-          destruct (remembers_sound eq_refl H1 H3).
-          destruct IHg as [ ? ? ]; auto.
-          simpl in *.
-          forward.
-          progress inv_all.
-          split; auto. split.
-          { constructor; eauto.
-            eapply WellFormed_entry_WellFormed_pre_entry; eauto.
-            constructor. }
-          { forward. inv_all. subst.
-            forward_reason.
-            destruct (pctxD_remembers H3 H1 H4 H9) as [ ? [ ? ? ] ].
-            rewrite H10 in *.
-            forward. inv_all; subst.
-            split.
-            { forward_reason. clear - H12.
-              Transparent remembers. unfold remembers in H12.
-              inv_all. subst. assumption.
-              Opaque remembers. }
-            { destruct H12. intros.
-              specialize (H14 us vs); revert H14.
-              Transparent remembers. unfold remembers in H12.
-              Opaque remembers.
-              inv_all. subst. rewrite H4 in H12.
-              destruct (@pctxD_substD _ _ _ _ _ _ _ _ _ _ _ H1 H4) as [ ? [ ? ? ] ].
-              change_rewrite H8 in H12.
-              specialize (@H0 _ _ _ _ H14 H9).
-              forward_reason.
-              Transparent remembers. unfold remembers in *.
-              simpl in H11. simpl in H0.
-              Opaque remembers.
-              simpl in *; forward; inv_all; subst.
-              gather_facts.
-              eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
-              gather_facts.
-              rename e2 into P.
-              specialize (H11 us vs P).
-              assert (e
-                        (fun (us0 : hlist typD (getUVars ctx))
-                             (vs0 : hlist typD (getVars ctx)) =>
-                           _foralls typD l
-                                    (fun us' : hlist typD l =>
-                                       e1 (hlist_app us0 us') vs0 -> P (hlist_app us0 us') vs0)) us vs).
-              { eapply H11. eapply Pure_pctxD; eauto. }
-              { gather_facts.
-                eapply Pure_pctxD; eauto.
-                clear - H17.
-                intros.
-                revert H3. eapply _exists_impl.
-                intros.
-                rewrite _forall_sem in H1.
-                rewrite _forall_sem in H.
-                specialize (H2 x).
-                specialize (H x).
-                specialize (H1 x).
-                specialize (H17 us x vs).
-                tauto. } } } } } }
-    { (* Hyp *)
-      simpl; intros.
-      specialize (IHg (CHyp ctx e) (HypSubst s)).
+        { eapply rtac_spec_remembers_full_Solved; eauto. }
+        { eapply rtac_spec_Exs_More; eauto.
+          eapply Proper_rtac_spec.
+          - reflexivity.
+          - symmetry. eapply More_More_. reflexivity.
+          - assumption. } } }
+    { intros. specialize (IHg _ (HypSubst (t:=e) s)).
       simpl in *.
-      match goal with
-        | H : match ?X with _ => _ end
-          |- match match ?Y with _ => _ end with _ => _ end =>
-          replace Y with X; [ remember X as X' ; destruct X' | f_equal ; simpl ; rewrite map_length; omega ]
-      end; auto.
-      { intros. inv_all; forward_reason.
-        split; eauto.
-        split.
-        { constructor. eauto. }
-        destruct (eta_ctx_subst_hyp c); subst.
-        simpl in *.
-        forward.
-        forward_reason.
-        inv_all.
-        inv_all; subst.
-        split; auto. intros.
-        gather_facts.
-        eapply Pure_pctxD; eauto.
-        intros us' vs'.
-        intro. eapply Ap_impls. exact H8. }
-      { intros. inv_all; forward_reason.
-        split; eauto.
-        destruct (eta_ctx_subst_hyp c); subst.
-        simpl in *.
-        forward. inv_all; subst.
-        forward_reason. inv_all; subst.
-        split; auto. } }
-    { (* Conj *)
-      simpl; intros; clear Htac.
-      specialize (IHg1 ctx s).
-      rename g1 into A.
-      rename g2 into B.
-      match goal with
-        | H : match ?X with _ => _ end
-          |- context [ match ?Y with _ => _ end ] =>
-          change Y with X ; destruct X; auto
-      end.
-      { rename g into A'.
-        specialize (IHg2 ctx c).
-        match goal with
-          | H : match ?X with _ => _ end
-            |- context [ match ?Y with _ => _ end ] =>
-            change Y with X ; destruct X; auto
-        end.
-        { change (rtac_spec s (GConj_ A B) (More c0 (GConj A' g))).
-          eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
-          reflexivity.
-          change (GoalImplies (ctx:=ctx) (s,GConj_ A B) (c0,GConj A' g)).
-          eapply Transitive_GoalImplies; [ eauto | | eapply GoalImplies_GConj ].
-          red. simpl.
-          intros; inv_all; forward_reason.
-          split; auto.
-          split; [ constructor; eauto | ].
-          forward. forward_reason.
-          split; [ etransitivity; eauto | ].
-          intros us vs.
-          gather_facts.
-          eapply pctxD_SubstMorphism; eauto.
-          gather_facts.
-          eapply Pure_pctxD; eauto. tauto. }
-        { change (rtac_spec s (GConj_ A B) (More c0 A')).
-          eapply Proper_rtac_spec; [ reflexivity | eapply More_More_ | ].
-          reflexivity.
-          simpl.
-          intros; inv_all; forward_reason.
-          split; auto. split; auto.
-          forward. forward_reason.
-          split; [ etransitivity; eassumption | ].
-          intros us vs.
-          gather_facts.
-          eapply pctxD_SubstMorphism; eauto.
-          gather_facts.
-          eapply Pure_pctxD; eauto. } }
-      { specialize (IHg2 ctx c).
-        match goal with
-          | H : match ?X with _ => _ end
-            |- context [ match ?Y with _ => _ end ] =>
-            change Y with X ; destruct X; auto
-        end.
-        { rename g into B'.
-          intros; forward_reason; inv_all; subst.
-          forward_reason.
-          split; auto. split; auto.
-          forward. forward_reason.
-          split; [ etransitivity; eassumption | ].
-          intros us vs.
-          gather_facts.
-          eapply pctxD_SubstMorphism; eauto.
-          gather_facts.
-          eapply Pure_pctxD; eauto. }
-        { intros; forward_reason; inv_all; subst.
-          forward_reason.
-          split; auto.
-          forward. forward_reason.
-          split; [ etransitivity; eassumption | ].
-          intros us vs.
-          gather_facts.
-          eapply pctxD_SubstMorphism; eauto.
-          gather_facts.
-          eapply Pure_pctxD; eauto. } } }
+      destruct (runOnGoals (getUVars ctx) (getVars ctx) (countUVars ctx)
+                           (countVars ctx) (HypSubst s) g);
+        eauto using rtac_spec_Hyp_More, rtac_spec_Hyp_Solved. }
+    { intros. specialize (IHg1 _ s).
+      destruct (runOnGoals (getUVars ctx) (getVars ctx) (countUVars ctx)
+         (countVars ctx) s g1); eauto.
+      { specialize (IHg2 _ c).
+        destruct (runOnGoals (getUVars ctx) (getVars ctx) (countUVars ctx)
+                             (countVars ctx) c g2); eauto.
+        { eapply Proper_rtac_spec.
+          - reflexivity.
+          - eapply More_More_.
+            eapply GConj_GConj_; eauto; reflexivity.
+          - eapply rtac_spec_GConj_More_More; eauto. }
+        { eapply Proper_rtac_spec.
+          - reflexivity.
+          - eapply More_More_. reflexivity.
+          - eapply rtac_spec_GConj_More_Solved; eauto. } }
+      { eapply rtac_spec_GConj_Solved. eauto. eauto. } }
     { (* Goal *)
       clear - Htac; simpl; intros.
       red in Htac.

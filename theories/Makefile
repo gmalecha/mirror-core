@@ -29,7 +29,8 @@ STAC := Core Continuation Repeat \
 	Simplify Instantiate \
 	UseForAll UseList \
 	STac
-RTAC := BIMap Ctx Core CoreK RunOnGoals \
+RTAC := BIMap Ctx Core CoreK \
+	SpecLemmas RunOnGoals RunOnGoals_list \
 	Then Try Repeat Rec Idtac First Fail Solve \
 	ThenK runTacK \
 	Assumption \
