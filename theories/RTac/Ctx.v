@@ -1553,122 +1553,70 @@ Section parameterized.
       WellFormed_entry cs nts s ->
       WellFormed_entry cs nts s'.
   Proof.
-(*
     intros.
-    eapply syn_check_set in H; eauto.
+    eapply syn_check_set in H; eauto using WellFormed_entry_WellFormed_amap.
     red; intros.
-    consider (u ?[ eq ] uv); intros; subst.
-    { rewrite countUVars_getUVars.
-      split; auto.
-      split.
-      { intros.
-        destruct H. rewrite H in H6.
-        inv_all; subst.
-        eapply instantiate_mentionsU in H7.
-        destruct H7.
-        { eapply H1; tauto. }
+    forward_reason.
+    split. red. split; try eassumption.
+    split.
+    { red. intros. rewrite H8 in H9.
+      consider (uv ?[ eq ] u); intros; subst.
+      { auto. }
+      { forward.
+        red in H5. destruct H5.
+        red in H5. destruct H5 as [ ? [ ? ? ] ].
+        eapply H13. eauto. } }
+    { red; intros.
+      rewrite H8 in H9. clear H8.
+      consider (uv ?[ eq ] u); intros; subst.
+      { inv_all. subst.
+        eapply mentionsU_instantiate in H10.
+        destruct H10.
+        { destruct H8.
+          eapply H1 in H9. tauto. }
         { forward_reason.
-          eapply H5 in H6.
+          eapply mentionsU_instantiate_false in H7.
           forward_reason.
-          rewrite <- countUVars_getUVars.
-          eapply H12; auto. } }
-      { intros.
-        destruct H.
-        rewrite H in *; inv_all; subst.
-        consider (mentionsU u' (instantiate (fun u : ExprI.uvar => amap_lookup u s) 0 e)); auto.
-        intro. exfalso.
-        eapply instantiate_mentionsU in H6.
-        destruct H7.
-        + destruct H6.
-          - eapply H2 in H7. forward_reason; congruence.
-          - forward_reason.
-            eapply H5 in H6.
-            forward_reason. rewrite H14 in H10. congruence.
-            left; auto.
-        + destruct H6.
-          - destruct H6.
-            consider (u' ?[ eq ] uv).
-            { intros; subst.
-              destruct H8.
-              clear H1 H2.
-              eapply mentionsU_instantiate_false in H8.
-              destruct H8. apply H1 in H6. congruence. }
-            { destruct H8. intros; rewrite H10 in H7; auto.
-              rewrite H6 in H7. simpl in H7. congruence. }
-          - forward_reason.
-            eapply mentionsU_instantiate_false in H8.
-            forward_reason.
-            clear H2 H1.
-            eapply WellFormed_entry_WellFormed_pre_entry in H5.
-            consider (u' ?[ eq ] uv); intros; subst.
-            { eapply H13 in H6; congruence. }
-            { rewrite H12 in H7 by eassumption.
-              consider (amap_lookup u' s); simpl in *; try congruence.
-              intros. eapply H5 in H6. forward_reason.
-              rewrite H15 in H10; congruence. } } }
-    { forward_reason.
-      rewrite H10 in H6; eauto.
-      consider (amap_lookup u s); intros; simpl in *; try congruence.
-      inv_all; subst.
-      split.
-      { eapply H5 in H6. tauto. }
-      split.
-      { intros.
-        eapply instantiate_mentionsU in H11.
-        destruct H11.
-        { destruct H11. consider (u'' ?[ eq ] uv); intros; try congruence.
-          eapply WellFormed_entry_WellFormed_pre_entry in H5.
-          eapply H5 in H6. forward_reason.
-          eapply H14; eauto. }
-        { forward_reason.
-          consider (x ?[ eq ] uv); try congruence; intros; subst.
-          inv_all; subst.
-          eapply instantiate_mentionsU in H13.
-          destruct H13.
-          + destruct H11. apply H1 in H13.
-            rewrite countUVars_getUVars. tauto.
-          + forward_reason.
-            eapply WellFormed_entry_WellFormed_pre_entry in H5.
-            eapply H5 in H11. forward_reason.
-            eauto. } }
-      { intros.
-        eapply mentionsU_instantiate_false.
-        split.
-        { match goal with
-            | |- (if ?X then _ else _) = _ -> _ =>
-              consider X; intro; try congruence
-          end.
-          intro X; clear X.
-          eapply H5 in H6. forward_reason.
-          eapply H14.
-          destruct H11; try tauto.
-          + right. rewrite H10 in H11 by eauto.
-            destruct (amap_lookup u' s); simpl in *; try congruence. }
-        { intros u0 e'.
-          match goal with
-            | |- (if ?X then _ else _) = _ -> _ =>
-              consider X; intro; try congruence
-          end.
-          intros. inv_all; subst.
-          consider (u' ?[ eq ] uv); intros; subst; try assumption.
-          eapply mentionsU_instantiate_false.
-          split.
-          { intros. destruct H11.
-            + eapply H2; eauto.
-            + rewrite H10 in H11 by assumption.
-              consider (amap_lookup u' s); simpl; intros; try congruence. }
-          { intros.
-            eapply H5 in H13.
-            forward_reason. eapply H17.
-            destruct H11; auto.
-            right.
-            rewrite H10 in H11 by eauto.
-            intro. rewrite H19 in H11 by eauto.
-            apply H11. reflexivity. } } } }
-    { eapply WellFormed_entry_WellFormed; eauto. }
+          eapply H11 in H9; eauto.
+          destruct H5.
+          red in H5. destruct H5 as [ ? [ ? ? ] ].
+          apply H14 in H8. eauto. } }
+      { forward.
+        inv_all. subst.
+        eapply mentionsU_instantiate in H10.
+        destruct H10.
+        { destruct H10. forward.
+          destruct H5. destruct H5 as [ ? [ ? ? ] ].
+          eapply H15 in H9; eauto. }
+        { forward_reason. forward.
+          subst. inv_all; subst.
+          eapply mentionsU_instantiate in H12.
+          destruct H12; forward_reason.
+          { eapply H1 in H12. tauto. }
+          { destruct H5. destruct H5 as [ ? [ ? ? ] ].
+            eapply H16 in H13; eauto. } } } }
+    { red; intros.
+      rewrite H8 in H9; clear H8.
+      consider (uv ?[ eq ] u); intros; subst.
+      { inv_all; subst.
+        eapply mentionsU_instantiate in H10.
+        destruct H10; forward_reason.
+        { eapply H1 in H9. tauto. }
+        { destruct H5 as [ [ ? [ ? ? ] ] ? ].
+          eapply H13 in H10; eauto. } }
+      { forward. inv_all. subst.
+        eapply mentionsU_instantiate in H10.
+        destruct H10; forward_reason.
+        { forward.
+          destruct H5 as [ [ ? [ ? ? ] ] ? ].
+          eapply H15; eauto. }
+        { forward. inv_all; subst.
+          eapply mentionsU_instantiate in H12.
+          destruct H12; forward_reason.
+          { eapply H1 in H12. tauto. }
+          { destruct H5 as [ [ ? [ ? ? ] ] ? ].
+            eapply H16; eauto. } } } }
   Qed.
-*)
-  Admitted.
 
   Lemma sem_preserves_if_ho_ctx_lookup
   : forall ctx (s : ctx_subst ctx) cD,
@@ -1870,7 +1818,8 @@ Section parameterized.
   Proof.
     induction 2; simpl; intros; try congruence;
     try rename IHWellFormed_ctx_subst into IH.
-    { forwardy; inv_all; subst.
+    { (* All *)
+      forwardy; inv_all; subst.
       eapply IH in H0; clear IH; forward_reason; try exact Huv.
       split; eauto.
       split.
@@ -1945,7 +1894,8 @@ Section parameterized.
         rewrite H11; clear H11.
         rewrite <- H15; clear H15.
         tauto. } }
-    { forwardy; inv_all; subst.
+    { (* Hyp *)
+      forwardy; inv_all; subst.
       eapply IH in H0; clear IH; forward_reason; try exact Huv.
       split; eauto.
       split.
@@ -1984,22 +1934,110 @@ Section parameterized.
       split; eauto.
       split. constructor; auto.
       auto. }
-    { forward.
+    { (* Exs *)
+      forward.
       consider (uv ?[ ge ] n).
-      { admit.
-        (* rewrite countEnvs_spec in H1. inv_all; subst; auto; intros.
-        forward; inv_all; subst. clear IH.
+      { clear IH.
+        rewrite countEnvs_spec in H1.
+        inv_all; subst; intros.
+        forward; inv_all; subst.
         split; auto.
         split.
         { rewrite app_length.
           rewrite Plus.plus_comm. assumption. }
-        
-        
-        SearchAbout amap_check_set.
+        rewrite and_assoc.
         split.
-        { admit. }
-        split.
-        { admit. }
+        { generalize H. intro SAVE_WF.
+          eapply WellFormed_entry_check_set in H; eauto.
+          { Lemma mentionsAny_conj_false
+            : forall fv gv fu gu e,
+              (mentionsAny fu fv e = false /\
+               mentionsAny gu gv e = false) <->
+              (mentionsAny (fun x => fu x || gu x) (fun x => fv x || gv x) e = false).
+            Proof.
+              intros.
+              repeat rewrite mentionsAny_complete_false by eauto.
+              clear. intuition;
+                     repeat match goal with
+                              | H : _ |- _ =>
+                                erewrite H by eauto
+                            end; auto.
+              eapply H0 in H. eapply orb_false_iff in H. tauto.
+              eapply H1 in H. eapply orb_false_iff in H. tauto.
+              eapply H0 in H. eapply orb_false_iff in H. tauto.
+              eapply H1 in H. eapply orb_false_iff in H. tauto.
+            Qed.
+            apply and_comm.
+            eapply mentionsAny_conj_false. simpl.
+            eapply mentionsAny_complete_false; eauto.
+            eapply WellFormed_entry_with_no_forward in H.
+            forward_reason.
+            split.
+            { intros.
+              consider (amap_lookup u a); simpl; intros.
+              { exfalso.
+                red in H. forward_reason.
+                red in H.
+                specialize (H uv e'). red in H.
+                eapply H in H8.
+                { apply H8. red. exists e0.
+                  eapply FMapSubst.SUBST.FACTS.find_mapsto_iff.
+                  apply H9. }
+                { eapply FMapSubst.SUBST.FACTS.find_mapsto_iff. eauto. } }
+              { consider (ctx_lookup u s); simpl; intros.
+                { exfalso.
+                  eapply H7 in H5.
+                  eapply H5 in H8. congruence. }
+                { eapply H6 in H5.
+                  eapply H5 in H8.
+                  eapply rel_dec_neq_false; eauto with typeclass_instances.
+                  rewrite app_length. omega. } } }
+            { (* what do I know about variables? *)
+              clear H6 H7.
+              eapply syn_check_set in H4;
+                [ | eassumption | eassumption
+                | eauto using WellFormed_entry_WellFormed_amap ].
+              forward_reason.
+              rewrite H7 in H5; clear H7.
+              rewrite rel_dec_eq_true in H5 by eauto with typeclass_instances.
+              inv_all. subst.
+              admit.
+              (** TODO: I need to look at this in more detail, b/c i'm not sure
+               ** if it is correct **)
+(*
+              Lemma mentionsV_instantiate
+              : forall v f n e,
+                  mentionsV v (instantiate f n e) = true <->
+                  mentionsV v e = true \/
+                  exists u e', mentionsU u e = true /\
+                               f u = Some e' /\
+                               mentionsV v e' = true.
+*)
+                (** [instantiate] is only meaningful with [mentionsU]
+                 ** but [mentionsV_instantiate] is also interested in
+                 ** [mentionsV]. So there is some interplay between the
+                 ** two types of variables and the abstractions start to
+                 ** break down
+                 **)
+
+
+              (* I do not know anything about the variables that are not
+               * being added, only about the variables that are being added.
+               * ---> This is unprovable, not true!
+               *) } }
+          { intros.
+            eapply mentionsU_instantiate in H6.
+            destruct H6; forward_reason.
+            { forward.
+              eapply mentionsAny_complete_false in H3; eauto.
+              destruct H3. split; auto.
+              eapply H3 in H7.
+              eapply neg_rel_dec_correct in H7. omega. }
+            { admit. } }
+          { admit. }
+          { omega. } }
+        (** Rest of the proof **)
+        admit. (*
         generalize H4; intro SAVED.
 
         eapply amap_set_substD in H4;
@@ -2077,7 +2115,7 @@ Section parameterized.
           simpl in H16. rewrite H16. reflexivity.
           revert H5.
           rewrite <- (hlist_app_hlist_split _ _ us).
-          rewrite H14. tauto. } *) }
+          rewrite H14. tauto. } *) (** END HERE *) }
       { rewrite countEnvs_spec in H1. inv_all; subst; auto; intros.
         forwardy; inv_all; subst.
         eapply IH in H1; clear IH.
@@ -2158,7 +2196,7 @@ Section parameterized.
              * in the underlying environment
              *)
             destruct H.
-            eapply Forall_amap_instaniate. 2: eauto.
+            eapply Forall_amap_instantiate. 2: eauto.
             simpl. intros.
             eapply mentionsU_instantiate in H10.
             destruct H10.
@@ -2400,50 +2438,31 @@ Section parameterized.
           (forall us us' vs,
              (csD us vs /\ mD (hlist_app us us') vs) <-> cs'D (hlist_app us us') vs).
   Proof.
-(*
     unfold remembers. simpl; intros; subst.
     split.
     { constructor; eauto.
       red. generalize H1. red in H1.
       intro SAVED.
-      intros. unfold amap_lookup in *.
-      unfold amap_instantiate in H. rewrite SUBST.FACTS.map_o in H.
-      unfold SUBST.FACTS.option_map in H. forward.
-      specialize (H1 _ _ H). inv_all; subst.
-      forward_reason.
-      split; auto.
       split.
-      { intros.
-        eapply instantiate_mentionsU in H5.
-        destruct H5.
-        { destruct H5. eauto. }
-        { forward_reason.
+      { eapply WellFormed_bimap_instantiate; eauto.
+        simpl. intros.
+        eapply WellFormed_ctx_subst_WellFormed_ctx_subst_sem in H0.
+        red in H0.
+        eapply H0 in H. forward_reason.
+        eauto. }
+      { red. intros.
+        rewrite amap_lookup_amap_instantiate in H.
+        forward. inv_all; subst.
+        eapply mentionsU_instantiate in H2. destruct H2.
+        - tauto.
+        - forward_reason.
           eapply WellFormed_ctx_subst_WellFormed_ctx_subst_sem in H0.
-          eapply H0 in H5. destruct H5 as [ ? [ X ? ] ].
-          apply X in H7. clear - H7.
-          rewrite countUVars_getUVars. omega. } }
-      { intros. destruct H5.
-        { consider (mentionsU u' (instantiate (fun u0 : nat => ctx_lookup u0 cs) 0 e0)); auto.
-          intro. exfalso.
-          eapply instantiate_mentionsU in H6.
-          destruct H6; forward_reason; try congruence.
-          eapply WellFormed_ctx_subst_WellFormed_ctx_subst_sem in H0.
-          destruct (H0 _ _ H6) as [ ? [ ? ? ] ].
-          eapply H11 in H5. congruence. }
-        { unfold amap_instantiate in H5.
-          rewrite SUBST.FACTS.map_o in H5.
-          unfold SUBST.FACTS.option_map in H5. forward. clear H6.
-          consider (mentionsU u' (instantiate (fun u0 : nat => ctx_lookup u0 cs) 0 e0)); auto.
-          intro; exfalso.
-          eapply instantiate_mentionsU in H6.
-          destruct H6.
-          { rewrite H3 in H6; [ intuition | congruence ]. }
-          { forward_reason.
-            eapply WellFormed_ctx_subst_WellFormed_ctx_subst_sem in H0.
-            eapply H0 in H6. destruct H6 as [ ? [ ? ? ] ].
-            clear H6 H10. eapply H9 in H8. revert H8.
-            eapply SAVED in H5. destruct H5. revert H5. clear.
-            rewrite countUVars_getUVars. intros. omega. } } } }
+          red in H0.
+          eapply H0 in H2.
+          forward_reason.
+          specialize (H8 u'').
+          destruct (ctx_lookup u'' cs); auto.
+          rewrite H8 in H4. congruence. congruence. } }
     { simpl; intros.
       destruct (drop_exact_append_exact ts tus) as [ ? [ ? ? ] ].
       change_rewrite H3.
@@ -2453,8 +2472,10 @@ Section parameterized.
       change (getUVars ctx ++ ts) with (getUVars (CExs ctx ts)) in H2.
       change (getVars ctx) with (getVars (CExs ctx ts)) in H2.
       eapply amap_instantiates_substD with (f:=fun u : nat => ctx_lookup u cs) in H2.
-      3: eauto.
-      2: eapply CtxLogic.ExprTApplicative_foralls_impl. 2: instantiate (1 := fun us vs => csD (x us) vs).
+      4: solve [ eauto ].
+      3: eapply CtxLogic.ExprTApplicative_foralls_impl.
+      2: solve [ eauto ].
+      2: instantiate (1 := fun us vs => csD (x us) vs).
       { forward_reason.
         change_rewrite H2.
         eexists; split; eauto.
@@ -2484,8 +2505,7 @@ Section parameterized.
         rewrite H4. intro X; specialize (H8 X).
         rewrite (hlist_app_hlist_split _ _ us) in *.
         congruence. } }
-*)
-  Admitted.
+  Qed.
 
   Lemma Ctx_append_assoc : forall (c1 c2 c3 : Ctx),
                              Ctx_append c1 (Ctx_append c2 c3) =
@@ -2757,7 +2777,21 @@ Section parameterized.
     clear. unfold only_in_range. red.
     intros.
     eapply only_in_range_0_empty in H.
-    admit.
+    split.
+    { red. intros.
+      exfalso. rewrite H in H0.
+      eapply FMapSubst.SUBST.FACTS.empty_mapsto_iff in H0.
+      assumption. }
+    split.
+    { eapply Forall_amap_Proper. 2: eauto.
+      instantiate (1 := fun (k : FMapSubst.uvar) (_ : expr) => a <= k < a + 0).
+      reflexivity.
+      eapply Forall_amap_empty. }
+    { eapply Forall_amap_Proper. 2: eauto.
+      instantiate (1 := fun (_ : FMapSubst.uvar) (e : expr) =>
+                          forall u'' : uvar, mentionsU u'' e = true -> u'' < a + 0).
+      reflexivity.
+      eapply Forall_amap_empty. }
   Qed.
 
   Lemma only_in_range_0_substD
@@ -2768,19 +2802,14 @@ Section parameterized.
         forall us vs, sD us vs.
   Proof.
     intros.
-(*
-    destruct (SUBST.substD_empty tus tvs) as [ ? [ ? ? ] ].
-    generalize (SUBST.Proper_amap_substD tus tvs (only_in_range_0_empty H)).
-    intro. unfold amap_substD, amap_empty, substD in *; simpl in *.
-    eapply SUBST.eq_option_A_Roption in H2.
-    destruct H2; try congruence.
-    eexists; split; eauto. inv_all; subst.
-    clear - H2 H1.
-    do 5 red in H2.
-    intros. eapply H2; eauto; reflexivity.
+    generalize (FMapSubst.SUBST.Proper_amap_substD tus tvs (only_in_range_0_empty H)).
+    destruct (FMapSubst.SUBST.substD_empty tus tvs) as [ ? [ ? ? ] ].
+    unfold amap_substD.
+    destruct (FMapSubst.SUBST.raw_substD tus tvs am).
+    { simpl. eexists; split; eauto.
+      intros. eapply H2. trivial. }
+    { simpl. destruct 1. }
   Qed.
-*)
-  Admitted.
 
 (*
   Lemma WellFormed_pre_entry_WellFormed_subst
@@ -2820,104 +2849,3 @@ Export MirrorCore.ExprI.
 Export MirrorCore.ExprDAs.
 Export MirrorCore.VariablesI.
 Export MirrorCore.RTac.BIMap.
-
-(*
-  Section ctx_set'.
-    Variables (u : nat) (e : expr).
-
-    Fixpoint ctx_set' {c T} (cs : ctx_subst c) {struct cs}
-    : ((nat -> option expr) -> ctx_subst c -> option T) -> option T :=
-      match cs in ctx_subst c
-            return ((nat -> option expr) -> ctx_subst c -> option T) -> option T
-      with
-        | TopSubst _ _ => fun k => None
-        | AllSubst _ _ c => fun k =>
-          ctx_set' c (fun f c => k f (AllSubst c))
-        | HypSubst _ _ c => fun k =>
-          ctx_set' c (fun f c => k f (HypSubst c))
-        | ExsSubst ts ctx c s => fun k =>
-          let (nus,nvs) := countEnvs ctx in
-          if u ?[ ge ] nus then
-            let max_nus := length ts + nus in
-            if mentionsAny (fun x => x ?[ ge ] max_nus)
-                           (fun x => x ?[ ge ] nvs) e then
-              None
-            else
-              match amap_check_set u e s with
-                | None => None
-                | Some s' =>
-                  match amap_lookup u s' with
-                    | None => None
-                    | Some e' =>
-                      k (fun x => if x ?[ eq ] u then Some e' else None)
-                        (ExsSubst c s')
-                  end
-              end
-          else
-            ctx_set' c
-                     (fun f c => k f (@ExsSubst _ ctx c
-                                                (amap_instantiate f s)))
-      end.
-  End ctx_set'.
-*)
-
-
-
-
-(*
-              rewrite H6; clear H6.
-              forward_reason. forward. subst.
-              inv_all; subst.
-              match goal with
-                | |- (if ?X then _ else _) = _ =>
-                  consider X; intros; eauto
-              end; try congruence.
-              + subst.
-                admit. (** mentionsAny crazy ugly proof **)
-              + consider (ctx_lookup u'' s); auto.
-                intros. exfalso.
-                eapply WellFormed_ctx_subst_WellFormed_ctx_subst_sem in H0.
-                eapply H0 in H12. forward_reason.
-                eapply 
-
-
-
-
-
-
-
-
-
-
-          eapply WellFormed_entry_instantiate; try reflexivity; eauto.
-          - simpl.
-            intros; forward; inv_all; subst.
-            split.
-            { clear - H9 H4 MentionsAnyOk_expr.
-              admit. }
-            { clear - H9 H5 MentionsAnyOk_expr.
-              erewrite mentionsAny_mentionsU in H9; eauto.
-              consider (ctx_lookup u' c0); auto; intros.
-              exfalso.
-              eapply mentionsAny_complete in H9.
-              eapply mentionsAny_complete_false in H5.
-              destruct H5. destruct H9; forward_reason; try congruence.
-              eapply H0 in H2. consider (u' ?[ eq ] x); intro; subst.
-              rewrite H in H2. congruence. }
-          - Lemma WellFormed_entry_WellFormed_entry_WellFormed_subst
-            : forall ctx (cs cs' : ctx_subst ctx) len s,
-                WellFormed_subst cs' ->
-                WellFormed_entry cs len s ->
-                WellFormed_entry cs' len s.
-            Proof.
-              clear. intros. destruct H0.
-              split; try tauto.
-              destruct H0 as [ ? [ ? ? ] ].
-              red; intros. consider (ctx_lookup u'' cs'); auto; intros.
-              exfalso.
-              red in H. simpl in H.
-              eapply WellFormed_ctx_subst_WellFormed_ctx_subst_sem in H.
-              eapply H in H6.
-              eapply H3 in H4. eapply H4 in H5.
-            Qed.
-*)
