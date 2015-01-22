@@ -36,6 +36,58 @@ Section parameterized.
     induction n; simpl; intros; eauto.
   Qed.
 
+  Section REC_N.
+    Section rec.
+      Variable b : rtac typ expr -> rtac typ expr.
+      Variable last : rtac typ expr.
+
+      Fixpoint rec_N_rec (n : BinNums.positive)
+        : (rtac typ expr -> rtac typ expr) -> rtac typ expr :=
+        match n with
+          | BinNums.xH => fun all => all last
+          | BinNums.xI n =>
+            fun all e sub tus tvs =>
+              rec_N_rec n (fun z e sub tus tvs => b (fun e sub tus tvs => all (fun e sub tus tvs => all z e sub tus tvs) e sub tus tvs) e sub tus tvs) e sub tus tvs
+          | BinNums.xO n =>
+            fun all e sub tus tvs =>
+              rec_N_rec n (fun z e sub tus tvs => all (fun e sub tus tvs => all z e sub tus tvs) e sub tus tvs)
+                  e sub tus tvs
+        end.
+
+      Hypothesis b_sound : forall t, rtac_sound t -> rtac_sound (b t).
+      Hypothesis last_sound : rtac_sound last.
+
+      Lemma rec_N_rec_sound
+      : forall n rest, (forall t, rtac_sound t -> rtac_sound (rest t)) ->
+                        rtac_sound (rec_N_rec n rest).
+      Proof.
+        induction n; simpl.
+        { intros.
+          eapply IHn. intros.
+          eapply b_sound. eapply H. eapply H. assumption. }
+        { intros. eapply IHn. intros.
+          eapply H. eapply H. assumption. }
+        { intros. eapply H. assumption. }
+      Qed.
+
+    End rec.
+
+    Definition REC_N (n : BinNums.positive)
+               (b : rtac typ expr -> rtac typ expr)
+               (last : rtac typ expr)
+    : rtac typ expr :=
+      rec_N_rec b last n b.
+
+    Theorem REC_N_sound
+      : forall b l, (forall t, rtac_sound t -> rtac_sound (b t)) ->
+                    rtac_sound l ->
+                    forall n,
+                      rtac_sound (REC_N n b l).
+    Proof.
+      intros. eapply rec_N_rec_sound; eauto.
+    Qed.
+  End REC_N.
+
   Definition RECK (n : nat)
              (b : rtacK typ expr -> rtacK typ expr)
              (last : rtacK typ expr)
@@ -60,4 +112,5 @@ Section parameterized.
 End parameterized.
 
 Arguments REC {_ _} n f last _ _ _ _ _ _ _ : rename.
+Arguments REC_N {_ _} n f last _ _ _ _ _ _ _ : rename.
 Arguments RECK {_ _} n f last _ _ _ _ _ _ _ : rename.
