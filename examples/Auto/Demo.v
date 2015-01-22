@@ -5,6 +5,7 @@ Require Import MirrorCore.EProverI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
+Require MirrorCore.Lambda.ExprUnify_simul.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.Subst.FMapSubst.
@@ -91,7 +92,7 @@ Definition lem_minus : lemma typ (expr typ func) (expr typ func) :=
 
 
 Definition evenHints : Hints typ (expr typ func) :=
-{| Apply := lem_0 :: lem_SS :: lem_plus :: lem_minus :: nil
+{| Apply := lem_SS :: lem_0 :: lem_plus :: lem_minus :: nil
  ; Extern := from_Prover (@assumptionProver _ (expr typ func) _)
  |}.
 
@@ -103,14 +104,14 @@ Proof.
   constructor.
   { unfold evenHints; simpl.
     repeat (apply Forall_cons || apply Forall_nil).
-    exact Even_0.
     exact Even_SS.
+    exact Even_0.
     exact Even_plus.
     exact Even_minus. }
   { unfold evenHints; simpl.
     eapply from_ProverT_correct; eauto with typeclass_instances.
     apply (@assumptionProver_correct typ _ (expr typ func) _ _ _ _ _). }
-Qed.
+Defined.
 
 
 
@@ -126,43 +127,108 @@ eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
 eauto with typeclass_instances.
 Qed.
 
-Require MirrorCore.Lambda.ExprUnify_simul.
+Definition the_auto hints :=
+  @auto_prove typ (expr typ func) _ _ _ subst _ (SUBST.SubstOpen_subst _)
+                hints
+                vars_to_uvars
+                (fun tus tvs under el er (t : typ) (sub : subst) =>
+                   @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under el er t sub).
 
 Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
 : forall facts (us vs : EnvI.env) goal s',
-    @auto_prove typ (expr typ func) _ _ subst _ _ 
-                hints
-                (vars_to_uvars)
-                (fun tus tvs under el er (t : typ) (sub : subst) =>
-                   @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under sub el er t)
-                (@instantiate typ func) fuel facts
-                (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
-                (@SubstI.subst_empty _ _ _) = Some s' ->
+    @the_auto hints fuel facts
+              (EnvI.typeof_env us) (EnvI.typeof_env vs) goal
+              (SUBST.raw_empty _) = Some s' ->
     (let (tus,us) := EnvI.split_env us in
      let (tvs,vs) := EnvI.split_env vs in
-     match @SubstI.substD _ _ _ _ _ _ _ tus tvs s' with
-       | None => False
-       | Some P => P us vs
+     match factsD (ExternOk Hok) tus tvs facts
+         , @SubstI.substD _ _ _ _ _ _ _ _ tus tvs s' with
+       | Some fD , Some P => fD us vs /\ P us vs
+       | None , _
+       | _ , None => False
      end) ->
     match @ExprI.exprD _ RType_typ _ _ us vs goal tyProp return Prop with
       | None => True
       | Some P => P
     end.
 Proof.
-Admitted.
-
-Goal Even 0.
-Proof.
-  pose (goal := App (Inj 1%positive) (makeNat 0)).
-  change match ExprI.exprD (Expr := Expr_expr) nil nil goal tyProp with
-           | None => True
-           | Some P => P
-         end.
-  eapply (@Apply_auto_prove 100 evenHints evenHintsOk
-                            (evenHints.(Extern).(Summarize) nil nil nil)).
-  compute. reflexivity.
-  compute. auto.
+  intros.
+  generalize (@auto_prove_sound
+                typ (expr typ func) _ _ _ _ _ _ _
+                (SUBST.SubstOpen_subst _) hints
+                vars_to_uvars
+                (fun tus tvs under el er (t : typ) (sub : subst) =>
+                   @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under el er t sub) fuel facts _ _ goal _ _ Hok H
+             (@SUBST.WellFormed_empty _ _ _ _ _)); clear H.
+  unfold ExprI.exprD.
+  consider (split_env us).
+  consider (split_env vs).
+  intros. destruct H2.
+  destruct (SUBST.substD_empty x0 x) as [ ? [ ? ? ] ].
+  forward.
+  assert (x = typeof_env vs).
+  { rewrite <- split_env_typeof_env.
+    rewrite H. reflexivity. }
+  assert (x0 = typeof_env us).
+  { rewrite <- split_env_typeof_env.
+    rewrite H0. reflexivity. }
+  revert H7. revert H9. subst.
+  intros.
+  specialize (fun Z => H3 _ _ Z H1 H4).
+  unfold ExprDAs.exprD'_typ0 in *.
+  change_rewrite H8 in H3.
+  specialize (H3 _ eq_refl).
+  destruct H3 as [ ? [ ? ? ] ].
+  change_rewrite H3 in H6. inv_all; subst.
+  destruct H7.
+  specialize (H10 _ _ H4 H6). tauto.
 Qed.
+
+Definition fuel := 1002.
+
+Ltac run_auto := idtac;
+  match goal with
+    | |- Even ?X =>
+      let G := constr:(App (Inj 1%positive) (makeNat X)) in
+      pose (g := G) ;
+      let result :=
+          constr:(the_auto evenHints fuel nil nil nil g (@SUBST.raw_empty (expr typ func)))
+      in
+      let resultV := eval vm_compute in result in
+      match resultV with
+        | None => fail
+        | Some ?sV =>
+          pose (s := sV) ;
+          cut (let (tus,us) := EnvI.split_env nil in
+               let (tvs,vs) := EnvI.split_env nil in
+               match factsD (ExternOk evenHintsOk) tus tvs nil
+                   , @SubstI.substD _ _ _ _ _ _ _ _ tus tvs s with
+                 | Some fD , Some P => fD us vs /\ P us vs
+                 | None , _
+                 | _ , None => False
+               end) ;
+            [ cut (result = resultV) ;
+              [ set (pf := @Apply_auto_prove fuel _ evenHintsOk nil nil nil g s) ;
+                exact pf
+              | vm_cast_no_check (@eq_refl _ (Some s))]
+            | compute; split; constructor ]
+      end
+  end.
+
+Goal Even 200.
+Proof.
+  Time run_auto.
+Qed.
+
+Goal Even 200.
+Proof.
+  Time eauto 700 using Even_0, Even_SS.
+Qed.
+
+Goal Even (10 + 10).
+
+reify_get (Even (10 + 10)).
+
 
 (*
 Goal Even 2.

@@ -47,6 +47,10 @@ Ltac reify trm :=
   in
   reify_expr reify_simple k [ True ] [ trm ].
 
+Ltac reify_simple trm k :=
+  reify_expr reify_simple k [ True ] [ trm ].
+
+
 Definition test_typ : typ.
   reify_typ (nat -> nat).
 Defined.
