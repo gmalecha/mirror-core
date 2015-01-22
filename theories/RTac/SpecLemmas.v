@@ -482,10 +482,7 @@ Section spec_lemmas.
     forward_reason.
     assert (WellFormed_ctx_subst
               (ExsSubst (ts:=l) s (amap_instantiate (fun u : nat => ctx_lookup u s) a))).
-    { edestruct remembers_sound.
-      4: eapply H1.
-      Transparent remembers. reflexivity. Opaque remembers.
-      assumption. assumption. }
+    { edestruct remembers_sound; eauto with typeclass_instances. }
     forward_reason. clear H1.
     rewrite (ctx_subst_eta c) in *; simpl in *.
     generalize dependent (snd (fromExs c)).
@@ -560,9 +557,7 @@ Section spec_lemmas.
     intros. inv_all.
     forward_reason.
     destruct H.
-    { edestruct remembers_sound.
-      reflexivity. eassumption. eassumption.
-      Transparent remembers. eapply H. Opaque remembers. }
+    { edestruct remembers_sound; eauto with typeclass_instances. }
     simpl in *.
     rewrite (ctx_subst_eta c) in *. simpl in *.
     generalize dependent (snd (fromExs c)).

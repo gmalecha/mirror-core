@@ -273,7 +273,7 @@ Section parameterized.
     { destruct H2. assumption. }
   Qed.
 
-  Lemma Forall_amap_instaniate
+  Lemma Forall_amap_instantiate
   : forall (P Q : uvar -> expr -> Prop) f m,
       (forall u e, Q u e -> P u (instantiate f 0 e)) ->
       Forall_amap Q m ->
@@ -323,8 +323,8 @@ Section parameterized.
         specialize (H0 _ _ H4 _ H7).
         eapply H1 in H5. omega. } }
     split.
-    { revert H1. eapply Forall_amap_instaniate. trivial. }
-    { revert H2. eapply Forall_amap_instaniate; intros.
+    { revert H1. eapply Forall_amap_instantiate. trivial. }
+    { revert H2. eapply Forall_amap_instantiate; intros.
       eapply mentionsU_instantiate in H3. destruct H3.
       { destruct H3; eauto. }
       { forward_reason.
