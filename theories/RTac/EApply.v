@@ -29,9 +29,7 @@ Section parameterized.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
-    tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
-  Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
-  Variable UVar : nat -> expr.
+    unifier typ expr subst.
 
   Variable exprUnify_sound
   : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
@@ -55,10 +53,12 @@ Section parameterized.
       with
         | None => Fail
         | Some sub' =>
-          let len_uvars := length tus in
-          let premises := map (fun x => GGoal (vars_to_uvars 0 len_uvars x)) lem.(premises) in
-          reduceGoal instantiate UVar (fold_left (@CEx _ _) lem.(vars) CTop) sub'
-                     (GConj premises) (countUVars ctx + len_vars) (countVars ctx)
+          let premises :=
+              map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
+          in
+          reduceResult (* instantiate UVar *)
+                     ctx (CExs (CTop tus tvs) lem.(vars))
+                     (GConj_list premises) sub'
       end.
 
   Hypothesis lemD :

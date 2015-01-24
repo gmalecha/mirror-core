@@ -413,13 +413,17 @@ Section parameterized.
         + constructor. constructor. assumption. }
       destruct (goalD tus tvs g); constructor.
       do 5 red; intros.
-      rewrite and_comm. rewrite and_true_iff.
-      apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst; reflexivity.
-    - destruct (goalD tus tvs g); constructor.
+      rewrite and_comm. rewrite and_True_iff.
+      equivs. reflexivity.
+    - split.
+      { split; intro.
+        inversion H0; assumption.
+        constructor. assumption. constructor. }
+      destruct (goalD tus tvs g); constructor.
       do 5 red; intros.
-      rewrite and_true_iff.
-      apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst; reflexivity.
-    - reflexivity.
+      rewrite and_True_iff.
+      equivs. reflexivity.
+    - split; reflexivity.
   Qed.
 
   Lemma GConj_GConj_rel : forall g1 g2, GConj_rel g1 g2 (GConj g1 g2).
