@@ -41,6 +41,13 @@ Section setoid.
   | Rpointwise (t : typ) (r : R).
 
   Variable RbaseD : Rbase -> forall t : typ, option (relation (typD t)).
+
+  Hypothesis RbaseD_single_type
+  : forall r t1 t2 rD1 rD2,
+      RbaseD r t1 = Some rD1 ->
+      RbaseD r t2 = Some rD2 ->
+      t1 = t2.
+
   Fixpoint RD (r : R) (t : typ) : option (relation (typD t)) :=
     match r with
       | Rinj r => RbaseD r t
@@ -66,6 +73,34 @@ Section setoid.
                    None
     end.
 
+  Theorem RD_single_type
+  : forall r t1 t2 rD1 rD2,
+      RD r t1 = Some rD1 ->
+      RD r t2 = Some rD2 ->
+      t1 = t2.
+  Proof.
+    clear - RbaseD_single_type Typ2Ok_Fun.
+    induction r; simpl; intros.
+    { eapply RbaseD_single_type; eauto. }
+    { arrow_case_any; try congruence.
+      red in x1. subst.
+      destruct (typ2_match_case t1); forward_reason.
+      { rewrite H2 in H. clear H1 H2.
+        red in x3. subst.
+        simpl in *.
+        autorewrite with eq_rw in *. forward.
+        inv_all; subst. specialize (IHr1 _ _ _ _ H H0).
+        specialize (IHr2 _ _ _ _ H2 H5). subst; reflexivity. }
+      { rewrite H2 in *. congruence. } }
+    { arrow_case_any; try congruence.
+      destruct (typ2_match_case t1); forward_reason.
+      { rewrite H2 in *.
+        red in x1; red in x4. subst.
+        clear H2 H1. simpl in *.
+        autorewrite with eq_rw in *.
+        forward. }
+      { rewrite H2 in *. congruence. } }
+  Qed.
 
   Definition mrw (T : Type) : Type :=
     option T.
@@ -460,7 +495,8 @@ Section setoid.
             let HH := fresh in
             (assert (HH : t = t')); [ | destruct HH ]
         end.
-        { (* [R] has at most 1 type *) admit. }
+        { (* [R] has at most 1 type *)
+          eapply (RD_single_type _ _ _ H H3). }
         revert H0. revert H3.
         Cases.rewrite_all_goal. intros; inv_all; subst.
         eexists; split; eauto. }
@@ -475,9 +511,31 @@ Section setoid.
           { (** False **)
             simpl in *. red in x1. subst.
             clear IHes. exfalso. clear H6.
-            revert H9 H. clear.
+            revert H9 H. clear - Typ2Ok_Fun RTypeOk_typD.
             (* [R] has at most 1 type *)
-            admit. }
+            assert ((TransitiveClosure.leftTrans (@tyAcc _ _)) x0 (typ2 x x0)).
+            { constructor.
+              eapply tyAcc_typ2R; eauto. }
+            generalize dependent (typ2 x x0).
+            clear - Typ2Ok_Fun RTypeOk_typD.
+            revert r x0 y2.
+            induction rs.
+            { intros; simpl in *.
+              specialize (RD_single_type _ _ _ H9 H0).
+              intros; subst.
+              eapply (@Facts.wf_anti_sym _ _ (wf_leftTrans (@wf_tyAcc typ _ _))) in H.
+              assumption. }
+            { intros; simpl in *.
+              arrow_case_any.
+              { red in x2. subst. simpl in *. clear H1.
+                autorewrite with eq_rw in *.
+                forward. inv_all; subst.
+                eapply IHrs.
+                2: eapply H2. 2: eassumption.
+                eapply TransitiveClosure.LTStep.
+                2: eassumption.
+                eapply tyAcc_typ2R; eauto. }
+              { congruence. } } }
           { simpl in x1. red in x1.
             generalize dependent x1.
             intro. generalize x1.
