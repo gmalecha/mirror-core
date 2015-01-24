@@ -8,7 +8,6 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EnvI.
-Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
@@ -21,8 +20,6 @@ Section with_Expr.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : @Expr typ _ expr}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
   Context {Subst_subst : Subst subst expr}.
   Context {SubstOk_subst : SubstOk Subst_subst}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.

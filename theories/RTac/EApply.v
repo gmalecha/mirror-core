@@ -5,7 +5,8 @@ Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.Instantiate.
+Require Import MirrorCore.VarsToUVars.
 Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Reduce.
@@ -24,20 +25,14 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {ExprVar_expr : ExprVar expr}.
-  Context {ExprVarOk_expr : ExprVarOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
-  Context {MentionsAny_expr : MentionsAny expr}.
-  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
-  Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     tenv typ -> tenv typ -> nat -> expr -> expr -> typ -> subst -> option subst.
   Variable instantiate : (nat -> option expr) -> nat -> expr -> expr.
   Variable UVar : nat -> expr.
 
-  Variable vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
   Variable exprUnify_sound
   : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
       unify_sound (@exprUnify subst S SU).
@@ -202,6 +197,7 @@ Section parameterized.
         rewrite H10; clear H10.
         rewrite H7 in *; clear H7.
         destruct H13. tauto. tauto. }
+    { eapply vars_to_uvars_sound; eauto. }
     { unfold freshUVars. constructor; eauto.
       eapply WellFormed_entry_amap_empty; eauto. }
   Qed.

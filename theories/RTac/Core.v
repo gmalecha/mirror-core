@@ -58,12 +58,12 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
+(*
   Context {ExprVar_expr : ExprVar expr}.
   Context {ExprVarOk_expr : ExprVarOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
-  Context {MentionsAny_expr : MentionsAny expr}.
-  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
+*)
 
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
@@ -75,7 +75,7 @@ Section parameterized.
 
   Inductive WellFormed_Goal (tus tvs : tenv typ) : Goal -> Prop :=
   | WFExs : forall ts s g,
-              WellFormed_bimap (length tus) (length ts) s ->
+              WellFormed_bimap (length tus) (length ts) (length tvs) s ->
               WellFormed_Goal (tus ++ ts) tvs g ->
               WellFormed_Goal tus tvs (GExs ts s g)
   | WFAll : forall t g, WellFormed_Goal tus (tvs ++ t :: nil) g ->
@@ -100,14 +100,14 @@ Section parameterized.
   Global Instance Injective_WellFormed_Goal_GExs tus tvs l a g
   : Injective (WellFormed_Goal tus tvs (GExs l a g)) :=
     { result := WellFormed_Goal (tus ++ l) tvs g /\
-                WellFormed_bimap (length tus) (length l) a }.
+                WellFormed_bimap (length tus) (length l) (length tvs) a }.
   Proof.
     refine (fun pf =>
               match pf in WellFormed_Goal _ _ G
                     return match G return Prop with
                              | GExs l a g =>
                                WellFormed_Goal (tus ++ l) tvs g /\
-                               WellFormed_bimap (length tus) (length l) a
+                               WellFormed_bimap (length tus) (length l) (length tvs) a
                              | _ => True
                            end
               with
@@ -703,7 +703,7 @@ Section parameterized.
 
 End parameterized.
 
-Arguments rtac_sound {typ expr _ _ _ _} tac : rename.
+Arguments rtac_sound {typ expr _ _ _} tac : rename.
 
 (*Arguments GEx {typ expr} _ _ _ : rename. *)
 Arguments GAll {typ expr} _ _ : rename.

@@ -29,8 +29,10 @@ Section runOnGoals.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
+(*
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
+*)
 
   Variable tac : rtac typ expr.
 
@@ -102,7 +104,7 @@ Section runOnGoals.
 
   Lemma runOnGoals_sound_ind
   : forall g ctx s,
-      @rtac_spec typ expr _ _ _ _
+      @rtac_spec typ expr _ _ _
                  ctx s g
                  (@runOnGoals (getUVars ctx)
                               (getVars ctx)
@@ -182,7 +184,7 @@ Section runOnGoals.
 
 End runOnGoals.
 
-Arguments runOnGoals {typ expr ExprUVar} tac tus tvs nus nvs ctx csub goal : rename.
+Arguments runOnGoals {typ expr _ _} tac tus tvs nus nvs ctx csub goal : rename.
 
 Section runOnGoals_proof.
   Context {typ : Type}.
@@ -192,15 +194,13 @@ Section runOnGoals_proof.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Theorem runOnGoals_sound
   : forall tac,
       rtac_sound tac -> rtacK_sound (runOnGoals tac).
   Proof.
     intros.
-    generalize (@runOnGoals_sound_ind typ expr _ _ _ _ _ _ _ tac H).
+    generalize (@runOnGoals_sound_ind typ expr _ _ _ _ _ tac H).
     red. intros; subst.
     specialize (H0 g ctx s). revert H0; clear.
     unfold rtac_spec, rtacK_spec.

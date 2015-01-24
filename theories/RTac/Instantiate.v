@@ -1,6 +1,6 @@
 Require Import ExtLib.Data.Sum.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.Simplify.
 
@@ -17,8 +17,6 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Definition INSTANTIATE
   : rtac typ expr :=
@@ -32,7 +30,7 @@ Section parameterized.
     intros; forward.
     unfold propD, exprD'_typ0 in *.
     forward.
-    eapply (@instantiate_sound_ho  _ _ _ _ _ _ _ _ _ _ nil) in H3;
+    eapply (@instantiate_sound_ho  _ _ _ _ _ _ _ _ _ nil) in H3;
       [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ]; eauto.
     { forward_reason; inv_all; subst.
       change_rewrite H3.

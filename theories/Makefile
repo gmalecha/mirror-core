@@ -44,21 +44,23 @@ RTAC := BIMap Ctx Core CoreK \
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := OpenT Generic \
-	      TypesI EnvI ExprI VariablesI UnifyI \
+	      TypesI EnvI ExprI SubstituteI VariablesI UnifyI \
 	      ExprProp ExprSem \
 	      ExprDAs \
 	      SymI \
 	      SubstI \
 	      ProverI EProverI \
-	      InstantiateI \
+	      Instantiate VarsToUVars \
 	      Lemma LemmaApply \
 	      $(PROVERS:%=provers/%) \
 	      $(SUBST:%=Subst/%) \
 	      $(UTIL:%=Util/%) \
 	      $(SYMS:%=syms/%) \
-	      $(RTAC:%=RTac/%) \
 	      $(LAMBDA:%=Lambda/%) \
+	      $(RTAC:%=RTac/%) \
 	      $(REIFY:%=Reify/%)
+
+
 
 #	      $(STAC:%=STac/%)
 #	      $(EXTENSIBLE:%=Ext/%)

@@ -3,7 +3,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.OpenT.
 Require Import MirrorCore.VariablesI.
-Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprSubst.
 
 Section parametric.
@@ -20,10 +20,7 @@ Section parametric.
 
   (** UVars **)
   Global Instance ExprUVar_expr : ExprUVar (expr typ func) :=
-  { UVar := UVar
-  ; mentionsU := _mentionsU
-  ; instantiate := @instantiate typ func
-  }.
+  { UVar := UVar }.
 
   Lemma UVar_exprD'
   : forall (tus tvs : tenv typ) (v : ExprI.uvar) (t : typ),
@@ -56,24 +53,14 @@ Section parametric.
     { eapply nth_error_get_hlist_nth_None in H. auto. }
   Qed.
 
-  Let Expr_expr : @ExprI.Expr typ _ (expr typ func) := Expr_expr.
+  Let Expr_expr : @ExprI.Expr typ _ (expr typ func) := @Expr_expr _ _ _ _ _.
   Local Existing Instance Expr_expr.
 
   Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr.
   Proof.
     constructor.
     { eapply UVar_exprD'. }
-    { apply exprD'_strengthenU_single. }
     { simpl. eapply EqNat.beq_nat_true_iff. }
-    { eapply instantiate_mentionsU. }
-    { eapply exprD'_instantiate_ho; eauto. }
-    { repeat red. simpl. intros; subst.
-      generalize dependent y0.
-      generalize dependent x. revert y.
-      induction y1; simpl; intros; auto.
-      f_equal; eauto.
-      f_equal; eauto.
-      red in H. rewrite (H _ _ eq_refl). reflexivity. }
   Qed.
 
 
@@ -110,30 +97,13 @@ Section parametric.
   Qed.
 
   Global Instance ExprVar_expr : ExprVar (expr typ func) :=
-  { Var := Var
-  ; mentionsV := _mentionsV }.
+  { Var := Var }.
 
   Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr.
   Proof.
     constructor.
     { eapply Var_exprD'. }
-    { apply exprD'_strengthenV_single. }
     { simpl. eapply EqNat.beq_nat_true_iff. }
-  Qed.
-
-  Global Instance MentionsAny_expr : MentionsAny (expr typ func) :=
-  { mentionsAny := @ExprCore.mentionsAny typ func }.
-
-  Global Instance MentionsAnyOk_expr
-  : @MentionsAnyOk _ MentionsAny_expr ExprVar_expr ExprUVar_expr.
-  Proof.
-    constructor.
-    { apply ExprD.Proper_mentionsAny. }
-    { eapply ExprCore.mentionsAny_weaken. }
-    { intros. eapply ExprCore.mentionsAny_factor. }
-    { intros; eapply ExprCore.mentionsAny_complete. }
-    { eapply _mentionsU_mentionsU. }
-    { intros; eapply _mentionsV_mentionsV. }
   Qed.
 
 End parametric.

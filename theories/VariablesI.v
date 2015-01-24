@@ -23,7 +23,6 @@ Section with_Expr.
   (** Variables **)
   Class ExprVar : Type :=
   { Var : var -> expr
-  ; mentionsV : var -> expr -> bool
   }.
 
   Class ExprVarOk (EV : ExprVar) : Prop :=
@@ -39,14 +38,6 @@ Section with_Expr.
             forall us vs,
               get vs = vD us vs
         end
-  ; exprD'_strengthenV_single
-    : forall tus tvs e t t' val,
-      mentionsV (length tvs) e = false ->
-      exprD' tus (tvs ++ t :: nil) e t' = Some val ->
-      exists val',
-        exprD' tus tvs e t' = Some val' /\
-        forall us vs u,
-          val us (hlist_app vs (Hcons u Hnil)) = val' us vs
   ; mentionsV_Var : forall v v', mentionsV v (Var v') = true <-> v = v'
   }.
 
@@ -74,118 +65,12 @@ Section with_Expr.
       inversion H. apply H0. assumption. }
   Qed.
 
-  Theorem exprD'_strengthenV_multi (EV : ExprVar) (EVO : ExprVarOk EV)
-  : forall tus tvs e  t' tvs' val,
-      (forall v, v < length tvs' ->
-                 mentionsV (length tvs + v) e = false) ->
-      exprD' tus (tvs ++ tvs') e t' = Some val ->
-      exists val',
-        exprD' tus tvs e t' = Some val' /\
-        forall us vs vs',
-          val us (hlist_app vs vs') = val' us vs.
-  Proof.
-    intros tus tvs e t'.
-    refine (@list_rev_ind _ _ _ _).
-    { simpl. intros.
-      rewrite exprD'_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
-      rewrite H0. autorewrite with eq_rw.
-      eexists; split; eauto.
-      intros. rewrite (hlist_eta vs').
-      rewrite hlist_app_nil_r.
-      reflexivity. }
-    { intros.
-      rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil))
-                               (pfu := eq_refl) in H1.
-      autorewrite with eq_rw in H1.
-      forward.
-      eapply exprD'_strengthenV_single in H1.
-      + forward_reason.
-        eapply H in H1.
-        - forward_reason.
-          eexists; split; eauto.
-          intros. inv_all; subst.
-          clear - H3 H4.
-          specialize (H4 us vs (fst (hlist_split _ _ vs'))).
-          specialize (H3 us (hlist_app vs (fst (hlist_split _ _ vs')))
-                         (hlist_hd (snd (hlist_split _ _ vs')))).
-          rewrite <- H4; clear H4.
-          rewrite <- H3; clear H3.
-          autorewrite with eq_rw.
-          f_equal.
-          rewrite hlist_app_assoc.
-          apply match_eq_match_eq.
-          f_equal.
-          etransitivity.
-          symmetry.
-          eapply (hlist_app_hlist_split _ _ vs').
-          f_equal.
-          rewrite (hlist_eta (snd (hlist_split _ _ _))).
-          simpl. f_equal.
-          rewrite (hlist_eta (hlist_tl _)). reflexivity.
-        - intros.
-          eapply H0. rewrite app_length. simpl. omega.
-      + rewrite app_length.
-        apply H0. rewrite app_length. simpl. omega. }
-  Qed.
 
 
   (** Unification Variables **)
   Class ExprUVar : Type :=
   { UVar : uvar -> expr
-  ; mentionsU : uvar -> expr -> bool
-  ; instantiate : (uvar -> option expr) -> nat -> expr -> expr
   }.
-
-
-  Definition sem_preserves_if_ho tus tvs
-             (P : exprT tus tvs Prop -> Prop)
-             (f : uvar -> option expr) : Prop :=
-    forall u e t get,
-      f u = Some e ->
-      nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
-      exists eD,
-        exprD' tus tvs e t = Some eD /\
-        P (fun us vs => get us = eD us vs).
-
-  Definition sem_preserves_if tus tvs
-             (P : exprT tus tvs Prop)
-             (f : uvar -> option expr) : Prop :=
-    @sem_preserves_if_ho tus tvs
-                         (fun P' => forall us vs, P us vs -> P' us vs) f.
-
-  Definition instantiate_spec_ho
-             (instantiate : (uvar -> option expr) -> nat -> expr -> expr)
-  : Prop :=
-    forall tus tvs f e tvs' t eD P (EApp : CtxLogic.ExprTApplicative P),
-      sem_preserves_if_ho P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
-      exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
-        P (fun us vs => forall vs',
-                          eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
-
-  Definition instantiate_spec
-             (instantiate : (uvar -> option expr) -> nat -> expr -> expr)
-  : Prop :=
-    forall tus tvs f e tvs' t eD P,
-      @sem_preserves_if tus tvs P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
-      exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
-        forall us vs vs', P us vs ->
-          eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
-
-  Definition mentionsU_instantiate_spec
-             (instantiate : (uvar -> option expr) -> nat -> expr -> expr)
-             (mentionsU : uvar -> expr -> bool)
-  : Prop :=
-    forall f n e u,
-      mentionsU u (instantiate f n e) = true <-> (** do i need iff? **)
-      (   (f u = None /\ mentionsU u e = true)
-       \/ exists u' e',
-            f u' = Some e' /\
-            mentionsU u' e = true /\
-            mentionsU u e' = true).
 
   Class ExprUVarOk (EU : ExprUVar) : Prop :=
   { UVar_exprD'
@@ -200,59 +85,8 @@ Section with_Expr.
             forall us vs,
               get us = vD us vs
         end
-  ; exprD'_strengthenU_single
-    : forall tus tvs e t t' val,
-      mentionsU (length tus) e = false ->
-      exprD' (tus ++ t :: nil) tvs e t' = Some val ->
-      exists val',
-        exprD' tus tvs e t' = Some val' /\
-        forall us vs u,
-          val (hlist_app us (Hcons u Hnil)) vs = val' us vs
   ; mentionsU_UVar : forall v v', mentionsU v (UVar v') = true <-> v = v'
-  ; mentionsU_instantiate : mentionsU_instantiate_spec instantiate mentionsU
-  ; instantiate_sound_ho : instantiate_spec_ho instantiate
-  ; Proper_instantiate : Proper ((eq ==> eq) ==> eq ==> eq ==> eq) instantiate
   }.
-
-  Theorem instantiate_sound (EU : ExprUVar) (EUO : ExprUVarOk EU)
-  : instantiate_spec instantiate.
-  Proof.
-    red; intros.
-    eapply (@instantiate_sound_ho _ EUO) in H0; try eassumption.
-    - forward_reason; eauto.
-    - eapply (ExprTApplicative_foralls_impl).
-  Qed.
-
-  Corollary mentionsU_instantiate_false (EU : ExprUVar) (EUO : ExprUVarOk EU)
-  : forall uv f n e,
-      mentionsU uv (instantiate f n e) = false <->
-      (f uv = None -> mentionsU uv e = false) /\
-      (forall u e',
-         f u = Some e' ->
-         mentionsU u e = true ->
-         mentionsU uv e' = false).
-  Proof.
-    split; intros.
-    { destruct (mentionsU_instantiate f n e uv).
-      split. consider (mentionsU uv e); auto.
-      { intros. exfalso.
-        rewrite H2 in H. congruence.
-        left; auto. }
-      { intros.
-        consider (mentionsU uv e'); auto; intro.
-        rewrite H1 in H. congruence.
-        clear H0.
-        right. exists u. exists e'.
-        split; auto. } }
-    { consider (mentionsU uv (instantiate f n e)); auto.
-      intros.
-      eapply mentionsU_instantiate in H0.
-      forward_reason.
-      destruct H0.
-      { destruct H0. apply H in H0. congruence. }
-      { forward_reason.
-        eapply H1 in H0; eauto. } }
-  Qed.
 
   Lemma exprD'_exact_uvar {EU} {EUO : ExprUVarOk EU} tus tus' tvs t
   : exists eD' : exprT (tus ++ t :: tus') tvs (typD t),
@@ -278,63 +112,40 @@ Section with_Expr.
       inversion H. apply H0. assumption. }
   Qed.
 
-  Theorem exprD'_strengthenU_multi (EU : ExprUVar) (EUO : ExprUVarOk EU)
-  : forall tus tvs e  t' tus' val,
-      (forall u, u < length tus' ->
-                 mentionsU (length tus + u) e = false) ->
-      exprD' (tus ++ tus') tvs e t' = Some val ->
-      exists val',
-        exprD' tus tvs e t' = Some val' /\
-        forall us vs us',
-          val (hlist_app us us') vs = val' us vs.
-  Proof.
-    intros tus tvs e t'.
-    refine (@list_rev_ind _ _ _ _).
-    { simpl. intros.
-      rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
-      rewrite H0. autorewrite with eq_rw.
-      eexists; split; eauto.
-      intros. rewrite (hlist_eta us').
-      rewrite hlist_app_nil_r. reflexivity. }
-    { intros.
-      rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
-      autorewrite with eq_rw in H1.
-      forward.
-      eapply exprD'_strengthenU_single in H1.
-      + forward_reason.
-        eapply H in H1.
-        - forward_reason.
-          eexists; split; eauto.
-          intros. inv_all; subst.
-          clear - H3 H4.
-          specialize (H4 us vs (fst (hlist_split _ _ us'))).
-          specialize (H3 (hlist_app us (fst (hlist_split _ _ us')))
-                         vs (hlist_hd (snd (hlist_split _ _ us')))).
-          rewrite <- H4; clear H4.
-          rewrite <- H3; clear H3.
-          repeat rewrite eq_Arr_eq. repeat rewrite eq_Const_eq.
-          f_equal.
-          rewrite hlist_app_assoc.
-          autorewrite with eq_rw.
-          f_equal.
-          eapply match_eq_match_eq.
-          f_equal.
-          etransitivity. symmetry. eapply (hlist_app_hlist_split _ _ us').
-          f_equal.
-          rewrite (hlist_eta (snd (hlist_split _ _ _))).
-          simpl. f_equal.
-          rewrite (hlist_eta (hlist_tl _)). reflexivity.
-        - intros.
-          eapply H0. rewrite app_length. simpl. omega.
-      + rewrite app_length.
-        apply H0. rewrite app_length. simpl. omega. }
-  Qed.
+  Definition sem_preserves_if_ho tus tvs
+             (P : exprT tus tvs Prop -> Prop)
+             (f : uvar -> option expr) : Prop :=
+    forall u e t get,
+      f u = Some e ->
+      nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
+      exists eD,
+        exprD' tus tvs e t = Some eD /\
+        P (fun us vs => get us = eD us vs).
 
+  Definition sem_preserves_if tus tvs
+             (P : exprT tus tvs Prop)
+             (f : uvar -> option expr) : Prop :=
+    @sem_preserves_if_ho tus tvs
+                         (fun P' => forall us vs, P us vs -> P' us vs) f.
+
+  Definition instantiate_spec_ho
+             (instantiate : (uvar -> option expr) -> nat -> expr -> expr)
+    : Prop :=
+    forall tus tvs f e tvs' t eD P (EApp : CtxLogic.ExprTApplicative P),
+      sem_preserves_if_ho P f ->
+      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exists eD',
+        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        P (fun us vs => forall vs',
+               eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
+
+
+(**
   (** Mentions Any **)
   Class MentionsAny : Type :=
   { mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool }.
 
-  Class MentionsAnyOk (MA : MentionsAny) (MV : ExprVar) (MU : ExprUVar)
+  Class MentionsAnyOk (MA : MentionsAny)
   : Type :=
   { Proper_mentionsAny
     : Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq) mentionsAny
@@ -362,8 +173,7 @@ Section with_Expr.
   }.
 
   Corollary mentionsAny_complete_false
-            {MA : MentionsAny} {MV : ExprVar} {MU : ExprUVar}
-            {MAO : MentionsAnyOk MA MV MU}
+            {MA : MentionsAny} {MAO : MentionsAnyOk MA}
   : forall pu pv e,
       mentionsAny pu pv e = false <->
       (forall u, mentionsU u e = true -> pu u = false) /\
@@ -384,6 +194,7 @@ Section with_Expr.
         exfalso.
         rewrite H2 in H; try congruence; eauto.
   Qed.
+*)
 
   (** Converting Variables to Unification Variables **)
   Definition vars_to_uvars_spec
@@ -409,11 +220,3 @@ Arguments ExprVar expr : rename.
 Arguments ExprUVar expr : rename.
 Arguments ExprVarOk {typ _ expr _} _ : rename.
 Arguments ExprUVarOk {typ _ expr _} _ : rename.
-Arguments instantiate {expr ExprUVar} _ _ _ : rename.
-Arguments mentionsU {expr ExprUVar} _ _ : rename.
-Arguments mentionsV {expr ExprVar} _ _ : rename.
-Arguments mentionsAny {expr MentionsAny} _ _ _ : rename.
-Arguments instantiate_sound {typ expr RType Expr EU EUO} _ _ _ _ tvs' _ _ P _ _ : rename.
-Arguments instantiate_sound_ho {typ expr RType Expr EU EUO} _ _ _ _ tvs' _ _ P _ _ _ : rename.
-Arguments mentionsU_instantiate {typ expr RType Expr EU EUO} _ _ _ _ : rename.
-Arguments mentionsU_instantiate_false {typ expr RType Expr EU EUO} _ _ _ _ : rename.

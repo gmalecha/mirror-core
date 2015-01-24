@@ -153,20 +153,6 @@ Section env.
       destruct y; auto. }
   Qed.
 
-  Lemma mentionsAny_weaken
-  : forall pu pu' pv pv',
-      (forall u, pu u = false -> pu' u = false) ->
-      (forall v, pv v = false -> pv' v = false) ->
-      forall e, mentionsAny pu pv e = false ->
-                mentionsAny pu' pv' e = false.
-  Proof.
-    intros pu pu' pv pv' Hu Hv e; revert pv pv' Hv.
-    induction e; simpl; intros; auto.
-    { forward. erewrite IHe1; eauto. }
-    { eapply IHe; eauto. simpl.
-      destruct v; auto. }
-  Qed.
-
   Section mentionsU.
     Variable u : uvar.
 
@@ -263,6 +249,31 @@ Section env.
       - destruct H; forward_reason; try congruence.
         consider (EqNat.beq_nat x u); auto.
         destruct 1. assumption. }
+  Qed.
+
+  Lemma mentionsAny_weaken
+  : forall pu pu' pv pv' e,
+      (forall u, _mentionsU u e = true -> pu u = false -> pu' u = false) ->
+      (forall v, _mentionsV v e = true -> pv v = false -> pv' v = false) ->
+      mentionsAny pu pv e = false ->
+      mentionsAny pu' pv' e = false.
+  Proof.
+    intros pu pu' pv pv' e Hu Hv; revert pv pv' Hv.
+    induction e; simpl; intros; auto.
+    { eapply Hv. eapply rel_dec_eq_true; eauto with typeclass_instances.
+      eauto. }
+    { forward. simpl in *.
+      erewrite IHe1; try eassumption.
+      eapply IHe2; try eassumption.
+      - intros. eapply Hu.
+        rewrite H1. destruct (_mentionsU u e1); auto. auto.
+      - intros. eapply Hv. rewrite H1. destruct (_mentionsV v e1); auto. auto.
+      - intros. eapply Hu; eauto. rewrite H1; auto.
+      - intros. eapply Hv. rewrite H1; eauto. eauto. }
+    { eapply IHe. eauto. 2: eassumption. simpl.
+      destruct v; eauto. }
+    { eapply Hu; auto. simpl.
+      symmetry. eapply EqNat.beq_nat_refl. }
   Qed.
 
 End env.

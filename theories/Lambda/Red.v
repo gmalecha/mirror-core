@@ -123,12 +123,18 @@ Section substitute.
         { intros. assert (n = (v - 1) - length tvs) by omega; subst.
           forward.
           assert (v - 1 >= length tvs) by omega.
-
-          eapply (@nth_error_get_hlist_nth_rwR _ typD tvs tvs') in H6.
-          rewrite H4 in *. forward_reason.
-          rewrite H6. subst. inv_all; subst. subst.
-          destruct r. rewrite type_cast_refl; eauto.
-          intros. f_equal. rewrite H8. apply H7. } }
+          consider (nth_error_get_hlist_nth typD (tvs ++ tvs') (v - 1)); intros.
+          { eapply nth_error_get_hlist_nth_appR in H7; eauto.
+            forward_reason. rewrite H4 in H7.
+            inv_all; subst. subst. destruct s0; simpl in *.
+            rewrite H3. intros. rewrite H8. rewrite H9. reflexivity. }
+          { clear - H7 H4.
+            eapply nth_error_get_hlist_nth_None in H7.
+            eapply nth_error_get_hlist_nth_Some in H4. simpl in *.
+            destruct H4. clear H.
+            eapply nth_error_length_ge in H7.
+            eapply nth_error_length_lt in x.
+            rewrite app_length in H7. omega. } } }
       { apply nat_compare_gt in H.
         autorewrite with exprD_rw; simpl.
         assert (v < length tvs) by omega.

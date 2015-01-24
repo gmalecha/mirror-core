@@ -5,7 +5,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprDAs.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 
@@ -32,8 +32,6 @@ Section parameterized.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk _}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Variable UVar : nat -> expr.
 
