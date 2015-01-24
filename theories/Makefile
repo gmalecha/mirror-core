@@ -23,12 +23,6 @@ LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
-STAC := Core Continuation Repeat \
-	Apply EApply Rewrite Assumption \
-	First Repeat Try Idtac Rec Solve Then Fail \
-	Simplify Instantiate \
-	UseForAll UseList \
-	STac
 RTAC := BIMap Ctx Core CoreK \
 	SpecLemmas RunOnGoals RunOnGoals_list \
 	Then Try Repeat Rec Idtac First Fail Solve \
@@ -60,8 +54,6 @@ MODULES    := OpenT Generic \
 	      $(REIFY:%=Reify/%)
 
 
-
-#	      $(STAC:%=STac/%)
 #	      $(EXTENSIBLE:%=Ext/%)
 #	      $(POLY:%=Poly/%)
 #	      $(LAMBDAM:%=LambdaM/%)
