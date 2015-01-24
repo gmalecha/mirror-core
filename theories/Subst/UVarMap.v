@@ -77,6 +77,15 @@ Module MAP <: WS with Definition E.t := uvar
     eapply Pnat.SuccNat2Pos.inj_iff.
   Qed.
 
+  Lemma from_key_inj : forall a b, from_key a = from_key b -> a = b.
+    unfold from_key. intros.
+    destruct (Pnat.Pos2Nat.is_succ a).
+    destruct (Pnat.Pos2Nat.is_succ b).
+    rewrite H0 in *. rewrite H1 in *. simpl in *.
+    subst. rewrite <- H1 in H0.
+    eapply Pnat.Pos2Nat.inj_iff in H0. auto.
+  Qed.
+
   Definition key := uvar.
   Hint Transparent key.
 
@@ -304,14 +313,6 @@ Module MAP <: WS with Definition E.t := uvar
         induction l; inversion H1; clear H1; subst.
         { left. destruct a. red in H0. red in H0. simpl in *.
           red. red. simpl.
-          Lemma from_key_inj : forall a b, from_key a = from_key b -> a = b.
-            unfold from_key. intros.
-            destruct (Pnat.Pos2Nat.is_succ a).
-            destruct (Pnat.Pos2Nat.is_succ b).
-            rewrite H0 in *. rewrite H1 in *. simpl in *.
-            subst. rewrite <- H1 in H0.
-            eapply Pnat.Pos2Nat.inj_iff in H0. auto.
-          Qed.
           eapply from_key_inj in H0. auto. }
         { right. auto. }
       Qed.
@@ -322,18 +323,20 @@ Module MAP <: WS with Definition E.t := uvar
         eapply PositiveMap.cardinal_1.
       Qed.
 
+      Lemma fold_left_map : forall {T U V : Type}
+                                   (f : T -> U) (g : V -> U -> V) ls a,
+          fold_left g (List.map f ls) a =
+          fold_left (fun a b => g a (f b)) ls a.
+      Proof.
+        clear. induction ls; simpl; intros; auto.
+      Qed.
+
+
       (** Specification of [fold] *)
       Theorem fold_1 :
 	forall (A : Type) (i : A) (f : key -> elt -> A -> A),
         fold f m i = fold_left (fun a p => f (fst p) (snd p) a) (elements m) i.
         unfold fold, elements.
-        Lemma fold_left_map : forall {T U V : Type}
-                                     (f : T -> U) (g : V -> U -> V) ls a,
-                                fold_left g (List.map f ls) a =
-                                fold_left (fun a b => g a (f b)) ls a.
-        Proof.
-          clear. induction ls; simpl; intros; auto.
-        Qed.
         intros. rewrite fold_left_map.
         rewrite PositiveMap.fold_1.
         revert i.

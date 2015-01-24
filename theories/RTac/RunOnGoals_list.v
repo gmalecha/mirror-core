@@ -31,8 +31,6 @@ Section runOnGoals.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Fixpoint all_instantiated (tes : list (typ * option expr)) : bool :=
     match tes with
@@ -160,7 +158,7 @@ Section runOnGoals.
                               ctx s g) = ra ->
       forall r tacs',
       ResultAnd_to_Result_and ra = (r,tacs') ->
-      @rtac_spec typ expr _ _ _ _ ctx s g r /\
+      @rtac_spec typ expr _ _ _ ctx s g r /\
       Forall rtac_sound tacs'.
   Proof.
     induction g.
@@ -309,7 +307,7 @@ Section runOnGoals.
 
 End runOnGoals.
 
-Arguments runOnGoals_list {typ expr ExprUVar} tac tus tvs nus nvs ctx csub goal : rename.
+Arguments runOnGoals_list {typ expr RType Expr} tac tus tvs nus nvs ctx csub goal : rename.
 
 Section runOnGoals_list_proof.
   Context {typ : Type}.
@@ -319,15 +317,13 @@ Section runOnGoals_list_proof.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Theorem runOnGoals_list_sound
   : forall tacs,
       Forall rtac_sound tacs -> rtacK_sound (runOnGoals_list tacs).
   Proof.
     intros. red. intros.
-    generalize (@runOnGoals_list_rec_sound_ind typ expr _ _ _ _ _ _ _ g tacs ctx s).
+    generalize (@runOnGoals_list_rec_sound_ind typ expr _ _ _ _ _ g tacs ctx s).
     unfold runOnGoals_list in H0.
     rewrite countUVars_getUVars in *.
     rewrite countVars_getVars in *.

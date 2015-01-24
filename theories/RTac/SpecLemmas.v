@@ -38,7 +38,7 @@ Section spec_lemmas.
       WellFormed_ctx_subst (fromAll cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ C S
+    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
                  return match C as C return ctx_subst C -> Prop with
                           | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
                           | _ => fun _ => True
@@ -55,7 +55,7 @@ Section spec_lemmas.
       WellFormed_ctx_subst (fromHyp cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ C S
+    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
                  return match C as C return ctx_subst C -> Prop with
                           | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
                           | _ => fun _ => True
@@ -68,7 +68,7 @@ Section spec_lemmas.
   Local Hint Resolve WellFormed_ctx_subst_fromAll WellFormed_ctx_subst_fromHyp.
 
   Lemma pctxD_remembers {c s l a sD pD}
-  : forall (WFp : WellFormed_bimap (length (getUVars c)) (length l) a),
+  : forall (WFp : WellFormed_bimap (length (getUVars c)) (length l) (length (getVars c)) a),
       WellFormed_ctx_subst s ->
     pctxD s = Some sD ->
     amap_substD (getUVars c ++ l) (getVars c) a = Some pD ->
@@ -86,7 +86,7 @@ Section spec_lemmas.
       with (f := fun u => ctx_lookup u s)
            (C := fun (P : exprT (getUVars c ++ l) (getVars c) Prop) =>
                    forall us vs, sD (fun us vs => x us vs -> forall us', P (hlist_app us us') vs) us vs)
-           in H1.
+           in H1; try eassumption.
     forward_reason.
     rewrite H1.
     eexists; split; eauto.
@@ -112,7 +112,6 @@ Section spec_lemmas.
       eapply _forall_sem with (x := us') in H5; intros.
       eapply H5; clear H5.
       eapply H3; eauto. }
-    { eauto. }
     { clear - H0. constructor.
       { intros. eapply Pure_pctxD; eauto. }
       { intros. generalize (H1 us vs).
@@ -120,7 +119,6 @@ Section spec_lemmas.
         generalize (H us vs).
         eapply Ap_pctxD; eauto.
         eapply Pure_pctxD; eauto. } }
-    { eassumption. }
     { red. intros.
       destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
       eapply ctx_substD_lookup in H4; eauto.
@@ -499,7 +497,6 @@ Section spec_lemmas.
       intros.
       generalize H0.
       eapply pctxD_substD in H0; try eassumption.
-      2: exact H2.
       destruct H0 as [ ? [ ? ? ] ].
       eapply substD_lookup
       with (SubstOk := @SubstOk_ctx_subst _ _ _ _ _ _ _) in H7;
@@ -515,7 +512,7 @@ Section spec_lemmas.
       intros. rewrite <- H13; clear H13; eauto.
       rewrite <- H11; clear H11.
       eauto. }
-    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ H4 H8 H9).
+    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ _ H4 H8 H9).
     clear H9. destruct 1 as [ ? [ ? ? ] ].
     { clear - H0.
       revert H0. revert e; revert s; revert ctx; revert l.
@@ -577,7 +574,6 @@ Section spec_lemmas.
       intros.
       generalize H0.
       eapply pctxD_substD in H0; try eassumption.
-      2: exact H1.
       destruct H0 as [ ? [ ? ? ] ].
       eapply substD_lookup
       with (SubstOk := @SubstOk_ctx_subst _ _ _ _ _ _ _) in H7;
@@ -593,7 +589,7 @@ Section spec_lemmas.
       intros. rewrite <- H13; clear H13; eauto.
       rewrite <- H11; clear H11.
       eauto. }
-    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ H3 H8 H9).
+    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ _ H3 H8 H9).
     clear H9. destruct 1 as [ ? [ ? ? ] ].
     { clear - H0.
       revert H0. revert e; revert s; revert ctx; revert l.

@@ -2,7 +2,7 @@ Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.
@@ -332,7 +332,7 @@ Section app_full_proofs.
         | Some f => Some (f us vs)
       end.
 
-    Let Expr_expr : Expr _ (expr typ sym) := Expr_expr.
+    Let Expr_expr : Expr _ (expr typ sym) := @Expr_expr _ _ _ _ _.
     Local Existing Instance Expr_expr.
 
     Definition apps_sem

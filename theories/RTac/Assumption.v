@@ -39,12 +39,6 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Context {ExprVar_expr : ExprVar expr}.
-  Context {ExprVarOk_expr : ExprVarOk _}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk _}.
-  Context {MentionsAny_expr : MentionsAny expr}.
-  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
   Variable check : forall {subst : Type} {S : Subst subst expr} {SU : SubstUpdate subst expr},
                      Ctx typ expr -> expr -> expr -> subst -> option subst.

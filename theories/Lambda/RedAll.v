@@ -4,7 +4,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
@@ -286,6 +286,37 @@ Section reducer.
              by (rewrite app_ass; reflexivity).
         eapply IHvar_termsP; eauto. } }
   Qed.
+
+  Lemma nth_error_get_hlist_nth_rwR
+  : forall {T} (F : T -> _) tus tvs' n,
+      n >= length tus ->
+      match nth_error_get_hlist_nth F tvs' (n - length tus) with
+        | None => True
+        | Some (existT t v) =>
+          exists val,
+          nth_error_get_hlist_nth F (tus ++ tvs') n = Some (@existT _ _ t val) /\
+          forall a b,
+            v a = val (hlist_app b a)
+      end.
+  Proof.
+    clear. intros.
+    forward. subst.
+    consider (nth_error_get_hlist_nth F (tus ++ tvs') n).
+    { intros.
+      eapply nth_error_get_hlist_nth_appR in H; eauto.
+      destruct s. simpl in *. rewrite H1 in *.
+      destruct H as [ ? [ ? ? ] ]. inv_all; subst.
+      eexists; split; eauto. }
+    { intros.
+      exfalso.
+      eapply nth_error_get_hlist_nth_Some in H1.
+      eapply nth_error_get_hlist_nth_None in H0.
+      forward_reason. simpl in *.
+      eapply ListNth.nth_error_length_ge in H0.
+      clear H1. eapply nth_error_length_lt in x0.
+      rewrite app_length in H0. omega. }
+  Qed.
+
 
   Lemma get_var_ok
   : forall tus tvs tus'  tvs' var_terms P,

@@ -15,6 +15,8 @@ Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.ListMapT.
+Require Import MirrorCore.VarsToUVars.
+Require Import MirrorCore.Instantiate.
 
 Require Import FunctionalExtensionality.
 
@@ -28,13 +30,12 @@ Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
-
-  Let tyProp : typ := @typ0 _ _ _ _.
 
   Local Existing Instance Expr_expr.
   Local Existing Instance ExprOk_expr.
@@ -88,13 +89,12 @@ Section parameterized.
   Variable hints : Hints.
   Hypothesis hintsOk : HintsOk hints.
 
-  Variable vars_to_uvars : nat -> nat -> expr -> expr.
   Variable exprUnify : unifier typ expr subst.
 
   Hypothesis exprUnify_sound : unify_sound exprUnify.
 
   Let eapplicable :=
-    @eapplicable typ _ expr Typ0_Prop subst vars_to_uvars exprUnify.
+    @eapplicable typ _ expr Typ0_Prop subst (@vars_to_uvars _ _ _ _ _) exprUnify.
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> tenv typ -> tenv typ -> expr -> subst -> option subst)
@@ -253,8 +253,6 @@ Section parameterized.
                        ]
            end.
 
-  Hypothesis vars_to_uvars_sound : vars_to_uvars_spec vars_to_uvars.
-
   Lemma vars_to_uvars_sound_typ0
   : forall (tus0 : tenv typ) (e : expr) (tvs0 : list typ)
            (tvs' : list typ)
@@ -268,10 +266,10 @@ Section parameterized.
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
   Proof.
     unfold exprD'_typ0; simpl; intros.
-    specialize (@vars_to_uvars_sound tus0 e tvs0 (typ0 (F:=Prop)) tvs').
+    specialize (@vars_to_uvars_sound typ expr _ _ _ _ _ ExprUVarOk_expr tus0 e tvs0 (typ0 (F:=Prop)) tvs').
     forward; inv_all; subst.
-    specialize (@vars_to_uvars_sound _ eq_refl).
-    destruct vars_to_uvars_sound as [ ? [ ? ? ] ].
+    specialize (H1 _ eq_refl).
+    destruct H1 as [ ? [ ? ? ] ].
     rewrite H0.
     eexists; split; eauto.
     intros; autorewrite with eq_rw. rewrite H1.
@@ -326,13 +324,13 @@ Section parameterized.
           eD us vs = eD' us vs.
   Proof.
     intros.
-    eapply (@instantiate_sound _ _ _ _ _ _ _ _ _ _ nil) in H1; eauto.
-    { forward_reason.
-      eexists; split; [ eapply H1 | ].
-      intros. specialize (H2 us vs Hnil).
-      exact (H2 H3). }
+    edestruct (fun P HP => @instantiate_sound _ _ _ _ _ tus tvs (fun x => subst_lookup x sub) _ nil _ _ P HP H1).
     { simpl. clear - H H0.
       eapply sem_preserves_if_substD; eauto. }
+    { forward_reason.
+      eexists; split; [ eapply H2 | ].
+      intros. specialize (H3 us vs Hnil).
+      exact (H3 H4). }
   Qed.
 
   Lemma auto_prove_rec_sound

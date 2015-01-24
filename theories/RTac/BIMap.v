@@ -18,6 +18,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Subst.FMapSubst.
+Require Import MirrorCore.Instantiate.
 
 Require Import MirrorCore.Util.Quant.
 Require Import MirrorCore.Util.Forwardy.
@@ -47,8 +48,6 @@ Section parameterized.
   Context {ExprVarOk_expr : ExprVarOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
-  Context {MentionsAny_expr : MentionsAny expr}.
-  Context {MentionsAnyOk_expr : MentionsAnyOk _ _ _}.
 
   Local Instance RelDec_eq_typ : RelDec (@eq typ) :=
     RelDec_Rty _.
@@ -61,12 +60,12 @@ Section parameterized.
   Local Existing Instance SUBST.SubstOpenOk_subst.
 
   Definition amap : Type := SUBST.raw expr.
-  Definition WellFormed_amap : amap -> Prop := @SUBST.WellFormed _ _.
+  Definition WellFormed_amap : amap -> Prop := @SUBST.WellFormed _ _ _ _.
   Definition amap_empty : amap := UVarMap.MAP.empty _.
   Definition amap_lookup : nat -> amap -> option expr :=
     @UVarMap.MAP.find _.
   Definition amap_check_set : nat -> expr -> amap -> option amap :=
-    @SUBST.raw_set _ _.
+    @SUBST.raw_set _ _ _ _.
   Definition amap_instantiate (f : nat -> option expr) : amap -> amap :=
     UVarMap.MAP.map (fun e => instantiate f 0 e).
   Definition amap_substD
@@ -95,38 +94,40 @@ Section parameterized.
     intros. rewrite FMapSubst.SUBST.FACTS.empty_o in H. congruence.
   Qed.
 
+  Definition bimap_max (maxU maxV : nat) e : Prop :=
+    mentionsAny (fun u' => u' ?[ ge ] maxU)
+                (fun v' => v' ?[ ge ] maxV) e = false.
 
-  Definition WellFormed_bimap (min : nat) (len : nat) (m : amap)
+
+  Definition WellFormed_bimap (min : nat) (len : nat) (maxV : nat) (m : amap)
   : Prop :=
     (** 'acyclic' **)
     SUBST.WellFormed m /\
     (** only in this range **)
     Forall_amap (fun k _ => min <= k < min + len) m /\
     (** no forward pointers **)
-    Forall_amap (fun k e => forall u'',
-                              mentionsU u'' e = true ->
-                              u'' < min + len) m.
+    Forall_amap (fun k e => bimap_max (min + len) maxV e) m.
 
   Lemma WellFormed_bimap_empty
-  : forall a b, WellFormed_bimap a b amap_empty.
+  : forall a b c, WellFormed_bimap a b c amap_empty.
   Proof.
-    clear - Expr_expr. red.
+    clear - RTypeOk_typ Expr_expr. red.
     intros. refine (conj _ (conj _ _));
             eauto using SUBST.WellFormed_empty, Forall_amap_empty.
     eapply SUBST.WellFormed_empty.
   Qed.
 
   Lemma WellFormed_bimap_WellFormed_amap
-  : forall a b s,
-      WellFormed_bimap a b s ->
+  : forall a b c s,
+      WellFormed_bimap a b c s ->
       WellFormed_amap s.
   Proof.
     destruct 1. assumption.
   Qed.
 
   Lemma amap_instantiates_substD
-  : forall tus tvs C (_ : CtxLogic.ExprTApplicative C) f s sD a b,
-      WellFormed_bimap a b s ->
+  : forall tus tvs C (_ : CtxLogic.ExprTApplicative C) f s sD a b c,
+      WellFormed_bimap a b c s ->
       amap_substD tus tvs s = Some sD ->
       sem_preserves_if_ho C f ->
       exists sD',
@@ -159,7 +160,7 @@ Section parameterized.
           exprD' tus tvs e t = Some val /\
           (forall (us : hlist typD tus) (vs : hlist typD tvs),
              sD us vs -> get us = val us vs).
-  Proof. eapply SUBST.substD_lookup'. Qed.
+  Proof. eapply SUBST.substD_lookup'; eauto. Qed.
 
   Lemma amap_domain_WellFormed
   : forall (s : amap) (ls : list uvar),
@@ -227,13 +228,36 @@ Section parameterized.
       destruct (UVarMap.MAP.find u s); try reflexivity. }
   Qed.
 
+  Lemma mentionsAny_false_mentionsV
+    : forall fU fV v e,
+      mentionsAny fU fV e = false ->
+      mentionsV v e = true ->
+      fV v = false.
+  Proof.
+    intros. eapply mentionsAny_complete_false in H.
+    destruct H.
+    eauto. eauto.
+  Qed.
+
+  Lemma mentionsAny_false_mentionsU
+    : forall fU fV u e,
+      mentionsAny fU fV e = false ->
+      mentionsU u e = true ->
+      fU u = false.
+  Proof.
+    intros. eapply mentionsAny_complete_false in H.
+    destruct H.
+    eauto. eauto.
+  Qed.
+
   Lemma WellFormed_bimap_check_set
-  : forall uv e s min len s',
+  : forall uv e s min len maxV s',
       amap_check_set uv e s = Some s' ->
-      (forall u, mentionsU u e = true -> u < min + len) ->
+      mentionsAny (fun u' => u' ?[ ge ] (min + len))
+                  (fun v' => v' ?[ ge ] maxV) e = false ->
       min <= uv < min + len ->
-      WellFormed_bimap min len s ->
-      WellFormed_bimap min len s'.
+      WellFormed_bimap min len maxV s ->
+      WellFormed_bimap min len maxV s'.
   Proof.
     intros.
     eapply syn_check_set in H; eauto.
@@ -251,25 +275,57 @@ Section parameterized.
         rewrite H7 in H8; clear H7.
         consider (uv ?[ eq ] u); intros; subst.
         { inv_all; subst.
-          eapply mentionsU_instantiate in H9.
-          destruct H9.
-          { eapply H0. tauto. }
-          { forward_reason.
-            eapply H4 in H7. eauto. eauto. } }
+          eapply mentionsAny_complete_false; [ eauto | ].
+          split; intros.
+          { eapply mentionsU_instantiate in H7.
+            eapply mentionsAny_complete_false in H0; try eassumption.
+            destruct H0.
+            destruct H7.
+            { eapply H0. tauto. }
+            { forward_reason.
+              eapply H4 in H7.
+              eapply mentionsAny_complete_false in H7; try eassumption.
+              destruct H7; eauto. } }
+          { eapply mentionsV_instantiate_0 in H7; try eassumption.
+            destruct H7.
+            { eapply mentionsAny_false_mentionsV in H0; eauto. }
+            { destruct H7.
+              forward_reason.
+              eapply H4 in H8. eapply mentionsAny_false_mentionsV in H8; eauto. } } }
         { forward.
           inv_all; subst.
-          eapply mentionsU_instantiate in H9.
-          destruct H9.
-          { forward_reason.
-            consider (uv ?[ eq ] u''); intros; subst; try congruence.
-            eauto. }
-          { forward_reason.
-            consider (uv ?[ eq ] x); intros; subst; try congruence.
-            inv_all; subst.
-            eapply mentionsU_instantiate in H11.
-            destruct H11.
-            { forward_reason. eauto. }
-            { forward_reason. eauto. } } } } }
+          eapply mentionsAny_complete_false; try eassumption.
+          split.
+          { intros.
+            eapply H4 in H8.
+            eapply mentionsU_instantiate in H9.
+            destruct H9.
+            { forward_reason; forward.
+              eapply mentionsAny_false_mentionsU in H8; eauto. }
+            { forward_reason. forward.
+              subst. inv_all; subst.
+              eapply mentionsU_instantiate in H11.
+              destruct H11.
+              { forward_reason.
+                eapply mentionsAny_false_mentionsU in H11. eapply H11.
+                eapply H0. }
+              { forward_reason.
+                eapply mentionsAny_false_mentionsU in H12. eapply H12.
+                eapply H4. eauto. } } }
+          { intros.
+            eapply mentionsV_instantiate_0 in H9; try eassumption.
+            destruct H9.
+            { eapply H4 in H8.
+              eapply mentionsAny_false_mentionsV in H8; eauto. }
+            { forward_reason. forward.
+              inv_all; subst.
+              eapply mentionsV_instantiate_0 in H11; try eassumption.
+              destruct H11.
+              { eapply mentionsAny_false_mentionsV in H10. eapply H10.
+                eapply H0. }
+              { forward_reason.
+                eapply H4 in H11.
+                eapply mentionsAny_false_mentionsV in H11. eapply H11. auto. } } } } } }
     { destruct H2. assumption. }
   Qed.
 
@@ -288,15 +344,14 @@ Section parameterized.
   Qed.
 
   Lemma WellFormed_bimap_instantiate
-  : forall s f min len s',
+  : forall s f min len maxV s',
       amap_instantiate f s = s' ->
       (forall u e,
          f u = Some e ->
-         forall u',
-           mentionsU u' e = true ->
-           u' < min) ->
-      WellFormed_bimap min len s ->
-      WellFormed_bimap min len s'.
+         mentionsAny (fun u' => u' ?[ ge ] min)
+                     (fun v' => v' ?[ ge ] maxV) e = false) ->
+      WellFormed_bimap min len maxV s ->
+      WellFormed_bimap min len maxV s'.
   Proof.
     red; intros; subst.
     red in H1. forward_reason.
@@ -320,15 +375,34 @@ Section parameterized.
         red. eexists.
         eapply SUBST.PROPS.F.find_mapsto_iff. eassumption. }
       { forward_reason.
-        specialize (H0 _ _ H4 _ H7).
-        eapply H1 in H5. omega. } }
+        specialize (H0 _ _ H4).
+        eapply mentionsAny_false_mentionsU in H0; [ | eassumption ].
+        eapply H1 in H5. consider (u ?[ ge ] min).
+        { congruence. }
+        { intros. omega. } } }
     split.
     { revert H1. eapply Forall_amap_instantiate. trivial. }
     { revert H2. eapply Forall_amap_instantiate; intros.
-      eapply mentionsU_instantiate in H3. destruct H3.
-      { destruct H3; eauto. }
-      { forward_reason.
-        eapply H0 in H3. 2: eassumption. omega. } }
+      unfold bimap_max in *.
+      eapply mentionsAny_complete_false; [ eauto | ].
+      eapply mentionsAny_complete_false in H2; [ | eauto ].
+      forward_reason; split.
+      { intros.
+        eapply mentionsU_instantiate in H4.
+        destruct H4; forward_reason.
+        { eauto. }
+        { eapply H0 in H4.
+          eapply mentionsAny_false_mentionsU in H4. 2: eassumption.
+          clear - H4.
+          consider (u0 ?[ ge ] (min + len)); auto.
+          intros. rewrite rel_dec_eq_true in H4; eauto with typeclass_instances.
+          omega. } }
+      { intros.
+        eapply mentionsV_instantiate_0 in H4; try eassumption.
+        destruct H4.
+        eauto.
+        forward_reason. eapply H0 in H5.
+        eapply mentionsAny_false_mentionsV in H5. 2: eauto. eauto. } }
   Qed.
 
   Definition nothing_in_range a b m : Prop :=
@@ -366,9 +440,9 @@ Section parameterized.
   Qed.
 
   Lemma only_in_range_0_WellFormed_pre_entry
-  : forall a am,
+  : forall a am mV,
       only_in_range a 0 am ->
-      WellFormed_bimap a 0 am.
+      WellFormed_bimap a 0 mV am.
   Proof.
     clear. unfold WellFormed_bimap.
     intros. eapply only_in_range_0_empty in H.
@@ -559,8 +633,8 @@ Section parameterized.
   Qed.
 
   Lemma subst_getInstantiation
-  : forall tus tvs ts m P,
-      WellFormed_bimap (length tus) (length ts) m ->
+  : forall tus tvs ts m maxV P,
+      WellFormed_bimap (length tus) (length ts) maxV m ->
       amap_substD (tus ++ ts) tvs m = Some P ->
       amap_is_full (length ts) m = true ->
       exists x : hlist (fun t => exprT tus tvs (typD t)) ts,
@@ -635,7 +709,7 @@ Section parameterized.
           eapply SUBST.FACTS.not_find_in_iff.
           red. intro. destruct H10. eapply H3.
           eauto. }
-        generalize (@SUBST.raw_substD_Equal typ _ expr _ tus tvs x (UVarMap.MAP.empty _) _ H7 H10).
+        generalize (@SUBST.raw_substD_Equal typ _ _ _ _ tus tvs x (UVarMap.MAP.empty _) _ H7 H10).
         destruct (SUBST.substD_empty tus tvs).
         intros.
         forward_reason.

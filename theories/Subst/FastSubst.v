@@ -896,14 +896,6 @@ Section parametric.
          exprD us vs e t' = Some val) ->
       exprD us vs (instantiate f e) t = exprD us vs e t.
 
-  Hypothesis instantiate_typed
-  : forall f tus tvs e t,
-      (forall u t',
-         f u = Some e ->
-         nth_error tus u = Some t' /\
-         Safe_expr tus tvs e t') ->
-      Safe_expr tus tvs (instantiate f e) t <-> Safe_expr tus tvs e t.
-
   Lemma to_key_injective : forall a b, to_key a = to_key b -> a = b.
   Proof.
     clear. unfold to_key.

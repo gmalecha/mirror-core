@@ -5,7 +5,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprDAs.
-Require Import MirrorCore.InstantiateI.
+Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.RTac.Reduce.

@@ -5,9 +5,9 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.CtxLogic.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Instantiate.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -82,8 +82,10 @@ Section subst.
   Context {RTypeOk_type : RTypeOk}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk _}.
+(*
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
+*)
 
   Class Subst :=
   { subst_lookup : uvar -> T -> option expr
@@ -516,6 +518,7 @@ Section subst.
     eexists; split; eauto.
   Qed.
 
+(*
   Theorem pull_for_instantiate_sound
   : forall tus tus' tvs s s',
       subst_pull (length tus) (length tus') s = Some s' ->
@@ -580,7 +583,7 @@ Section subst.
       { eapply sem_preserves_if_substD; eauto. } }
     { intros. eauto. }
   Qed.
-
+*)
 End subst.
 
 Arguments subst_pull {T SO} _ _ _ : rename.

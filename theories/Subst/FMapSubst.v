@@ -7,10 +7,10 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Instantiate.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -29,11 +29,10 @@ Module Make (FM : WS with Definition E.t := uvar
   Section exprs.
     Variable typ : Type.
     Context {RType_typ : RType typ}.
+    Context {RTypeOk_typ : RTypeOk}.
     Variable expr : Type.
     Context {Expr_expr : Expr _ expr}.
     Context {ExprOk_expr : ExprOk Expr_expr}.
-    Context {ExprUVar_expr : ExprUVar expr}.
-    Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
     Definition raw : Type := FM.t expr.
 
@@ -138,7 +137,7 @@ Module Make (FM : WS with Definition E.t := uvar
          mentionsU u e' = true).
     Proof.
       intros. unfold raw_subst.
-      generalize (@mentionsU_instantiate _ _ _ _ ExprUVar_expr _); eauto.
+      generalize (@mentionsU_instantiate typ expr _ _ _ _); eauto.
       unfold mentionsU_instantiate_spec. intros.
       rewrite H.
       unfold raw_lookup.
@@ -226,7 +225,7 @@ Module Make (FM : WS with Definition E.t := uvar
       FM.fold (fun k e (a : bool) =>
                  if from ?[ le ] k && k ?[ lt ] (from + len) then
                    if a then
-                     mentionsRange mentionsU from len e
+                     mentionsRange (@mentionsU _ _ _ _) from len e
                    else false
                  else
                    true)
@@ -714,7 +713,7 @@ Module Make (FM : WS with Definition E.t := uvar
           specialize (H1 _ eq_refl).
           forward_reason. subst.
           change_rewrite H2.
-          eapply (@instantiate_sound_ho _ _ _ _ ExprUVar_expr _ _ _ _ _ nil) in H3; eauto.
+          eapply (@instantiate_sound_ho _ _ _ _ _ _ _ _ _ nil) in H3; eauto.
           forward_reason. simpl in *.
           change_rewrite H1.
           eexists; split; [ reflexivity | ].
@@ -802,7 +801,7 @@ Module Make (FM : WS with Definition E.t := uvar
         unfold raw_set. rewrite H.
         intro XXX. specialize (XXX _ eq_refl). eauto. }
       { intros.
-        eapply (@instantiate_sound _ _ _ _ _ _ _ _ _ _ nil) in H4; eauto.
+        eapply (@instantiate_sound _ _ _ _ _ _ _ _ _ nil) in H4; eauto.
         2: eapply sem_preserves_if_substD; eassumption.
         simpl in H4.
         forward_reason.
@@ -1257,7 +1256,7 @@ Module Make (FM : WS with Definition E.t := uvar
     }.
 
     Instance SubstOpenOk_subst
-    : @SubstOpenOk raw typ expr _ _ _ Subst_subst _ SubstOpen_subst :=
+    : @SubstOpenOk raw typ expr _ _ _ _ SubstOpen_subst :=
     { drop_sound := substD_drop' }.
     Proof.
       unfold subst_weakenU; simpl.

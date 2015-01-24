@@ -13,7 +13,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprUnify_common.
-Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
