@@ -2,7 +2,6 @@
 (*i camlp4use: "pa_extend.cmo" i*)
 
 open Reify_gen
-open Reify_ext
 open Plugin_utils
 
 let contrib_name = "MirrorCore.Reify"
