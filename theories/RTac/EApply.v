@@ -28,6 +28,10 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
 
+  Class ReifiedLemma (L : Lemma.lemma typ expr expr) : Prop :=
+  { _ : @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
+                  _ nil nil L }.
+
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     unifier typ expr subst.
 
@@ -61,9 +65,7 @@ Section parameterized.
                      (GConj_list premises) sub'
       end.
 
-  Hypothesis lemD :
-    @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
-                  _ nil nil lem.
+  Hypothesis lemD : ReifiedLemma lem.
 
   Lemma goalD_GConj_list tus tvs C (ExprTApp : CtxLogic.ExprTApplicative C)
   : forall ls gsD,
@@ -163,6 +165,7 @@ Section parameterized.
                | H : _ = _ , H' : _ |- _ =>
                  rewrite H in H'
              end.
+      destruct lemD as [ lemD' ]; clear lemD; rename lemD' into lemD.
       specialize (H2 _ _ lemD eq_refl eq_refl).
       forward_reason. forwardy. inv_all; subst.
       destruct (substD_pctxD _ H3 H H14) as [ ? [ ? ? ] ].

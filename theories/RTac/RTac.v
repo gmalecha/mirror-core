@@ -77,6 +77,6 @@ Ltac rtac_derive_soundness_default :=
                                      destruct X; rtac
                                  end)
                          ltac:(fun _ _ _ => fail)
-                         ltac:(idtac).
+                         ltac:(eauto with typeclass_instances).
 
-Tactic Notation "'derive' 'soundness'" := rtac_derive_soundness_default.
+Tactic Notation "'rtac' 'derive' 'soundness'" := rtac_derive_soundness_default.

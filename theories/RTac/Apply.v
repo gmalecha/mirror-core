@@ -32,15 +32,15 @@ Section parameterized.
   : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
       unify_sound (@exprUnify subst S SU).
 
-
   Variable lem : Lemma.lemma typ expr expr.
 
   Definition APPLY : rtac typ expr :=
+    (** TODO(gmalecha): This can be more efficient because APPLY is not supposed
+     ** to introduce new unification variables
+     **)
     @EAPPLY typ expr _ _ _ _ exprUnify lem.
 
-  Hypothesis lemD :
-    @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
-                  _ nil nil lem.
+  Hypothesis lemD : ReifiedLemma lem.
 
   Theorem APPLY_sound : rtac_sound APPLY.
   Proof.

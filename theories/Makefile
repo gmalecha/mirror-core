@@ -33,8 +33,6 @@ RTAC := BIMap Ctx Core CoreK \
 	AtGoal Reduce \
 	Interface \
 	RTac
-# Apply EApply
-#	Continuation ApplyToAll
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := OpenT Generic \
