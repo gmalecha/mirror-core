@@ -6,13 +6,13 @@ Require MirrorCore.Subst.FMapSubst.
 Require Import MirrorCore.RTac.RTac.
 Require Import McExamples.Simple.Simple.
 
-Local Instance Expr_expr : Expr _ (expr typ func) := Expr_expr.
+Local Instance Expr_expr : Expr _ (expr typ func) := @Expr_expr _ _ _ _ _.
 Definition subst :=
   FMapSubst.SUBST.raw (expr typ func).
 Local Instance Subst_subst : SubstI.Subst subst (expr typ func)
   := FMapSubst.SUBST.Subst_subst _.
 Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func)
-  := @FMapSubst.SUBST.SubstUpdate_subst _ _.
+  := @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
 
 
 Definition open (e : expr typ func)
@@ -30,13 +30,11 @@ Let INTRO : rtac typ (expr typ func) := @INTRO _ _ _ _ open.
 Let APPLY
 : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
   @APPLY typ (expr typ func) _ _ _ _
-         (@vars_to_uvars _ _)
          (fun _ _ _ => @exprUnify _ _ _ _ _ _ _ _ 10).
 
 Let EAPPLY
 : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
   @EAPPLY typ (expr typ func) _ _ _ _
-         (@vars_to_uvars _ _)
          (fun _ _ _ => @exprUnify _ _ _ _ _ _ _ _ 10).
 
 Let ASSUMPTION : rtac typ (expr typ func) :=
@@ -56,11 +54,9 @@ Definition tac : rtac typ (expr typ func) :=
   THEN (REPEAT 10 INTRO)
        (runOnGoals (TRY ASSUMPTION)).
 
-Check @runOnGoals.
-
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func))
            (goal : expr typ func)  :=
-  THENK (@runOnGoals _ _ _ tac) (@MINIFY _ _ _)
+  THENK (@runOnGoals _ _ _ _ tac) (@MINIFY _ _ _ _ _)
         nil nil 0 0 (@TopSubst _ _ nil nil)
         (@GGoal typ (expr typ func) goal).
 
