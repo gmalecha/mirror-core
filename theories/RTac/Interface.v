@@ -10,6 +10,10 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
 
   Variable tac : rtac typ expr.
+
+  Class RtacSound : Prop :=
+  { _ : rtac_sound tac }.
+
   Hypothesis tac_sound : rtac_sound tac.
 
   Definition runRtac (tus tvs : tenv typ) (goal : expr) (tac : rtac typ expr) :=

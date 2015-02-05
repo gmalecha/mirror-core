@@ -46,14 +46,14 @@ Ltac rtac_derive_soundness' tac tacK lems :=
                 | simple eapply AT_GOAL_sound ; [ intros ; rtac ]
                 | simple eapply APPLY_sound ; [ lems ]
                 | simple eapply EAPPLY_sound ; [ lems ]
-                | solve [ eauto ]
+                | solve [ eauto with typeclass_instances ]
                 | tac rtac rtacK lems
                 ]
   with rtacK :=
       try first [ simple eapply runOnGoals_sound ; rtac
                 | simple eapply MINIFY_sound
                 | simple eapply THENK_sound ; [ try rtacK | try rtacK ]
-                | solve [ eauto ]
+                | solve [ eauto with typeclass_instances ]
                 | tacK rtac rtacK lems
                 | eapply runOnGoals_sound ; rtac
                 ]
