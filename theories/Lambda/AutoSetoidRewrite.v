@@ -141,22 +141,41 @@ Section setoid.
            (rg : R),
       mrw (expr typ func).
 
+  Definition setoid_rewrite_spec (rw : _) : Prop :=
+    forall tus tvs e e' r t eD rD,
+      rw e r = Some e' ->
+      RD r t = Some rD ->
+      exprD' tus tvs t e = Some eD ->
+      exists eD',
+        exprD' tus tvs t e' = Some eD' /\
+        forall us vs,
+          rD (eD us vs) (eD' us vs).
+  Definition respectful_spec (respectful : _) : Prop :=
+    forall tus tvs e r rs t ts rD eD,
+      respectful e r = Some rs ->
+      RD r t = Some rD ->
+      exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) e = Some eD ->
+      exists rD',
+        RD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD' /\
+        forall us vs,
+          Proper rD' (eD us vs).
+
   Section setoid_rewrite.
     Variable respectfulness
     : expr typ func -> rewrite_expr.
 
 
-    Fixpoint setoid_rewrite2 (e : expr typ func)
+    Fixpoint setoid_rewrite (e : expr typ func)
              (es : list (expr typ func * (R -> mrw (expr typ func)))) (rg : R)
     : mrw (expr typ func) :=
       match e with
         | App f x =>
-          setoid_rewrite2 f ((x, setoid_rewrite2 x nil) :: es) rg
+          setoid_rewrite f ((x, setoid_rewrite x nil) :: es) rg
         | Abs t e' =>
           match es with
             | nil => match rg with
                        | Rpointwise _t (*=t*) rg' =>
-                         rw_bind (setoid_rewrite2 e' nil rg')
+                         rw_bind (setoid_rewrite e' nil rg')
                                  (fun e'' => rw_ret (Abs t e''))
                        | _ => respectfulness (Abs t e') es rg
                      end
@@ -167,7 +186,7 @@ Section setoid.
         | Inj i => respectfulness (Inj i) es rg
       end.
 
-    Definition setoid_rewrite2_rec tus tvs (ls : list (expr typ func * (R -> mrw (expr typ func)))) : Prop :=
+    Definition setoid_rewrite_rec tus tvs (ls : list (expr typ func * (R -> mrw (expr typ func)))) : Prop :=
       Forall (fun e =>
                 forall t eD,
                   exprD' tus tvs t (fst e) = Some eD ->
@@ -184,18 +203,18 @@ Section setoid.
         respectfulness e es rg = Some e' ->
         RD rg t = Some rD ->
         exprD' tus tvs t (apps e (map fst es)) = Some eesD ->
-        setoid_rewrite2_rec tus tvs es ->
+        setoid_rewrite_rec tus tvs es ->
         exists eesD',
           exprD' tus tvs t e' = Some eesD' /\
           forall us vs,
             rD (eesD us vs) (eesD' us vs).
 
-    Theorem setoid_rewrite2_sound
+    Theorem setoid_rewrite_sound
     : forall e e' tus tvs t es rg rD eesD,
-        setoid_rewrite2 e es rg = Some e' ->
+        setoid_rewrite e es rg = Some e' ->
         RD rg t = Some rD ->
         exprD' tus tvs t (apps e (map fst es)) = Some eesD ->
-        setoid_rewrite2_rec tus tvs es ->
+        setoid_rewrite_rec tus tvs es ->
         exists eesD',
           exprD' tus tvs t e' = Some eesD' /\
           forall us vs,
@@ -210,7 +229,7 @@ Section setoid.
         destruct es; eauto.
         destruct rg; eauto.
         unfold rw_bind in H.
-        consider (setoid_rewrite2 e nil rg).
+        consider (setoid_rewrite e nil rg).
         - intros. inversion H3; clear H3; subst.
           rewrite exprD'_apps in H1; eauto. simpl in H1.
           unfold apps_sem' in H1.
@@ -260,24 +279,9 @@ Section setoid.
     : forall r t rD, reflexive r = true -> RD r t = Some rD -> Reflexive rD.
     Hypothesis transitiveOk
     : forall r t rD, transitive r = true -> RD r t = Some rD -> Transitive rD.
-    Hypothesis rwOk
-    : forall tus tvs e e' r t eD rD,
-        rw e r = Some e' ->
-        RD r t = Some rD ->
-        exprD' tus tvs t e = Some eD ->
-        exists eD',
-          exprD' tus tvs t e' = Some eD' /\
-          forall us vs,
-            rD (eD us vs) (eD' us vs).
-    Hypothesis respectfulOk
-    : forall tus tvs e r rs t ts rD eD,
-        respectful e r = Some rs ->
-        RD r t = Some rD ->
-        exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) e = Some eD ->
-        exists rD',
-          RD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD' /\
-          forall us vs,
-            Proper rD' (eD us vs).
+
+    Hypothesis rwOk : setoid_rewrite_spec rw.
+    Hypothesis respectfulOk : respectful_spec respectful.
 
     Lemma exprD'_App
     : forall tus tvs td tr f x fD xD,
@@ -438,7 +442,7 @@ Section setoid.
     : forall es rs es',
         rw_map2 (fun ef r => snd ef r) es rs = Some es' ->
         forall tus tvs ts esD,
-          setoid_rewrite2_rec tus tvs es ->
+          setoid_rewrite_rec tus tvs es ->
           Forall2 (fun t r => exists rD, RD r t = Some rD) ts rs ->
           hlist_build (fun t => ExprI.exprT tus tvs (typD t))
                       (fun t e => exprD' tus tvs t (fst e)) ts es = Some esD ->
@@ -474,7 +478,7 @@ Section setoid.
         forall es f f' rs e',
         recursive_rewrite f' es rs = rw_ret e' ->
         forall ts fD rD eD fD'
-               (Hrws : setoid_rewrite2_rec tus tvs es),
+               (Hrws : setoid_rewrite_rec tus tvs es),
           exprD' tus tvs t (apps f (map fst es)) = Some eD ->
           exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) f = Some fD ->
           exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) f' = Some fD' ->
@@ -583,7 +587,7 @@ Section setoid.
     Qed.
 
     Definition bottom_up (e : expr typ func) (r : R) : option (expr typ func) :=
-      setoid_rewrite2
+      setoid_rewrite
         (fun e efs r =>
 	   let es := map fst efs in
            rw_orelse
@@ -606,7 +610,7 @@ Section setoid.
                               (a = rw_fail /\ b = c).
     Proof. clear. intros. destruct a; eauto. Qed.
 
-    Theorem bottom_up_sound
+    Lemma bottom_up_sound_lem
     : forall e e' tus tvs t rg rD eD,
         bottom_up e rg = Some e' ->
         RD rg t = Some rD ->
@@ -617,7 +621,7 @@ Section setoid.
             rD (eD us vs) (eD' us vs).
     Proof.
       unfold bottom_up. intros.
-      eapply setoid_rewrite2_sound in H; eauto; try solve [ constructor ].
+      eapply setoid_rewrite_sound in H; eauto; try solve [ constructor ].
       intros.
       eapply rw_orelse_sound in H2; destruct H2; forward_reason.
       { inv_all; subst.
@@ -637,6 +641,7 @@ Section setoid.
                   \/ (x = y)).
           { clear H7. destruct 1.
             { destruct H7.
+              red in rwOk.
               eapply rwOk in H13. 3: eauto.
               2: eauto.
               destruct H13 as [ ? [ ? ? ] ].
@@ -661,10 +666,19 @@ Section setoid.
         { inversion H6. } }
     Qed.
 
+    Theorem bottom_up_sound
+    : setoid_rewrite_spec bottom_up.
+    Proof.
+      red. intros.
+      eapply bottom_up_sound_lem in H.
+      2: eauto. 2: eauto.
+      eauto.
+    Qed.
+
 (*
     Fixpoint top_down (f : nat) (e : expr typ func) (r : R) {struct f}
     : option (expr typ func) :=
-      setoid_rewrite2
+      setoid_rewrite
         (fun e efs r =>
 	   let es := map fst efs in
            rw_orelse
@@ -712,7 +726,7 @@ Definition my_respectfulness' (f : expr nat nat)
     end.
 
   Time Eval vm_compute in
-      match setoid_rewrite2 (Rbase:=nat) (@my_respectfulness nat nat nat) (build_big 24) nil (RGinj 0) (rsubst_empty _) with
+      match setoid_rewrite (Rbase:=nat) (@my_respectfulness nat nat nat) (build_big 24) nil (RGinj 0) (rsubst_empty _) with
         | Some e => true
         | None => false
       end.
