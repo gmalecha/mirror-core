@@ -1,5 +1,6 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
@@ -442,6 +443,42 @@ Section typed.
     Qed.
 
   End apps.
+
+  Instance Typ0_Arr {T U : Type} (TF : Typ2 Fun) (T0T : Typ0 T) (T0U : Typ0 U)
+  : Typ0 (T -> U) := @Typ1_App _ _ (@Typ2_App _ _ TF T0T) T0U.
+
+  Instance Typ0Ok_Arr T U (TF : Typ2 Fun) (T0T : Typ0 T) (T0U : Typ0 U)
+           (TFO : Typ2Ok TF) (T0TO : Typ0Ok T0T) (T0UO : Typ0Ok T0U)
+  : Typ0Ok (Typ0_Arr TF T0T T0U).
+  Proof.
+    unfold Typ0_Arr.
+    eapply (@Typ0Ok_App _ _ (@Typ2_App _ _ TF T0T) T0U); eauto.
+    eapply Typ1Ok_App; eauto.
+  Qed.
+
+  Instance Typ0_term (t : typ) : Typ0 (typD t) :=
+  { typ0 := t
+  ; typ0_cast := eq_refl
+  ; typ0_match := fun T t' tr fa =>
+                    match type_cast t t' with
+                      | None => fa
+                      | Some pf => match pf in _ = t return T (typD t) with
+                                     | eq_refl => tr
+                                   end
+                    end }.
+
+  Instance Typ0Ok_term (RTO : RTypeOk) t : Typ0Ok (Typ0_term t).
+  Proof.
+    constructor.
+    { simpl.
+      intros. rewrite type_cast_refl. reflexivity. }
+    { simpl; intros.
+      consider (type_cast t x).
+      { left. exists (Rsym r). intros.
+        unfold Relim, Rsym. autorewrite with eq_rw. reflexivity. }
+      { right. reflexivity. } }
+    { simpl. intros. destruct pf. reflexivity. }
+  Qed.
 
 End typed.
 
