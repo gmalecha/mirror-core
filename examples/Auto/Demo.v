@@ -60,7 +60,7 @@ Fixpoint makeNat (n : nat) : expr typ func :=
 Let RSym_func : @RSym typ _ func := SymEnv.RSym_func fs.
 Local Existing Instance RSym_func.
 
-Let Expr_expr : @ExprI.Expr typ _ (expr typ func) := Expr_expr.
+Let Expr_expr : @ExprI.Expr typ _ (expr typ func) := @Expr_expr _ _ _ _ _.
 Local Existing Instance Expr_expr.
 
 Definition lem_0 : lemma typ (expr typ func) (expr typ func) :=
@@ -99,7 +99,7 @@ Definition evenHints : Hints typ (expr typ func) :=
 Instance ExprOk_expr : ExprI.ExprOk Expr_expr :=
   @ExprOk_expr _ _ _ _ _ _ _ _.
 
-Theorem evenHintsOk : @HintsOk _ _ RType_typ _ _ _ evenHints.
+Theorem evenHintsOk : @HintsOk _ _ RType_typ _ _ evenHints.
 Proof.
   constructor.
   { unfold evenHints; simpl.
@@ -118,9 +118,9 @@ Defined.
 Let subst := FMapSubst.SUBST.raw (expr typ func).
 Local Instance Subst_subst : SubstI.Subst subst (expr typ func) := FMapSubst.SUBST.Subst_subst _.
 Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func) :=
-  @FMapSubst.SUBST.SubstUpdate_subst _ _.
+  @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
 
-Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ _ Subst_subst :=
+Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ Subst_subst :=
   @FMapSubst.SUBST.SubstOk_subst _ _ _ _ _.
 Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk _ _.
 eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
@@ -128,9 +128,8 @@ eauto with typeclass_instances.
 Qed.
 
 Definition the_auto hints :=
-  @auto_prove typ (expr typ func) _ _ _ subst _ (SUBST.SubstOpen_subst _)
+  @auto_prove typ (expr typ func) _ _ _ _ subst _ (SUBST.SubstOpen_subst _)
                 hints
-                vars_to_uvars
                 (fun tus tvs under el er (t : typ) (sub : subst) =>
                    @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under el er t sub).
 
@@ -142,7 +141,7 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
     (let (tus,us) := EnvI.split_env us in
      let (tvs,vs) := EnvI.split_env vs in
      match factsD (ExternOk Hok) tus tvs facts
-         , @SubstI.substD _ _ _ _ _ _ _ _ tus tvs s' with
+         , @SubstI.substD _ _ _ _ _ _ _ tus tvs s' with
        | Some fD , Some P => fD us vs /\ P us vs
        | None , _
        | _ , None => False
@@ -154,9 +153,8 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
 Proof.
   intros.
   generalize (@auto_prove_sound
-                typ (expr typ func) _ _ _ _ _ _ _
+                typ (expr typ func) _ _ _ _ _ _ _ _
                 (SUBST.SubstOpen_subst _) hints
-                vars_to_uvars
                 (fun tus tvs under el er (t : typ) (sub : subst) =>
                    @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under el er t sub) fuel facts _ _ goal _ _ Hok H
              (@SUBST.WellFormed_empty _ _ _ _ _)); clear H.
@@ -202,7 +200,7 @@ Ltac run_auto := idtac;
           cut (let (tus,us) := EnvI.split_env nil in
                let (tvs,vs) := EnvI.split_env nil in
                match factsD (ExternOk evenHintsOk) tus tvs nil
-                   , @SubstI.substD _ _ _ _ _ _ _ _ tus tvs s with
+                   , @SubstI.substD _ _ _ _ _ _ _ tus tvs s with
                  | Some fD , Some P => fD us vs /\ P us vs
                  | None , _
                  | _ , None => False
@@ -226,41 +224,13 @@ Proof.
 Qed.
 
 Goal Even (10 + 10).
-
-reify_get (Even (10 + 10)).
-
-
-(*
-Goal Even 2.
 Proof.
-  pose (goal := App (Inj 1%positive) (makeNat 2)).
-  change match exprD nil nil goal tyProp with
-           | None => True
-           | Some P => P
-         end.
-  eapply (@Apply_auto_prove 100 evenHints evenHintsOk
-                            (evenHints.(Extern).(Summarize) nil nil nil)).
-  compute. reflexivity.
-  compute. auto.
+  Time run_auto.
 Qed.
-*)
 
 Goal Even 200.
 Proof.
-  pose (goal := App (Inj 1%positive) (makeNat 200)).
-  change match ExprI.exprD (Expr := Expr_expr) nil nil goal tyProp with
-           | None => True
-           | Some P => P
-         end.
-  eapply (@Apply_auto_prove 101 evenHints evenHintsOk
-                            (evenHints.(Extern).(Summarize) nil nil nil)).
-  match goal with
-    | |- ?X = Some ?Y =>
-      let res := eval vm_compute in X in
-                                     (etransitivity ; [ | exact (@eq_refl _ res) ])
-  end.
-  Time vm_compute; reflexivity.
-  compute. reflexivity.
+  Time run_auto.
 Qed.
 (** vm_compute is still *very* slow for this!
  ** - Some optimizations might be possible
@@ -285,38 +255,10 @@ Definition splus (l r : expr typ func) : expr typ func := App (App (Inj 4%positi
 
 Goal Even (0 + 0).
 Proof.
-  pose (goal := seven (splus (makeNat 0) (makeNat 0))).
-  (** This is problematic because it is going to actually compute 600? **)
-  Time change match ExprI.exprD (Expr := Expr_expr) nil nil goal tyProp with
-                | None => True
-                | Some P => P
-              end.
-  eapply (@Apply_auto_prove 2 evenHints evenHintsOk
-                            (evenHints.(Extern).(Summarize) nil nil nil)).
-  match goal with
-    | |- ?X = Some ?Y =>
-      let res := eval vm_compute in X in
-      (etransitivity ; [ | exact (@eq_refl _ res) ])
-  end.
-  Time (vm_compute; reflexivity).
-  compute. trivial.
+  run_auto.
 Qed.
 
 Goal Even ((200 + 200) + 200).
 Proof.
-  pose (goal := seven (splus (splus (makeNat 200) (makeNat 200)) (makeNat 200))).
-  (** This is problematic because it is going to actually compute 600? **)
-  Time change match ExprI.exprD (Expr := Expr_expr) nil nil goal tyProp with
-                | None => True
-                | Some P => P
-              end.
-  eapply (@Apply_auto_prove 203 evenHints evenHintsOk
-                            (evenHints.(Extern).(Summarize) nil nil nil)).
-  match goal with
-    | |- ?X = Some ?Y =>
-      let res := eval vm_compute in X in
-      (etransitivity ; [ | exact (@eq_refl _ res) ])
-  end.
-  Time vm_compute; reflexivity.
-  compute. trivial.
+  Time run_auto.
 Qed.

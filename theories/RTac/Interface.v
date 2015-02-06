@@ -12,7 +12,7 @@ Section parameterized.
   Variable tac : rtac typ expr.
 
   Class RtacSound : Prop :=
-  { _ : rtac_sound tac }.
+  { RtacSound_proof : rtac_sound tac }.
 
   Hypothesis tac_sound : rtac_sound tac.
 

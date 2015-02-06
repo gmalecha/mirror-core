@@ -94,7 +94,7 @@ Section parameterized.
   Hypothesis exprUnify_sound : unify_sound exprUnify.
 
   Let eapplicable :=
-    @eapplicable typ _ expr Typ0_Prop subst (@vars_to_uvars _ _ _ _ _) exprUnify.
+    @eapplicable typ expr _ _ Typ0_Prop subst _ exprUnify.
 
   Definition auto_prove_rec
              (auto_prove : hints.(Extern).(Facts) -> tenv typ -> tenv typ -> expr -> subst -> option subst)

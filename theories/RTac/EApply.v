@@ -29,8 +29,9 @@ Section parameterized.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
 
   Class ReifiedLemma (L : Lemma.lemma typ expr expr) : Prop :=
-  { _ : @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
-                  _ nil nil L }.
+  { ReifiedLemma_proof
+    : @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
+                    _ nil nil L }.
 
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     unifier typ expr subst.
@@ -48,9 +49,8 @@ Section parameterized.
   Definition EAPPLY : rtac typ expr :=
     let len_vars := length lem.(vars) in
     fun tus tvs nus nvs ctx sub goal =>
-      match @eapplicable typ _ expr _
-                         _ (* (ctx_subst (CExs ctx lem.(vars))) *)
-                         vars_to_uvars
+      match @eapplicable typ expr _ _
+                         _ _ _
                          (@exprUnify _ _ (SubstUpdate_ctx_subst _))
                          (freshUVars lem.(vars) sub)
                          tus tvs lem goal
@@ -140,7 +140,6 @@ Section parameterized.
       with (Expr_expr:=Expr_expr)
            (Subst_subst:=Subst_ctx_subst _)
            (SubstOk_subst:=SubstOk_ctx_subst _)
-           (vars_to_uvars:=vars_to_uvars)
            (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst _)) in H;
       eauto.
     { rewrite (ctx_subst_eta c) in H; simpl in *.
@@ -200,7 +199,6 @@ Section parameterized.
         rewrite H10; clear H10.
         rewrite H7 in *; clear H7.
         destruct H13. tauto. tauto. }
-    { eapply vars_to_uvars_sound; eauto. }
     { unfold freshUVars. constructor; eauto.
       eapply WellFormed_entry_amap_empty; eauto. }
   Qed.
