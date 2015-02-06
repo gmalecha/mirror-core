@@ -7,6 +7,8 @@ Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.SubstI.
+Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
@@ -138,6 +140,7 @@ Section setoid.
     forall (es : list (expr typ func * (R -> mrw (expr typ func))))
            (rg : R),
       mrw (expr typ func).
+
   Section setoid_rewrite.
     Variable respectfulness
     : expr typ func -> rewrite_expr.
@@ -276,7 +279,6 @@ Section setoid.
           forall us vs,
             Proper rD' (eD us vs).
 
-    Require Import MirrorCore.SubstI.
     Lemma exprD'_App
     : forall tus tvs td tr f x fD xD,
         exprD' tus tvs (typ2 (F:=Fun) td tr) f = Some fD ->
@@ -431,8 +433,6 @@ Section setoid.
                               @Forall2_hlist2 T U F P (t :: ts) (u :: us)
                                               (HList.Hcons x xs)
                                               (HList.Hcons y ys).
-
-    Require Import MirrorCore.Util.Forwardy.
 
     Lemma rw_map2_for_rewrite_recursive
     : forall es rs es',
