@@ -318,6 +318,8 @@ Section runOnGoals_list_proof.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
+  Definition ON_EACH : list (rtac typ expr) -> rtacK typ expr := runOnGoals_list.
+
   Theorem runOnGoals_list_sound
   : forall tacs,
       Forall rtac_sound tacs -> rtacK_sound (runOnGoals_list tacs).
@@ -335,4 +337,8 @@ Section runOnGoals_list_proof.
     { destruct l. tauto. constructor. }
     { destruct l. tauto. constructor. }
   Qed.
+
+  Definition ON_EACH_sound
+  : forall tacs, Forall rtac_sound tacs -> rtacK_sound (ON_EACH tacs)
+  := runOnGoals_list_sound.
 End runOnGoals_list_proof.

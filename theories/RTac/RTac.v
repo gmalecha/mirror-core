@@ -17,6 +17,7 @@ Require Export MirrorCore.RTac.Simplify.
 Require Export MirrorCore.RTac.Instantiate.
 
 Require Export MirrorCore.RTac.RunOnGoals.
+Require Export MirrorCore.RTac.RunOnGoals_list.
 Require Export MirrorCore.RTac.runTacK.
 Require Export MirrorCore.RTac.ThenK.
 Require Export MirrorCore.RTac.Minify.
@@ -29,6 +30,7 @@ Ltac one_of lems :=
     | (?X,?Y) => first [ one_of X | one_of Y ]
     | _ => exact lems
   end.
+
 
 Ltac rtac_derive_soundness' tac tacK lems :=
   let lems := (auto ; lems) in
@@ -51,6 +53,9 @@ Ltac rtac_derive_soundness' tac tacK lems :=
                 ]
   with rtacK :=
       try first [ simple eapply runOnGoals_sound ; rtac
+                | simple eapply runOnGoals_list_sound ; Forall_rtac
+                | simple eapply ON_ALL_sound ; rtac
+                | simple eapply ON_EACH_sound ; Forall_rtac
                 | simple eapply MINIFY_sound
                 | simple eapply THENK_sound ; [ try rtacK | try rtacK ]
                 | solve [ eauto with typeclass_instances ]

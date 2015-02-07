@@ -29,10 +29,6 @@ Section runOnGoals.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr RType_typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-(*
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
-*)
 
   Variable tac : rtac typ expr.
 
@@ -195,6 +191,8 @@ Section runOnGoals_proof.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
+  Definition ON_ALL : rtac typ expr -> rtacK typ expr := runOnGoals.
+
   Theorem runOnGoals_sound
   : forall tac,
       rtac_sound tac -> rtacK_sound (runOnGoals tac).
@@ -208,4 +206,7 @@ Section runOnGoals_proof.
     rewrite countVars_getVars.
     exact (fun x => x).
   Qed.
+
+  Definition ON_ALL_sound : forall tac, rtac_sound tac -> rtacK_sound (ON_ALL tac)
+  := runOnGoals_sound.
 End runOnGoals_proof.
