@@ -51,6 +51,20 @@ Local Instance RSym_func : RSym func := @RSym_func _ _ args.
 
 Local Instance Expr_expr : Expr _ (expr typ func) := @Expr_expr typ func _ _ _.
 Local Instance ExprOk_expr : @ExprOk _ _ (expr typ func) _ := @ExprOk_expr typ func _ _ _ _ _ _.
+
+
+Local Instance ReifiedLemma_OE
+: @ReifiedLemma typ (expr typ func) _ _ _ OE_syn :=
+{ ReifiedLemma_proof := OE }.
+
+Local Instance ReifiedLemma_EO
+: @ReifiedLemma typ (expr typ func) _ _ _ EO_syn :=
+{ ReifiedLemma_proof := EO }.
+
+Local Instance ReifiedLemma_E0
+: @ReifiedLemma typ (expr typ func) _ _ _ E0_syn :=
+{ ReifiedLemma_proof := E0 }.
+
 (*
 Definition subst :=
   FMapSubst.SUBST.raw (expr typ func).
@@ -69,10 +83,22 @@ Let APPLY_no_minify (l : Lemma.lemma typ (expr typ func) (expr typ func))
 Let APPLY (l : Lemma.lemma typ (expr typ func) (expr typ func)) : rtac typ (expr typ func) :=
   THEN (APPLY_no_minify l) (@MINIFY _ _ _ _ _).
 
-Theorem APPLY_sound : forall l,
-                        @Lemma.lemmaD _ _ _ _ _ (fun tus tvs e => exprD' tus tvs e tyProp) _ nil nil l ->
-                        rtac_sound (APPLY l).
-Proof. Admitted.
+Theorem APPLY_sound
+: forall l,
+    @Lemma.lemmaD _ _ _ _ _ (exprD'_typ0 (T:=Prop)) _ nil nil l ->
+    rtac_sound (APPLY l).
+Proof.
+  intros. unfold APPLY, APPLY_no_minify.
+  rtac_derive_soundness_default; eauto with typeclass_instances.
+  eapply APPLY_sound; eauto with typeclass_instances.
+  2: constructor; assumption.
+  intros. eapply exprUnify_sound; eauto with typeclass_instances.
+Qed.
+
+Arguments RtacSound {_ _ _ _ _} tac.
+
+Instance RtacSound l (RL : ReifiedLemma l) : RtacSound (APPLY l) :=
+{ RtacSound_proof := APPLY_sound l (@ReifiedLemma_proof _ _ _ _ _ _ _) }.
 
 Definition even_odd_tac : rtac typ (expr typ func) :=
   REPEAT 2000 (FIRST (APPLY EO_syn ::
@@ -94,16 +120,15 @@ Definition runRTac_empty_goal (tac : rtac typ (expr typ func))
         nil nil 0 0 _ (@TopSubst _ _ nil nil)
         (@GGoal typ (expr typ func) goal).
 
+Existing Class rtac_sound.
+Existing Instance RtacSound_proof.
+
 Theorem even_odd_tac_sound
 : rtac_sound even_odd_tac.
-  eapply REPEAT_sound.
-  eapply FIRST_sound.
-  constructor; [ eapply APPLY_sound; exact EO | ].
-  constructor; [ eapply APPLY_sound; exact OE | ].
-  constructor; [ eapply APPLY_sound; exact E0 | ].
-  constructor.
+Proof.
+  unfold even_odd_tac.
+  rtac_derive_soundness_default.
 Qed.
-
 
 (*Time Eval vm_compute in runRTac_empty_goal even_odd_tac (App Even_syn (build_n 1024)). *)
 
@@ -112,7 +137,7 @@ Definition GoalD (us vs : env) (g : Goal typ (expr typ func)) : Prop :=
   let (tvs, vs0) := split_env vs in
   match @goalD typ (expr typ func) _ _ _ tus tvs g with
     | Some P => P us0 vs0
-    | None => False
+    | None => True
   end.
 
 Definition full_solved : @Result typ (expr typ func) (CTop nil nil) :=
@@ -123,10 +148,16 @@ Theorem runGoal_sound
     runRTac_empty_goal even_odd_tac e = full_solved ->
     GoalD nil nil (GGoal e).
 Proof.
-Admitted.
+  unfold full_solved, runRTac_empty_goal. intros.
+  generalize (@rtac_Solved_closed_soundness typ (expr typ func) _ _ _ even_odd_tac even_odd_tac_sound nil nil e).
+  unfold runRtac. simpl in H. simpl.
+  intro. apply H0 in H; clear H0.
+  unfold GoalD. simpl. unfold Ctx.propD, propD in *.
+  simpl in *. exact H.
+Defined.
 
 (*
-Goal Even 1024.
+Goal Even 4.
   Time repeat constructor.
 Time Qed.
 *)
@@ -175,9 +206,9 @@ Ltac solve_it''' trm :=
   in
   reify_expr reify_simple k [ True ] [ trm ].
 
-Goal Even 1024.
+Definition proof : Even 4.
   Time  match goal with
     | |- ?X =>
       solve_it' X
   end.
-Time Qed.
+Defined.
