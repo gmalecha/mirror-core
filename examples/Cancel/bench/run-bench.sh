@@ -7,7 +7,7 @@ do
     sed "s/NNN/$i/g" BenchLtac.v > BenchLtac$i.v
     sed "s/NNN/$i/g" BenchRtac.v > BenchRtac$i.v
 
-    for t in 1
+    for t in `seq 1 25`
     do
 	coqc  -q  -I ../../../src -R ../../../coq-ext-lib/theories ExtLib -R ../../. McExamples -R ../../../theories MirrorCore BenchLtac$i | sed -e 's/.*(\(.*\)u,.*/\1/' > ltac.$i.$t.raw
 	coqc  -q  -I ../../../src -R ../../../coq-ext-lib/theories ExtLib -R ../../. McExamples -R ../../../theories MirrorCore BenchRtac$i | sed -e 's/.*(\(.*\)u,.*/\1/' > rtac.$i.$t.raw
