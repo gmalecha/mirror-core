@@ -6,7 +6,7 @@ IMP     := Imp Wp
 AUTO    := Demo
 AUTORW  := Demo DemoQuantPull \
 	   AutoRewriteLambda
-CANCEL  := Lang LtacDemo CancelTac RtacDemo
+CANCEL  := Lang LtacDemo CancelTac RtacDemo CancelTac2 RtacDemo2
 # SetoidRewriteRec DemoSetoid
 RTAC    := Demo
 SIMPLE  := Simple SimpleReify SimpleExt FoldTest # SimpleRewrite
