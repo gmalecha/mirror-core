@@ -268,7 +268,9 @@ Proof.
   constructor; compute; exact refl.
 Qed.
 
-Ltac reify trm :=
+Ltac rtac_canceler :=
+  lazymatch goal with
+  | |- ?trm =>
   let k tbl e :=
       let result := constr:(@Interface.runRtac typ (expr typ func) nil nil e (the_tactic tbl)) in
       let resultV := eval vm_compute in result in
@@ -283,14 +285,10 @@ Ltac reify trm :=
             | vm_cast_no_check (@eq_refl _ resultV) ]
       end
   in
-  reify_expr bind reify_monoid k [ (fun x : @mk_dvar_map _ _ _ typD table_terms (@SymEnv.F typ _) => True)  ] [ trm ].
-
-Ltac reify_goal :=
-  lazymatch goal with
-    | |- ?G => reify G
+  reify_expr bind reify_monoid k [ (fun x : @mk_dvar_map _ _ _ typD table_terms (@SymEnv.F typ _) => True)  ] [ trm ]
   end.
 
 Goal goal 120.
   prep.
-  Time reify_goal.
+  Time rtac_canceler.
 Time Qed.
