@@ -6,6 +6,7 @@ IMP     := Imp Wp
 AUTO    := Demo
 AUTORW  := Demo DemoQuantPull \
 	   AutoRewriteLambda
+CANCEL  := Lang LtacDemo CancelTac RtacDemo
 # SetoidRewriteRec DemoSetoid
 RTAC    := Demo
 SIMPLE  := Simple SimpleReify SimpleExt FoldTest # SimpleRewrite
@@ -13,9 +14,10 @@ MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
            $(AUTO:%=Auto/%) \
-	   $(AUTORW:%=AutoRewrite/%) \
-	   $(RTAC:%=RTac/%)
+	   $(RTAC:%=RTac/%) \
+	   $(CANCEL:%=Cancel/%)
 
+#	   $(AUTORW:%=AutoRewrite/%) \
 # ExprDemo
 #	      $(SETOID:%=setoid/%)
 # 	      $(MTAC:%=mtac/%)
