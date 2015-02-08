@@ -16,6 +16,7 @@ LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  Expr ExprLift Red RedAll \
 	  TypedFoldEager TypedFoldLazy TypedFoldApp FoldApp StrongFoldApp \
 	  WtExpr \
+	  Lemma \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
 	  ExprSubst ExprSubstitute AppN \
 	  ExprVariables \

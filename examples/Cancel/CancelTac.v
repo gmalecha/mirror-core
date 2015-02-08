@@ -6,6 +6,9 @@ Require Import MirrorCore.Lambda.Lemma.
 Require Import MirrorCore.RTac.RTac.
 Require Import McExamples.Cancel.Lang.
 
+Set Implicit Arguments.
+Set Strict Implicit.
+
 Section canceller.
   Variables typ func : Type.
   Context {RType_typ : RType typ}.
@@ -32,75 +35,75 @@ Section canceller.
 
   Definition lem_plus_unit_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: nil;
-     premises := App (App R (ExprCore.Var 1)) (ExprCore.Var 0) :: nil;
-     concl := App (App R (ExprCore.Var 1))  (App (App P U) (ExprCore.Var 0)) |}.
+     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil;
+     concl := App (App R (ExprCore.Var 0))  (App (App P U) (ExprCore.Var 1)) |}.
   Definition lem_plus_assoc_c1 : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0))
-                     (App (App P (ExprCore.Var 3))
-                          (App (App P (ExprCore.Var 2)) (ExprCore.Var 1))) :: nil;
-     concl := App (App R (ExprCore.Var 0))
-                  (App (App P (App (App P (ExprCore.Var 3)) (ExprCore.Var 2)))
-                       (ExprCore.Var 1)) |}.
+     premises := App (App R (ExprCore.Var 3))
+                     (App (App P (ExprCore.Var 0))
+                          (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))) :: nil;
+     concl := App (App R (ExprCore.Var 3))
+                  (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
+                       (ExprCore.Var 2)) |}.
   Definition lem_plus_assoc_c2 : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0))
-                     (App (App P (ExprCore.Var 2))
-                          (App (App P (ExprCore.Var 3)) (ExprCore.Var 1))) :: nil;
-     concl := App (App R (ExprCore.Var 0))
-                  (App (App P (App (App P (ExprCore.Var 3)) (ExprCore.Var 2)))
-                       (ExprCore.Var 1)) |}.
+     premises := App (App R (ExprCore.Var 3))
+                     (App (App P (ExprCore.Var 1))
+                          (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))) :: nil;
+     concl := App (App R (ExprCore.Var 3))
+                  (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
+                       (ExprCore.Var 2)) |}.
   Definition lem_plus_comm_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0))
-                     (App (App P (ExprCore.Var 2)) (ExprCore.Var 1)) :: nil;
-     concl := App (App R (ExprCore.Var 0))
-                  (App (App P (ExprCore.Var 1)) (ExprCore.Var 2)) |}.
+     premises := App (App R (ExprCore.Var 2))
+                     (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)) :: nil;
+     concl := App (App R (ExprCore.Var 2))
+                  (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)) |}.
   Definition lem_plus_cancel : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 3)) (ExprCore.Var 1)
-                     :: App (App R (ExprCore.Var 2)) (ExprCore.Var 0)
+     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 2)
+                     :: App (App R (ExprCore.Var 1)) (ExprCore.Var 3)
                      :: nil;
      concl := App
-                (App R (App (App P (ExprCore.Var 3)) (ExprCore.Var 2)))
-                (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)) |}.
+                (App R (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
+                (App (App P (ExprCore.Var 2)) (ExprCore.Var 3)) |}.
 
   Definition lem_plus_unit_p : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: nil;
-     premises := App (App R (ExprCore.Var 1)) (ExprCore.Var 0) :: nil;
-     concl := App (App R (App (App P U) (ExprCore.Var 1)))
-                  (ExprCore.Var 0) |}.
+     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil;
+     concl := App (App R (App (App P U) (ExprCore.Var 0)))
+                  (ExprCore.Var 1) |}.
   Definition lem_plus_assoc_p1 : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: T :: nil;
      premises := App
                    (App R
-                        (App (App P (ExprCore.Var 3))
-                             (App (App P (ExprCore.Var 2)) (ExprCore.Var 1))))
-                   (ExprCore.Var 0) :: nil;
+                        (App (App P (ExprCore.Var 0))
+                             (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))))
+                   (ExprCore.Var 3) :: nil;
      concl := App
                 (App R
-                     (App (App P (App (App P (ExprCore.Var 3)) (ExprCore.Var 2)))
-                          (ExprCore.Var 1))) (ExprCore.Var 0) |}.
+                     (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
+                          (ExprCore.Var 2))) (ExprCore.Var 3) |}.
   Definition lem_plus_assoc_p2 : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: T :: nil;
      premises := App
                    (App R
-                        (App (App P (ExprCore.Var 2))
-                             (App (App P (ExprCore.Var 3)) (ExprCore.Var 1))))
-                   (ExprCore.Var 0) :: nil;
+                        (App (App P (ExprCore.Var 1))
+                             (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))))
+                   (ExprCore.Var 3) :: nil;
      concl := App
                 (App R
-                     (App (App P (App (App P (ExprCore.Var 3)) (ExprCore.Var 2)))
-                          (ExprCore.Var 1))) (ExprCore.Var 0) |}.
+                     (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
+                          (ExprCore.Var 2))) (ExprCore.Var 3) |}.
   Definition lem_plus_comm_p : Lemma.lemma typ (expr typ func) (expr typ func) :=
   {| vars := T :: T :: T :: nil;
      premises := App
                    (App R
-                        (App (App P (ExprCore.Var 2)) (ExprCore.Var 1)))
-                   (ExprCore.Var 0) :: nil;
+                        (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
+                   (ExprCore.Var 2) :: nil;
      concl := App
-                (App R (App (App P (ExprCore.Var 1)) (ExprCore.Var 2)))
-                (ExprCore.Var 0) |}.
+                (App R (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)))
+                (ExprCore.Var 2) |}.
   Context {RL1 : ReifiedLemma lem_plus_unit_c}.
   Context {RL2 : ReifiedLemma lem_plus_assoc_c1}.
   Context {RL3 : ReifiedLemma lem_plus_assoc_c2}.
@@ -112,13 +115,13 @@ Section canceller.
   Context {RL9 : ReifiedLemma lem_plus_comm_p}.
 (*  Context {RL10 : ReifiedLemma refl}. *)
 
-  Let EAPPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
+  Definition EAPPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
     @EAPPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30).
-  Let APPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
+  Definition APPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
     @APPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30).
-  Let ON_EACH : list (rtac typ (expr typ func)) -> rtacK typ (expr typ func) :=
+  Definition ON_EACH : list (rtac typ (expr typ func)) -> rtacK typ (expr typ func) :=
     ON_EACH.
-  Let ON_ALL : rtac typ (expr typ func) -> rtacK typ (expr typ func) := ON_ALL.
+  Definition ON_ALL : rtac typ (expr typ func) -> rtacK typ (expr typ func) := ON_ALL.
 
   Local Instance RtacSound_EAPPLY l (RL : ReifiedLemma l)
   : RtacSound _ _ (EAPPLY l).
