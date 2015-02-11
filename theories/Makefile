@@ -2,14 +2,6 @@ GENERIC := CtxLogic
 UTIL := Approx Iteration ListMapT Forwardy Quant Nat
 PROVERS := ProverTac AssumptionProver DefaultProver AutoProver
 SUBST   := UVarMap FMapSubst # CascadeSubst SealedSubst RawSubst2 FastSubst
-EXTENSIBLE := Types ExprCore \
-	      ExprT \
-	      ExprDI ExprDFacts ExprD3 ExprD \
-	      ExprLift ExprUnifySyntactic3 \
-	      ExprSubst LemmaExt \
-	      Expr ExprTactics \
-	      SetoidFold AppFull Red AsConst \
-	      provers/UnifyEProver
 # ExprUnifySyntactic ExprUnifySyntactic2
 LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  ExprTac \
@@ -54,7 +46,6 @@ MODULES    := OpenT Generic \
 	      $(REIFY:%=Reify/%)
 
 
-#	      $(EXTENSIBLE:%=Ext/%)
 #	      $(POLY:%=Poly/%)
 #	      $(LAMBDAM:%=LambdaM/%)
 
