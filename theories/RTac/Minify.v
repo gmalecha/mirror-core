@@ -760,7 +760,39 @@ Section parameterized.
           rewrite <- H3; clear H3.
           eapply H11. reflexivity. reflexivity. } }
       { (* Conj *)
-        admit. (* medium *) }
+        simpl. intros.
+        inv_all.
+        specialize (@IHg1 tus tvs tus' es _ eq_refl H1).
+        specialize (@IHg2 tus tvs tus' es _ eq_refl H2).
+        forward_reason.
+        split.
+        { subst g'. eapply WellFormed_Goal_GConj; assumption. }
+        intros.
+        forwardy; inv_all.
+        subst gD.
+        specialize (H3 _ _ _ H9 H7 H8).
+        specialize (H5 _ _ _ H6 H7 H8).
+        forward_reason.
+        subst g'.
+        destruct (@GConj_GConj_ typ expr _ _ _ _ (getUVars c ++ tus') tvs
+                                (minify_goal es (length (getUVars c ++ tus)) g1)
+                                (minify_goal es (length (getUVars c ++ tus)) g1)
+                                (Reflexive_EqGoal _ _ _)
+                                (minify_goal es (length (getUVars c ++ tus)) g2)
+                                (minify_goal es (length (getUVars c ++ tus)) g2)
+                                (Reflexive_EqGoal _ _ _)).
+        generalize dependent (GConj (minify_goal es (length (getUVars c ++ tus)) g1)
+                                    (minify_goal es (length (getUVars c ++ tus)) g2)).
+        intro g.
+        simpl. Cases.rewrite_all_goal. inversion 2.
+        clear base_is_nus.
+        subst.
+        eexists; split; [ reflexivity | ].
+        intros.
+        rewrite <- (H10 _ _ _ _ H14 H16).
+        rewrite <- (H11 _ _ _ _ H14 H16).
+        do 5 red in H15. rewrite H15; [ clear H15 | reflexivity | reflexivity ].
+        reflexivity. }
       { (* Goal *)
         intros. clear base_is_nus. subst.
         split.
