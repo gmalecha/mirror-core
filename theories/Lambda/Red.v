@@ -298,7 +298,7 @@ Section beta.
         repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
         generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus f nil x _ eq_refl tvs d r).
         autorewrite with exprD_rw in H0. simpl in H0.
-        rewrite typ2_match_zeta in H0; eauto.
+        rewrite typ2_match_iota in H0; eauto.
         rewrite eq_option_eq in H0.
         forward. inv_all; subst.
         simpl in *. destruct r0.
@@ -313,7 +313,7 @@ Section beta.
       forward. simpl.
       cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (exprT_Abs fval)); auto.
       autorewrite with exprD_rw.
-      rewrite typ2_match_zeta; auto.
+      rewrite typ2_match_iota; auto.
       rewrite type_cast_refl; auto. simpl.
       rewrite H. unfold exprT_Abs.
       autorewrite with eq_rw. reflexivity. }

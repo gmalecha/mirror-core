@@ -222,7 +222,7 @@ Section typed.
         forward_reason.
         split; eauto; intros.
         autorewrite with exprD_rw in *; simpl in *; forward.
-        repeat rewrite typ2_match_zeta in * by eauto.
+        repeat rewrite typ2_match_iota in * by eauto.
         repeat rewrite eq_option_eq in *.
         forward.
         red in r; red in r0. subst. inv_all; subst.

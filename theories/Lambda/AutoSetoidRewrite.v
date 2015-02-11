@@ -241,12 +241,12 @@ Section setoid.
                   revert H3.
                   autorewrite with exprD_rw. simpl.
                   destruct r.
-                  repeat rewrite typ2_match_zeta; eauto.
+                  repeat rewrite typ2_match_iota; eauto.
                   repeat rewrite type_cast_refl; eauto.
                   consider (exprD' tus (t :: tvs) t2 e); intros.
                   { autorewrite with eq_rw in H5.
                     inv_all; subst.
-                    simpl in H0. rewrite typ2_match_zeta in H0; eauto.
+                    simpl in H0. rewrite typ2_match_iota in H0; eauto.
                     consider (type_cast (typ2 t t2) t1); intros.
                     - generalize dependent (typ2_cast t t2).
                       intro e1. autorewrite with eq_rw.
@@ -552,7 +552,7 @@ Section setoid.
             simpl in H1. intro.
             rewrite H10 in H1. unfold type_of_apply in H1.
             forwardy. simpl in H11.
-            rewrite typ2_match_zeta in H11; eauto.
+            rewrite typ2_match_iota in H11; eauto.
             autorewrite with eq_rw in H11. forwardy.
             inv_all; subst.
             autorewrite with exprD_rw in H7. simpl in H7.

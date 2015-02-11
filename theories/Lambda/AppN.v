@@ -108,7 +108,7 @@ Section app_full_proofs.
             simpl. rewrite H0. rewrite H.
 
             unfold type_of_apply. red in x1. subst.
-            rewrite typ2_match_zeta; eauto.
+            rewrite typ2_match_iota; eauto.
             rewrite type_cast_sym_None; eauto.
             rewrite eq_Const_eq. reflexivity. } }
           { rewrite type_of_applys_typeof_None; auto.

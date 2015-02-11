@@ -216,7 +216,7 @@ Module Make (ED : ExprDenote).
         rewrite H0. rewrite H1. reflexivity. }
       { intros. destruct H. split; eauto.
         autorewrite with exprD_rw.
-        rewrite typ2_match_zeta; eauto.
+        rewrite typ2_match_iota; eauto.
         rewrite type_cast_refl; eauto. rewrite H.
         simpl. unfold ED.exprT_Abs.
         autorewrite with eq_rw.
@@ -298,7 +298,7 @@ Module Make (ED : ExprDenote).
         specialize (H1 _ eq_refl).
         destruct H1 as [ ? [ ? ? ] ].
         autorewrite with exprD_rw. simpl.
-        rewrite typ2_match_zeta; eauto.
+        rewrite typ2_match_iota; eauto.
         rewrite type_cast_refl; eauto.
         simpl in *.
         rewrite H1.
@@ -351,7 +351,7 @@ Module Make (ED : ExprDenote).
           rewrite H1. eauto. }
         { exfalso. rewrite H4 in H3. congruence. } }
       { forward. inv_all; subst.
-        rewrite typ2_match_zeta; eauto.
+        rewrite typ2_match_iota; eauto.
         rewrite type_cast_refl; eauto.
         eapply IHe in H1. forward_reason.
         rewrite H1.
@@ -489,12 +489,12 @@ Module Make (ED : ExprDenote).
         { forward_reason; forward; inv_all; subst.
           cutrewrite (ED.typeof_expr tus tvs e1 = Some (typ2 t0 t)).
           { unfold ED.type_of_apply.
-            rewrite typ2_match_zeta; eauto.
+            rewrite typ2_match_iota; eauto.
             rewrite type_cast_refl; eauto.
             rewrite eq_Const_eq. reflexivity. }
           { rewrite IHe1. eauto. } } }
       { split; intros; forward; inv_all; subst.
-        { rewrite typ2_match_zeta; eauto.
+        { rewrite typ2_match_iota; eauto.
           rewrite type_cast_refl; eauto.
           rewrite IHe in H. forward_reason.
           rewrite H. forward. eauto. }

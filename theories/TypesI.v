@@ -122,7 +122,7 @@ Section typed.
     }.
 
     Class Typ0Ok (TI : Typ0) : Type :=
-    { typ0_match_zeta
+    { typ0_match_iota
       : forall T tr fa,
           typ0_match T typ0 tr fa =
           match eq_sym typ0_cast in _ = t return T t with
@@ -158,7 +158,7 @@ Section typed.
     }.
 
     Class Typ1Ok (TI : Typ1) : Type :=
-    { typ1_match_zeta
+    { typ1_match_iota
       : forall T a tr fa,
           typ1_match T (typ1 a) tr fa =
           match eq_sym (typ1_cast a) in _ = t return T t with
@@ -199,7 +199,7 @@ Section typed.
     }.
 
     Class Typ2Ok (TI : Typ2) : Type :=
-    { typ2_match_zeta
+    { typ2_match_iota
       : forall T a b tr fa,
           typ2_match T (typ2 a b) tr fa =
           match eq_sym (typ2_cast a b) in _ = t return T t with
@@ -271,8 +271,8 @@ Section typed.
     Proof.
       constructor.
       { simpl. intros.
-        rewrite (typ2_match_zeta) by assumption.
-        rewrite (typ0_match_zeta) by assumption.
+        rewrite (typ2_match_iota) by assumption.
+        rewrite (typ0_match_iota) by assumption.
         generalize (tr a). clear.
         match goal with
           | |- forall x,
@@ -386,8 +386,8 @@ Section typed.
     Proof.
       constructor.
       { simpl. intros.
-        rewrite (typ1_match_zeta) by assumption.
-        rewrite (typ0_match_zeta) by assumption.
+        rewrite (typ1_match_iota) by assumption.
+        rewrite (typ0_match_iota) by assumption.
         revert tr. clear.
         match goal with
           | |- forall x,

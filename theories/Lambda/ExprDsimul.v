@@ -389,7 +389,7 @@ Module ExprDenote <: ExprDenote.
           specialize (IHe2 _ _ _ (or_intror H0)).
           Cases.rewrite_all_goal.
           unfold type_of_apply.
-          unfold arr_match. rewrite typ2_match_zeta; eauto.
+          unfold arr_match. rewrite typ2_match_iota; eauto.
           rewrite type_cast_refl; eauto.
           rewrite eq_Const_eq. reflexivity. }
         { destruct (typ2_match_case x).
@@ -582,14 +582,14 @@ Module ExprDenote <: ExprDenote.
         simpl; split; intros; forward; inv_all; subst; simpl in *.
         { eapply IHe in H0. forward_reason. simpl in *.
           Cases.rewrite_all_goal. split; auto.
-          rewrite typ2_match_zeta; auto.
+          rewrite typ2_match_iota; auto.
           rewrite type_cast_refl; eauto.
           Cases.rewrite_all_goal.
           unfold Rcast_val.
           rewrite eq_option_eq. reflexivity. }
         { forward_reason; inv_all; subst.
           destruct tv; simpl in *; subst.
-          rewrite typ2_match_zeta in H1; eauto.
+          rewrite typ2_match_iota in H1; eauto.
           rewrite type_cast_refl in *; eauto.
           specialize (IHe (t :: tvs)).
           consider (exprD' tus (t :: tvs) t0 e).

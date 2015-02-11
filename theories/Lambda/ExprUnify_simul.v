@@ -873,7 +873,7 @@ Section typed.
             forward_exprD.
             intros; subst.
             unfold type_of_apply in *.
-            rewrite typ2_match_zeta in * by eauto.
+            rewrite typ2_match_iota in * by eauto.
             rewrite eq_Const_eq in *. forward.
             red in r. red in r0. subst. subst.
             eapply ExprFacts.typeof_expr_exprD' in H6; eauto.
@@ -953,7 +953,7 @@ Section typed.
         generalize (exprD_typeof_eq _ _ _ _ _ H7 H3).
         intros; subst. subst.
         autorewrite with exprD_rw. simpl.
-        repeat rewrite typ2_match_zeta by eauto.
+        repeat rewrite typ2_match_iota by eauto.
         repeat rewrite type_cast_refl by eauto.
         Cases.rewrite_all_goal.
         repeat rewrite eq_option_eq.

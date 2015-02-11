@@ -627,7 +627,7 @@ Section reducer.
         induction targs; destruct es; try solve [ inversion 1 ]; simpl; intros.
         { inversion H1; subst.
           rewrite type_cast_refl; eauto. }
-        { rewrite typ2_match_zeta; eauto.
+        { rewrite typ2_match_iota; eauto.
           forward; inv_all; subst.
           eapply IHtargs in H0; eauto.
           forward_reason.
@@ -721,7 +721,7 @@ Section reducer.
           induction targs; destruct es; simpl in *; try congruence;
           intros; inv_all; subst.
           * rewrite type_cast_refl; eauto.
-          * rewrite typ2_match_zeta; simpl; eauto.
+          * rewrite typ2_match_iota; simpl; eauto.
             forward; inv_all; subst.
             autorewrite with eq_rw.
             simpl.
@@ -834,7 +834,7 @@ Section reducer.
         { destruct targs; simpl in *; try congruence.
           forward; inv_all; subst.
           autorewrite with exprD_rw in H0.
-          rewrite typ2_match_zeta in H0; eauto.
+          rewrite typ2_match_iota in H0; eauto.
           simpl in H0.
           autorewrite with eq_rw in H0.
           forward; inv_all; subst.
