@@ -1,3 +1,4 @@
+Require Import Coq.Sorting.Permutation.
 Require Coq.FSets.FMapFacts.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Bool.
@@ -231,23 +232,8 @@ Module Make (FM : WS with Definition E.t := uvar
                    true)
               s true.
 
-(*
-    Definition raw_strengthenV (from len : nat) (s : raw) : bool :=
-      FM.fold (fun k e (a : bool) =>
-                 if a then
-                   mentionsRange mentionsV from len e
-                 else false)
-              s true.
-*)
-
     Instance SubstUpdate_subst : SubstUpdate raw expr :=
     { subst_set := raw_set
-(*
-    ; subst_empty := FM.empty _
-    ; forget := raw_forget
-    ; strengthenU := raw_strengthenU
-    ; strengthenV := raw_strengthenV
-*)
     }.
 
     Lemma None_becomes_None
@@ -571,7 +557,6 @@ Module Make (FM : WS with Definition E.t := uvar
     Instance SubstOk_subst : SubstOk Subst_subst :=
     {| WellFormed_subst := WellFormed
      ; substD := raw_substD
-(*     ; substD_weaken := substD_weaken *)
      ; substD_lookup := substD_lookup
      ; WellFormed_domain := WellFormed_domain
      ; lookup_normalized := normalized_fmapsubst
@@ -859,6 +844,7 @@ Module Make (FM : WS with Definition E.t := uvar
         f_equal. assumption. }
     Qed.
 
+    (** TODO(gmalecha): This should go in ExtLib **)
     Theorem hlist_app_hlist_map
     : forall T (F G : T -> Type) (f : forall x, F x -> G x) ls ls'
              (a : hlist F ls) (b : hlist F ls'),
@@ -1279,6 +1265,271 @@ Module Make (FM : WS with Definition E.t := uvar
       { intros. autorewrite with eq_rw.
         rewrite <- hlist_app_nil_r. eapply H0. }
     Qed.
+
+    (** What is missing here is the fact that [amap_substD a]
+     ** is equivalent to [list_substD tus tvs start ls]
+     **)
+    Fixpoint list_substD (tus tvs : tenv typ) (from : nat)
+             (es : list (option expr))
+      : option (exprT tus tvs Prop) :=
+      match es with
+        | nil => Some (fun _ _ => True)
+        | None :: es' =>
+          list_substD tus tvs (S from) es'
+        | Some e :: es' =>
+          match nth_error_get_hlist_nth _ tus from with
+            | None => None
+            | Some (existT t getU) =>
+              match exprD' tus tvs e t with
+                | None => None
+                | Some eD =>
+                  match list_substD tus tvs (S from) es' with
+                    | None => None
+                    | Some sD => Some (fun us vs =>
+                                         getU us = eD us vs /\ sD us vs)
+                  end
+              end
+          end
+      end.
+
+    Fixpoint amap_aslist (m : raw) (f n : nat) : list (option expr) :=
+      match n with
+        | O => nil
+        | S n => subst_lookup f m :: amap_aslist m (S f) n
+      end.
+
+    Fixpoint to_elem_list f (x : list (option expr)) : list (nat * expr) :=
+      match x with
+        | nil => nil
+        | None :: x => to_elem_list (S f) x
+        | Some e :: x => (f,e) :: to_elem_list (S f) x
+      end.
+
+    Fixpoint elem_listD tus tvs (ls : list (nat * expr)) : option (exprT tus tvs Prop) :=
+      match ls with
+        | nil => Some (fun _ _ => True)
+        | (u,e) :: ls =>
+          match nth_error_get_hlist_nth typD tus u
+              , elem_listD tus tvs ls
+          with
+            | Some (existT t get) , Some P =>
+              match exprD' tus tvs e t with
+                | Some eD => Some (fun us vs => get us = eD us vs /\ P us vs)
+                | _ => None
+              end
+            | _ , _ => None
+          end
+      end.
+
+    Lemma to_list_elemD
+    : forall tus tvs es f,
+        Roption (RexprT tus tvs iff)
+                (list_substD tus tvs f es)
+                (elem_listD tus tvs (to_elem_list f es)).
+    Proof.
+      induction es.
+      { simpl. intros. constructor. reflexivity. }
+      { simpl. intros.
+        destruct a; eauto.
+        simpl.
+        destruct (nth_error_get_hlist_nth typD tus f); try constructor.
+        destruct s.
+        destruct (exprD' tus tvs e x).
+        { specialize (IHes (S f)).
+          destruct IHes; constructor.
+          do 5 red. do 5 red in H. intros.
+          specialize (H _ _ H0 _ _ H1).
+          rewrite H.
+          eapply equiv_eq_eq in H0.
+          eapply equiv_eq_eq in H1. subst. tauto. }
+        { destruct (elem_listD tus tvs (to_elem_list (S f) es)); constructor. } }
+    Qed.
+
+    Existing Instance Reflexive_Roption.
+    Existing Instance Transitive_Roption.
+
+    Lemma elemD_perm
+    : forall tus tvs a b,
+        Permutation a b ->
+        Roption (RexprT tus tvs iff)
+                (elem_listD tus tvs a) (elem_listD tus tvs b).
+    Proof.
+      induction 1; try reflexivity.
+      { simpl. destruct x.
+        destruct IHPermutation. reflexivity.
+        destruct (nth_error_get_hlist_nth typD tus n); try constructor.
+        destruct s.
+        destruct (exprD' tus tvs e x0); try constructor.
+        do 5 red. do 5 red in H0.
+        intros. rewrite H0 by eauto.
+        eapply equiv_eq_eq in H1.
+        eapply equiv_eq_eq in H2.
+        subst. clear. tauto. }
+      { simpl. destruct x. destruct y.
+        repeat match goal with
+                 | |- context [ match ?X with _ => _ end ] =>
+                   match X with
+                     | match _ with _ => _ end => fail 1
+                     | _ => destruct X; try reflexivity
+                   end
+               end.
+        constructor.
+        do 5 red. intros.
+        apply equiv_eq_eq in H.
+        apply equiv_eq_eq in H0. subst.
+        tauto. }
+      { etransitivity; eauto. }
+    Qed.
+
+    Lemma aslist_min_key
+      : forall e l from from',
+        from < from' ->
+        ~ In (from, e) (to_elem_list from' l).
+    Proof.
+      induction l; eauto.
+      simpl. intros.
+      destruct a.
+      { simpl. intro. destruct H0.
+        { inversion H0. omega. }
+        { eapply IHl. 2: eauto. omega. } }
+      { eauto. }
+    Qed.
+
+    Lemma In_to_elem_list_as_list_1
+      : forall m len x from,
+        In x (to_elem_list from (amap_aslist m from len)) ->
+        FM.find (fst x) m = Some (snd x).
+    Proof.
+      clear.
+      induction len; simpl; intros.
+      - destruct H.
+      - unfold raw_lookup in *.
+        consider (FM.find from m); intros; eauto.
+        destruct H0. subst. simpl. auto. eauto.
+    Qed.
+
+    Lemma In_to_elem_list_as_list_2
+      : forall m len x from,
+        (forall (k : ExprI.uvar) (v : expr),
+            subst_lookup k m = Some v -> from <= k < from + len) ->
+        FM.find (fst x) m = Some (snd x) ->
+        In x (to_elem_list from (amap_aslist m from len)).
+    Proof.
+      intros.
+      assert (from <= fst x < from + len) by eauto.
+      clear H. revert H1; revert H0. revert from.
+      induction len; simpl; intros.
+      { omega. }
+      { assert (from = fst x \/ S from <= fst x) by omega.
+        destruct H.
+        { subst. change_rewrite H0.
+          left. destruct x; reflexivity. }
+        { destruct (raw_lookup from m). right. eapply IHlen; eauto. omega.
+          eapply IHlen; eauto; omega. } }
+    Qed.
+
+    Lemma In_to_elem_list_as_list
+      : forall m len x from,
+        (forall (k : ExprI.uvar) (v : expr),
+            subst_lookup k m = Some v -> from <= k < from + len) ->
+        (In x (to_elem_list from (amap_aslist m from len)) <->
+         FM.find (fst x) m = Some (snd x)).
+    Proof.
+      split; eauto using In_to_elem_list_as_list_1, In_to_elem_list_as_list_2.
+    Qed.
+
+    Lemma elements_is_perm_of
+    : forall m from len,
+      (forall (k : ExprI.uvar) (v : expr),
+          subst_lookup k m = Some v -> from <= k < from + len) ->
+      Permutation (FM.elements m) (to_elem_list from (amap_aslist m from len)).
+    Proof.
+      intros.
+      eapply NoDup_Permutation.
+      { generalize (FM.elements_3w m).
+        clear. induction 1; constructor; auto.
+        intro. eapply H.
+        eapply In_InA; eauto. }
+      { clear. revert from.
+        induction len; simpl.
+        { constructor. }
+        { intros. destruct (raw_lookup from m); auto.
+          constructor; auto.
+          eapply aslist_min_key. omega. } }
+      { intros.
+        rewrite In_to_elem_list_as_list; eauto.
+        rewrite FACTS.elements_o.
+        generalize (FM.elements_3w m).
+        generalize (FM.elements m). clear.
+        induction l; simpl.
+        { intuition; congruence. }
+        { inversion 1. subst. intros.
+          rewrite IHl; clear IHl; eauto. destruct a.
+          destruct x; simpl.
+          unfold FACTS.eqb. simpl.
+          destruct (FM.E.eq_dec k0 k).
+          { red in e1. subst.
+            split.
+            { destruct 1. inversion H0. reflexivity.
+              exfalso. eapply H2.
+              rewrite <- findA_NoDupA in H0; eauto.
+              clear - H0. induction H0.
+              { simpl in *. left. destruct H; subst.
+                reflexivity. }
+              { right. eauto. } }
+            { intros. inv_all. subst. left. auto. } }
+          { intuition.
+            exfalso. eapply n. inversion H1. reflexivity. } } }
+    Qed.
+
+    Lemma amap_substD_list_substD
+    : forall tus tvs len am (from : nat) sD,
+        WellFormed am ->
+        (forall k v, subst_lookup k am = Some v ->
+                     from <= k < from + len) ->
+        substD tus tvs am = Some sD ->
+        exists sD',
+          list_substD tus tvs from (amap_aslist am from len) = Some sD' /\
+          forall us vs,
+            sD us vs <-> sD' us vs.
+    Proof.
+      intros.
+      cut (exists sD' : exprT tus tvs Prop,
+              elem_listD tus tvs (rev (FM.elements am)) = Some sD' /\
+              (forall (us : hlist typD tus) (vs : hlist typD tvs),
+                  sD us vs <-> sD' us vs)).
+      { clear - H0. intros.
+        assert (Permutation (rev (FM.elements am))
+                            (to_elem_list from (amap_aslist am from len))).
+        { etransitivity. symmetry; eapply (@Permutation_rev _ (FM.elements am)).
+          eapply (elements_is_perm_of len H0). }
+        generalize (@elemD_perm tus tvs _ _ H1).
+        generalize dependent (amap_aslist am from len).
+        intro l.
+        forward_reason.
+        rewrite H. intros.
+        destruct (to_list_elemD tus tvs l from).
+        { inversion H3. }
+        { eexists; split; eauto.
+          intros. rewrite H1. inversion H3; subst.
+          etransitivity. eapply H7; try reflexivity.
+          symmetry. eapply H4; try reflexivity. }  }
+      unfold substD in H1. simpl in H1. unfold raw_substD in H1.
+      rewrite PROPS.fold_spec_right in H1.
+      generalize dependent (rev (FM.elements am)). clear.
+      intro. revert sD.
+      induction l; simpl.
+      { intros; inv_all; subst; eexists; split; eauto. reflexivity. }
+      { unfold PROPS.uncurry.
+        intros; forwardy; inv_all; subst.
+        eapply IHl in H1; clear IHl.
+        forward_reason. destruct a; simpl in *.
+        Cases.rewrite_all_goal.
+        eexists; split; eauto.
+        simpl. intros.
+        rewrite H2. tauto. }
+    Qed.
+
   End exprs.
 End Make.
 
