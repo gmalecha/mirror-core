@@ -9,7 +9,6 @@ Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.RTac.Reduce.
-
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.
 
@@ -338,12 +337,13 @@ Section parameterized.
           reflexivity. } }
     Qed.
 
-    Axiom mapD_weaken_tvs : forall _tus _tus' _tvs _tvs' tus tus' es P,
+    Lemma mapD_weaken_tvs : forall _tus _tus' _tvs _tvs' tus tus' es P,
         @mapD _tus _tus' _tvs tus tus' es P ->
         exists P',
           @mapD _tus _tus' (_tvs ++ _tvs') tus tus' es P' /\
           forall U U' V V' a b,
             P U U' V a b <-> P' U U' (hlist_app V V') a b.
+    Admitted.
 
     Hypothesis WF_cs : WellFormed_ctx_subst cs.
 
@@ -543,42 +543,22 @@ Section parameterized.
       reflexivity.
     Qed.
 
-    Fixpoint list_substD (tus tvs : tenv typ) (from : nat)
-             (es : list (option expr))
-      : option (exprT tus tvs Prop) :=
-      match es with
-        | nil => Some (fun _ _ => True)
-        | None :: es' =>
-          list_substD tus tvs (S from) es'
-        | Some e :: es' =>
-          match nth_error_get_hlist_nth _ tus from with
-            | None => None
-            | Some (existT t getU) =>
-              match exprD' tus tvs e t with
-                | None => None
-                | Some eD =>
-                  match list_substD tus tvs (S from) es' with
-                    | None => None
-                    | Some sD => Some (fun us vs =>
-                                         getU us = eD us vs /\ sD us vs)
-                  end
-              end
-          end
-      end.
-
     (** What is missing here is the fact that [amap_substD a]
      ** is equivalent to [list_substD tus tvs start ls]
      **)
     Theorem amap_substD_list_substD
       : forall tus tvs am (from len : nat) sD maxV,
-        WellFormed_bimap from (from + len) maxV am ->
+        WellFormed_bimap from len maxV am ->
         amap_substD tus tvs am = Some sD ->
         exists sD',
-          list_substD tus tvs from (amap_aslist am from len) = Some sD' /\
+          FMapSubst.SUBST.list_substD tus tvs from (amap_aslist am from len) = Some sD' /\
           forall us vs,
             sD us vs <-> sD' us vs.
-    Proof. (** NOTE: this is not inductive **)
-    Admitted.
+    Proof.
+      destruct 1.
+      intros; eapply FMapSubst.SUBST.amap_substD_list_substD; eauto.
+      destruct H0. eauto.
+    Qed.
 
     Lemma minify_goal_sound
     : forall g tus tvs tus' es g',
