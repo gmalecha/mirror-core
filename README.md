@@ -1,7 +1,7 @@
 mirror-core
 ===========
 
-A framework for general, extensible, reflective decision procedures. 
+A framework for general, extensible, reflective decision procedures.
 
 Bugs
 ----
@@ -20,15 +20,15 @@ To build the library, run:
 ```
 mirror-core/ $ make -jN
 ```
-   
+
 in the main directory.
 
-You can build the examples by running 
+You can build the examples by running
 
 ```
 mirror-core/examples/ $ make -jN
 ```
-   
+
 in the examples directory.
 
 If you use emacs & proof-general, then you may find it convenient to run
@@ -62,7 +62,7 @@ If you already have a copy of coq-ext-lib on your system but it is not installed
 ```
 ln -s <path/to/coq-ext-lib> coq-ext-lib
 ```
- 
+
 If you do not have a local copy already you can run
 
 ```
@@ -78,3 +78,5 @@ mirror-core/ $ echo 'ARGS := -R ../coq-ext-lib/theories ExtLib $(ARGS)' > Makefi
 ```
 
 You should replace ../coq-ext-lib with the appropriate path but if the path is relative, make sure that it is relative to the theories directory (thus the leading ../ in the example above).
+
+In order to build the reification plugin, you must use OCaml 4.01 or later.
