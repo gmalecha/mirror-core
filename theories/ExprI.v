@@ -196,6 +196,8 @@ Section Expr.
              (exprD' : forall (us vs : tenv typ),
                expr -> forall (t : typ),
                          option (exprT us vs (typD t)))
+             (mentionsU : uvar -> expr -> bool)
+             (mentionsV : var -> expr -> bool)
              (expr_subst : (uvar -> option expr) -> (var -> option expr) -> nat -> expr -> expr)
   : Prop :=
     forall substU substV n e e',
@@ -204,6 +206,7 @@ Section Expr.
              (P : exprT tus tvs (exprT tus' tvs' Prop) -> Prop)
              (ExprTApR : ExprTApplicativeR P)
              (H_substU : forall u t get,
+                 mentionsU u e = true ->
                  nth_error_get_hlist_nth typD tus u = Some (@existT _ _ t get) ->
                  match substU u with
                    | Some eU =>
@@ -215,6 +218,7 @@ Section Expr.
                              /\ P (fun us vs us' vs' => get us = get' us')
                  end)
              (H_substV : forall u t get,
+                 mentionsV (n + u) e = true ->
                  nth_error_get_hlist_nth typD tvs u = Some (@existT _ _ t get) ->
                  match substV u with
                    | Some eV =>
@@ -320,6 +324,7 @@ Section Expr.
              (P : exprT tus tvs (exprT tus' tvs' Prop) -> Prop)
              (ExprTApR : ExprTApplicativeR P)
              (H_substU : forall u t get,
+                 mentionsU u e = true ->
                  nth_error_get_hlist_nth typD tus u = Some (@existT _ _ t get) ->
                  match substU u with
                    | Some eU =>
@@ -331,6 +336,7 @@ Section Expr.
                              /\ P (fun us vs us' vs' => get us = get' us')
                  end)
              (H_substV : forall u t get,
+                 mentionsV (n+u) e = true ->
                  nth_error_get_hlist_nth typD tvs u = Some (@existT _ _ t get) ->
                  match substV u with
                    | Some eV =>
@@ -598,6 +604,7 @@ Section Expr.
       forall _tvs tus tvs tus' tvs'
              (R : exprT tus tvs (exprT tus' tvs' Prop))
              (H_substU : forall u t get,
+                 mentionsU u e = true ->
                  nth_error_get_hlist_nth typD tus u = Some (@existT _ _ t get) ->
                  match substU u with
                    | Some eU =>
@@ -611,6 +618,7 @@ Section Expr.
                      /\ forall us vs us' vs', R us vs us' vs' -> get us = get' us'
                  end)
              (H_substV : forall u t get,
+                 mentionsV (n+u) e = true ->
                  nth_error_get_hlist_nth typD tvs u = Some (@existT _ _ t get) ->
                  match substV u with
                    | Some eV =>

@@ -119,7 +119,7 @@ Section instantiate_thm.
   Theorem expr_subst_sound
   : expr_subst_spec_ho
       (fun us vs e t => ExprDsimul.ExprDenote.exprD' us vs t e)
-      (@_subst typ func).
+      _mentionsU _mentionsV (@_subst typ func).
   Proof.
     (** exprD'_ind does not seem powerful enough for this **)
     red. intros. subst n. generalize dependent _tvs. revert e'. revert t.
@@ -143,7 +143,11 @@ Section instantiate_thm.
             clear - H6 H1.
             intros. rewrite H1; clear H1.
             rewrite H; clear H.
-            eapply (H6 c Hnil). }
+            eapply (H6 c Hnil).
+            rewrite NPeano.Nat.add_sub_assoc.
+            rewrite Minus.minus_plus.
+            apply rel_dec_eq_true; eauto with typeclass_instances.
+            omega. }
           { tauto. } }
         { forward_reason; subst.
           autorewrite with exprD_rw in *. simpl in *.
@@ -167,7 +171,11 @@ Section instantiate_thm.
             destruct H0. simpl in *. clear - H5 x2.
             eapply nth_error_length_lt in x2.
             eapply nth_error_length_ge in H5.
-            rewrite app_length in H5. omega. } } }
+            rewrite app_length in H5. omega. }
+          rewrite NPeano.Nat.add_sub_assoc.
+          rewrite Minus.minus_plus.
+          apply rel_dec_eq_true; eauto with typeclass_instances.
+          omega. } }
       { clear H_substV H. subst.
         autorewrite with exprD_rw in *; simpl in *.
         forward; inv_all; subst.
@@ -185,11 +193,44 @@ Section instantiate_thm.
       forward. eexists; split; eauto.
       inv_all; subst.
       eapply exprTPureR; auto. }
-    { clear H_substU H_substV.
+    { Lemma if_true_or : forall a b : bool,
+        a = true \/ b = true ->
+        (if a then true else b) = true.
+      Proof. clear.
+             destruct 1; subst; auto. destruct a; reflexivity.
+      Qed.
+      match type of IHe2 with
+      | ?X -> _ =>
+        let HQ := fresh in
+        assert (HQ : X);
+          [ intros; eapply H_substU; eauto using if_true_or
+          | specialize (IHe2 HQ) ; clear HQ ]
+      end.
+      match type of IHe1 with
+      | ?X -> _ =>
+        let HQ := fresh in
+        assert (HQ : X);
+          [ intros; eapply H_substU; eauto using if_true_or
+          | specialize (IHe1 HQ) ; clear HQ ]
+      end.
       subst. autorewrite with exprD_rw in H1; simpl in H1.
       forward; inv_all; subst.
       specialize (IHe2 _ _ _ _ H1 eq_refl); clear H1.
       specialize (IHe1 _ _ _ _ H0 eq_refl); clear H0.
+      match type of IHe2 with
+      | ?X -> _ =>
+        let HQ := fresh in
+        assert (HQ : X);
+          [ intros; eapply H_substV; eauto using if_true_or
+          | specialize (IHe2 HQ) ; clear HQ ]
+      end.
+      match type of IHe1 with
+      | ?X -> _ =>
+        let HQ := fresh in
+        assert (HQ : X);
+          [ intros; eapply H_substV; eauto using if_true_or
+          | specialize (IHe1 HQ) ; clear HQ ]
+      end.
       forward_reason.
       autorewrite with exprD_rw. simpl.
       erewrite ExprDsimul.ExprDenote.exprD'_typeof_expr by eauto.
@@ -206,7 +247,14 @@ Section instantiate_thm.
       end.
       intros.
       rewrite H. rewrite H0. reflexivity. }
-    { clear H_substU H_substV.
+    { match type of IHe with
+      | ?X -> _ =>
+        let HQ := fresh in
+        assert (HQ : X);
+          [ intros; eapply H_substU; eauto using if_true_or
+          | specialize (IHe HQ) ; clear HQ ]
+      end.
+      clear H_substU.
       subst. autorewrite with exprD_rw in *; simpl in *.
       arrow_case_any.
       { red in x1. subst. simpl in *.
@@ -218,7 +266,7 @@ Section instantiate_thm.
         eexists; split; eauto.
         revert H4. eapply exprTApR; auto.
         eapply exprTPureR; auto.
-        subst. clear.
+        subst. clear - H_substV.
         match goal with
           | |- context [ match ?X with _ => _ end ] =>
             destruct X
@@ -232,7 +280,7 @@ Section instantiate_thm.
       destruct (substU u).
       { autorewrite with exprD_rw in *; simpl in *.
         forward. inv_all; subst.
-        specialize (H_substU _ _ eq_refl).
+        specialize (H_substU _ _ (eq_sym (EqNat.beq_nat_refl _)) eq_refl).
         forward_reason.
         generalize (exprD'_lift tus' e nil _tvs tvs' x); simpl.
         change_rewrite H. intros; forward.
@@ -244,7 +292,7 @@ Section instantiate_thm.
         rewrite H. eapply (H4 c Hnil _vs d). }
       { subst. autorewrite with exprD_rw in *; simpl in *.
         forward. inv_all; subst. destruct r.
-        destruct (H_substU _ _ eq_refl); clear H_substU.
+        destruct (H_substU _ _ (eq_sym (EqNat.beq_nat_refl _)) eq_refl); clear H_substU.
         forward_reason. change_rewrite H.
         rewrite H1. eexists; split; eauto.
         revert H2. eapply exprTApR; auto.
@@ -369,7 +417,6 @@ Section instantiate_thm.
                end
            end.
 
-
   Lemma mentionsV_subst
 (*
   : forall (substU : uvar -> option (expr typ func)) substV n v e,
@@ -385,7 +432,6 @@ Section instantiate_thm.
                               _mentionsV (v-n) e' = true)))).
 *)
   : mentionsV_subst_spec (@_subst _ _) _mentionsU (@_mentionsV typ func).
-
   Proof.
     clear. red.
     intros substU substV n v_search e; revert n; revert v_search;

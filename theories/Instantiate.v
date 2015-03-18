@@ -75,7 +75,7 @@ Section instantiate.
     { clear Heqy H0. intros.
       specialize (H u).
       destruct (f u).
-      { specialize (H _ _ _ eq_refl H0).
+      { specialize (H _ _ _ eq_refl H1).
         forward_reason.
         eexists; split; eauto. }
       { eexists; split; eauto.

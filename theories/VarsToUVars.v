@@ -62,7 +62,7 @@ Section vars_to_uvars.
       autorewrite with eq_rw in H1.
       assumption. }
     { intros.
-      eapply nth_error_get_hlist_nth_weaken with (ls':=tvs') in H0.
+      eapply nth_error_get_hlist_nth_weaken with (ls':=tvs') in H1.
       simpl in *.
       forward_reason. eexists; split; eauto.
       intros. subst; eauto. }
@@ -72,22 +72,24 @@ Section vars_to_uvars.
         | |- context [ match ?X with _ => _ end ] => destruct X
       end.
       { intros; forward_reason.
-        eapply nth_error_get_hlist_nth_appR in H1; [ | omega ].
+        eapply nth_error_get_hlist_nth_appR in H2; [ | omega ].
         simpl in H1.
         eexists; split; eauto. intros; subst.
-        replace (length tus + u - length tus) with u in H1 by omega.
-        rewrite H0 in H1.
+        replace (length tus + u - length tus) with u in H2.
+        simpl in H2.
+        rewrite H1 in H2.
         forward_reason. inv_all. subst.
-        erewrite <- H3.
-        eapply H2. }
+        erewrite <- H4.
+        eapply H3.
+        symmetry. apply Minus.minus_plus. }
       { intro. exfalso.
-        eapply nth_error_get_hlist_nth_Some in H0. destruct H0; clear H0.
-        rewrite ListNth.nth_error_app_R in H1; [ | omega ].
-        replace (length tus + u - length tus) with u in H1 by omega.
-        destruct H1.
+        eapply nth_error_get_hlist_nth_Some in H1. destruct H1; clear H1.
+        rewrite ListNth.nth_error_app_R in H2; [ | omega ].
+        replace (length tus + u - length tus) with u in H2 by (rewrite Minus.minus_plus; reflexivity).
+        destruct H2.
         { simpl in x. congruence. }
         { simpl in *. forward_reason.
-          rewrite x in H0. inv_all. apply H1. subst.
+          rewrite x in H1. inv_all. apply H2. subst.
           eapply Rrefl. } } }
   Qed.
 
