@@ -30,7 +30,6 @@ Section setoid.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {RelDec_eq_typ : RelDec (@eq typ)}.
   Context {RelDec_Correct_eq_typ : RelDec_Correct RelDec_eq_typ}.
-  Context {RelDec_eq_func : RelDec (@eq func)}.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 

@@ -114,10 +114,10 @@ Section canceller.
   Context {RL8 : ReifiedLemma lem_plus_assoc_p2}.
   Context {RL9 : ReifiedLemma lem_plus_comm_p}.
 
-  Definition EAPPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
-    @EAPPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30).
-  Definition APPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
-    @APPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30).
+  Definition EAPPLY (l : Lemma.lemma typ (expr typ func) (expr typ func)) : rtac typ (expr typ func) :=
+    THEN (@EAPPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30) l) (@MINIFY _ _ _ _ _).
+  Definition APPLY (l : Lemma.lemma typ (expr typ func) (expr typ func)) : rtac typ (expr typ func) :=
+    THEN (@APPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30) l) (@MINIFY _ _ _ _ _).
   Definition ON_EACH : list (rtac typ (expr typ func)) -> rtacK typ (expr typ func) :=
     ON_EACH.
   Definition ON_ALL : rtac typ (expr typ func) -> rtacK typ (expr typ func) := ON_ALL.
@@ -126,16 +126,20 @@ Section canceller.
   : RtacSound _ _ (EAPPLY l).
   Proof.
     constructor.
+    eapply THEN_sound.
     eapply EAPPLY_sound; eauto with typeclass_instances.
     intros. eapply exprUnify_sound; eauto with typeclass_instances.
+    eapply MINIFY_sound; eauto with typeclass_instances.
   Qed.
 
   Local Instance RtacSound_APPLY l (RL : ReifiedLemma l)
   : RtacSound _ _ (APPLY l).
   Proof.
     constructor.
+    eapply THEN_sound.
     eapply APPLY_sound; eauto with typeclass_instances.
     intros. eapply exprUnify_sound; eauto with typeclass_instances.
+    eapply MINIFY_sound; eauto with typeclass_instances.
   Qed.
 
   Lemma ON_EACH_sound
