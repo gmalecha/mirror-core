@@ -130,24 +130,6 @@ Section parameterized.
       | _ => GExs (t :: nil) (amap_empty _) g
     end.
 
-(*
-  Definition GEx nus (t : typ) (e : option expr) (g : Goal) : Goal :=
-    match g with
-      | GExs ts sub g' =>
-        match e with
-          | None => GExs (t :: ts) sub g'
-          | Some e => GExs (t :: ts) (amap_check_set nus e sub) g'
-        end
-      | _ =>
-        GExs (t :: nil)
-             match e with
-               | None => amap_empty
-               | Some e => amap_check_set _ nus e (amap_empty _)
-             end g
-    end.
-*)
-
-
   Definition GConj l r : Goal :=
     match l with
       | GSolved => r
@@ -228,55 +210,10 @@ Section parameterized.
   End with_T.
   Definition nth_after T a b c := @nth_after' T b c a.
 
-(*
-  (** NOTE: This definition is kind of in the way **)
-  Definition hlist_get_cons_after_app
-             {T : Type} {F : T -> Type} {t} {a b : list T}
-             (h : hlist F (a ++ t :: b)) : F t :=
-    (match nth_after a t b in _ = T return match T with
-                                             | None => unit
-                                             | Some x => F x
-                                           end
-     with
-       | eq_refl => hlist_nth h (length a)
-     end).
-
-  Fixpoint goal_substD (tus tvs : list typ)
-           (ts : list typ) (es : list (option expr))
-  : option (exprT (tus ++ ts) tvs Prop) :=
-    match ts as ts , es return option (exprT (tus ++ ts) tvs Prop) with
-      | nil , nil => Some (fun _ _ => True)
-      | t :: ts , None :: es =>
-        match app_ass_trans tus (t :: nil) ts in _ = t
-              return option (exprT _ tvs Prop) ->
-                     option (exprT t tvs Prop)
-        with
-          | eq_refl => fun x => x
-        end (goal_substD (tus ++ t :: nil) tvs ts es)
-      | t :: ts , (Some e) :: es =>
-        match exprD' (tus ++ t :: ts) tvs e t
-            , goal_substD (tus ++ t :: nil) tvs ts es
-        with
-          | Some eD , Some sD =>
-            Some (match eq_sym (app_ass_trans tus (t :: nil) ts) in _ = t
-                        return exprT t tvs Prop -> exprT _ tvs Prop
-                  with
-                    | eq_refl => fun sD =>
-                      fun us vs => sD us vs /\
-                                   hlist_get_cons_after_app us = eD us vs
-                  end sD)
-          | _ , _ => None
-        end
-      | nil , _ :: _ => None
-      | _ :: _ , nil => None
-    end.
-*)
 
   (** NOTE:
-   ** Appending the newly introduced terms makes tactics non-local.
-   ** Requiring globalness seems bad.
-   ** - The alternative, however, is to expose a lot more operations
-   **   on substitute
+   ** Appending the newly introduced terms makes tactics non-local but
+   ** it is useful to avoid repeatedly lifting.
    **)
   Fixpoint goalD (tus tvs : list typ) (goal : Goal) {struct goal}
   : option (exprT tus tvs Prop) :=

@@ -34,7 +34,6 @@ Proof.
   red. red. reflexivity.
 Qed.
 
-
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
@@ -716,6 +715,81 @@ Section parameterized.
         eapply H13; clear H13.
         change_rewrite H12 in H11. inv_all; subst. eauto. }
       { eapply WellFormed_bimap_WellFormed_amap; eauto. } }
+  Qed.
+
+  Lemma only_in_range_empty : forall a b,
+      only_in_range a b amap_empty.
+  Proof.
+    clear. red. intros.
+    eapply Forall_amap_empty.
+  Qed.
+
+  Lemma WellFormed_amap_amap_empty : WellFormed_amap amap_empty.
+  Proof. red. eapply FMapSubst.SUBST.WellFormed_empty. Qed.
+
+  Lemma list_substD_app
+  : forall tus tvs l2 l1 from sD,
+      FMapSubst.SUBST.list_substD tus tvs from (l1 ++ l2) = Some sD ->
+      exists s1D s2D,
+        FMapSubst.SUBST.list_substD tus tvs from l1 = Some s1D /\
+        FMapSubst.SUBST.list_substD tus tvs (from + length l1) l2 = Some s2D /\
+        forall us vs,
+          sD us vs <-> (s1D us vs /\ s2D us vs).
+  Proof.
+    induction l1; simpl; intros.
+    { rewrite <- plus_n_O.
+      do 2 eexists; split; eauto. split; eauto.
+      intuition. }
+    { destruct a; forward; inv_all.
+      { eapply IHl1 in H2; forward_reason.
+        Cases.rewrite_all_goal.
+        do 2 eexists; split; eauto.
+        simpl. split.
+        rewrite <- Plus.plus_Snm_nSm. eassumption.
+        subst; intros. rewrite H5. intuition. }
+      { eapply IHl1 in H; forward_reason.
+        rewrite <- Plus.plus_Snm_nSm.
+        eauto. } }
+  Qed.
+
+  Lemma amap_substD_list_substD
+  : forall tus tvs am (from len : nat) sD maxV,
+      WellFormed_bimap from len maxV am ->
+      amap_substD tus tvs am = Some sD ->
+      exists sD',
+        FMapSubst.SUBST.list_substD tus tvs from (amap_aslist am from len) = Some sD' /\
+        forall us vs,
+          sD us vs <-> sD' us vs.
+  Proof.
+    destruct 1.
+    intros; eapply FMapSubst.SUBST.amap_substD_list_substD; eauto.
+    destruct H0. eauto.
+  Qed.
+
+  Lemma amap_aslist_app
+    : forall a y x z,
+      amap_aslist a x (y + z) =
+      amap_aslist a x y ++ amap_aslist a (x + y) z.
+  Proof.
+    induction y; simpl.
+    { intros. f_equal. omega. }
+    { intros. f_equal. rewrite IHy. f_equal. f_equal. omega. }
+  Qed.
+
+  Lemma amap_aslist_nth_error
+    : forall ln st (mp : amap) n,
+      nth_error (amap_aslist mp st ln) n =
+      if n ?[ lt ] ln then Some (amap_lookup (st + n) mp) else None.
+  Proof.
+    clear.
+    induction ln; simpl; intros; destruct n; auto.
+    - simpl. unfold value. f_equal. f_equal. omega.
+    - simpl nth_error. rewrite IHln.
+      consider (n ?[ lt ] ln);
+        consider (S n ?[ lt ] S ln);
+        auto; try solve [ intros; exfalso; omega ].
+      intros.
+      f_equal. f_equal. omega.
   Qed.
 
 End parameterized.

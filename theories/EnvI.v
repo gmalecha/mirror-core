@@ -324,6 +324,17 @@ Section nth_error_get_hlist_nth.
           intros. rewrite (hlist_eta vs). simpl. auto. } } }
   Qed.
 
+  Lemma nth_error_get_hlist_nth_conv
+    : forall ls ls' n (pf : ls' = ls),
+      @nth_error_get_hlist_nth ls n =
+      match pf in _ = ls'
+            return option { t : _ & hlist F ls' -> F t }
+      with
+      | eq_refl => nth_error_get_hlist_nth ls' n
+      end.
+  Proof.
+    destruct pf; reflexivity.
+  Qed.
 
 End nth_error_get_hlist_nth.
 
