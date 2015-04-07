@@ -314,8 +314,7 @@ Section typed.
             intros. rewrite H. rewrite H0.
             clear.
             unfold Relim.
-
-            autorewrite with eq_rw.
+            autorewrite_eq_rw.
             generalize (eq_sym x2).
             destruct e.
             generalize (eq_sym x3).
@@ -330,23 +329,12 @@ Section typed.
                 generalize X ; generalize Y
             end.
             clear. destruct e. simpl.
-            generalize (F (typD (typed.typ0 (F:=X0))) (typD x1)).
+            generalize (F (typD (typed.typ0 (F:=X))) (typD x1)).
             intros. subst. reflexivity. }
           { right. intros.
             simpl. rewrite H. rewrite H0.
             unfold Relim.
-            rewrite eq_Arr_eq.
-            rewrite eq_Const_eq.
-            clear. revert x2.
-            match goal with
-              | |- forall y,
-                     match _ with eq_refl => match ?X with _ => _ end end _ = _ =>
-                generalize X
-            end.
-            generalize (typed.typ2 x0 x1).
-            destruct x2. simpl.
-            rewrite eq_Arr_eq.
-            rewrite match_eq_sym_eq. reflexivity. } }
+            autorewrite_eq_rw. reflexivity. } }
         { right. simpl. intros.
           rewrite H. reflexivity. } }
       { simpl.
@@ -416,7 +404,7 @@ Section typed.
             rewrite H. unfold Relim.
             rewrite eq_Arr_eq.
             rewrite H0. simpl.
-            autorewrite with eq_rw.
+            autorewrite_eq_rw.
             unfold typ0.
             generalize ((typ1_cast (typed.typ0 (F:=X)))).
             generalize (typ0_cast (F:=X)).
@@ -428,7 +416,7 @@ Section typed.
           { right. intros.
             rewrite H.
             unfold Relim.
-            autorewrite with eq_rw.
+            autorewrite_eq_rw.
             red in x1. subst. simpl in *.
             rewrite H0.
             generalize (typ1_cast x0).
@@ -475,7 +463,7 @@ Section typed.
     { simpl; intros.
       consider (type_cast t x).
       { left. exists (Rsym r). intros.
-        unfold Relim, Rsym. autorewrite with eq_rw. reflexivity. }
+        unfold Relim, Rsym. autorewrite_eq_rw. reflexivity. }
       { right. reflexivity. } }
     { simpl. intros. destruct pf. reflexivity. }
   Qed.

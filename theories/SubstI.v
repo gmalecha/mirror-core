@@ -1,9 +1,11 @@
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.CtxLogic.
 Require Import MirrorCore.Util.Forwardy.
@@ -372,7 +374,7 @@ Section subst.
       split; try reflexivity.
       split; [ inversion 1 | ].
       rewrite substD_conv with (pfu := eq_sym (app_nil_r_trans tus)) (pfv := eq_refl) in H2.
-      autorewrite with eq_rw in H2.
+      autorewrite_with_eq_rw_in H2.
       forward.
       eexists; split; eauto.
       simpl. eexists; split; eauto.
@@ -390,7 +392,7 @@ Section subst.
       specialize (H2 (tus ++ t0 :: nil) tus' tvs).
       rewrite substD_conv with (pfv := eq_refl)
                                (pfu := app_ass_trans tus (t0 :: nil) tus') in H9.
-      autorewrite with eq_rw in H9.
+      autorewrite_with_eq_rw_in H9.
       forwardy.
       assert (S (length tus) = length (tus ++ t0 :: nil)).
       { rewrite app_length. simpl. omega. }
@@ -511,7 +513,7 @@ Section subst.
     red. intros.
     eapply substD_lookup in H1; eauto.
     forward_reason.
-    rewrite H2 in H1.
+    change_rewrite H2 in H1.
     inv_all; subst.
     eapply nth_error_get_hlist_nth_Some in H2.
     forward_reason. simpl in *.

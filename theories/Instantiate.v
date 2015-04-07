@@ -1,4 +1,5 @@
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
@@ -108,7 +109,7 @@ Section instantiate.
 
   Theorem mentionsU_instantiate
   : mentionsU_instantiate_spec instantiate (@mentionsU _ _ _ _).
-  Proof.
+  Proof using ExprOk_expr.
     red. intros.
     unfold instantiate.
     rewrite mentionsU_subst; eauto.
@@ -213,5 +214,5 @@ Section instantiate.
 
 End instantiate.
 
-Arguments mentionsU_instantiate {typ expr RType RTypeOk Expr ExprOk} _ _ _ _ : rename.
-Arguments mentionsU_instantiate_false {typ expr RType RTypeOk Expr ExprOk} _ _ _ _ : rename.
+Arguments mentionsU_instantiate {typ expr RType RTypeOk Expr ExprOk} n e u : rename.
+Arguments mentionsU_instantiate_false {typ expr RType RTypeOk Expr ExprOk} _ _ _ : rename.

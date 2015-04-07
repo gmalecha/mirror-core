@@ -1,6 +1,7 @@
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Util.ListMapT.
@@ -183,7 +184,7 @@ Section lem.
       forward_reason.
       rewrite exprD'_typ0_conv with (pfu := eq_refl)
                                     (pfv := eq_sym (app_ass_trans (vars l) tvs tvs')) in H1.
-      autorewrite with eq_rw in H1. forward.
+      autorewrite_with_eq_rw_in H1. forward.
       inv_all; subst.
       eexists; split; eauto.
       intros. specialize (H2 a0 (hlist_app b c) e1 d).
@@ -252,7 +253,7 @@ Section lem.
       rewrite H4 with (us' := us') (vs' := vs''); clear H4.
       rewrite hlist_app_assoc.
       rewrite exprD'_typ0_conv with (pfu := eq_refl) (pfv := app_ass_trans _ _ _) in H2.
-      autorewrite with eq_rw in H2.
+      autorewrite_with_eq_rw_in H2.
       rewrite H3 in *. inv_all; subst.
       autorewrite with eq_rw.
       reflexivity. } }
@@ -261,7 +262,7 @@ Section lem.
       destruct H2 as [ ? [ ? ? ] ].
       rewrite exprD'_typ0_conv with (pfu := eq_refl)
                                       (pfv := eq_sym (app_ass_trans _ _ _)) in H2.
-      autorewrite with eq_rw in H2.
+      autorewrite_with_eq_rw_in H2.
       forward. eauto. }
   Qed.
 
@@ -286,7 +287,7 @@ Section lem.
     eapply lemmaD'_weaken with (tus' := tus') (tvs' := nil) in H.
     destruct H as [ ? [ ? ? ] ].
     rewrite lemmaD'_conv with (pfu := eq_refl) (pfv := app_nil_r_trans tvs).
-    autorewrite with eq_rw.
+    autorewrite_with_eq_rw.
     rewrite H. eexists; split; eauto.
     intros.
     etransitivity.
@@ -309,7 +310,7 @@ Section lem.
     eapply lemmaD'_weaken with (tvs' := tvs') (tus' := nil) in H.
     destruct H as [ ? [ ? ? ] ].
     rewrite lemmaD'_conv with (pfv := eq_refl) (pfu := app_nil_r_trans tus).
-    autorewrite with eq_rw.
+    autorewrite_with_eq_rw.
     rewrite H. eexists; split; eauto.
     intros.
     etransitivity.

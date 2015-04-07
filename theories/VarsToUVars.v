@@ -1,6 +1,8 @@
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Nat.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.CtxLogic.
@@ -17,7 +19,6 @@ Section vars_to_uvars.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
-
 
   Definition vars_to_uvars (skip add : nat) (e : expr) : expr :=
     @expr_subst _ _ _ _
@@ -54,9 +55,9 @@ Section vars_to_uvars.
         in Heqe'; eauto.
     { forward_reason.
       rewrite exprD'_conv with (pfu:=eq_refl) (pfv:=eq_sym (app_nil_r_trans _)) in H0.
-      autorewrite with eq_rw in H0.
+      autorewrite_with_eq_rw_in H0.
       forward.
-      eexists; split; eauto. inv_all; subst.
+      eexists; split; [ reflexivity | ]. inv_all; subst.
       intros. specialize (H1 us vs' (hlist_app us vs') Hnil vs eq_refl).
       rewrite hlist_app_nil_r in H1.
       autorewrite with eq_rw in H1.
