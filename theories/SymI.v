@@ -74,12 +74,12 @@ Section symbols.
   {| typeof_sym := fun f =>
                     match fd f with
                       | None => None
-                      | Some (existT t _) => Some t
+                      | Some (existT _ t _) => Some t
                     end
    ; symD := fun f =>
                match fd f as F return match match F with
                                               | None => None
-                                              | Some (existT t _) => Some t
+                                              | Some (existT _ t _) => Some t
                                             end
                                       with
                                         | None => unit
@@ -87,7 +87,7 @@ Section symbols.
                                       end
                with
                  | None => tt
-                 | Some (existT t d) => d
+                 | Some (existT _ t d) => d
                end
    ; sym_eqb := eqb
    |}.

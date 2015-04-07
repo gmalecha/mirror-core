@@ -57,15 +57,13 @@ Section with_Expr.
       inv_all.
       rewrite H0. subst. reflexivity. }
     { intros. exfalso.
-      rewrite ListNth.nth_error_app_R in H by omega.
-      cutrewrite (length tvs - length tvs = 0) in H; [ | omega ].
+      rewrite ListNth.nth_error_app_R in H by reflexivity.
+      rewrite NPeano.Nat.sub_diag in H.
       simpl in *. unfold value in *.
       destruct H; try congruence.
       destruct H. destruct H.
       inversion H. apply H0. assumption. }
   Qed.
-
-
 
   (** Unification Variables **)
   Class ExprUVar : Type :=
@@ -104,7 +102,7 @@ Section with_Expr.
       inv_all.
       rewrite H0. subst. reflexivity. }
     { intros. exfalso.
-      rewrite ListNth.nth_error_app_R in H by omega.
+      rewrite ListNth.nth_error_app_R in H by reflexivity.
       rewrite Minus.minus_diag in H.
       simpl in *. unfold value in *.
       destruct H; try congruence.
@@ -138,63 +136,6 @@ Section with_Expr.
         exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
         P (fun us vs => forall vs',
                eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
-
-
-(**
-  (** Mentions Any **)
-  Class MentionsAny : Type :=
-  { mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool }.
-
-  Class MentionsAnyOk (MA : MentionsAny)
-  : Type :=
-  { Proper_mentionsAny
-    : Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq) mentionsAny
-  ; mentionsAny_weaken
-    : forall pu pu' pv pv',
-        (forall u, pu u = false -> pu' u = false) ->
-        (forall v, pv v = false -> pv' v = false) ->
-        forall e, mentionsAny pu pv e = false ->
-                  mentionsAny pu' pv' e = false
-  ; mentionsAny_factor
-    : forall fu fu' fv fv' e,
-          mentionsAny (fun u => fu u || fu' u) (fun v => fv v || fv' v) e
-        = mentionsAny fu fv e || mentionsAny fu' fv' e
-  ; mentionsAny_complete
-    : forall pu pv e,
-        mentionsAny pu pv e = true <->
-        (exists u, mentionsU u e = true /\ pu u = true) \/
-        (exists v, mentionsV v e = true /\ pv v = true)
-  ; mentionsAny_mentionsU
-    : forall u e,
-        mentionsU u e = mentionsAny (fun u' => u ?[ eq ] u') (fun _ => false) e
-  ; mentionsAny_mentionsV
-    : forall u e,
-        mentionsV u e = mentionsAny (fun _ => false) (fun u' => u ?[ eq ] u') e
-  }.
-
-  Corollary mentionsAny_complete_false
-            {MA : MentionsAny} {MAO : MentionsAnyOk MA}
-  : forall pu pv e,
-      mentionsAny pu pv e = false <->
-      (forall u, mentionsU u e = true -> pu u = false) /\
-      (forall v, mentionsV v e = true -> pv v = false).
-  Proof.
-    intros.
-    consider (mentionsAny pu pv e); intros; split; auto; intros; try congruence.
-    * eapply mentionsAny_complete in H. destruct H.
-      forward_reason. eauto.
-      forward_reason. eauto.
-    * destruct (mentionsAny_complete pu pv e).
-      clear H1.
-      split; intros.
-      + consider (pu u); auto; intros.
-        exfalso.
-        rewrite H2 in H; try congruence; eauto.
-      + consider (pv v); auto; intros.
-        exfalso.
-        rewrite H2 in H; try congruence; eauto.
-  Qed.
-*)
 
   (** Converting Variables to Unification Variables **)
   Definition vars_to_uvars_spec

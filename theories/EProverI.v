@@ -1,4 +1,5 @@
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.VariablesI.
@@ -119,7 +120,7 @@ Section proverI.
     forward_reason.
     rewrite factsD_conv with (pfu := eq_refl) (pfv := HList.app_nil_r_trans tvs).
     rewrite H.
-    autorewrite with eq_rw.
+    autorewrite_with_eq_rw.
     eexists; split; eauto.
     intros. rewrite (H0 us vs us' HList.Hnil).
     rewrite HList.hlist_app_nil_r.
@@ -140,7 +141,7 @@ Section proverI.
     eapply factsD_weaken with (tvs' := tvs') (tus' := nil) in H.
     forward_reason.
     rewrite factsD_conv with (pfv := eq_refl) (pfu := HList.app_nil_r_trans tus).
-    rewrite H. autorewrite with eq_rw.
+    rewrite H. autorewrite_with_eq_rw.
     eexists; split; eauto.
     intros. rewrite (H0 us vs HList.Hnil vs').
     rewrite HList.hlist_app_nil_r. reflexivity.

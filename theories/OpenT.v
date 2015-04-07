@@ -28,7 +28,7 @@ Section OpenT.
   Definition OpenT_Use (n : nat) : option { t : typ & OpenT (typD t) } :=
     match nth_error_get_hlist_nth _ tvs n with
       | None => None
-      | Some (existT t get) =>
+      | Some (existT _ t get) =>
         Some (@existT _ (fun t => OpenT (typD t)) t get)
     end.
 

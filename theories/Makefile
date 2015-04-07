@@ -1,5 +1,5 @@
 GENERIC := CtxLogic
-UTIL := Approx Iteration ListMapT Forwardy Quant Nat
+UTIL := Approx Iteration ListMapT Forwardy Quant Nat Compat
 PROVERS := ProverTac AssumptionProver DefaultProver AutoProver
 SUBST   := UVarMap FMapSubst # CascadeSubst SealedSubst RawSubst2 FastSubst
 # ExprUnifySyntactic ExprUnifySyntactic2

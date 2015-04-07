@@ -7,6 +7,7 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.OpenT.
@@ -28,7 +29,7 @@ Section Expr.
 
   Definition Applicative_exprT tus tvs : Applicative (exprT tus tvs) :=
     Eval cbv beta iota zeta delta [ ap pure Applicative_OpenT ] in
-  {| pure := fun _ x => pure (pure x)
+  {| pure := fun _ x => pure (T:=OpenT typD tus) (pure x)
    ; ap := fun _ _ f x => ap (T:=OpenT typD tus)
           (ap (T:=OpenT typD tus) (pure (ap (T:=OpenT typD tvs))) f) x
    |}.
@@ -36,7 +37,7 @@ Section Expr.
 
   Definition Functor_exprT tus tvs : Functor (exprT tus tvs) :=
     Eval cbv beta iota zeta delta [ fmap Functor_OpenT ] in
-  {| fmap := fun _ _ f x => fmap (fmap f) x
+  {| fmap := fun _ _ f x => fmap (F:=OpenT typD tus) (fmap (F:=OpenT typD tvs) f) x
   |}.
   Existing Instance Functor_exprT.
 
@@ -121,7 +122,7 @@ Section Expr.
   : option { t : typ & exprT tus tvs (typD t) } :=
     match nth_error_get_hlist_nth _ tvs n with
       | None => None
-      | Some (existT t get) =>
+      | Some (existT _ t get) =>
         Some (existT (fun t => exprT tus tvs (_ t)) t (fun _ vs => get vs))
     end.
 
@@ -129,7 +130,7 @@ Section Expr.
   : option { t : typ & exprT tus tvs (typD t) } :=
     match nth_error_get_hlist_nth _ tus n with
       | None => None
-      | Some (existT t get) =>
+      | Some (existT _ t get) =>
         Some (existT (fun t => exprT tus tvs (_ t)) t (fun us _ => get us))
     end.
 
@@ -506,15 +507,17 @@ Section Expr.
     refine (@list_rev_ind _ _ _ _).
     { simpl. intros.
       rewrite exprD'_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
-      rewrite H0. autorewrite with eq_rw.
+      rewrite H0.
+      rewrite (Option.eq_option_eq (app_nil_r_trans tvs)). (** This was solved by autorewrite *)
       eexists; split; eauto.
       intros. rewrite (hlist_eta vs').
       rewrite hlist_app_nil_r.
+      autorewrite_eq_rw.
       reflexivity. }
     { intros.
       rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil))
                                (pfu := eq_refl) in H1.
-      autorewrite with eq_rw in H1.
+      autorewrite_with_eq_rw_in H1.
       forward.
       eapply exprD'_strengthenV_single in H1.
       + forward_reason.
@@ -541,9 +544,11 @@ Section Expr.
           simpl. f_equal.
           rewrite (hlist_eta (hlist_tl _)). reflexivity.
         - intros.
-          eapply H0. rewrite app_length. simpl. omega.
+          eapply H0. rewrite app_length. simpl.
+          rewrite H4. eapply NPeano.Nat.lt_add_pos_r. repeat constructor.
       + rewrite app_length.
-        apply H0. rewrite app_length. simpl. omega. }
+        apply H0. rewrite app_length. simpl.
+        eapply NPeano.Nat.lt_add_pos_r. repeat constructor. }
   Qed.
 
   Theorem exprD'_strengthenU_multi
@@ -560,13 +565,13 @@ Section Expr.
     refine (@list_rev_ind _ _ _ _).
     { simpl. intros.
       rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
-      rewrite H0. autorewrite with eq_rw.
+      rewrite H0. autorewrite_with_eq_rw.
       eexists; split; eauto.
       intros. rewrite (hlist_eta us').
       rewrite hlist_app_nil_r. reflexivity. }
     { intros.
       rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
-      autorewrite with eq_rw in H1.
+      autorewrite_with_eq_rw_in H1.
       forward.
       eapply exprD'_strengthenU_single in H1.
       + forward_reason.
@@ -593,9 +598,11 @@ Section Expr.
           simpl. f_equal.
           rewrite (hlist_eta (hlist_tl _)). reflexivity.
         - intros.
-          eapply H0. rewrite app_length. simpl. omega.
+          eapply H0. rewrite app_length. simpl.
+          rewrite H4. eapply NPeano.Nat.lt_add_pos_r. repeat constructor.
       + rewrite app_length.
-        apply H0. rewrite app_length. simpl. omega. }
+        apply H0. rewrite app_length. simpl.
+        eapply NPeano.Nat.lt_add_pos_r. repeat constructor. }
   Qed.
 
   Theorem expr_subst_sound
@@ -672,7 +679,6 @@ Section Expr.
 
 End Expr.
 
-(* Arguments Safe_expr {_ _ _ Expr} _ _ _ _ : rename. *)
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprT {_ RType} _ _ _ : rename.

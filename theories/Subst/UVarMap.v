@@ -6,8 +6,6 @@ Require Import MirrorCore.ExprI.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Let uvar : Type := nat.
-
 Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
                                            with Definition eq := @eq uvar.
   Definition t := uvar.
@@ -66,7 +64,8 @@ Module MAP <: WS with Definition E.t := uvar
     intros.
     rewrite <- (Pnat.Pos2Nat.id x) at 2.
     assert (Pos.to_nat x <> 0).
-    { generalize (Pnat.Pos2Nat.is_pos x). omega. }
+    { generalize (Pnat.Pos2Nat.is_pos x).
+      intro. eapply Lt.lt_0_neq in H. auto. }
     destruct (Pos.to_nat x); try congruence.
     rewrite Pos.of_nat_succ. reflexivity.
   Qed.

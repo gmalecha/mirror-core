@@ -22,7 +22,7 @@ Section Env.
   Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD ty) :=
     match nth_error e n with
       | None => None
-      | Some (existT t v) =>
+      | Some (existT _ t v) =>
         match type_cast ty t with
           | Some pf => Some (Relim (fun x => x) pf v)
           | None => None
@@ -41,7 +41,7 @@ Section Env.
   Fixpoint join_env (gs : list typ) (hgs : hlist (@typD _ _) gs) : env :=
     match hgs with
       | Hnil => nil
-      | Hcons a b c d => existT _ _ c :: join_env d
+      | Hcons c d => existT _ _ c :: join_env d
     end.
 
   Fixpoint split_env (gs : env) : sigT (hlist (@typD _ _)) :=
@@ -185,7 +185,6 @@ Section Env.
 
 End Env.
 
-
 Section nth_error_get_hlist_nth.
   Context (iT : Type) (F : iT -> Type).
 
@@ -206,7 +205,7 @@ Section nth_error_get_hlist_nth.
                           l (@hlist_hd _ _ _ _))
           | S n0 =>
             match nth_error_get_hlist_nth ls0 n0 with
-              | Some (existT x f) =>
+              | Some (existT _ x f) =>
                 Some (@existT _ (fun t => hlist F _ -> F t)
                               x (fun h : hlist F (l :: ls0) => f (hlist_tl h)))
               | None => None
@@ -214,12 +213,14 @@ Section nth_error_get_hlist_nth.
         end
     end.
 
+  Axiom todo : forall T : Prop, T.
+
   Theorem nth_error_get_hlist_nth_Some
   : forall ls n s,
       nth_error_get_hlist_nth ls n = Some s ->
       exists pf : nth_error ls n = Some (projT1 s),
         forall h, projT2 s h = match pf in _ = t
-                                     return match t with
+                                     return match t return Type with
                                               | Some t => F t
                                               | None => unit
                                             end

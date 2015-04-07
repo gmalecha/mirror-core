@@ -4,6 +4,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.SubstI.
@@ -168,7 +169,7 @@ Section lemma_apply.
       unfold lemmaD' in H2. forward; inv_all; subst.
       rewrite exprD'_typ0_conv
          with (pfu := eq_refl) (pfv := eq_sym (app_nil_r_trans lem.(vars))) in H7.
-      autorewrite with eq_rw in H7.
+      autorewrite_with_eq_rw_in H7.
       unfold exprD'_typ0 in H7. forward; inv_all; subst.
       eapply (@vars_to_uvars_sound _ _ _ _ _ _ _ _ tus (concl lem) nil tyProp) in H7; eauto.
       forward_reason.
@@ -190,7 +191,7 @@ Section lemma_apply.
           eapply IHl in H0; clear IHl.
           rewrite exprD'_typ0_conv
              with (pfu := eq_refl) (pfv := eq_sym (app_nil_r_trans _)) in H.
-          autorewrite with eq_rw in H.
+          autorewrite_with_eq_rw_in H.
           forward.
           unfold exprD'_typ0 in H.
           forward.
