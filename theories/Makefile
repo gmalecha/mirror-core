@@ -29,7 +29,7 @@ RTAC := BIMap Ctx Core CoreK \
 SYMS := SymEnv SymPolyEnv SymSum
 REIFY := Patterns Reify
 MODULES    := OpenT Generic \
-	      TypesI EnvI ExprI SubstituteI VariablesI UnifyI \
+	      TypesI EnvI ExprI SubstituteI VariablesI AbsAppI UnifyI \
 	      ExprProp ExprSem \
 	      ExprDAs \
 	      SymI \
