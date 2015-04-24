@@ -2,6 +2,7 @@ Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Option.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ExprDAs.
@@ -13,6 +14,17 @@ Require Import MirrorCore.Lemma.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Lemma Forall_iff : forall {T} (P : T -> Prop) a b,
+    Forall P (a :: b) <-> (P a /\ Forall P b).
+Proof. clear. split.
+       - inversion 1; auto.
+       - constructor; tauto.
+Qed.
+Lemma and_split_iff : forall (P Q R S : Prop),
+    (P <-> R) -> (Q <-> S) ->
+    ((P /\ Q) <-> (R /\ S)).
+Proof. clear. tauto. Qed.
 
 Section lemma_apply.
   Variable typ : Type.
@@ -193,18 +205,7 @@ Section lemma_apply.
           eexists; split; [ reflexivity | ].
           inv_all; subst.
           intros. autorewrite with eq_rw.
-          Lemma Forall_iff : forall {T} (P : T -> Prop) a b,
-                               Forall P (a :: b) <-> (P a /\ Forall P b).
-          Proof. clear. split.
-                 - inversion 1; auto.
-                 - constructor; tauto.
-          Qed.
           do 2 rewrite Forall_iff.
-          Require Import ExtLib.Data.Prop.
-          Lemma and_split_iff : forall (P Q R S : Prop),
-                                  (P <-> R) -> (Q <-> S) ->
-                                  ((P /\ Q) <-> (R /\ S)).
-          Proof. clear. tauto. Qed.
           eapply and_split_iff; eauto.
           { specialize (H5 (hlist_app us vs') Hnil vs).
             simpl in *.
