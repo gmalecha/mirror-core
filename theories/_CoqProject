@@ -1,2 +1,2 @@
--R . MirrorCore
--I ../src
+-Q ../coq-ext-lib/theories ExtLib
+-Q . MirrorCore

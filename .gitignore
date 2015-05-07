@@ -20,3 +20,4 @@ coq-ext-lib
 *.a
 *.o
 *.d
+.*.aux
