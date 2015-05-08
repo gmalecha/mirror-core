@@ -1,5 +1,6 @@
 Require Import Coq.Sorting.Permutation.
 Require Coq.FSets.FMapFacts.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Data.Nat.
@@ -11,6 +12,7 @@ Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Instantiate.
 
 Set Implicit Arguments.
@@ -101,7 +103,7 @@ Module Make (FM : WS with Definition E.t := uvar
       FM.fold (fun k v P =>
                  match nth_error_get_hlist_nth _ tus k with
                    | None => None
-                   | Some (existT T get) =>
+                   | Some (existT _ T get) =>
                      match exprD' tus tvs v T with
                        | Some val' =>
                          match P with
@@ -138,7 +140,7 @@ Module Make (FM : WS with Definition E.t := uvar
          mentionsU u e' = true).
     Proof.
       intros. unfold raw_subst.
-      generalize (@mentionsU_instantiate typ expr _ _ _ _); eauto.
+      generalize (@mentionsU_instantiate typ expr _ _ _); eauto.
       unfold mentionsU_instantiate_spec. intros.
       rewrite H.
       unfold raw_lookup.
@@ -243,7 +245,7 @@ Module Make (FM : WS with Definition E.t := uvar
                     (hlist typD tus -> hlist typD tvs -> Prop))
             (p : FM.key * expr) =>
           match nth_error_get_hlist_nth typD tus (fst p) with
-          | Some (existT T get) =>
+          | Some (existT _ T get) =>
               match exprD' tus tvs (snd p) T with
               | Some val' =>
                   match a0 with
@@ -353,7 +355,7 @@ Module Make (FM : WS with Definition E.t := uvar
                (fun (k : FM.key) (v : expr)
                     (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
                   match nth_error_get_hlist_nth typD tus k with
-                    | Some (existT T get) =>
+                    | Some (existT _ T get) =>
                       match exprD' tus tvs v T with
                         | Some val' =>
                           match P with
@@ -383,7 +385,7 @@ Module Make (FM : WS with Definition E.t := uvar
           (fun (k : FM.key) (v : expr)
                (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
              match nth_error_get_hlist_nth typD tus k with
-               | Some (existT T get) =>
+               | Some (existT _ T get) =>
                  match exprD' tus tvs v T with
                    | Some val' =>
                      match P with
@@ -555,11 +557,11 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Instance SubstOk_subst : SubstOk Subst_subst :=
-    {| WellFormed_subst := WellFormed
-     ; substD := raw_substD
-     ; substD_lookup := substD_lookup
-     ; WellFormed_domain := WellFormed_domain
-     ; lookup_normalized := normalized_fmapsubst
+    {| SubstI.WellFormed_subst := WellFormed
+     ; SubstI.substD := raw_substD
+     ; SubstI.substD_lookup := substD_lookup
+     ; SubstI.WellFormed_domain := WellFormed_domain
+     ; SubstI.lookup_normalized := normalized_fmapsubst
      |}.
 
     Definition raw_empty : raw := FM.empty expr.
@@ -650,7 +652,7 @@ Module Make (FM : WS with Definition E.t := uvar
                     (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
                   let v := instantiate f 0 v in
                   match nth_error_get_hlist_nth typD tus k with
-                    | Some (existT T get) =>
+                    | Some (existT _ T get) =>
                       match exprD' tus tvs v T with
                         | Some val' =>
                           match P with
@@ -842,18 +844,6 @@ Module Make (FM : WS with Definition E.t := uvar
         rewrite <- H. rewrite app_length. simpl.
         rewrite Plus.plus_comm. inversion 1. reflexivity.
         f_equal. assumption. }
-    Qed.
-
-    (** TODO(gmalecha): This should go in ExtLib **)
-    Theorem hlist_app_hlist_map
-    : forall T (F G : T -> Type) (f : forall x, F x -> G x) ls ls'
-             (a : hlist F ls) (b : hlist F ls'),
-        hlist_map f (hlist_app a b) =
-        hlist_app (hlist_map f a) (hlist_map f b).
-    Proof.
-      clear.
-      induction a. simpl; auto.
-      simpl. intros. f_equal. auto.
     Qed.
 
     Lemma raw_substD_Equal
@@ -1230,10 +1220,10 @@ Module Make (FM : WS with Definition E.t := uvar
     Qed.
 
     Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
-    {| substR := raw_substR
-     ; set_sound := set_sound
-     ; Transitive_substR := Transitive_substR
-     ; Reflexive_substR := Reflexive_substR
+    {| SubstI.substR := raw_substR
+     ; SubstI.set_sound := set_sound
+     ; SubstI.Transitive_substR := Transitive_substR
+     ; SubstI.Reflexive_substR := Reflexive_substR
      |}.
 
     Instance SubstOpen_subst : SubstOpen raw :=
@@ -1260,7 +1250,8 @@ Module Make (FM : WS with Definition E.t := uvar
                       end).
         { rewrite <- H. clear.
           destruct (app_nil_r_trans tvs). reflexivity. }
-        { intros. autorewrite with eq_rw.
+        { intros.
+          autorewrite_with_eq_rw.
           reflexivity. } }
       { intros. autorewrite with eq_rw.
         rewrite <- hlist_app_nil_r. eapply H0. }
@@ -1279,7 +1270,7 @@ Module Make (FM : WS with Definition E.t := uvar
         | Some e :: es' =>
           match nth_error_get_hlist_nth _ tus from with
             | None => None
-            | Some (existT t getU) =>
+            | Some (existT _ t getU) =>
               match exprD' tus tvs e t with
                 | None => None
                 | Some eD =>
@@ -1312,7 +1303,7 @@ Module Make (FM : WS with Definition E.t := uvar
           match nth_error_get_hlist_nth typD tus u
               , elem_listD tus tvs ls
           with
-            | Some (existT t get) , Some P =>
+            | Some (existT _ t get) , Some P =>
               match exprD' tus tvs e t with
                 | Some eD => Some (fun us vs => get us = eD us vs /\ P us vs)
                 | _ => None

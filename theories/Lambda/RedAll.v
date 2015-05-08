@@ -1,16 +1,18 @@
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.Red.
 
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -37,7 +39,7 @@ Section reducer.
         match var_termsD tus tvs (S n) ls
             , nth_error_get_hlist_nth typD tvs n
         with
-          | Some vsD , Some (existT t get) =>
+          | Some vsD , Some (existT _ t get) =>
             match exprD' tus tvs t l with
               | None => None
               | Some vD => Some (fun us vs => get vs = vD us vs /\ vsD us vs)
@@ -146,15 +148,16 @@ Section reducer.
                              | _ , _ , _ => fun _ => True
                            end P
               with
-                | var_termsP_cons_None _ _ _ _ _ _ _ _ _ _ => _
+                | var_termsP_cons_None _ _ _ => _
                 | _ => _
-              end eq_refl); try solve [ destruct tvs'0 ; tauto | destruct tvs0 ; tauto ].
+              end eq_refl); try solve [ destruct t1 ; tauto | destruct t2 ; tauto ].
     intros.
-    exists P'. split; auto.
+    exists e0. split; auto.
     intros.
     eapply a in H0. destruct H0; clear a.
     split; auto.
     rewrite (UIP_refl pf). apply H0.
+    destruct t3; exact I.
   Defined.
 
 
@@ -167,7 +170,7 @@ Section reducer.
            (xs : hlist typD ts) : typD (fold_right (@typ2 _ _ Fun _) t ts) -> typD t :=
     match xs in hlist _ ts return typD (fold_right (@typ2 _ _ Fun _) t ts) -> typD t with
       | Hnil => fun f => f
-      | Hcons t' ts' x xs => fun f =>
+      | @Hcons _ _ t' ts' x xs => fun f =>
         @applys ts' t xs (match typ2_cast t' (fold_right (@typ2 _ _ Fun _) t ts') in _ = t return t with
                             | eq_refl => f
                           end x)
@@ -292,7 +295,7 @@ Section reducer.
       n >= length tus ->
       match nth_error_get_hlist_nth F tvs' (n - length tus) with
         | None => True
-        | Some (existT t v) =>
+        | Some (existT _ t v) =>
           exists val,
           nth_error_get_hlist_nth F (tus ++ tvs') n = Some (@existT _ _ t val) /\
           forall a b,
@@ -389,7 +392,8 @@ Section reducer.
         rewrite Plus.plus_comm in H7. simpl in H7.
         rewrite exprD'_conv
            with (pfu := eq_refl) (pfv := eq_sym (app_ass_trans _ _ _)) in H7.
-        autorewrite with eq_rw in H7.
+
+        autorewrite_with_eq_rw_in H7.
         forward; inv_all; subst.
         simpl in *. eexists; split; eauto.
         intros.
@@ -561,7 +565,7 @@ Section reducer.
         specialize (H6 _ _ _ _ H7).
         specialize (H5 _ _ _ _ H7).
         unfold exprT_App.
-        autorewrite with eq_rw.
+        autorewrite_with_eq_rw.
         destruct H6; destruct H5; reflexivity. }
       { revert H0.
         autorewrite with exprD_rw; simpl; intros.
@@ -631,9 +635,11 @@ Section reducer.
           forward; inv_all; subst.
           eapply IHtargs in H0; eauto.
           forward_reason.
-          autorewrite with eq_rw.
-          eexists; split; [ eapply H0 | ].
-          simpl in *. eauto. } }
+          autorewrite_with_eq_rw.
+          erewrite H0.
+          eexists; split; [ reflexivity | ].
+          simpl in *. intros.
+          autorewrite_with_eq_rw. eauto. } }
       { forward_reason.
         eapply par_redOk in H3; eauto.
         forward_reason.
@@ -723,11 +729,13 @@ Section reducer.
           * rewrite type_cast_refl; eauto.
           * rewrite typ2_match_iota; simpl; eauto.
             forward; inv_all; subst.
-            autorewrite with eq_rw.
+            autorewrite_with_eq_rw.
             simpl.
             eapply IHtargs in H; eauto.
             forward_reason.
             rewrite H. eexists; split; eauto.
+            autorewrite_with_eq_rw.
+            eauto.
         + eapply exprD_typeof_Some in H0; eauto.
     Qed.
   End delta_list.
@@ -851,7 +859,8 @@ Section reducer.
           intros.
           simpl.
           specialize (H6 us (Hcons (e1 us' vs') vs) us' vs' (conj H7 eq_refl)).
-          autorewrite with eq_rw.
+          autorewrite_with_eq_rw.
+          rewrite Data.Eq.match_eq_sym_eq with (F:=fun x=>x).
           eauto. } }
     Qed.
 

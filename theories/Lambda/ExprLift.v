@@ -1,3 +1,4 @@
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.HList.
@@ -7,6 +8,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 
@@ -61,7 +63,7 @@ Section types.
       lower (length tvs) (length tvs') e = Some e' ->
       typeof_expr tus (tvs ++ tvs'') e' =
       typeof_expr tus (tvs ++ tvs' ++ tvs'') e.
-  Proof.
+  Proof using.
     intros tus e tvs tvs' tvs''; revert tvs.
     induction e; simpl; intros; simpl in *; forward; inv_all; subst; auto.
     { consider (v ?[ lt ] length tvs); intros; forward; inv_all; subst.
@@ -86,7 +88,7 @@ Section types.
         forall us vs vs' vs'',
           val us (hlist_app vs (hlist_app vs' vs'')) =
           val' us (hlist_app vs vs'').
-  Proof.
+  Proof using RTypeOk_typD RSymOk_func Typ2Ok_Fun.
     intros tus tvs tvs' tvs'' e. revert tvs.
     induction e; simpl; intros;
     autorewrite with exprD_rw in *; simpl in *; forward; inv_all; subst.
@@ -170,7 +172,7 @@ Section types.
   : forall tus e tvs tvs' tvs'',
       typeof_expr tus (tvs ++ tvs' ++ tvs'') (lift (length tvs) (length tvs') e) =
       typeof_expr tus (tvs ++ tvs'') e.
-  Proof.
+  Proof using.
     intros tus e tvs; revert tvs; induction e; simpl; intros;
     Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
@@ -195,7 +197,7 @@ Section types.
                 val' us (hlist_app vs (hlist_app vs' vs''))
           end
       end.
-  Proof.
+  Proof using RTypeOk_typD RSymOk_func Typ2Ok_Fun.
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
@@ -237,7 +239,7 @@ Section types.
       specialize (IHe2 tvs tvs' tvs'' t0).
       forward. inv_all. subst.
       unfold exprT_App.
-      autorewrite with eq_rw.
+      autorewrite_with_eq_rw.
       rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
     { destruct (typ2_match_case t0).
       { destruct H0 as [ ? [ ? [ ? ? ] ] ].

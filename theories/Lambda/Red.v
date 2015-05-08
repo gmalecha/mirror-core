@@ -1,4 +1,5 @@
 Require Import Coq.Arith.Compare_dec.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
@@ -190,7 +191,9 @@ Section substitute.
         specialize (IHe1 tvs w _ eq_refl tvs' t (typ2 t0 t')).
         revert IHe1 IHe2.
         Cases.rewrite_all_goal. intros; forward.
-        unfold exprT_App. autorewrite with eq_rw.
+        unfold exprT_App.
+        Require Import MirrorCore.Util.Compat.
+        autorewrite_with_eq_rw.
         rewrite IHe1. rewrite IHe2. reflexivity. }
       { eapply exprD'_typeof_expr.
         left. eauto. } }
@@ -291,11 +294,11 @@ Section beta.
       autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl;
       forward; inv_all; subst.
       { split; auto. unfold exprT_App.
-        intros. autorewrite with eq_rw.
+        intros. autorewrite_with_eq_rw.
         rewrite H5. reflexivity. }
       { split; auto.
         clear H5. unfold Open_App.
-        repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+        autorewrite_with_eq_rw.
         generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus f nil x _ eq_refl tvs d r).
         autorewrite with exprD_rw in H0. simpl in H0.
         rewrite typ2_match_iota in H0; eauto.
@@ -305,7 +308,8 @@ Section beta.
         rewrite H1 in H5. rewrite H6 in H5.
         forward.
         unfold exprT_App, Rcast_val, Rcast, Relim.
-        autorewrite with eq_rw.
+        autorewrite_with_eq_rw.
+        rewrite match_eq_sym_eq with (F:=fun x => x).
         simpl. specialize (H5 us Hnil vs).
         simpl in *. etransitivity; [ | eassumption ].
         reflexivity. } }

@@ -1,6 +1,7 @@
 Require Import Coq.Bool.Bool.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.Traversable.
@@ -182,8 +183,8 @@ Section parameterized.
   Theorem getUVars_split
   : forall ctx,
       getUVars ctx = getAmbientUVars ctx ++ getExtensionUVars ctx.
-  Proof.
-    clear; induction ctx; simpl; eauto.
+  Proof using.
+    induction ctx; simpl; eauto.
     - symmetry. apply app_nil_r_trans.
     - rewrite <- app_ass_trans.
       f_equal; auto.
@@ -192,8 +193,8 @@ Section parameterized.
   Theorem getVars_split
   : forall ctx,
       getVars ctx = getAmbientVars ctx ++ getExtensionVars ctx.
-  Proof.
-    clear; induction ctx; simpl; eauto.
+  Proof using.
+    induction ctx; simpl; eauto.
     - symmetry. apply app_nil_r_trans.
     - rewrite <- app_ass_trans.
       f_equal; auto.
@@ -202,17 +203,18 @@ Section parameterized.
   Lemma getEnvs'_getUVars_getVars
   : forall c a b,
       getEnvs' c a b  = (getUVars c ++ a, getVars c ++ b).
-  Proof.
-    clear. induction c; simpl; intros; auto.
+  Proof using.
+    induction c; simpl; intros; auto.
     { rewrite IHc. f_equal. rewrite <- app_assoc. reflexivity. }
     { rewrite IHc. f_equal. rewrite <- app_assoc. reflexivity. }
   Qed.
 
   Lemma getEnvs_getUVars_getVars
   : forall c, getEnvs c = (getUVars c, getVars c).
-  Proof.
-    clear. unfold getEnvs. intros.
+  Proof using.
+    unfold getEnvs. intros.
     rewrite getEnvs'_getUVars_getVars.
+    change (list typ) with (tenv typ).
     f_equal; apply app_nil_r.
   Qed.
 
@@ -220,8 +222,8 @@ Section parameterized.
   : forall c1 c2,
       getAmbient c2 = getEnvs c1 ->
       getUVars (Ctx_append c1 c2) = getUVars c2.
-  Proof.
-    clear. induction c2; simpl; eauto.
+  Proof using.
+    induction c2; simpl; eauto.
     + rewrite getEnvs_getUVars_getVars. intros; inv_all; auto.
     + intro. rewrite IHc2; eauto.
   Defined.
@@ -230,8 +232,8 @@ Section parameterized.
   : forall c1 c2,
       getAmbient c2 = getEnvs c1 ->
       getVars (Ctx_append c1 c2) = getVars c2.
-  Proof.
-    clear. induction c2; simpl; eauto.
+  Proof using.
+    induction c2; simpl; eauto.
     + rewrite getEnvs_getUVars_getVars. intros; inv_all; auto.
     + intro; rewrite IHc2; auto.
   Defined.
@@ -250,7 +252,7 @@ Section parameterized.
                    | _ => unit
                  end
     with
-      | AllSubst _ _ c => c
+      | @AllSubst _ _ c => c
       | _ => tt
     end.
 
@@ -261,7 +263,7 @@ Section parameterized.
                    | _ => unit
                  end
     with
-      | HypSubst _ _ c => c
+      | @HypSubst _ _ c => c
       | _ => tt
     end.
 
@@ -272,7 +274,7 @@ Section parameterized.
                    | _ => unit
                  end
     with
-      | ExsSubst _ _ c s => (s,c)
+      | @ExsSubst _ _ c s => (s,c)
       | _ => tt
     end.
 
@@ -283,7 +285,7 @@ Section parameterized.
    refine (fun pf =>
              match pf in _ = Z
                    return match Z in ctx_subst c return ctx_subst c -> Prop with
-                            | HypSubst _ _ x => fun y => fromHyp y = x
+                            | @HypSubst _ _ x => fun y => fromHyp y = x
                             | _ => fun _ => True
                           end (HypSubst s)
              with
@@ -294,11 +296,11 @@ Section parameterized.
   Global Instance Injective_AllSubst h c s s'
   : Injective (@AllSubst h c s = @AllSubst h c s') :=
     { result := s = s' }.
-  Proof. clear.
+  Proof using.
    refine (fun pf =>
              match pf in _ = Z
                    return match Z in ctx_subst c return ctx_subst c -> Prop with
-                            | AllSubst _ _ x => fun y => fromAll y = x
+                            | @AllSubst _ _ x => fun y => fromAll y = x
                             | _ => fun _ => True
                           end (AllSubst s)
              with
@@ -309,7 +311,7 @@ Section parameterized.
 (* TODO: These are redundant *)
   Lemma eta_ctx_subst_exs c ts (s : ctx_subst (CExs c ts))
   : exists y z, s = ExsSubst z y.
-  Proof.
+  Proof using.
     refine (match s in @ctx_subst X
                   return match X as X return @ctx_subst X -> Prop with
                            | CExs c ts => fun s =>
@@ -317,7 +319,7 @@ Section parameterized.
                            | _ => fun _ => True
                          end s
             with
-              | ExsSubst _ _ _ s => _
+              | @ExsSubst _ _ _ s => _
               | _ => I
             end).
     clear; eauto.
@@ -325,7 +327,7 @@ Section parameterized.
 
   Lemma eta_ctx_subst_hyp c ts (s : ctx_subst (CHyp c ts))
   : exists z, s = HypSubst z.
-  Proof.
+  Proof using.
     refine (match s in @ctx_subst X
                   return match X as X return @ctx_subst X -> Prop with
                            | CHyp c ts => fun s =>
@@ -333,7 +335,7 @@ Section parameterized.
                            | _ => fun _ => True
                          end s
             with
-              | HypSubst _ _ s => _
+              | @HypSubst _ _ s => _
               | _ => I
             end).
     clear; eauto.
@@ -341,7 +343,7 @@ Section parameterized.
 
   Lemma eta_ctx_subst_all c ts (s : ctx_subst (CAll c ts))
   : exists z, s = AllSubst z.
-  Proof.
+  Proof using.
     refine (match s in @ctx_subst X
                   return match X as X return @ctx_subst X -> Prop with
                            | CAll c ts => fun s =>
@@ -349,7 +351,7 @@ Section parameterized.
                            | _ => fun _ => True
                          end s
             with
-              | AllSubst _ _ s => _
+              | @AllSubst _ _ s => _
               | _ => I
             end).
     clear; eauto.
@@ -358,9 +360,9 @@ Section parameterized.
   Fixpoint ctx_lookup {c} (u : nat) (cs : ctx_subst c) : option expr :=
     match cs with
       | TopSubst _ _ => None
-      | AllSubst _ _ c => ctx_lookup u c
-      | HypSubst _ _ c => ctx_lookup u c
-      | ExsSubst _ _ c s =>
+      | @AllSubst _ _ c => ctx_lookup u c
+      | @HypSubst _ _ c => ctx_lookup u c
+      | @ExsSubst _ _ c s =>
         match amap_lookup u s with
           | None => ctx_lookup u c
           | Some e => Some e
@@ -393,8 +395,8 @@ Section parameterized.
       Forall_amap (fun k e => forall u'',
                                 mentionsU u'' e = true ->
                                 ctx_lookup u'' cs = None) m.
-  Proof.
-    clear - ExprOk_expr. destruct 1; simpl.
+  Proof using ExprOk_expr.
+    destruct 1; simpl.
     split; auto. split; auto.
     destruct H as [ ? [ ? ? ] ]; auto.
     red. intros.
@@ -409,7 +411,7 @@ Section parameterized.
   Lemma WellFormed_entry_amap_empty
   : forall ctx cs len,
       WellFormed_entry (ctx:=ctx) cs len (amap_empty expr).
-  Proof.
+  Proof using.
     red; intros.
     split.
     - eapply WellFormed_bimap_empty; eauto.
@@ -420,8 +422,8 @@ Section parameterized.
   : forall ctx cs ts s,
       @WellFormed_entry ctx cs ts s ->
       WellFormed_bimap (length (getUVars ctx)) ts (length (getVars ctx)) s.
-  Proof.
-    clear. unfold WellFormed_entry, WellFormed_bimap.
+  Proof using.
+    unfold WellFormed_entry, WellFormed_bimap.
     intuition.
   Qed.
 
@@ -443,9 +445,9 @@ Section parameterized.
   Fixpoint ctx_domain {c} (cs : ctx_subst c) : list nat :=
     match cs with
       | TopSubst _ _ => nil
-      | AllSubst _ _ c => ctx_domain c
-      | HypSubst _ _ c => ctx_domain c
-      | ExsSubst _ _ c s =>
+      | @AllSubst _ _ c => ctx_domain c
+      | @HypSubst _ _ c => ctx_domain c
+      | @ExsSubst _ _ c s =>
         ctx_domain c ++ amap_domain s
     end.
 
@@ -463,8 +465,7 @@ Section parameterized.
   Theorem all_convertible_sound
   : forall xs ys,
       all_convertible xs ys = true -> xs = ys.
-  Proof.
-    clear.
+  Proof using.
     induction xs; destruct ys; simpl; intros; try congruence.
     destruct (type_cast a t).
     { destruct r. f_equal; eauto. }
@@ -501,8 +502,8 @@ Section parameterized.
     exists get,
       drop_exact (xs ++ ys) ys = Some (@existT _ _ xs get) /\
       forall a b, get (hlist_app a b) = a.
-  Proof.
-    clear - RTypeOk_typ. unfold drop_exact.
+  Proof using RTypeOk_typ.
+    unfold drop_exact.
     intros. rewrite app_length.
     cutrewrite (length xs + length ys - length ys = length xs); [ | omega ].
     assert (length xs <= length xs) by omega.
@@ -546,8 +547,8 @@ Section parameterized.
         forall a b, cast match pf in _ = tus return hlist _ tus with
                            | eq_refl => hlist_app a b
                          end = a.
-  Proof.
-    clear. unfold drop_exact. intros.
+  Proof using.
+    unfold drop_exact. intros.
     forward; inv_all; subst.
     subst.
     eapply all_convertible_sound in H.
@@ -570,20 +571,20 @@ Section parameterized.
           Some (fun _ _ => True)
         else
           None
-      | HypSubst _ _ c => ctx_substD tus tvs c
-      | AllSubst t _ c =>
+      | @HypSubst _ _ c => ctx_substD tus tvs c
+      | @AllSubst t _ c =>
         match drop_exact tvs (t :: nil) with
           | None => None
-          | Some (existT tvs' get) =>
+          | Some (existT _ tvs' get) =>
             match ctx_substD tus tvs' c with
               | None => None
               | Some sD => Some (fun us vs => sD us (get vs))
             end
         end
-      | ExsSubst ts _ c s =>
+      | @ExsSubst ts _ c s =>
         match drop_exact tus ts with
           | None => None
-          | Some (existT tus' get) =>
+          | Some (existT _ tus' get) =>
             match amap_substD tus tvs s
                 , ctx_substD tus' tvs c
             with
@@ -604,17 +605,17 @@ Section parameterized.
             return option (ctx_subst c * expr)
       with
         | TopSubst _ _ => None
-        | AllSubst _ _ c =>
+        | @AllSubst _ _ c =>
           match ctx_set_simple' c with
             | None => None
             | Some (c,e) => Some (AllSubst c, e)
           end
-        | HypSubst _ _ c =>
+        | @HypSubst _ _ c =>
           match ctx_set_simple' c with
             | None => None
             | Some (c,e) => Some (HypSubst c, e)
           end
-        | ExsSubst ts ctx c s =>
+        | @ExsSubst ts ctx c s =>
           let (nus,nvs) := countEnvs ctx in
           if u ?[ ge ] nus then
             let max_nus := length ts + nus in
@@ -672,10 +673,11 @@ Section parameterized.
   Global Instance Injective_ExsSubst ts ctx a b c d
   : Injective (ExsSubst (ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
     { result := a = c /\ b = d }.
+  Proof using.
   intro pf.
   refine (match pf in _ = X return
                 match X with
-                  | ExsSubst _ _ c d => fun a b => a = c /\ b = d
+                  | @ExsSubst _ _ c d => fun a b => a = c /\ b = d
                   | _ => True
                 end a b
           with
@@ -687,15 +689,15 @@ Section parameterized.
   Global Instance Injective_WellFormed_ctx_subst_All c t s
   : Injective (WellFormed_ctx_subst (AllSubst (c:=c) (t:=t) s)) :=
   { result := WellFormed_ctx_subst s }.
-  Proof.
+  Proof using.
     refine (fun x =>
               match x in WellFormed_ctx_subst z
                     return match z return Prop with
-                             | AllSubst _ _ s => WellFormed_ctx_subst s
+                             | @AllSubst _ _ s => WellFormed_ctx_subst s
                              | _ => True
                            end
               with
-                | WF_AllSubst _ _ _ pf => pf
+                | @WF_AllSubst _ _ _ pf => pf
                 | _ => I
               end).
   Defined.
@@ -703,15 +705,15 @@ Section parameterized.
   Global Instance Injective_WellFormed_ctx_subst_Hyp c t s
   : Injective (WellFormed_ctx_subst (HypSubst (c:=c) (t:=t) s)) :=
   { result := WellFormed_ctx_subst s }.
-  Proof.
+  Proof using.
     refine (fun x =>
               match x in WellFormed_ctx_subst z
                     return match z return Prop with
-                             | HypSubst _ _ s => WellFormed_ctx_subst s
+                             | @HypSubst _ _ s => WellFormed_ctx_subst s
                              | _ => True
                            end
               with
-                | WF_HypSubst _ _ _ pf => pf
+                | @WF_HypSubst _ _ _ pf => pf
                 | _ => I
               end).
   Defined.
@@ -719,23 +721,24 @@ Section parameterized.
   Global Instance Injective_WellFormed_ctx_subst_Top tus tvs
   : Injective (WellFormed_ctx_subst (TopSubst tus tvs)) :=
   { result := True }.
-  Proof. trivial. Defined.
+  Proof using. trivial. Defined.
 
   Global Instance Injective_WellFormed_ctx_subst_ExsSubst ctx ts c s
   : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)) :=
   { result := WellFormed_ctx_subst c /\
               WellFormed_entry c (length ts) s }.
+  Proof using.
   intro.
-  refine match H in @WellFormed_ctx_subst C S
+  refine match H in @WellFormed_ctx_subst C s
                return match C as C return ctx_subst C -> Prop with
                         | CExs c0 ts => fun s' =>
                           let (s,c) := fromExs s' in
                           WellFormed_ctx_subst c /\
                           WellFormed_entry c (length ts) s
                         | _ => fun _ => True
-                      end S
+                      end s
          with
-           | WF_ExsSubst t c s s' pfs' pfs => conj pfs pfs'
+           | @WF_ExsSubst t c s s' pfs' pfs => conj pfs pfs'
            | _ => I
          end.
   Defined.
@@ -744,7 +747,7 @@ Section parameterized.
   : forall ctx (s : ctx_subst ctx) n s',
       WellFormed_entry s n s' ->
       WellFormed_amap s'.
-  Proof.
+  Proof using.
     destruct 1. eauto using WellFormed_bimap_WellFormed_amap.
   Qed.
 
@@ -764,8 +767,7 @@ Section parameterized.
           exprD' tus tvs e t = Some val /\
           (C (fun us vs =>
                 sD us vs -> get us = val us vs)).
-  Proof.
-    clear - RTypeOk_typ ExprOk_expr.
+  Proof using RTypeOk_typ ExprOk_expr.
     induction 1; simpl; intros.
     { congruence. }
     { forward; inv_all; subst.
@@ -831,8 +833,7 @@ Section parameterized.
           exprD' tus tvs e t = Some val /\
           (forall us vs,
              sD us vs -> get us = val us vs).
-  Proof.
-    clear.
+  Proof using RTypeOk_typ ExprOk_expr.
     intros.
     eapply ctx_substD_lookup_gen
       with (C := fun (P : exprT _ _ Prop) => forall us vs, P us vs); eauto.
@@ -845,8 +846,7 @@ Section parameterized.
       forall (ls : list nat),
         subst_domain s = ls ->
         forall n : nat, In n ls <-> subst_lookup n s <> None.
-  Proof.
-    clear.
+  Proof using.
     induction 1; simpl; intros; eauto using WellFormed_domain.
     { subst. split; auto. congruence. }
     { subst. rewrite in_app_iff.
@@ -868,8 +868,7 @@ Section parameterized.
       ctx_lookup u s = Some e ->
       mentionsAny (fun u' => u' ?[ ge ] length (getUVars ctx))
                   (fun v' => v' ?[ ge ] length (getVars ctx)) e = false.
-  Proof.
-    clear - ExprOk_expr.
+  Proof using ExprOk_expr.
     induction 1; try solve [ simpl; intros; eauto; congruence ].
     { simpl. intros.
       eapply IHWellFormed_ctx_subst in H0; clear IHWellFormed_ctx_subst.
@@ -902,7 +901,7 @@ Section parameterized.
         amap_lookup u' m = Some e' ->
         amap_lookup u m = Some e ->
         mentionsU u' e = false.
-  Proof.
+  Proof using.
     intros. red in H.
     red in H. red in H.
     consider (mentionsU u' e); auto.
@@ -919,8 +918,7 @@ Section parameterized.
       ctx_lookup u s = Some e ->
       forall (u' : nat) (e' : expr),
         ctx_lookup u' s = Some e' -> mentionsU u' e = false.
-  Proof.
-    clear - ExprOk_expr.
+  Proof using ExprOk_expr.
     induction 1; try solve [ simpl; intros; try congruence; eauto ].
     { intro. simpl in H1.
       consider (amap_lookup u s').
@@ -975,9 +973,9 @@ Section parameterized.
           return ctx_subst (Ctx_append c1 c2)
     with
       | TopSubst _ _ => s1
-      | HypSubst _ _ cs => HypSubst (ctx_subst_append s1 cs)
-      | AllSubst _ _ cs => AllSubst (ctx_subst_append s1 cs)
-      | ExsSubst _ _ cs s => ExsSubst (ctx_subst_append s1 cs) s
+      | @HypSubst _ _ cs => HypSubst (ctx_subst_append s1 cs)
+      | @AllSubst _ _ cs => AllSubst (ctx_subst_append s1 cs)
+      | @ExsSubst _ _ cs s => ExsSubst (ctx_subst_append s1 cs) s
     end.
 
   Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
@@ -991,7 +989,7 @@ Section parameterized.
     with
       | TopSubst _ _ =>
         Some (fun k us vs => k us vs)
-      | AllSubst t ctx' s' =>
+      | @AllSubst t ctx' s' =>
         match pctxD s' with
           | Some cD =>
             Some (fun k : exprT _ _ Prop =>
@@ -1006,7 +1004,7 @@ Section parameterized.
                               end))
           | None => None
         end
-      | ExsSubst ts ctx' s' sub =>
+      | @ExsSubst ts ctx' s' sub =>
         match amap_substD (getUVars ctx' ++ ts) (getVars ctx') sub
             , pctxD s'
         with
@@ -1024,7 +1022,7 @@ Section parameterized.
                                                vs)))
           | _ , _ => None
         end
-      | HypSubst h ctx' s' =>
+      | @HypSubst h ctx' s' =>
         match propD (getUVars ctx') (getVars ctx') h with
           | None => None
           | Some pD => match pctxD s' with
@@ -1051,8 +1049,8 @@ Section parameterized.
       Proper (Roption (RexprT (getUVars c1) (getVars c1) iff ==>
                               (RexprT _ _ iff)))%signature
              (@pctxD c1 s).
-  Proof.
-    clear. induction s; simpl; intros.
+  Proof using.
+    induction s; simpl; intros.
     { constructor.
       do 6 red; simpl; intros.
       eapply H; auto. }
@@ -1093,8 +1091,8 @@ Section parameterized.
       Proper (Roption (RexprT (getUVars c1) (getVars c1) Basics.impl ==>
                               (RexprT _ _ Basics.impl)))%signature
              (@pctxD c1 s).
-  Proof.
-    clear. induction s; simpl; intros.
+  Proof using.
+    induction s; simpl; intros.
     { constructor.
       do 6 red; intros.
       eapply H; auto. }
@@ -1139,8 +1137,8 @@ Section parameterized.
          C P us vs ->
          C Q us vs) /\
       (forall us vs (Q : exprT _ _ Prop), (forall a b, Q a b) -> C Q us vs).
-  Proof.
-    clear. induction s; simpl; intros.
+  Proof using.
+    induction s; simpl; intros.
     { forward; inv_all; subst.
       forward_reason; split; eauto. }
     { forward; inv_all; subst.
@@ -1198,8 +1196,7 @@ Section parameterized.
       forall (us : hlist typD _) (vs : hlist typD _)
              (P Q : exprT (getUVars ctx) (getVars ctx) Prop),
         C (fun us vs => P us vs -> Q us vs) us vs -> C P us vs -> C Q us vs.
-  Proof.
-    clear.
+  Proof using.
     intros. revert H1. revert H0. eapply Applicative_pctxD in H; eauto.
     destruct H. eapply H.
   Qed.
@@ -1211,8 +1208,7 @@ Section parameterized.
       pctxD s = Some C ->
       forall (P : exprT (getUVars ctx) (getVars ctx) Prop),
         (forall us vs, P us vs) -> forall us vs, C P us vs.
-  Proof.
-    clear.
+  Proof using.
     intros. eapply Applicative_pctxD in H; eauto.
     destruct H. eapply H1; eauto.
   Qed.
@@ -1253,8 +1249,8 @@ Section parameterized.
   : forall c s C,
       @pctxD c s = Some C ->
       Proper (RexprT _ _ Basics.impl ==> RexprT _ _ Basics.impl)%signature C.
-  Proof.
-    clear. intros.
+  Proof using.
+    intros.
     generalize (@Proper_pctxD_impl c s).
     rewrite H. intros; inv_all. auto.
   Qed.
@@ -1263,8 +1259,8 @@ Section parameterized.
   : forall c s C,
       @pctxD c s = Some C ->
       Proper (RexprT _ _ iff ==> RexprT _ _ iff)%signature C.
-  Proof.
-    clear. intros.
+  Proof using.
+    intros.
     generalize (@Proper_pctxD_iff c s).
     rewrite H. intros; inv_all. auto.
   Qed.
@@ -1288,8 +1284,7 @@ Section parameterized.
       @pctxD ctx s' = Some C' ->
       forall us vs (P : exprT _ _ Prop),
         C P us vs -> C' P us vs.
-  Proof.
-    clear.
+  Proof using.
     induction 1; intros; simpl in *; forward; inv_all; subst; eauto.
     { eapply IHSubstMorphism; eauto. }
     { gather_facts.
@@ -1307,18 +1302,19 @@ Section parameterized.
   Global Instance Injective_SubstMorphism_AllSubst t ctx s s'
   : Injective (@SubstMorphism (CAll ctx t) (AllSubst s) s') :=
   { result := exists s'', s' = AllSubst s'' /\ @SubstMorphism ctx s s'' }.
-  clear. intros.
+  Proof using.
+  intros.
   exists (fromAll s').
   refine
     (match H in @SubstMorphism C X Y
            return match X in ctx_subst C' return ctx_subst C' -> Prop with
-                    | AllSubst t s c => fun s' =>
+                    | @AllSubst t s c => fun s' =>
                                             s' = AllSubst (fromAll s') /\
                                             SubstMorphism c (fromAll s')
                     | _ => fun _ => True
                   end Y
      with
-       | SMall _ _ _ _ _ => _
+       | @SMall _ _ _ _ _ => _
        | _ => I
      end).
   simpl; eauto.
@@ -1332,13 +1328,13 @@ Section parameterized.
   refine
     (match H in @SubstMorphism C X Y
            return match X in ctx_subst C' return ctx_subst C' -> Prop with
-                    | HypSubst t s c => fun s' =>
+                    | @HypSubst t s c => fun s' =>
                                             s' = HypSubst (fromHyp s') /\
                                             SubstMorphism c (fromHyp s')
                     | _ => fun _ => True
                   end Y
      with
-       | SMhyp _ _ _ _ _ => _
+       | @SMhyp _ _ _ _ _ => _
        | _ => I
      end).
   simpl; eauto.
@@ -1347,8 +1343,8 @@ Section parameterized.
   Global Instance Injective_SubstMorphism_TopSubst tus tvs s'
   : Injective (@SubstMorphism (CTop tus tvs) (TopSubst _ _) s') :=
   { result := s' = TopSubst tus tvs }.
-  Proof.
-    clear. intros.
+  Proof using.
+    intros.
     refine
       (match H in @SubstMorphism C X Y
              return match X in ctx_subst C' return ctx_subst C' -> Prop with
@@ -1381,11 +1377,12 @@ Section parameterized.
                                                s1D (hlist_app us us') vs) us vs
                     end)
                 /\ SubstMorphism sub sub'}.
+  Proof using.
   intros. exists (fst (fromExs s')). exists (snd (fromExs s')).
   refine
     (match H in @SubstMorphism C X Y
            return match X in ctx_subst C' return ctx_subst C' -> Prop with
-                    | ExsSubst t s su c =>
+                    | @ExsSubst t s su c =>
                       fun s' =>
                         s' = ExsSubst (snd (fromExs s')) (fst (fromExs s')) /\
                         match pctxD su with
@@ -1419,7 +1416,7 @@ Section parameterized.
                     | _ => fun _ => True
                   end Y
      with
-       | SMexs _ _ _ _ _ _ _ _ => _
+       | @SMexs _ _ _ _ _ _ _ _ => _
        | _ => I
      end).
   simpl; eauto.
@@ -1427,8 +1424,7 @@ Section parameterized.
 
   Global Instance Reflexive_SubstMorphism ctx
   : Reflexive (@SubstMorphism ctx).
-  Proof.
-    clear.
+  Proof using.
     red. induction x;
          simpl; intros; try constructor;
          forward; eauto.
@@ -1437,8 +1433,7 @@ Section parameterized.
 
   Global Instance Transitive_SubstMorphism ctx
   : Transitive (@SubstMorphism ctx).
-  Proof.
-    clear.
+  Proof using.
     red. intros x y z H; revert z.
     induction H.
     { intros; inv_all; subst.
@@ -1474,13 +1469,13 @@ Section parameterized.
           | CHyp _ _ => fun s => HypSubst (fromHyp s)
           | CExs _ _ => fun s => ExsSubst (snd (fromExs s)) (fst (fromExs s))
         end s.
-  Proof.
-    clear. destruct s; reflexivity.
+  Proof using.
+    destruct s; reflexivity.
   Qed.
 
   Lemma AllSubst_fromAll ctx t (s : ctx_subst (CAll t ctx)) :
     AllSubst (fromAll s) = s.
-  Proof.
+  Proof using.
     rewrite ctx_subst_eta. reflexivity.
   Qed.
 
@@ -1488,7 +1483,7 @@ Section parameterized.
   : forall c (cs : ctx_subst c) tus tvs csD,
       ctx_substD tus tvs cs = Some csD ->
       (tus,tvs) = (getUVars c, getVars c).
-  Proof.
+  Proof using RTypeOk_typ.
     induction cs; simpl; intros; simpl; eauto.
     { consider (tus0 ?[ eq ] tus && tvs0 ?[ eq ] tvs); intros; try congruence.
       destruct H; subst; reflexivity. }
@@ -1505,16 +1500,14 @@ Section parameterized.
   Lemma countEnvs'_spec
   : forall c a b,
       countEnvs' c a b = (length (getUVars c) + a, length (getVars c) + b).
-  Proof.
-    clear.
+  Proof using.
     induction c; simpl; intros; auto;
     rewrite IHc; rewrite app_length; f_equal; auto; simpl; omega.
   Qed.
 
   Lemma countEnvs_spec
   : forall c, countEnvs c = (length (getUVars c), length (getVars c)).
-  Proof.
-    clear.
+  Proof using.
     intros. unfold countEnvs. rewrite countEnvs'_spec.
     f_equal; omega.
   Qed.
@@ -1526,8 +1519,8 @@ Section parameterized.
       exists sD,
         ctx_substD (getUVars ctx) (getVars ctx) s = Some sD /\
         forall us vs, cD sD us vs.
-  Proof.
-    clear. intros ctx s cD H; revert cD; induction H; simpl; intros.
+  Proof using.
+    intros ctx s cD H; revert cD; induction H; simpl; intros.
     { inv_all; subst.
       rewrite rel_dec_eq_true; eauto with typeclass_instances.
       rewrite rel_dec_eq_true; eauto with typeclass_instances.
@@ -1574,7 +1567,7 @@ Section parameterized.
       WellFormed_ctx_subst cs ->
       WellFormed_entry cs nts s ->
       WellFormed_entry cs nts s'.
-  Proof.
+  Proof using RTypeOk_typ ExprOk_expr.
     intros.
     eapply syn_check_set in H; eauto using WellFormed_entry_WellFormed_amap.
     red; intros.
@@ -1677,7 +1670,7 @@ Section parameterized.
       sem_preserves_if_ho
         (fun P => forall us vs, cD P us vs)
         (fun u => subst_lookup u s).
-  Proof.
+  Proof using.
     intros.
     destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
     red. intros.
@@ -1694,7 +1687,7 @@ Section parameterized.
       WellFormed_subst s ->
       ctx_substD (getUVars ctx) (getVars ctx) s = Some cD ->
       sem_preserves_if cD (fun u => subst_lookup u s).
-  Proof.
+  Proof using.
     intros. red. red. intros.
     eapply substD_lookup in H1; eauto.
     forward_reason.
@@ -1714,7 +1707,7 @@ Section parameterized.
       WellFormed_ctx_subst cs ->
       WellFormed_entry cs nts s ->
       WellFormed_entry cs nts s'.
-  Proof.
+  Proof using ExprOk_expr.
     intros. split.
     { eapply WellFormed_bimap_instantiate; eauto.
       - clear - H0. intros.
@@ -1743,8 +1736,8 @@ Section parameterized.
 
   Lemma getUVars_ge_getAmbientUVars
   : forall ctx, length (getAmbientUVars ctx) <= length (getUVars ctx).
-  Proof.
-    clear. induction ctx; simpl; intros; eauto.
+  Proof using.
+    induction ctx; simpl; intros; eauto.
     rewrite app_length. omega.
   Qed.
 
@@ -1752,7 +1745,7 @@ Section parameterized.
   : forall c cs,
       @WellFormed_ctx_subst c cs ->
       @WellFormed_ctx_subst_sem c cs.
-  Proof.
+  Proof using ExprOk_expr.
     induction 1; intros; red; simpl; intros; try congruence; eauto.
     { rename IHWellFormed_ctx_subst into IH.
       eapply IH in H0; clear IH.
@@ -1822,7 +1815,7 @@ Section parameterized.
         pctxD cs = Some cD ->
         exists cD',
           pctxD cs' = Some cD'.
-  Proof.
+  Proof using.
     induction 1; simpl; intros; forward; inv_all; subst; eauto;
     rename IHSubstMorphism into IH;
     specialize (IH _ eq_refl);
@@ -1834,7 +1827,7 @@ Section parameterized.
     pctxD s = Some cD ->
     ctx_substD (getUVars ctx) (getVars ctx) s = Some sD ->
     forall us vs, cD sD us vs.
-  Proof.
+  Proof using RTypeOk_typ ExprOk_expr.
     intros. destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
     rewrite H1 in H2. inv_all; subst. auto.
   Qed.
@@ -1845,7 +1838,7 @@ Section parameterized.
                   (fun _ : var => false) e = false ->
       forall u, mentionsU u e = true ->
                 ctx_lookup u cs = None.
-  Proof.
+  Proof using ExprOk_expr.
     intros.
     eapply mentionsAny_complete_false in H; eauto.
     forward_reason.
@@ -1858,8 +1851,7 @@ Section parameterized.
       WellFormed_bimap a b c m ->
       u < a ->
       amap_lookup u m = None.
-  Proof.
-    clear.
+  Proof using.
     intros. destruct H.
     consider (amap_lookup u m); auto; intros.
     destruct H1. apply H1 in H2. exfalso. omega.
@@ -1870,7 +1862,7 @@ Section parameterized.
       (mentionsAny fu fv e = false /\
        mentionsAny gu gv e = false) <->
       (mentionsAny (fun x => fu x || gu x) (fun x => fv x || gv x) e = false).
-  Proof.
+  Proof using ExprOk_expr.
     intros.
     repeat rewrite mentionsAny_complete_false by eauto.
     clear. intuition;
@@ -1924,7 +1916,7 @@ Section parameterized.
               sD' us vs -> val us vs = eD' us vs) /\
            (forall (us : hlist typD tus) (vs : hlist typD tvs),
               sD' us vs <-> sD us vs /\ get us = val us vs)).
-  Proof.
+  Proof using RTypeOk_typ ExprOk_expr.
     induction 2; simpl; intros; try congruence;
     try rename IHWellFormed_ctx_subst into IH.
     { (* All *)
@@ -2138,16 +2130,16 @@ Section parameterized.
             { (* what do I know about variables? *)
               clear H6 H7.
               eapply syn_check_set in H4;
-                [ | eassumption | eassumption
+                [ | eassumption
                 | eauto using WellFormed_entry_WellFormed_amap ].
               forward_reason.
               rewrite H7 in H5; clear H7.
               rewrite rel_dec_eq_true in H5 by eauto with typeclass_instances.
               inv_all. subst.
               intros.
-              eapply mentionsV_instantiate_0 in H5; [ | eauto | eauto ].
+              eapply mentionsV_instantiate_0 in H5; [ | eauto ].
               destruct H5.
-              { eapply mentionsV_instantiate_0 in H5; [ | eauto | eauto ].
+              { eapply mentionsV_instantiate_0 in H5; [ | eauto ].
                 destruct H5.
                 { eapply mentionsAny_complete_false in H3; [ | eauto ].
                   destruct H3. eauto. }
@@ -2402,7 +2394,7 @@ Section parameterized.
         eapply amap_instantiates_substD
           with (f := fun u' : nat => if uv ?[ eq ] u' then Some e' else None)
           in H13.
-        2: eauto. 2: eassumption. 3: destruct H; eauto.
+        2: eauto. 3: destruct H; eauto.
         Focus 3.
         instantiate (1 := fun P =>
                             forall us vs,
@@ -2497,8 +2489,6 @@ Section parameterized.
   { substR := fun _ _ a b => SubstMorphism a b
   ; set_sound := _ }.
   Proof.
-    { intros; eapply Reflexive_SubstMorphism. }
-    { intros; eapply Transitive_SubstMorphism. }
     intros. eapply ctx_substD_set; eauto.
   Defined.
 
@@ -2511,8 +2501,7 @@ Section parameterized.
       exists cD,
         pctxD s = Some cD /\
         forall us vs, cD sD us vs.
-  Proof.
-    clear - RTypeOk_typ.
+  Proof using RTypeOk_typ.
     intros ctx s s' cD c'D H; revert cD s' c'D; induction H; simpl; intros.
     { rewrite rel_dec_eq_true in * by eauto with typeclass_instances.
       rewrite rel_dec_eq_true in * by eauto with typeclass_instances.
@@ -2537,7 +2526,7 @@ Section parameterized.
       revert H3.
       generalize dependent (hlist_app vs0 (Hcons x2 Hnil)).
       generalize dependent (getVars c ++ t :: nil).
-      clear. intros; subst.
+      intros; subst.
       revert H3. uip_all'. tauto. }
     { destruct (eta_ctx_subst_hyp s'); subst.
       simpl in *. forward; inv_all; subst.
@@ -2582,7 +2571,7 @@ Section parameterized.
           ctx_substD (tus ++ ts) tvs cs' = Some cs'D /\
           (forall us us' vs,
              (csD us vs /\ mD (hlist_app us us') vs) <-> cs'D (hlist_app us us') vs).
-  Proof.
+  Proof using ExprOk_expr RTypeOk_typ.
     unfold remembers. simpl; intros; subst.
     split.
     { constructor; eauto.
@@ -2621,7 +2610,6 @@ Section parameterized.
       change (getVars ctx) with (getVars (CExs ctx ts)) in H2.
       eapply amap_instantiates_substD with (f:=fun u : nat => ctx_lookup u cs) in H2.
       2: eassumption.
-      2: eassumption.
       2: eapply CtxLogic.ExprTApplicative_foralls_impl.
       2: solve [ eauto ].
       2: instantiate (1 := fun us vs => csD (x us) vs).
@@ -2659,14 +2647,14 @@ Section parameterized.
   Lemma Ctx_append_assoc : forall (c1 c2 c3 : Ctx),
                              Ctx_append c1 (Ctx_append c2 c3) =
                              Ctx_append (Ctx_append c1 c2) c3.
-  Proof.
-    clear. induction c3; simpl; auto; rewrite IHc3; auto.
+  Proof using.
+    induction c3; simpl; auto; rewrite IHc3; auto.
   Qed.
 
   Lemma getUVars_Ctx_append
   : forall c1 c2,
       getUVars (Ctx_append c1 c2) = getUVars c1 ++ getExtensionUVars c2.
-  Proof.
+  Proof using.
     induction c2; simpl; intros; auto.
     symmetry. apply app_nil_r_trans.
     rewrite IHc2. apply app_ass_trans.
@@ -2675,7 +2663,7 @@ Section parameterized.
   Lemma getVars_Ctx_append
   : forall c1 c2,
       getVars (Ctx_append c1 c2) = getVars c1 ++ getExtensionVars c2.
-  Proof.
+  Proof using.
     induction c2; simpl; intros; auto.
     symmetry. apply app_nil_r_trans.
     rewrite IHc2. apply app_ass_trans.
@@ -2757,7 +2745,7 @@ Section parameterized.
         forall us vs,
           sD (fun us vs => eD (hlist_getUVars_Ctx_append _ _ us)
                               (hlist_getVars_Ctx_append _ _ vs)) us vs.
-  Proof.
+  Proof using.
     induction ctx'; simpl.
     { intros e s; rewrite (ctx_subst_eta s).
       simpl. intros; forward; inv_all; subst; eauto.
@@ -2842,8 +2830,8 @@ Section parameterized.
     exists tus' tvs',
       getEnvs' ctx a b = (fst (getAmbient ctx) ++ tus' ++ a,
                           snd (getAmbient ctx) ++ tvs' ++ b).
-  Proof.
-    clear. induction ctx; simpl; intros; eauto.
+  Proof using.
+    induction ctx; simpl; intros; eauto.
     { exists nil. exists nil. reflexivity. }
     { destruct (IHctx a (t :: b)) as [ ? [ ? ? ] ].
       rewrite H.
@@ -2860,8 +2848,7 @@ Section parameterized.
     exists tus' tvs',
       getEnvs ctx = (fst (getAmbient ctx) ++ tus',
                      snd (getAmbient ctx) ++ tvs').
-  Proof.
-    clear.
+  Proof using.
     unfold getEnvs. intros.
     generalize (getEnvs'_getAmbient ctx nil nil).
     eapply exists_impl; intro.
@@ -2880,8 +2867,7 @@ Section parameterized.
         forall us vs,
           pD (hlist_getUVars_Ctx_append _ _ us)
              (hlist_getVars_Ctx_append _ _ vs) <-> p'D us vs.
-  Proof.
-    clear - ExprOk_expr.
+  Proof using ExprOk_expr.
     intros ctx ctx' p pD H.
     unfold hlist_getUVars_Ctx_append, hlist_getVars_Ctx_append.
     generalize (getUVars_Ctx_append ctx ctx').
@@ -2904,15 +2890,15 @@ Section parameterized.
   Lemma getAmbient_Ctx_append
   : forall (ctx ctx' : Ctx),
       getAmbient (Ctx_append ctx ctx') = getAmbient ctx.
-  Proof.
-    clear. induction ctx'; eauto.
+  Proof using.
+    induction ctx'; eauto.
   Qed.
 
   Lemma only_in_range_0_empty
   : forall a am, only_in_range a 0 am ->
                  UVarMap.MAP.Equal am (@amap_empty expr).
-  Proof.
-    clear. unfold only_in_range. red.
+  Proof using.
+    unfold only_in_range. red.
     intros.
     specialize (H y). unfold amap_lookup in *.
     rewrite FMapSubst.SUBST.FACTS.empty_o.
@@ -2922,8 +2908,8 @@ Section parameterized.
 
   Lemma only_in_range_0_WellFormed_pre_entry
   : forall a c am, only_in_range a 0 am -> WellFormed_bimap a 0 c am.
-  Proof.
-    clear. unfold only_in_range. red.
+  Proof using.
+    unfold only_in_range. red.
     intros.
     eapply only_in_range_0_empty in H.
     split.
@@ -2947,7 +2933,7 @@ Section parameterized.
       exists sD,
         amap_substD tus tvs am = Some sD /\
         forall us vs, sD us vs.
-  Proof.
+  Proof using.
     intros.
     generalize (FMapSubst.SUBST.Proper_amap_substD tus tvs (only_in_range_0_empty H)).
     destruct (FMapSubst.SUBST.substD_empty tus tvs) as [ ? [ ? ? ] ].

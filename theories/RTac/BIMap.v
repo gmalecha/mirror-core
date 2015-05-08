@@ -1,5 +1,6 @@
 (** Bounded Instantiated Maps **)
 Require Import Coq.Bool.Bool.
+Require Import Coq.omega.Omega.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Core.RelDec.
@@ -480,6 +481,7 @@ Section parameterized.
     (rewrite SUBST.PROPS.fold_Equal with (eqA := @eq nat); try eassumption); eauto.
     compute; intros; subst; auto.
     compute; intros; subst; auto.
+    rewrite <- plus_n_O.
     rewrite SUBST.PROPS.fold_add. reflexivity.
     eauto.
     compute; intros; subst; auto.
@@ -708,7 +710,7 @@ Section parameterized.
           eapply SUBST.FACTS.not_find_in_iff.
           red. intro. destruct H10. eapply H3.
           eauto. }
-        generalize (@SUBST.raw_substD_Equal typ _ _ _ _ tus tvs x (UVarMap.MAP.empty _) _ H7 H10).
+        generalize (@SUBST.raw_substD_Equal typ _ _ _ tus tvs x (UVarMap.MAP.empty _) _ H7 H10).
         destruct (SUBST.substD_empty tus tvs).
         intros.
         forward_reason.

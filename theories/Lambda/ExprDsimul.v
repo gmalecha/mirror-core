@@ -67,7 +67,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
              (nth_error_get_hlist_nth typD tus n)
              (fun t_get =>
-                let '(existT t' get) := t_get in
+                let '(existT _ t' get) := t_get in
                 bind (m := option)
                      (type_cast t' t)
                      (fun cast =>
@@ -78,7 +78,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
              (nth_error_get_hlist_nth typD tvs n)
              (fun t_get =>
-                let '(existT t' get) := t_get in
+                let '(existT _ t' get) := t_get in
                 bind (m := option)
                      (type_cast t' t)
                      (fun cast =>
@@ -88,7 +88,7 @@ Module ExprDenote <: ExprDenote.
 
     Definition funcAs (f : func) (t : typ) : option (typD t) :=
       match typeof_sym f as Z
-            return Z = typeof_sym f -> option (typD t)
+            return Z = typeof_sym (RSym:=RSym_func) f -> option (typD t)
       with
         | None => fun _ => None
         | Some T => fun pf =>
@@ -109,7 +109,7 @@ Module ExprDenote <: ExprDenote.
 
     Definition func_simul (f : func) : option { t : typ & typD t } :=
       match typeof_sym f as Z
-            return Z = typeof_sym f -> option _
+            return Z = typeof_sym (RSym:=RSym_func) f -> option _
       with
         | None => fun _ => None
         | Some T => fun pf =>
@@ -140,7 +140,7 @@ Module ExprDenote <: ExprDenote.
           | App f x =>
             match exprD'_simul tvs x with
               | None => None
-              | Some (existT t' x) =>
+              | Some (existT _ t' x) =>
                 match exprD' tvs (typ_arr t' t) f with
                   | None => None
                   | Some f => Some (@exprT_App _ _ _ _ f x)
@@ -169,14 +169,14 @@ Module ExprDenote <: ExprDenote.
           | Inj f =>
             match @func_simul f with
               | None => None
-              | Some (existT t val) =>
+              | Some (existT _ t val) =>
                 Some (@existT _ (fun t => exprT tus tvs (typD t))
                               t (fun _ _ => val))
             end
           | App f x =>
             match exprD'_simul tvs f with
               | None => None
-              | Some (existT t' f) =>
+              | Some (existT _ t' f) =>
                 arr_match (fun T =>
                              exprT tus tvs T ->
                              option { t : typ & exprT tus tvs (typD t) })
@@ -196,7 +196,7 @@ Module ExprDenote <: ExprDenote.
           | Abs t e =>
             match exprD'_simul (t :: tvs) e with
               | None => None
-              | Some (existT t' f) =>
+              | Some (existT _ t' f) =>
                 Some (@existT _ (fun t => exprT tus tvs (typD t))
                               (typ_arr t t')
                               match eq_sym (typD_arr t t') in _ = T
@@ -252,7 +252,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
              (nth_error_get_hlist_nth typD tvs v)
              (fun t_get =>
-                let '(existT t' get) := t_get in
+                let '(existT _ t' get) := t_get in
                 bind (m := option)
                      (type_cast t' t)
                      (fun cast =>
@@ -266,7 +266,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
              (nth_error_get_hlist_nth typD tus u)
              (fun t_get =>
-                let '(existT t' get) := t_get in
+                let '(existT _ t' get) := t_get in
                 bind (m := option)
                      (type_cast t' t)
                      (fun cast =>
@@ -289,7 +289,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
              (exprD'_simul tus tvs x)
                  (fun t_x =>
-                    let '(existT t' x) := t_x in
+                    let '(existT _ t' x) := t_x in
                     bind (m := option)
                          (exprD' tus tvs (typ_arr t' t) f)
                          (fun f => ret (@exprT_App _ _ _ _ f x))).
@@ -301,7 +301,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
                       (exprD'_simul tus tvs f)
                       (fun t_f =>
-                         let '(existT t' f) := t_f in
+                         let '(existT _ t' f) := t_f in
                          arr_match (fun T =>
                                       exprT tus tvs T ->
                                       option { t : typ & exprT tus tvs (typD t) })
@@ -340,7 +340,7 @@ Module ExprDenote <: ExprDenote.
         bind (m := option)
              (exprD'_simul tus (t :: tvs) e)
              (fun t_val =>
-                let '(existT t' f) := t_val in
+                let '(existT _ t' f) := t_val in
                 ret (@existT _ (fun t => exprT tus tvs (typD t))
                              (typ_arr t t')
                              match eq_sym (typD_arr t t') in _ = T
@@ -397,14 +397,16 @@ Module ExprDenote <: ExprDenote.
             rewrite H in *.
             specialize (IHe1 _ _ _ (or_intror H0)).
             red in x2. subst. simpl in *.
-            repeat rewrite eq_Arr_eq in *.
-            repeat rewrite eq_Const_eq in *.
+            Require Import MirrorCore.Util.Compat.
+            autorewrite_with_eq_rw_in H1.
             forward. inv_all; subst.
-            specialize (IHe2 _ _ _ (or_introl H1)).
+            specialize (IHe2 _ _ _ (or_introl _ H1)).
             rewrite IHe2. subst.
             unfold type_of_apply. rewrite H.
-            rewrite type_cast_refl; eauto. simpl.
-            rewrite eq_Const_eq. reflexivity. }
+            rewrite type_cast_refl; eauto. simpl. revert H2.
+            do 2 rewrite eq_Const_eq.
+            intro. inv_all. subst.
+            reflexivity. }
           { rewrite H in *. congruence. } } }
       { rewrite exprD'_simul_Abs', exprD'_Abs in H; eauto; destruct H.
         { destruct (typ2_match_case t0).
@@ -534,25 +536,24 @@ Module ExprDenote <: ExprDenote.
                 split.
                 { rewrite eq_Const_eq in *. reflexivity. }
                 { unfold typ_arr. rewrite H2.
-                  repeat rewrite eq_Arr_eq in *.
-                  repeat rewrite eq_Const_eq in *.
+                  autorewrite_with_eq_rw_in H7.
+                  autorewrite_with_eq_rw.
                   rewrite H6 in H1.
-                  inv_all; subst.
                   inv_all. subst. reflexivity. } }
               { intros. exfalso. clear - H7.
                 destruct (eq_sym (typ2_cast x0 x1)).
                 congruence. } }
             { exfalso.
-              rewrite eq_Arr_eq in *.
-              rewrite eq_Const_eq in *.
+              autorewrite_with_eq_rw_in H1.
               forward. inv_all. subst. subst.
               specialize (H5 (@existT _ _ x0 e3)); simpl in *.
               rewrite H1 in *.
               erewrite exprD'_typeof_expr in H5.
               2: eauto.
+              autorewrite_with_eq_rw_in H6.
               destruct H5.
               assert (Some x0 = Some x0 /\ Some e3 = Some e3); auto.
-              apply H6 in H7. congruence. } }
+              apply H7 in H8. congruence. } }
           { rewrite H3 in H1. congruence. } }
         { destruct H. forward; inv_all; subst.
           specialize (proj1 (IHe2 _) eq_refl); clear IHe2.

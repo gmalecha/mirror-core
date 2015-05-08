@@ -35,7 +35,7 @@ Section ways_to_do_terms.
       | Var v =>
         match nth_member tvs v with
           | None => None
-          | Some (existT x m) =>
+          | Some (existT _ x m) =>
             match type_cast x t with
               | None => None
               | Some pf =>
@@ -47,7 +47,7 @@ Section ways_to_do_terms.
       | UVar u =>
         match nth_member tus u with
           | None => None
-          | Some (existT x m) =>
+          | Some (existT _ x m) =>
             match type_cast x t with
               | None => None
               | Some pf =>
@@ -86,7 +86,7 @@ Section ways_to_do_terms.
       | App f x =>
         match to_wtexpr_simul tus tvs x with
           | None => None
-          | Some (existT t' x) =>
+          | Some (existT _ t' x) =>
             match to_wtexpr tus tvs (typ2 t' t) f with
               | None => None
               | Some f => Some (wtApp _ f x)
@@ -99,12 +99,12 @@ Section ways_to_do_terms.
       | Var v =>
         match nth_member tvs v with
           | None => None
-          | Some (existT t m) => Some (@existT _ _ t (wtVar _ m))
+          | Some (existT _ t m) => Some (@existT _ _ t (wtVar _ m))
         end
       | UVar u =>
         match nth_member tus u with
           | None => None
-          | Some (existT t m) => Some (@existT _ _ t (wtUVar _ m))
+          | Some (existT _ t m) => Some (@existT _ _ t (wtUVar _ m))
         end
       | Inj f =>
         match typeof_sym f as X return typeof_sym f = X -> _ with
@@ -114,7 +114,7 @@ Section ways_to_do_terms.
       | App a b =>
         match to_wtexpr_simul tus tvs a with
           | None => None
-          | Some (existT t' a) =>
+          | Some (existT _ t' a) =>
             typ2_match (fun _ => option _) t'
                        (fun d r =>
                           match to_wtexpr tus tvs d b with
@@ -134,7 +134,7 @@ Section ways_to_do_terms.
       | Abs t b =>
         match to_wtexpr_simul tus (t :: tvs) b with
           | None => None
-          | Some (existT t' e) => Some (@existT _ _ (typ2 t t') (wtAbs e) )
+          | Some (existT _ t' e) => Some (@existT _ _ (typ2 t t') (wtAbs e) )
         end
     end.
 
@@ -173,7 +173,7 @@ Section ways_to_do_terms.
       | App f x =>
         match to_texpr_simul tus tvs x with
           | None => None
-          | Some (existT t' x) =>
+          | Some (existT _ t' x) =>
             match to_texpr tus tvs (typ2 t' t) f with
               | None => None
               | Some f => Some (tApp t' t f x)
@@ -201,7 +201,7 @@ Section ways_to_do_terms.
       | App a b =>
         match to_texpr_simul tus tvs a with
           | None => None
-          | Some (existT t' a) =>
+          | Some (existT _ t' a) =>
             typ2_match (fun _ => option _) t'
                        (fun d r =>
                           match to_texpr tus tvs d b with
@@ -214,7 +214,7 @@ Section ways_to_do_terms.
       | Abs t b =>
         match to_texpr_simul tus (t :: tvs) b with
           | None => None
-          | Some (existT t' e) => Some (@existT _ _ (typ2 t t') (tAbs t t' e) )
+          | Some (existT _ t' e) => Some (@existT _ _ (typ2 t t') (tAbs t t' e) )
         end
     end.
 
@@ -243,37 +243,37 @@ Section ways_to_do_terms.
     match wt in WellTyped_expr _ tvs t e
           return HList.hlist typD tus -> HList.hlist typD tvs -> typD t
     with
-      | WT_Var tvs t v pf => fun _ vs =>
-        match pf in _ = t return match t with
+      | WT_Var _ t v pf => fun _ vs =>
+        match pf in _ = t return match t return Type with
                                    | Some t => _
                                    | None => unit
                                  end with
           | eq_refl => hlist_nth vs v
         end
-      | WT_UVar tvs t u pf => fun us _ =>
-        match pf in _ = t return match t with
+      | WT_UVar _ t u pf => fun us _ =>
+        match pf in _ = t return match t return Type with
                                    | Some t => _
                                    | None => unit
                                  end with
           | eq_refl => hlist_nth us u
         end
-      | WT_Inj tvs t f pf => fun _ _ =>
-        match pf in _ = t return match t with
+      | WT_Inj _ t f pf => fun _ _ =>
+        match pf in _ = t return match t return Type with
                                    | Some t => typD t
                                    | None => unit
                                  end with
           | eq_refl => symD f
         end
-      | WT_App tvs d r _ _ wtf wtx =>
+      | @WT_App _ _ d r _ _ wtf wtx =>
         let f := match typ2_cast d r in _ = t return _ -> _ -> t with
                    | eq_refl => @exprD'_wt _ _ _ _ wtf
                  end in
         let x := @exprD'_wt _ _ _ _ wtx in
         fun us vs =>
           (f us vs) (x us vs)
-      | WT_Abs tvs d r e wte =>
+      | @WT_Abs _ tvs d r e wte =>
         let e := @exprD'_wt _ _ _ _ wte in
-        match eq_sym (typ2_cast d r) in _ = t return _ -> _ -> t with
+        match eq_sym (@typ2_cast _ _ _ Typ2_Fun d r) in _ = t return _ -> _ -> t with
           | eq_refl => fun us vs x => e us (Hcons x vs)
         end
     end.
