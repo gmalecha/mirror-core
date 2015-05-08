@@ -291,7 +291,8 @@ Module Make (ED : ExprDenote).
         eexists; split; eauto.
         revert H5 H6. clear.
         unfold ED.exprT_App. intros.
-        autorewrite with eq_rw.
+        Require Import MirrorCore.Util.Compat.
+        autorewrite_with_eq_rw.
         rewrite <- H6.
         rewrite <- H5. reflexivity. }
       { intros. forward_reason; inv_all; subst.
@@ -306,9 +307,9 @@ Module Make (ED : ExprDenote).
         intros.
         clear - H2.
         unfold ED.exprT_Abs, exprT.
-        autorewrite with eq_rw; simpl.
+        autorewrite_with_eq_rw; simpl.
         match goal with
-          | |- match ?X with _ => _ end _ = match ?Y with _ => _ end _ =>
+          | |- match ?X with _ => _ end = match ?Y with _ => _ end =>
             change Y with X ; generalize X
         end.
         destruct e. eapply FunctionalExtensionality.functional_extensionality.
@@ -414,8 +415,8 @@ Module Make (ED : ExprDenote).
         forward_reason.
         destruct (typ2_inj _ _ _ _ x1).
         exists H5. destruct H5. simpl.
-        subst. clear.
-        f_equal. clear. generalize dependent (typ2 d r).
+        subst. clear - RTypeOk_typD.
+        f_equal. generalize dependent (typ2 d r).
         (** NOTE(gmalecha): relying on [Rty = eq] **)
         unfold Rty. uip_all'. reflexivity.
         red in x0. uip_all'. reflexivity. }
@@ -525,9 +526,9 @@ Module Make (ED : ExprDenote).
 
     Theorem exprD'_type_cast
     : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
-      forall tus tvs e t,
+      forall tus tvs e t ,
         ED.exprD' tus tvs t e =
-        match ED.typeof_expr tus tvs e with
+        match ED.typeof_expr (Typ2_Fun:=Typ2_Fun) tus tvs e with
           | None => None
           | Some t' =>
             match @type_cast _ _ t' t with

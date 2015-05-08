@@ -59,7 +59,7 @@ Module Type ExprDenote.
 
     Definition funcAs (f : func) (t : typ) : option (typD t) :=
       match typeof_sym f as Z
-            return Z = typeof_sym f -> option (typD t)
+            return Z = typeof_sym (RSym:=RSym_func) f -> option (typD t)
       with
         | None => fun _ => None
         | Some T => fun pf =>
@@ -131,7 +131,7 @@ Module Type ExprDenote.
         bind (m := option)
              (nth_error_get_hlist_nth typD tvs v)
              (fun t_get =>
-                let '(existT t' get) := t_get in
+                let '(existT _ t' get) := t_get in
                 bind (m := option)
                      (type_cast t' t)
                      (fun cast =>
@@ -144,7 +144,7 @@ Module Type ExprDenote.
         bind (m := option)
              (nth_error_get_hlist_nth typD tus u)
              (fun t_get =>
-                let '(existT t' get) := t_get in
+                let '(existT _ t' get) := t_get in
                 bind (m := option)
                      (type_cast t' t)
                      (fun cast =>
@@ -261,7 +261,7 @@ Module Type ExprFacts (ED : ExprDenote).
     : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t,
         ED.exprD' tus tvs t e =
-        match ED.typeof_expr tus tvs e with
+        match ED.typeof_expr (Typ2_Fun:=Typ2_Fun) tus tvs e with
           | None => None
           | Some t' =>
             match type_cast t' t with

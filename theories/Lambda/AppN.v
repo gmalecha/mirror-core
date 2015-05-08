@@ -1,7 +1,10 @@
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Relations.TransitiveClosure.
+Require Import ExtLib.Recur.Facts.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 
@@ -151,9 +154,6 @@ Section app_full_proofs.
                            end b pf))).
   Qed.
 
-  Require Import ExtLib.Relations.TransitiveClosure.
-  Require Import ExtLib.Recur.Facts.
-
   Lemma type_of_applys_circle_False_lem
   : forall tus tvs ls t t',
       type_of_applys tus tvs t ls = Some t' ->
@@ -255,6 +255,15 @@ Section app_full_proofs.
         eapply ExprFacts.exprD'_typeof_expr in H1. congruence. }
     Qed.
 
+    Lemma match_option_eta : forall T (a : option T),
+        match a with
+        | None => None
+        | Some x => Some x
+        end = a.
+    Proof using.
+      destruct a; reflexivity.
+    Qed.
+
     Lemma exprD'_apps : forall es e t,
       exprD' tus tvs t (apps e es) = apps_sem' e es t.
     Proof.
@@ -274,15 +283,19 @@ Section app_full_proofs.
             { Cases.rewrite_all_goal.
               consider (type_cast x t1); intros.
               { unfold Relim.
-                repeat first [ rewrite eq_Const_eq | rewrite eq_Arr_eq ].
+                autorewrite_with_eq_rw.
                 autorewrite with exprD_rw; simpl; Cases.rewrite_all_goal.
                 red in x1. subst.
                 destruct r. Cases.rewrite_all_goal.
                 forward. f_equal.
                 unfold exprT_App. simpl.
-                autorewrite with eq_rw.
-                reflexivity. }
-              { autorewrite with eq_rw.
+                autorewrite_with_eq_rw.
+                repeat rewrite match_option_eta.
+                match goal with
+                | |- ?X = match ?X with _ => _ end =>
+                  destruct X
+                end; autorewrite with eq_rw; reflexivity. }
+              { autorewrite_with_eq_rw.
                 rewrite ExprFacts.exprD'_type_cast; eauto.
                 Cases.rewrite_all_goal.
                 rewrite type_cast_sym_None; eauto.

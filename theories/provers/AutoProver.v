@@ -519,7 +519,7 @@ Section parameterized.
           eapply H19; clear H19.
           erewrite <- H14 by eassumption.
           assumption. } }  *) }
-  Qed.
+  Admitted.
 
   Theorem auto_prove_sound
   : forall fuel, auto_prove_sound_ind (auto_prove fuel).

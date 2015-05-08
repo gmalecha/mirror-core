@@ -1,12 +1,16 @@
+Require Import Coq.Logic.FunctionalExtensionality.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Export MirrorCore.Lambda.ExprCore.
 Require Export MirrorCore.Lambda.ExprD.
 Require Export MirrorCore.Lambda.ExprLift.
 Require Export MirrorCore.Lambda.ExprSubst.
+Require Import MirrorCore.Util.Compat.
 
 Section expr.
   Variable typ : Type.
@@ -101,23 +105,22 @@ Section expr.
       eexists; split; eauto.
       intros.
       unfold exprT_App.
-      autorewrite with eq_rw.
+      autorewrite_with_eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
-        autorewrite with eq_rw in *.
+        progress autorewrite_with_eq_rw_in H0.
+        progress autorewrite_with_eq_rw.
         forward.
-        eapply IHe in H3; eauto.
+        eapply IHe in H4; eauto.
         forward_reason.
-        rewrite H3.
+        rewrite H4.
         eexists; split; eauto.
         intros.
         inv_all; subst.
         autorewrite with eq_rw.
-        Require Import ExtLib.Data.Eq.
-        Require Import FunctionalExtensionality.
         eapply match_eq_match_eq.
         eapply match_eq_match_eq with (F := fun x => x).
         eapply functional_extensionality.
@@ -153,7 +156,8 @@ Section expr.
       generalize (ListNth.nth_error_length_lt _ _ H0).
       rewrite app_length. simpl. intros.
       rewrite ListNth.nth_error_app_L in H0; auto.
-      omega. }
+      clear - H H1. generalize dependent (length tvs). clear. unfold var in *.
+      intros. omega. }
     { forward.
       erewrite IHe1; eauto.
       erewrite IHe2; eauto. }
@@ -191,7 +195,8 @@ Section expr.
         destruct H1. clear H0.
         eapply ListNth.nth_error_length_lt in x0.
         eapply RelDec.neg_rel_dec_correct in H.
-        intros. rewrite app_length in *. simpl in *. omega. } }
+        intros. rewrite app_length in *. simpl in *.
+        unfold var in *. omega. } }
     { forward. eexists; split; eauto.
       simpl. intros. inv_all; subst. reflexivity. }
     { forward. inv_all; subst.
@@ -204,17 +209,18 @@ Section expr.
       eexists; split; eauto.
       intros.
       unfold exprT_App.
-      autorewrite with eq_rw.
+      autorewrite_with_eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
-        autorewrite with eq_rw in *.
+        progress autorewrite_with_eq_rw_in H0.
+        progress autorewrite_with_eq_rw.
         forward.
-        eapply (IHe (t :: tvs)) in H3; eauto.
+        eapply (IHe (t :: tvs)) in H4; eauto.
         forward_reason.
-        rewrite H3.
+        rewrite H4.
         eexists; split; eauto.
         intros.
         inv_all; subst.
@@ -223,12 +229,11 @@ Section expr.
         eapply match_eq_match_eq with (F := fun x => x).
         eapply functional_extensionality.
         intros.
-        eapply (H5 us (HList.Hcons (Rcast_val r x3) vs)). }
+        eapply (H6 us (HList.Hcons (Rcast_val r x3) vs)). }
       { rewrite H1 in *. congruence. } }
     { forward. eexists; split; eauto.
       simpl. intros. inv_all; subst. reflexivity. }
   Qed.
-
 
   Instance Expr_expr : Expr _ (expr typ func) :=
   { exprD' := fun tus tvs e t => ExprDsimul.ExprDenote.exprD' tus tvs t e

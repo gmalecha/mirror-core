@@ -1,6 +1,7 @@
 (** This file contains generic functions for manipulating,
  ** (i.e. substituting and finding) unification variables
  **)
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.ListNth.
@@ -8,6 +9,7 @@ Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprDFacts.
 Require Import MirrorCore.Lambda.ExprD.
@@ -15,7 +17,7 @@ Require Import MirrorCore.Lambda.ExprD.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Section substitute.
   Variable typ : Type.
@@ -199,9 +201,9 @@ Section substitute.
         autorewrite with exprD_rw in *; simpl in *.
         forwardy.
         generalize H0.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs') in H0.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs') (F:=typD) in H0.
         intro H3.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs) in H3.
+        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs) (F:=typD) in H3.
         forward_reason.
         rewrite H0. destruct x0; simpl in *.
         red in y. subst.
@@ -226,7 +228,7 @@ Section substitute.
       { rewrite H1; clear H1.
         rewrite H0; clear H0.
         eexists; split; [ reflexivity | ].
-        unfold exprT_App; intros; autorewrite with eq_rw.
+        unfold exprT_App; intros; autorewrite_with_eq_rw.
         erewrite H2; eauto. erewrite H3; eauto. }
       { intros.
         assert (exists vD,
