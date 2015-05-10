@@ -102,19 +102,19 @@ Section parameterized.
   Lemma WellFormed_Goal_GConj_list tus tvs l :
     Forall (WellFormed_Goal (typ:=typ) tus tvs) l ->
     WellFormed_Goal tus tvs (GConj_list l).
-  Proof. clear.
-         induction 1; simpl.
-         - constructor.
-         - destruct l; auto.
-           constructor; auto.
+  Proof using.
+    induction 1; simpl.
+    - constructor.
+    - destruct l; auto.
+      constructor; auto.
   Qed.
 
   Lemma mapT_list_map
   : forall {T U V} (g : T -> U) (f : U -> option V) ls,
       List.mapT_list (fun x => f (g x)) ls =
       List.mapT_list f (map g ls).
-  Proof.
-    clear. induction ls; simpl; intros; auto.
+  Proof using.
+    induction ls; simpl; intros; auto.
     destruct (f (g a)); auto.
     rewrite IHls. reflexivity.
   Qed.
@@ -133,7 +133,7 @@ Section parameterized.
     unfold rtac_spec_modular.
     Opaque GoalImplies. simpl.
     eapply Transitive_GoalImplies;
-    [ eauto | | eapply GoalImplies_GExs_do_solved ]; eauto.
+    [ eauto | eapply GoalImplies_GExs_do_solved ]; eauto.
     Transparent GoalImplies. simpl.
     intros.
     eapply eapplicable_sound'

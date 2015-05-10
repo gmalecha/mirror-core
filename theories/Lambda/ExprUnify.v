@@ -9,8 +9,9 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -161,7 +162,7 @@ Section typed.
     red. induction e1; simpl; intros.
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].
       { consider (EqNat.beq_nat v v0); intros; try congruence.
-        inv_all; subst. intuition.
+        inv_all; subst. split. assumption. intros.
         eexists; split; eauto. reflexivity.
         intros; split; eauto.
         change_rewrite H0 in H2. inv_all; subst.
@@ -170,7 +171,8 @@ Section typed.
       { consider (sym_eqb f f0); try congruence; intros.
         destruct b; try congruence. inv_all; subst.
         generalize (@sym_eqbOk _ _ _ _ RSymOk_func f f0).
-        rewrite H0. intros; subst. intuition.
+        rewrite H0. intros; subst.
+        split; [ assumption | ].
         eexists; split; eauto. reflexivity.
         split; eauto.
         change_rewrite H3 in H2.
@@ -192,12 +194,9 @@ Section typed.
         autorewrite with exprD_rw in *; simpl in *.
         forward. inv_all; subst.
         forward_exprD.
-        repeat match goal with
-                 | H : _ |- _ => rewrite H in *
-               end.
-        specialize (H7 _ _ _ eq_refl eq_refl eq_refl).
+        specialize (H7 _ _ _ H16 H13 H12).
         forward_reason.
-        specialize (H9 _ _ _ eq_refl eq_refl H15).
+        specialize (H9 _ _ _ H17 H14 H15).
         forward_reason.
         eexists; split; eauto.
         { etransitivity; eauto. }
@@ -209,7 +208,7 @@ Section typed.
                end.
         split; eauto.
         unfold exprT_App.
-        autorewrite with eq_rw. intros.
+        autorewrite_with_eq_rw. intros.
         Cases.rewrite_all_goal. reflexivity. } }
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].
       { forward. subst.
@@ -232,7 +231,7 @@ Section typed.
         split; eauto. intros.
         eapply H11 in H12; clear H11. forward_reason.
         split; auto. intros.
-        autorewrite with eq_rw.
+        autorewrite_with_eq_rw.
         eapply match_eq_match_eq with (pf := eq_sym (typ2_cast t x0)) (F := fun x => x).
         eapply functional_extensionality; intros.
         apply (H12 (Hcons x1 vs')). } }

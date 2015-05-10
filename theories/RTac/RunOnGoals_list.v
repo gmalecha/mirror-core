@@ -47,7 +47,7 @@ Section runOnGoals.
   Definition ResultAnd_to_Result_and c (r : ResultAnd c)
   : Result c * list (rtac typ expr) :=
     match r with
-      | RAFail => (Fail, nil)
+      | RAFail _ => (Fail, nil)
       | RASolved s tacs => (Solved s, tacs)
       | RAMore_ s g tacs => (More_ s g, tacs)
     end.

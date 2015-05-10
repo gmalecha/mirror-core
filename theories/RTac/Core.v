@@ -111,7 +111,7 @@ Section parameterized.
                              | _ => True
                            end
               with
-                | WFExs _ _ _ a b => conj b a
+                | @WFExs _ _ _ _ _ a b => conj b a
                 | _ => I
               end).
   Defined.
@@ -172,7 +172,7 @@ Section parameterized.
 
   Definition fromResult {c} (r : Result c) : option (ctx_subst c * Goal) :=
     match r with
-      | Fail => None
+      | Fail _ => None
       | More_ s g => Some (s, g)
       | Solved s => Some (s, GSolved)
     end.
@@ -191,7 +191,7 @@ Section parameterized.
   : option (hlist F ls) :=
     match h in hlist _ ls return option (hlist F ls) with
       | Hnil => Some (Hnil)
-      | Hcons _ _ x y =>
+      | Hcons x y =>
         match x , hlist_mapT y with
           | Some x , Some y => Some (Hcons x y)
           | _ , _ => None
@@ -390,7 +390,7 @@ Section parameterized.
 
   Definition rtac_spec ctx (s : CSUBST ctx) g r : Prop :=
     match r with
-      | Fail => True
+      | Fail _ => True
       | Solved s' =>
         WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
         WellFormed_ctx_subst s ->
@@ -494,12 +494,12 @@ Section parameterized.
   Lemma left_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
                                            ((P /\ Q) <-> R).
-  Proof. clear. tauto. Qed.
+  Proof using. tauto. Qed.
 
   Lemma right_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
                                            (Q <-> (P /\ R)).
-  Proof. clear. tauto. Qed.
+  Proof using. tauto. Qed.
 
   Definition WellTyped_Goal tus tvs (g : Goal) : Prop :=
     exists gD, goalD tus tvs g = Some gD.
@@ -509,7 +509,7 @@ Section parameterized.
 
   Definition WellTyped_Result c (r : Result c) : Prop :=
     match r with
-      | Fail => True
+      | Fail _ => True
       | Solved cs =>  WellTyped_ctx_subst cs
       | More_ cs g => WellTyped_Goal (getUVars c) (getVars c) g /\
                       WellTyped_ctx_subst cs
@@ -572,7 +572,7 @@ Section parameterized.
   Theorem rtac_spec_More_
   : forall ctx (s : ctx_subst ctx) g,
       rtac_spec s (GGoal g) (More_ s (GGoal g)).
-  Proof.
+  Proof using.
     unfold rtac_spec.
     intros; subst.
     split; auto.
@@ -611,15 +611,10 @@ Section parameterized.
       intros us vs. generalize (H12 us vs); clear H12.
       eapply Ap_pctxD; eauto.
       eapply pctxD_SubstMorphism; eauto.
-      generalize (H10 us vs); clear H10.
-      eapply Fmap_pctxD_impl;
-        [ eassumption | | reflexivity | reflexivity ].
-      clear. do 6 red.
-      intros; equivs. tauto.
   Qed.
 
   Global Instance Reflexive_GoalImplies c : Reflexive (GoalImplies (ctx:=c)).
-  Proof.
+  Proof using.
     red. destruct x; simpl; intros;
          forward_reason.
     split; auto.
@@ -629,7 +624,7 @@ Section parameterized.
     intros. eapply Pure_pctxD; eauto.
   Qed.
   Global Instance Transitive_GoalImplies c : Transitive (GoalImplies (ctx:=c)).
-  Proof.
+  Proof using.
     red. destruct x; destruct y; destruct z; simpl; intros;
          forward_reason.
     split; auto.

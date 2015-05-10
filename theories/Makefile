@@ -11,8 +11,8 @@ LAMBDA := ExprCore ExprDI ExprDsimul ExprD ExprDFacts \
 	  Lemma \
 	  ExprUnify_common ExprUnify ExprUnify_simul \
 	  ExprSubst ExprSubstitute AppN \
-	  ExprVariables \
-	  AutoSetoidRewrite AutoSetoidRewriteUnif AutoSetoidRewriteRtac
+	  ExprVariables
+#	  AutoSetoidRewrite AutoSetoidRewriteUnif AutoSetoidRewriteRtac
 # ExprUnifyHO
 LAMBDAM := ExprCore ExprCore_simul
 POLY := Ctx Ctx2 TypeI ML ExprCore
