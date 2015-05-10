@@ -11,6 +11,7 @@ Require Import MirrorCore.RTac.CoreK.
 
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -66,7 +67,7 @@ Section parameterized.
     { simpl in *.
       rewrite goalD_conv with (pfu := HList.app_nil_r_trans tus)
                               (pfv := eq_refl).
-      autorewrite with eq_rw.
+      autorewrite_with_eq_rw.
       destruct H1.
       split.
       { split.
@@ -80,7 +81,7 @@ Section parameterized.
       { inversion H2; try constructor.
         eapply only_in_range_0_substD with (tus := tus++nil) (tvs:=tvs) in H; eauto.
         destruct H as [ ? [ ? ? ] ].
-        change_rewrite H.
+        rewrite H.
         constructor.
         do 5 red; intros; equivs.
         autorewrite with eq_rw.
@@ -134,7 +135,7 @@ Section parameterized.
   : forall tus tvs t (g : Goal typ expr),
       WellFormed_Goal tus tvs (GAll t g) <->
       WellFormed_Goal tus (tvs ++ t :: nil) g.
-  Proof.
+  Proof using.
     split. intros; inv_all; subst. auto.
     intros. constructor. auto.
   Qed.
@@ -144,7 +145,7 @@ Section parameterized.
   : forall tus tvs,
       WellFormed_Goal (typ:=typ) (expr:=expr) tus tvs GSolved <->
       True.
-  Proof.
+  Proof using.
     split. intros; inv_all; subst. auto.
     intros. constructor.
   Qed.
@@ -155,7 +156,7 @@ Section parameterized.
            (a b : list T) (c c' : hlist F a) (d d' : hlist F b),
       equiv_hlist eqv (hlist_app c d) (hlist_app c' d') <->
       (equiv_hlist eqv c c' /\ equiv_hlist eqv d d').
-  Proof.
+  Proof using.
     intros. symmetry. eapply equiv_hlist_app.
   Qed.
 
@@ -234,8 +235,8 @@ Section parameterized.
        WellFormed_Goal (tus ++ ts) tvs y) ->
       (WellFormed_Goal tus tvs (GExs ts m x) <->
        WellFormed_Goal tus tvs (GExs ts m y)).
-  Proof.
-    clear. intros. split; intros; inv_all; subst; constructor; tauto.
+  Proof using.
+    intros. split; intros; inv_all; subst; constructor; tauto.
   Qed.
 
 
@@ -360,199 +361,3 @@ Section parameterized.
     end.
 
 End parameterized.
-
-(* TODO: Making this work requires a better set of equivalence relations
-  Lemma reduceResult_toResult
-  : forall ctx ctx',
-      (GoalImplies (ctx:=Ctx_append ctx ctx') ==> @ResultImplies _)%signature
-        (fun sg => let (cs,g) := sg in toResult ctx ctx' g cs)
-        (fun sg => let (cs,g) := sg in @reduceResult ctx ctx' g cs).
-  Proof.
-    Opaque GoalImplies.
-    induction ctx'; simpl; intro; try rewrite (ctx_subst_eta cs).
-    { simpl. red. intros.
-      destruct x; destruct y; simpl in *; auto. }
-    { simpl. red; intros.
-      destruct x; destruct y; simpl in *; eauto.
-      apply (IHctx' (fromAll c, GAll t g)
-                    (fromAll c0, GAll_do_solved t g0)); clear IHctx'.
-      simpl. intros; inv_all; forward_reason.
-      Transparent GoalImplies.
-      simpl in *; intros. ; inv_all; forward_reason.
-
-      destruct WT. forwardy.
-      destruct (drop_exact_append_exact (t :: nil) (getVars (Ctx_append ctx ctx'))) as [ ? [ ? ? ] ].
-      rewrite H3 in *. inv_all; subst.
-      eapply IHctx'; eauto.
-      eapply GAll_do_solved_respects. auto. }
-    { simpl; red; intros.
-      destruct x; destruct y; simpl in *; auto.
-      specialize (IHctx'
-                    (snd (fromExs c), GExs t (fst (fromExs c)) g)
-                    (snd (fromExs c0), GExs_do_solved t (fst (fromExs c0)) g0)).
-      red in IHctx'.
-      consider (fromExs c); consider (fromExs c0); intros; apply IHctx'; clear IHctx'.
-      simpl in *.
-
-
-simpl. red; intros. inv_all.
-      destruct WT. forwardy.
-      destruct (drop_exact_append_exact t (getUVars (Ctx_append ctx ctx'))) as [ ? [ ? ? ] ].
-      rewrite H6 in *. inv_all; subst.
-      eapply IHctx'; eauto.
-      eapply GExs_do_solved_respects; eauto.
-      rewrite <- countUVars_getUVars.
-      eapply WellFormed_entry_WellFormed_pre_entry; eauto. }
-    { simpl. red; intros. inv_all.
-      eapply IHctx'; eauto.
-      eapply GHyp_do_solved_respects; eauto. }
-  Qed.
-*)
-
-
-(*
-  Fixpoint GExs_reduce' (tes : tenv typ) (m : amap) (g : Goal typ expr)
-           (nus : nat) (acc : list (typ * option expr)) (k : list (option expr))
-  : Goal typ expr * nat :=
-    match tes with
-      | nil =>
-        let g' := instantiateGoal (adjust (List.rev k) nus) g in
-        (GExs_nil_check (List.rev acc) g', nus)
-      | te :: tes' =>
-        match te with
-          | (_,None) =>
-            GExs_reduce' tes' g (pred nus) (te :: acc) (None :: k)
-          | (_,Some e) =>
-            (** TODO: I probably want to do my instantiation here! **)
-            GExs_reduce' tes' g (pred nus) acc (Some e :: k)
-        end
-    end.
-
-  Definition GExs_reduce (tes : list (typ * option expr)) (g : Goal typ expr)
-             (nus : nat) : Goal typ expr * nat :=
-    GExs_reduce' tes g nus nil nil.
-
-  Eval cbv beta iota zeta delta - [ lt_rem instantiateGoal ] in
-      fun t g e => GExs_reduce' ((t,None) :: (t,Some e) :: (t,Some e) :: nil) g 0 nil nil.
-*)
-
-
-(*
-  Theorem GExs_do_solved_respects tus tvs ts m
-  : forall (WF : WellFormed_pre_entry (length tus) (length ts) m)
-           (WT : exists z, amap_substD (tus ++ ts) tvs m = Some z),
-    (EqGoal (tus ++ ts) tvs ==> EqGoal tus tvs)%signature
-      (GExs_do_solved ts m) (@GExs typ expr ts m).
-  Proof.
-    red. red. simpl. unfold GExs_do_solved.
-    intros. destruct H. split.
-    { clear H0.
-      destruct x; try eapply WellFormed_Goal_iff_GExs_cancel; eauto.
-      destruct (cardinal m ?[ eq ] length ts).
-      { split; constructor; eauto. apply H. constructor. }
-      { eapply WellFormed_Goal_iff_GExs_cancel; eauto. } }
-    { destruct WT.
-      destruct x; simpl in *; change_rewrite H1;
-      try solve [ destruct H0; constructor;
-                  do 5 red; intros;
-                  eapply Quant._exists_iff; intros;
-                  eapply and_iff; [ equivs; reflexivity | intro; eapply H0 ];
-                  solve_equiv_hlist ].
-      consider (cardinal m ?[ eq ] length ts).
-      { inversion H0; subst.
-        intros. simpl. constructor.
-        do 5 red; intros. equivs. split; auto.
-        intro X; clear X.
-        eapply Quant._exists_sem.
-        clear H H0 H3.
-        (...) }
-      { intros. simpl.
-        change_rewrite H1.
-        inversion H0. constructor. subst.
-        do 5 red; intros.
-        eapply Quant._exists_iff; intros;
-        eapply and_iff; [ equivs; reflexivity | intro ].
-        eapply H5. reflexivity. reflexivity. } }
-  Qed.
-*)
-
-(*
-  Definition GExs_consolidate (tes : list (typ * option expr))
-             (g : Goal typ expr) : Goal typ expr :=
-    match g with
-      | GExs tes' g' => GExs (tes ++ tes') g'
-      | _ => GExs_nil_check tes g
-    end.
-  Lemma Proper_GExs
-  : forall tus tvs tes,
-      Proper (EqGoal (tus ++ map fst tes) tvs ==> EqGoal tus tvs)%signature
-             (GExs tes).
-  Proof.
-    clear; intros.
-    red. red. unfold EqGoal.
-    simpl. inversion 1; try constructor.
-    destruct (goal_substD tus tvs (map fst tes) (map snd tes)); constructor.
-    do 5 red; intros; equivs.
-    eapply Quant._exists_iff. intros.
-    eapply and_iff. reflexivity.
-    intros. eapply H2; reflexivity.
-  Qed.
-*)
-
-(*
-  Theorem GExs_consolidate_respects tus tvs tes
-  : forall x y,
-      (EqGoal (tus ++ map fst tes) tvs)%signature x y ->
-      goal_substD tus tvs (map fst tes) (map snd tes) <> None ->
-      (EqGoal tus tvs)%signature
-         (@GExs typ expr tes x) (GExs_consolidate tes y).
-  Proof.
-    intros; subst.
-    destruct y;
-    try solve [ simpl; eapply GExs_nil_check_respects; eauto ].
-    etransitivity.
-    eapply Proper_GExs. eassumption.
-    inversion H; try congruence.
-    { unfold EqGoal. simpl.
-      forward.
-      repeat rewrite map_app.
-      rewrite goalD_conv with (pfu := HList.app_ass_trans tus (map fst tes) (map fst l))
-                                (pfv := eq_refl).
-      autorewrite with eq_rw.
-      destruct (goalD ((tus ++ map fst tes) ++ map fst l) tvs y); try constructor.
-      { forward. } }
-    { unfold EqGoal. simpl.
-      repeat rewrite map_app.
-      rewrite goalD_conv with (pfu := HList.app_ass_trans tus (map fst tes) (map fst l))
-                                (pfv := eq_refl).
-      autorewrite with eq_rw.
-      forward.
-      destruct (goal_substD_app _ _ _ _ _ H0 H4) as [ ? [ ? ? ] ].
-      rewrite H7. constructor.
-      }
-  Qed.
-*)
-
-(*
-  5 (None :: Some e :: None :: nil)
-  5 -> 5
-  6 -> e
-  7 -> 6
-*)
-
-(*
-  Fixpoint adjust' (ls : list (option expr)) (d u : nat) : option expr :=
-    match ls , u with
-      | nil , _ => Some (UVar (d + u))
-      | None :: ls' , 0 => Some (UVar d)
-      | Some e :: ls' , 0 =>
-        Some e (** TODO: I might need to instantiate this **)
-      | None :: ls' , S u => adjust' ls' (S d) u
-      | Some e :: ls' , S u => adjust' ls' d u
-    end.
-
-  Definition adjust (ls : list (option expr)) (nus u : nat) : option expr :=
-    match lt_rem u nus with
-      | None => None
-      | Some r => adjust' ls nus r
-*)

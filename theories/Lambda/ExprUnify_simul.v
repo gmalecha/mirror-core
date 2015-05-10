@@ -17,8 +17,9 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -345,7 +346,7 @@ Section typed.
       forall us vs vs',
         sD us vs ->
         eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
-  Proof.
+  Proof using RSymOk_func Typ2Ok_arr RTypeOk SubstOk_subst.
     intros.
     autorewrite with exprD_rw in H2. simpl in H2.
     forward. inv_all; subst.
@@ -515,7 +516,7 @@ Section typed.
             None
         | _ , _ => None
       end%bool.
-  Proof.
+  Proof using.
     destruct e1; try reflexivity.
   Defined.
 
@@ -525,11 +526,11 @@ Section typed.
       x A B = x' A B ->
       @exprT_App typ _ _ tus tvs t u f x A B =
       @exprT_App typ _ _ tus tvs t u f' x' A B.
-  Proof.
+  Proof using.
     unfold exprT_App.
-    clear. intros.
     intros.
-    autorewrite with eq_rw.
+    intros.
+    autorewrite_with_eq_rw.
     rewrite H. rewrite H0. reflexivity.
   Qed.
 
@@ -594,7 +595,7 @@ Section typed.
                  sD us vs /\
                  (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs))))).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros.
     do 3 match goal with
            | H : match _ with
@@ -690,12 +691,16 @@ Section typed.
                  sD us vs /\
                  (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs))))).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros.
     do 3 match goal with
            | H : match _ with
-                   | Some _ => match ?X with _ => _ end
-                   | None => match _ with Some _ => match ?Y with _ => _ end | None => _ end
+                 | Some _ => match ?X with _ => _ end
+                 | None => match _ with
+                           | Some _ =>
+                             match ?Y with _ => _ end
+                           | None => _
+                           end
                  end = _
              |- _ =>
              change Y with X in H ; consider X; intros; forward
@@ -762,7 +767,7 @@ Section typed.
                sD us vs /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros unify unifyOk tu tv.
     induction e1.
     { (** Var **)
@@ -1176,7 +1181,7 @@ Section typed.
   : forall unify,
       unify_sound_ind unify ->
       unify_sound_ind (exprUnify' unify).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros.
     red. intros.
     eapply exprUnify'_sound_mutual in H.
@@ -1185,7 +1190,7 @@ Section typed.
   Qed.
 
   Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify fuel).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     induction fuel; simpl; intros; try congruence.
     eapply exprUnify'_sound. eassumption.
   Qed.
