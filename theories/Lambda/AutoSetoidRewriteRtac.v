@@ -44,12 +44,51 @@ Section setoid.
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
   Variable Rbase : Type.
-  Variable Req : Rbase -> Rbase -> bool.
+  Variable RelDec_eq_Rbase : RelDec (@eq Rbase).
+  Hypothesis RelDecOk_eq_Rbase : RelDec_Correct RelDec_eq_Rbase.
 
   Inductive R : Type :=
   | Rinj (r : Rbase)
   | Rrespects (l r : R)
   | Rpointwise (t : typ) (r : R).
+
+  Fixpoint Req_dec (a b : R) : bool :=
+    match a , b with
+    | Rinj a , Rinj b => a ?[ eq ] b
+    | Rrespects l r , Rrespects l' r' =>
+      if Req_dec l l' then Req_dec r r' else false
+    | Rpointwise t a , Rpointwise t' a' =>
+      if t ?[ eq ] t' then Req_dec a a' else false
+    | _ , _ => false
+    end.
+
+  Theorem Req_dec_ok : forall x y : R, Req_dec x y = true <-> x = y.
+  Proof.
+    clear - RTypeOk_typD RelDecOk_eq_Rbase RelDec_Correct_eq_typ.
+    induction x; destruct y; simpl; try solve [ split; congruence ].
+    { rewrite rel_dec_correct.
+      split; intros; subst; auto. inversion H. auto. }
+    { specialize (IHx1 y1).
+      specialize (IHx2 y2).
+      destruct (Req_dec x1 y1).
+      { destruct (Req_dec x2 y2).
+        { split; auto. intros. f_equal; tauto. }
+        { rewrite IHx2. split; try congruence.
+          intros. f_equal; tauto. } }
+      { split; try congruence.
+        intros. inversion H. tauto. } }
+    { consider (t ?[ eq ] t0); intros.
+      { subst. rewrite IHx.
+        split; congruence. }
+      { split; congruence. } }
+  Qed.
+
+  Instance RelDec_eq_R : RelDec (@eq R) :=
+  { rel_dec := Req_dec }.
+  Instance RelDecCorrect_eq_R : RelDec_Correct RelDec_eq_R.
+  Proof.
+    constructor. eapply Req_dec_ok.
+  Qed.
 
   Variable RbaseD : Rbase -> forall t : typ, option (typD t -> typD t -> Prop).
 
@@ -61,7 +100,8 @@ Section setoid.
 
   (** This is due to universe problems! **)
   Definition respectful :=
-    fun (A B : Type) (R : A -> A -> Prop) (R' : B -> B -> Prop) (f g : A -> B) =>
+    fun (A B : Type) (R : A -> A -> Prop) (R' : B -> B -> Prop)
+        (f g : A -> B) =>
       forall x y : A, R x y -> R' (f x) (g y).
   Definition pointwise_relation :=
     fun (A B : Type) (R : B -> B -> Prop) (f g : A -> B) =>
@@ -122,8 +162,9 @@ Section setoid.
   Qed.
 
   Definition mrw (T : Type) : Type :=
-    tenv typ -> tenv typ -> tenv typ -> nat -> nat -> forall c : Ctx typ (expr typ func), ctx_subst c ->
-    option (T * ctx_subst c).
+    tenv typ -> tenv typ -> tenv typ -> nat -> nat ->
+    forall c : Ctx typ (expr typ func), ctx_subst c ->
+                                        option (T * ctx_subst c).
 
   Definition rw_ret {T} (val : T) : mrw T :=
     fun _ _ _ _ _ _ s => Some (val, s).
@@ -175,7 +216,8 @@ Section setoid.
 
   Definition setoid_rewrite_rel
              (e : expr typ func) (r : R) (rw : mrw (expr typ func)) : Prop :=
-    forall (ctx : Ctx typ (expr typ func)) cs (tvs' : tenv typ) cs' (e' : expr typ func),
+    forall (ctx : Ctx typ (expr typ func)) cs (tvs' : tenv typ) cs'
+           (e' : expr typ func),
       let tus := getUVars ctx in
       let tvs := getVars ctx in
       rw tvs' tus tvs (length tus) (length tvs) ctx cs = Some (e', cs') ->
@@ -193,17 +235,20 @@ Section setoid.
             csD' (fun (us : HList.hlist typD (getUVars ctx))
                       (vs : HList.hlist typD (getVars ctx)) =>
                     forall vs',
-                      rD (eD us (hlist_app vs' vs)) (eD' us (hlist_app vs' vs))) us vs)
+                      rD (eD us (hlist_app vs' vs))
+                         (eD' us (hlist_app vs' vs))) us vs)
       | None , _ , _ , _
       | Some _ , None , _ , _ => True
       | Some _ , Some _ , None , _
       | Some _ , Some _ , Some _ , None => False
       end.
 
-  Definition setoid_rewrite_spec (rw : expr typ func -> R -> mrw (expr typ func)) : Prop :=
+  Definition setoid_rewrite_spec
+             (rw : expr typ func -> R -> mrw (expr typ func)) : Prop :=
     forall e r, @setoid_rewrite_rel e r (rw e r).
 
-  Definition respectful_spec (respectful : expr typ func -> R -> mrw (list R)) : Prop :=
+  Definition respectful_spec (respectful : expr typ func -> R -> mrw (list R))
+  : Prop :=
     forall tvs' (ctx : Ctx typ (expr typ func)) cs cs' e r rs,
       let tus := getUVars ctx in
       let tvs := getVars ctx in
@@ -263,23 +308,114 @@ Section setoid.
       end.
 
     Let _lookupU (u : ExprI.uvar) : option (expr typ func) := None.
-    Let _lookupV (under : nat) (v : ExprI.var) : option (expr typ func) :=
-      if v ?[ ge ] under then
-        None
-      else
-        Some (Var (under - 1 - v)).
+    Let _lookupV (under : nat) (above : nat) (v : ExprI.var)
+    : option (expr typ func) :=
+      Some (Var (if v ?[ ge ] under then
+                   v - under
+                 else
+                   v + above)).
 
-    Definition expr_convert (u : nat) : expr typ func -> expr typ func :=
-      expr_subst _lookupU (_lookupV u) 0.
+    Definition expr_convert (u : nat) (above : nat)
+    : expr typ func -> expr typ func :=
+      expr_subst _lookupU (_lookupV u above) 0.
 
-(*
-    Definition setoid_rewrite_rec tvs' ctx cs
-      (ls : list (expr typ func * (R -> mrw (expr typ func))))
-    : Prop :=
-      Forall (fun e =>
-                forall r,
-                  @setoid_rewrite_rel ctx cs tvs' (expr_subst _lookupU (_lookupV (length tvs')) 0 (fst e)) r (snd e r)) ls.
-*)
+    (** TODO(gmalecha): Move **)
+    Lemma nth_error_get_hlist_nth_appR'
+    : forall T (F : T -> Type) ls u v,
+        nth_error_get_hlist_nth F ls u = Some v ->
+        forall ls',
+        exists v',
+          nth_error_get_hlist_nth F (ls' ++ ls) (u + length ls') = Some (existT _ (projT1 v) v') /\
+          forall a b,
+            projT2 v a = v' (hlist_app b a).
+    Proof.
+      clear. induction ls'.
+      { simpl.
+        replace (u + 0) with u by omega.
+        destruct v. eexists; split; eauto.
+        simpl. intros.
+        rewrite (hlist_eta b). reflexivity. }
+      { simpl.
+        replace (u + S (length ls')) with (S (u + length ls')) by omega.
+        destruct IHls' as [ ? [ ? ? ] ].
+        rewrite H0. eexists; split; eauto.
+        simpl. intros.
+        rewrite (hlist_eta b). simpl. eauto. }
+    Qed.
+
+    Lemma expr_convert_sound
+    : forall tus tvs tvs' e t eD,
+        exprD' tus (tvs ++ tvs') t e = Some eD ->
+        exists eD',
+          exprD' tus (tvs' ++ tvs) t (expr_convert (length tvs) (length tvs') e) = Some eD' /\
+          forall a b c,
+            eD a (hlist_app b c) = eD' a (hlist_app c b).
+    Proof.
+      clear - Typ2Ok_Fun RTypeOk_typD RSymOk_func.
+      unfold expr_convert.
+      intros.
+      destruct (fun Hu Hv => @ExprI.expr_subst_sound
+                    typ _ (expr typ func) (Expr_expr _ _ _ _) _
+                    _lookupU
+                    (_lookupV (length tvs) (length tvs'))
+                    0 e _ eq_refl nil
+                    tus (tvs ++ tvs') tus (tvs' ++ tvs)
+                    (fun us vs us' vs' =>
+                       us = us' /\
+                       let (_vs,_vs') := hlist_split _ _ vs in
+                       let (__vs,__vs') := hlist_split _ _ vs' in
+                       _vs = __vs' /\ _vs' = __vs) Hu Hv t _ eq_refl H).
+      { simpl. clear.
+        intros. eexists; split; eauto.
+        intros. destruct H1; subst; auto. }
+      { simpl. intros.
+        autorewrite with exprD_rw. simpl.
+        consider (u ?[ ge ] length tvs); intros.
+        { eapply nth_error_get_hlist_nth_appR in H1; eauto.
+          simpl in H1. forward_reason.
+          eapply nth_error_get_hlist_nth_weaken with (ls':=tvs) in H1.
+          simpl in H1.
+          forward_reason. rewrite H1.
+          rewrite type_cast_refl; eauto.
+          eexists; split; eauto.
+          unfold Rcast_val, Rcast, Relim. simpl.
+          intros.
+          revert H5.
+          rewrite <- (hlist_app_hlist_split _ _ vs).
+          rewrite <- (hlist_app_hlist_split _ _ vs').
+          rewrite hlist_split_hlist_app.
+          rewrite hlist_split_hlist_app.
+          destruct 1.
+          rewrite H3. rewrite <- H4.
+          f_equal. tauto. }
+        { assert (u < length tvs) by omega.
+          eapply nth_error_get_hlist_nth_appL in H3.
+          destruct H3. destruct H3.
+          rewrite H3 in H1.
+          assert (u + length tvs' >= length tvs') by omega.
+          destruct H4 as [ ? [ ? ? ] ].
+          eapply nth_error_get_hlist_nth_appR' in H4; simpl in H4.
+          destruct H4 as [ ? [ ? ? ] ].
+          rewrite H4.
+          inv_all. subst. simpl.
+          rewrite type_cast_refl; eauto.
+          eexists; split; eauto.
+          intros us vs us' vs'.
+          rewrite <- (hlist_app_hlist_split _ _ vs).
+          rewrite <- (hlist_app_hlist_split _ _ vs').
+          rewrite hlist_split_hlist_app.
+          rewrite hlist_split_hlist_app.
+          destruct 1.
+          simpl in *.
+          rewrite H6. rewrite <- H7.
+          unfold Rcast_val, Rcast; simpl. f_equal. tauto. } }
+      { simpl in H0.
+        destruct H0; eexists; split; eauto.
+        intros. apply (H1 a (hlist_app b c) a (hlist_app c b) Hnil).
+        split; auto.
+        do 2 rewrite hlist_split_hlist_app.
+        tauto. }
+    Qed.
 
     Definition setoid_rewrite_rec
       (ls : list (expr typ func * (R -> mrw (expr typ func))))
@@ -301,24 +437,6 @@ Section setoid.
           forall us vs,
             rD (eesD us vs) (eesD' us vs).
 *)
-
-    Lemma _lookupV_self_ident : forall u v,
-        match _lookupV u match _lookupV u v with
-                         | Some (Var v') => v'
-                         | _ => v
-                         end
-        with
-        | Some (Var v') => v'
-        | _ => v
-        end = v.
-    Proof.
-      clear. subst _lookupV. simpl. intros.
-      consider (v ?[ ge ] u); intros.
-      { rewrite rel_dec_eq_true; eauto with typeclass_instances. }
-      consider ((u - 1 - v) ?[ ge ] u); auto.
-      { intros. red in v. simpl in *.
-        unfold var. omega. }
-    Qed.
 
     Hypothesis respectfulness_sound
     : forall e es rg,
@@ -397,6 +515,7 @@ Section setoid.
     Hypothesis rwOk : setoid_rewrite_spec rw.
     Hypothesis respectfulOk : respectful_spec respectful.
 
+    (** TODO(gmalecha): Move **)
     Lemma exprD'_App
     : forall tus tvs td tr f x fD xD,
         exprD' tus tvs (typ2 (F:=Fun) td tr) f = Some fD ->
@@ -410,6 +529,7 @@ Section setoid.
       rewrite H. rewrite H0. reflexivity.
     Qed.
 
+    (** TODO: Move **)
     Fixpoint apply_fold tus tvs t ts
              (es : HList.hlist (fun t => ExprI.exprT tus tvs (typD t)) ts)
     : ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=Fun)) t ts))
@@ -418,11 +538,12 @@ Section setoid.
             return ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=Fun)) t ts))
                    -> ExprI.exprT tus tvs (typD t)
       with
-        | HList.Hnil => fun f => f
-        | HList.Hcons t' ts x xs => fun f =>
-                                      @apply_fold tus tvs t ts xs (exprT_App f x)
+      | HList.Hnil => fun f => f
+      | HList.Hcons t' ts x xs => fun f =>
+                                    @apply_fold tus tvs t ts xs (exprT_App f x)
       end.
 
+    (** TODO: Move **)
     Lemma apps_exprD'_fold_type
     : forall tus tvs es e t eD,
         exprD' tus tvs t (apps e es) = Some eD ->
@@ -471,31 +592,6 @@ Section setoid.
         { inversion H1. } }
     Qed.
 
-    Inductive Forall3 {T U V : Type} (P : T -> U -> V -> Prop)
-    : list T -> list U -> list V -> Prop :=
-    | Forall3_nil : Forall3 P nil nil nil
-    | Forall3_cons : forall t u v ts us vs,
-                       P t u v -> Forall3 P ts us vs ->
-                       Forall3 P (t :: ts) (u :: us) (v :: vs).
-
-(*
-    Theorem rw_map2_sound
-    : forall T U V (f : T -> U -> mrw V) (P : T -> U -> V -> Prop) ts us vs,
-        rw_map2 f ts us = Some vs ->
-        (forall a b c, f a b = rw_ret c -> P a b c) ->
-        Forall3 P ts us vs.
-    Proof. clear. intros. revert H. revert vs; revert us.
-           induction ts; destruct us; simpl in *;
-           try solve [ inversion 1 ]; intros.
-           { inversion H. constructor. }
-           { specialize (H0 a u).
-             destruct (f a u); [ simpl in H | inversion H ].
-             specialize (IHts us).
-             destruct (rw_map2 f ts us); inversion H.
-             constructor; eauto. }
-    Qed.
-*)
-
     Fixpoint recursive_rewrite (f : expr typ func)
              (es : list (expr typ func * (R -> mrw (expr typ func))))
              (rs : list R)
@@ -519,12 +615,14 @@ Section setoid.
 
     Instance Symmetric_mrw_equiv {T} (rT : T -> T -> Prop) {Sym_rT : Symmetric rT}
     : Symmetric (mrw_equiv rT).
-    red. red. intros. eapply Symmetric_Roption. eapply Symmetric_Eqpair; eauto. eapply H.
+    red. red. intros. eapply Symmetric_Roption. eapply Symmetric_Eqpair; eauto.
+    eapply H.
     Qed.
 
     Instance Transitive_mrw_equiv {T} (rT : T -> T -> Prop) {Trans_rT : Transitive rT}
     : Transitive (mrw_equiv rT).
-    red. red. intros. eapply Transitive_Roption. eapply Transitive_Eqpair; eauto with typeclass_instances.
+    red. red. intros. eapply Transitive_Roption.
+    eapply Transitive_Eqpair; eauto with typeclass_instances.
     eapply H. eapply H0.
     Qed.
 
@@ -598,6 +696,7 @@ Section setoid.
                                               (HList.Hcons x xs)
                                               (HList.Hcons y ys).
 
+    (** TODO: Move rewriting lemmas out **)
     Record rw_concl : Type :=
     { lhs : expr typ func
     ; rel : R
@@ -619,12 +718,6 @@ Section setoid.
       end.
 
     Definition rw_lemma : Type := Lemma.lemma typ (expr typ func) rw_concl.
-
-    Instance RelDec_eq_R : RelDec (@eq R).
-    Admitted.
-    Instance RelDecCorrect_eq_R : RelDec_Correct RelDec_eq_R.
-    Admitted.
-
 
     (** Note, this is quite inefficient due to building and destructing the pair **)
     Fixpoint extend_ctx (tvs' : tenv typ)
@@ -695,7 +788,8 @@ Section setoid.
 
     Fixpoint using_rewrite_db' (ls : list (rw_lemma * rtacK typ (expr typ func)))
     : expr typ func -> R ->
-      tenv typ -> tenv typ -> nat -> nat -> forall ctx, ctx_subst ctx -> option (expr typ func * ctx_subst ctx) :=
+      tenv typ -> tenv typ -> nat -> nat ->
+      forall ctx, ctx_subst ctx -> option (expr typ func * ctx_subst ctx) :=
       match ls with
       | nil => fun _ _ _ _ _ _ _ _ => None
       | (lem,tac) :: ls =>
@@ -717,7 +811,8 @@ Section setoid.
       | t :: tvs' => wrap_tvs tvs' (CAll ctx t)
       end.
 
-    Fixpoint wrap_tvs_ctx_subst tvs ctx (cs : ctx_subst ctx) : ctx_subst (wrap_tvs tvs ctx) :=
+    Fixpoint wrap_tvs_ctx_subst tvs ctx (cs : ctx_subst ctx)
+    : ctx_subst (wrap_tvs tvs ctx) :=
       match tvs as tvs return ctx_subst (wrap_tvs tvs ctx) with
       | nil => cs
       | t :: tvs => wrap_tvs_ctx_subst _ (AllSubst cs)
@@ -729,13 +824,15 @@ Section setoid.
             return ctx_subst (wrap_tvs tvs ctx) -> (ctx_subst ctx -> T) -> T
       with
       | nil => fun cs k => k cs
-      | t :: tvs => fun cs k => @unwrap_tvs_ctx_subst T tvs (CAll ctx t) cs (fun z => k (fromAll z))
+      | t :: tvs => fun cs k =>
+        @unwrap_tvs_ctx_subst T tvs (CAll ctx t) cs (fun z => k (fromAll z))
       end.
 
-    Lemma getUVars_wrap_tvs : forall tvs' ctx, getUVars (wrap_tvs tvs' ctx) = getUVars ctx.
+    Lemma getUVars_wrap_tvs
+    : forall tvs' ctx, getUVars (wrap_tvs tvs' ctx) = getUVars ctx.
     Proof. clear. induction tvs'; simpl; auto.
            intros.  rewrite IHtvs'. reflexivity.
-    Qed.
+    Defined.
 
     Lemma WellFormed_ctx_subst_wrap_tvs : forall tvs' ctx (cs : ctx_subst ctx),
         WellFormed_ctx_subst cs ->
@@ -744,6 +841,27 @@ Section setoid.
       clear. induction tvs'; simpl; auto.
       intros. eapply IHtvs'. constructor. assumption.
     Qed.
+
+    Lemma getAmbientUVars_wrap_tvs : forall tvs ctx,
+        getAmbientUVars (wrap_tvs tvs ctx) = getAmbientUVars ctx.
+    Proof.
+      clear. induction tvs; simpl. reflexivity.
+      intros. rewrite IHtvs. reflexivity.
+    Defined.
+    Lemma getAmbientVars_wrap_tvs : forall tvs ctx,
+        getAmbientVars (wrap_tvs tvs ctx) = getAmbientVars ctx.
+    Proof.
+      clear. induction tvs; simpl. reflexivity.
+      intros. rewrite IHtvs. reflexivity.
+    Defined.
+    Lemma getVars_wrap_tvs : forall tvs' ctx,
+        getVars (wrap_tvs tvs' ctx) = getVars ctx ++ tvs'.
+    Proof.
+      clear. induction tvs'; simpl; eauto.
+      symmetry. eapply app_nil_r_trans.
+      simpl. intros. rewrite IHtvs'. simpl.
+      rewrite app_ass_trans. reflexivity.
+    Defined.
 
     Lemma WellFormed_ctx_subst_unwrap_tvs
     : forall tvs' ctx ctx' (cs : ctx_subst _)
@@ -760,26 +878,226 @@ Section setoid.
       inv_all. assumption.
     Qed.
 
-    Lemma getVars_wrap_tvs : forall tvs' ctx,
-        getVars (wrap_tvs tvs' ctx) = getVars ctx ++ tvs'.
-    Proof.
-      clear. induction tvs'; simpl; eauto.
-      symmetry. eapply app_nil_r_trans.
-      simpl. intros. rewrite IHtvs'. simpl.
-      rewrite app_ass_trans. reflexivity.
+    Fixpoint unwrap_tvs_ctx_subst' (tvs : tenv typ) (ctx : Ctx typ (expr typ func)) : ctx_subst (wrap_tvs tvs ctx) -> ctx_subst ctx :=
+      match tvs as tvs return ctx_subst (wrap_tvs tvs ctx) -> ctx_subst ctx with
+      | nil => fun X => X
+      | t :: tvs => fun X => fromAll (unwrap_tvs_ctx_subst' tvs _ X)
+      end.
+    Theorem unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'
+    : forall T tvs ctx cs (k : _ -> T),
+        k (@unwrap_tvs_ctx_subst' tvs ctx cs) =
+        unwrap_tvs_ctx_subst tvs cs k.
+    Proof. clear.
+           induction tvs; simpl. auto.
+           intros. rewrite <- IHtvs. reflexivity.
     Qed.
 
-    Definition for_tactic {T} (m : expr typ func ->
+    (** TODO: Move **)
+    Lemma pctxD_iff : forall ctx (cs : ctx_subst ctx) cD P Q,
+        pctxD cs = Some cD ->
+        (forall us vs, P us vs <-> Q us vs) ->
+        forall us vs,
+          cD P us vs <-> cD Q us vs.
+    Proof.
+      clear. intros.
+      split; eapply Ap_pctxD; eauto; eapply Pure_pctxD; eauto; intros; eapply H0; eauto.
+    Qed.
+
+    (** TODO: Move **)
+    Lemma forall_hlist_nil : forall T (F : T -> Type) (P : hlist F nil -> Prop),
+        (forall x, P x) <-> P Hnil.
+    Proof.
+      intros. split. eauto. intros. rewrite hlist_eta. assumption.
+    Qed.
+
+    Lemma forall_hlist_cons : forall T (F : T -> Type) t ts (P : hlist F (t :: ts) -> Prop),
+        (forall x, P x) <-> (forall x xs, P (Hcons x xs)).
+    Proof.
+      intros. split. eauto. intros. rewrite hlist_eta. eapply H.
+    Qed.
+
+    Lemma pctxD_unwrap_tvs_ctx_subst
+      : forall tvs ctx (cs : ctx_subst _) cD,
+        pctxD cs = Some cD ->
+        exists cD',
+          pctxD (@unwrap_tvs_ctx_subst _ tvs ctx cs (fun x => x)) = Some cD' /\
+          forall (us : hlist typD _) (vs : hlist typD _) (P : exprT _ _ Prop),
+            cD' (fun us vs => forall vs', P us (hlist_app vs vs')) us vs <->
+            cD match eq_sym (getVars_wrap_tvs tvs ctx) in _ = V
+                   , eq_sym (getUVars_wrap_tvs tvs ctx) in _ = U
+                     return exprT U V Prop
+               with
+               | eq_refl , eq_refl => P
+               end
+               match eq_sym (getAmbientUVars_wrap_tvs tvs ctx) in _ = V
+                     return hlist _ V
+               with
+               | eq_refl => us
+               end
+               match eq_sym (getAmbientVars_wrap_tvs tvs ctx) in _ = V
+                     return hlist _ V
+               with
+               | eq_refl => vs
+               end.
+    Proof.
+      clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+      intros. rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
+      generalize dependent cD. revert cs. revert ctx.
+      induction tvs.
+      { simpl. eauto.
+        eexists; split; eauto.
+        intros.
+        eapply pctxD_iff; eauto.
+        intros.
+        rewrite forall_hlist_nil.
+        rewrite hlist_app_nil_r.
+        generalize (app_nil_r_trans (getVars ctx)).
+        clear. generalize dependent (getVars ctx ++ nil).
+        intros; subst. reflexivity. }
+      { simpl; intros.
+        specialize (@IHtvs _ _ _ H).
+        forward_reason.
+        generalize dependent (unwrap_tvs_ctx_subst' tvs (CAll ctx a) cs).
+        intro. rewrite (ctx_subst_eta c); simpl.
+        intros; forwardy.
+        eexists; split; eauto.
+        inv_all. subst. intros.
+        specialize (H1 us vs
+                       match eq_sym (app_ass_trans (getVars ctx) _ _) in _ = X
+                             return exprT _ X Prop
+                       with
+                       | eq_refl => P
+                       end).
+        simpl in *.
+        etransitivity; [ etransitivity; [ | eapply H1 ] | ]; clear H1.
+        { eapply pctxD_iff; eauto.
+          intros.
+          rewrite forall_hlist_cons.
+          eapply Data.Prop.forall_iff; intros.
+          eapply Data.Prop.forall_iff; intros.
+          rewrite hlist_app_assoc.
+          clear. simpl.
+          generalize dependent (app_ass_trans (getVars ctx) (a :: nil) tvs).
+          simpl in *.
+          generalize dependent ((getVars ctx ++ a :: nil) ++ tvs).
+          intros; subst. reflexivity. }
+        { clear - H.
+          match goal with
+          | |- _ _ ?U ?V <-> _ _ ?U' ?V' =>
+            replace V with V' ; [ replace U with U' | ]
+          end.
+          { eapply pctxD_iff; eauto; clear.
+            generalize (app_ass_trans (getVars ctx) (a :: nil) tvs).
+            generalize (getVars_wrap_tvs tvs (CAll ctx a)).
+            generalize (getUVars_wrap_tvs tvs (CAll ctx a)).
+            simpl.
+            intros;
+            repeat match goal with
+               | H : @eq (tenv typ) ?X ?Y |- _ =>
+                 first [ generalize dependent X | generalize dependent Y ] ; intros; subst
+               | H : @eq (list typ) ?X ?Y |- _ =>
+                 first [ generalize dependent X | generalize dependent Y ] ; intros; subst
+               end. reflexivity. }
+          { clear.
+            generalize (getAmbientUVars_wrap_tvs tvs (CAll ctx a)).
+            simpl in *. destruct e. reflexivity. }
+          { clear.
+            generalize (getAmbientVars_wrap_tvs tvs (CAll ctx a)).
+            simpl. destruct e. reflexivity. } } }
+    Qed.
+
+    Lemma pctxD_wrap_tvs_ctx_subst
+      : forall tvs ctx (cs : ctx_subst ctx) cD,
+        pctxD cs = Some cD ->
+        exists cD',
+          pctxD (wrap_tvs_ctx_subst tvs cs) = Some cD' /\
+          forall us vs (P : exprT _ _ Prop),
+            cD (fun us vs => forall vs', P us (hlist_app vs vs')) us vs <->
+            cD' match eq_sym (getVars_wrap_tvs tvs ctx) in _ = V
+                                                           , eq_sym (getUVars_wrap_tvs tvs ctx) in _ = U
+                      return exprT U V Prop
+                with
+                | eq_refl , eq_refl => P
+                end
+                match eq_sym (getAmbientUVars_wrap_tvs tvs ctx) in _ = V
+                      return hlist _ V
+                with
+                | eq_refl => us
+                end
+                match eq_sym (getAmbientVars_wrap_tvs tvs ctx) in _ = V
+                      return hlist _ V
+                with
+                | eq_refl => vs
+                end.
+    Proof.
+      clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+      induction tvs.
+      { simpl. eauto.
+        eexists; split; eauto.
+        intros; eapply pctxD_iff; eauto.
+        intros. rewrite forall_hlist_nil.
+        rewrite hlist_app_nil_r. clear.
+        generalize (app_nil_r_trans (getVars ctx)).
+        generalize dependent (getVars ctx ++ nil). intros; subst.
+        reflexivity. }
+      { simpl. intros.
+        specialize (IHtvs (CAll ctx a) (AllSubst cs)).
+        simpl in IHtvs. rewrite H in IHtvs.
+        specialize (IHtvs _ eq_refl).
+        destruct IHtvs as [ ? [ ? ? ] ].
+        eexists; split; eauto.
+        intros.
+        specialize (H1 us vs
+                       match eq_sym (app_ass_trans (getVars ctx) _ _) in _ = X
+                             return exprT _ X Prop
+                       with
+                       | eq_refl => P
+                       end).
+        etransitivity; [ etransitivity; [ | eapply H1 ] | ]; clear H1.
+        { eapply pctxD_iff; eauto.
+          intros. rewrite forall_hlist_cons.
+          eapply Data.Prop.forall_iff; intro.
+          eapply Data.Prop.forall_iff; intro.
+          rewrite hlist_app_assoc.
+          clear.
+          generalize dependent (eq_sym (app_ass_trans (getVars ctx) (a :: nil) tvs)).
+          simpl in *. destruct e. reflexivity. }
+        { match goal with
+          | |- _ _ ?U ?V <-> _ _ ?U' ?V' =>
+            replace V with V' ; [ replace U with U' | ]
+          end.
+          { eapply pctxD_iff; eauto.
+            intros.
+            generalize (app_ass_trans (getVars ctx) (a :: nil) tvs).
+            generalize (getVars_wrap_tvs tvs (CAll ctx a)).
+            generalize (getUVars_wrap_tvs tvs (CAll ctx a)).
+            simpl. clear.
+            intros;
+            repeat match goal with
+               | H : @eq (tenv typ) ?X ?Y |- _ =>
+                 first [ generalize dependent X | generalize dependent Y ] ; intros; subst
+               | H : @eq (list typ) ?X ?Y |- _ =>
+                 first [ generalize dependent X | generalize dependent Y ] ; intros; subst
+               end. reflexivity. }
+          { clear.
+            generalize (getAmbientUVars_wrap_tvs tvs (CAll ctx a)).
+            simpl in *. destruct e. reflexivity. }
+          { clear.
+            generalize (getAmbientVars_wrap_tvs tvs (CAll ctx a)).
+            simpl. destruct e. reflexivity. } } }
+    Qed.
+
+    Definition for_tactic (m : expr typ func ->
       tenv typ -> tenv typ -> nat -> nat ->
       forall ctx : Ctx typ (expr typ func),
-        ctx_subst ctx -> option (T * ctx_subst ctx))
-    : expr typ func -> mrw T :=
+        ctx_subst ctx -> option (expr typ func * ctx_subst ctx))
+    : expr typ func -> mrw (expr typ func) :=
       fun e tvs' tus tvs nus nvs ctx cs =>
         let under := length tvs' in
-        let e' := expr_convert under e in
+        let e' := expr_convert under nvs e in
         match m e' tus (tvs ++ tvs') nus (under + nvs) _ (@wrap_tvs_ctx_subst tvs' ctx cs) with
         | None => None
-        | Some (v,cs') => Some (v, @unwrap_tvs_ctx_subst _ tvs' ctx cs' (fun x=> x))
+        | Some (v,cs') => Some (expr_convert nvs under v, @unwrap_tvs_ctx_subst _ tvs' ctx cs' (fun x=> x))
         end.
 
     Definition using_rewrite_db (ls : list (rw_lemma * rtacK typ (expr typ func)))
@@ -787,6 +1105,7 @@ Section setoid.
       let rw_db := using_rewrite_db' ls in
       fun e r => for_tactic (fun e => rw_db e r) e.
 
+    (** TODO: Move **)
     Lemma exprD'_weakenV
       : forall (typ : Type) (RType_typD : RType typ)
                (Typ2_Fun : Typ2 RType_typD Fun) (func : Type)
@@ -822,6 +1141,7 @@ Section setoid.
       reflexivity.
     Qed.
 
+    (** TODO: Move **)
     Lemma exprD'_weakenU
       : forall (typ : Type) (RType_typD : RType typ)
                (Typ2_Fun : Typ2 RType_typD Fun) (func : Type)
@@ -857,7 +1177,6 @@ Section setoid.
       reflexivity.
     Qed.
 
-
     (** TODO(gmalecha): Move **)
     Lemma WellFormed_Goal_GConj_list
       : forall tus tvs gs,
@@ -884,12 +1203,14 @@ Section setoid.
       { split; intros. inversion H. forward_reason. inversion H. }
     Qed.
 
+    (** TODO: Move **)
     Fixpoint GConj_list_simple {T U} (gs : list (Goal T U)) : Goal T U :=
       match gs with
       | nil => GSolved
       | g :: gs => GConj_ g (GConj_list_simple gs)
       end.
 
+    (** TODO: Move **)
     Lemma list_ind_singleton
     : forall {T : Type} (P : list T -> Prop)
              (Hnil : P nil)
@@ -904,7 +1225,7 @@ Section setoid.
     Existing Instance Reflexive_Roption.
     Existing Instance Reflexive_RexprT.
 
-
+    (** TODO: Move **)
     Lemma goalD_GConj_list_GConj_list_simple : forall tus tvs gs,
         Roption (RexprT _ _ iff)
                 (goalD tus tvs (GConj_list gs))
@@ -927,6 +1248,7 @@ Section setoid.
         apply H; reflexivity. }
     Qed.
 
+    (** TODO: Move **)
     Lemma goalD_GConj_list : forall tus tvs gs,
         Roption (RexprT _ _ iff)
                 (goalD tus tvs (GConj_list gs))
@@ -956,6 +1278,7 @@ Section setoid.
           tauto. } }
     Qed.
 
+    (** TODO: Move **)
     Lemma amap_substD_amap_empty : forall tus tvs,
         exists sD,
           amap_substD tus tvs (amap_empty (expr typ func)) = Some sD /\
@@ -965,6 +1288,7 @@ Section setoid.
       eapply FMapSubst.SUBST.substD_empty.
     Qed.
 
+    (** TODO: Move with rewrite lemmas **)
     Lemma rw_concl_weaken
       : forall (tus tvs : tenv typ) (l : rw_concl) (lD : exprT tus tvs Prop),
         rw_conclD tus tvs l = Some lD ->
@@ -988,6 +1312,7 @@ Section setoid.
 
     Opaque instantiate.
 
+    (** TODO: Move Data.List **)
     Lemma Forall_cons_iff : forall (T : Type) (P : T -> Prop) a b,
         Forall P (a :: b) <-> (P a /\ Forall P b).
     Proof. clear. split.
@@ -995,12 +1320,19 @@ Section setoid.
            destruct 1; constructor; auto.
     Qed.
 
+    (** TODO: Move Data.List **)
     Lemma Forall_nil_iff : forall (T : Type) (P : T -> Prop),
         Forall P nil <-> True.
     Proof.
       clear. split; auto.
     Qed.
 
+    (** TODO(gmalecha): Move **)
+    Instance Subst_amap T : Subst (amap T) T := FMapSubst.SUBST.Subst_subst T.
+    Instance SubstOk_amap : SubstOk (Subst_amap (expr typ func)) :=
+      @FMapSubst.SUBST.SubstOk_subst typ _ _ (expr typ func) _.
+
+    (** TODO: Move **)
     Lemma core_rewrite_sound :
       forall ctx (cs : ctx_subst ctx),
         let tus := getUVars ctx in
@@ -1243,6 +1575,7 @@ Section setoid.
         rewrite H26 in *.
         inv_all.
         forwardy.
+        generalize H7. intro Hamap_substD.
         eapply subst_getInstantiation in H7;
           eauto using WellFormed_entry_WellFormed_pre_entry
                  with typeclass_instances.
@@ -1254,11 +1587,63 @@ Section setoid.
                    forall us vs,
                      e'D us vs =
                      y0 us (hlist_map
-           (fun (t : typ) (x6 : exprT (getUVars ctx) (getVars ctx) (typD t)) =>
-            x6 us vs) x5)).
+                              (fun (t : typ) (x6 : exprT (getUVars ctx) (getVars ctx) (typD t)) =>
+                                 x6 us vs) x5)).
         { (** this says that I can strengthen the expression **)
-          admit.
-        }
+          (** TODO: This should be a lemma **)
+          revert H13. revert H. revert H5. revert Hamap_substD.
+          clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun H40.
+          generalize dependent (getUVars ctx).
+          generalize dependent (getVars ctx).
+          generalize dependent (rhs (concl l0)).
+          generalize dependent (vars l0).
+          clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+          intros.
+          generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ t1 e nil t0 l _ H13).
+          destruct 1 as [ ? [ ? ? ] ].
+          eapply ExprI.exprD'_weakenV with (tvs':=t) in H0; eauto with typeclass_instances.
+          destruct H0 as [ ? [ ? ? ] ].
+          destruct (@instantiate_sound typ (expr typ func) _ _ _ (t1++l) t
+                                       (fun u : ExprI.uvar => amap_lookup u x12)
+                                       (vars_to_uvars 0 (length t1) e) nil t0 x0 y3).
+          { generalize (@sem_preserves_if_substD (amap (expr typ func)) typ (expr typ func) _ _ _ _).
+            simpl. intro. eapply H3.
+            2: eapply Hamap_substD.
+            eapply WellFormed_entry_WellFormed_pre_entry in H40.
+            destruct H40. assumption. }
+          { eassumption. }
+          { destruct H3.
+            eapply exprD'_strengthenU_multi in H3.
+            2: eauto with typeclass_instances.
+            { destruct H3 as [ ? [ ? ? ] ].
+              eexists; split; try eassumption.
+              intros.
+              specialize (H us vs).
+              specialize (H4 _ _ Hnil H).
+              simpl in *.
+              symmetry.
+              etransitivity; [ eapply (H1 _ _ Hnil) | ].
+              etransitivity; [ eapply H2 | ].
+              etransitivity; [ eapply H4 | ].
+              eapply H6. }
+            { intros.
+              clear H2 H1 H3 H4 H.
+              match goal with
+              | |- ?X = _ => consider X; try reflexivity; intro
+              end.
+              exfalso.
+              eapply mentionsU_instantiate in H.
+              assert (amap_lookup (length t1 + u) x12 <> None).
+              { clear - H5 H40.
+                (** pigeon **) admit. }
+              destruct H.
+              { destruct H. eauto. }
+              { destruct H. destruct H. destruct H as [ ? [ ? ? ] ].
+                destruct H40.
+                consider (amap_lookup (length t1 + u) x12); intros; try congruence.
+                eapply FMapSubst.SUBST.normalized_fmapsubst in H1.
+                3: eapply H.
+                congruence. destruct H4. assumption.  } } } }
         destruct H7 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
         split.
         { etransitivity; eassumption. }
@@ -1382,7 +1767,7 @@ Section setoid.
       rewrite Plus.plus_comm in H0. rewrite <- app_length in H0.
       destruct (fun Hx =>
                     @using_rewrite_db'_sound r _ (wrap_tvs_ctx_subst tvs' cs) hints H
-                                             (expr_convert (length tvs') e) e' c Hx
+                                             (expr_convert (length tvs') (length (getVars ctx)) e) e0 c Hx
                                              (WellFormed_ctx_subst_wrap_tvs _ H1)).
       { rewrite <- H0. f_equal.
         eauto using getUVars_wrap_tvs.
@@ -1394,8 +1779,88 @@ Section setoid.
       { eapply WellFormed_ctx_subst_unwrap_tvs with (ctx':=CTop nil nil); eauto. }
       intros.
       specialize (H3 _ _ H0); clear H0.
-      admit.
-    Qed.
+      destruct (pctxD cs) eqn:HpctxD_cs; trivial.
+      destruct (@pctxD_wrap_tvs_ctx_subst tvs' _ _ _ HpctxD_cs) as [ ? [ ? ? ] ].
+      rewrite H0 in H3.
+      destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:HexprD'_e; trivial.
+      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      intro Hconv.
+      rewrite Hconv
+         with (tus':=getUVars ctx) (tvs':=getVars ctx++tvs')
+              (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym (getVars_wrap_tvs tvs' ctx))
+           in H3.
+      clear Hconv.
+      eapply expr_convert_sound in HexprD'_e.
+      destruct HexprD'_e as [ ? [ Hx ? ] ].
+      rewrite Hx in *; clear Hx.
+      autorewrite with eq_rw in H3.
+      forwardy.
+      destruct (pctxD_unwrap_tvs_ctx_subst _ _ _ H3) as [ ? [ HpctxD_x1 ? ] ].
+      rewrite HpctxD_x1.
+      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      intro Hconv.
+      rewrite Hconv
+         with (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym(getVars_wrap_tvs tvs' ctx))
+           in H6.
+      clear Hconv.
+      autorewrite with eq_rw in H6.
+      forwardy; inv_all; subst.
+      eapply expr_convert_sound in H6.
+      destruct H6 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
+      destruct H7.
+      split.
+      { clear H9 H8 H4.
+        Lemma SubstMorphism_wrap_tvs_ctx_subst
+        : forall tvs' ctx cs c,
+            SubstMorphism (wrap_tvs_ctx_subst tvs' cs) c ->
+            SubstMorphism cs
+                          (unwrap_tvs_ctx_subst tvs' c (fun x : ctx_subst ctx => x)).
+        Proof.
+          clear. intros.
+          rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
+          revert H. revert ctx c cs.
+          induction tvs'.
+          { simpl. tauto. }
+          { simpl. intros.
+            eapply IHtvs' in H.
+            inv_all. rewrite H. assumption. }
+        Qed.
+        eapply SubstMorphism_wrap_tvs_ctx_subst; eauto. }
+      { intros.
+        specialize (H9 match
+                        eq_sym (getAmbientUVars_wrap_tvs tvs' ctx) in (_ = V)
+                        return (hlist typD V)
+                      with
+                      | eq_refl => us
+                      end
+                       match
+                         eq_sym (getAmbientVars_wrap_tvs tvs' ctx) in (_ = V)
+                         return (hlist typD V)
+                       with
+                       | eq_refl => vs
+                       end).
+        specialize (H8 us vs
+                   (fun us0 vs0 =>
+                      rD (x0 us0 vs0) (y2 us0 vs0))).
+        simpl in H8.
+        generalize dependent (getVars_wrap_tvs tvs' ctx).
+        generalize dependent (getUVars_wrap_tvs tvs' ctx).
+        generalize dependent (getAmbientUVars_wrap_tvs tvs' ctx).
+        generalize dependent (getAmbientVars_wrap_tvs tvs' ctx).
+        generalize (Ap_pctxD _ HpctxD_x1).
+        generalize (Pure_pctxD _ HpctxD_x1).
+        revert H5 H6 H7. clear.
+        generalize dependent (getAmbientVars (wrap_tvs tvs' ctx)).
+        generalize dependent (getAmbientUVars (wrap_tvs tvs' ctx)).
+        generalize dependent (getUVars (wrap_tvs tvs' ctx)).
+        generalize dependent (getVars (wrap_tvs tvs' ctx)).
+        intros; subst; simpl in *.
+        eapply H8 in H9; clear H8.
+        revert H9. eapply H0; clear H0.
+        eapply H; clear H.
+        clear - H5 H6.
+        intros. rewrite H5. rewrite <- H6. eauto. }
+    Time Qed.
 
     Instance Injective_mrw_equiv_rw_ret {T} (rT : T -> T -> Prop) (a b : T)
     : Injective (mrw_equiv rT (rw_ret a) (rw_ret b)) :=
@@ -1447,6 +1912,32 @@ Section setoid.
            do 2 eexists; eauto.
     Qed.
 
+    Require Import ExtLib.Recur.Facts.
+
+    Lemma RD_tyAcc : forall d a b c e f,
+        RD a b = Some c ->
+        RD (fold_right Rrespects a d) e = Some f ->
+        b = e \/ TransitiveClosure.leftTrans (@tyAcc _ _) b e.
+    Proof.
+      clear - RTypeOk_typD Typ2Ok_Fun.
+      induction d.
+      { simpl; left.
+        eapply RD_single_type; eauto. }
+      { simpl. intros. arrow_case_any; try congruence. red in x1. subst.
+        simpl in *. forwardy.
+        clear H3 H1.
+        specialize (IHd _ _ _ _ _ H H2).
+        destruct IHd.
+        { subst. right.
+          constructor. eapply tyAcc_typ2R; eauto. }
+        { right.
+          eapply TransitiveClosure.leftTrans_rightTrans.
+          eapply TransitiveClosure.RTStep.
+          eapply TransitiveClosure.leftTrans_rightTrans.
+          eassumption.
+          eapply tyAcc_typ2R; eauto. } }
+    Qed.
+
     Theorem recursive_rewrite_sound
     : forall tvs',
         forall es ctx (cs : ctx_subst ctx) cs' f f' rs e',
@@ -1486,7 +1977,21 @@ Section setoid.
         intros.
         split; try assumption. intros.
         consider (pctxD cs'); intros; trivial.
-        assert (ts = nil) by admit.
+        assert (ts = nil).
+        { generalize (RD_single_type _ _ _ H0 H3).
+          destruct ts; auto.
+          simpl. intros.
+          exfalso.
+          assert (TransitiveClosure.rightTrans (@tyAcc _ _) t (typ2 t0 (fold_right (typ2 (F:=Fun)) t ts))).
+          { clear - Typ2Ok_Fun. revert t. revert t0.
+            induction ts.
+            { simpl. constructor. eapply tyAcc_typ2R; eauto. }
+            simpl. intros.
+            eapply TransitiveClosure.RTStep. eapply IHts.
+            eapply tyAcc_typ2R; eauto. }
+          rewrite H5 in H6 at 1.
+          eapply wf_anti_sym; [ | eapply H6 ].
+          eauto using wf_rightTrans, wf_tyAcc. }
         subst. simpl in *.
         consider (ExprDsimul.ExprDenote.exprD' (getUVars ctx) (tvs' ++ getVars ctx)
                                                t e'); intros; trivial.
@@ -1513,17 +2018,19 @@ Section setoid.
         { unfold Relim in H5; autorewrite with eq_rw in H5.
           forwardy; inv_all; subst.
           destruct ts.
-          { exfalso. (*
+          { exfalso.
             simpl in *.
             red in x3. subst.
-            clear IHes. clear H5.
-            assert ((TransitiveClosure.leftTrans (@tyAcc _ _)) x2 (typ2 x1 x2)).
-            { constructor.
-              eapply tyAcc_typ2R; eauto. }
-            generalize dependent (typ2 x1 x2).
-            revert r x2 y2.
-                      *) admit. }
-          { simpl in *. 
+            clear - RTypeOk_typD Typ2Ok_Fun H9 H2.
+            eapply RD_tyAcc in H9; eauto.
+            destruct H9.
+            { eapply tyArr_circ_R; eauto. }
+            { assert ((TransitiveClosure.leftTrans (@tyAcc _ _)) x2 (typ2 x1 x2)).
+              { constructor. eapply tyAcc_typ2R; eauto. }
+              generalize (TransitiveClosure.leftTrans_trans H H0).
+              eapply wf_anti_sym.
+              eapply wf_leftTrans. eapply wf_tyAcc; eauto. } }
+          { simpl in *.
             admit. (*
             specialize (H0 _ _ H5).
             destruct (pctxD cs) eqn:HpctxDcs; trivial.
