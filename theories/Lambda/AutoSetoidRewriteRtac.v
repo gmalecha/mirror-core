@@ -2031,13 +2031,12 @@ Section setoid.
               eapply wf_anti_sym.
               eapply wf_leftTrans. eapply wf_tyAcc; eauto. } }
           { simpl in *.
-            admit. (*
             specialize (H0 _ _ H5).
             destruct (pctxD cs) eqn:HpctxDcs; trivial.
             destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx)
                              (typ2 t0 (fold_right (typ2 (F:=Fun)) t ts)) f')
                      eqn:HexprD'f'; trivial.
-            specialize (fun fD rD => H1 ts fD rD _ H3).
+            specialize (H1 _ _ _ H2 ts).
             red in x3.
             rewrite exprD'_apps in H3 by eauto with typeclass_instances.
             unfold apps_sem' in H3.
@@ -2049,61 +2048,53 @@ Section setoid.
             rewrite typ2_match_iota in H10 by eauto with typeclass_instances.
             autorewrite with eq_rw in H10. forwardy.
             red in y4. inv_all. subst. clear H10.
-            specialize (fun rD => H2 _ rD H7).
-            clear H6.
-            generalize x3. intro.
-            eapply injection in x3. red in x3. simpl in x3.
-            destruct x3. subst.
-            rewrite (UIP_refl x4). clear x4.
-            simpl.
-            specialize (H2 _ H9).
-            autorewrite with exprD_rw in H7.
-            simpl in H7. forwardy.
-            inv_all. subst.
-            rewrite H6 in *. inv_all. subst.
-            rewrite H10 in *.
-            destruct (pctxD x0) eqn:HpctxDx0; try contradiction.
-            autorewrite with exprD_rw in H2. simpl in H2.
-            forwardy.
-            rewrite (@exprD_typeof_Some typ func _ _ _ _ _ _ _ _ _ _ _ H1) in H2.
-            rewrite HexprD'f' in H2.
-            rewrite H1 in H2.
-            destruct (pctxD cs') eqn:HpctxDcs'; try contradiction.
+            generalize (exprD'_apps _ _ _
+                          (getUVars ctx) (tvs' ++ getVars ctx)
+                          (map fst es) (App f (fst a)) t).
+            unfold apps_sem'. simpl.
+            rewrite Htypeof_f. rewrite H3.
+            unfold type_of_apply.
+            rewrite H6. unfold Relim.
+            autorewrite with eq_rw.
+            destruct (typ2_inj _ _ _ _ x3).
+            red in H10. red in H11; subst.
+            rewrite type_cast_refl; eauto with typeclass_instances.
+            rewrite H7. rewrite H8.
+            intro Hx.
+            specialize (H1 _ _ _ Hx H7 H9).
+            autorewrite with exprD_rw in H7. simpl in H7.
+            rewrite H3 in H7. rewrite H4 in H7.
+            forwardy. inv_all. subst.
+            rewrite H7 in *.
+            destruct (pctxD x0) eqn:HpctxD_x0; try contradiction.
+            autorewrite with exprD_rw in H1; simpl in H1.
+            destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) x1 x) eqn:HexprD'_x; try contradiction.
+            rewrite (exprD'_typeof_expr _ (or_introl HexprD'_x)) in H1.
+            rewrite HexprD'f' in H1.
+            rewrite HexprD'_x in H1.
+            destruct (pctxD cs') eqn:HpctxD_cs'; try contradiction.
             forward_reason.
             eexists; split; eauto.
             split.
             { etransitivity; eauto. }
-            { intros.
-              generalize (H13 us vs); clear H13.
-              eapply Ap_pctxD; eauto.
-              eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
-              generalize (H11 us vs); clear H11.
-              eapply Ap_pctxD; eauto.
-              eapply Pure_pctxD; eauto.
-              repeat match goal with
-                     | H : _ = _ , H' : _ = _ |- _ =>
-                       rewrite H in H'
-                     end. inv_all. subst.
-              clear. unfold exprT_App.
-              unfold setoid.respectful.
-              intros.
-              specialize (H vs').
-              specialize (H0 vs').
-              revert H0. revert H1.
-              autorewrite with eq_rw.
-              generalize dependent (typ2_cast x1 (fold_right (typ2 (F:=Fun)) t ts)).
-              generalize dependent (typD (typ2 x1 (fold_right (typ2 (F:=Fun)) t ts))).
-              intros; subst. eauto. } *) } }
+            intros.
+            gather_facts.
+            eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
+            gather_facts.
+            eapply Pure_pctxD; eauto.
+            intros.
+            eapply H12; clear H12.
+            rewrite (UIP_refl x3) in H13.
+            simpl in H13.
+            clear H6.
+            unfold exprT_App.
+            generalize dependent (typ2_cast x1 (fold_right (typ2 (F:=Fun)) t ts)).
+            intros. revert H13.
+            autorewrite with eq_rw.
+            intro Hx'; apply Hx'; clear Hx'.
+            eauto. } }
         { exfalso. clear - H5. inversion H5. } }
     Time Qed. (* 14s! why is this so long!, this suggests a bad proof *)
-
-    (*
-    Lemma rw_orelse_sound : forall {T} (a b c : mrw T),
-        rw_orelse a b = c ->
-        (exists x, a = Some x /\ c = Some x) \/
-        (a = rw_fail /\ b = c).
-    Proof. clear. intros. destruct a; eauto. Qed.
-     *)
 
     Definition bottom_up (e : expr typ func) (r : R)
     : mrw (expr typ func) :=
