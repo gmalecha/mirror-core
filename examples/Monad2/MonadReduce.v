@@ -156,7 +156,7 @@ Section soundness.
     { admit. }
     { split; auto.
       admit. }
-  Qed.
+  Admitted.
 
   Theorem reduceOk (me : mexpr)
   : forall us vs t me',

@@ -121,10 +121,9 @@ Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func) :=
   @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
 
 Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ Subst_subst :=
-  @FMapSubst.SUBST.SubstOk_subst _ _ _ _ _.
+  @FMapSubst.SUBST.SubstOk_subst _ _ _ _.
 Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk _ _.
 eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
-eauto with typeclass_instances.
 Qed.
 
 Definition the_auto hints :=
@@ -151,6 +150,7 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
       | Some P => P
     end.
 Proof.
+(*
   intros.
   generalize (@auto_prove_sound
                 typ (expr typ func) _ _ _ _ _ _ _ _
@@ -180,9 +180,10 @@ Proof.
   change_rewrite H3 in H6. inv_all; subst.
   destruct H7.
   specialize (H10 _ _ H4 H6). tauto.
-Qed.
+*)
+Admitted.
 
-Definition fuel := 1002.
+Definition fuel := 12.
 
 Ltac run_auto := idtac;
   match goal with
@@ -212,6 +213,20 @@ Ltac run_auto := idtac;
             | compute; split; constructor ]
       end
   end.
+
+Goal Even 2.
+Proof.
+  Time run_auto.
+Show Proof.
+Definition XXX := let g := App (Inj 1%positive) (makeNat 3) in
+   the_auto evenHints fuel nil nil nil g
+         (SUBST.raw_empty (expr typ func)).
+Time Eval vm_compute
+in XXX.
+Print the_auto.
+Print auto_prove. Print auto_prove_rec.
+Qed.
+
 
 Goal Even 200.
 Proof.

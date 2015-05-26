@@ -160,6 +160,26 @@ Section types.
     clear; induction a; simpl; auto; Cases.rewrite_all_goal; auto.
   Qed.
 
+  Theorem type_cast_dec
+  : forall x y : typ, type_cast x y = None -> ~ TypesI.Rty x y.
+  Proof.
+    unfold TypesI.Rty in *.
+    induction x; destruct y; simpl; try congruence.
+    { specialize (IHx1 y1); specialize (IHx2 y2).
+      destruct (type_cast x1 y1).
+      { destruct (type_cast x2 y2); try congruence.
+        intro X. specialize (IHx2 eq_refl).
+        congruence. }
+      { specialize (IHx1 eq_refl). intros.
+        congruence. } }
+    { generalize (@positive_eq_odec_None p p0).
+      destruct (positive_eq_odec p p0); try congruence.
+      intros. specialize (H eq_refl). congruence. }
+    { specialize (IHx y). destruct (type_cast x y).
+      { inversion 1. }
+      { specialize (IHx eq_refl). congruence. } }
+  Qed.
+
   Instance RTypeOk_typ : @RTypeOk _ RType_typ.
   constructor; simpl; auto.
   { red.
@@ -171,7 +191,7 @@ Section types.
   { destruct pf1; destruct pf2; reflexivity. }
   { induction x; simpl; intros; auto; Cases.rewrite_all_goal; auto.
     rewrite positive_eq_odec_refl. reflexivity. }
-  { admit. }
+  { eapply type_cast_dec. }
   { red. unfold equiv, complement.
     change (forall x y : typ, {x = y} + {x <> y}).
     decide equality. decide equality. }

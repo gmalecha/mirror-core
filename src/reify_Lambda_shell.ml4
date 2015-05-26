@@ -6,6 +6,8 @@ open Plugin_utils
 
 let contrib_name = "MirrorCore.Reify"
 
+DECLARE PLUGIN "reify_Lambda_plugin"
+
 module Std = Plugin_utils.Coqstd.Std
   (struct
     let contrib_name = contrib_name
@@ -37,29 +39,29 @@ sig
   val parse_tables : Term.constr -> map_type list
 
   (** Tables **)
-  val declare_table : Names.identifier -> Term.constr -> bool
-  val declare_typed_table : Names.identifier -> Term.constr -> Term.constr -> bool
+  val declare_table : Names.identifier -> Evd.evar_map -> Term.constr -> bool
+  val declare_typed_table : Names.identifier -> Evd.evar_map -> Term.constr -> Term.constr -> bool
   val seed_table    : Term.constr -> int -> Term.constr -> bool
   val seed_typed_table    : Term.constr -> int -> Term.constr -> Term.constr -> bool
 
   (** Patterns **)
-  val declare_pattern : Names.identifier -> Term.constr -> unit
+  val declare_pattern : Names.identifier -> Evd.evar_map -> Term.constr -> unit
   val add_pattern     : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> unit
   val print_patterns  : (Format.formatter -> unit -> unit) ->
     Format.formatter -> Term.constr -> unit
 
   (** Functions **)
-  val declare_syntax : Names.identifier -> Term.constr (* command *) -> unit
+  val declare_syntax : Names.identifier -> Evd.evar_map -> Term.constr (* command *) -> unit
 
   (** Reification **)
-  val reify     : Proof_type.goal Evd.sigma -> map_type list (* tables *) ->
+  val reify     : 'a Proofview.Goal.t -> map_type list (* tables *) ->
     Term.constr -> Term.constr -> Term.constr * all_tables
-  val reify_all : Proof_type.goal Evd.sigma -> map_type list (* tables *) ->
+  val reify_all : 'a Proofview.Goal.t -> map_type list (* tables *) ->
     (Term.constr * Term.constr) list -> Term.constr list * all_tables
   val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
 
 
-  val pose_each : (string * Term.constr) list -> (Term.constr list -> Proof_type.tactic) -> Proof_type.tactic
+  val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 end
 
 module Reification : REIFICATION =
@@ -176,13 +178,21 @@ struct
 
   let pattern_mod = ["MirrorCore";"Reify";"Patterns"]
 
-  let decl_constant ?typ (na : Names.identifier) (c : Term.constr) =
+  let decl_constant ?typ (na : Names.identifier) evm (c : Term.constr) =
+    (** TODO: This looks weird... **)
+    let (evm,_) = Typing.e_type_of (Global.env ()) evm c in
+    let vars = Universes.universes_of_constr c in
+    let ctx = Universes.restrict_universe_context (Univ.ContextSet.of_context (Evd.universe_context evm)) vars in
     Declare.(Term.mkConst(declare_constant na
 			    (Entries.(DefinitionEntry
-					{ const_entry_body = c;
+					(definition_entry ~opaque:false ~univs:(Univ.ContextSet.to_context ctx) c))
+
+					(*
+
+					{ const_entry_body = Future.from_val c;
 					  const_entry_secctx = None;
 					  const_entry_type = typ;
-					  const_entry_opaque = false }),
+					  const_entry_opaque = false }) *),
 			     Decl_kinds.(IsDefinition Definition))))
 
   module Tables =
@@ -196,7 +206,7 @@ struct
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
       Summary.(declare_summary "reify-lambda-shell-seed-table"
-	{ freeze_function = (fun () -> !the_seed_table)
+	{ freeze_function = (fun _ -> !the_seed_table)
 	; unfreeze_function = (fun pt -> the_seed_table := pt)
 	; init_function = (fun () -> the_seed_table := Cmap.empty) })
 
@@ -272,7 +282,7 @@ struct
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
       Summary.(declare_summary "reify-lambda-shell-pattern-table"
-	{ freeze_function = (fun () -> !pattern_table)
+	{ freeze_function = (fun _ -> !pattern_table)
 	; unfreeze_function = (fun pt -> pattern_table := pt)
 	; init_function = (fun () -> pattern_table := Cmap.empty) })
 
@@ -465,7 +475,7 @@ struct
 		  Pp.(msgerrnl (    (str "Failed to parse action from lambda.Got term: \n")
 				 ++ (Printer.pr_constr typ)))
 		in
-		fun ls _ _ -> reifier_ret (Term.substnl ls 0 tmp)
+		fun ls _ _ -> reifier_ret (Vars.substnl ls 0 tmp)
 	      | Some act ->
 		let rest = compile_template body (at + 1) in
 		let eft =
@@ -486,7 +496,7 @@ struct
 		    reifier_bind
 		      reifier_get_env
 		      (fun env ->
-		       if Term.noccur_between 1 (List.length env.bindings) cur_val then
+		       if Vars.noccur_between 1 (List.length env.bindings) cur_val then
 			 rest (cur_val :: vals) gl s
 		       else
 			 reifier_fail cur_val)
@@ -519,7 +529,7 @@ struct
 		  assert false
 	    end
 	| _ ->
-	  fun ls _ _ -> reifier_ret (Term.substnl ls 0 tmp)
+	  fun ls _ _ -> reifier_ret (Vars.substnl ls 0 tmp)
       in compile_template
 
     let extend trm rul =
@@ -605,7 +615,7 @@ struct
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
       Summary.(declare_summary "reify-lambda-shell-syntax-table"
-	{ freeze_function   = (fun () -> !reify_table);
+	{ freeze_function   = (fun _ -> !reify_table);
 	  unfreeze_function = (fun pt -> reify_table := pt);
 	  init_function     = (fun () -> reify_table := Cmap.empty) })
 
@@ -880,24 +890,24 @@ struct
 	  add_syntax name cmds
 	})
 
-    let declare_syntax (name : Names.identifier)
+    let declare_syntax (name : Names.identifier) evm
 	(cmd : Term.constr) : unit =
       let (typ,_program) = parse_command cmd in
       let _meta_reifier = compile_command _program in
-      let obj = decl_constant name typ in
+      let obj = decl_constant name evm typ in
       let _ = Lib.add_anonymous_leaf (syntax_object (obj,cmd)) in
       add_syntax obj cmd
   end
 
-  let initial_env (gl : Proof_type.goal Evd.sigma) (tbls : map_type list) =
-    let env = Tacmach.pf_env gl in
-    let evar_map = Tacmach.project gl in
+  let initial_env (gl : 'a Proofview.Goal.t) (tbls : map_type list) =
+    let env = Proofview.Goal.env gl in
+    let evar_map = Proofview.Goal.sigma gl in
     { env = env
     ; evm = evar_map
     ; bindings = []
     ; typed_tables = ref !Tables.the_seed_table }
 
-  let reify (gl : Proof_type.goal Evd.sigma) tbls (name : Term.constr) trm =
+  let reify (gl : 'a Proofview.Goal.t) tbls (name : Term.constr) trm =
     let env = initial_env gl tbls in
     let result = Syntax.reify_term name (Term trm) env in
     (result, { tables = !(env.typed_tables) })
@@ -925,22 +935,22 @@ struct
       match mt.table_scheme with
       | SimpleMap ->
 	 fun (_,tt) ->
-	  Term.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| tt |]))
+	  Vars.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| tt |]))
       | TypedMap ->
 	 fun (ty,tt) ->
-	  Term.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| ty ; tt |]))
+	  Vars.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| ty ; tt |]))
       | TypedMapAbs abs_typ ->
 	 fun (ty,tt) ->
 	  let v =
-	    Term.mkApp (Term.substnl bindings 0 mt.table_elem_ctor,
-			[| Term.substnl bindings 0 ty
+	    Term.mkApp (Vars.substnl bindings 0 mt.table_elem_ctor,
+			[| Vars.substnl bindings 0 ty
 			 ; Term.mkLambda (Names.Anonymous,
-					  Term.substnl bindings 0 abs_typ,
-					  Term.substnl bindings 0 tt) |])
+					  Vars.substnl bindings 0 abs_typ,
+					  Vars.substnl bindings 0 tt) |])
 	  in
 	  v
     in
-    let typ = Term.substnl bindings 0 mt.table_elem_type in
+    let typ = Vars.substnl bindings 0 mt.table_elem_type in
 (*    let ctor = Term.substnl bindings 0 mt.table_elem_ctor in *)
     let ary_typ = [| typ |] in
     let leaf = Term.mkApp (Lazy.force Std.PosMap.c_leaf, ary_typ)  in
@@ -1001,7 +1011,7 @@ struct
 		 })
 
 
-  let declare_table id key =
+  let declare_table id evm key =
     let key_type =
       if Term.eq_constr key (Lazy.force Std.Nat.nat_type) then Tables.Nat
       else if Term.eq_constr key (Lazy.force Std.Positive.pos_type) then Tables.Pos
@@ -1009,14 +1019,14 @@ struct
     in
     let key_ary = [| key |] in
     let obj = decl_constant ~typ:(Term.mkApp (table_type, key_ary))
-      id (Term.mkApp (table_value, key_ary))
+      id evm (Term.mkApp (table_value, key_ary))
     in
     if Tables.declare_table obj key_type then
       let _ = Lib.add_anonymous_leaf (new_table (obj, key_type))
       in true
     else false
 
-  let declare_typed_table id key typ =
+  let declare_typed_table id evm key typ =
     let key_type =
       if Term.eq_constr key (Lazy.force Std.Nat.nat_type) then Tables.Nat
       else if Term.eq_constr key (Lazy.force Std.Positive.pos_type) then Tables.Pos
@@ -1024,7 +1034,7 @@ struct
     in
     let key_ary = [| key ; typ |] in
     let obj = decl_constant ~typ:(Term.mkApp (typed_table_type, key_ary))
-      id (Term.mkApp (typed_table_value, key_ary))
+      id evm (Term.mkApp (typed_table_value, key_ary))
     in
     if Tables.declare_table obj key_type then
       let _ = Lib.add_anonymous_leaf (new_table (obj, key_type)) in
@@ -1063,8 +1073,8 @@ struct
 
   let a_pattern = Std.resolve_symbol pattern_mod "a_pattern"
 
-  let declare_pattern (name : Names.identifier) (value : Term.constr) =
-    let obj = decl_constant name (Term.mkApp (a_pattern, [| value |])) in
+  let declare_pattern (name : Names.identifier) evd (value : Term.constr) =
+    let obj = decl_constant name evd (Term.mkApp (a_pattern, [| value |])) in
     let _ = Lib.add_anonymous_leaf (pattern_table_object obj) in
     Patterns.declare_pattern obj
 
@@ -1136,40 +1146,53 @@ end
 let print_newline out () =
   Format.fprintf out "\n"
 
+let ic ?env ?sigma c =
+  let env =
+    match env with
+    | None -> Global.env()
+    | Some x -> x
+  in
+  let sigma =
+    match sigma with
+    | None -> Evd.empty
+    | Some x -> x
+  in
+  Constrintern.interp_open_constr env sigma c
+
+
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" "{" constr(cmd) "}" ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-(*      let typ = Constrintern.interp_constr evm env typ in *)
-      let cmd = Constrintern.interp_constr evm env cmd in
-      Reification.declare_syntax name cmd ]
-END;;
+    [ let (evm,cmd) = ic cmd in
+      Reification.declare_syntax name evm cmd ]
+END
 
 (** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
   | [ "Reify" "Declare" "Patterns" ident(name) ":=" constr(value) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let value     = Constrintern.interp_constr evm env value in
-      Reification.declare_pattern name value
+    [ let (evd,value) = ic value in
+      Reification.declare_pattern name evd value
     ]
-END;;
+END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
   | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
-	let pattern   = Constrintern.interp_constr evm env pattern in
-	let template  = Constrintern.interp_constr evm env template in
-	let rule      = Constrintern.interp_constr evm env rule in
+	(** TODO: I probably need this as well! **)
+	let (pattern,_)  = Constrintern.interp_constr env evm pattern in
+	let (template,_) = Constrintern.interp_constr env evm template in
+	let (rule,_)     = Constrintern.interp_constr env evm rule in
 	Reification.add_pattern rule pattern template
       with
 	Failure msg -> Pp.msgnl (Pp.str msg)
     ]
-END;;
+END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern
   | [ "Reify" "Print" "Patterns" constr(name) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let name      = Constrintern.interp_constr evm env name in
+      (** TODO: I need this **)
+      let (name,name_univ) = Constrintern.interp_constr env evm name in
       let as_string = (** TODO: I don't really understand Ocaml's formatting **)
 	let _ =
 	  Format.fprintf Format.str_formatter "%a"
@@ -1183,33 +1206,32 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern
 	     ++ (fnl ())
 	     ++ (str as_string)))
     ]
-END;;
+END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let key       = Constrintern.interp_constr evm env key in
-      if Reification.declare_table name key then
+    [ let (evm,key) = ic key in
+      if Reification.declare_table name evm key then
 	()
       else
 	() (** TODO(gmalecha): message? **)
     ]
   | [ "Reify" "Declare" "Typed" "Table" ident(name) ":" constr(key) "=>" constr(typ) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let key       = Constrintern.interp_constr evm env key in
-      let typ       = Constrintern.interp_constr evm env typ in
-      if Reification.declare_typed_table name key typ then
+    [ let (evm,key) = ic key in
+      let (evm,typ) = ic ~sigma:evm typ in
+      if Reification.declare_typed_table name evm key typ then
 	()
       else
 	() (** TODO(gmalecha): message? **)
     ]
-END;;
+END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
   | [ "Reify" "Seed" "Table" constr(tbl) "+=" integer(key) "=>" constr(value) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let tbl       = Constrintern.interp_constr evm env tbl in
-      let value     = Constrintern.interp_constr evm env value in
+    [ (** TODO: Universes... **)
+      let (evm,env) = Lemmas.get_current_context () in
+      let (tbl,tbl_univ)     = Constrintern.interp_constr env evm tbl in
+      let (value,value_univ) = Constrintern.interp_constr env evm value in
       if Reification.seed_table tbl key value then
 	()
       else
@@ -1217,19 +1239,25 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
   | [ "Reify" "Seed" "Typed" "Table" constr(tbl) "+=" integer(key) "=>"
 	"[" constr(typ) "," constr(value) "]" ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let tbl       = Constrintern.interp_constr evm env tbl in
-      let typ       = Constrintern.interp_constr evm env typ in
-      let value     = Constrintern.interp_constr evm env value in
+      (** TODO: Universes... **)
+      let (tbl,tbl_univ)     = Constrintern.interp_constr env evm tbl in
+      let (typ,typ_univ)     = Constrintern.interp_constr env evm typ in
+      let (value,value_univ) = Constrintern.interp_constr env evm value in
       if Reification.seed_typed_table tbl key typ value then
 	()
       else
 	assert false ]
-END;;
+END
+
+TACTIC EXTEND Reify_stuff
+  | ["testing" ] ->
+    [ Proofview.tclUNIT () ]
+END
 
 TACTIC EXTEND Reify_Lambda_Shell_reify
   | ["reify_expr" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
     [ let tbls = Reification.parse_tables tbls in
-      fun gl ->
+      Proofview.Goal.enter begin fun gl ->
 	try
 	  let (res,tbl_data) =
 	    Reification.reify_all gl tbls (List.map (fun e -> (name,e)) es)
@@ -1248,21 +1276,22 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 	      Plugin_utils.Use_ltac.pose "tbl" mp
 		(fun var -> generate tbls (var :: acc))
 	  in
-	  generate tbls [] gl
+	  generate tbls []
 	with
-	  Reification.ReificationFailure trm ->
-	    let pr = lazy (Pp.(   (str "Failed to reify term '")
+	  (Reification.ReificationFailure trm) as ex->
+(*	    let pr = lazy (Pp.(   (str "Failed to reify term '")
 			       ++ (Printer.pr_constr (Lazy.force trm))
-			       ++ (str "'."))) in
-	    Tacticals.tclFAIL_lazy 0 pr gl
+			       ++ (str "'."))) in *)
+	    Proofview.tclZERO ex
+			    end
     ]
-END;;
+END
 
 
 TACTIC EXTEND Reify_Lambda_Shell_reify_bind
-  | ["reify_expr" "bind" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
+  | ["reify_expr_bind" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
     [ let tbls = Reification.parse_tables tbls in
-      fun gl ->
+      Proofview.Goal.enter begin fun gl ->
         Printf.fprintf stderr "binding version!\n" ;
 	try
 	  let (res,tbl_data) =
@@ -1283,12 +1312,13 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
 	      Plugin_utils.Use_ltac.pose "tbl" mp
 		(fun var -> generate tbls (var :: acc))
 	  in
-	  generate tbls [] gl
+	  generate tbls []
 	with
-	  Reification.ReificationFailure trm ->
-	    let pr = lazy (Pp.(   (str "Failed to reify term '")
+	  (Reification.ReificationFailure trm) as ex ->
+(*	    let pr = lazy (Pp.(   (str "Failed to reify term '")
 			       ++ (Printer.pr_constr (Lazy.force trm))
-			       ++ (str "'."))) in
-	    Tacticals.tclFAIL_lazy 0 pr gl
+			       ++ (str "'."))) in *)
+	    Proofview.tclZERO ex
+			   end
     ]
-END;;
+END

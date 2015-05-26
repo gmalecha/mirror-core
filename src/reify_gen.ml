@@ -155,7 +155,7 @@ end
 let as_arrow t =
   try
     let (_,lt,rt) = Term.destProd t in
-    if Term.noccurn 0 rt then
+    if Vars.noccurn 0 rt then
       Some (lt, rt)
     else
       None
@@ -215,9 +215,9 @@ struct
 
   let rec noccurn_dprod n cs rc =
     match cs with
-      [] -> Term.noccurn n rc
+      [] -> Vars.noccurn n rc
     | c :: cs ->
-      if Term.noccurn n c then
+      if Vars.noccurn n c then
 	noccurn_dprod (1+n) cs rc
       else
 	false
@@ -231,7 +231,7 @@ struct
       | x :: xs ->
 	if Term.isProd ty then
 	  let (_,t1,t2) = Term.destProd ty in
-	  if Term.noccurn 1 t2 then
+	  if Vars.noccurn 1 t2 then
 (*	    let _ = Format.printf "Non dependent: %a\n" pp_constr t2 in *)
 	    (** non-dependent **)
 	    let (rs,rt) = mark_terms t2 xs in
@@ -239,7 +239,7 @@ struct
 	else
 (*	    let _ = Format.printf "Dependent: %a\n" pp_constr t2 in *)
 	    (** dependent **)
-	    let (rs,rt) = mark_terms (Term.subst1 x t2) xs in
+	    let (rs,rt) = mark_terms (Vars.subst1 x t2) xs in
 	    ((true, t1, x) :: rs, rt)
 	else
 (*	  let (rcs, res) = Reduction.dest_prod env ty in *)
