@@ -48,7 +48,6 @@ Reify Pattern patterns_monad +=
       ((!! (@ret)) @ RIgnore @ RIgnore @ (?0) @ ?1) =>
       (fun (t u : function reify_monad_typ) => mFunc (MonadSym.mBind t u)).
 
-
 Ltac reify_left m :=
   let Monad_m := constr:(_ : Monad m) in
   match goal with
@@ -65,7 +64,8 @@ Ltac reify_left m :=
           simpl in H ;
           clear ts fs us
       in
-      reify_expr reify_monad K [ (fun (t : table_types) (trm : table_terms t) => Type) ] [ L ]
+      (let X := constr:((fun (t : table_types) (trm : table_terms t) => Type)) in
+       reify_expr reify_monad K [ X ] [ L ])
   end.
 
 Ltac reduce_monads m :=

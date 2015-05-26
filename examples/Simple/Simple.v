@@ -133,7 +133,7 @@ Definition funcD (f : func)
                         | Some t => typD t
                       end
   with
-    | Lt => NPeano.ltb
+    | Lt => NPeano.Nat.ltb
     | Plus => plus
     | N n => n
     | Eq t => @eq _

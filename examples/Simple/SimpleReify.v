@@ -31,7 +31,7 @@ Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)
 
 Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
 Reify Pattern patterns_simple += (@RExact _ plus) => (Inj (typ:=typ) Plus).
-Reify Pattern patterns_simple += (@RExact _ NPeano.ltb) => (Inj (typ:=typ) Lt).
+Reify Pattern patterns_simple += (@RExact _ NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
 Reify Pattern patterns_simple += (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) =>
 (fun (t : function reify_simple_typ) => Inj (typ:=typ) (Eq t)).
 Reify Pattern patterns_simple += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (All t)) (Abs t b))).
@@ -69,7 +69,7 @@ Defined.
 Print test_1.
 
 Definition test_2 : expr typ func.
-  reify ((NPeano.ltb 0 1) = (NPeano.ltb 0 0)).
+  reify ((NPeano.Nat.ltb 0 1) = (NPeano.Nat.ltb 0 0)).
 Defined.
 Print test_2.
 

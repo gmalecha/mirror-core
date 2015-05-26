@@ -1,6 +1,6 @@
 (** A simple programming language **)
 Require Import Coq.Strings.String.
-Require Import ExtLib.
+Require Import ExtLib.ExtLib.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Nat.
@@ -305,4 +305,4 @@ Proof.
   { intro. destruct H2.
     admit. }
   { admit. }
-Qed.
+Admitted.
