@@ -13,11 +13,26 @@ module Std = Plugin_utils.Coqstd.Std
     let contrib_name = contrib_name
    end)
 
+let do_debug = false
+
 let rec pr_constrs sep ks =
   match ks with
     [] -> Pp.(str) ""
   | [k] -> Printer.pr_constr k
   | k :: ks -> Pp.(Printer.pr_constr k ++ sep ++ pr_constrs sep ks)
+
+let debug_constr s e =
+  if do_debug then
+    Pp.(msg_warning (  (str s) ++ (str ": ") ++ (Printer.pr_constr e)))
+  else
+    ()
+
+let debug s =
+  if do_debug then
+    Pp.(msg_warning (  (str s)))
+  else
+    ()
+
 
 module type REIFICATION =
 sig
@@ -304,40 +319,40 @@ struct
     let into_rpattern =
       let rec into_rpattern (ptrn : Term.constr) : rpattern =
 	Term_match.(matches ()
-	  [ (EGlob ptrn_ignore,
+	  [ (EGlob_no_univ ptrn_ignore,
 	     fun _ _ -> RIgnore)
-	  ; (apps (EGlob ptrn_get) [get 0; get 1],
+	  ; (apps (EGlob_no_univ ptrn_get) [get 0; get 1],
 	     fun _ s ->
 	       let num  = Hashtbl.find s 0 in
 	       let next = Hashtbl.find s 1 in
 	       RGet (Std.Nat.of_nat num, into_rpattern next))
-	  ; (apps (EGlob ptrn_exact) [Ignore; get 0],
+	  ; (apps (EGlob_no_univ ptrn_exact) [Ignore; get 0],
 	     fun _ s ->
 	       let t = Hashtbl.find s 0 in
 	       RExact t)
-	  ; (apps (EGlob ptrn_app) [get 0; get 1],
+	  ; (apps (EGlob_no_univ ptrn_app) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RApp (into_rpattern f, into_rpattern x))
-	  ; (apps (EGlob ptrn_impl) [get 0; get 1],
+	  ; (apps (EGlob_no_univ ptrn_impl) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RImpl (into_rpattern f, into_rpattern x))
-	  ; (apps (EGlob ptrn_pi) [get 0; get 1],
+	  ; (apps (EGlob_no_univ ptrn_pi) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RPi (into_rpattern f, into_rpattern x))
-	  ; (apps (EGlob ptrn_lam) [get 0; get 1],
+	  ; (apps (EGlob_no_univ ptrn_lam) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RLam (into_rpattern f, into_rpattern x))
-	  ; (EGlob ptrn_const,
+	  ; (EGlob_no_univ ptrn_const,
 	     fun _ _ -> RConst)
-	  ; (apps (EGlob ptrn_has_type) [get 0; get 1],
+	  ; (apps (EGlob_no_univ ptrn_has_type) [get 0; get 1],
 	     fun _ s ->
 	       let t = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
@@ -354,7 +369,7 @@ struct
 	  : (int,int,reify_env) Term_match.pattern * int list =
 	match p with
 	  RExact g ->
-	    (Term_match.EGlob g, [])
+	    (Term_match.EGlob_no_univ g, [])
 	| RIgnore -> (Term_match.Ignore, [])
 	| RGet (i, p) ->
 	  let (p,us) = compile_pattern p effect in
@@ -453,9 +468,9 @@ struct
 
     let parse_action : Term.constr -> action option =
       Term_match.(matches ()
-	[ (App (EGlob action_function, get 0),
+	[ (App (EGlob_no_univ action_function, get 0),
 	   fun _ s -> Some (Func (Hashtbl.find s 0)))
-	; (App (EGlob action_id, Ignore),
+	; (App (EGlob_no_univ action_id, Ignore),
 	   fun _ s -> Some Id)
 	; (Ignore, fun _ _ -> None)
 	])
@@ -559,6 +574,8 @@ struct
 	| Impl (l,r) -> Format.fprintf out "(%a -> %a)" print_rule l print_rule r
 	| Glob g -> Format.fprintf out "%a" Std.pp_constr (Lazy.force g)
 	| EGlob g -> Format.fprintf out "%a" Std.pp_constr g
+	| Glob_no_univ g -> Format.fprintf out "%a" Std.pp_constr (Lazy.force g)
+	| EGlob_no_univ g -> Format.fprintf out "%a" Std.pp_constr g
 	| Lam (a,b,c) -> Format.fprintf out "(fun (%d : %a) => %a)" a print_rule b print_rule c
 	| Ref i -> Format.fprintf out "<%d>" i
 	| Choice ls -> Format.fprintf out "[...]"
@@ -647,9 +664,9 @@ struct
 
     let rec parse_commands cmd =
       Term_match.(matches ()
-	[ (apps (Glob Std.List.c_nil) [Ignore],
+	[ (apps (Glob_no_univ Std.List.c_nil) [Ignore],
 	   fun _ s -> [])
-	; (apps (Glob Std.List.c_cons) [Ignore(*T*);get 0(*cmd*);get 1(*cmds*)],
+	; (apps (Glob_no_univ Std.List.c_cons) [Ignore(*T*);get 0(*cmd*);get 1(*cmds*)],
 	   fun _ s ->
 	     let (_,a) = parse_command (Hashtbl.find s 0) in
 	     let b = parse_commands (Hashtbl.find s 1) in
@@ -658,29 +675,29 @@ struct
 	cmd)
     and parse_command cmd : Term.constr * command =
       Term_match.(matches ()
-	[ (apps (EGlob cmd_patterns) [get ~-1(*T*);get 0],
+	[ (apps (EGlob_no_univ cmd_patterns) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Patterns (Hashtbl.find s 0)))
-	; (apps (EGlob cmd_call) [get ~-1(*T*);get 0],
+	; (apps (EGlob_no_univ cmd_call) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Call (Hashtbl.find s 0)))
-	; (apps (EGlob cmd_app) [get ~-1(*T*);get 0],
+	; (apps (EGlob_no_univ cmd_app) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,App (Hashtbl.find s 0)))
-	; (apps (EGlob cmd_var) [get ~-1(*T*);get 0],
+	; (apps (EGlob_no_univ cmd_var) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Var (Hashtbl.find s 0)))
-	; (apps (EGlob cmd_abs) [get ~-1(*T*);get 1;get 0],
+	; (apps (EGlob_no_univ cmd_abs) [get ~-1(*T*);get 1;get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Abs (Hashtbl.find s 1,Hashtbl.find s 0)))
-	; (apps (EGlob cmd_table) [get ~-1(*T*);Ignore;get 0;get 1],
+	; (apps (EGlob_no_univ cmd_table) [get ~-1(*T*);Ignore;get 0;get 1],
 	   fun _ s -> (Hashtbl.find s ~-1,Table (Hashtbl.find s 0, Hashtbl.find s 1)))
-	; (apps (EGlob cmd_typed_table)
+	; (apps (EGlob_no_univ cmd_typed_table)
 	     [get ~-1(*T*);Ignore(*K*);get 0(*Ty*);
 	      get 1(*tbl*);get 2(*ctor*)],
 	   fun _ s ->
 	     (Hashtbl.find s ~-1,TypedTable (Hashtbl.find s 1, Hashtbl.find s 0, Hashtbl.find s 2)))
-	; (apps (EGlob cmd_map)
+	; (apps (EGlob_no_univ cmd_map)
 	     [get ~-1(*T*);Ignore;get 1(*F*);get 0(*cmd*)],
 	   fun _ s ->
 	     let (_,c) = parse_command (Hashtbl.find s 0) in
 	     (Hashtbl.find s ~-1,Map (Hashtbl.find s 1, c)))
-	; (apps (EGlob cmd_first)
+	; (apps (EGlob_no_univ cmd_first)
 	     [get ~-1(*T*);get 0(*cmds*)],
 	   fun _ s ->
 	     (Hashtbl.find s ~-1,First (parse_commands (Hashtbl.find s 0))))
@@ -710,7 +727,17 @@ struct
 	match l with
 	| Patterns i ->
 	  fun trm gl ->
-	    Patterns.reify_patterns i trm gl
+	  begin
+(*
+	    let _ = debug_constr "trying patterns" (get_term trm) in
+	    try
+ *)
+	      Patterns.reify_patterns i trm gl
+(*
+	    with
+	      e -> (debug "failed!" ; raise e)
+ *)
+	  end
 	| Call t ->
 	  fun trm gl ->
 	    reify_term t trm gl
@@ -1106,18 +1133,18 @@ struct
 
   let parse_table (trm : Term.constr) : map_type =
     Term_match.(matches ()
-		  [(apps (EGlob mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
+		  [(apps (EGlob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
 		    fun _ s -> { table_name = Hashtbl.find s 0
 			       ; table_elem_type = Hashtbl.find s 2
 			       ; table_elem_ctor = Hashtbl.find s 1
 			       ; table_scheme = SimpleMap })
-		  ;(apps (EGlob mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
+		  ;(apps (EGlob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
 					      get 0;get 1],
 		    fun _ s -> { table_name = Hashtbl.find s 0
 			       ; table_elem_type = Hashtbl.find s 2
 			       ; table_elem_ctor = Hashtbl.find s 1
 			       ; table_scheme = TypedMap })
-		  ;(apps (EGlob mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
+		  ;(apps (EGlob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
 						  Ignore;get 0;get 1],
 		    fun _ s ->
 		      { table_name = Hashtbl.find s 0
@@ -1188,14 +1215,15 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
     ]
 END
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern CLASSIFIED AS QUERY
   | [ "Reify" "Print" "Patterns" constr(name) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
       (** TODO: I need this **)
       let (name,name_univ) = Constrintern.interp_constr env evm name in
       let as_string = (** TODO: I don't really understand Ocaml's formatting **)
+	let _ = Format.flush_str_formatter () in
 	let _ =
-	  Format.fprintf Format.str_formatter "%a"
+	  Format.fprintf Format.err_formatter "%a"
 	    (Reification.print_patterns print_newline) name in
 	Format.flush_str_formatter ()
       in
@@ -1247,11 +1275,6 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
 	()
       else
 	assert false ]
-END
-
-TACTIC EXTEND Reify_stuff
-  | ["testing" ] ->
-    [ Proofview.tclUNIT () ]
 END
 
 TACTIC EXTEND Reify_Lambda_Shell_reify

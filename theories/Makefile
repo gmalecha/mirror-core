@@ -65,12 +65,11 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(VS)
-	echo $(ARGS)
-	coq_makefile $(ARGS) $(VS) > Makefile.coq
+	coq_makefile -f _CoqProject $(VS) -o Makefile.coq
 
 
 Makefile.test.coq: Makefile $(TVS)
-	coq_makefile $(ARGS) $(TVS) -o Makefile.test.coq
+	coq_makefile -f _CoqProject $(TVS) -o Makefile.test.coq
 
 test: coq Makefile.test.coq
 	$(MAKE) -f Makefile.test.coq
