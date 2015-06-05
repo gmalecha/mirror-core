@@ -1,5 +1,7 @@
 Require Coq.FSets.FMapPositive.
 
+Unset Elimination Schemes.
+
 Inductive table (K : Type) : Type := a_table.
 Inductive typed_table (K T : Type) : Type := a_typed_table.
 Inductive patterns (T : Type) : Type := a_pattern.
@@ -56,3 +58,5 @@ Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
 Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
 Local Notation "'#'" := RIgnore (only parsing, at level 0).
 *)
+
+Set Elimination Schemes.
