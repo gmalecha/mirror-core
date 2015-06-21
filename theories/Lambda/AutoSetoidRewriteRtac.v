@@ -44,8 +44,8 @@ Section setoid.
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
   Variable Rbase : Type.
-  Variable RelDec_eq_Rbase : RelDec (@eq Rbase).
-  Hypothesis RelDecOk_eq_Rbase : RelDec_Correct RelDec_eq_Rbase.
+  Variable Rbase_eq : Rbase -> Rbase -> bool.
+  Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 
   Inductive R : Type :=
   | Rinj (r : Rbase)
@@ -54,7 +54,7 @@ Section setoid.
 
   Fixpoint Req_dec (a b : R) : bool :=
     match a , b with
-    | Rinj a , Rinj b => a ?[ eq ] b
+    | Rinj a , Rinj b => Rbase_eq a b
     | Rrespects l r , Rrespects l' r' =>
       if Req_dec l l' then Req_dec r r' else false
     | Rpointwise t a , Rpointwise t' a' =>
@@ -62,33 +62,29 @@ Section setoid.
     | _ , _ => false
     end.
 
-  Theorem Req_dec_ok : forall x y : R, Req_dec x y = true <-> x = y.
+  Theorem Req_dec_ok : forall x y : R, Req_dec x y = true -> x = y.
   Proof.
-    clear - RTypeOk_typD RelDecOk_eq_Rbase RelDec_Correct_eq_typ.
-    induction x; destruct y; simpl; try solve [ split; congruence ].
-    { rewrite rel_dec_correct.
-      split; intros; subst; auto. inversion H. auto. }
+    clear - RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ.
+    induction x; destruct y; simpl; try solve [ congruence ].
+    { intros.
+      eapply Rbase_eq_ok in H. destruct H; reflexivity. }
     { specialize (IHx1 y1).
       specialize (IHx2 y2).
-      destruct (Req_dec x1 y1).
-      { destruct (Req_dec x2 y2).
-        { split; auto. intros. f_equal; tauto. }
-        { rewrite IHx2. split; try congruence.
-          intros. f_equal; tauto. } }
-      { split; try congruence.
-        intros. inversion H. tauto. } }
+      destruct (Req_dec x1 y1); intros; try congruence.
+      destruct (Req_dec x2 y2); intros; try congruence.
+      f_equal; tauto. }
     { consider (t ?[ eq ] t0); intros.
-      { subst. rewrite IHx.
-        split; congruence. }
-      { split; congruence. } }
+      { subst. f_equal; eauto. } }
   Qed.
 
+(*
   Instance RelDec_eq_R : RelDec (@eq R) :=
   { rel_dec := Req_dec }.
   Instance RelDecCorrect_eq_R : RelDec_Correct RelDec_eq_R.
   Proof.
     constructor. eapply Req_dec_ok.
   Qed.
+*)
 
   Variable RbaseD : Rbase -> forall t : typ, option (typD t -> typD t -> Prop).
 
@@ -780,7 +776,7 @@ Section setoid.
         | (lem,tac) :: ls =>
           let build := rewrite_dtree ls in
           fun r =>
-            if r ?[ eq ] lem.(concl).(rel) then
+            if Req_dec r lem.(concl).(rel) then
               (lem,tac) :: build r
             else
               build r
@@ -796,7 +792,7 @@ Section setoid.
         let res := using_rewrite_db' ls in
         let crw := core_rewrite lem tac in
         fun e r tus tvs nus nvs ctx cs =>
-          if r ?[ eq ] lem.(concl).(rel) then
+          if Req_dec r lem.(concl).(rel) then
             match crw e tus tvs nus nvs ctx cs with
             | None => res e r tus tvs nus nvs ctx cs
             | X => X
@@ -1741,7 +1737,8 @@ Section setoid.
         assert (using_rewrite_db' l e r tus tvs (length tus) (length tvs) cs = Some (e',cs')
              \/ (r = l0.(concl).(rel) /\
                  core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e',cs'))).
-        { consider (r ?[ eq ] rel (concl l0)); eauto.
+        { generalize (Req_dec_ok r l0.(concl).(rel)).
+          destruct (Req_dec r l0.(concl).(rel)); eauto.
           intros. destruct (core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs); eauto. }
         clear H1. destruct H3; eauto.
         destruct H1. subst. clear IHForall H0.
