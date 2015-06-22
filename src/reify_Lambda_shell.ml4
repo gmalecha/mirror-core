@@ -195,7 +195,7 @@ struct
 
   let decl_constant ?typ (na : Names.identifier) evm (c : Term.constr) =
     (** TODO: This looks weird... **)
-    let (evm,_) = Typing.e_type_of (Global.env ()) evm c in
+    let (evm,_) = Typing.type_of (Global.env ()) evm c in
     let vars = Universes.universes_of_constr c in
     let ctx = Universes.restrict_universe_context (Univ.ContextSet.of_context (Evd.universe_context evm)) vars in
     Declare.(Term.mkConst(declare_constant na
@@ -455,7 +455,7 @@ struct
 	  let (p,l) = compile_pattern p effect in
 	  (Term_match.Filter
 	     ((fun env trm ->
-	       let ty = Typing.type_of env.env env.evm trm in
+	       let (_,ty) = Typing.type_of env.env env.evm trm in
 	       Term.eq_constr ty t), p), l)
       in
       compile_pattern
@@ -862,7 +862,7 @@ struct
 		    ; next = 1 }
 	      in
 	      let full_term = get_term trm in
-	      let type_of = Typing.type_of renv.env renv.evm full_term in
+	      let (_,type_of) = Typing.type_of renv.env renv.evm full_term in
 	      let rtyp = reify_term type_name (Term type_of) renv in
 	      try
                 (** fast path something already in the table **)
