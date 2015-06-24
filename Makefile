@@ -1,29 +1,21 @@
-all: coq plugin
+coq: Makefile.coq
+	$(MAKE) -f Makefile.coq
 
-coq:
-	$(MAKE) -C src
-	$(MAKE) -C theories
+clean: Makefile.coq
+	$(MAKE) -f Makefile.coq clean
 
-plugin:
-	$(MAKE) -C src
-
-clean:
-	$(MAKE) -C theories clean
-	$(MAKE) -C src clean
+Makefile.coq: _CoqProject
+	coq_makefile -f _CoqProject -o Makefile.coq
 
 dist:
 	git archive --prefix=mirror-core/ -o mirror-core.tgz HEAD
 
-.dir-locals.el: tools/dir-locals.el Makefile
-	@ sed s,PWD,$(shell pwd -P),g tools/dir-locals.el | sed s,MOD,$(MODULE),g > .dir-locals.el
-
-install:
-	$(MAKE) -C src install
-	$(MAKE) -C theories install
+install: coq
+	$(MAKE) -f Makefile.coq install
 
 init:
 	@ ./tools/setup.sh -b $(EXTBRANCH)
 	@ (cd coq-ext-lib; $(MAKE))
 
 
-.PHONY: all clean dist init coq plugin
+.PHONY: all clean dist init coq

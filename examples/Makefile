@@ -13,9 +13,9 @@ SIMPLE  := Simple SimpleReify SimpleExt FoldTest # SimpleRewrite
 MODULES := $(MONAD2:%=Monad2/%) \
 	   $(IMP:%=Imp/%) \
 	   $(SIMPLE:%=Simple/%) \
+	   $(CANCEL:%=Cancel/%) \
            $(AUTO:%=Auto/%) \
-	   $(RTAC:%=RTac/%) \
-	   $(CANCEL:%=Cancel/%)
+	   $(RTAC:%=RTac/%)
 
 #	   $(AUTORW:%=AutoRewrite/%) \
 # ExprDemo
@@ -38,10 +38,10 @@ install: coq
 	$(MAKE) -f Makefile.coq install
 
 Makefile.coq: Makefile $(VS)
-	coq_makefile $(ARGS) $(VS) > Makefile.coq
+	coq_makefile -f _CoqProject -o Makefile.coq $(VS)
 
 Makefile.test.coq: Makefile $(TVS)
-	coq_makefile $(ARGS) $(TVS) > Makefile.test.coq
+	coq_makefile -f _CoqProject -o Makefile.test.coq $(TVS)
 
 test: coq Makefile.test.coq
 	$(MAKE) -f Makefile.test.coq
