@@ -324,7 +324,7 @@ struct
   let reify_app no_progress reify_expr reify_app t ts =
     M.bind V.ask (fun env ->
       M.bind VE.ask (fun evar ->
-	let (_,ty) = Typing.e_type_of env evar t in
+	let (_,ty) = Typing.type_of env evar t in
 	let (ds,ns) =
 	  let (ts,_) = mark_terms env ty (Array.to_list ts) in
 	  partition_until ts
