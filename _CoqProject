@@ -73,6 +73,7 @@ theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
+theories/Lambda/AutoSetoidRewriteRtac.v
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
 theories/RTac/Core.v
@@ -124,6 +125,6 @@ examples/Cancel/CancelTac2.v
 examples/Cancel/RtacDemo2.v
 examples/Auto/Demo.v
 examples/RTac/Demo.v
-examples/AutoRewrite/Demo.v
-examples/AutoRewrite/DemoQuantPull.v
-examples/AutoRewrite/AutoRewriteLambda.v
+# examples/AutoRewrite/Demo.v
+# examples/AutoRewrite/DemoQuantPull.v
+# examples/AutoRewrite/AutoRewriteLambda.v

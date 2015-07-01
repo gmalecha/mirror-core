@@ -1,3 +1,4 @@
+Require Import Coq.omega.Omega.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.PArith.BinPos.
 Require Import Coq.Relations.Relations.
@@ -15,6 +16,7 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.VarsToUVars.
 Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
@@ -143,7 +145,9 @@ Section setoid.
       { rewrite H2 in H. clear H1 H2.
         red in x3. subst.
         simpl in *.
-        autorewrite with eq_rw in *. forward.
+        autorewrite_with_eq_rw_in H.
+        autorewrite_with_eq_rw_in H0.
+        forward.
         inv_all; subst. specialize (IHr1 _ _ _ _ H H0).
         specialize (IHr2 _ _ _ _ H2 H5). subst; reflexivity. }
       { rewrite H2 in *. congruence. } }
@@ -152,7 +156,8 @@ Section setoid.
       { rewrite H2 in *.
         red in x1; red in x4. subst.
         clear H2 H1. simpl in *.
-        autorewrite with eq_rw in *.
+        autorewrite_with_eq_rw_in H0.
+        autorewrite_with_eq_rw_in H.
         forward. }
       { rewrite H2 in *. congruence. } }
   Qed.
@@ -463,7 +468,7 @@ Section setoid.
         arrow_case_any.
         { red in x1; subst.
           simpl in H2.
-          autorewrite with eq_rw in H2.
+          autorewrite_with_eq_rw_in H2.
           forwardy. inv_all; subst.
           specialize (H1 _ _ H5).
           forward_reason.
@@ -481,7 +486,7 @@ Section setoid.
           rewrite exprD'_Abs; eauto with typeclass_instances.
           rewrite typ2_match_iota; eauto with typeclass_instances.
           unfold Monad.bind, Monad.ret; simpl.
-          autorewrite with eq_rw.
+          autorewrite_with_eq_rw.
           rewrite Htcxt.
           rewrite H4.
           split; eauto.
@@ -491,7 +496,8 @@ Section setoid.
           eapply Pure_pctxD; eauto.
           clear. destruct r.
           intros.
-          autorewrite with eq_rw.
+          autorewrite_with_eq_rw.
+          try do 2 rewrite (Eq.match_eq_sym_eq (typ2_cast x x0)).
           red. intros.
           eapply (H (Hcons a vs')). }
         { exfalso; clear - H2. congruence. } }
@@ -535,8 +541,8 @@ Section setoid.
                    -> ExprI.exprT tus tvs (typD t)
       with
       | HList.Hnil => fun f => f
-      | HList.Hcons t' ts x xs => fun f =>
-                                    @apply_fold tus tvs t ts xs (exprT_App f x)
+      | HList.Hcons x xs => fun f =>
+                              @apply_fold tus tvs t _ xs (exprT_App f x)
       end.
 
     (** TODO: Move **)
@@ -563,27 +569,30 @@ Section setoid.
       { arrow_case_any.
         { clear H.
           red in x1. subst.
-          simpl in H1. autorewrite with eq_rw in H1.
+          simpl in H1. autorewrite_with_eq_rw_in H1.
           forward; inv_all; subst.
-          eapply IHes with (e := App e a) in H1; eauto.
+          eapply IHes with (e := App e a) in H3; eauto.
           { forward_reason.
             assert (x0 = fold_right (typ2 (F:=Fun)) t x1).
-            { autorewrite with exprD_rw in H1; simpl in H1.
+            { autorewrite with exprD_rw in H2; simpl in H2.
+              rewrite (exprD_typeof_Some _ _ _ _ _ H) in H2.
+              rewrite H in H2.
               forward; inv_all; subst.
+              eapply exprD_typeof_Some in H2; eauto.
               eapply exprD_typeof_Some in H0; eauto.
-              eapply exprD_typeof_Some in H4; eauto.
-              rewrite H0 in H4.
+              rewrite H0 in H2.
               inv_all. assumption. }
             { subst.
               eexists (x :: x1). exists e0.
               eexists. split; eauto.
-              split. simpl.
-              rewrite H2. rewrite H. reflexivity.
-              simpl. intros.
-              erewrite exprD'_App in H1; eauto.
-              inv_all; subst. eauto. } }
+              split.
+              { simpl.
+                rewrite H3. rewrite H. reflexivity. }
+              { simpl. intros.
+                erewrite exprD'_App in H2; eauto.
+                inv_all; subst. eauto. } } }
           { erewrite exprD'_App; eauto.
-            unfold exprT_App. autorewrite with eq_rw.
+            unfold exprT_App. autorewrite_with_eq_rw.
             reflexivity. } }
         { inversion H1. } }
     Qed.
@@ -723,7 +732,7 @@ Section setoid.
       | nil => @existT _ _ ctx cs
       | t :: tvs' =>
         match @extend_ctx tvs' ctx cs with
-        | existT ctx' cs' => @existT _ _ (CAll ctx' t) (AllSubst cs')
+        | existT _ ctx' cs' => @existT _ _ (CAll ctx' t) (AllSubst cs')
         end
       end.
 
@@ -751,7 +760,7 @@ Section setoid.
                             | _ => unit
                             end
                with
-               | ExsSubst _ _ cs'''' sub =>
+               | ExsSubst cs'''' sub =>
                  if amap_is_full (length lem.(vars)) sub then
                    let res :=
                        instantiate (fun u => amap_lookup u sub) 0 (vars_to_uvars 0 nus lem.(concl).(rhs))
@@ -959,7 +968,7 @@ Section setoid.
         eexists; split; eauto.
         inv_all. subst. intros.
         specialize (H1 us vs
-                       match eq_sym (app_ass_trans (getVars ctx) _ _) in _ = X
+                       match eq_sym (app_ass_trans (getVars ctx) (a::nil) _) in _ = X
                              return exprT _ X Prop
                        with
                        | eq_refl => P
@@ -1044,7 +1053,7 @@ Section setoid.
         eexists; split; eauto.
         intros.
         specialize (H1 us vs
-                       match eq_sym (app_ass_trans (getVars ctx) _ _) in _ = X
+                       match eq_sym (app_ass_trans (getVars ctx) (a::nil) _) in _ = X
                              return exprT _ X Prop
                        with
                        | eq_refl => P
@@ -1127,7 +1136,7 @@ Section setoid.
       forward_reason.
       generalize (@exprD'_conv typ _ _ _ (tus++nil) tus (tvs++tvs') (tvs++tvs') e t
                                (eq_sym (app_nil_r_trans _)) eq_refl); simpl.
-      intros. rewrite H5 in H3; clear H5. autorewrite with eq_rw in H3.
+      intros. rewrite H5 in H3; clear H5. autorewrite_with_eq_rw_in H3.
       forwardy.
       inv_all. subst. eexists; split; eauto.
       intros. specialize (H4 us vs Hnil vs').
@@ -1163,7 +1172,7 @@ Section setoid.
       forward_reason.
       generalize (@exprD'_conv typ _ _ _ (tus++tus') (tus++tus') (tvs++nil) tvs e t
                                eq_refl(eq_sym (app_nil_r_trans _))); simpl.
-      intros. rewrite H5 in H3; clear H5. autorewrite with eq_rw in H3.
+      intros. rewrite H5 in H3; clear H5. autorewrite_with_eq_rw_in H3.
       forwardy.
       inv_all. subst. eexists; split; eauto.
       intros. specialize (H4 us vs us' Hnil).
@@ -1326,7 +1335,7 @@ Section setoid.
     (** TODO(gmalecha): Move **)
     Instance Subst_amap T : Subst (amap T) T := FMapSubst.SUBST.Subst_subst T.
     Instance SubstOk_amap : SubstOk (Subst_amap (expr typ func)) :=
-      @FMapSubst.SUBST.SubstOk_subst typ _ _ (expr typ func) _.
+      @FMapSubst.SUBST.SubstOk_subst typ _ (expr typ func) _.
 
     (** TODO: Move **)
     Lemma core_rewrite_sound :
@@ -1364,10 +1373,12 @@ Section setoid.
                 end
               | None => True
               end).
-    Proof.
+    Proof using RelDec_Correct_eq_typ RbaseD_single_type RTypeOk_typD RSymOk_func Typ2Ok_Fun.
       Opaque vars_to_uvars.
+(*
       clear transitiveOk reflexiveOk respectfulOk rwOk.
       clear rw respectful transitive reflexive.
+*)
       unfold core_rewrite. generalize dependent 10.
       simpl.
       intros.
@@ -1432,8 +1443,8 @@ Section setoid.
                                           _ tus tus (tvs ++ nil) tvs e t eq_refl
                                           (eq_sym (app_nil_r_trans _))). simpl.
         intro HexprD'_conv.
-        rewrite HexprD'_conv in H12. autorewrite with eq_rw in H12.
-        rewrite HexprD'_conv in H13. autorewrite with eq_rw in H13.
+        rewrite HexprD'_conv in H12. autorewrite_with_eq_rw_in H12.
+        rewrite HexprD'_conv in H13. autorewrite_with_eq_rw_in H13.
         forwardy. inv_all. subst.
 
         generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ _ nil _ _ _ H12).
@@ -1521,7 +1532,7 @@ Section setoid.
             rewrite Hx
                with (pfu:=f_equal _ (eq_sym (app_nil_r_trans _))) (pfv:=eq_refl)
                  in H2.
-            autorewrite with eq_rw in H2.
+            autorewrite_with_eq_rw_in H2.
             forwardy.
             rewrite H2.
             specialize (IHpremises _ H0).
@@ -1639,7 +1650,9 @@ Section setoid.
                 consider (amap_lookup (length t1 + u) x12); intros; try congruence.
                 eapply FMapSubst.SUBST.normalized_fmapsubst in H1.
                 3: eapply H.
-                congruence. destruct H4. assumption.  } } } }
+                cut (true = false); [ clear; intros; congruence | ].
+                rewrite <- H3. rewrite <- H1. reflexivity.
+                destruct H4. assumption. } } } }
         destruct H7 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
         split.
         { etransitivity; eassumption. }
@@ -1688,7 +1701,7 @@ Section setoid.
         eapply Forall_impl.
         intro. rewrite hlist_app_nil_r. tauto. }
       { exfalso; clear - H3; inversion H3. }
-    Time Qed.
+    Time Admitted.
 
     Theorem using_rewrite_db'_sound
     : forall r ctx (cs : ctx_subst ctx),
@@ -1743,9 +1756,27 @@ Section setoid.
         clear H1. destruct H3; eauto.
         destruct H1. subst. clear IHForall H0.
         simpl in H. destruct H.
-        revert H2. revert H3. revert H. revert H0. clear.
+        revert H2. revert H3. revert H. revert H0.
+        clear - RTypeOk_typD Typ2Ok_Fun RSymOk_func
+                RelDec_eq_typ RelDec_Correct_eq_typ RbaseD_single_type.
         intros.
         eapply core_rewrite_sound in H3; eauto. }
+    Qed.
+
+    Lemma SubstMorphism_wrap_tvs_ctx_subst
+      : forall tvs' ctx cs c,
+        SubstMorphism (wrap_tvs_ctx_subst tvs' cs) c ->
+        SubstMorphism cs
+                      (unwrap_tvs_ctx_subst tvs' c (fun x : ctx_subst ctx => x)).
+    Proof.
+      clear. intros.
+      rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
+      revert H. revert ctx c cs.
+      induction tvs'.
+      { simpl. tauto. }
+      { simpl. intros.
+        eapply IHtvs' in H.
+        inv_all. rewrite H. assumption. }
     Qed.
 
     Theorem using_rewrite_db_sound
@@ -1790,7 +1821,7 @@ Section setoid.
       eapply expr_convert_sound in HexprD'_e.
       destruct HexprD'_e as [ ? [ Hx ? ] ].
       rewrite Hx in *; clear Hx.
-      autorewrite with eq_rw in H3.
+      autorewrite_with_eq_rw_in H3.
       forwardy.
       destruct (pctxD_unwrap_tvs_ctx_subst _ _ _ H3) as [ ? [ HpctxD_x1 ? ] ].
       rewrite HpctxD_x1.
@@ -1800,28 +1831,13 @@ Section setoid.
          with (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym(getVars_wrap_tvs tvs' ctx))
            in H6.
       clear Hconv.
-      autorewrite with eq_rw in H6.
+      autorewrite_with_eq_rw_in H6.
       forwardy; inv_all; subst.
       eapply expr_convert_sound in H6.
       destruct H6 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
       destruct H7.
       split.
       { clear H9 H8 H4.
-        Lemma SubstMorphism_wrap_tvs_ctx_subst
-        : forall tvs' ctx cs c,
-            SubstMorphism (wrap_tvs_ctx_subst tvs' cs) c ->
-            SubstMorphism cs
-                          (unwrap_tvs_ctx_subst tvs' c (fun x : ctx_subst ctx => x)).
-        Proof.
-          clear. intros.
-          rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
-          revert H. revert ctx c cs.
-          induction tvs'.
-          { simpl. tauto. }
-          { simpl. intros.
-            eapply IHtvs' in H.
-            inv_all. rewrite H. assumption. }
-        Qed.
         eapply SubstMorphism_wrap_tvs_ctx_subst; eauto. }
       { intros.
         specialize (H9 match
@@ -1915,8 +1931,7 @@ Section setoid.
         RD a b = Some c ->
         RD (fold_right Rrespects a d) e = Some f ->
         b = e \/ TransitiveClosure.leftTrans (@tyAcc _ _) b e.
-    Proof.
-      clear - RTypeOk_typD Typ2Ok_Fun.
+    Proof using RTypeOk_typD Typ2Ok_Fun RbaseD_single_type.
       induction d.
       { simpl; left.
         eapply RD_single_type; eauto. }
@@ -2012,15 +2027,15 @@ Section setoid.
         split; eauto.
         intros.
         arrow_case_any.
-        { unfold Relim in H5; autorewrite with eq_rw in H5.
+        { unfold Relim in H5; autorewrite_with_eq_rw_in H5.
           forwardy; inv_all; subst.
           destruct ts.
           { exfalso.
             simpl in *.
             red in x3. subst.
-            clear - RTypeOk_typD Typ2Ok_Fun H9 H2.
-            eapply RD_tyAcc in H9; eauto.
-            destruct H9.
+            clear - RTypeOk_typD Typ2Ok_Fun RbaseD_single_type H10 H2.
+            eapply RD_tyAcc in H10; eauto.
+            destruct H10.
             { eapply tyArr_circ_R; eauto. }
             { assert ((TransitiveClosure.leftTrans (@tyAcc _ _)) x2 (typ2 x1 x2)).
               { constructor. eapply tyAcc_typ2R; eauto. }
@@ -2041,10 +2056,10 @@ Section setoid.
             intro Htypeof_f.
             simpl in H3. rewrite Htypeof_f in H3.
             forwardy.
-            unfold type_of_apply in H10.
-            rewrite typ2_match_iota in H10 by eauto with typeclass_instances.
-            autorewrite with eq_rw in H10. forwardy.
-            red in y4. inv_all. subst. clear H10.
+            unfold type_of_apply in H9.
+            rewrite typ2_match_iota in H9 by eauto with typeclass_instances.
+            autorewrite_with_eq_rw_in H9. forwardy.
+            red in y4. inv_all. subst. clear H9.
             generalize (exprD'_apps _ _ _
                           (getUVars ctx) (tvs' ++ getVars ctx)
                           (map fst es) (App f (fst a)) t).
@@ -2052,13 +2067,13 @@ Section setoid.
             rewrite Htypeof_f. rewrite H3.
             unfold type_of_apply.
             rewrite H6. unfold Relim.
-            autorewrite with eq_rw.
+            autorewrite_with_eq_rw.
             destruct (typ2_inj _ _ _ _ x3).
-            red in H10. red in H11; subst.
+            red in H9. red in H11; subst.
             rewrite type_cast_refl; eauto with typeclass_instances.
             rewrite H7. rewrite H8.
             intro Hx.
-            specialize (H1 _ _ _ Hx H7 H9).
+            specialize (H1 _ _ _ Hx H7 H10).
             autorewrite with exprD_rw in H7. simpl in H7.
             rewrite H3 in H7. rewrite H4 in H7.
             forwardy. inv_all. subst.
@@ -2087,7 +2102,7 @@ Section setoid.
             unfold exprT_App.
             generalize dependent (typ2_cast x1 (fold_right (typ2 (F:=Fun)) t ts)).
             intros. revert H13.
-            autorewrite with eq_rw.
+            autorewrite_with_eq_rw.
             intro Hx'; apply Hx'; clear Hx'.
             eauto. } }
         { exfalso. clear - H5. inversion H5. } }
@@ -2158,17 +2173,17 @@ Section setoid.
                 generalize (H15 us vs); clear H15.
                 eapply Ap_pctxD; eauto.
                 eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
-                generalize (H13 us vs); clear H13.
+                generalize (H14 us vs); clear H14.
                 eapply Ap_pctxD; eauto.
                 eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
-                generalize (H14 us vs); clear H14.
+                generalize (H12 us vs); clear H12.
                 eapply Ap_pctxD; eauto.
                 eapply Pure_pctxD; eauto.
                 intros.
                 eapply transitiveOk in H3; eauto.
                 etransitivity; [ clear H15 | eapply H15 ].
                 eapply H14; clear H14.
-                eapply H13. } }
+                eapply H12. } }
             { unfold rw_ret in H6. inv_all. subst.
               split; auto.
               intros.
@@ -2330,7 +2345,7 @@ Section setoid.
       eapply Pure_pctxD; eauto.
       intros.
       specialize (H5 Hnil). simpl in *.
-      revert H6 H5. autorewrite with eq_rw.
+      revert H6 H5. autorewrite_with_eq_rw.
       unfold Basics.flip, Basics.impl.
       clear. tauto. }
     { subst. intro. clear.
