@@ -183,7 +183,7 @@ Proof.
 *)
 Admitted.
 
-Definition fuel := 12.
+Definition fuel := 254.
 
 Ltac run_auto := idtac;
   match goal with

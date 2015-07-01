@@ -15,9 +15,8 @@ MODULES := $(MONAD2:%=Monad2/%) \
 	   $(SIMPLE:%=Simple/%) \
 	   $(CANCEL:%=Cancel/%) \
            $(AUTO:%=Auto/%) \
-	   $(RTAC:%=RTac/%)
-
-#	   $(AUTORW:%=AutoRewrite/%) \
+	   $(RTAC:%=RTac/%) \
+	   $(AUTORW:%=AutoRewrite/%)
 # ExprDemo
 #	      $(SETOID:%=setoid/%)
 # 	      $(MTAC:%=mtac/%)
