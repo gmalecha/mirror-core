@@ -183,12 +183,26 @@ Proof.
 *)
 Admitted.
 
-Definition fuel := 12.
+Definition fuel := 103.
+
+Definition seven : expr typ func -> expr typ func :=
+  App (Inj 1%positive).
+Definition splus (l r : expr typ func) : expr typ func := App (App (Inj 4%positive) l) r.
 
 Ltac run_auto := idtac;
+  let rec reify X :=
+      match X with
+      | ?A + ?B =>
+        let A := reify A in
+        let B := reify B in
+        uconstr:(splus A B)
+      | _ => uconstr:(makeNat X)
+      end
+  in
   match goal with
     | |- Even ?X =>
-      let G := constr:(App (Inj 1%positive) (makeNat X)) in
+      let rX := reify X in
+      let G := constr:(App (Inj 1%positive) rX) in
       pose (g := G) ;
       let result :=
           constr:(the_auto evenHints fuel nil nil nil g (@SUBST.raw_empty (expr typ func)))
@@ -227,7 +241,6 @@ Print the_auto.
 Print auto_prove. Print auto_prove_rec.
 Qed.
 
-
 Goal Even 200.
 Proof.
   Time run_auto.
@@ -263,10 +276,6 @@ Goal Even ((200 + 200) + 200).
 Proof.
   Time eauto 400 using Even_0, Even_SS, Even_plus.
 Qed.
-
-Definition seven : expr typ func -> expr typ func := 
-  App (Inj 1%positive).
-Definition splus (l r : expr typ func) : expr typ func := App (App (Inj 4%positive) l) r.
 
 Goal Even (0 + 0).
 Proof.

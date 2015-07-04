@@ -6,6 +6,8 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.EProverI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VarsToUVars.
+Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.ExprSubst.
@@ -88,7 +90,7 @@ Section exprs.
                        let fuel := 100 in
                        match
                          ExprUnify.exprUnify fuel
-                           (tus ++ vars lem) tvs 0 s pattern e t
+                           (tus ++ vars lem) tvs 0 pattern e t s
                        with
                          | Some s' =>
                            match all_success
@@ -97,7 +99,7 @@ Section exprs.
                            with
                              | Some s' =>
                                let insts :=
-                                   instantiate (fun u => lookup u s') 0
+                                   instantiate (fun u => subst_lookup u s') 0
                                                (vars_to_uvars 0 (length tus) rhs)
                                in
                                Some (insts, s')
