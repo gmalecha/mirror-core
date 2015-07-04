@@ -4,8 +4,8 @@ coq: Makefile.coq
 clean: Makefile.coq
 	$(MAKE) -f Makefile.coq clean
 
-Makefile.coq: _CoqProject
-	coq_makefile -f _CoqProject -o Makefile.coq -arg -type-in-type
+Makefile.coq: _CoqProject Makefile
+	coq_makefile -f _CoqProject -o Makefile.coq
 
 dist:
 	git archive --prefix=mirror-core/ -o mirror-core.tgz HEAD

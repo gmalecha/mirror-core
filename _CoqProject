@@ -5,6 +5,8 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
+-arg -type-in-type
+
 src/reify_gen.ml
 src/reify_gen.mli
 src/reify_lambda.ml

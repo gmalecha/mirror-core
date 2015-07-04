@@ -17,6 +17,7 @@ Require Import MirrorCore.VarsToUVars.
 Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
@@ -281,18 +282,18 @@ Section setoid.
     Variable respectfulness
     : expr typ func -> rewrite_expr.
 
-    Fixpoint setoid_rewrite (e : expr typ func)
+    Fixpoint setoid_rewrite' (e : expr typ func)
              (es : list (expr typ func * (R -> mrw (expr typ func)))) (rg : R)
     : mrw (expr typ func) :=
       match e with
         | App f x =>
-          setoid_rewrite f ((x, setoid_rewrite x nil) :: es) rg
+          setoid_rewrite' f ((x, setoid_rewrite' x nil) :: es) rg
         | Abs t e' =>
           match es with
             | nil => match rg with
                        | Rpointwise _t (*=t*) rg' =>
                          fun tvs tus tvs' nus nvs c cs =>
-                           match @setoid_rewrite e' nil rg'
+                           match @setoid_rewrite' e' nil rg'
                                                  (t::tvs) tus tvs' nus nvs c cs
                            with
                            | Some (e'',cs'') =>
@@ -307,6 +308,10 @@ Section setoid.
         | UVar u => respectfulness (UVar u) es rg
         | Inj i => respectfulness (Inj i) es rg
       end.
+
+    Definition setoid_rewrite (e : expr typ func) (rg : R)
+    : mrw (expr typ func) :=
+      setoid_rewrite' e nil rg.
 
     Let _lookupU (u : ExprI.uvar) : option (expr typ func) := None.
     Let _lookupV (under : nat) (above : nat) (v : ExprI.var)
@@ -445,11 +450,11 @@ Section setoid.
         @setoid_rewrite_rel (apps e (map fst es))
                             rg (respectfulness e es rg).
 
-    Theorem setoid_rewrite_sound
+    Lemma setoid_rewrite'_sound
     : forall e es rg,
         @setoid_rewrite_rec es ->
         @setoid_rewrite_rel (apps e (map fst es))
-                            rg (setoid_rewrite e es rg).
+                            rg (setoid_rewrite' e es rg).
     Proof.
       induction e; eauto using respectfulness_sound.
       { simpl in *. intros.
@@ -502,6 +507,15 @@ Section setoid.
           eapply (H (Hcons a vs')). }
         { exfalso; clear - H2. congruence. } }
     Qed.
+
+    Theorem setoid_rewrite_sound
+    : forall e rg,
+        @setoid_rewrite_rel e rg (setoid_rewrite e rg).
+    Proof.
+      intros. eapply setoid_rewrite'_sound.
+      constructor.
+    Qed.
+
   End setoid_rewrite.
 
   Section top_bottom.
@@ -776,10 +790,10 @@ Section setoid.
         end).
     Defined.
 
-    Definition dtree : Type := R -> list (rw_lemma * rtacK typ (expr typ func)).
+    Definition dtree T : Type := R -> list T.
 
     Fixpoint rewrite_dtree (ls : list (rw_lemma * rtacK typ (expr typ func)))
-    : dtree :=
+    : dtree (rw_lemma * rtacK typ (expr typ func)) :=
         match ls with
         | nil => fun _ => nil
         | (lem,tac) :: ls =>
@@ -1091,6 +1105,40 @@ Section setoid.
             generalize (getAmbientVars_wrap_tvs tvs (CAll ctx a)).
             simpl. destruct e. reflexivity. } } }
     Qed.
+
+    Fixpoint process (r : R) : R * list R :=
+      match r with
+      | Rrespects a b =>
+        let '(x,y) := process b in
+        (x,a::y)
+      | _ => (r, nil)
+      end.
+
+    Fixpoint build_dtree {T} (ls : list (R * T)) : dtree T :=
+      match ls with
+      | nil => fun _ => nil
+      | (r,val) :: ls =>
+        let rest := build_dtree ls in
+        fun r' =>
+          if Req_dec r r' then val :: rest r' else rest r'
+      end.
+
+    Fixpoint do_respectful
+             (propers : list (expr typ func * R))
+    : expr typ func -> R -> mrw (list R) :=
+      let data := build_dtree (List.map (fun er =>
+                                           let (r,rs) := process (snd er) in
+                                           (r, (fst er, rs))) propers) in
+      let func_cmp x y :=
+          match sym_eqb x y with
+          | Some true => true
+          | _ => false
+          end
+      in
+      fun e r _ _ _ _ _ _ x =>
+        first_success (fun er =>
+                         if expr_eq_sdec (typ:=typ) _ func_cmp e (fst er) then Some (snd er, x)
+                         else None) (data r).
 
     Definition for_tactic (m : expr typ func ->
       tenv typ -> tenv typ -> nat -> nat ->
@@ -2123,7 +2171,7 @@ Section setoid.
                                           else rw_ret e'))
                             (fun x => rw (apps e es) r x))
 	     (if reflexive r then rw_ret (apps e es) else rw_fail))
-        e nil r.
+        e r.
 
     Lemma bottom_up_sound_lem
     : forall e rg,
