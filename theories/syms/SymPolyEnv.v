@@ -52,12 +52,12 @@ Section typed.
 
   Definition symD_sym (f : func)
   : match func_typeof_sym f with
-      | None => unit
+      | None => unit:Type
       | Some t => typD t
     end :=
     match f as f
           return match func_typeof_sym f with
-                   | None => unit
+                   | None => unit:Type
                    | Some t => typD t
                  end
     with

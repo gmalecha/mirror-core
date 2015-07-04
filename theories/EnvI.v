@@ -92,7 +92,7 @@ Section Env.
     match nth_error (projT1 (split_env ve)) v as t
           return match t with
                    | Some v => typD v
-                   | None => unit
+                   | None => unit:Type
                  end -> Prop
     with
       | None => fun _ => False

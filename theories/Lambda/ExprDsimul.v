@@ -99,7 +99,7 @@ Module ExprDenote <: ExprDenote.
                                 (Some (match pf in _ = Z
                                              return match Z with
                                                       | Some t => typD t
-                                                      | None => unit
+                                                      | None => unit:Type
                                                     end -> typD _
                                        with
                                          | eq_refl => fun x => x
@@ -117,7 +117,7 @@ Module ExprDenote <: ExprDenote.
                                     (match pf in _ = Z
                                            return match Z with
                                                     | Some t => typD t
-                                                    | None => unit
+                                                    | None => unit:Type
                                                   end -> typD _
                                      with
                                        | eq_refl => fun x => x

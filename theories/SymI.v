@@ -17,7 +17,7 @@ Section symbols.
      **)
   ; symD : forall (f : func),
              match typeof_sym f with
-               | None => unit
+               | None => unit:Type
                | Some t => typD t
              end
   ; sym_eqb : func -> func -> option bool

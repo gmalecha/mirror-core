@@ -43,7 +43,7 @@ Section RSym.
     end.
 
   Definition funcD (f : func) : match func_typeof_sym f with
-                                  | None => unit
+                                  | None => unit:Type
                                   | Some t => typD t
                                 end :=
     match PositiveMap.find f fs as Z
