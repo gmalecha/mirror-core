@@ -55,6 +55,17 @@ Section env.
     destruct x; auto.
   Qed.
 
+  Theorem expr_strong_ind_no_case
+  : forall (P : expr -> Prop),
+      (forall e, (forall e', (leftTrans expr_acc) e' e -> P e') -> P e) ->
+      forall e, P e.
+  Proof.
+    intros P H.
+    eapply Fix.
+    exact (wf_leftTrans wf_expr_acc).
+    eauto.
+  Qed.
+
   Section sdec.
     Variable RelDec_eq_typ : RelDec (@eq typ).
     Variable func_eq : func -> func -> bool.
