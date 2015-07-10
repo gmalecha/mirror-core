@@ -26,7 +26,7 @@ Section monad_funcs.
          end.
 
   Definition mfuncD (f : mfunc) : match typeof_mfunc f with
-                                    | None => unit
+                                    | None => unit:Type
                                     | Some t => typD m ts t
                                   end :=
     match f as f
