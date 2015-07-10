@@ -2,14 +2,6 @@
 -R theories MirrorCore
 
 -I src
--I $(COQLIB)/user-contrib/PluginUtils -as PluginUtils
-
-src/reify_gen.ml
-src/reify_gen.mli
-src/reify_lambda.ml
-src/reify_Lambda_shell.ml4
-src/reify_Lambda_plugin.mllib
-
 
 theories/CtxLogic.v
 theories/OpenT.v
@@ -44,7 +36,6 @@ theories/Util/ListMapT.v
 theories/Util/Forwardy.v
 theories/Util/Quant.v
 theories/Util/Nat.v
-theories/Util/Compat.v
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
 theories/syms/SymSum.v

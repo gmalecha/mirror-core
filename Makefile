@@ -1,4 +1,5 @@
 coq: Makefile.coq
+	$(MAKE) -C src
 	$(MAKE) -f Makefile.coq
 
 clean: Makefile.coq
