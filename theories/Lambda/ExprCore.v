@@ -2,8 +2,10 @@ Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
+Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -53,6 +55,45 @@ Section env.
     eapply Fix. eapply wf_leftTrans. eapply wf_expr_acc.
     destruct x; auto.
   Qed.
+
+  Section sdec.
+    Variable RelDec_eq_typ : RelDec (@eq typ).
+    Variable func_eq : func -> func -> bool.
+
+    Fixpoint expr_eq_sdec (e1 e2 : expr) : bool :=
+      match e1 , e2 with
+      | Var v1 , Var v2 => EqNat.beq_nat v1 v2
+      | UVar v1 , UVar v2 => EqNat.beq_nat v1 v2
+      | Inj f1 , Inj f2 => func_eq f1 f2
+      | App f1 e1 , App f2 e2 =>
+        if expr_eq_sdec f1 f2 then
+          expr_eq_sdec e1 e2
+        else
+          false
+      | Abs t1 e1 , Abs t2 e2 =>
+        if t1 ?[ eq ] t2 then expr_eq_sdec e1 e2
+        else false
+      | _ , _ => false
+      end.
+
+    Variable RelDec_Correct_typ : RelDec_Correct RelDec_eq_typ.
+    Variable func_eq_ok : forall a b, func_eq a b = true -> a = b.
+
+    Theorem expr_eq_sdec_ok : forall e1 e2,
+        expr_eq_sdec e1 e2 = true ->
+        e1 = e2.
+    Proof.
+      induction e1; destruct e2; simpl; intros; try congruence.
+      { eapply EqNat.beq_nat_true in H. congruence. }
+      { eapply func_eq_ok in H. congruence. }
+      { apply Bool.andb_true_iff in H.
+        destruct H. eapply IHe1_1 in H. eapply IHe1_2 in H0. congruence. }
+      { consider (t ?[ eq ] t0).
+        intros. apply IHe1 in H0. congruence. }
+      { eapply EqNat.beq_nat_true in H. congruence. }
+    Qed.
+  End sdec.
+
 
   Variable RelDec_eq_typ : RelDec (@eq typ).
   Variable RelDec_eq_func : RelDec (@eq func).
@@ -145,7 +186,6 @@ Section env.
                   (fun v : var => fv v || fv' v) e =
       mentionsAny fu fv e || mentionsAny fu' fv' e.
   Proof.
-    Require Import ExtLib.Tactics.
     induction e; simpl; auto; intros; Cases.rewrite_all_goal.
     { forward. simpl. rewrite orb_true_r. reflexivity. }
     { rewrite <- IHe. eapply Proper_mentionsAny; eauto.
@@ -239,7 +279,6 @@ Section env.
             - right. eauto. } }
     { rewrite IHe.
       eapply or_iff_compat_l.
-      Require Import ExtLib.Data.Prop.
       clear. split; intros; forward_reason.
       - forward. subst. eauto.
       - exists (S x). eauto. }
