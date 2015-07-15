@@ -365,6 +365,19 @@ Module Make (ED : ExprDenote).
         { rewrite nth_error_get_hlist_nth_None in H2. congruence. } }
     Qed.
 
+    Theorem type_of_apply_Some t u v (H : ED.type_of_apply t u = Some v) : t = typ2 u v.
+    Proof.
+      unfold ED.type_of_apply in H.
+      destruct (typ2_match_case t) as [[a [b [pf H1]]] | H1].
+      { unfold Rty in pf. subst.
+        rewrite typ2_match_iota in H; [|apply _].
+        unfold eq_sym in H.
+        forward. }
+      { specialize (H1 (fun _ => option typ)).
+        specialize (H1 (fun d r => match type_cast d u with | Some _ => Some r | None => None end)).
+        simpl in H1. specialize (H1 None). rewrite H in H1. congruence. }
+    Qed.
+
     Theorem exprD'_single_type
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall tus tvs e t t' val val',

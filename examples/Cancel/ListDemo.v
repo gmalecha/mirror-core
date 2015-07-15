@@ -308,7 +308,7 @@ Require Import McExamples.Cancel.ListCancelTac.
 
 Goal True.
 (* Riddle me this: remove 'Goal True' and we get a universe inconsistency. *)
-Eval vm_compute in cancel (mkNatList 498) (mkRevNatList 500).
+Time Eval vm_compute in cancel (mkNatList 2000) (mkRevNatList 2000).
 apply I.
 Qed.
 
