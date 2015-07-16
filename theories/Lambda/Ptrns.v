@@ -1,27 +1,10 @@
 Require Import Coq.Classes.Morphisms.
-Require Import Coq.PArith.BinPos.
 Require Import Coq.Relations.Relations.
-Require Import Coq.FSets.FMapPositive.
-Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI.
-Require Import MirrorCore.Lemma.
-Require Import MirrorCore.VarsToUVars.
-Require Import MirrorCore.Instantiate.
-Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
-Require Import MirrorCore.Lambda.ExprUnify.
-Require Import MirrorCore.Lambda.AppN.
-Require Import MirrorCore.Lambda.ExprSubstitute.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -30,6 +13,7 @@ Section setoid.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
+(*
   Context {Typ2_Fun : Typ2 RType_typD Fun}.
   Context {RSym_func : RSym func}.
 
@@ -39,6 +23,7 @@ Section setoid.
   Context {RSymOk_func : RSymOk RSym_func}.
   Context {RelDec_eq_typ : RelDec (@eq typ)}.
   Context {RelDec_Correct_eq_typ : RelDec_Correct RelDec_eq_typ}.
+*)
 
   Definition M p t := forall T, (t -> T) -> (p -> T) -> T.
 
@@ -78,6 +63,9 @@ Section setoid.
 
   Definition get {X} : ptrn X X :=
     fun e _ good _ => good e.
+
+  Definition ignore {X} : ptrn X unit :=
+    fun e _ good _ => good tt.
 
   Definition pret {X t} (v : t) : ptrn X t :=
     fun e _ good _ => good v.

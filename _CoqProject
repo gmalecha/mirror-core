@@ -51,6 +51,7 @@ theories/Util/Compat.v
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
 theories/syms/SymSum.v
+
 theories/Lambda/ExprCore.v
 theories/Lambda/ExprDI.v
 theories/Lambda/ExprDsimul.v
@@ -76,6 +77,8 @@ theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
 theories/Lambda/AutoSetoidRewriteRtac.v
+theories/Lambda/Ptrns.v
+
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
 theories/RTac/Core.v
