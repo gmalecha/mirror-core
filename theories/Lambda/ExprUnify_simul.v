@@ -607,7 +607,10 @@ Section typed.
          end.
     generalize (fun e => handle_uvar unifyOk tu tv e u s).
     consider (subst_lookup u s); intros.
-    { forwardy. inv_all. subst.
+    { forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
@@ -617,7 +620,10 @@ Section typed.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
-      forwardy. inv_all; subst.
+      forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all; subst.
       change_rewrite H4 in H5.
       forward_reason.
       split; eauto.
@@ -707,7 +713,10 @@ Section typed.
          end.
     generalize (fun e => handle_uvar' unifyOk tu tv e u s).
     consider (subst_lookup u s); intros.
-    { forwardy. inv_all. subst.
+    { forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
@@ -717,7 +726,10 @@ Section typed.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
-      forwardy. inv_all; subst.
+      forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all; subst.
       change_rewrite H4 in H5.
       forward_reason.
       split; eauto.
@@ -781,11 +793,14 @@ Section typed.
         inv_all; subst. eexists; split; [ reflexivity | ]; eauto. }
       { rewrite exprUnify_simul'_eq.
         destruct e2; try solve [ simpl; congruence | eapply handle_uvar_simul with (e := Var v); eauto ].
-        forward. inv_all; subst. destruct H3.
-        split; auto.
-        intros.
+        forward.
         eapply ExprFacts.typeof_expr_exprD' in H2; eauto.
         destruct H2.
+        eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+        destruct H0.
+        inv_all; subst. destruct H3.
+        split; auto.
+        intros.
         do 2 eexists; split; eauto.
         split; eauto. eexists; split; [ reflexivity | eauto ]. } }
     { (** Inj **)
@@ -1078,14 +1093,15 @@ Section typed.
             eapply nth_error_get_hlist_nth_None in H4.
             congruence. } }
         { intro XXX; clear XXX.
-          forward. inv_all; subst.
+          forward.
+          eapply ExprFacts.typeof_expr_exprD' in H; eauto.
+          eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+          inv_all; subst.
           destruct H2.
           consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
           { eapply unifyOk in H4.
             forward_reason. split; auto.
             intros. clear H6 H7.
-            eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
             forward_reason.
             eapply lookup_lift in H2; eauto.
             eapply lookup_lift in H3; eauto.
@@ -1094,7 +1110,7 @@ Section typed.
             do 2 eexists; split; eauto. split; eauto.
             forward_reason.
             eexists; split; eauto. split; eauto.
-            intros. 
+            intros.
             eapply H10 in H11; clear H10.
             forward_reason; split; auto.
             intros.
@@ -1102,79 +1118,71 @@ Section typed.
             rewrite H6; eauto. }
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
-            clear H6 H7.
-            eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+            clear H4 H5.
             forward_reason.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H3; eauto. forward_reason.
-            autorewrite with exprD_rw in H; simpl in H.
-            change_rewrite H3 in H.
+            autorewrite with exprD_rw in e0; simpl in e0.
+            change_rewrite H3 in e0.
             forwardy. inv_all; subst; destruct y.
-            specialize (H5 _ _ _ _ _ _ _ H6 H0 H8).
+            specialize (H0 _ _ _ _ _ _ _ H4 e1 H6).
             forward_reason.
             eexists; split; eauto. split; eauto.
-            intros. eapply H10 in H11; forward_reason; split; eauto.
+            intros. eapply H9 in H10; forward_reason; split; eauto.
             intros.
-            etransitivity; [ eapply H7; eauto | eapply H12 ]. }
+            etransitivity; [ eapply H5; eauto | eauto ]. }
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
-            clear H6 H7.
-            eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+            clear H4 H5.
             forward_reason.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H2; eauto. forward_reason.
             simpl in H2.
-            autorewrite with exprD_rw in H0; simpl in H0.
-            change_rewrite H2 in H0.
+            autorewrite with exprD_rw in e1; simpl in e1.
+            change_rewrite H2 in e1.
             forwardy; inv_all; subst. destruct y.
-            specialize (H5 _ _ _ _ _ _ _ H6 H H8).
+            specialize (H0 _ _ _ _ _ _ _ H4 e0 H6).
             forward_reason.
             eexists; split; eauto. split; eauto.
-            intros. eapply H10 in H11.
+            intros. eapply H9 in H10.
             forward_reason; split; eauto.
             intros. symmetry.
-            etransitivity; [ eapply H7; eauto | eapply H12 ]. }
+            etransitivity; [ eapply H5; eauto | eauto ]. }
           { consider (subst_set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H4; eauto.
               forward_reason; split; auto.
-              intros. clear H6 H7.
-              eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-              eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+              intros. clear H4 H5.
               forward_reason.
-              specialize (exprD'_lower nil tv' tv (UVar u0) t eq_refl H0).
+              specialize (exprD'_lower nil tv' tv (UVar u0) t eq_refl e0).
               intros; forward_reason.
-              simpl in *. eapply H5 in H8; eauto.
+              simpl in *. eapply H0 in H6; eauto.
               forward_reason.
               do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
               eexists; split; [ eassumption | ].
               split; eauto.
               intros.
-              eapply H10 in H11; forward_reason; split; auto.
+              eapply H8 in H9; forward_reason; split; auto.
               intros.
-              specialize (H7 us Hnil vs' vs); simpl in H7.
-              rewrite <- H12. auto. }
+              specialize (H5 us Hnil vs' vs); simpl in H5.
+              rewrite <- H10. auto. }
             { clear H4. rename H5 into H4.
               inv_all; subst.
               eapply handle_set in H4; eauto.
               forward_reason; split; auto.
-              intros. clear H6 H7.
-              eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-              eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+              intros. clear H4 H5.
               forward_reason.
-              specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl H).
+              specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl e).
               intros; forward_reason.
-              simpl in *. eapply H5 in H8; eauto.
+              simpl in *. eapply H0 in H6; eauto.
               forward_reason.
               do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
               eexists; split; [ eassumption | ]. split; eauto.
               intros.
-              eapply H10 in H11; forward_reason; split; auto.
+              eapply H8 in H9; forward_reason; split; auto.
               intros.
-              specialize (H7 us Hnil vs' vs); simpl in H7.
-              rewrite <- H12. auto. } } } } }
+              specialize (H5 us Hnil vs' vs); simpl in H5.
+              rewrite <- H10. auto. } } } } }
   Qed.
 
   Theorem exprUnify'_sound
