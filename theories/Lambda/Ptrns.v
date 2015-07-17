@@ -29,17 +29,6 @@ Section setoid.
       | Inj a => bad (Inj a)
       end%type.
 
-  Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T)
-           (args : hlist (ptrn (expr typ func)) Ts)
-  : ptrn (expr typ func) (T * hlist (fun x => x) Ts) :=
-    match args in hlist _ Ts
-          return ptrn (expr typ func) (T * hlist (fun x => x) Ts)
-    with
-    | Hnil => pmap (fun x => (x,Hnil)) f
-    | Hcons p ps => pmap (fun a => let '(a,b,c) := a in
-                                   (a, Hcons b c)) (appN (app f p) ps)
-    end.
-
   Definition var : ptrn (expr typ func) nat :=
     fun e _T good bad =>
       match e with
@@ -157,6 +146,35 @@ Section setoid.
       specialize (H0 _ (fun _ => true) (fun _ => false)). inversion H0. }
   Qed.
 
+  Theorem Succeeds_abs : forall {T U} a b e res
+      (Hpoka : ptrn_ok a) (Hpokb : forall x, ptrn_ok (b x)),
+      Succeeds e (abs a b) res ->
+      exists l r ra, e = Abs l r /\
+        Succeeds (T:=T) l a ra /\
+        Succeeds (T:=U) r (b ra) res.
+  Proof.
+    clear. intros.
+    destruct e;
+      try solve [ specialize (H _ (fun _ => true) (fun _ => false)); inversion H ].
+    { red in H.
+      destruct (Hpoka t) as [ [ ? ? ] | ? ].
+      { red in H0.
+        setoid_rewrite H0 in H.
+        destruct (Hpokb x e) as [ [ ? ? ] | ? ].
+        { red in H1. setoid_rewrite H1 in H.
+          do 3 eexists; split; eauto.
+          split; eauto.
+          specialize (H _ (fun x => x)). simpl in H. destruct H; eauto. }
+        { exfalso.
+          red in H1.
+          setoid_rewrite H1 in H.
+          specialize (H _ (fun _ => true) (fun _ => false)); inversion H. } }
+      { simpl in H.
+        red in H0.
+        setoid_rewrite H0 in H.
+        specialize (H _ (fun _ => true) (fun _ => false)); inversion H. } }
+  Qed.
+
   Theorem Succeeds_app : forall {T U} a b e res
       (Hpoka : ptrn_ok a) (Hpokb : ptrn_ok b),
       Succeeds e (app a b) res ->
@@ -197,6 +215,17 @@ Section setoid.
   Qed.
 
   Require Import MirrorCore.Lambda.AppN.
+
+  Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T)
+           (args : hlist (ptrn (expr typ func)) Ts)
+  : ptrn (expr typ func) (T * hlist (fun x => x) Ts) :=
+    match args in hlist _ Ts
+          return ptrn (expr typ func) (T * hlist (fun x => x) Ts)
+    with
+    | Hnil => pmap (fun x => (x,Hnil)) f
+    | Hcons p ps => pmap (fun a => let '(a,b,c) := a in
+                                   (a, Hcons b c)) (appN (app f p) ps)
+    end.
 
   Inductive Forall_hlist {T : Type} {F : T -> Type} (P : forall x, F x -> Prop)
   : forall {Ts : list T}, hlist F Ts -> Prop :=
@@ -311,5 +340,11 @@ Section setoid.
   Instance Injective_Succeeds_uvar x res : Injective (Succeeds x uvar res) :=
   { result := _
   ; injection := @Succeeds_uvar _ _ }.
+
+  Instance Injective_Succeeds_abs {T U} x res pt pe
+  : ptrn_ok pt -> (forall x, ptrn_ok (pe x)) ->
+    Injective (Succeeds x (@abs T U pt pe) res) :=
+  { result := _
+  ; injection := @Succeeds_abs _ _ _ _ _ _ _ _ }.
 
 End setoid.
