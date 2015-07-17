@@ -365,8 +365,11 @@ Module Make (ED : ExprDenote).
         { rewrite nth_error_get_hlist_nth_None in H2. congruence. } }
     Qed.
 
-    Theorem type_of_apply_Some t u v (H : ED.type_of_apply t u = Some v) : t = typ2 u v.
+    Theorem type_of_apply_Some
+    : forall t u v (H : ED.type_of_apply t u = Some v),
+        t = typ2 u v.
     Proof.
+      intros.
       unfold ED.type_of_apply in H.
       destruct (typ2_match_case t) as [[a [b [pf H1]]] | H1].
       { unfold Rty in pf. subst.
@@ -377,6 +380,77 @@ Module Make (ED : ExprDenote).
         specialize (H1 (fun d r => match type_cast d u with | Some _ => Some r | None => None end)).
         simpl in H1. specialize (H1 None). rewrite H in H1. congruence. }
     Qed.
+
+    Theorem typeof_expr_App
+    : forall tus tvs e1 e2 t,
+        ED.typeof_expr tus tvs (App e1 e2) = Some t ->
+        exists u,
+             ED.typeof_expr tus tvs e1 = Some (typ2 u t)
+          /\ ED.typeof_expr tus tvs e2 = Some u.
+    Proof.
+      simpl. intros; forward.
+      eapply type_of_apply_Some in H1. subst.
+      eauto.
+    Qed.
+
+    Theorem typeof_expr_Abs
+    : forall tus tvs e t1 t,
+        ED.typeof_expr tus tvs (Abs t1 e) = Some t ->
+        exists t2, t = typ2 t1 t2 /\
+             ED.typeof_expr tus (t1 :: tvs) e = Some t2.
+    Proof.
+      simpl. intros.
+      forward. inv_all. subst. eauto.
+    Qed.
+
+    Theorem typeof_expr_Var
+    : forall tus tvs v t,
+        ED.typeof_expr tus tvs (Var v) = Some t ->
+        nth_error tvs v = Some t.
+    Proof.
+      simpl; auto.
+    Qed.
+
+    Theorem typeof_expr_UVar
+    : forall tus tvs v t,
+        ED.typeof_expr tus tvs (UVar v) = Some t ->
+        nth_error tus v = Some t.
+    Proof.
+      simpl; auto.
+    Qed.
+
+    Theorem typeof_expr_Inj
+    : forall tus tvs (f : func) (t : typ),
+        ED.typeof_expr tus tvs (Inj f) = Some t ->
+        typeof_sym f = Some t.
+    Proof.
+      simpl; auto.
+    Qed.
+
+    Global Instance Injective_typeof_expr_Inj tus tvs (f : func) (t : typ)
+    : Injective (ED.typeof_expr tus tvs (Inj f) = Some t) :=
+    { result := typeof_sym f = Some t
+    ; injection := @typeof_expr_Inj _ _ _ _ }.
+
+    Global Instance Injective_typeof_expr_Var tus tvs v (t : typ)
+    : Injective (ED.typeof_expr tus tvs (Var v) = Some t) :=
+    { result := nth_error tvs v = Some t
+    ; injection := @typeof_expr_Var _ _ _ _ }.
+
+    Global Instance Injective_typeof_expr_UVar tus tvs v (t : typ)
+    : Injective (ED.typeof_expr tus tvs (UVar v) = Some t) :=
+    { result := nth_error tus v = Some t
+    ; injection := @typeof_expr_UVar _ _ _ _ }.
+
+    Global Instance Injective_typeof_expr_App tus tvs e1 e2 (t : typ)
+    : Injective (ED.typeof_expr tus tvs (App e1 e2) = Some t) :=
+    { result := _
+    ; injection := @typeof_expr_App _ _ _ _ _ }.
+
+    Global Instance Injective_typeof_expr_Abs tus tvs t1 e2 (t : typ)
+    : Injective (ED.typeof_expr tus tvs (Abs t1 e2) = Some t) :=
+    { result := _
+    ; injection := @typeof_expr_Abs _ _ _ _ _ }.
 
     Theorem exprD'_single_type
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)

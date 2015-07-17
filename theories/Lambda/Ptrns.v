@@ -27,11 +27,6 @@ Section setoid.
 
   Definition M p t := forall T, (t -> T) -> (p -> T) -> T.
 
-(*
-  Definition or {t} (l r : M t) : M t :=
-    fun T good bad => l T good (fun _ => r T good bad).
-*)
-
   Definition ret {p t} (v : t) : M p t :=
     fun _ good _ => good v.
 
@@ -50,7 +45,6 @@ Section setoid.
 
   Definition tptrn X (t : Type) : Type :=
     X -> Mt t.
-
 
 
   Definition por {X t} (l r : ptrn X t) : ptrn X t :=
@@ -85,6 +79,18 @@ Section setoid.
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
       end%type.
+
+  Require Import ExtLib.Data.HList.
+
+  Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T) (args : hlist (ptrn (expr typ func)) Ts)
+  : ptrn (expr typ func) (T * hlist (fun x => x) Ts) :=
+    match args in hlist _ Ts
+          return ptrn (expr typ func) (T * hlist (fun x => x) Ts)
+    with
+    | Hnil => pmap (fun x => (x,Hnil)) f
+    | Hcons p ps => pmap (fun a => let '(a,b,c) := a in
+                                   (a, Hcons b c)) (appN (app f p) ps)
+    end.
 
   Definition var : ptrn (expr typ func) nat :=
     fun e _T good bad =>
@@ -176,22 +182,6 @@ Section setoid.
       P e (fail e) ->
       P e (pfail e).
   Proof. clear. intros. apply H. Qed.
-
-(*
-  Theorem app_sound_syn
-  : forall {T U} (pa : ptrn (expr typ func) T) (pb : ptrn (expr typ func) U) e
-           (P : expr typ func -> M (expr typ func) (T * U) -> Prop),
-      (forall ea eb,
-          (leftTrans (@expr_acc _ _)) ea e ->
-          (leftTrans (@expr_acc _ _)) eb e ->
-          P (App ea eb) (prod (pa ea) (pb eb))) ->
-      P e (fail e) ->
-      P e (app pa pb e).
-  Proof.
-    clear. destruct e; simpl; intros; eauto.
-    eapply H; repeat constructor.
-  Qed.
-*)
 
   Definition MR {T U} : relation (M T U) :=
     (fun a b => forall x, ((eq ==> eq) ==> (eq ==> eq) ==> eq) (a x) (b x))%signature.
@@ -302,6 +292,8 @@ Section setoid.
         inversion H. } }
   Qed.
 
+  Require Import MirrorCore.Lambda.AppN.
+
   Theorem Succeeds_pmap : forall {X T U} (f : T -> U) p (x : X) res,
       ptrn_ok p ->
       Succeeds x (pmap f p) res ->
@@ -365,6 +357,23 @@ Section setoid.
     clear. compute. intros.
     eapply (H _ (fun x => x)); eauto.
   Qed.
+
+  Inductive Forall_hlist {T : Type} {F : T -> Type} (P : forall x, F x -> Prop)
+  : forall {Ts : list T}, hlist F Ts -> Prop :=
+  | Forall_hlist_nil : Forall_hlist P Hnil
+  | Forall_hlist_cons : forall t Ts x xs,
+      @P t x ->
+      Forall_hlist P xs ->
+      Forall_hlist (Ts:=t::Ts) P (Hcons x xs).
+
+  Inductive Forall3_hlist {T : Type} {F : Type} {G : T -> Type} {H : T -> Type}
+            (P : forall x, F -> G x -> H x -> Prop)
+  : forall {Ts : list T}, list F -> hlist G Ts -> hlist H Ts -> Prop :=
+  | Forall3_hlist_nil : Forall3_hlist P nil Hnil Hnil
+  | Forall3_hlist_cons : forall t Ts x xs y ys z zs,
+      @P t x y z ->
+      Forall3_hlist P xs ys zs ->
+      Forall3_hlist (Ts:=t::Ts) P (x :: xs) (Hcons y ys) (Hcons z zs).
 
   Existing Class ptrn_ok.
   Instance ptrn_ok_por
@@ -438,6 +447,78 @@ Section setoid.
     destruct (H0 x0 x) as [ [ ? ? ] | ? ] ; setoid_rewrite H2; eauto.
   Qed.
 
+  Instance ptrn_ok_appN : forall {Ts} (ps : hlist _ Ts),
+      Forall_hlist (fun _ x => ptrn_ok x) ps ->
+      forall T (p : ptrn _ T), ptrn_ok p ->
+      ptrn_ok (appN p ps).
+  Proof.
+    induction 1; simpl; eauto with typeclass_instances.
+  Qed.
+
+  Theorem Succeeds_appN : forall {Ts} ps,
+      Forall_hlist (fun _ x => ptrn_ok x) ps ->
+      forall T val e (p : ptrn _ T), ptrn_ok p -> 
+      Succeeds e (appN p ps) val ->
+      exists f es fv esv,
+           e = apps f es
+        /\ Succeeds f p fv
+        /\ @Forall3_hlist _ _ _ _ (fun T e p v => Succeeds e p v) Ts es ps esv.
+  Proof.
+    induction 1.
+    { simpl. intros.
+      eapply Succeeds_pmap in H0; eauto.
+      destruct H0 as [ ? [ ? ? ] ].
+      subst.
+      exists e; exists nil; exists x; exists Hnil.
+      simpl. split; eauto.
+      split; eauto.
+      constructor. }
+    { simpl. intros.
+      eapply Succeeds_pmap in H2; eauto with typeclass_instances.
+      forward_reason.
+      eapply IHForall_hlist in H2; eauto with typeclass_instances.
+      subst.
+      forward_reason.
+      subst.
+      eapply Succeeds_app in H3; eauto with typeclass_instances.
+      forward_reason. subst.
+      do 4 eexists.
+      split.
+      { change (apps (App x5 x6) x2) with (apps x5 (x6 :: x2)). reflexivity. }
+      split; eauto.
+      constructor; eauto. }
+  Qed.
+
+  Instance Injective_Succeeds_por {X T} p1 p2 x res : ptrn_ok p1 -> ptrn_ok p2 -> Injective (Succeeds x (por p1 p2) res) :=
+  { result := _
+  ; injection := @Succeeds_por X T _ _ _ _ _ _ }.
+
+  Instance Injective_Succeeds_pmap {X T U} f p x res : ptrn_ok p -> Injective (Succeeds x (pmap f p) res) :=
+  { result := _
+  ; injection := @Succeeds_pmap X T U _ _ _ _ _ }.
+
+  Instance Injective_Succeeds_app {T U} p1 p2 x res : ptrn_ok p1 -> ptrn_ok p2 ->  Injective (Succeeds x (app p1 p2) res) :=
+  { result := _
+  ; injection := @Succeeds_app T U _ _ _ _ _ _ }.
+
+  Instance Injective_Succeeds_inj {X} p x res : ptrn_ok p -> Injective (Succeeds x (inj p) res) :=
+  { result := _
+  ; injection := @Succeeds_inj X _ _ _ _ }.
+
+  Instance Injective_Succeeds_var x res : Injective (Succeeds x var res) :=
+  { result := _
+  ; injection := @Succeeds_var _ _ }.
+
+  Instance Injective_Succeeds_uvar x res : Injective (Succeeds x uvar res) :=
+  { result := _
+  ; injection := @Succeeds_uvar _ _ }.
+
+  Instance Injective_Succeeds_get X x res : Injective (Succeeds x (@get X) res) :=
+  { result := _
+  ; injection := @Succeeds_get _ _ _ }.
+
+
+(*
   Ltac drive_Succeeds :=
     let tc := eauto 100 with typeclass_instances in
     repeat match goal with
@@ -456,6 +537,7 @@ Section setoid.
            | H : Succeeds _ get _ |- _ =>
              eapply Succeeds_get in H ; subst
            end.
+*)
 
   (** Demo *)
   Parameter s_cons : forall {T} (p : ptrn typ T), ptrn func T.
@@ -514,34 +596,14 @@ Section setoid.
       { erewrite H3. eassumption.
         intros; eassumption. } }
     { intros.
-      drive_Succeeds.
-      eapply H; eauto.
-      unfold ptret.
-      eapply H0; eauto.
-      { eauto using LTStep, LTFin, acc_App_l, acc_App_r, acc_Abs. }
-      { eauto using LTStep, LTFin, acc_App_l, acc_App_r, acc_Abs. } }
+      inv_all. destruct H2; inv_all; subst.
+      { eapply H. eauto. }
+      { unfold ptret. destruct x. simpl in *. destruct p. simpl in *.
+        eapply H0; eauto.
+        { eauto using LTStep, LTFin, acc_App_l, acc_App_r, acc_Abs. }
+        { eauto using LTStep, LTFin, acc_App_l, acc_App_r, acc_Abs. } } }
     { eapply H1. }
   Qed.
-
-
-(*
-  Theorem abs_sound_syn
-  : forall {T U} (pt : ptrn typ T) (pe : T -> ptrn (expr typ func) U)
-           (P : expr typ func -> M (expr typ func) U -> Prop) e,
-      ptrn_ok pt ->
-      (forall x, ptrn_ok (pe x)) ->
-      (forall t ea,
-          (leftTrans (@expr_acc _ _)) ea e ->
-          P (Abs t ea) (Mbind (Mrebuild (fun x => Abs x ea) (pt t))
-                              (fun tv => Mrebuild (Abs t) (pe tv ea)))) ->
-      P e (fail e) ->
-      P e (abs pt pe e).
-  Proof.
-    destruct e; simpl; intros; auto.
-    unfold abs.
-    eapply H1. do 2 constructor.
-  Qed.
-*)
 
 End setoid.
 
