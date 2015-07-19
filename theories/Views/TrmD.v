@@ -8,19 +8,19 @@ Require Import MirrorCore.Lambda.Expr.
 
 Section TrmDR.
   Context {typ : Type} {RType_typ : RType typ}.
-  
+
   Definition trmD {A B : Type} (p : A) (e : A = B) : B :=
     eq_rect _ id p _ e.
-    
+
   Definition trmR {A B : Type} (p : B) (e : A = B) : A :=
     eq_rect_r id p e.
-     
+
   Lemma trmD_eq_refl A (x : A) :
     trmD x eq_refl = x.
   Proof.
     reflexivity.
   Qed.
-  
+
   Lemma trmR_eq_refl A (x : A) :
     trmR x eq_refl = x.
   Proof.
@@ -33,25 +33,25 @@ Section TrmDR.
     unfold trmD, eq_rect, id in H.
     destruct e; apply H.
   Qed.
-  
+
   Lemma trmR_inj {A B : Type} (a b : B) (e : A = B)
     (H : trmR a e = trmR b e) : a = b.
   Proof.
     unfold trmR, eq_rect_r, eq_rect, eq_sym, id in H.
     destruct e; apply H.
   Qed.
-  
+
   Lemma trmDR {A B : Type} (p : B) (e : A = B) : trmD (trmR p e) e = p.
   Proof.
     subst. reflexivity.
   Qed.
-    
+
   Lemma trmRD {A B : Type} (p : A) (e : A = B) : trmR (trmD p e) e = p.
   Proof.
     subst. reflexivity.
   Qed.
 (*
- Lemma trmDR2 f g (h : forall {A : Type} {t : typ}, (typD t = A) -> typD (f t) = g A) 
+ Lemma trmDR2 f g (h : forall {A : Type} {t : typ}, (typD t = A) -> typD (f t) = g A)
     t A B (x : forall A, g A) (e1 : typD t = A) (e2 : typD t = B) : trmD (trmR (x A) (h e1)) (h e2) = x B.
   Proof.
     unfold trmD, trmR, eq_rect_r, eq_rect, id, eq_sym.
@@ -67,7 +67,7 @@ Section TrmDR.
 	assert (e = eq_refl) by admit.
 	subst. reflexivity.
   Qed.
-  *)  
+  *)
 End TrmDR.
 
 Section Denotation.
@@ -80,65 +80,65 @@ Section Denotation.
     eq_ind (typD t) (fun X : Type => typD (tyArr t u) = (X -> B))
       (eq_ind (typD u) (fun Y : Type => typD (tyArr t u) = (typD t -> Y))
          (typ2_cast t u) B e2) A e1.
-         
+
   Definition tyArrD' {a b : typ} {A B : Type} (f : typD (tyArr a b)) (e1 : typD a = A) (e2 : typD b = B) : A -> B :=
     trmD f (funE e1 e2).
 
-  Program Definition tyArrD2' {a b c : typ} {A B C : Type} (f : typD (tyArr a (tyArr b c))) 
-    (e1 : typD a = A) (e2 : typD b = B) (e3 : typD c = C) : 
+  Program Definition tyArrD2' {a b c : typ} {A B C : Type} (f : typD (tyArr a (tyArr b c)))
+    (e1 : typD a = A) (e2 : typD b = B) (e3 : typD c = C) :
     A -> B -> C := fun x => tyArrD' ((tyArrD' f e1 eq_refl) x) e2 e3.
 
-  Program Definition tyArrD3' {a b c d : typ} {A B C D : Type} (f : typD (tyArr a (tyArr b (tyArr c d)))) 
+  Program Definition tyArrD3' {a b c d : typ} {A B C D : Type} (f : typD (tyArr a (tyArr b (tyArr c d))))
     e1 e2 e3 e4 : A -> B -> C -> D :=
       fun x y => tyArrD' ((tyArrD2' f e1 e2 eq_refl) x y) e3 e4.
 
-  Program Definition tyArrD4' {a b c d e : typ} {A B C D E : Type} (f : typD (tyArr a (tyArr b (tyArr c (tyArr d e))))) 
-    e1 e2 e3 e4 e5 : A -> B -> C -> D -> E := 
+  Program Definition tyArrD4' {a b c d e : typ} {A B C D E : Type} (f : typD (tyArr a (tyArr b (tyArr c (tyArr d e)))))
+    e1 e2 e3 e4 e5 : A -> B -> C -> D -> E :=
       fun x y z => tyArrD' ((tyArrD3' f e1 e2 e3 eq_refl) x y z) e4 e5.
 
   Definition tyArrD {a b : typ} (f : typD (tyArr a b)) : typD a -> typD b :=
     tyArrD' f eq_refl eq_refl.
 
-  Program Definition tyArrD2 {a b c : typ} (f : typD (tyArr a (tyArr b c)))  : 
+  Program Definition tyArrD2 {a b c : typ} (f : typD (tyArr a (tyArr b c)))  :
     typD a -> typD b -> typD c := tyArrD2' f eq_refl eq_refl eq_refl.
-    
-  Program Definition tyArrD3 {a b c d : typ} (f : typD (tyArr a (tyArr b (tyArr c d)))) 
+
+  Program Definition tyArrD3 {a b c d : typ} (f : typD (tyArr a (tyArr b (tyArr c d))))
     : typD a -> typD b -> typD c -> typD d := tyArrD3' f eq_refl eq_refl eq_refl eq_refl.
 
-  Program Definition tyArrD4 {a b c d e : typ} (f : typD (tyArr a (tyArr b (tyArr c (tyArr d e))))) 
-    : typD a -> typD b -> typD c -> typD d -> typD e := 
+  Program Definition tyArrD4 {a b c d e : typ} (f : typD (tyArr a (tyArr b (tyArr c (tyArr d e)))))
+    : typD a -> typD b -> typD c -> typD d -> typD e :=
 	  tyArrD4' f eq_refl eq_refl eq_refl eq_refl eq_refl.
-	  
-  Definition tyArrR' {a b : typ} {A B : Type} (f : A -> B) e1 e2 : typD (tyArr a b) :=
-    trmR f (funE e1 e2).  
 
-  Definition tyArrR2' {a b c : typ} {A B C : Type} (f : A -> B -> C) (e1 : typD a = A) (e2 : typD b = B) (e3 : typD c = C) : 
+  Definition tyArrR' {a b : typ} {A B : Type} (f : A -> B) e1 e2 : typD (tyArr a b) :=
+    trmR f (funE e1 e2).
+
+  Definition tyArrR2' {a b c : typ} {A B C : Type} (f : A -> B -> C) (e1 : typD a = A) (e2 : typD b = B) (e3 : typD c = C) :
     typD (tyArr a (tyArr b c)) := tyArrR' (fun x => (tyArrR' (f x) e2 e3)) e1 eq_refl.
 
-  Definition tyArrR3' {a b c d : typ} {A B C D : Type} (f : A -> B -> C -> D) e1 e2 e3 e4 : 
-    typD (tyArr a (tyArr b (tyArr c d))) := 
+  Definition tyArrR3' {a b c d : typ} {A B C D : Type} (f : A -> B -> C -> D) e1 e2 e3 e4 :
+    typD (tyArr a (tyArr b (tyArr c d))) :=
     tyArrR' (fun x => tyArrR2' (f x) e2 e3 e4) e1 eq_refl.
 
-  Definition tyArrR4' {a b c d e : typ} {A B C D E : Type} (f : A -> B -> C -> D -> E) 
+  Definition tyArrR4' {a b c d e : typ} {A B C D E : Type} (f : A -> B -> C -> D -> E)
     e1 e2 e3 e4 e5 : typD (tyArr a (tyArr b (tyArr c (tyArr d e)))) :=
     tyArrR' (fun x => tyArrR3' (f x) e2 e3 e4 e5) e1 eq_refl.
 
   Definition tyArrR {a b : typ} (f : typD a -> typD b) : typD (tyArr a b) :=
     tyArrR' f eq_refl eq_refl.
-    
-  Definition tyArrR2 {a b c : typ} (f : typD a -> typD b -> typD c) : 
+
+  Definition tyArrR2 {a b c : typ} (f : typD a -> typD b -> typD c) :
     typD (tyArr a (tyArr b c)) :=
     tyArrR2' f eq_refl eq_refl eq_refl.
 
-  Definition tyArrR3 {a b c d : typ} (f : typD a -> typD b -> typD c -> typD d) : 
+  Definition tyArrR3 {a b c d : typ} (f : typD a -> typD b -> typD c -> typD d) :
     typD (tyArr a (tyArr b (tyArr c d))) :=
     tyArrR3' f eq_refl eq_refl eq_refl eq_refl.
 
-  Definition tyArrR4 {a b c d e : typ} (f : typD a -> typD b -> typD c -> typD d -> typD e) 
+  Definition tyArrR4 {a b c d e : typ} (f : typD a -> typD b -> typD c -> typD d -> typD e)
     : typD (tyArr a (tyArr b (tyArr c (tyArr d e)))) :=
     tyArrR4' f eq_refl eq_refl eq_refl eq_refl eq_refl.
-    
-    
+
+
   Lemma tyArrDR {a b : typ} (f : typD a -> typD b) : tyArrD (tyArrR f) = f.
   Proof.
     unfold tyArrD, tyArrD', tyArrR, tyArrR'; rewrite trmDR. reflexivity.
