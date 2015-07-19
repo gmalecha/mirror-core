@@ -79,6 +79,9 @@ theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/Ptrns.v
 
 theories/Views/Ptrns.v
+theories/Views/FuncView.v
+theories/Views/ListView.v
+theories/Views/TrmD.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
