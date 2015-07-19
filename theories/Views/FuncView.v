@@ -90,7 +90,27 @@ Section FuncViewSumN.
 	 (pf : Some A = pmap_lookup' m p) :
     FuncViewOk (FuncViewPMap p m pf) := _.
   Proof.
-    admit.
+    constructor.
+    simpl. destruct f.
+    destruct (Pos.eq_dec p index).
+    { subst. split; intros.
+      { unfold Into. f_equal.
+        inversion H; clear H; subst.
+        destruct pf. reflexivity. }
+      { f_equal.
+        unfold Into in H.
+        cutrewrite (value = match
+                 pf in (_ = z)
+                 return match z with
+                        | Some T => T
+                        | None => Empty_set
+                        end
+               with
+               | eq_refl => a
+               end).
+        { clear. simpl. destruct pf. reflexivity. }
+        clear - H.
+        admit. } }
   Admitted.
 
 End FuncViewSumN.
