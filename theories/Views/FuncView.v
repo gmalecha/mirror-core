@@ -5,6 +5,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.syms.SymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -24,8 +25,6 @@ Section FuncView.
   Variable RType_typ : RType typ.
   Variable Sym_func : RSym func.
   Variable Sym_A : RSym A.
-
-  Check symAs.
 
   Class FuncViewOk : Type :=
   { fv_ok : forall f a, f_view f = Some a <-> f_insert a = f
@@ -160,11 +159,6 @@ Section FuncViewSumN.
 
   Variable typ : Type.
   Variable RType_typ : RType typ.
-
-  SearchAbout RSym OneOf.
-  Require Import MirrorCore.syms.SymOneOf.
-
-  Print SymOneOf.
 
   Global Instance FuncViewOkPMap
          (p : positive) (m : FMapPositive.pmap Type)
