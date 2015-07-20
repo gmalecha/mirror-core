@@ -80,6 +80,8 @@ Section setoid.
       | _ , S n => bad (S n)
       end.
 
+  Variable RSym_func : RSym func.
+
   Fixpoint exact (e : expr typ func) {struct e} : ptrn (expr typ func) unit :=
     fun e' _T good bad =>
       match e , e' with
@@ -97,7 +99,10 @@ Section setoid.
       | UVar v1 , UVar v2 =>
         exact_nat v1 v2 good (fun v => bad (UVar v))
       | Inj i1 , Inj i2 =>
-        bad (Inj i2)
+        match sym_eqb i1 i2 with
+        | Some true => good tt
+        | _ => bad (Inj i2)
+        end
       | _ , App a b => bad (App a b)
       | _ , Abs a b => bad (Abs a b)
       | _ , Inj a => bad (Inj a)
