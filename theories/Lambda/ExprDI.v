@@ -57,27 +57,6 @@ Module Type ExprDenote.
         | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
       end.
 
-    Definition funcAs (f : func) (t : typ) : option (typD t) :=
-      match typeof_sym f as Z
-            return Z = typeof_sym (RSym:=RSym_func) f -> option (typD t)
-      with
-        | None => fun _ => None
-        | Some T => fun pf =>
-                      match type_cast T t with
-                        | None => None
-                        | Some cast =>
-                          Rcast option cast
-                                (Some (match pf in _ = Z
-                                             return match Z with
-                                                      | Some t => typD t
-                                                      | None => unit:Type
-                                                    end -> typD _
-                                       with
-                                         | eq_refl => fun x => x
-                                       end (symD f)))
-                      end
-      end eq_refl.
-
     Parameter exprD'
     : forall {Typ2_Fun : Typ2 _ Fun}
              {RSym_func : RSym func}
@@ -155,7 +134,7 @@ Module Type ExprDenote.
       forall tus tvs t s,
         exprD' tus tvs t (Inj s) =
         bind (m := option)
-             (funcAs s t)
+             (symAs s t)
              (fun val =>
                 ret (fun _ _ => val)).
 

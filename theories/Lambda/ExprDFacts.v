@@ -95,11 +95,11 @@ Module Make (ED : ExprDenote).
         destruct r.
         auto. }
       { clear Habs Happ Huvar Hvar.
-        unfold ED.funcAs in *.
+        unfold symAs in *.
         specialize (Hinj tvs f).
         generalize dependent (symD f).
         destruct (typeof_sym f); intros.
-        { forward. specialize (Hinj _ t eq_refl (Rsym r)).
+        { forward. specialize (Hinj _ t eq_refl r).
           generalize dependent (P tus tvs (Inj f) t).
           destruct r.
           simpl. unfold ED.Rcast in H0. simpl in H0.
@@ -206,7 +206,7 @@ Module Make (ED : ExprDenote).
         destruct pf. rewrite type_cast_refl; eauto. }
       { intros; split; eauto.
         autorewrite with exprD_rw.
-        unfold ED.funcAs.
+        unfold symAs.
         generalize (symD i).
         rewrite pf. destruct pf'. rewrite type_cast_refl; eauto. }
       { intros. destruct H0. destruct H1.
@@ -276,11 +276,10 @@ Module Make (ED : ExprDenote).
         eapply H2. }
       { intros; inv_all; subst.
         autorewrite with exprD_rw. simpl.
-        unfold ED.funcAs.
+        unfold symAs.
         generalize (symD i). rewrite pf.
         destruct pf'.
-        rewrite type_cast_refl; eauto. simpl.
-        eexists; split; eauto. }
+        rewrite type_cast_refl; eauto. }
       { simpl; intros.
         specialize (H3 _ eq_refl).
         specialize (H2 _ eq_refl).
@@ -332,10 +331,9 @@ Module Make (ED : ExprDenote).
           destruct H2. rewrite x0 in H1. inv_all; subst.
           rewrite type_cast_refl; eauto. }
         { rewrite nth_error_get_hlist_nth_None in H2. congruence. } }
-      { unfold ED.funcAs.
+      { unfold symAs.
         generalize (symD f). rewrite H1.
-        rewrite type_cast_refl; eauto.
-        simpl. eauto. }
+        rewrite type_cast_refl; eauto. }
       { forward.
         eapply IHe1 in H1.
         eapply IHe2 in H2.
@@ -486,12 +484,12 @@ Module Make (ED : ExprDenote).
         { congruence. } }
       { intros; inv_all; subst.
         autorewrite with exprD_rw in *; simpl in *.
-        unfold ED.funcAs in *.
+        unfold symAs in *.
         generalize dependent (symD i).
         rewrite pf.
         destruct pf'.
-        destruct (type_cast t' t'0).
-        { intros. exists r.
+        destruct (type_cast t'0 t').
+        { intros. exists (Rsym r).
           destruct r. simpl in *. inv_all; subst. reflexivity. }
         { congruence. } }
       { intros; inv_all; subst.
@@ -553,11 +551,10 @@ Module Make (ED : ExprDenote).
           destruct r. eapply nth_error_get_hlist_nth_Some in H0.
           destruct H0. assumption. } }
       { split; intros.
-        { unfold ED.funcAs. generalize (symD f).
-          rewrite H. rewrite type_cast_refl; eauto.
-          simpl. eauto. }
+        { unfold symAs. generalize (symD f).
+          rewrite H. rewrite type_cast_refl; eauto. }
         { forward_reason; forward.
-          unfold ED.funcAs in H.
+          unfold symAs in H.
           generalize dependent (symD f).
           destruct (typeof_sym f); try congruence.
           intros. forward. } }

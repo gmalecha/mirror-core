@@ -178,12 +178,11 @@ Section substitute.
           rewrite nth_error_app_L in * by omega.
           rewrite x5 in x3. congruence. } } }
     { simpl. autorewrite with exprD_rw.
-      unfold funcAs in *.
+      unfold symAs in *.
       generalize dependent (symD f).
       destruct (typeof_sym f).
       { intros.
-        forward. destruct r.
-        simpl in *. unfold Rcast in H1. simpl in *. inv_all; subst; auto. }
+        forward. }
       { congruence. } }
     { autorewrite with exprD_rw. simpl.
       erewrite substitute_one_typed; eauto.
@@ -286,9 +285,9 @@ Section beta.
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
       rewrite type_cast_refl; eauto. }
     { simpl; intros; autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl.
-      unfold funcAs. generalize (symD i).
+      unfold symAs. generalize (symD i).
       Cases.rewrite_all_goal.
-      rewrite type_cast_refl; eauto. simpl. auto. }
+      rewrite type_cast_refl; eauto. }
     { simpl. destruct f;
       simpl; intros; forward_reason;
       autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl;

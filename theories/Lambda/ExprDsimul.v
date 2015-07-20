@@ -86,27 +86,6 @@ Module ExprDenote <: ExprDenote.
 
     End exprT.
 
-    Definition funcAs (f : func) (t : typ) : option (typD t) :=
-      match typeof_sym f as Z
-            return Z = typeof_sym (RSym:=RSym_func) f -> option (typD t)
-      with
-        | None => fun _ => None
-        | Some T => fun pf =>
-                      match type_cast T t with
-                        | None => None
-                        | Some cast =>
-                          Rcast option cast
-                                (Some (match pf in _ = Z
-                                             return match Z with
-                                                      | Some t => typD t
-                                                      | None => unit:Type
-                                                    end -> typD _
-                                       with
-                                         | eq_refl => fun x => x
-                                       end (symD f)))
-                      end
-      end eq_refl.
-
     Definition func_simul (f : func) : option { t : typ & typD t } :=
       match typeof_sym f as Z
             return Z = typeof_sym (RSym:=RSym_func) f -> option _
@@ -132,7 +111,7 @@ Module ExprDenote <: ExprDenote.
         match e return option (exprT tus tvs (typD t)) with
           | Var v => @exprT_GetVAs tus tvs v t
           | Inj f =>
-            match @funcAs f t with
+            match @symAs _ _ _ _ f t with
               | None => None
               | Some val =>
                 Some (exprT_Inj tus tvs val)
@@ -278,7 +257,7 @@ Module ExprDenote <: ExprDenote.
       forall tus tvs t s,
         exprD' tus tvs t (Inj s) =
         bind (m := option)
-             (funcAs s t)
+             (symAs s t)
              (fun val =>
                 ret (fun _ _ => val)).
     Proof. reflexivity. Qed.
@@ -378,7 +357,7 @@ Module ExprDenote <: ExprDenote.
         destruct H; forward; inv_all; subst;
         eapply nth_error_get_hlist_nth_Some in H0; destruct H0; simpl in *; auto.
         red in r. subst. auto. }
-      { unfold exprD', exprD'_simul, func_simul, funcAs in *; simpl in *.
+      { unfold exprD', exprD'_simul, func_simul, symAs in *; simpl in *.
         generalize dependent (symD f).
         destruct (typeof_sym f).
         { destruct 1. forward. inv_all; subst. auto. }
@@ -443,7 +422,7 @@ Module ExprDenote <: ExprDenote.
       { unfold exprD', exprT_GetVAs in *. simpl in *.
         forward; inv_all; subst. }
       { unfold exprD' in *; simpl in *. forward; inv_all; subst.
-        unfold funcAs in *.
+        unfold symAs in *.
         generalize dependent (symD f).
         destruct (typeof_sym f); intros; try congruence.
         forward. }
@@ -495,7 +474,7 @@ Module ExprDenote <: ExprDenote.
         { destruct H0. inv_all; subst.
           rewrite type_cast_refl in H1; eauto. inv_all; subst.
           eauto. } }
-      { unfold exprD', exprD'_simul,func_simul, funcAs. simpl in *; intros.
+      { unfold exprD', exprD'_simul,func_simul, symAs. simpl in *; intros.
         generalize (symD f).
         destruct (typeof_sym f).
         { split; intros; forward; inv_all; subst; simpl.

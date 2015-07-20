@@ -11,7 +11,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 
@@ -21,13 +21,13 @@ Set Strict Implicit.
 Module ExprDenote <: ExprDenote.
 
   Section with_types.
-    Context {func : Type}.
-    Context {RType_typD : RType}.
+    Context {typ func : Type}.
+    Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ Fun}.
-    Context {RSym_func : RSym typD func}.
+    Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
-    Context {RTypeOk_typD : @RTypeOk _}.
+    Context {RTypeOk_typD : RTypeOk}.
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
@@ -112,27 +112,6 @@ Module ExprDenote <: ExprDenote.
         | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
       end.
 
-    Definition funcAs {ts} (f : func) (t : typ) : option (typD ts t) :=
-      match typeof_sym f as Z
-            return Z = typeof_sym f -> option (typD ts t)
-      with
-        | None => fun _ => None
-        | Some T => fun pf =>
-                      match type_cast ts T t with
-                        | None => None
-                        | Some cast =>
-                          Rcast option cast
-                                (Some (match pf in _ = Z
-                                             return match Z with
-                                                      | Some t => typD nil t
-                                                      | None => unit
-                                                    end -> typD ts _
-                                       with
-                                         | eq_refl => fun x => type_weaken ts _ x
-                                       end (symD f)))
-                      end
-      end eq_refl.
-
     Section typeof_expr.
       Variable ts : list Type.
       Variable tus : tenv typ.
@@ -178,7 +157,7 @@ Module ExprDenote <: ExprDenote.
           | Var v => @Open_GetVAs ts tus tvs v t
           | Inj f =>
             bind (m := option)
-                 (@funcAs _ f t)
+                 (@symAs _ _  _ f t)
                  (fun val =>
                     ret (@Open_Inj ts tus tvs _ val))
           | App f x =>

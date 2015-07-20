@@ -12,7 +12,7 @@ Section symbols.
   Class RSym : Type :=
   { typeof_sym : func -> option typ
     (** TODO(gmalecha): This could be problematic if
-     ** any of any [func] denotes to a term that contains
+     ** any [func] denotes to a term that contains
      ** a unification variable.
      **)
   ; symD : forall (f : func),

@@ -822,11 +822,11 @@ Section typed.
           forward; inv_all; subst.
           autorewrite with exprD_rw.
           split; auto; intros.
-          remember (funcAs f0 t) as oF.
+          remember (symAs f0 t) as oF.
           destruct oF.
           { simpl. do 2 eexists; split; eauto.
             split; eauto. eexists; split; [ reflexivity | eauto ]. }
-          { exfalso. unfold funcAs in HeqoF.
+          { exfalso. unfold symAs in HeqoF.
             revert HeqoF.
             match goal with
               | |- context [ @symD ?A ?B ?C ?D ?E ] =>
