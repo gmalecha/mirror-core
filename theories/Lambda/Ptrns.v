@@ -219,6 +219,7 @@ Section setoid.
         inversion H. } }
   Qed.
 
+(*
   Require Import MirrorCore.Lambda.AppN.
 
   Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T)
@@ -248,6 +249,7 @@ Section setoid.
       @P t x y z ->
       Forall3_hlist P xs ys zs ->
       Forall3_hlist (Ts:=t::Ts) P (x :: xs) (Hcons y ys) (Hcons z zs).
+*)
 
   Global Instance ptrn_ok_app
   : forall {T U} (p1 : ptrn _ T) (p2 : ptrn _ U),
@@ -288,6 +290,7 @@ Section setoid.
     destruct (H0 x0 x) as [ [ ? ? ] | ? ] ; setoid_rewrite H2; eauto.
   Qed.
 
+(*
   Instance ptrn_ok_appN : forall {Ts} (ps : hlist _ Ts),
       Forall_hlist (fun _ x => ptrn_ok x) ps ->
       forall T (p : ptrn _ T), ptrn_ok p ->
@@ -329,6 +332,7 @@ Section setoid.
       split; eauto.
       constructor; eauto. }
   Qed.
+*)
 
   Instance Injective_Succeeds_app {T U} p1 p2 x res : ptrn_ok p1 -> ptrn_ok p2 ->  Injective (Succeeds x (app p1 p2) res) :=
   { result := _
