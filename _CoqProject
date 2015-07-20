@@ -47,9 +47,11 @@ theories/Util/Forwardy.v
 theories/Util/Quant.v
 theories/Util/Nat.v
 theories/Util/Compat.v
+
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
 theories/syms/SymSum.v
+theories/syms/SymOneOf.v
 
 theories/Lambda/ExprCore.v
 theories/Lambda/ExprDI.v
