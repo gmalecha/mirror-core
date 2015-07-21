@@ -1,6 +1,7 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Data.SumN.
+Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
@@ -9,7 +10,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section RSym_OneOf.
-  Context {typ : Type} {RType_typ : RType typ}.
+  Context {typ : Type} {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
 
   Instance RSym_Empty_set : RSym (Empty_set) :=
   { typeof_sym s := None
@@ -108,7 +109,6 @@ Section RSym_OneOf.
   rewrite <- pf.
   intros.
   apply tt.
-
   Defined.
 
   Definition sym_eqb_OneOf
@@ -191,8 +191,10 @@ Section RSym_OneOf.
     generalize (@sym_eqbOk _ _ _ _ (H2 x1) v1 v2).
     destruct (sym_eqb v1 v2); auto.
     { destruct b; intros; subst; auto.
-      intro. admit. } }
+      intro. inv_all.
+      apply H. rewrite H3. clear - RTypeOk_typ.
+      rewrite (UIP_refl x). reflexivity. } }
   { trivial. }
-  Admitted.
+  Defined.
 
 End RSym_OneOf.
