@@ -131,7 +131,11 @@ Section with_instantiation.
                          wfGoalU
                          (fun y => match goalDU y with
                                    | None => None
-                                   | Some P => Some (fun e => wfGoalT x -> P e)
+                                   | Some Q =>
+                                     Some (fun e => wfGoalT x ->
+                                                    forall P,
+                                                      goalDT x = Some P ->
+                                                      P e -> Q e)
                                    end) (k x)) ->
       InContext_spec (c:=ctx) K wfGoalU goalDU (Monad.bind c k).
   Proof.
@@ -165,7 +169,49 @@ Section with_instantiation.
           eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
           eapply Pure_pctxD; eauto.
           unfold exprT_of_env.
-          intros; tauto. } } }
+          intros.
+          forward_reason.
+          specialize (H8 _ eq_refl).
+          tauto. } } }
+  Qed.
+
+  Lemma Proper_InContext_spec
+  : forall T ctx,
+      Proper (Basics.impl -->
+              pointwise_relation _ Basics.impl ==>
+              pointwise_relation _ (Option.Roption (pointwise_relation _ Basics.impl)) ==>
+              eq ==>
+              Basics.impl)
+             (fun A B => @InContext_spec T A B ctx).
+  Proof.
+    intros.
+    unfold Basics.impl.
+    red. red. red. red. red.
+    unfold InContext_spec.
+    intros. subst.
+    specialize (H3 i).
+    revert H3.
+    eapply Proper_Pred; [ | reflexivity ].
+    red. intros.
+    red. destruct a.
+    intros. red in H.
+    forward_reason.
+    split; eauto.
+    split; eauto.
+    destruct (pctxD i) eqn:Heq; simpl; auto.
+    simpl in H6.
+    destruct (pctxD c) eqn:Heq'; simpl in *; try contradiction.
+    unfold assert in *.
+    red in H0. specialize (H1 t).
+    destruct H1; auto.
+    forward_reason.
+    split; eauto.
+    intros.
+    specialize (H7 us vs).
+    gather_facts.
+    eapply Pure_pctxD; eauto.
+    intros.
+    eapply H1. eapply H7.
   Qed.
 
   (** Probably do not want to expose this *)
