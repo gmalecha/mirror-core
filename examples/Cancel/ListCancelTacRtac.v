@@ -33,19 +33,27 @@ Section canceller.
   Print ListView.
 
   (** NOTE: These are already implemented in ListView **)
-  Definition ptrn_nil : Ptrns.ptrn (list_func typ) typ :=
+  Definition ptrn_nil {T} (p : Ptrns.ptrn typ T) : Ptrns.ptrn (list_func typ) T :=
     fun e _T good bad =>
       match e with
-      | pNil t => good t
+      | pNil t => p t _T good (fun x => bad (pNil x))
       | pCons t => bad (pCons t)
       end.
 
-  Definition ptrn_cons : Ptrns.ptrn (list_func typ) typ :=
+  Instance ptrn_ok_nil {T} p : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (@ptrn_nil T p).
+  Proof.
+  Admitted.
+
+  Definition ptrn_cons {T} (p : Ptrns.ptrn typ T) : Ptrns.ptrn (list_func typ) T :=
     fun e _T good bad =>
       match e with
       | pNil t => bad (pNil t)
-      | pCons t => good t
+      | pCons t => p t _T good (fun x => bad (pCons t))
       end.
+
+  Instance ptrn_ok_cons {T} p : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (@ptrn_cons T p).
+  Proof.
+  Admitted.
 
   Variable ctx : Ctx typ (expr typ func).
 
@@ -56,11 +64,11 @@ Section canceller.
   : Ptrns.tptrn (expr typ func) T :=
     Ptrns.pdefault
       (Ptrns.por
-         (Ptrns.pmap (do_nil) (Ptrns.inj (ptrn_view LF ptrn_nil)))
+         (Ptrns.pmap (do_nil) (Ptrns.inj (ptrn_view LF (ptrn_nil Ptrns.get))))
          (Ptrns.pmap (fun t_x_xs =>
                         let '(t,x,xs) := t_x_xs in
                         do_cons t x xs)
-                     (Ptrns.app (Ptrns.app (Ptrns.inj (ptrn_view LF ptrn_cons)) Ptrns.get) Ptrns.get)))
+                     (Ptrns.app (Ptrns.app (Ptrns.inj (ptrn_view LF (ptrn_cons Ptrns.get))) Ptrns.get) Ptrns.get)))
       do_default.
 
   Require Import ExtLib.Data.Monads.IdentityMonad.
@@ -89,6 +97,132 @@ Section canceller.
                                                 (fun xs' => Monad.ret (Functor.fmap (F:=option) (mkCons t x) xs'))))
                   (Monad.ret None))
       lst.
+
+  Lemma remove_eta : forall e lst,
+      remove e lst =
+      Ptrns.run_tptrn
+      (list_cases (T := InContext ident ctx (option (expr typ func)))
+                  (fun (_ : typ) =>
+                     Monad.ret None)
+                  (fun t x xs =>
+                     Monad.bind (check_equality x e)
+                                (fun yes_or_no =>
+                                   if yes_or_no then
+                                     Monad.ret (Monad.ret xs)
+                                   else
+                                     Monad.bind (remove e xs)
+                                                (fun xs' => Monad.ret (Functor.fmap (F:=option) (mkCons t x) xs'))))
+                  (Monad.ret None))
+      lst.
+  Proof.
+    clear. intros.
+    destruct lst; reflexivity.
+  Qed.
+
+  Instance MonadLogic_ident : @MonadLogic ident _ :=
+  { Pred := fun {T : Type} (P : T -> Prop) (id : ident T) => P (unIdent id) }.
+  Proof.
+    { compute. intros; tauto. }
+    { compute. destruct c. eauto. }
+    { compute. intros; subst. eauto. }
+  Defined.
+
+  Require Import Permutation.
+
+  Definition castD F U {T : Typ0 _ U} (val : F (typD (typ0 (F:=U)))) : F U :=
+    match @typ0_cast typ _ _ T in _ = x return F x with
+    | eq_refl => val
+    end.
+
+  Definition castR F U {T : Typ0 _ U} (val : F U) : F (typD (typ0 (F:=U))) :=
+    match eq_sym (@typ0_cast typ _ _ T) in _ = x return F x with
+    | eq_refl => val
+    end.
+
+  Arguments castR F U {T} val.
+  Arguments castD F U {T} val.
+
+  Existing Instance Typ2_App.
+  Existing Instance Typ1_App.
+  Existing Instance Typ0_term.
+  Existing Instance Expr_expr.
+
+  Require Import MirrorCore.Views.Ptrns.
+  Require Import MirrorCore.Lambda.Ptrns.
+  Require Import ExtLib.Tactics.
+
+  Existing Instance ptrn_view_ok.
+  Existing Instance ptrn_ok_por.
+  Existing Instance ptrn_ok_pmap.
+  Existing Instance ptrn_ok_app.
+  Existing Instance ptrn_ok_inj.
+  Existing Instance Injective_Succeeds_pmap.
+  Existing Instance Injective_Succeeds_app.
+  Existing Instance Injective_Succeeds_inj.
+  Existing Instance Injective_Succeeds_get.
+
+  Theorem remove_sound
+  : forall e lst (t : typ) eD lstD,
+      @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) e t = Some eD ->
+      @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) lst (typ1 t) = Some lstD ->
+      @InContext_spec typ (expr typ func)
+                      ident _ _ _ _ _
+                      (option (expr typ func))
+                      True
+                      (fun _ => True) ctx
+                      (fun (e' : option (expr typ func)) =>
+                         match e' with
+                         | None => Some (fun _ => True)
+                         | Some e' =>
+                           match @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) e' (typ1 t) with
+                           | Some lst'D =>
+                             Some (fun env => let '(us,vs) := env in
+                                     Permutation (castD (fun x => x) (typD t) (T:=@Typ0_term _ _ _) (eD us vs) ::
+                                                  castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ _ _ Typ1_List (@Typ0_term _ _ t))
+                                                        (lst'D us vs))
+                                                 (castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ _ _ Typ1_List (@Typ0_term _ _ t)) (lstD us vs)))
+                           | None => None
+                           end
+                         end)
+                      (remove e lst).
+  Proof.
+    Opaque exprD'.
+    intros e lst.
+    eapply expr_strong_ind_no_case with (e:=lst); intros.
+    rewrite remove_eta.
+    unfold Ptrns.run_tptrn, list_cases.
+    eapply Ptrns.pdefault_sound.
+    { repeat first [ simple eapply ptrn_ok_por
+                   | simple eapply ptrn_ok_pmap
+                   | simple eapply ptrn_ok_inj
+                   | simple eapply ptrn_ok_app
+                   | simple eapply ptrn_view_ok
+                   | eauto with typeclass_instances ]. }
+    { admit. }
+    { intros.
+      eapply Succeeds_por in H2; try solve [ instantiate ; eauto 100 with typeclass_instances ].
+      destruct H2; inv_all.
+      { subst. unfold ptret.
+        eapply InContext_spec_ret with (wfGoal := fun _ => True).
+        intros. split; auto.
+        eexists; split; eauto.
+        intros.
+        eapply Pure_pctxD; eauto. }
+      { destruct x. destruct p.
+        subst.
+        inv_all.
+        simpl in * |-.
+        subst.
+        unfold ptret.
+        admit. } }
+    { unfold ptret.
+      eapply InContext_spec_ret with (wfGoal := fun _ => True).
+      intros. split; auto.
+      eexists; split; eauto.
+      intros.
+      eapply Pure_pctxD; eauto. }
+  Admitted.
+
 
   Instance MonadPlus_InContext {m : Type -> Type} {M : Monad.Monad m} {Mp : MonadPlus.MonadPlus m}
   : MonadPlus.MonadPlus (InContext m ctx) :=
