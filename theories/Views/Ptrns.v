@@ -149,6 +149,21 @@ Section setoid.
       eapply H2. }
   Qed.
 
+  Definition pdefault_id {X} (p : ptrn X X) : tptrn X X :=
+    fun e => pdefault p e e. 
+
+  Lemma pmap_sound {X T U} {x : X} {f : T -> U} {p : ptrn X T} {res : U}
+        (HSucceeds : Succeeds x (pmap f p) res)
+        (H : ptrn_ok p)
+        {P : U -> Prop}
+        (Hstep : forall y : T, Succeeds x p y -> P (f y)) :
+    P res.
+  Proof.
+    apply Succeeds_pmap in HSucceeds; [|assumption].
+    destruct HSucceeds as [y [H1 Heq]].
+    subst; apply Hstep; assumption.
+  Qed.
+    
   Theorem Succeeds_get : forall {X} (x res : X),
       Succeeds x get res ->
       x = res.
@@ -190,6 +205,11 @@ Section setoid.
   Global Instance ptrn_ok_get : forall {X}, ptrn_ok (@get X).
   Proof.
     left. exists x. compute. reflexivity.
+  Qed.
+
+  Global Instance ptrn_ok_ignore : forall {X}, ptrn_ok (@ignore X).
+  Proof.
+    left. exists tt. compute. reflexivity.
   Qed.
 
   Global Instance ptrn_ok_fail : forall {X}, ptrn_ok (@pfail X).

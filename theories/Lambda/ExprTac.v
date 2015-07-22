@@ -48,7 +48,9 @@ Section some_lemmas.
     congruence.
   Qed.
 
-  Global Instance Injective_typ2 a b c d : Injective (typ2 a b = typ2 c d) :=
+  Global Instance Injective_typ2 {F : Type -> Type -> Type} 
+         {Typ2_F : Typ2 RType_typ F} {Typ2Ok_F : Typ2Ok Typ2_F} a b c d : 
+    Injective (typ2 a b = typ2 c d) :=
   { result := a = c /\ b = d }.
   abstract (
       eapply typ2_inj; eauto ).

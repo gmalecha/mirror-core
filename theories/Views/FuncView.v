@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Data.SumN.
 Require Import ExtLib.Data.Positive.
@@ -32,6 +35,12 @@ Section FuncView.
       symAs a t = symAs (f_insert a) t
   }.
 
+  Lemma fv_okL {FVO : FuncViewOk} f a (H : f_view f = Some a) :
+    f_insert a = f.
+  Proof.
+    apply fv_ok; assumption.
+  Qed.
+
   Variable RTypeOk_typ : RTypeOk.
 
   Theorem fv_compat_typ (FVO : FuncViewOk)
@@ -62,7 +71,7 @@ Section FuncView.
   Defined.
 
   Theorem fv_compat_val (FVO : FuncViewOk)
-  : forall a,
+  : forall (a : A),
         symD a = match fv_compat_typ _ a in _ = T return match T with
                                                          | Some t => typD t
                                                          | None => unit:Type
@@ -94,6 +103,32 @@ Section FuncView.
       inv_all. assumption. }
   Qed.
 
+  Lemma fv_typeof_sym {FVO : FuncViewOk} f p t v
+    (Hview : f_view f = Some p) (Hfunc : symAs f t = Some v) :
+    typeof_sym p = Some t.
+  Proof.
+    destruct (fv_ok f p) as [H _].
+    specialize (H Hview); subst.
+    rewrite <- fv_compat in Hfunc.
+    unfold symAs in Hfunc.
+    generalize dependent (symD p).
+    destruct (typeof_sym p); intros; [|congruence].
+    forward.
+  Defined.
+    Require Import TrmD.
+(*
+  Lemma fv_symD {FVO : FuncViewOk} f p t v
+        (Hview : f_view f = Some p) (Hfunc : symAs f t = Some v) : True.
+Print RSym.
+    v = eq_rect _ (fun x => match x with
+                              | Some t => typD t
+                              | None => unit
+                            end) (symD p) _ (fv_typeof_sym f t Hview Hfunc).
+  Proof.
+    admit.
+  Admitted.
+    
+*)
   Definition ptrn_view {T} (p : ptrn A T) : ptrn func T :=
     fun e _T good bad =>
       match f_view e with
@@ -101,7 +136,7 @@ Section FuncView.
       | Some f => p f _T good (fun _ => bad e)
       end.
 
-  Theorem ptrn_view_ok T (p : ptrn A T) : ptrn_ok p -> ptrn_ok (ptrn_view p).
+  Global Instance ptrn_view_ok T (p : ptrn A T) : ptrn_ok p -> ptrn_ok (ptrn_view p).
   Proof.
     unfold ptrn_view, ptrn_ok, Succeeds, Fails.
     intros.

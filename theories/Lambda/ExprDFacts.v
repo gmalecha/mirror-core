@@ -531,6 +531,17 @@ Module Make (ED : ExprDenote).
         { rewrite H0 in *. congruence. } }
     Qed.
 
+    Lemma symAs_typeof_sym (f : func) (t : typ) (v : typD t) (H : symAs f t = Some v) : 
+      typeof_sym f = Some t.
+    Proof.
+      unfold symAs in H.
+      generalize dependent (symD f).
+      destruct (typeof_sym f); intros; [|congruence].
+      destruct (type_cast t t0) eqn:Heq; [|congruence].
+      unfold type_cast in Heq.
+      forward.
+    Qed.
+
     Theorem exprD'_typeof_expr
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall tus tvs e t,

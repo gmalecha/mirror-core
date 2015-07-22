@@ -5,6 +5,8 @@ Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 
@@ -15,6 +17,14 @@ Section setoid.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
+  Context {RSym_func : RSym func}.
+  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {RTypeOk_typ : RTypeOk}.
+  Context {RSymOk_func : RSymOk RSym_func}.
+  Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
+  
+
+  Let tyArr := @typ2 _ _ _ Typ2_Fun.
 
   Definition app {T U} (f : ptrn (expr typ func) T) (g : ptrn (expr typ func) U)
   : ptrn (expr typ func) (T * U) :=
@@ -80,7 +90,12 @@ Section setoid.
       | _ , S n => bad (S n)
       end.
 
-  Variable RSym_func : RSym func.
+  Definition exact_func (i1 : func) : ptrn func unit :=
+    fun i2 _T good bad =>
+    match sym_eqb i1 i2 with
+      | Some true => good tt
+      | _ => bad i2
+    end.
 
   Fixpoint exact (e : expr typ func) {struct e} : ptrn (expr typ func) unit :=
     fun e' _T good bad =>
@@ -98,11 +113,7 @@ Section setoid.
         exact_nat v1 v2 good (fun v => bad (Var v))
       | UVar v1 , UVar v2 =>
         exact_nat v1 v2 good (fun v => bad (UVar v))
-      | Inj i1 , Inj i2 =>
-        match sym_eqb i1 i2 with
-        | Some true => good tt
-        | _ => bad (Inj i2)
-        end
+      | Inj i1 , Inj i2 => exact_func i1 i2 good (fun v => bad (Inj v))
       | _ , App a b => bad (App a b)
       | _ , Abs a b => bad (Abs a b)
       | _ , Inj a => bad (Inj a)
@@ -218,6 +229,58 @@ Section setoid.
         specialize (H _ (fun _ => true) (fun _ => false)).
         inversion H. } }
   Qed.
+
+  Lemma run_tptrn_id_sound (tus tvs : tenv typ) (t : typ) (p : ptrn (expr typ func) (expr typ func)) 
+        (e : expr typ func) (val : ExprI.exprT tus tvs (typD t))
+        (H : exprD' tus tvs t e =Some val) 
+        (HSucceeds : forall e', Succeeds e p e' ->
+                                exprD' tus tvs t e' = Some val) :
+    exprD' tus tvs t (run_tptrn (pdefault_id p) e) = Some val.
+  Proof.
+    admit.
+  Admitted.
+
+  Lemma app_sound {A B : Type} {tus tvs t e res val}
+        {p1 : ptrn (expr typ func) A} {p2 : ptrn (expr typ func) B}
+        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
+        (HSucceeds : Succeeds e (app p1 p2) res) 
+        (Hp1 : ptrn_ok p1) (Hp2 : ptrn_ok p2)
+        {P : exprT tus tvs (typD t) -> Prop}
+        (Hstep : forall l r tr vl vr, 
+                   Succeeds l p1 (fst res) -> Succeeds r p2 (snd res) ->
+                   ExprDsimul.ExprDenote.exprD' tus tvs (tyArr tr t) l = Some vl ->
+                   ExprDsimul.ExprDenote.exprD' tus tvs tr r = Some vr ->
+                   P (exprT_App vl vr)) :
+    P val.
+  Proof.
+    apply Succeeds_app in HSucceeds; [|assumption|assumption].
+    destruct HSucceeds as [l [r [Heq [HS1 HS2]]]]; subst.
+    autorewrite with exprD_rw in H.
+    unfold Monad.bind in H; simpl in H.
+    forward; inv_all; subst.
+    eapply Hstep; try eassumption.
+  Qed.
+
+  Lemma inj_sound {A : Type} {tus tvs t e res val}
+        {p : ptrn func A}
+        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
+        (HSucceeds : Succeeds e (inj p) res) 
+        (Hp1 : ptrn_ok p)
+        {P : exprT tus tvs (typD t) -> Prop}
+        (Hstep : forall f ve, 
+                   Succeeds f p res -> 
+                   symAs f t = Some ve ->
+                   P (fun _ _ => ve)) :
+    P val.
+  Proof.
+    apply Succeeds_inj in HSucceeds; [|assumption].
+    destruct HSucceeds as [f [Heq HSucceeds]]; subst.
+    autorewrite with exprD_rw in H.
+    unfold Monad.bind in H; simpl in H.
+    forward; inv_all; subst.
+    eapply Hstep; try eassumption.
+  Qed.
+
 
 (*
   Require Import MirrorCore.Lambda.AppN.
@@ -357,3 +420,32 @@ Section setoid.
   ; injection := @Succeeds_abs _ _ _ _ _ _ _ _ }.
 
 End setoid.
+
+Ltac ptrn_base_sound_step :=
+  match goal with
+    | H : Succeeds ?e get ?res |- _ =>
+      apply Succeeds_get in H; rewrite H in *; clear H
+    | H : Succeeds ?e (pmap ?f ?p) ?res |- _ =>
+      apply (pmap_sound H); [apply _ | clear H; do 2 intro]
+    | H1 : ExprDsimul.ExprDenote.exprD' _ _ _ ?e = Some ?val, 
+           H2 : Succeeds ?e (app ?p1 ?p2) ?res |- _ =>
+      apply (app_sound H1 H2); [apply _ | apply _ | clear H1 H2; do 9 intro]
+    | H1 : ExprDsimul.ExprDenote.exprD' _ _ _ ?e = Some ?val, 
+           H2 : Succeeds ?e (inj ?p) ?res |- _ =>
+      apply (inj_sound H1 H2); [apply _ | clear H1 H2; do 4 intro]
+    | H : Succeeds ?e (ptrn_view _ ?p) ?res |- _ =>
+      apply Succeeds_ptrn_view in H; [destruct H as [? [? ?]]; repeat subst | apply _ | apply _]
+    | H1 : f_view ?f = Some _, H2 : symAs ?f ?t = Some _ |- _ =>
+      let H := fresh "H" in 
+      pose proof (fv_typeof_sym _ _ H1 H2) as H; simpl in H; inv_all; repeat subst;
+      rewrite <- (fv_okL f H1) in H2;
+      rewrite <- fv_compat in H2;
+      unfold symAs in H2; simpl in H2; rewrite type_cast_refl in H2; [|apply _];
+      simpl in H2; inv_all; repeat subst
+    | H1 : symAs (f_insert ?f) ?t = Some _ |- _ =>
+      let H := fresh "H" in 
+      rewrite <- fv_compat in H1;
+        pose proof (ExprFacts.symAs_typeof_sym _ _ H1) as H; simpl in H; inv_all; repeat subst;
+        unfold symAs in H1; simpl in H1; rewrite type_cast_refl in H1; [|apply _];
+        simpl in H1; inv_all; repeat subst
+  end.
