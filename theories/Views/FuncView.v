@@ -1,6 +1,3 @@
-Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
-Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
-
 Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Data.SumN.
 Require Import ExtLib.Data.Positive.
@@ -115,7 +112,6 @@ Section FuncView.
     destruct (typeof_sym p); intros; [|congruence].
     forward.
   Defined.
-    Require Import TrmD.
 (*
   Lemma fv_symD {FVO : FuncViewOk} f p t v
         (Hview : f_view f = Some p) (Hfunc : symAs f t = Some v) : True.
