@@ -104,7 +104,7 @@ Section expr.
       rewrite H4; clear H4.
       eexists; split; eauto.
       intros.
-      unfold exprT_App.
+      unfold AbsAppI.exprT_App.
       autorewrite_with_eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
@@ -208,7 +208,7 @@ Section expr.
       rewrite H5; clear H5.
       eexists; split; eauto.
       intros.
-      unfold exprT_App.
+      unfold AbsAppI.exprT_App.
       autorewrite_with_eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').

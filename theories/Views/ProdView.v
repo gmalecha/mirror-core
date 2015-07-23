@@ -19,9 +19,9 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive prod_func {typ : Type} :=
-  | pPair : typ -> typ -> prod_func
-  | pFst : typ -> typ -> prod_func
-  | pSnd : typ -> typ -> prod_func.
+| pPair : typ -> typ -> prod_func
+| pFst : typ -> typ -> prod_func
+| pSnd : typ -> typ -> prod_func.
 
 Implicit Arguments prod_func [].
 
@@ -38,7 +38,7 @@ Section ExprDInject.
     Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (App e1 e2) = Some v) := {
       result := exists u v1 v2, ExprDsimul.ExprDenote.exprD' tus tvs (tyArr u t) e1 = Some v1 /\
                                 ExprDsimul.ExprDenote.exprD' tus tvs u e2 = Some v2 /\
-                                v = exprT_App v1 v2;
+                                v = AbsAppI.exprT_App v1 v2;
       injection := fun H => _
     }.
   Proof.

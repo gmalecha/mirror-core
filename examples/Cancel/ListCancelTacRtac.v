@@ -30,47 +30,6 @@ Section canceller.
   Context {LF : FuncView func (list_func typ)}.
   Context {LFOk : @FuncViewOk _ _ LF typ RType_typ _ _}.
 
-  (** NOTE: These are already implemented in ListView **)
-  Definition ptrn_nil {T} (p : Ptrns.ptrn typ T) : Ptrns.ptrn (list_func typ) T :=
-    fun e _T good bad =>
-      match e with
-      | pNil t => p t _T good (fun x => bad (pNil x))
-      | pCons t => bad (pCons t)
-      end.
-
-  Instance ptrn_ok_nil {T} p : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (@ptrn_nil T p).
-  Proof.
-    unfold ptrn_nil, Ptrns.ptrn_ok.
-    intros. destruct x.
-    { specialize (H t).
-      destruct H as [ [ ? ? ] | ? ].
-      { left; exists x.
-        red. eauto. }
-      { right. red.
-        red in H. setoid_rewrite H. reflexivity. } }
-    { right. red. reflexivity. }
-  Qed.
-
-  Definition ptrn_cons {T} (p : Ptrns.ptrn typ T) : Ptrns.ptrn (list_func typ) T :=
-    fun e _T good bad =>
-      match e with
-      | pNil t => bad (pNil t)
-      | pCons t => p t _T good (fun x => bad (pCons t))
-      end.
-
-  Instance ptrn_ok_cons {T} p : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (@ptrn_cons T p).
-  Proof.
-    unfold ptrn_nil, Ptrns.ptrn_ok.
-    intros. destruct x.
-    { right. red. reflexivity. }
-    { specialize (H t).
-      destruct H as [ [ ? ? ] | ? ].
-      { left; exists x.
-        red. eauto. }
-      { right. red.
-        red in H. setoid_rewrite H. reflexivity. } }
-  Qed.
-
   Variable ctx : Ctx typ (expr typ func).
 
   Definition list_cases {T : Type}
@@ -80,11 +39,11 @@ Section canceller.
   : Ptrns.tptrn (expr typ func) T :=
     Ptrns.pdefault
       (Ptrns.por
-         (Ptrns.pmap (do_nil) (Ptrns.inj (ptrn_view LF (ptrn_nil Ptrns.get))))
+         (Ptrns.pmap (do_nil) (Ptrns.inj (ptrn_view LF (fptrnNil Ptrns.get))))
          (Ptrns.pmap (fun t_x_xs =>
                         let '(t,x,xs) := t_x_xs in
                         do_cons t x xs)
-                     (Ptrns.app (Ptrns.app (Ptrns.inj (ptrn_view LF (ptrn_cons Ptrns.get))) Ptrns.get) Ptrns.get)))
+                     (Ptrns.app (Ptrns.app (Ptrns.inj (ptrn_view LF (fptrnCons Ptrns.get))) Ptrns.get) Ptrns.get)))
       do_default.
 
   Require Import ExtLib.Data.Monads.IdentityMonad.
@@ -150,44 +109,23 @@ Section canceller.
   Require Import MirrorCore.Views.Ptrns.
   Require Import MirrorCore.Lambda.Ptrns.
   Require Import ExtLib.Tactics.
+  Require Import MirrorCore.Util.Forwardy.
 
-  (** TODO: These should go elsewhere **)
-  Definition castD F U {T : Typ0 _ U} (val : F (typD (typ0 (F:=U)))) : F U :=
-    match @typ0_cast typ _ _ T in _ = x return F x with
-    | eq_refl => val
-    end.
-
-  Definition castR F U {T : Typ0 _ U} (val : F U) : F (typD (typ0 (F:=U))) :=
-    match eq_sym (@typ0_cast typ _ _ T) in _ = x return F x with
-    | eq_refl => val
-    end.
-
-  Arguments castR F U {T} val.
-  Arguments castD F U {T} val.
-
-  (** TODO: These should not be necessary **)
-  Existing Instance Typ2_App.
-  Existing Instance Typ1_App.
-  Existing Instance Typ0_term.
-  Existing Instance Expr_expr.
-
-  Existing Instance ptrn_view_ok.
-  Existing Instance ptrn_ok_por.
-  Existing Instance ptrn_ok_pmap.
-  Existing Instance ptrn_ok_app.
-  Existing Instance ptrn_ok_inj.
   Existing Instance Injective_Succeeds_pmap.
   Existing Instance Injective_Succeeds_app.
   Existing Instance Injective_Succeeds_inj.
   Existing Instance Injective_Succeeds_get.
+  Require Import MirrorCore.Lambda.Expr.
+
+  Existing Instance Expr_expr.
 
   Hypothesis InContext_spec_check_equality
-    : forall t (e1 e2 : expr typ func),
+  : forall t (e1 e2 : expr typ func),
       InContext_spec (Expr_expr typ func _ _) Typ0_Prop
                      MonadLogic_ident (fun _ => True)
                      (fun (y : bool) =>
                         match exprD' (getUVars ctx) (getVars ctx) e1 t
-                              , exprD' (getUVars ctx) (getVars ctx) e2 t
+                            , exprD' (getUVars ctx) (getVars ctx) e2 t
                         with
                         | Some e1D , Some e2D =>
                           Some (fun c =>
@@ -205,13 +143,12 @@ Section canceller.
       exists u e1D e2D,
         exprD' tus tvs e1 (typ2 u t) = Some e1D /\
         exprD' tus tvs e2 u = Some e2D /\
-        eD = exprT_App e1D e2D.
+        eD = AbsAppI.exprT_App _ e1D e2D.
   Proof using RSymOk_sym RTypeOk_typ Typ2Ok_func.
     intros.
     unfold exprD' in H. simpl in H.
     rewrite exprD'_App in H.
     simpl in H.
-    Require Import MirrorCore.Util.Forwardy.
     forwardy.
     do 3 eexists; split; eauto.
     eapply H0.
@@ -219,6 +156,7 @@ Section canceller.
     inv_all. eauto.
   Qed.
 
+(*
   Lemma Succeeds_ptrn_cons
     : forall T (p : ptrn typ T) e res,
       ptrn_ok p ->
@@ -241,11 +179,15 @@ Section canceller.
         specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. } }
   Qed.
 
-  Instance Injective_Succeeds_ptrn_cons T p e (res : T) : ptrn_ok p -> Injective (Succeeds e (ptrn_cons p) res) :=
+  Instance Injective_Succeeds_ptrn_cons T p e (res : T)
+  : ptrn_ok p -> Injective (Succeeds e (ptrn_cons p) res) :=
   { injection := @Succeeds_ptrn_cons _ _ _ _ _ }.
+*)
 
+  (** TODO: This should go elsewhere **)
   Definition exprT_pure {T} (tus tvs : tenv typ) (x : T) : exprT tus tvs T :=
     fun _ _ => x.
+
   Lemma exprD'_Inj
     : forall tus tvs (i : func) (t : typ) iD,
       exprD' tus tvs (Inj i) t = Some iD ->
@@ -288,7 +230,7 @@ Section canceller.
     : forall tus tvs t e1 e2 e1D e2D,
       exprD' tus tvs e1 t = Some e1D ->
       exprD' tus tvs e2 (typ1 t) = Some e2D ->
-      exprD' tus tvs (mkCons t e1 e2) (typ1 t) = Some (exprT_App (exprT_App (exprT_pure (consD t)) e1D) e2D).
+      exprD' tus tvs (mkCons t e1 e2) (typ1 t) = Some (AbsAppI.exprT_App _ (AbsAppI.exprT_App _ (exprT_pure (consR t)) e1D) e2D).
   Proof using Typ1Ok_list Typ2Ok_func RTypeOk_typ RSymOk_sym LFOk.
     intros. unfold mkCons.
     unfold exprD' in *; simpl in *.
@@ -324,30 +266,71 @@ Section canceller.
         Injective (Succeeds x (ptrn_view FV p) res) :=
     { injection := @Succeeds_ptrn_view _ _ _ _ _ _ _ _ _ _ _ _ _ }.
 
-  Axiom todo : forall T, T.
-
   Theorem exprT_App_cons
   : forall tus tvs (t : typ) (a : exprT tus tvs (typD t)) (b : exprT _ _ (typD (typ1 t)))
            us vs,
-      castD (fun x => x) (typD t) (T:=Typ0_term _ t) (a us vs) ::
-            castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t)) (b us vs) =
-      castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t))
-            ((exprT_App (exprT_App (exprT_pure (consD t)) a) b) us vs).
+      castD (fun x => x) (typD t) (Typ0:=Typ0_term _ t) (a us vs) ::
+            castD (fun x => x) (list (typD t)) (Typ0:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t)) (b us vs) =
+      castD (fun x => x) (list (typD t)) (Typ0:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t))
+            ((AbsAppI.exprT_App _ (AbsAppI.exprT_App _ (exprT_pure (consR t)) a) b) us vs).
   Proof.
     clear InContext_spec_check_equality.
-    intros. unfold castD, exprT_App, exprT_pure, consD, TrmD.tyArrR2, TrmD.tyArrR2', TrmD.tyArrR', TrmD.trmR, listR, TrmD.trmR, listE, TrmD.funE, TrmD.trmD.
+    intros. unfold castD, AbsAppI.exprT_App, exprT_pure, consR, castR.
     simpl. unfold id, eq_rect_r, eq_rect, eq_rec.
     Require Import MirrorCore.Util.Compat.
     autorewrite_with_eq_rw.
     generalize (a us vs).
     generalize (b us vs).
     uip_all.
-    rewrite Eq.match_eq_sym_eq with (pf :=e0).
-    rewrite Eq.match_eq_sym_eq with (pf :=e1).
-    destruct e2.
-    clear - RTypeOk_typ.
-    apply todo. (** Jesper's stuff? **)
+    generalize dependent (typD (typ1 t)).
+    intros; subst.
+    generalize dependent (typD (typ2 (typ1 t) (typ1 t))).
+    intros; subst. simpl.
+    generalize dependent (typD (typ2 t (typ2 (typ1 t) (typ1 t)))).
+    intros; subst. reflexivity.
   Qed.
+
+  Ltac Rty_inv :=
+    let rec find A B more none :=
+        match A with
+        | B => none tt
+        | typ1 ?A' =>
+          match B with
+          | typ1 ?B' => find A' B' more none
+          | _ => let r := constr:(A = B) in more r
+          end
+        | typ2 ?A1' ?A2' =>
+          match B with
+          | typ2 ?B1' ?B2' =>
+            let m' x := find A2' B2' ltac:(fun y => let r := constr:(x /\ y) in more r) ltac:(fun _ => more x) in
+            let n' x := find A2' B2' more none in
+            find A1' B1' m' n'
+          | _ => let r := constr:(A = B) in more r
+          end
+        | _ => let r := constr:(A = B) in more r
+        end
+    in
+    let rec break_ands H P :=
+        match P with
+        | ?A /\ ?B =>
+          let H1 := fresh in
+          let H2 := fresh in
+          destruct H as [ H1 H2 ]; break_ands H1 A ; break_ands H2 B
+        | _ => idtac
+        end
+    in
+    let finish Hstart P :=
+        let H := fresh in
+        assert (H : P) by (inv_all; eauto) ;
+          break_ands H P ; repeat progress subst ;
+          try ( rewrite (UIP_refl Hstart) in * ) ; try clear Hstart
+    in
+    match goal with
+    | H : Rty ?A ?B |- _ =>
+      find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
+    | H : @eq (option typ) (Some ?A) (Some ?B) |- _ =>
+      find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
+    end.
 
   Theorem remove_sound
   : forall e lst (t : typ) eD lstD,
@@ -364,27 +347,20 @@ Section canceller.
                            match @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) e' (typ1 t) with
                            | Some lst'D =>
                              Some (fun env => let '(us,vs) := env in
-                                     Permutation (castD (fun x => x) (typD t) (T:=@Typ0_term _ _ _) (eD us vs) ::
-                                                  castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ _ _ Typ1_List (@Typ0_term _ _ t))
-                                                        (lst'D us vs))
-                                                 (castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ _ _ Typ1_List (@Typ0_term _ _ t)) (lstD us vs)))
+                                     Permutation (castD (fun x => x) (typD t) (eD us vs) ::
+                                                  castD (fun x => x) (list (typD t)) (lst'D us vs))
+                                                 (castD (fun x => x) (list (typD t)) (lstD us vs)))
                            | None => None
                            end
                          end)
                       (remove e lst).
   Proof.
-    Opaque exprD'.
+    Opaque exprD' Monad.bind Monad.ret.
     intros e lst t eD lstD He. revert lstD.
     eapply expr_strong_ind_no_case with (e:=lst); intros.
     rewrite remove_eta.
     unfold Ptrns.run_tptrn, list_cases.
-    eapply Ptrns.pdefault_sound.
-    { repeat first [ simple eapply ptrn_ok_por
-                   | simple eapply ptrn_ok_pmap
-                   | simple eapply ptrn_ok_inj
-                   | simple eapply ptrn_ok_app
-                   | simple eapply ptrn_view_ok
-                   | eauto with typeclass_instances ]. }
+    eapply Ptrns.pdefault_sound; eauto 100 with typeclass_instances.
     { red. red. red.
       intros. subst.
       red in H2.
@@ -392,24 +368,17 @@ Section canceller.
       reflexivity. }
     { intros.
       eapply Succeeds_por in H1; try solve [ instantiate ; eauto 100 with typeclass_instances ].
-      destruct H1; inv_all.
+      destruct H1; ptrnE.
       { subst. unfold ptret.
         eapply InContext_spec_ret; [ tauto | ].
         intros. split; auto.
         eexists; split; eauto.
         intros.
         eapply Pure_pctxD; eauto. }
-      { destruct x as [ [ ? ? ] ? ].
-        subst.
-        inv_all.
-        simpl in * |-.
-        unfold ptret.
+      { unfold ptret.
         drive_exprD'.
         simpl in x3.
-        assert (t0 = x2 /\ x = typ1 t0 /\ t = t0) by
-           (clear - x3 Typ2Ok_func Typ1Ok_list; inv_all; subst; auto).
-        forward_reason; subst.
-        rewrite (UIP_refl x3); clear x3.
+        Rty_inv.
         eapply InContext_spec_bind.
         { eapply InContext_spec_check_equality. }
         { clear InContext_spec_check_equality.
@@ -418,6 +387,7 @@ Section canceller.
             eapply InContext_spec_ret; try solve [ simpl ; eauto ].
             simpl.
             intros. split; eauto.
+            Transparent Monad.ret. simpl. Opaque Monad.ret.
             Cases.rewrite_all_goal.
             eexists; split; eauto.
             simpl. intros.
@@ -437,7 +407,7 @@ Section canceller.
             Cases.rewrite_all_goal.
             destruct x.
             { intros.
-              destruct (exprD' (getUVars ctx) (getVars ctx) e0 (typ1 x2)) eqn:Heq.
+              destruct (exprD' (getUVars ctx) (getVars ctx) e0 (typ1 t)) eqn:Heq.
               { erewrite exprD'_mkCons by eauto.
                 eexists; split; eauto. simpl.
                 intros.

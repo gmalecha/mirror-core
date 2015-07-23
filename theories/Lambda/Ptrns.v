@@ -250,7 +250,7 @@ Section setoid.
                    Succeeds l p1 (fst res) -> Succeeds r p2 (snd res) ->
                    ExprDsimul.ExprDenote.exprD' tus tvs (tyArr tr t) l = Some vl ->
                    ExprDsimul.ExprDenote.exprD' tus tvs tr r = Some vr ->
-                   P (exprT_App vl vr)) :
+                   P (AbsAppI.exprT_App vl vr)) :
     P val.
   Proof.
     apply Succeeds_app in HSucceeds; [|assumption|assumption].
@@ -444,12 +444,12 @@ Section setoid.
   Theorem exprT_App_Fun tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (Fun T U))
           (e2 : exprT tus tvs T) :
-    @exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+    @AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
                (castR (exprT tus tvs) _ e1)
                (castR (exprT tus tvs) _ e2) =
     castR (exprT tus tvs) U (Applicative.ap e1 e2).
   Proof.
-    unfold exprT_App. simpl. intros.
+    unfold AbsAppI.exprT_App. simpl. intros.
     unfold castR. simpl.
     generalize dependent (typ2_cast (typ0 (F:=T)) (typ0 (F:=U))).
     generalize dependent (typ0_cast (F:=T)).
@@ -466,7 +466,7 @@ Section setoid.
           (e1 : exprT tus tvs (Fun T U))
           (e2 : exprT tus tvs T) 
           (Hres : P (castR (exprT tus tvs) U (Applicative.ap e1 e2))) :
-    P (@exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
                   (castR (exprT tus tvs) _ e1) (castR (exprT tus tvs) _ e2)).
   Proof.
     subst. rewrite exprT_App_Fun. assumption.
@@ -497,16 +497,16 @@ Ltac force_apply lem :=
 Ltac exprT_App_red :=
   match goal with
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
-    | |- context [@exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) ?v] => 
+    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) ?v] => 
       first [
           force_apply (@exprT_App_Fun' typ _ _ tus tvs t1 t2 _ _) |
           replace v with (castR (exprT tus tvs) t1 v) by reflexivity;
             force_apply (@exprT_App_Fun' typ _ _ tus tvs t1 t2 _ _)
         ]
   end.
-   
 
-Ltac symAsE := 
+
+Ltac symAsE :=
   match goal with
     | H : symAs ?f ?t = Some ?v |- _ =>
       let Heq := fresh "Heq" in
@@ -519,5 +519,3 @@ Ltac symAsE :=
 Ltac ptrnE :=
   ptrn_elim; destruct_prod; simpl in *; subst; inv_all; repeat subst;
   repeat symAsE.
-
-

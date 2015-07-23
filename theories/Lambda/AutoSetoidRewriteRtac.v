@@ -536,7 +536,7 @@ Section setoid.
     : forall tus tvs td tr f x fD xD,
         exprD' tus tvs (typ2 (F:=Fun) td tr) f = Some fD ->
         exprD' tus tvs td x = Some xD ->
-        exprD' tus tvs tr (App f x) = Some (exprT_App fD xD).
+        exprD' tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
     Proof.
       clear - Typ2Ok_Fun RSymOk_func RTypeOk_typD.
       intros.
@@ -556,7 +556,7 @@ Section setoid.
       with
       | HList.Hnil => fun f => f
       | HList.Hcons x xs => fun f =>
-                              @apply_fold tus tvs t _ xs (exprT_App f x)
+                              @apply_fold tus tvs t _ xs (AbsAppI.exprT_App f x)
       end.
 
     (** TODO: Move **)
@@ -606,7 +606,7 @@ Section setoid.
                 erewrite exprD'_App in H2; eauto.
                 inv_all; subst. eauto. } } }
           { erewrite exprD'_App; eauto.
-            unfold exprT_App. autorewrite_with_eq_rw.
+            unfold AbsAppI.exprT_App. autorewrite_with_eq_rw.
             reflexivity. } }
         { inversion H1. } }
     Qed.

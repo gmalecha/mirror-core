@@ -241,7 +241,7 @@ Section instantiate_thm.
       revert H2. eapply exprTApR; auto.
       revert H3. eapply exprTApR; auto.
       eapply exprTPureR; auto.
-      unfold ExprDsimul.ExprDenote.exprT_App.
+      unfold AbsAppI.exprT_App.
       clear.
       match goal with
         | |- context [ match ?X with _ => _ end ] =>

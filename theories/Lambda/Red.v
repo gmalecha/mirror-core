@@ -7,6 +7,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprLift.
+Require Import MirrorCore.Util.Compat.
 
 Require Import FunctionalExtensionality.
 
@@ -190,8 +191,7 @@ Section substitute.
         specialize (IHe1 tvs w _ eq_refl tvs' t (typ2 t0 t')).
         revert IHe1 IHe2.
         Cases.rewrite_all_goal. intros; forward.
-        unfold exprT_App.
-        Require Import MirrorCore.Util.Compat.
+        unfold AbsAppI.exprT_App.
         autorewrite_with_eq_rw.
         rewrite IHe1. rewrite IHe2. reflexivity. }
       { eapply exprD'_typeof_expr.
@@ -292,7 +292,7 @@ Section beta.
       simpl; intros; forward_reason;
       autorewrite with exprD_rw; Cases.rewrite_all_goal; simpl;
       forward; inv_all; subst.
-      { split; auto. unfold exprT_App.
+      { split; auto. unfold AbsAppI.exprT_App.
         intros. autorewrite_with_eq_rw.
         rewrite H5. reflexivity. }
       { split; auto.
@@ -306,7 +306,7 @@ Section beta.
         simpl in *. destruct r0.
         rewrite H1 in H5. rewrite H6 in H5.
         forward.
-        unfold exprT_App, Rcast_val, Rcast, Relim.
+        unfold AbsAppI.exprT_App, Rcast_val, Rcast, Relim.
         autorewrite_with_eq_rw.
         rewrite match_eq_sym_eq with (F:=fun x => x).
         simpl. specialize (H5 us Hnil vs).
@@ -314,11 +314,11 @@ Section beta.
         reflexivity. } }
     { intros. forward_reason.
       forward. simpl.
-      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (exprT_Abs fval)); auto.
+      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (AbsAppI.exprT_Abs fval)); auto.
       autorewrite with exprD_rw.
       rewrite typ2_match_iota; auto.
       rewrite type_cast_refl; auto. simpl.
-      rewrite H. unfold exprT_Abs.
+      rewrite H. unfold AbsAppI.exprT_Abs.
       autorewrite with eq_rw. reflexivity. }
   Qed.
 

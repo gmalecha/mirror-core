@@ -207,7 +207,7 @@ Section typed.
                    specialize (H' _ _ H); forward_reason
                end.
         split; eauto.
-        unfold exprT_App.
+        unfold AbsAppI.exprT_App.
         autorewrite_with_eq_rw. intros.
         Cases.rewrite_all_goal. reflexivity. } }
     { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].

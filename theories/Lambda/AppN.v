@@ -288,7 +288,7 @@ Section app_full_proofs.
                 red in x1. subst.
                 destruct r. Cases.rewrite_all_goal.
                 forward. f_equal.
-                unfold exprT_App. simpl.
+                unfold AbsAppI.exprT_App. simpl.
                 autorewrite_with_eq_rw.
                 repeat rewrite match_option_eta.
                 match goal with

@@ -1,5 +1,6 @@
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprDFacts.
@@ -62,6 +63,33 @@ Section some_lemmas.
   { result := a = b }.
   abstract (
       eapply typ1_inj; eauto ).
+  Defined.
+
+  Require Import MirrorCore.ExprI.
+
+  Global Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ sym) (t : typ) 
+         (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (App e1 e2) = Some v) := {
+      result := exists u v1 v2, ExprDsimul.ExprDenote.exprD' tus tvs (typ2 u t) e1 = Some v1 /\
+                                ExprDsimul.ExprDenote.exprD' tus tvs u e2 = Some v2 /\
+                                v = exprT_App v1 v2;
+      injection := fun H => _
+    }.
+  Proof.
+    autorewrite with exprD_rw in H.
+    simpl in H. forward; inv_all; subst.
+    do 3 eexists; repeat split; eassumption.
+  Defined.
+
+  Global Instance Injective_exprD'_Inj tus tvs (f : sym) (t : typ) (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (Inj f) = Some v) := {
+      result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
+      injection := fun H => _
+    }.
+  Proof.
+    autorewrite with exprD_rw in H.
+    simpl in H. forward; inv_all; subst.
+    eexists; repeat split.
   Defined.
 
 End some_lemmas.
