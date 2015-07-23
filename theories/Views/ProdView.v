@@ -1,6 +1,3 @@
-Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
-Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
-
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Map.FMapPositive.
