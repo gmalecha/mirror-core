@@ -129,7 +129,7 @@ Section MakeList.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnNil {A B T : Type}
+  Definition ptrnNil {T : Type}
              (p : ptrn typ T) : ptrn (expr typ func) T :=
     inj (ptrn_view _ (fptrnNil p)).
 
@@ -183,4 +183,17 @@ Section MakeList.
       s_elim := @Succeeds_fptrnCons T f p res pok
     }.
   
+  Definition list_cases {T : Type}
+             (do_nil : typ -> T)
+             (do_cons : typ -> expr typ func -> expr typ func -> T)
+             (do_default : T)
+  : Ptrns.tptrn (expr typ func) T :=
+    Ptrns.pdefault
+      (Ptrns.por
+         (Ptrns.pmap do_nil (ptrnNil Ptrns.get))
+         (Ptrns.pmap (fun t_x_xs =>
+                        let '(t,x,xs) := t_x_xs in
+                        do_cons t x xs) (ptrnCons Ptrns.get Ptrns.get Ptrns.get)))
+      do_default.
+
 End MakeList.
