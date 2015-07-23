@@ -419,33 +419,120 @@ Section setoid.
   { result := _
   ; injection := @Succeeds_abs _ _ _ _ _ _ _ _ }.
 
+  Global Instance app_SucceedsE {T U : Type} {e : expr typ func} 
+         {p : ptrn (expr typ func) T} {q : ptrn (expr typ func) U} {res : T * U} 
+         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
+    SucceedsE e (app p q) res := {
+      s_result := exists l r, e = App l r /\ Succeeds l p (fst res) /\ Succeeds r q (snd res);
+      s_elim := Succeeds_app pok_p pok_q
+    }.
+
+  Global Instance inj_SucceedsE {T : Type} {e : expr typ func} 
+         {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p} :
+    SucceedsE e (inj p) res := {
+      s_result := exists f, e = Inj f /\ Succeeds f p res;
+      s_elim := Succeeds_inj pok_p
+    }.
+
+  Definition castD F U {T : Typ0 _ U} (val : F (typD (typ0 (F:=U)))) : F U :=
+    match @typ0_cast typ _ _ T in _ = x return F x with
+      | eq_refl => val
+    end.
+
+  Definition castR F U {T : Typ0 _ U} (val : F U) : F (typD (typ0 (F:=U))) :=
+    match eq_sym (@typ0_cast typ _ _ T) in _ = x return F x with
+    | eq_refl => val
+    end.
+
+  Implicit Arguments castD [[T]].
+  Implicit Arguments castR [[T]].
+
+  Global Existing Instance Typ2_App.
+  Global Existing Instance Typ1_App.
+  Global Existing Instance Typ0_term.
+  Global Existing Instance MirrorCore.ExprI.Applicative_exprT.
+
+  Require Import MirrorCore.Util.Compat.
+
+  Theorem exprT_App_Fun tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
+          (e1 : exprT tus tvs (Fun T U))
+          (e2 : exprT tus tvs T) :
+    @exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+               (@castR (exprT tus tvs) _ _ e1)
+               (@castR (exprT tus tvs) _ _ e2) =
+    @castR (exprT tus tvs) U U0 (Applicative.ap e1 e2).
+  Proof.
+    unfold exprT_App. simpl. intros.
+    unfold castR. simpl.
+    generalize dependent (typ2_cast (typ0 (F:=T)) (typ0 (F:=U))).
+    generalize dependent (typ0_cast (F:=T)).
+    generalize dependent (typ0_cast (F:=U)).
+    intros.
+    autorewrite_with_eq_rw.
+    generalize dependent (typD (typ2 (typ0 (F:=T)) (typ0 (F:=U)))).
+    intros. subst T1.
+    destruct (eq_sym e0).
+    destruct (eq_sym e). simpl. reflexivity.
+  Qed.
+
+  Theorem exprT_App_Fun' tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)  P
+          (e1 : exprT tus tvs (Fun T U))
+          (e2 : exprT tus tvs T) 
+          (Hres : P (@castR (exprT tus tvs) U U0 (Applicative.ap e1 e2))) :
+    P (@exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) (@castR (exprT tus tvs) _ _ e1) (@castR (exprT tus tvs) _ _ e2)).
+  Proof.
+    subst. rewrite exprT_App_Fun. assumption.
+  Qed.
+
+  Lemma exprT_App_castR_pure {A : Type} {T0 : Typ0 RType_typD A} tus tvs (f : exprT tus tvs A) :
+    (fun us vs => castR id A (f us vs)) = 
+    (castR (exprT tus tvs) A f).
+  Proof.
+    unfold castR, eq_sym, id; simpl.
+    generalize dependent (typ0_cast (F := A)).
+    intros. autorewrite_with_eq_rw.
+    reflexivity.
+  Qed.
+
 End setoid.
 
-Ltac ptrn_base_sound_step :=
-  match goal with
-    | H : Succeeds ?e get ?res |- _ =>
-      apply Succeeds_get in H; rewrite H in *; clear H
-    | H : Succeeds ?e (pmap ?f ?p) ?res |- _ =>
-      apply (pmap_sound H); [apply _ | clear H; do 2 intro]
-    | H1 : ExprDsimul.ExprDenote.exprD' _ _ _ ?e = Some ?val,
-           H2 : Succeeds ?e (app ?p1 ?p2) ?res |- _ =>
-      apply (app_sound H1 H2); [apply _ | apply _ | clear H1 H2; do 9 intro]
-    | H1 : ExprDsimul.ExprDenote.exprD' _ _ _ ?e = Some ?val,
-           H2 : Succeeds ?e (inj ?p) ?res |- _ =>
-      apply (inj_sound H1 H2); [apply _ | clear H1 H2; do 4 intro]
-    | H : Succeeds ?e (ptrn_view _ ?p) ?res |- _ =>
-      apply Succeeds_ptrn_view in H; [destruct H as [? [? ?]]; repeat subst | apply _ | apply _]
-    | H1 : f_view ?f = Some _, H2 : symAs ?f ?t = Some _ |- _ =>
-      let H := fresh "H" in
-      pose proof (fv_typeof_sym _ _ H1 H2) as H; simpl in H; inv_all; repeat subst;
-      rewrite <- (fv_okL f H1) in H2;
-      rewrite <- fv_compat in H2;
-      unfold symAs in H2; simpl in H2; rewrite type_cast_refl in H2; [|apply _];
-      simpl in H2; inv_all; repeat subst
-    | H1 : symAs (f_insert ?f) ?t = Some _ |- _ =>
-      let H := fresh "H" in
-      rewrite <- fv_compat in H1;
-        pose proof (ExprFacts.symAs_typeof_sym _ _ H1) as H; simpl in H; inv_all; repeat subst;
-        unfold symAs in H1; simpl in H1; rewrite type_cast_refl in H1; [|apply _];
-        simpl in H1; inv_all; repeat subst
+Implicit Arguments castD [[typ] [RType_typD] [T]].
+Implicit Arguments castR [[typ] [RType_typD] [T]].
+
+Ltac destruct_prod :=
+  match goal with 
+    | p : ?A * ?B |- _ => destruct p; destruct_prod
+    | _ => idtac
   end.
+
+Ltac force_apply lem :=
+  let L := fresh "L" in 
+  pose proof lem as L; apply L; clear L.
+
+Ltac exprT_App_red :=
+  match goal with
+    | |- context [castR id _ _] => rewrite exprT_App_castR_pure
+    | |- context [@exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) ?v] => 
+      first [
+          force_apply (@exprT_App_Fun' typ _ _ tus tvs t1 t2 _ _) |
+          replace v with (castR (exprT tus tvs) t1 v) by reflexivity;
+            force_apply (@exprT_App_Fun' typ _ _ tus tvs t1 t2 _ _)
+        ]
+  end.
+   
+
+Ltac symAsE := 
+  match goal with
+    | H : symAs ?f ?t = Some ?v |- _ =>
+      let Heq := fresh "Heq" in
+      pose proof (ExprFacts.symAs_typeof_sym _ _ H) as Heq;
+        simpl in Heq; inv_all; repeat subst;
+        unfold symAs in H; simpl in H; rewrite type_cast_refl in H; [|apply _];
+        simpl in H; inv_all; subst
+  end.
+
+Ltac ptrnE :=
+  ptrn_elim; destruct_prod; simpl in *; subst; inv_all; repeat subst;
+  repeat symAsE.
+
+

@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Data.SumN.
 Require Import ExtLib.Data.Positive.
@@ -163,6 +166,24 @@ Print RSym.
     { exfalso.
       specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
   Qed.
+
+  Global Instance ptrn_view_SucceedsE {T : Type} {x : func} {res : T} {p : ptrn A T} 
+         {Sym_A : RSym A} 
+         {pok : ptrn_ok p} :
+    SucceedsE x (ptrn_view p) res := {
+      s_result := exists f : A, f_insert f = x /\ Succeeds f p res;
+      s_elim := @Succeeds_ptrn_view T p x res _
+    }.
+
+  Global Instance Injective_exprD'_f_insert (a : A) (t : typ) (v : typD t) :
+    Injective (symAs (f_insert a) t = Some v) := {
+      result := symAs a t = Some v;
+      injection := fun H => _
+    }.
+  Proof.
+    rewrite fv_compat; assumption.
+  Defined.
+
 End FuncView.
 
 

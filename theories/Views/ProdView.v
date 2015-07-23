@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Map.FMapPositive.
@@ -10,7 +13,7 @@ Require Import ExtLib.Relations.TransitiveClosure.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.syms.SymSum.
-Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
@@ -22,26 +25,48 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Section TypeOfSymAs.
-  Context {typ func : Type}.
-  Context {RType_typ : RType typ}.
-  Context {RSym_func : RSym func}.
-  
-  Lemma typeof_sym_symAs (s : func) t v (H : symAs s t = Some v) : typeof_sym s = Some t.
-  Proof.
-    unfold symAs in H. 
-    generalize dependent (symD s).
-    forward.
-  Qed.
-
-End TypeOfSymAs.
-
 Inductive prod_func {typ : Type} :=
   | pPair : typ -> typ -> prod_func
   | pFst : typ -> typ -> prod_func
   | pSnd : typ -> typ -> prod_func.
 
 Implicit Arguments prod_func [].
+
+Section ExprDInject.
+  Context {typ func : Type}.
+  Context {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
+  Context {RSym_func : RSym func} {RSymOk_func : RSymOk RSym_func}.
+  Context {Typ2_tyArr : Typ2 _ Fun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
+  
+  Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
+ 
+  Global Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ func) (t : typ) 
+         (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (App e1 e2) = Some v) := {
+      result := exists u v1 v2, ExprDsimul.ExprDenote.exprD' tus tvs (tyArr u t) e1 = Some v1 /\
+                                ExprDsimul.ExprDenote.exprD' tus tvs u e2 = Some v2 /\
+                                v = exprT_App v1 v2;
+      injection := fun H => _
+    }.
+  Proof.
+    autorewrite with exprD_rw in H.
+    simpl in H. forward; inv_all; subst.
+    do 3 eexists; repeat split; eassumption.
+  Defined.
+
+  Global Instance Injective_exprD'_Inj tus tvs (f : func) (t : typ) (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (Inj f) = Some v) := {
+      result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
+      injection := fun H => _
+    }.
+  Proof.
+    autorewrite with exprD_rw in H.
+    simpl in H. forward; inv_all; subst.
+    eexists; repeat split.
+  Defined.
+
+End ExprDInject.
+
 
 Section ProdFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
@@ -71,23 +96,6 @@ Section ProdFuncInst.
 	      				     t2 ?[ eq ] t4)%bool
       | _, _ => None
     end.
-
-  Definition castD F U {T : Typ0 _ U} (val : F (typD (typ0 (F:=U)))) : F U :=
-    match @typ0_cast typ _ _ T in _ = x return F x with
-      | eq_refl => val
-    end.
-
-  Definition castR F U {T : Typ0 _ U} (val : F U) : F (typD (typ0 (F:=U))) :=
-    match eq_sym (@typ0_cast typ _ _ T) in _ = x return F x with
-    | eq_refl => val
-    end.
-
-  Existing Instance Typ2_App.
-  Existing Instance Typ1_App.
-  Existing Instance Typ0_term.
-
-  Implicit Arguments castD [[T]].
-  Implicit Arguments castR [[T]].
 
   Definition pairD t u : typD (tyArr t (tyArr u (tyProd t u))) -> 
                          Fun (typD t) (Fun (typD u) (typD t * typD u)) :=
@@ -139,9 +147,6 @@ Section ProdFuncInst.
   Qed.
   
 End ProdFuncInst.
-
-Implicit Arguments castD [[RType_typ] [T]].
-Implicit Arguments castR [[RType_typ] [T]].
 
 Section MakeProd.
   Context {typ func : Type} {RType_typ : RType typ}.
@@ -277,6 +282,28 @@ Section MakeProd.
     exists t, t0; split; [assumption | reflexivity].
   Qed.
   
+  Global Instance fptrnPair_SucceedsE {T : Type} {f : prod_func typ} 
+         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
+
+    SucceedsE f (fptrnPair p) res := {
+      s_result := exists t u, Succeeds (t, u) p res /\ f = pPair t u;
+      s_elim := @Succeeds_fptrnPair T f p res  pok
+    }.
+
+  Global Instance fptrnFst_SucceedsE {T : Type} {f : prod_func typ} 
+         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
+    SucceedsE f (fptrnFst p) res := {
+      s_result := exists t u, Succeeds (t, u) p res /\ f = pFst t u;
+      s_elim := @Succeeds_fptrnFst T f p res pok
+    }.
+
+  Global Instance fptrnSnd_SucceedsE {T : Type} {f : prod_func typ} 
+         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
+    SucceedsE f (fptrnSnd p) res := {
+      s_result := exists t u, Succeeds (t, u) p res /\ f = pSnd t u;
+      s_elim := @Succeeds_fptrnSnd T f p res  pok
+    }.
+
 End MakeProd.
 
 Section Tactics.
@@ -310,262 +337,42 @@ Section Tactics.
                              (fun _ _ _ _ => 
                                 (beta_all (fun _ e args => red_fst (apps e args)))).
 
-  Ltac destruct_prod :=
-    match goal with 
-      | p : ?A * ?B |- _ => destruct p; destruct_prod
-      | _ => idtac
-    end.
-
-  Existing Instance Typ2_App.
-  Existing Instance Typ1_App.
-  Existing Instance Typ0_term.
-  Existing Instance MirrorCore.ExprI.Applicative_exprT.
-
-Require Import MirrorCore.Util.Compat.
-
-Theorem exprT_App_Fun tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
-        (e1 : exprT tus tvs (Fun T U))
-        (e2 : exprT tus tvs T) :
-@exprT_App typ _ Typ2_tyArr tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) (@castR typ _ (exprT tus tvs) _ _ e1)
-                 (@castR typ _ (exprT tus tvs) _ _ e2) =
-      @castR typ _ (exprT tus tvs) U U0 (Applicative.ap e1 e2).
+ Lemma run_tptrn_id_sound tus tvs t p e val
+        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
+        (HSucceeds : forall e', Succeeds e p e' ->
+                                ExprDsimul.ExprDenote.exprD' tus tvs t e' = Some val) :
+    ExprDsimul.ExprDenote.exprD' tus tvs t
+                                 (run_tptrn (pdefault_id p) e) = Some val.
   Proof.
-    unfold exprT_App. simpl. intros.
-    unfold castR. simpl.
-    generalize dependent (typ2_cast (typ0 (F:=T)) (typ0 (F:=U))).
-    generalize dependent (typ0_cast (F:=T)).
-    generalize dependent (typ0_cast (F:=U)).
-    intros.
-    autorewrite_with_eq_rw.
-    generalize dependent (typD (typ2 (typ0 (F:=T)) (typ0 (F:=U)))).
-    intros. subst T1.
-    admit.
-(*
-    destruct (eq_sym e0).
-    destruct (eq_sym e). simpl. reflexivity.*)
-  Admitted.
-
-Theorem exprT_App_Fun' tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)  P
-        (e1 : exprT tus tvs (Fun T U))
-        (e2 : exprT tus tvs T) 
-        (Hres : P (@castR typ _ (exprT tus tvs) U U0 (Applicative.ap e1 e2))) :
-  P (@exprT_App typ _ Typ2_tyArr tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) (@castR typ _ (exprT tus tvs) _ _ e1) (@castR typ _ (exprT tus tvs) _ _ e2)).
-  Proof.
-    subst. rewrite exprT_App_Fun. assumption.
-  Qed.
-
-  Lemma exprT_App_castR_pure {A : Type} {T0 : Typ0 RType_typ A} tus tvs (f : exprT tus tvs A) :
-    (fun us vs => castR typ id A (f us vs)) = 
-    (castR typ (exprT tus tvs) A f).
-  Proof.
-    unfold castR, eq_sym; simpl.
-    Require Import FunctionalExtensionality.
-    do 2 (apply functional_extensionality; intros).
     admit.
   Admitted.
 
-
-    Ltac force_apply lem :=
-      let L := fresh "L" in 
-      pose proof lem as L; apply L; clear L.
-
-Ltac ptrn_prod_sound_step :=
-  match goal with
-    | H : Succeeds _ (fptrnPair _) _ |- _ => 
-      apply Succeeds_fptrnPair in H; destruct H as [? [? ?]]; repeat subst
-    | H : Succeeds _ (fptrnFst _) _ |- _ => 
-      apply Succeeds_fptrnFst in H; destruct H as [? [? ?]]; repeat subst
-    | H : Succeeds _ (fptrnSnd _) _ |- _ => 
-      apply Succeeds_fptrnSnd in H; destruct H as [? [? ?]]; repeat subst
-end.
-
-Ltac ptrn_sound_step :=
-  first [
-      ptrn_base_sound_step |
-      ptrn_prod_sound_step
-    ].
-
-Class SucceedsE {X T : Type} (f : X) (p : ptrn X T) (v : T) := {
-  s_result : Prop;
-  s_elim : Succeeds f p v -> s_result
-}.
-
-Global Instance fptrnPair_SucceedsE {T : Type} {f : prod_func typ} {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-
-  SucceedsE f (fptrnPair p) res := {
-  s_result := exists t u, Succeeds (t, u) p res /\ f = pPair t u;
-  s_elim := @Succeeds_fptrnPair typ T f p res  pok
-}.
-
-Global Instance fptrnFst_SucceedsE {T : Type} {f : prod_func typ} {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-
-  SucceedsE f (fptrnFst p) res := {
-  s_result := exists t u, Succeeds (t, u) p res /\ f = pFst t u;
-  s_elim := @Succeeds_fptrnFst typ T f p res pok
-}.
-
-Global Instance fptrnSnd_SucceedsE {T : Type} {f : prod_func typ} {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-
-  SucceedsE f (fptrnSnd p) res := {
-  s_result := exists t u, Succeeds (t, u) p res /\ f = pSnd t u;
-  s_elim := @Succeeds_fptrnSnd typ T f p res  pok
-}.
-
-Global Instance pmap_SucceedsE {X T U : Type} {x : X} {f : T -> U} {p : ptrn X T} {res : U} 
-         {pok : ptrn_ok p} : 
-  SucceedsE x (pmap f p) res := {
-  s_result := exists y, Succeeds x p y /\ res = f y;
-  s_elim := Succeeds_pmap pok
-}.
-
-Global Instance app_SucceedsE {T U : Type} {e : expr typ func} 
-       {p : ptrn (expr typ func) T} {q : ptrn (expr typ func) U} {res : T * U} 
-         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
-  SucceedsE e (app p q) res := {
-  s_result := exists l r, e = App l r /\ Succeeds l p (fst res) /\ Succeeds r q (snd res);
-  s_elim := Succeeds_app pok_p pok_q
-}.
-
-Global Instance inj_SucceedsE {T : Type} {e : expr typ func} 
-       {p : ptrn func T}  {res : T} 
-         {pok_p : ptrn_ok p} :
-  SucceedsE e (inj p) res := {
-  s_result := exists f, e = Inj f /\ Succeeds f p res;
-  s_elim := Succeeds_inj pok_p
-}.
-
-Global Instance get_SucceedsE {X : Type} {x res : X} :
-  SucceedsE x get res := {
-  s_result := x = res;
-  s_elim := @Succeeds_get X x res 
-}.
-
-Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
-  SucceedsE x ignore res := {
-  s_result := res = tt;
-  s_elim := 
-    fun _ => match res as x return (x = tt) with
-               | tt => eq_refl
-             end
-}.
-
-Global Instance ptrn_view_SucceedsE {A T : Type} {x : func} {res : T} {p : ptrn A T} 
-       {FV : FuncView func A} {Sym_A : RSym A} {FVOk : FuncViewOk FV _ Sym_A}
-       {pok : ptrn_ok p} :
-  SucceedsE x (ptrn_view FV p) res := {
-  s_result := exists f : A, f_insert f = x /\ Succeeds f p res;
-  s_elim := @Succeeds_ptrn_view func A FV typ _ _ _ _ _ p x res _
-}.
-
-
-Ltac ptrn_elim :=
-  repeat
-   match goal with
-   | H:Succeeds ?f ?p ?v
-     |- _ =>
-         let z := constr:(_:SucceedsE f p v) in
-         apply s_elim in H; do 2 red in H; destruct_ands H
-   end.
-
-Ltac exprT_App_red :=
-    match goal with
-      | |- context [castR _ id _ _] => rewrite exprT_App_castR_pure
-      | |- context [@exprT_App _ _ _ ?tus ?tvs _ _ (castR _ _ (Fun ?t1 ?t2) _) ?v] =>
-
-        first [
-            force_apply (@exprT_App_Fun' tus tvs t1 t2 _ _) |
-            replace v with (castR typ (exprT tus tvs) _ v) by reflexivity;
-              force_apply (@exprT_App_Fun' tus tvs t1 t2 _ _)
-          ]
-    end. 
-
-Check @exprD'.
-Require Import ExprD.
-Class ExprDE tus tvs (e : expr typ func) (t : typ) (v : exprT tus tvs (typD t)) := {
-  e_result : Prop;
-  e_elim : exprD' tus tvs t e = Some v -> e_result
-}.
-
-Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ func) (t : typ) (v : exprT tus tvs (typD t)):
-  Injective (exprD' tus tvs t (App e1 e2) = Some v) := {
-    result := exists u v1 v2, exprD' tus tvs (tyArr u t) e1 = Some v1 /\
-                              exprD' tus tvs u e2 = Some v2 /\
-                              v = exprT_App v1 v2;
-    injection := fun H => _
-}.
+Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
 Proof.
-  autorewrite with exprD_rw in H.
-  simpl in H. forward; inv_all; subst.
-  do 3 eexists; repeat split; eassumption.
-Defined.
-
-Instance Injective_exprD'_Inj tus tvs (f : func) (t : typ) (v : exprT tus tvs (typD t)):
-  Injective (exprD' tus tvs t (Inj f) = Some v) := {
-    result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
-    injection := fun H => _
-}.
-Proof.
-  autorewrite with exprD_rw in H.
-  simpl in H. forward; inv_all; subst.
-  eexists; repeat split.
-Defined.
-Instance Injective_exprD'_f_insert {A : Type} (a : A) (t : typ) (v : typD t) 
-         {FV : FuncView func A} {RSym_A : RSym A}  {FVOk : FuncViewOk _ _ RSym_A} :
-  Injective (symAs (f_insert a) t = Some v) := {
-    result := symAs a t = Some v;
-    injection := fun H => _
-}.
-Proof.
-  rewrite fv_compat; assumption.
-Defined.
-Check Relim.
-Definition symAs' := symAs.
-Lemma test : @symAs' = @symAs.
-Proof.
-  reflexivity.
+  unfold partial_reducer_ok; intros.
+  exists val; split; [|reflexivity].
+  generalize dependent (apps e es); clear e es; intros e H.
+  unfold red_fst.
+  
+  apply run_tptrn_id_sound; [assumption|]; intros.
+  ptrnE.
+  unfold pairR, fstR.
+  repeat exprT_App_red.
+  assumption.
 Qed.
-Opaque symAs'.
-(*
-Instance Injective_pPair (a b c : typ) v : Injective (symAs (pPair a b) c = Some v) := {
-  result := exists r : c = (tyArr a (tyArr b (tyProd a b))), v = Relim id r (pairR a b);
-  injection := fun H => _
-}.
+
+Lemma red_snd_ok : partial_reducer_ok (fun e args => red_snd (apps e args)).
 Proof.
-  unfold symAs in H.
-  simpl in H. 
-  forward.
-  unfold Rty in r; subst.
-  inv_all; subst. eexists; split.
-Defined.
-*)
-
-
-    Ltac symAsE := 
-      match goal with
-        | H : symAs ?f ?t = Some ?v |- _ =>
-          let Heq := fresh "Heq" in
-          pose proof (typeof_sym_symAs _ _ H) as Heq;
-            simpl in Heq; inv_all; repeat subst;
-            unfold symAs in H; simpl in H; rewrite type_cast_refl in H; [|apply _];
-            simpl in H; inv_all; subst
-      end.
-
-Ltac ptrnE :=
-  ptrn_elim; destruct_prod; simpl in *; subst; inv_all; repeat subst;
-  repeat symAsE.
-
-  Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
-  Proof.
-    unfold partial_reducer_ok; intros.
-    exists val; split; [|reflexivity].
-    generalize dependent (apps e es); clear e es; intros e H.
-    unfold red_fst.
-    
-    apply run_tptrn_id_sound; [assumption|]; intros.
-    ptrnE.
-    unfold pairR, fstR.
-    repeat exprT_App_red.
-    apply H4.
-  Qed.
+  unfold partial_reducer_ok; intros.
+  exists val; split; [|reflexivity].
+  generalize dependent (apps e es); clear e es; intros e H.
+  unfold red_snd.
+  
+  apply run_tptrn_id_sound; [assumption|]; intros.
+  ptrnE.
+  unfold pairR, sndR.
+  repeat exprT_App_red.
+  assumption.
+Qed.
 
 End Tactics.

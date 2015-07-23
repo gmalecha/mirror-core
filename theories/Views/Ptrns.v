@@ -253,5 +253,41 @@ Section setoid.
            end.
 *)
 
+Class SucceedsE {X T : Type} (f : X) (p : ptrn X T) (v : T) := {
+  s_result : Prop;
+  s_elim : Succeeds f p v -> s_result
+}.
+
+Global Instance pmap_SucceedsE {X T U : Type} {x : X} {f : T -> U} {p : ptrn X T} {res : U} 
+         {pok : ptrn_ok p} : 
+  SucceedsE x (pmap f p) res := {
+  s_result := exists y, Succeeds x p y /\ res = f y;
+  s_elim := Succeeds_pmap pok
+}.
+
+Global Instance get_SucceedsE {X : Type} {x res : X} :
+  SucceedsE x get res := {
+  s_result := x = res;
+  s_elim := @Succeeds_get X x res 
+}.
+
+Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
+  SucceedsE x ignore res := {
+  s_result := res = tt;
+  s_elim := 
+    fun _ => match res as x return (x = tt) with
+               | tt => eq_refl
+             end
+}.
 
 End setoid.
+
+Ltac ptrn_elim :=
+  repeat
+   match goal with
+   | H:Succeeds ?f ?p ?v
+     |- _ =>
+         let z := constr:(_:SucceedsE f p v) in
+         apply s_elim in H; do 2 red in H; destruct_ands H
+   end.
+
