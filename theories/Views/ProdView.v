@@ -3,10 +3,6 @@ Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
 
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
-Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Relations.TransitiveClosure.
 
@@ -72,10 +68,10 @@ Section ProdFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {RelDecCorrect_typ : RelDec_Correct RelDec_typ}.
-  
+
   Context {Typ2_tyArr : Typ2 _ Fun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
-  
+
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
   Let tyProd : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyProd.
 
@@ -85,7 +81,7 @@ Section ProdFuncInst.
       | pFst t1 t2 => Some (tyArr (tyProd t1 t2) t1)
       | pSnd t1 t2 => Some (tyArr (tyProd t1 t2) t2)
     end.
-  
+
   Definition prod_func_eq (a b : prod_func typ) : option bool :=
     match a , b with
       | pPair t1 t2, pPair t3 t4 => Some (t1 ?[ eq ] t3 &&
@@ -112,10 +108,10 @@ Section ProdFuncInst.
 
   Definition sndD t u : typD (tyArr (tyProd t u) u) -> Fun (typD t * typD u) (typD u) :=
     castD id (Fun (typD t * typD u) (typD u)).
-  
+
   Definition sndR t u : typD (tyArr (tyProd t u) u) :=
     castR id (Fun (typD t * typD u) (typD u)) snd.
-  
+
   Definition prod_func_symD bf :=
     match bf as bf return match typeof_prod_func bf return Type with
 			    | Some t => typD t
@@ -127,13 +123,13 @@ Section ProdFuncInst.
     end.
 
   Global Instance RSym_ProdFunc
-  : SymI.RSym (prod_func typ) := 
+  : SymI.RSym (prod_func typ) :=
     {
       typeof_sym := typeof_prod_func;
       symD := prod_func_symD ;
       sym_eqb := prod_func_eq
     }.
-  
+
   Global Instance RSymOk_ProdFunc : SymI.RSymOk RSym_ProdFunc.
   Proof.
     split; intros.
@@ -145,7 +141,7 @@ Section ProdFuncInst.
     + consider (t ?[ eq ] t1 && t0 ?[ eq ] t2)%bool;
       intuition congruence.
   Qed.
-  
+
 End ProdFuncInst.
 
 Section MakeProd.
@@ -165,26 +161,26 @@ Section MakeProd.
 
   Definition fptrnPair {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (prod_func typ) T :=
     fun f U good bad =>
-      match f with 
+      match f with
         | pPair t u => p (t, u) U good (fun x => bad f)
         | _ => bad f
       end.
 
   Definition fptrnFst {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (prod_func typ) T :=
     fun f U good bad =>
-      match f with 
+      match f with
         | pFst t u => p (t, u) U good (fun x => bad f)
         | _ => bad f
       end.
 
   Definition fptrnSnd {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (prod_func typ) T :=
     fun f U good bad =>
-      match f with 
+      match f with
         | pSnd t u => p (t, u) U good (fun x => bad f)
         | _ => bad f
       end.
 
-  Global Instance fptrnPair_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} : 
+  Global Instance fptrnPair_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} :
     ptrn_ok (fptrnPair p).
   Proof.
     red; intros.
@@ -195,8 +191,8 @@ Section MakeProd.
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
   Qed.
-     
-  Global Instance fptrnFst_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} : 
+
+  Global Instance fptrnFst_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} :
     ptrn_ok (fptrnFst p).
   Proof.
     red; intros.
@@ -207,8 +203,8 @@ Section MakeProd.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
     { right; unfold Fails; reflexivity. }
   Qed.
-     
-  Global Instance fptrnSnd_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} : 
+
+  Global Instance fptrnSnd_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} :
     ptrn_ok (fptrnSnd p).
   Proof.
     red; intros.
@@ -220,23 +216,23 @@ Section MakeProd.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnPair {A B T : Type} 
+  Definition ptrnPair {A B T : Type}
              (p : ptrn (typ * typ) T)
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun x => match x with | (_, a, b) => (a, b) end) 
+    pmap (fun x => match x with | (_, a, b) => (a, b) end)
          (app (app (inj (ptrn_view _ (fptrnPair p))) a) b).
 
-  Definition ptrnFst {A T : Type} 
+  Definition ptrnFst {A T : Type}
              (p : ptrn (typ * typ) T)
              (a : ptrn (expr typ func) A) : ptrn (expr typ func) A :=
     pmap snd (app (inj (ptrn_view _ (fptrnFst p))) a).
 
-  Definition ptrnSnd {A T : Type} 
+  Definition ptrnSnd {A T : Type}
              (p : ptrn (typ * typ) T)
              (a : ptrn (expr typ func) A) : ptrn (expr typ func) A :=
     pmap snd (app (inj (ptrn_view _ (fptrnSnd p))) a).
-  
+
   Lemma Succeeds_fptrnPair {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPair p) res) :
     exists t u, Succeeds (t, u) p res /\ f = pPair t u.
@@ -251,7 +247,7 @@ Section MakeProd.
     rewrite H0 in H; inv_all; subst.
     exists t, t0; split; [assumption | reflexivity].
   Qed.
-  
+
   Lemma Succeeds_fptrnFst {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnFst p) res) :
     exists t u, Succeeds (t, u) p res /\ f = pFst t u.
@@ -266,7 +262,7 @@ Section MakeProd.
     rewrite H0 in H; inv_all; subst.
     exists t, t0; split; [assumption | reflexivity].
   Qed.
-  
+
   Lemma Succeeds_fptrnSnd {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnSnd p) res) :
     exists t u, Succeeds (t, u) p res /\ f = pSnd t u.
@@ -322,7 +318,7 @@ Section Tactics.
 
   Let tyArr := @typ2 _ _ _ Typ2_tyArr.
   Let tyProd := @typ2 _ _ _ Typ2_tyProd.
-  
+
   Definition red_fst_ptrn : ptrn (expr typ func) (expr typ func) :=
     pmap (fun xy => fst xy) (ptrnFst ignore (ptrnPair ignore get ignore)).
 
@@ -333,8 +329,8 @@ Section Tactics.
 
   Definition red_snd := run_tptrn (pdefault_id red_snd_ptrn).
 
-  Definition FST := SIMPLIFY (typ := typ) 
-                             (fun _ _ _ _ => 
+  Definition FST := SIMPLIFY (typ := typ)
+                             (fun _ _ _ _ =>
                                 (beta_all (fun _ e args => red_fst (apps e args)))).
 
  Lemma run_tptrn_id_sound tus tvs t p e val

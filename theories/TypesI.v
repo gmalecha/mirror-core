@@ -468,8 +468,26 @@ Section typed.
     { simpl. intros. destruct pf. reflexivity. }
   Qed.
 
+  Definition castD F U {T : Typ0 U} (val : F (typD (typ0 (F:=U)))) : F U :=
+    match @typ0_cast _ T in _ = x return F x with
+      | eq_refl => val
+    end.
+
+  Definition castR F U {T : Typ0 U} (val : F U) : F (typD (typ0 (F:=U))) :=
+    match eq_sym (@typ0_cast _ T) in _ = x return F x with
+    | eq_refl => val
+    end.
+
 End typed.
 
 Arguments typD {typ _} _ : rename.
 Arguments Rty {typ _} _ _ : rename.
 Arguments RTypeOk {typ _} : rename.
+Arguments castD {_ _} F U {Typ0} val : rename.
+Arguments castR {_ _} F U {Typ0} val : rename.
+
+Existing Instance Typ2_App.
+Existing Instance Typ1Ok_App.
+Existing Instance Typ1_App.
+Existing Instance Typ0Ok_App.
+Existing Instance Typ0_term.

@@ -434,19 +434,6 @@ Section setoid.
       s_elim := Succeeds_inj pok_p
     }.
 
-  Definition castD F U {T : Typ0 _ U} (val : F (typD (typ0 (F:=U)))) : F U :=
-    match @typ0_cast typ _ _ T in _ = x return F x with
-      | eq_refl => val
-    end.
-
-  Definition castR F U {T : Typ0 _ U} (val : F U) : F (typD (typ0 (F:=U))) :=
-    match eq_sym (@typ0_cast typ _ _ T) in _ = x return F x with
-    | eq_refl => val
-    end.
-
-  Implicit Arguments castD [[T]].
-  Implicit Arguments castR [[T]].
-
   Global Existing Instance Typ2_App.
   Global Existing Instance Typ1_App.
   Global Existing Instance Typ0_term.
@@ -458,9 +445,9 @@ Section setoid.
           (e1 : exprT tus tvs (Fun T U))
           (e2 : exprT tus tvs T) :
     @exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
-               (@castR (exprT tus tvs) _ _ e1)
-               (@castR (exprT tus tvs) _ _ e2) =
-    @castR (exprT tus tvs) U U0 (Applicative.ap e1 e2).
+               (castR (exprT tus tvs) _ e1)
+               (castR (exprT tus tvs) _ e2) =
+    castR (exprT tus tvs) U (Applicative.ap e1 e2).
   Proof.
     unfold exprT_App. simpl. intros.
     unfold castR. simpl.
@@ -478,8 +465,9 @@ Section setoid.
   Theorem exprT_App_Fun' tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)  P
           (e1 : exprT tus tvs (Fun T U))
           (e2 : exprT tus tvs T) 
-          (Hres : P (@castR (exprT tus tvs) U U0 (Applicative.ap e1 e2))) :
-    P (@exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) (@castR (exprT tus tvs) _ _ e1) (@castR (exprT tus tvs) _ _ e2)).
+          (Hres : P (castR (exprT tus tvs) U (Applicative.ap e1 e2))) :
+    P (@exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+                  (castR (exprT tus tvs) _ e1) (castR (exprT tus tvs) _ e2)).
   Proof.
     subst. rewrite exprT_App_Fun. assumption.
   Qed.
@@ -495,9 +483,6 @@ Section setoid.
   Qed.
 
 End setoid.
-
-Implicit Arguments castD [[typ] [RType_typD] [T]].
-Implicit Arguments castR [[typ] [RType_typD] [T]].
 
 Ltac destruct_prod :=
   match goal with 
