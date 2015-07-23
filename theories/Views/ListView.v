@@ -13,7 +13,6 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
-Require Import MirrorCore.Views.TrmD.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -55,37 +54,17 @@ Section ListFuncInst.
     		     end
     }.
 
-  Definition listE {A : Type} {t : typ} (e : typD t = A) : typD (tyList t) = list A :=
-    eq_ind (typD t) (fun B : Type => typD (tyList t) = list B) (typ1_cast t) A e.
-
-  Definition listD {t : typ} (lst : typD (tyList t)) : list (typD t) :=
-    trmD lst (listE eq_refl).
-
-  Definition listR {t : typ} (lst : list (typD t)) : typD (tyList t) :=
-    trmR lst (listE eq_refl).
-
-  Definition nilD t : typD (tyList t) := listR nil.
-  Definition consD t : typD (tyArr t (tyArr (tyList t) (tyList t))) :=
-    tyArrR2 (fun (x : typD t) (xs : typD (tyList t)) =>
-               listR (cons x (trmD xs (listE eq_refl)))).
-
-  Lemma listD_nil t : listD (nilD t) = nil.
-  Proof.
-    unfold listD, nilD, listR. rewrite trmDR. reflexivity.
-  Qed.
-
-  Lemma listR_nil t : listR nil = nilD t.
-  Proof.
-    reflexivity.
-  Qed.
+  Definition nilR t : typD (tyList t) := castR id (list (typD t)) nil.
+  Definition consR t : typD (tyArr t (tyArr (tyList t) (tyList t))) :=
+    castR id (Fun (typD t) (Fun (list (typD t)) (list (typD t)))) cons.
 
   Definition list_func_symD lf :=
     match lf as lf return match typeof_list_func lf return Type with
 			    | Some t => typD t
 			    | None => unit
 			  end with
-      | pNil t => nilD t
-      | pCons t => consD t
+      | pNil t => nilR t
+      | pCons t => consR t
     end.
 
   Global Instance RSym_ListFunc : SymI.RSym (list_func typ) := 
@@ -106,7 +85,7 @@ Section ListFuncInst.
 End ListFuncInst.
 
 Section MakeList.
-  Context {typ func : Type} {H : FuncView func (list_func typ)}.
+  Context {typ func : Type} {FV : FuncView func (list_func typ)}.
   
   Definition fNil t := f_insert (pNil t).
   Definition fCons t := f_insert (pCons t).
@@ -114,57 +93,94 @@ Section MakeList.
   Definition mkNil t : expr typ func := Inj (fNil t).
   Definition mkCons (t : typ) (x xs : expr typ func) := App (App (Inj (fCons t)) x) xs.
 
-  Definition fptrnNil : ptrn func unit :=
-    fun f _ good bad => 
-    match f_view f with
-      | Some (pNil _) => good tt
-      | _ => bad f
-    end.
+  Definition fptrnNil {T : Type} (p : Ptrns.ptrn typ T) : ptrn (list_func typ) T :=
+    fun f U good bad =>
+      match f with
+        | pNil t => p t U good (fun x => bad f)
+        | _ => bad f
+      end.
 
-  Definition ptrnNil : ptrn (expr typ func) unit :=
-    inj (fptrnNil).
+  Definition fptrnCons {T : Type} (p : Ptrns.ptrn typ T) : ptrn (list_func typ) T :=
+    fun f U good bad =>
+      match f with
+        | pCons t => p t U good (fun x => bad f)
+        | _ => bad f
+      end.
 
-  Definition fptrnCons : ptrn func unit :=
-    fun f _T good bad => 
-    match f_view f with
-      | Some (pCons _) => good tt
-      | _ => bad f
-    end.
-  
-  Definition ptrnCons {A B : Type} 
+  Global Instance fptrnNil_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
+    ptrn_ok (fptrnNil p).
+  Proof.
+    red; intros.
+    destruct x; simpl; [destruct (Hok t) |].
+    { left. destruct H; exists x. revert H. compute; intros.
+      rewrite H. reflexivity. }
+    { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+  Qed.
+
+  Global Instance fptrnCons_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
+    ptrn_ok (fptrnCons p).
+  Proof.
+    red; intros.
+    destruct x; simpl; [|destruct (Hok t)].
+    { right; unfold Fails; reflexivity. }
+    { left. destruct H; exists x. revert H. compute; intros.
+      rewrite H. reflexivity. }
+    { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
+  Qed.
+
+  Definition ptrnNil {A B T : Type}
+             (p : ptrn typ T) : ptrn (expr typ func) T :=
+    inj (ptrn_view _ (fptrnNil p)).
+
+  Definition ptrnCons {A B T : Type}
+             (p : ptrn typ T)
              (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, x, y) => (x, y) end) (app (app (inj fptrnCons) a) b).
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnCons p))) a) b.
+
+  Lemma Succeeds_fptrnNil {T : Type} (f : list_func typ) (p : ptrn typ T) (res : T)
+        {pok : ptrn_ok p} (H : Succeeds f (fptrnNil p) res) :
+    exists t, Succeeds t p res /\ f = pNil t.
+  Proof.
+    unfold Succeeds, fptrnNil in H.
+    unfold ptrn_ok in pok.
+    specialize (H (option T) Some (fun _ => None)).
+    destruct f; try congruence.
+    specialize (pok t).
+    destruct pok; [|rewrite H0 in H; congruence].
+    destruct H0.
+    rewrite H0 in H; inv_all; subst.
+    exists t; split; [assumption | reflexivity].
+  Qed.
+
+  Lemma Succeeds_fptrnCons {T : Type} (f : list_func typ) (p : ptrn typ T) (res : T)
+        {pok : ptrn_ok p} (H : Succeeds f (fptrnCons p) res) :
+    exists t, Succeeds t p res /\ f = pCons t.
+  Proof.
+    unfold Succeeds, fptrnCons in H.
+    unfold ptrn_ok in pok.
+    specialize (H (option T) Some (fun _ => None)).
+    destruct f; try congruence.
+    specialize (pok t).
+    destruct pok; [|rewrite H0 in H; congruence].
+    destruct H0.
+    rewrite H0 in H; inv_all; subst.
+    exists t; split; [assumption | reflexivity].
+  Qed.
+  
+  Global Instance fptrnNil_SucceedsE {T : Type} {f : list_func typ} 
+         {p : ptrn typ T} {res : T} {pok : ptrn_ok p} :
+    SucceedsE f (fptrnNil p) res := {
+      s_result := exists t, Succeeds t p res /\ f = pNil t;
+      s_elim := @Succeeds_fptrnNil T f p res pok
+    }.
+
+  Global Instance fptrnCons_SucceedsE {T : Type} {f : list_func typ} 
+         {p : ptrn typ T} {res : T} {pok : ptrn_ok p} :
+    SucceedsE f (fptrnCons p) res := {
+      s_result := exists t, Succeeds t p res /\ f = pCons t;
+      s_elim := @Succeeds_fptrnCons T f p res pok
+    }.
   
 End MakeList.
-
-Section test.
-  Context {typ func : Type} {LV : FuncView func (list_func typ)}.
-  Context {RType_typ : RType typ} {RSym_func : RSym func}.
-  Context {Typ_nat : Typ0 RType_typ nat}.
-
-  Let tyNat := @typ0 _ _ _ _.
-
-  Definition list_nest_ptrn_test : ptrn (expr typ func) Prop :=
-    (pmap (fun xy => match xy with
-                       | ((x, (y, ys)), a) => a = tt
-                     end) (ptrnCons (ptrnCons Ptrns.get (ptrnCons Ptrns.get Ptrns.get)) ptrnNil)).
-
-  Definition list_case_ptrn
-             {P:Type}
-             (f_nil : P)
-             (f_cons : expr typ func -> expr typ func -> P) : ptrn (expr typ func) P :=
-    por (pmap (fun _ => f_nil) ptrnNil)
-        (pmap (fun xy => match xy with
-                           | (x, y) => f_cons x y
-                         end) (ptrnCons Ptrns.get Ptrns.get)).
-  
-  Definition list_case
-             {P:Type}
-             (f_nil : P)
-             (f_cons : expr typ func -> expr typ func -> P)
-             (f_default : P) : 
-    expr typ func -> P :=
-    run_tptrn (pdefault (list_case_ptrn f_nil f_cons) f_default).
-
-End test.

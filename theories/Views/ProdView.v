@@ -93,21 +93,11 @@ Section ProdFuncInst.
       | _, _ => None
     end.
 
-  Definition pairD t u : typD (tyArr t (tyArr u (tyProd t u))) -> 
-                         Fun (typD t) (Fun (typD u) (typD t * typD u)) :=
-    castD id (Fun (typD t) (Fun (typD u) (typD t * typD u)%type)).
-
   Definition pairR t u : typD (tyArr t (tyArr u (tyProd t u))) :=
     castR id (Fun (typD t) (Fun (typD u) (typD t * typD u))) pair.
 
-  Definition fstD t u : typD (tyArr (tyProd t u) t) -> Fun (typD t * typD u) (typD t) :=
-    castD id (Fun (typD t * typD u) (typD t)).
-
   Definition fstR t u : typD (tyArr (tyProd t u) t) :=
     castR id (Fun (typD t * typD u) (typD t)) fst.
-
-  Definition sndD t u : typD (tyArr (tyProd t u) u) -> Fun (typD t * typD u) (typD u) :=
-    castD id (Fun (typD t * typD u) (typD u)).
 
   Definition sndR t u : typD (tyArr (tyProd t u) u) :=
     castR id (Fun (typD t * typD u) (typD u)) snd.
@@ -219,19 +209,18 @@ Section MakeProd.
   Definition ptrnPair {A B T : Type}
              (p : ptrn (typ * typ) T)
              (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun x => match x with | (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view _ (fptrnPair p))) a) b).
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnPair p))) a) b.
 
   Definition ptrnFst {A T : Type}
              (p : ptrn (typ * typ) T)
-             (a : ptrn (expr typ func) A) : ptrn (expr typ func) A :=
-    pmap snd (app (inj (ptrn_view _ (fptrnFst p))) a).
+             (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
+    app (inj (ptrn_view _ (fptrnFst p))) a.
 
   Definition ptrnSnd {A T : Type}
              (p : ptrn (typ * typ) T)
-             (a : ptrn (expr typ func) A) : ptrn (expr typ func) A :=
-    pmap snd (app (inj (ptrn_view _ (fptrnSnd p))) a).
+             (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
+    app (inj (ptrn_view _ (fptrnSnd p))) a.
 
   Lemma Succeeds_fptrnPair {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPair p) res) :
@@ -320,12 +309,12 @@ Section Tactics.
   Let tyProd := @typ2 _ _ _ Typ2_tyProd.
 
   Definition red_fst_ptrn : ptrn (expr typ func) (expr typ func) :=
-    pmap (fun xy => fst xy) (ptrnFst ignore (ptrnPair ignore get ignore)).
+    pmap (fun xy => snd (fst (snd xy))) (ptrnFst ignore (ptrnPair ignore get ignore)).
 
   Definition red_fst := run_tptrn (pdefault_id red_fst_ptrn).
 
   Definition red_snd_ptrn : ptrn (expr typ func) (expr typ func) :=
-    pmap (fun xy => snd xy) (ptrnSnd ignore (ptrnPair ignore ignore get)).
+    pmap (fun xy => snd (snd xy)) (ptrnSnd ignore (ptrnPair ignore ignore get)).
 
   Definition red_snd := run_tptrn (pdefault_id red_snd_ptrn).
 
