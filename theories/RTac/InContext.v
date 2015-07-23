@@ -77,14 +77,13 @@ Section with_instantiation.
 
   Definition InContext_spec
              {T}
-             (K : Prop)
              (WFg : T -> Prop)
              (c : Ctx typ expr)
              (TD : T -> option (env_of_Ctx c -> Prop))
              (t : InContext c T) : Prop :=
     forall (i : ctx_subst c),
       Pred (fun i_g => let '(i',g') := i_g in
-                        K -> WFi i -> WFg g' /\ WFi i' /\
+                        WFi i -> WFg g' /\ WFi i' /\
                         assume (pctxD i) (fun C =>
                         assert (pctxD i') (fun I' =>
                         assert (TD g') (fun G' =>
@@ -98,21 +97,22 @@ Section with_instantiation.
   Lemma InContext_spec_ret
   : forall ctx {T} (val : T)
            (wfGoal : _ -> Prop) (goalD : T -> option (env_of_Ctx ctx -> Prop)),
+      wfGoal val ->
       (forall i cD,
           pctxD (ctx:=ctx) i = Some cD ->
           wfGoal val /\
           exists gD,
             goalD val = Some gD /\
             forall us vs, cD (fun us vs => gD (us, vs)) us vs) ->
-      InContext_spec (c:=ctx) (wfGoal val) wfGoal goalD (Monad.ret val).
+      InContext_spec (c:=ctx) wfGoal goalD (Monad.ret val).
   Proof.
     simpl. intros. red. intros.
-    specialize (H i).
+    specialize (H0 i).
     destruct (pctxD i) eqn:Heq.
     { simpl.
       eapply Pred_ret.
       red. intros.
-      specialize (H _ eq_refl).
+      specialize (H0 _ eq_refl).
       forward_reason.
       split; auto. split; eauto.
       rewrite Heq. simpl.
@@ -121,29 +121,30 @@ Section with_instantiation.
   Qed.
 
   Lemma InContext_spec_bind
-  : forall ctx {T U} (K : Prop)
+  : forall ctx {T U}
            (wfGoalT : _ -> Prop) (goalDT : T -> option (env_of_Ctx ctx -> Prop))
            (wfGoalU : _ -> Prop) (goalDU : U -> option (env_of_Ctx ctx -> Prop))
            (c : InContext ctx T) (k : T -> InContext ctx U),
-      InContext_spec (c:=ctx) K wfGoalT goalDT c ->
+      InContext_spec (c:=ctx) wfGoalT goalDT c ->
       (forall x,
-          InContext_spec (c:=ctx) (K /\ wfGoalT x)
-                         wfGoalU
-                         (fun y => match goalDU y with
-                                   | None => None
-                                   | Some Q =>
-                                     Some (fun e => wfGoalT x ->
-                                                    forall P,
-                                                      goalDT x = Some P ->
-                                                      P e -> Q e)
+          InContext_spec (c:=ctx)
+                         (fun y => wfGoalT x -> wfGoalU y)
+                         (fun y => match goalDT x with
+                                   | None => Some (fun _ => True)
+                                   | Some P =>
+                                     match goalDU y with
+                                     | None => None
+                                     | Some Q =>
+                                       Some (fun e => wfGoalT x -> P e -> Q e)
+                                     end
                                    end) (k x)) ->
-      InContext_spec (c:=ctx) K wfGoalU goalDU (Monad.bind c k).
+      InContext_spec (c:=ctx) wfGoalU goalDU (Monad.bind c k).
   Proof.
     simpl. intros. red. intros.
     specialize (H i).
     simpl in *.
     eapply Pred_bind.
-    { eapply H. }
+    { eapply H; auto. }
     { simpl. destruct x. clear H.
       specialize (H0 t c0).
       revert H0.
@@ -161,8 +162,6 @@ Section with_instantiation.
         split.
         { etransitivity; eauto. }
         { intros.
-          specialize (H7 us vs).
-          specialize (H8 us vs).
           gather_facts.
           eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
           gather_facts.
@@ -171,26 +170,24 @@ Section with_instantiation.
           unfold exprT_of_env.
           intros.
           forward_reason.
-          specialize (H8 _ eq_refl).
-          tauto. } } }
+          eassumption. } } }
   Qed.
 
   Lemma Proper_InContext_spec
   : forall T ctx,
-      Proper (Basics.impl -->
-              pointwise_relation _ Basics.impl ==>
+      Proper (pointwise_relation _ Basics.impl ==>
               pointwise_relation _ (Option.Roption (pointwise_relation _ Basics.impl)) ==>
               eq ==>
               Basics.impl)
-             (fun A B => @InContext_spec T A B ctx).
+             (fun B => @InContext_spec T B ctx).
   Proof.
     intros.
     unfold Basics.impl.
     red. red. red. red. red.
     unfold InContext_spec.
     intros. subst.
-    specialize (H3 i).
-    revert H3.
+    specialize (H2 i).
+    revert H2.
     eapply Proper_Pred; [ | reflexivity ].
     red. intros.
     red. destruct a.
@@ -199,19 +196,19 @@ Section with_instantiation.
     split; eauto.
     split; eauto.
     destruct (pctxD i) eqn:Heq; simpl; auto.
-    simpl in H6.
+    simpl in H4.
     destruct (pctxD c) eqn:Heq'; simpl in *; try contradiction.
     unfold assert in *.
-    red in H0. specialize (H1 t).
-    destruct H1; auto.
+    red in H0. specialize (H0 t).
+    destruct H0; auto.
     forward_reason.
     split; eauto.
     intros.
-    specialize (H7 us vs).
+    specialize (H5 us vs).
     gather_facts.
     eapply Pure_pctxD; eauto.
     intros.
-    eapply H1. eapply H7.
+    eapply H0. eapply H5.
   Qed.
 
   (** Probably do not want to expose this *)

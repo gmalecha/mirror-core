@@ -4,7 +4,6 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.Lemma.
 Require Import MirrorCore.RTac.RTac.
-(* Require Import McExamples.Cancel.Lang. *)
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.ListView.
 Require Import MirrorCore.RTac.InContext.
@@ -23,6 +22,7 @@ Section canceller.
   Context {Typ1_List : Typ1 RType_typ list}.
   Context {Typ2_func : Typ2 RType_typ Fun}.
   Context {Typ2Ok_func : Typ2Ok Typ2_func}.
+  Context {Typ1Ok_list : Typ1Ok Typ1_List}.
   Context {RSym_sym : RSym func}.
   Context {RSymOk_sym : RSymOk RSym_sym}.
   Context {RelDeq_eq : RelDec (@eq typ)}.
@@ -40,7 +40,16 @@ Section canceller.
 
   Instance ptrn_ok_nil {T} p : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (@ptrn_nil T p).
   Proof.
-  Admitted.
+    unfold ptrn_nil, Ptrns.ptrn_ok.
+    intros. destruct x.
+    { specialize (H t).
+      destruct H as [ [ ? ? ] | ? ].
+      { left; exists x.
+        red. eauto. }
+      { right. red.
+        red in H. setoid_rewrite H. reflexivity. } }
+    { right. red. reflexivity. }
+  Qed.
 
   Definition ptrn_cons {T} (p : Ptrns.ptrn typ T) : Ptrns.ptrn (list_func typ) T :=
     fun e _T good bad =>
@@ -51,7 +60,16 @@ Section canceller.
 
   Instance ptrn_ok_cons {T} p : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (@ptrn_cons T p).
   Proof.
-  Admitted.
+    unfold ptrn_nil, Ptrns.ptrn_ok.
+    intros. destruct x.
+    { right. red. reflexivity. }
+    { specialize (H t).
+      destruct H as [ [ ? ? ] | ? ].
+      { left; exists x.
+        red. eauto. }
+      { right. red.
+        red in H. setoid_rewrite H. reflexivity. } }
+  Qed.
 
   Variable ctx : Ctx typ (expr typ func).
 
@@ -70,6 +88,16 @@ Section canceller.
       do_default.
 
   Require Import ExtLib.Data.Monads.IdentityMonad.
+
+  (** TODO: This should go elsewhere **)
+  Instance MonadLogic_ident : @MonadLogic ident _ :=
+  { Pred := fun {T : Type} (P : T -> Prop) (id : ident T) => P (unIdent id) }.
+  Proof.
+    { compute. intros; tauto. }
+    { compute. destruct c. eauto. }
+    { compute. intros; subst. eauto. }
+  Defined.
+
 
   Definition check_equality
   : typ -> expr typ func -> expr typ func -> InContext ident ctx bool :=
@@ -118,14 +146,6 @@ Section canceller.
     destruct lst; reflexivity.
   Qed.
 
-  Instance MonadLogic_ident : @MonadLogic ident _ :=
-  { Pred := fun {T : Type} (P : T -> Prop) (id : ident T) => P (unIdent id) }.
-  Proof.
-    { compute. intros; tauto. }
-    { compute. destruct c. eauto. }
-    { compute. intros; subst. eauto. }
-  Defined.
-
   Require Import Coq.Sorting.Permutation.
   Require Import MirrorCore.Views.Ptrns.
   Require Import MirrorCore.Lambda.Ptrns.
@@ -164,7 +184,7 @@ Section canceller.
   Hypothesis InContext_spec_check_equality
     : forall t (e1 e2 : expr typ func),
       InContext_spec (Expr_expr typ func _ _) Typ0_Prop
-                     MonadLogic_ident True (fun _ => True)
+                     MonadLogic_ident (fun _ => True)
                      (fun (y : bool) =>
                         match exprD' (getUVars ctx) (getVars ctx) e1 t
                               , exprD' (getUVars ctx) (getVars ctx) e2 t
@@ -186,14 +206,148 @@ Section canceller.
         exprD' tus tvs e1 (typ2 u t) = Some e1D /\
         exprD' tus tvs e2 u = Some e2D /\
         eD = exprT_App e1D e2D.
-  Proof. Admitted.
+  Proof using RSymOk_sym RTypeOk_typ Typ2Ok_func.
+    intros.
+    unfold exprD' in H. simpl in H.
+    rewrite exprD'_App in H.
+    simpl in H.
+    Require Import MirrorCore.Util.Forwardy.
+    forwardy.
+    do 3 eexists; split; eauto.
+    eapply H0.
+    split; eauto.
+    inv_all. eauto.
+  Qed.
 
   Lemma Succeeds_ptrn_cons
     : forall T (p : ptrn typ T) e res,
+      ptrn_ok p ->
       Succeeds e (ptrn_cons p) res ->
       exists t, e = pCons t /\
                 Succeeds t p res.
-  Proof. Admitted.
+  Proof using.
+    intros.
+    destruct e.
+    { red in H0. simpl in H0.
+      specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
+    { red in H0; simpl in H0.
+      eexists; split; eauto.
+      destruct (H t).
+      { destruct H1. red in H1. red.
+        setoid_rewrite H1 in H0.
+        setoid_rewrite H1.
+        eauto. }
+      { red in H1. setoid_rewrite H1 in H0.
+        specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. } }
+  Qed.
+
+  Instance Injective_Succeeds_ptrn_cons T p e (res : T) : ptrn_ok p -> Injective (Succeeds e (ptrn_cons p) res) :=
+  { injection := @Succeeds_ptrn_cons _ _ _ _ _ }.
+
+  Definition exprT_pure {T} (tus tvs : tenv typ) (x : T) : exprT tus tvs T :=
+    fun _ _ => x.
+  Lemma exprD'_Inj
+    : forall tus tvs (i : func) (t : typ) iD,
+      exprD' tus tvs (Inj i) t = Some iD ->
+      exists iD',
+        symAs i t = Some iD' /\
+        iD = exprT_pure iD'.
+  Proof.
+    intros.
+    unfold exprD' in H; simpl in H.
+    rewrite exprD'_Inj in H; eauto with typeclass_instances.
+    unfold Monad.bind in H. simpl in H.
+    destruct (symAs i t); try congruence.
+    inv_all.
+    subst. eexists; split; eauto.
+  Qed.
+
+  Lemma symAs_f_insert
+    : forall (t : typ) (s : list_func typ) sD,
+      symAs (f_insert s) t = Some sD ->
+      exists pf : typeof_sym s = Some t,
+        sD = match pf in _ = T return match T with
+                                      | Some t => typD t
+                                      | None => unit:Type
+                                      end with
+             | eq_refl => symD s
+             end.
+  Proof.
+    intros.
+    rewrite <- fv_compat in H.
+    unfold symAs in H.
+    generalize dependent (symD s).
+    destruct (typeof_sym s); intros; try congruence.
+    destruct (type_cast t t0); try congruence.
+    red in r. subst.
+    exists eq_refl.
+    inv_all. symmetry. assumption.
+  Qed.
+
+  Lemma exprD'_mkCons
+    : forall tus tvs t e1 e2 e1D e2D,
+      exprD' tus tvs e1 t = Some e1D ->
+      exprD' tus tvs e2 (typ1 t) = Some e2D ->
+      exprD' tus tvs (mkCons t e1 e2) (typ1 t) = Some (exprT_App (exprT_App (exprT_pure (consD t)) e1D) e2D).
+  Proof using Typ1Ok_list Typ2Ok_func RTypeOk_typ RSymOk_sym LFOk.
+    intros. unfold mkCons.
+    unfold exprD' in *; simpl in *.
+    autorewrite with exprD_rw; eauto with typeclass_instances.
+    simpl.
+    erewrite ExprTac.exprD_typeof_Some by eauto.
+    autorewrite with exprD_rw; eauto with typeclass_instances. simpl.
+    erewrite ExprTac.exprD_typeof_Some by eauto.
+    Cases.rewrite_all_goal.
+    autorewrite with exprD_rw; eauto with typeclass_instances. simpl.
+    unfold fCons.
+    rewrite <- fv_compat.
+    unfold symAs. simpl.
+    rewrite type_cast_refl; eauto.
+  Qed.
+
+  Ltac drive_exprD' :=
+    repeat match goal with
+           | H : exprD' _ _ _ _ = Some _ |- _ =>
+             first [ eapply exprD'_App in H ; forward_reason ; subst
+                   | eapply exprD'_Inj in H ; forward_reason ; subst ]
+           | H : _ = Some _ |- _ =>
+             eapply symAs_f_insert in H ; forward_reason ; subst
+           end.
+
+  Instance Injective_Succeeds_ptrn_view
+    : forall (func A : Type) (FV : FuncView func A) (typ : Type)
+             (RType_typ : RType typ) (Sym_func : RSym func) 
+             (Sym_A : RSym A),
+      FuncViewOk FV Sym_func Sym_A ->
+      forall (T : Type) (p : ptrn A T) (x : func) (res : T),
+        ptrn_ok p ->
+        Injective (Succeeds x (ptrn_view FV p) res) :=
+    { injection := @Succeeds_ptrn_view _ _ _ _ _ _ _ _ _ _ _ _ _ }.
+
+  Axiom todo : forall T, T.
+
+  Theorem exprT_App_cons
+  : forall tus tvs (t : typ) (a : exprT tus tvs (typD t)) (b : exprT _ _ (typD (typ1 t)))
+           us vs,
+      castD (fun x => x) (typD t) (T:=Typ0_term _ t) (a us vs) ::
+            castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t)) (b us vs) =
+      castD (fun x => x) (list (typD t)) (T:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t))
+            ((exprT_App (exprT_App (exprT_pure (consD t)) a) b) us vs).
+  Proof.
+    clear InContext_spec_check_equality.
+    intros. unfold castD, exprT_App, exprT_pure, consD, TrmD.tyArrR2, TrmD.tyArrR2', TrmD.tyArrR', TrmD.trmR, listR, TrmD.trmR, listE, TrmD.funE, TrmD.trmD.
+    simpl. unfold id, eq_rect_r, eq_rect, eq_rec.
+    Require Import MirrorCore.Util.Compat.
+    autorewrite_with_eq_rw.
+    generalize (a us vs).
+    generalize (b us vs).
+    uip_all.
+    rewrite Eq.match_eq_sym_eq with (pf :=e0).
+    rewrite Eq.match_eq_sym_eq with (pf :=e1).
+    destruct e2.
+    clear - RTypeOk_typ.
+    apply todo. (** Jesper's stuff? **)
+  Qed.
 
   Theorem remove_sound
   : forall e lst (t : typ) eD lstD,
@@ -202,8 +356,7 @@ Section canceller.
       @InContext_spec typ (expr typ func)
                       ident _ _ _ _ _
                       (option (expr typ func))
-                      True
-                      (fun _ => True) ctx
+                      (fun x => True) ctx
                       (fun (e' : option (expr typ func)) =>
                          match e' with
                          | None => Some (fun _ => True)
@@ -221,7 +374,7 @@ Section canceller.
                       (remove e lst).
   Proof.
     Opaque exprD'.
-    intros e lst t eD lstD He.
+    intros e lst t eD lstD He. revert lstD.
     eapply expr_strong_ind_no_case with (e:=lst); intros.
     rewrite remove_eta.
     unfold Ptrns.run_tptrn, list_cases.
@@ -232,91 +385,80 @@ Section canceller.
                    | simple eapply ptrn_ok_app
                    | simple eapply ptrn_view_ok
                    | eauto with typeclass_instances ]. }
-    { admit. }
+    { red. red. red.
+      intros. subst.
+      red in H2.
+      red in H2. erewrite H2. reflexivity.
+      reflexivity. }
     { intros.
       eapply Succeeds_por in H1; try solve [ instantiate ; eauto 100 with typeclass_instances ].
       destruct H1; inv_all.
       { subst. unfold ptret.
-        eapply InContext_spec_ret with (wfGoal := fun _ => True).
+        eapply InContext_spec_ret; [ tauto | ].
         intros. split; auto.
         eexists; split; eauto.
         intros.
         eapply Pure_pctxD; eauto. }
-      { destruct x. destruct p.
+      { destruct x as [ [ ? ? ] ? ].
         subst.
         inv_all.
         simpl in * |-.
-        subst.
-        eapply Succeeds_ptrn_view in H8; eauto with typeclass_instances.
-        forward_reason. subst.
         unfold ptret.
+        drive_exprD'.
+        simpl in x3.
+        assert (t0 = x2 /\ x = typ1 t0 /\ t = t0) by
+           (clear - x3 Typ2Ok_func Typ1Ok_list; inv_all; subst; auto).
+        forward_reason; subst.
+        rewrite (UIP_refl x3); clear x3.
         eapply InContext_spec_bind.
         { eapply InContext_spec_check_equality. }
-        { destruct x0.
+        { clear InContext_spec_check_equality.
+          destruct x.
           { clear H.
-            eapply Proper_InContext_spec;
-            [ | | | reflexivity | eapply InContext_spec_ret ].
-            { instantiate (1:=fun _ => True).
-              red. red. tauto. }
-            { red. red. tauto. }
-            { red. intro.
-              eapply Option.Reflexive_Roption.
-              eapply pointwise_reflexive.
-              eauto with typeclass_instances. }
-            { simpl.
-              intros. split; auto.
-              repeat match goal with
-                     | H : exprD' _ _ _ _ = Some _ |- _ =>
-                       eapply exprD'_App in H ; forward_reason ; subst
-                     end.
-              Transparent exprD'.
-              unfold exprD' in H0.
-              simpl in H0.
-              rewrite exprD'_Inj in H0; eauto with typeclass_instances.
-              unfold Monad.bind in H0. simpl in H0.
-              rewrite <- fv_compat in H0.
-              eapply Succeeds_ptrn_cons in H2. forward_reason. subst.
-              unfold symAs in H0. simpl in H0.
-              destruct (type_cast (typ2 x3 (typ2 x0 (typ1 t)))
-                                  (typ2 x1 (typ2 (typ1 x1) (typ1 x1))));
-                try congruence.
-              inv_all. subst.
-              assert (x3 = t0 /\ x0 = typ1 t0 /\ t = t0).
-              { clear - r Typ2Ok_func.
-                inv_all. subst.
-                Existing Instance ExprTac.Injective_typ2.
-                admit. }
-              forward_reason; subst.
-              rewrite H3. rewrite H1. rewrite He.
-              eexists; split; eauto.
+            eapply InContext_spec_ret; try solve [ simpl ; eauto ].
+            simpl.
+            intros. split; eauto.
+            Cases.rewrite_all_goal.
+            eexists; split; eauto.
+            simpl. intros.
+            eapply Pure_pctxD; eauto.
+            intros.
+            rewrite <- H3; clear - RTypeOk_typ.
+            rewrite <- exprT_App_cons.
+            reflexivity. }
+          { eapply InContext_spec_bind.
+            { eapply H;
+              eauto using TransitiveClosure.LTFin, TransitiveClosure.LTStep,
+                          acc_App_l, acc_App_r. }
+            clear H.
+            intros.
+            eapply InContext_spec_ret; [ tauto | ].
+            simpl. intros; split; auto.
+            Cases.rewrite_all_goal.
+            destruct x.
+            { intros.
+              destruct (exprD' (getUVars ctx) (getVars ctx) e0 (typ1 x2)) eqn:Heq.
+              { erewrite exprD'_mkCons by eauto.
+                eexists; split; eauto. simpl.
+                intros.
+                eapply Pure_pctxD; eauto.
+                intros. inv_all.
+                rewrite <- exprT_App_cons.
+                rewrite <- exprT_App_cons.
+                eapply perm_trans; [ eapply perm_swap | ].
+                eapply perm_skip. eassumption. }
+              { eexists; split; eauto.
+                simpl. intros. eapply Pure_pctxD; eauto. } }
+            { eexists; split; eauto.
               intros.
-              eapply Pure_pctxD; eauto.
-              intros. red in r.
-              rewrite (UIP_refl r).
-              simpl.
-              inv_all. subst. simpl in H4.
-              rewrite <- H4.
-              clear.
-              admit. } }
-          { repeat match goal with
-                   | H : exprD' _ _ _ _ = Some _ |- _ =>
-                     eapply exprD'_App in H ; forward_reason ; subst
-                   | H : _ = _ |- _ => rewrite H
-                   end.
-            eapply Succeeds_ptrn_cons in H2.
-            forward_reason; subst.
-            inv_all. subst.
-            (** Need to finish working out this automation.
-             ** Jesper should have a good chunk of it done very soon.
-             **)
-            admit. } } } }
+              eapply Pure_pctxD; eauto. } } } } }
     { unfold ptret.
-      eapply InContext_spec_ret with (wfGoal := fun _ => True).
+      eapply InContext_spec_ret; try tauto.
       intros. split; auto.
       eexists; split; eauto.
       intros.
       eapply Pure_pctxD; eauto. }
-  Admitted.
+  Time Qed.
 
   (** TODO: This should go in InContext *)
   Instance MonadPlus_InContext {m : Type -> Type} {M : Monad.Monad m} {Mp : MonadPlus.MonadPlus m}

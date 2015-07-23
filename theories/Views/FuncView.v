@@ -112,7 +112,6 @@ Section FuncView.
     destruct (typeof_sym p); intros; [|congruence].
     forward.
   Defined.
-    Require Import TrmD.
 (*
   Lemma fv_symD {FVO : FuncViewOk} f p t v
         (Hview : f_view f = Some p) (Hfunc : symAs f t = Some v) : True.
