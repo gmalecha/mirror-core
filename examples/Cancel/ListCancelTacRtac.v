@@ -143,7 +143,7 @@ Section canceller.
       exists u e1D e2D,
         exprD' tus tvs e1 (typ2 u t) = Some e1D /\
         exprD' tus tvs e2 u = Some e2D /\
-        eD = AbsAppI.exprT_App _ e1D e2D.
+        eD = AbsAppI.exprT_App e1D e2D.
   Proof using RSymOk_sym RTypeOk_typ Typ2Ok_func.
     intros.
     unfold exprD' in H. simpl in H.
@@ -155,34 +155,6 @@ Section canceller.
     split; eauto.
     inv_all. eauto.
   Qed.
-
-(*
-  Lemma Succeeds_ptrn_cons
-    : forall T (p : ptrn typ T) e res,
-      ptrn_ok p ->
-      Succeeds e (ptrn_cons p) res ->
-      exists t, e = pCons t /\
-                Succeeds t p res.
-  Proof using.
-    intros.
-    destruct e.
-    { red in H0. simpl in H0.
-      specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
-    { red in H0; simpl in H0.
-      eexists; split; eauto.
-      destruct (H t).
-      { destruct H1. red in H1. red.
-        setoid_rewrite H1 in H0.
-        setoid_rewrite H1.
-        eauto. }
-      { red in H1. setoid_rewrite H1 in H0.
-        specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. } }
-  Qed.
-
-  Instance Injective_Succeeds_ptrn_cons T p e (res : T)
-  : ptrn_ok p -> Injective (Succeeds e (ptrn_cons p) res) :=
-  { injection := @Succeeds_ptrn_cons _ _ _ _ _ }.
-*)
 
   (** TODO: This should go elsewhere **)
   Definition exprT_pure {T} (tus tvs : tenv typ) (x : T) : exprT tus tvs T :=
@@ -230,7 +202,7 @@ Section canceller.
     : forall tus tvs t e1 e2 e1D e2D,
       exprD' tus tvs e1 t = Some e1D ->
       exprD' tus tvs e2 (typ1 t) = Some e2D ->
-      exprD' tus tvs (mkCons t e1 e2) (typ1 t) = Some (AbsAppI.exprT_App _ (AbsAppI.exprT_App _ (exprT_pure (consR t)) e1D) e2D).
+      exprD' tus tvs (mkCons t e1 e2) (typ1 t) = Some (AbsAppI.exprT_App (AbsAppI.exprT_App (exprT_pure (consR t)) e1D) e2D).
   Proof using Typ1Ok_list Typ2Ok_func RTypeOk_typ RSymOk_sym LFOk.
     intros. unfold mkCons.
     unfold exprD' in *; simpl in *.
@@ -272,7 +244,7 @@ Section canceller.
       castD (fun x => x) (typD t) (Typ0:=Typ0_term _ t) (a us vs) ::
             castD (fun x => x) (list (typD t)) (Typ0:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t)) (b us vs) =
       castD (fun x => x) (list (typD t)) (Typ0:=@Typ1_App _ _ list (typD t) Typ1_List (Typ0_term _ t))
-            ((AbsAppI.exprT_App _ (AbsAppI.exprT_App _ (exprT_pure (consR t)) a) b) us vs).
+            ((AbsAppI.exprT_App (AbsAppI.exprT_App (exprT_pure (consR t)) a) b) us vs).
   Proof.
     clear InContext_spec_check_equality.
     intros. unfold castD, AbsAppI.exprT_App, exprT_pure, consR, castR.
@@ -290,6 +262,7 @@ Section canceller.
     intros; subst. reflexivity.
   Qed.
 
+  (** TODO: this should be moved **)
   Ltac Rty_inv :=
     let rec find A B more none :=
         match A with
@@ -332,6 +305,9 @@ Section canceller.
       find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
     end.
 
+
+
+(*
   Theorem remove_sound
   : forall e lst (t : typ) eD lstD,
       @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) e t = Some eD ->
@@ -430,6 +406,133 @@ Section canceller.
       eapply Pure_pctxD; eauto. }
   Time Qed.
 
+*)
+
+  Lemma match_option_same : forall {T U} (x : option T) (X : U),
+      match x with
+      | Some _ => X
+      | None => X
+      end = X.
+  Proof. destruct x; reflexivity. Qed.
+
+  Theorem remove_sound
+  : forall e lst (t : typ),
+      @InContext_spec typ (expr typ func)
+                      ident _ _ _ _ _
+                      (option (expr typ func))
+                      (fun x => True) ctx
+                      (fun (e' : option (expr typ func)) =>
+                         match @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) e t
+                             , @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) lst (typ1 t)
+                         with
+                         | Some eD , Some lstD =>
+                           match e' with
+                           | None => Some (fun _ => True)
+                           | Some e' =>
+                             match @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) e' (typ1 t) with
+                             | Some lst'D =>
+                               Some (fun env => let '(us,vs) := env in
+                                                Permutation (castD (fun x => x) (typD t) (eD us vs) ::
+                                                             castD (fun x => x) (list (typD t)) (lst'D us vs))
+                                                            (castD (fun x => x) (list (typD t)) (lstD us vs)))
+                             | None => None
+                             end
+                           end
+                         | _ , _ => Some (fun _ => True)
+                         end)
+                      (remove e lst).
+  Proof.
+    Opaque exprD' Monad.bind Monad.ret.
+    intros e lst t.
+    eapply expr_strong_ind_no_case with (e:=lst); intros.
+    rewrite remove_eta.
+    unfold Ptrns.run_tptrn, list_cases.
+    eapply Ptrns.pdefault_sound; eauto 100 with typeclass_instances.
+    { red. red. red.
+      intros. subst.
+      do 2 red in H1. erewrite H1. reflexivity.
+      reflexivity. }
+    { intros.
+      eapply Succeeds_por in H0; try solve [ instantiate ; eauto 100 with typeclass_instances ].
+      destruct H0; ptrnE.
+      { unfold ptret.
+        eapply InContext_spec_ret; [ tauto | ].
+        intros. split; auto.
+        repeat rewrite match_option_same.
+        eexists; split; eauto.
+        eapply Pure_pctxD; eauto. }
+      { unfold ptret.
+        eapply InContext_spec_bind.
+        { eapply InContext_spec_check_equality. }
+        { clear InContext_spec_check_equality.
+          destruct x.
+          { clear H.
+            eapply InContext_spec_ret; try solve [ simpl ; eauto ].
+            simpl.
+            intros. split; eauto.
+            Transparent Monad.ret. simpl. Opaque Monad.ret.
+            repeat match goal with
+                   | |- context [ match ?X with _ => _ end ] =>
+                     match X with
+                     | match _ with _ => _ end => fail 1
+                     | _ =>
+                       let H := fresh in
+                       destruct (X) eqn:H;
+                         try solve [ eexists; split; eauto; eapply Pure_pctxD; eauto ]; [ ]
+                     end
+                   | |- _ => progress drive_exprD'
+                   end.
+            simpl in x3. Rty_inv.
+            rewrite H0 in *. rewrite H2 in *.
+            inv_all; subst.
+            Cases.rewrite_all_goal.
+            eexists; split; eauto.
+            simpl. intros.
+            eapply Pure_pctxD; eauto.
+            intros.
+            rewrite <- H3; clear - RTypeOk_typ.
+            rewrite <- exprT_App_cons.
+            reflexivity. }
+          { eapply InContext_spec_bind.
+            { eapply H;
+              eauto using TransitiveClosure.LTFin, TransitiveClosure.LTStep,
+                          acc_App_l, acc_App_r. }
+            clear H.
+            intros.
+            eapply InContext_spec_ret; [ tauto | ].
+            simpl. intros; split; auto.
+            repeat match goal with
+                   | |- context [ match ?X with _ => _ end ] =>
+                       let H := fresh in
+                       destruct (X) eqn:H;
+                         try solve [ eexists; split; eauto; eapply Pure_pctxD; eauto ]; [ ]
+                   | |- _ => progress drive_exprD'
+                   end.
+            forwardy; inv_all; subst.
+            simpl in x4. Rty_inv.
+            rewrite H6 in *.
+            rewrite H7 in *. inv_all; subst.
+            revert H0.
+            Cases.rewrite_all_goal.
+            intros; forwardy. inv_all; subst.
+            erewrite exprD'_mkCons by eauto.
+            eexists; split; eauto. simpl.
+            intros.
+            eapply Pure_pctxD; eauto.
+            intros. inv_all.
+            rewrite <- exprT_App_cons.
+            rewrite <- exprT_App_cons.
+            eapply perm_trans; [ eapply perm_swap | ].
+            eapply perm_skip. eassumption. } } } }
+    { unfold ptret.
+      eapply InContext_spec_ret; try tauto.
+      intros. split; auto.
+      repeat rewrite match_option_same.
+      eexists; split; eauto.
+      intros.
+      eapply Pure_pctxD; eauto. }
+  Time Qed.
+
   (** TODO: This should go in InContext *)
   Instance MonadPlus_InContext {m : Type -> Type} {M : Monad.Monad m} {Mp : MonadPlus.MonadPlus m}
   : MonadPlus.MonadPlus (InContext m ctx) :=
@@ -470,6 +573,220 @@ Section canceller.
                                    end))
                   (Monad.ret (lst1, lst2)))
       lst1.
+
+  Lemma cancel_eta : forall lst1 lst2,
+      cancel lst1 lst2 =
+      Ptrns.run_tptrn
+      (list_cases (T := InContext ident ctx (expr typ func * expr typ func))
+                  (fun t => Monad.ret (mkNil t, lst2))
+                  (fun t x xs =>
+                     Monad.bind (remove x lst2)
+                                (fun olst2 =>
+                                   match olst2 with
+                                   | Some lst2' => cancel xs lst2'
+                                   | None =>
+                                     Monad.bind (cancel xs lst2)
+                                                (fun a_b => let '(lst1',lst2') := a_b in
+                                                            Monad.ret (mkCons t x lst1', lst2'))
+                                   end))
+                  (Monad.ret (lst1, lst2)))
+      lst1.
+  Proof.
+    clear. intros.
+    destruct lst1; reflexivity.
+  Qed.
+
+  Lemma match_option_push
+    : forall {T U V} (x : option T) (f : T -> option U) (g : option U)
+             f' (g' : V),
+      match match x with
+            | Some x => f x
+            | None => g
+            end
+      with
+      | Some y => f' y
+      | None => g'
+      end = match x with
+            | Some x => match f x with
+                        | Some y => f' y
+                        | None => g'
+                        end
+            | None => match g with
+                      | Some y => f' y
+                      | None => g'
+                      end
+            end.
+  Proof. clear. destruct x; reflexivity. Qed.
+
+  Theorem cancel_sound
+  : forall lst1 lst2 (t : typ),
+      @InContext_spec typ (expr typ func)
+                      ident _ _ _ _ _
+                      _
+                      (fun x => True) ctx
+                      (fun (e' : expr typ func * expr typ func) =>
+                         let '(lst1',lst2') := e' in
+                         match @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) lst1 (typ1 t)
+                             , @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) lst2 (typ1 t)
+                             , @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) lst1' (typ1 t)
+                             , @exprD' typ _ (expr typ func) _ (getUVars ctx) (getVars ctx) lst2' (typ1 t)
+                         with
+                         | Some lst1D , Some lst2D , Some lst1'D , Some lst2'D =>
+                           Some (fun env =>
+                                   let '(us,vs) := env in
+                                   forall Z,
+                                   Permutation (Z ++ castD (fun x => x) (list (typD t)) (lst1'D us vs))
+                                               (castD (fun x => x) (list (typD t)) (lst2'D us vs)) ->
+                                   Permutation (Z ++ castD (fun x => x) (list (typD t)) (lst1D us vs))
+                                               (castD (fun x => x) (list (typD t)) (lst2D us vs)))
+                         | None , _ , _ , _
+                         | Some _ , None , _ , _ => Some (fun _ => True)
+                         | Some _ , Some _ , None , _
+                         | Some _ , Some _ , Some _ , None => None
+                         end)
+                      (cancel lst1 lst2).
+  Proof.
+    intro lst1.
+    eapply expr_strong_ind_no_case with (e:=lst1); intros.
+    rewrite cancel_eta.
+    unfold Ptrns.run_tptrn, ptret, list_cases.
+    eapply Ptrns.pdefault_sound; eauto 100 with typeclass_instances.
+    { red. red. red.
+      intros. subst.
+      do 2 red in H1. erewrite H1. reflexivity.
+      reflexivity. }
+    { intros.
+      eapply Succeeds_por in H0; try solve [ instantiate ; eauto 100 with typeclass_instances ].
+      destruct H0; ptrnE.
+      { eapply InContext_spec_ret; eauto.
+        intros; split; auto.
+        repeat match goal with
+               | |- context [ match ?X with _ => _ end ] =>
+                 let H := fresh in
+                 destruct (X) eqn:H;
+                   try solve [ eexists; split; eauto; eapply Pure_pctxD; eauto ]; [ ]
+               end.
+        change_rewrite H1.
+        eexists; split; eauto.
+        intros; eapply Pure_pctxD; eauto. }
+      { unfold ptret.
+        eapply InContext_spec_bind.
+        { eapply remove_sound; eauto. }
+        instantiate (1:=t).
+        destruct x.
+        { eapply Proper_InContext_spec;
+          [ | | reflexivity
+          | eapply H; eauto using TransitiveClosure.LTFin, TransitiveClosure.LTStep,
+                      acc_App_l, acc_App_r ].
+          { compute. tauto. }
+          { instantiate (1:=t).
+            red. intros.
+            destruct a.
+            clear H InContext_spec_check_equality.
+            repeat setoid_rewrite match_option_push.
+            destruct (exprD' (getUVars ctx) (getVars ctx)
+                             (App (App (Inj (f_insert (pCons t0))) e1) e0)
+                             (typ1 t)) eqn:Heq.
+            { drive_exprD'.
+              simpl in x3. Rty_inv.
+              Cases.rewrite_all_goal.
+              destruct (exprD' (getUVars ctx) (getVars ctx) e (typ1 t)) eqn:Heq'.
+              { destruct (exprD' (getUVars ctx) (getVars ctx) e2 (typ1 t)) eqn:Heq''; try constructor.
+                destruct (exprD' (getUVars ctx) (getVars ctx) e3 (typ1 t)) eqn:Heq'''; try constructor.
+                { destruct (exprD' (getUVars ctx) (getVars ctx) lst2 (typ1 t)) eqn:Heq''''.
+                  { constructor. do 2 red. destruct a. simpl. intros.
+                    eapply H in H4.
+                    rewrite <- H3; clear H3.
+                    rewrite <- exprT_App_cons.
+                    rewrite <- H4.
+                    rewrite Permutation_middle. reflexivity. }
+                  { constructor; compute; tauto. } } }
+              { destruct (exprD' (getUVars ctx) (getVars ctx) lst2 (typ1 t)); constructor;
+                compute; tauto. } }
+            { Lemma Roption_impl_tauto : forall {T} (R : T -> T -> Prop) a x,
+                (forall y, R y x) ->
+                Roption_impl R a (Some x).
+              Proof.
+                clear. destruct a; constructor; auto.
+              Qed.
+              destruct (exprD' (getUVars ctx) (getVars ctx) e1 t);
+                try solve [ eapply Roption_impl_tauto ; compute; tauto ].
+              destruct (exprD' (getUVars ctx) (getVars ctx) lst2 (typ1 t));
+                try solve [ eapply Roption_impl_tauto ; compute; tauto ].
+              destruct (exprD' (getUVars ctx) (getVars ctx) e (typ1 t));
+                try solve [ eapply Roption_impl_tauto ; compute; tauto ]. } } }
+        { eapply InContext_spec_bind.
+          { eapply H; eauto using TransitiveClosure.LTFin, TransitiveClosure.LTStep,
+                      acc_App_l, acc_App_r. }
+          clear InContext_spec_check_equality H.
+          instantiate (1:=t).
+          destruct x.
+          { eapply InContext_spec_ret; [ tauto | ].
+            intros. split; [ tauto | ].
+            destruct (exprD' (getUVars ctx) (getVars ctx)
+                             (App (App (Inj (f_insert (pCons t0))) e1) e0)
+                             (typ1 t)) eqn:Heq.
+            { drive_exprD'.
+              simpl in x3. Rty_inv.
+              Cases.rewrite_all_goal.
+              repeat match goal with
+                     | |- context [ match ?X with _ => _ end ] =>
+                       match X with
+                       | match _ with _ => _ end => fail 1
+                       | _ =>
+                         let H := fresh in
+                         destruct (X) eqn:H;
+                           try solve [ eexists; split; eauto; eapply Pure_pctxD; eauto ]; [ ]
+                       end
+                     | |- _ => progress drive_exprD'
+                     end.
+              erewrite exprD'_mkCons by eauto.
+              eexists; split; eauto.
+              intros; eapply Pure_pctxD; eauto.
+              intros.
+              rewrite <- exprT_App_cons in *.
+              match goal with
+              | |- Permutation (_ ++ ?X :: _) _ =>
+                specialize (H6 (Z ++ X :: nil))
+              end.
+              rewrite app_ass in H6.
+              simpl in H6. eapply H6 in H9.
+              rewrite app_ass in H9. simpl in H9.
+              assumption. }
+            { repeat rewrite match_option_same.
+              repeat match goal with
+                     | |- context [ match ?X with _ => _ end ] =>
+                       match X with
+                       | match _ with _ => _ end => fail 1
+                       | _ =>
+                         let H := fresh in
+                         destruct (X) eqn:H;
+                           try solve [ eexists; split; eauto; eapply Pure_pctxD; eauto ]; [ ]
+                       end
+                     | |- _ => progress drive_exprD'
+                     end.
+              match goal with
+              | |- exists x , match ?X with _ => _ end = _ /\ _ =>
+                destruct X; eexists; split; eauto; eapply Pure_pctxD; eauto
+              end. } } } } }
+    { eapply InContext_spec_ret; [ tauto | ].
+      intros. split; eauto.
+      clear H InContext_spec_check_equality.
+      repeat match goal with
+             | |- context [ match ?X with _ => _ end ] =>
+               match X with
+               | match _ with _ => _ end => fail 1
+               | _ =>
+                 let H := fresh in
+                 destruct (X) eqn:H;
+                   try solve [ eexists; split; eauto; eapply Pure_pctxD; eauto ]; [ ]
+               end
+             | |- _ => progress drive_exprD'
+             end.
+      destruct (exprD' (getUVars ctx) (getVars ctx) lst2 (typ1 t)).
+      { eexists; split; eauto; eapply Pure_pctxD; eauto. }
+      { eexists; split; eauto; eapply Pure_pctxD; eauto. } }
+  Time Qed.
 
 (*
   Eval compute in fun ty x => cancel (mkCons ty x (mkNil ty)) (mkCons ty x (mkNil ty)).

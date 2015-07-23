@@ -53,11 +53,9 @@ Section with_instantiation.
   : exprT (getUVars c) (getVars c) T :=
     fun us vs => env (us,vs).
 
-  SearchAbout ctx_subst.
-
   Let WFi := @WellFormed_ctx_subst typ expr _ _.
 
-  Require Import Morphisms.
+  Require Import Coq.Classes.Morphisms.
 
   Class MonadLogic : Type :=
   { MLogic : Type := Prop
@@ -173,10 +171,14 @@ Section with_instantiation.
           eassumption. } } }
   Qed.
 
+  Inductive Roption_impl {T} (R : T -> T -> Prop) : option T -> option T -> Prop :=
+  | Roption_impl_None : forall x, Roption_impl R None x
+  | Roption_impl_Some : forall x y, R x y -> Roption_impl R (Some x) (Some y).
+
   Lemma Proper_InContext_spec
   : forall T ctx,
       Proper (pointwise_relation _ Basics.impl ==>
-              pointwise_relation _ (Option.Roption (pointwise_relation _ Basics.impl)) ==>
+              pointwise_relation _ (Roption_impl (pointwise_relation _ Basics.impl)) ==>
               eq ==>
               Basics.impl)
              (fun B => @InContext_spec T B ctx).
@@ -200,7 +202,7 @@ Section with_instantiation.
     destruct (pctxD c) eqn:Heq'; simpl in *; try contradiction.
     unfold assert in *.
     red in H0. specialize (H0 t).
-    destruct H0; auto.
+    destruct H0; auto. contradiction.
     forward_reason.
     split; eauto.
     intros.
