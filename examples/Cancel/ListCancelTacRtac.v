@@ -1,15 +1,17 @@
-Require Import MirrorCore.ExprI.
-Require Import MirrorCore.Lemma.
-Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.ExprUnify.
-Require Import MirrorCore.Lambda.Lemma.
-Require Import MirrorCore.RTac.RTac.
-Require Import MirrorCore.Views.FuncView.
-Require Import MirrorCore.Views.ListView.
-Require Import MirrorCore.RTac.InContext.
-
+Require Import Coq.Sorting.Permutation.
 Require Import ExtLib.Core.RelDec.
-Require Import MirrorCore.Lambda.ExprCore.
+Require Import ExtLib.Data.Monads.IdentityMonad.
+Require Import ExtLib.Tactics.
+Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Views.ListView.
+Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.RTac.InContext.
+Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.ExprI. (** TODO: This should move **)
+Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -46,8 +48,6 @@ Section canceller.
                      (Ptrns.app (Ptrns.app (Ptrns.inj (ptrn_view LF (fptrnCons Ptrns.get))) Ptrns.get) Ptrns.get)))
       do_default.
 
-  Require Import ExtLib.Data.Monads.IdentityMonad.
-
   (** TODO: This should go elsewhere **)
   Instance MonadLogic_ident : @MonadLogic ident _ :=
   { Pred := fun {T : Type} (P : T -> Prop) (id : ident T) => P (unIdent id) }.
@@ -56,7 +56,6 @@ Section canceller.
     { compute. destruct c. eauto. }
     { compute. intros; subst. eauto. }
   Defined.
-
 
   Definition check_equality
   : typ -> expr typ func -> expr typ func -> InContext ident ctx bool :=
@@ -105,18 +104,10 @@ Section canceller.
     destruct lst; reflexivity.
   Qed.
 
-  Require Import Coq.Sorting.Permutation.
-  Require Import MirrorCore.Views.Ptrns.
-  Require Import MirrorCore.Lambda.Ptrns.
-  Require Import ExtLib.Tactics.
-  Require Import MirrorCore.Util.Forwardy.
-
   Existing Instance Injective_Succeeds_pmap.
   Existing Instance Injective_Succeeds_app.
   Existing Instance Injective_Succeeds_inj.
   Existing Instance Injective_Succeeds_get.
-  Require Import MirrorCore.Lambda.Expr.
-
   Existing Instance Expr_expr.
 
   Hypothesis InContext_spec_check_equality
@@ -249,7 +240,7 @@ Section canceller.
     clear InContext_spec_check_equality.
     intros. unfold castD, AbsAppI.exprT_App, exprT_pure, consR, castR.
     simpl. unfold id, eq_rect_r, eq_rect, eq_rec.
-    Require Import MirrorCore.Util.Compat.
+
     autorewrite_with_eq_rw.
     generalize (a us vs).
     generalize (b us vs).
