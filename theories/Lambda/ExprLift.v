@@ -136,7 +136,7 @@ Section types.
       forward_reason.
       Cases.rewrite_all_goal.
       eexists; split; eauto. intros.
-      unfold exprT_App.
+      unfold AbsAppI.exprT_App.
       match goal with
         | |- match ?X with _ => _ end _ _ _ _ =
              match ?Y with _ => _ end _ _ _ _ =>
@@ -238,7 +238,7 @@ Section types.
       specialize (IHe1 tvs tvs' tvs'' (typ2 t0 t)).
       specialize (IHe2 tvs tvs' tvs'' t0).
       forward. inv_all. subst.
-      unfold exprT_App.
+      unfold AbsAppI.exprT_App.
       autorewrite_with_eq_rw.
       rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
     { destruct (typ2_match_case t0).

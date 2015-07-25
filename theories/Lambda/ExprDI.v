@@ -5,6 +5,7 @@ Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
@@ -36,26 +37,6 @@ Module Type ExprDenote.
     Definition Rcast_val
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
-
-    Definition exprT_App {tus tvs t u}
-    : exprT tus tvs (typD (typ_arr t u)) -> exprT tus tvs (typD t)
-      -> exprT tus tvs (typD u) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus tvs T ->
-                   exprT tus tvs (typD t) ->
-                   exprT tus tvs (typD u)
-      with
-        | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
-      end.
-
-    Definition exprT_Abs {tus tvs t u}
-    : exprT tus (t :: tvs) (typD u) ->
-      exprT tus tvs (typD (typ_arr t u)) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
-      with
-        | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
-      end.
 
     Parameter exprD'
     : forall {Typ2_Fun : Typ2 _ Fun}
@@ -145,9 +126,11 @@ Module Type ExprDenote.
         bind (m := option)
              (typeof_expr tus tvs x)
              (fun t' =>
-                bind (exprD' tus tvs (typ_arr t' t) f)
+                bind (m:=option)
+                     (exprD' tus tvs (typ_arr t' t) f)
                      (fun f =>
-                        bind (exprD' tus tvs t' x)
+                        bind (m:=option)
+                             (exprD' tus tvs t' x)
                              (fun x =>
                                 ret (exprT_App f x)))).
 
@@ -214,10 +197,10 @@ Module Type ExprFacts (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.exprT_App fval xval)))
+                    (Some (exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
         P tus tvs e t (ED.exprD' tus tvs t e).
 

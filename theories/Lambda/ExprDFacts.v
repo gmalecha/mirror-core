@@ -5,8 +5,11 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
+
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -72,10 +75,10 @@ Module Make (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.exprT_App fval xval)))
+                    (Some (exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
         P tus tvs e t (ED.exprD' tus tvs t e).
     Proof.
@@ -117,7 +120,7 @@ Module Make (ED : ExprDenote).
           { specialize (fun H => IHe H (t :: tvs) x0).
             consider (ED.exprD' tus (t :: tvs) x0 e); intros.
             { eapply Habs in IHe; eauto.
-              revert IHe. unfold ED.exprT_Abs.
+              revert IHe. unfold exprT_Abs.
               destruct r.
               match goal with
                 | |- _ _ _ _ _ (Some (match ?X with _ => _ end _)) ->
@@ -182,10 +185,10 @@ Module Make (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.exprT_App fval xval)))
+                    (Some (exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
         P tus tvs e t (ED.exprD' tus tvs t e).
     Proof.
@@ -218,7 +221,7 @@ Module Make (ED : ExprDenote).
         autorewrite with exprD_rw.
         rewrite typ2_match_iota; eauto.
         rewrite type_cast_refl; eauto. rewrite H.
-        simpl. unfold ED.exprT_Abs.
+        simpl. unfold exprT_Abs.
         autorewrite with eq_rw.
         reflexivity. }
     Qed.
@@ -289,8 +292,7 @@ Module Make (ED : ExprDenote).
         rewrite H2. rewrite H3.
         eexists; split; eauto.
         revert H5 H6. clear.
-        unfold ED.exprT_App. intros.
-        Require Import MirrorCore.Util.Compat.
+        unfold exprT_App. intros.
         autorewrite_with_eq_rw.
         rewrite <- H6.
         rewrite <- H5. reflexivity. }
@@ -305,7 +307,7 @@ Module Make (ED : ExprDenote).
         rewrite eq_option_eq. eexists; split; eauto.
         intros.
         clear - H2.
-        unfold ED.exprT_Abs, exprT.
+        unfold exprT_Abs, exprT.
         autorewrite_with_eq_rw; simpl.
         match goal with
           | |- match ?X with _ => _ end = match ?Y with _ => _ end =>
@@ -516,7 +518,7 @@ Module Make (ED : ExprDenote).
             consider (ED.exprD' tus (x :: tvs0) x0 e); intros.
             { eapply H in H0; clear H; eauto.
               destruct H0. destruct x2.
-              subst. exists (Rsym x1). unfold ED.exprT_Abs.
+              subst. exists (Rsym x1). unfold exprT_Abs.
               generalize dependent (typ2_cast x r).
               destruct x1. simpl; intros.
               rewrite eq_option_eq in H1.

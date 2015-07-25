@@ -564,7 +564,7 @@ Section reducer.
         intros.
         specialize (H6 _ _ _ _ H7).
         specialize (H5 _ _ _ _ H7).
-        unfold exprT_App.
+        unfold AbsAppI.exprT_App.
         autorewrite_with_eq_rw.
         destruct H6; destruct H5; reflexivity. }
       { revert H0.
@@ -798,7 +798,7 @@ Section reducer.
         specialize (H5 _ _ _ _ H8).
         specialize (H7 _ _ _ _ H8).
         rewrite <- H5 in H7; clear H5. simpl in H7.
-        unfold exprT_App.
+        unfold AbsAppI.exprT_App.
         match goal with
           | H : context [ match ?X with _ => _ end ]
             |- context [ match eq_sym ?Y with _ => _ end ] =>

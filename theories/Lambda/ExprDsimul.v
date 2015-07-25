@@ -6,6 +6,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 
@@ -38,25 +39,6 @@ Module ExprDenote <: ExprDenote.
     Definition Rcast_val
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
-
-    Definition exprT_App {tus tvs t u}
-    : exprT tus tvs (typD (typ_arr t u)) -> exprT tus tvs (typD t) -> exprT tus tvs (typD u) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus tvs T ->
-                   exprT tus tvs (typD t) ->
-                   exprT tus tvs (typD u)
-      with
-        | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
-      end.
-
-    Definition exprT_Abs {tus tvs t u}
-    : exprT tus (t :: tvs) (typD u) ->
-      exprT tus tvs (typD (typ_arr t u)) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
-      with
-        | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
-      end.
 
     Section exprT.
       Variables tus tvs : tenv typ.
@@ -122,7 +104,7 @@ Module ExprDenote <: ExprDenote.
               | Some (existT _ t' x) =>
                 match exprD' tvs (typ_arr t' t) f with
                   | None => None
-                  | Some f => Some (@exprT_App _ _ _ _ f x)
+                  | Some f => Some (exprT_App f x)
                 end
             end
           | Abs t' e =>
@@ -271,7 +253,7 @@ Module ExprDenote <: ExprDenote.
                     let '(existT _ t' x) := t_x in
                     bind (m := option)
                          (exprD' tus tvs (typ_arr t' t) f)
-                         (fun f => ret (@exprT_App _ _ _ _ f x))).
+                         (fun f => ret (exprT_App f x))).
     Proof. reflexivity. Qed.
 
     Lemma exprD'_simul_App'
@@ -551,7 +533,6 @@ Module ExprDenote <: ExprDenote.
             repeat (rewrite eq_Arr_eq; rewrite eq_Const_eq).
             Cases.rewrite_all_goal. f_equal. f_equal. subst.
             unfold exprT_App. clear.
-            unfold typD_arr.
             generalize (typ2_cast x x0). intro.
             unfold typ_arr in *.
             generalize dependent (typD (typ2 x x0)).

@@ -61,6 +61,15 @@ Section AppAbs.
   ; App_match : expr -> forall T, (expr -> expr -> T) -> T -> T
   }.
 
+  Definition exprT_Abs {tus tvs t u}
+  : exprT tus (t :: tvs) (typD u) ->
+    exprT tus tvs (typD (typ2 t u)) :=
+    match eq_sym (typ2_cast (F:=Fun) t u) in _ = T
+          return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
+    with
+    | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
+    end.
+
   Definition exprT_App {tus : tenv typ} {tvs : tenv typ} {T U : typ}
   : exprT tus tvs (typD (typ2 T U)) ->
     exprT tus tvs (typD T) ->
@@ -88,3 +97,6 @@ Section AppAbs.
   }.
 
 End AppAbs.
+
+Arguments exprT_App {_ _ _ _ _ _ _} _ _ _ _.
+Arguments exprT_Abs {_ _ _ _ _ _ _} _ _ _.

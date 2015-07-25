@@ -524,10 +524,10 @@ Section typed.
   : forall tus tvs t u f f' x x' A B,
       f A B = f' A B ->
       x A B = x' A B ->
-      @exprT_App typ _ _ tus tvs t u f x A B =
-      @exprT_App typ _ _ tus tvs t u f' x' A B.
+      @AbsAppI.exprT_App typ _ _ tus tvs t u f x A B =
+      @AbsAppI.exprT_App typ _ _ tus tvs t u f' x' A B.
   Proof using.
-    unfold exprT_App.
+    unfold AbsAppI.exprT_App.
     intros.
     intros.
     autorewrite_with_eq_rw.
@@ -815,7 +815,7 @@ Section typed.
             | H : ?X = _ , H' : ?Y = _ |- _ =>
               change Y with X in H' ; rewrite H in H'
           end.
-          inv_all; subst. intuition. } }
+          inv_all; subst. subst. intuition. } }
       { unfold exprUnify_simul'.
         destruct e2; intros; try solve [ congruence | eapply handle_uvar_simul with (e := Inj f); eauto ].
         { generalize (sym_eqbOk f f0).
@@ -854,14 +854,20 @@ Section typed.
             eapply H0 in H7; eauto using exprD_typeof_not_None.
             forward_reason.
             forward_exprD.
+            inv_all. subst.
+            assert (x = t1 /\ x0 = t /\ x = t0).
+            { generalize (exprD'_deterministic e1_1 _ _ H7 H11).
+              generalize (exprD'_deterministic e2_1 _ _ H14 H8).
+              intros. inv_all. auto. }
+            destruct H10 as [ ? [ ? ? ] ]; subst. subst.
             specialize (H4 _ _ _ H12 H9 H16).
             forward_reason.
             eexists; split; eauto.
             { etransitivity; eauto. }
             split; eauto.
             intros.
-            eapply H13 in H19; clear H13.
-            destruct H19. eapply H17 in H13; clear H17.
+            eapply H13 in H18; clear H13.
+            destruct H18. eapply H17 in H13; clear H17.
             forward_reason; split; auto.
             repeat match goal with
                      | H : ?X = _ , H' : ?Y = _ |- _ =>

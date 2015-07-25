@@ -336,3 +336,8 @@ Arguments Abs {typ func} _ _.
 Arguments mentionsAny {typ func} uP vP _.
 Arguments _mentionsU {typ func} _ _.
 Arguments _mentionsV {typ func} _ _.
+
+Hint Constructors TransitiveClosure.leftTrans : acc_db.
+Hint Constructors TransitiveClosure.rightTrans : acc_db.
+Hint Constructors expr_acc : acc_db.
+

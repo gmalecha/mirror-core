@@ -1,6 +1,3 @@
-Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
-Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
-
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Map.FMapPositive.
@@ -519,10 +516,6 @@ Section Tactics.
                  (@mkCombine typ func FV_listOp t u xs ys)) ys)
          (@mkCombine typ func FV_listOp t u xs ys)) xs.
 *)
-
-  Hint Constructors TransitiveClosure.leftTrans : acc_db.
-  Hint Constructors TransitiveClosure.rightTrans : acc_db.
-  Hint Constructors expr_acc : acc_db.
 
   Lemma lst_length_sound tus tvs (t : typ) (lst : expr typ func) 
         (x : exprT tus tvs (typD (tyList t))) (n : nat)

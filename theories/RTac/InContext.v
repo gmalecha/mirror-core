@@ -1,6 +1,8 @@
+Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Structures.MonadTrans.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.RTac.Ctx.
 
 Set Implicit Arguments.
@@ -25,6 +27,19 @@ Section with_instantiation.
   Global Instance MonadT_InContext ctx : MonadT (InContext ctx) m :=
   { lift := fun _T x ctx => bind x (fun x => ret (ctx, x)) }.
 
+  Global Instance MonadPlus_InContext ctx {Mp : MonadPlus.MonadPlus m}
+  : MonadPlus.MonadPlus (InContext ctx) :=
+  { mplus := fun _A _B ml mr ctx =>
+               Monad.bind (MonadPlus.mplus (ml ctx) (mr ctx))
+                          (fun x =>
+                             Monad.ret match x with
+                                       | inl (a,b) => (a, inl b)
+                                       | inr (a,b) => (a, inr b)
+                                       end) }.
+
+  Global Instance MonadZero_InContext ctx {Mz : MonadZero.MonadZero m}
+  : MonadZero.MonadZero (InContext ctx) :=
+  { mzero := fun _ => lift MonadZero.mzero }.
 
   Definition assume {T} (m : option T) (k : T -> Prop) : Prop :=
     match m with
@@ -53,11 +68,7 @@ Section with_instantiation.
   : exprT (getUVars c) (getVars c) T :=
     fun us vs => env (us,vs).
 
-  SearchAbout ctx_subst.
-
   Let WFi := @WellFormed_ctx_subst typ expr _ _.
-
-  Require Import Morphisms.
 
   Class MonadLogic : Type :=
   { MLogic : Type := Prop
@@ -73,8 +84,11 @@ Section with_instantiation.
   ; Proper_Pred : forall {T}, Proper ((pointwise_relation _ Mentails) ==> eq ==> Basics.impl)%signature (@Pred T)
   }.
 
-  Variable (ML : MonadLogic).
+  Variable ML : MonadLogic.
 
+  (** NOTE; This does not quite form a monad logic b/c of the well-formedness
+   ** conditions.
+   **)
   Definition InContext_spec
              {T}
              (WFg : T -> Prop)
@@ -91,8 +105,6 @@ Section with_instantiation.
                                           forall us vs,
                                             I' (exprT_of_env G') us vs))))
             (t i).
-
-  Require Import ExtLib.Tactics.
 
   Lemma InContext_spec_ret
   : forall ctx {T} (val : T)
@@ -173,10 +185,15 @@ Section with_instantiation.
           eassumption. } } }
   Qed.
 
+  (** TODO: Move to ExtLib **)
+  Inductive Roption_impl {T} (R : T -> T -> Prop) : option T -> option T -> Prop :=
+  | Roption_impl_None : forall x, Roption_impl R None x
+  | Roption_impl_Some : forall x y, R x y -> Roption_impl R (Some x) (Some y).
+
   Lemma Proper_InContext_spec
   : forall T ctx,
       Proper (pointwise_relation _ Basics.impl ==>
-              pointwise_relation _ (Option.Roption (pointwise_relation _ Basics.impl)) ==>
+              pointwise_relation _ (Roption_impl (pointwise_relation _ Basics.impl)) ==>
               eq ==>
               Basics.impl)
              (fun B => @InContext_spec T B ctx).
@@ -200,7 +217,7 @@ Section with_instantiation.
     destruct (pctxD c) eqn:Heq'; simpl in *; try contradiction.
     unfold assert in *.
     red in H0. specialize (H0 t).
-    destruct H0; auto.
+    destruct H0; auto. contradiction.
     forward_reason.
     split; eauto.
     intros.
@@ -211,14 +228,15 @@ Section with_instantiation.
     eapply H0. eapply H5.
   Qed.
 
-  (** Probably do not want to expose this *)
+  (* If I expose these, then I need the logic to expose properties about
+   * the substitution
+   *)
   Definition getInst ctx : InContext ctx (ctx_subst ctx) :=
     fun ctx => ret (ctx, ctx).
 
   Definition setInst ctx (s : ctx_subst ctx) : InContext ctx unit :=
     fun _ => ret (s, tt).
 
-  (** TODO: How do you update the instantiation? *)
   Definition underVar {T} ctx (tv : typ) (c : InContext (CAll ctx tv) T)
   : InContext ctx T :=
     fun s =>
@@ -236,7 +254,48 @@ Section with_instantiation.
   Admitted.
 *)
 
-  Definition unify ctx (e1 e2 : expr) (t : typ) : InContext ctx bool.
-  Admitted.
+  Section unify.
+    Require Import MirrorCore.UnifyI.
+    Require Import MirrorCore.SubstI.
+
+    Variable exprUnify
+    : forall subst, Subst subst expr -> SubstUpdate subst expr ->
+                    unifier typ expr subst.
+
+    Variable exprUnify_sound
+    : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
+        unify_sound (@exprUnify subst S SU).
+
+    Variable ctx : Ctx typ expr.
+
+    Definition unify (e1 e2 : expr) (t : typ) : InContext ctx bool :=
+      fun s =>
+        match @exprUnify _ _ _ (getUVars ctx) (getVars ctx) 0 e1 e2 t s with
+        | None => Monad.ret (s, false)
+        | Some s' => Monad.ret (s', true)
+        end.
+
+    Check @InContext_spec.
+
+    Theorem unify_sound
+    : forall e1 e2 t,
+        InContext_spec 
+          (fun _ => True)
+          (fun res : bool =>
+             if res then
+               match exprD' (getUVars ctx) (getVars ctx) e1 t
+                   , exprD' (getUVars ctx) (getVars ctx) e2 t
+               with
+               | Some e1D , Some e2D =>
+                 Some (fun env =>
+                         env_of_exprT e1D env = env_of_exprT e2D env)
+               | _ , _ => None
+               end
+             else
+               Some (fun _ => True))
+          (unify e1 e2 t).
+    Proof. Admitted.
+
+  End unify.
 
 End with_instantiation.

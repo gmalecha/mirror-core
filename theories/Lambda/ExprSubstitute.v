@@ -228,7 +228,7 @@ Section substitute.
       { rewrite H1; clear H1.
         rewrite H0; clear H0.
         eexists; split; [ reflexivity | ].
-        unfold exprT_App; intros; autorewrite_with_eq_rw.
+        unfold AbsAppI.exprT_App; intros; autorewrite_with_eq_rw.
         erewrite H2; eauto. erewrite H3; eauto. }
       { intros.
         assert (exists vD,
