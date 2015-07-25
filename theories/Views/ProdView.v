@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
@@ -319,16 +322,6 @@ Section Tactics.
                              (fun _ _ _ _ =>
                                 (beta_all (fun _ e args => red_fst (apps e args)))).
 
- Lemma run_tptrn_id_sound tus tvs t p e val
-        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
-        (HSucceeds : forall e', Succeeds e p e' ->
-                                ExprDsimul.ExprDenote.exprD' tus tvs t e' = Some val) :
-    ExprDsimul.ExprDenote.exprD' tus tvs t
-                                 (run_tptrn (pdefault_id p) e) = Some val.
-  Proof.
-    admit.
-  Admitted.
-
 Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
 Proof.
   unfold partial_reducer_ok; intros.
@@ -337,9 +330,9 @@ Proof.
   unfold red_fst.
   
   apply run_tptrn_id_sound; [assumption|]; intros.
-  ptrnE.
+  solve_denotation.
   unfold pairR, fstR.
-  repeat exprT_App_red.
+  solve_denotation.
   assumption.
 Qed.
 
@@ -351,9 +344,9 @@ Proof.
   unfold red_snd.
   
   apply run_tptrn_id_sound; [assumption|]; intros.
-  ptrnE.
+  solve_denotation.
   unfold pairR, sndR.
-  repeat exprT_App_red.
+  solve_denotation.
   assumption.
 Qed.
 

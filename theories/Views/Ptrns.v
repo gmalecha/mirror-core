@@ -265,6 +265,13 @@ Global Instance pmap_SucceedsE {X T U : Type} {x : X} {f : T -> U} {p : ptrn X T
   s_elim := Succeeds_pmap pok
 }.
 
+Global Instance por_SucceedsE {X T : Type} {x : X}  {p q : ptrn X T} {res : T} 
+         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} : 
+  SucceedsE x (por p q) res := {
+  s_result := Succeeds x p res \/ Succeeds x q res;
+  s_elim := Succeeds_por pok_p pok_q
+}.
+
 Global Instance get_SucceedsE {X : Type} {x res : X} :
   SucceedsE x get res := {
   s_result := x = res;

@@ -480,6 +480,29 @@ Section typed.
 
 End typed.
 
+Section CastRD.
+  Context {typ : Type} {RType_typ : RType typ}.
+
+  Theorem castRD (F : Type -> Type) (U : Type) 
+          {HTyp0 : Typ0 RType_typ U} (x : F (typD (typ0 (F := U)))) :
+    castR F (castD F x) = x.
+  Proof.
+    unfold castR, castD, eq_sym.
+    destruct typ0_cast; reflexivity.
+  Qed.
+
+  Theorem castDR (F : Type -> Type) (U : Type) 
+          {HTyp0 : Typ0 RType_typ U} (x : F U) :
+    castD F (castR F x) = x.
+  Proof.
+    unfold castR, castD, eq_sym.
+    generalize dependent (typ0_cast (F := U)).
+    generalize dependent (typD (typ0 (F := U))).
+    destruct e; reflexivity.
+  Qed.
+
+End CastRD.
+
 Arguments typD {typ _} _ : rename.
 Arguments Rty {typ _} _ _ : rename.
 Arguments RTypeOk {typ _} : rename.

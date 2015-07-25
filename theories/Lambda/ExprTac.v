@@ -1,5 +1,6 @@
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprDFacts.
@@ -63,6 +64,31 @@ Section some_lemmas.
   abstract (
       eapply typ1_inj; eauto ).
   Defined.
+
+  Lemma exprD'_AppI tus tvs (t : typ) (e1 e2 : expr typ sym)
+        (P : option (exprT tus tvs (typD t)) -> Prop)
+        (H : exists u v1 v2, exprD' tus tvs (typ2 u t) e1 = Some v1 /\
+                             exprD' tus tvs u e2 = Some v2 /\
+                             P (Some (exprT_App v1 v2))) :
+    
+    P (exprD' tus tvs t (App e1 e2)).
+  Proof.
+    autorewrite with exprD_rw; simpl.
+    destruct H as [u [v1 [v2 [H1 [H2 HP]]]]].
+    pose proof (exprD_typeof_Some _ _ H1).
+    pose proof (exprD_typeof_Some _ _ H2).
+    repeat (forward; inv_all; subst).
+  Qed.
+  
+  Lemma exprD'_InjI tus tvs (t : typ) (f : sym)
+        (P : option (exprT tus tvs (typD t)) -> Prop) 
+        (H : exists v, symAs f t = Some v /\ P (Some (fun _ _ => v))) :
+    P (exprD' tus tvs t (Inj f)).
+  Proof.
+    autorewrite with exprD_rw; simpl.
+    destruct (symAs f t); simpl; destruct H as [v [H1 H2]]; try intuition congruence.
+    inv_all; subst. apply H2.
+  Qed.
 
 End some_lemmas.
 

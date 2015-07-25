@@ -112,19 +112,7 @@ Section FuncView.
     destruct (typeof_sym p); intros; [|congruence].
     forward.
   Defined.
-(*
-  Lemma fv_symD {FVO : FuncViewOk} f p t v
-        (Hview : f_view f = Some p) (Hfunc : symAs f t = Some v) : True.
-Print RSym.
-    v = eq_rect _ (fun x => match x with
-                              | Some t => typD t
-                              | None => unit
-                            end) (symD p) _ (fv_typeof_sym f t Hview Hfunc).
-  Proof.
-    admit.
-  Admitted.
-    
-*)
+
   Definition ptrn_view {T} (p : ptrn A T) : ptrn func T :=
     fun e _T good bad =>
       match f_view e with
@@ -180,6 +168,14 @@ Print RSym.
   Proof.
     rewrite fv_compat; assumption.
   Defined.
+
+  Lemma symAs_finsertI (t : typ) (f : A)
+        (P : option (typD t) -> Prop)
+        (H : P (symAs f t)) :
+    P (symAs (f_insert f) t).
+  Proof.
+    rewrite <- fv_compat; assumption.
+  Qed.
 
 End FuncView.
 
