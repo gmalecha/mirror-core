@@ -1,6 +1,3 @@
-Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
-Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
-
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Map.FMapPositive.
@@ -602,7 +599,7 @@ Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
     run_tptrn (@list_cases typ func _ _
                            (fun _ => acc)
                            (fun _ x xs => 
-                              red_fold_ptrn t u f (beta (beta (App (App f x) acc))) xs)
+                              beta (beta (App (App f x) (red_fold_ptrn t u f acc xs))))
                            (mkFold t u f acc lst)) lst.
 
   Lemma red_fold_unfold (t u : typ) (f acc lst : expr typ func) : 
@@ -610,8 +607,9 @@ Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
     run_tptrn (@list_cases typ func _ _
                            (fun _ => acc)
                            (fun _ x xs => 
-                              red_fold_ptrn t u f (beta (beta (App (App f x) acc))) xs)
+                              beta (beta (App (App f x) (red_fold_ptrn t u f acc xs))))
                            (mkFold t u f acc lst)) lst.
+
   Proof.
     destruct lst; simpl; reflexivity.
   Qed.    
@@ -718,21 +716,21 @@ Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
   Qed.
 
   Lemma fold_ptrn_ok tus tvs (t u : typ) (f acc lst : expr typ func) 
-        (df : exprT tus tvs (typD (tyArr t (tyArr u u))))
-        (dacc : exprT tus tvs (typD u))
-        (dlst : exprT tus tvs (typD (tyList t)))
-        (Hf : ExprDsimul.ExprDenote.exprD' tus tvs (tyArr t (tyArr u u)) f = Some df) 
-        (HAcc : ExprDsimul.ExprDenote.exprD' tus tvs u acc = Some dacc) 
-        (Hlst : ExprDsimul.ExprDenote.exprD' tus tvs (tyList t) lst = Some dlst) :
-    ExprDsimul.ExprDenote.exprD' tus tvs u (red_fold_ptrn t u f acc lst) = 
-    Some (castR (exprT tus tvs) (typD u)
+        (df : exprT tus tvs (typD (tyArr u (tyArr t t))))
+        (dacc : exprT tus tvs (typD t))
+        (dlst : exprT tus tvs (typD (tyList u)))
+        (Hf : ExprDsimul.ExprDenote.exprD' tus tvs (tyArr u (tyArr t t)) f = Some df) 
+        (HAcc : ExprDsimul.ExprDenote.exprD' tus tvs t acc = Some dacc) 
+        (Hlst : ExprDsimul.ExprDenote.exprD' tus tvs (tyList u) lst = Some dlst) :
+    ExprDsimul.ExprDenote.exprD' tus tvs t (red_fold_ptrn t u f acc lst) = 
+    Some (castR (exprT tus tvs) (typD t)
                 (fun vs us =>
-                   fold_right (castD (exprT tus tvs) (Fun (typD t) (Fun (typD u) (typD u))) df vs us)
-                              (castD (exprT tus tvs) (typD u) dacc vs us)
-                              (castD (exprT tus tvs) (list (typD t)) dlst vs us))).
+                   fold_right (castD (exprT tus tvs) (Fun (typD u) (Fun (typD t) (typD t))) df vs us)
+                              (castD (exprT tus tvs) (typD t) dacc vs us)
+                              (castD (exprT tus tvs) (list (typD u)) dlst vs us))).
   Proof.
     Opaque beta.
-    revert Hlst. generalize dependent dlst. generalize dependent acc. generalize dependent dacc.
+    revert Hlst. generalize dependent dlst. 
     apply expr_strong_ind_no_case with (e := lst); intros.
     rewrite red_fold_unfold.
     unfold run_tptrn, list_cases.
@@ -743,81 +741,29 @@ Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
       solve_denotation. }
 
     { unfold ptret. solve_denotation.
-      unfold consR. solve_denotation.
-      erewrite H; [|eauto with acc_db | solve_denotation | eassumption].
-      solve_denotation. 
-      SearchAbout fold_right.
-      simpl.
-      Focus 2.
+      eapply H; [eauto with acc_db | eassumption].
+      unfold consR. solve_denotation. 
       solve_denotation.
-      unfold mkCons, fCons; solve_denotation; simpl.
-      erewrite H; [| eauto with acc_db | eassumption].
-      reflexivity.
-      unfold consR. solve_denotation. reflexivity. }
-    { unfold ptret, mkMap, fMap.
+      reflexivity. }
+    { unfold ptret, mkFold, fFold.
       solve_denotation.
-      unfold mapR. solve_denotation.
+      unfold foldR.
+      solve_denotation.
       reflexivity.
     }
   Qed.
 
-  Lemma map_red_ok : partial_reducer_ok (fun e args => red_map (apps e args)).
+  Lemma fold_red_ok : partial_reducer_ok (fun e args => red_fold (apps e args)).
   Proof.
     unfold partial_reducer_ok; intros.
     exists val; split; [|reflexivity].
     generalize dependent (apps e es); clear e es; intros e H.
-    unfold red_map.
+    unfold red_fold.
     apply run_tptrn_id_sound; [assumption|]; intros.
     solve_denotation.
-    unfold mapR.
+    unfold foldR.
     solve_denotation.
-    erewrite map_length_ptrn_ok; [reflexivity | eassumption | eassumption].
-  Qed.
-
-  Lemma map_length_ptrn_ok tus tvs (t u : typ) (f lst : expr typ func) 
-        (df : exprT tus tvs (typD (tyArr t u)))
-        (dlst : exprT tus tvs (typD (tyList t)))
-        (Hf : ExprDsimul.ExprDenote.exprD' tus tvs (tyArr t u) f = Some df) 
-        (Hlst : ExprDsimul.ExprDenote.exprD' tus tvs (tyList t) lst = Some dlst) :
-    ExprDsimul.ExprDenote.exprD' tus tvs (tyList u) (red_map_ptrn t u f lst) = 
-    Some (castR (exprT tus tvs) (list (typD u))
-                (fun vs us =>
-                   map (castD (exprT tus tvs) (Fun (typD t) (typD u)) df vs us)
-                       (castD (exprT tus tvs) (list (typD t)) dlst vs us))).
-  Proof.
-    Opaque beta.
-    revert Hlst. generalize dependent dlst.
-    apply expr_strong_ind_no_case with (e := lst); intros.
-    rewrite red_map_unfold.
-    unfold run_tptrn, list_cases.
-    apply pdefault_sound; [apply _ | | intros; ptrnE; destruct H0 |].
-    { intros a b Hab c d Hcd; subst; erewrite Hcd; reflexivity. }
-    { intros; unfold ptret; simpl; solve_denotation.
-      unfold mkNil, fNil; solve_denotation.
-       unfold nilR. solve_denotation. reflexivity. }
-    { unfold ptret. solve_denotation.
-      unfold mkCons, fCons; solve_denotation; simpl.
-      erewrite H; [| eauto with acc_db | eassumption].
-      reflexivity.
-      unfold consR. solve_denotation. reflexivity. }
-    { unfold ptret, mkMap, fMap.
-      solve_denotation.
-      unfold mapR. solve_denotation.
-      reflexivity.
-    }
-  Qed.
-
-  Lemma map_red_ok : partial_reducer_ok (fun e args => red_map (apps e args)).
-  Proof.
-    unfold partial_reducer_ok; intros.
-    exists val; split; [|reflexivity].
-    generalize dependent (apps e es); clear e es; intros e H.
-    unfold red_map.
-    apply run_tptrn_id_sound; [assumption|]; intros.
-    solve_denotation.
-    unfold mapR.
-    solve_denotation.
-    erewrite map_length_ptrn_ok; [reflexivity | eassumption | eassumption].
+    erewrite fold_ptrn_ok; [reflexivity | eassumption | eassumption | eassumption].
   Qed.
 
 End Tactics.

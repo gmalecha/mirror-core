@@ -1,6 +1,3 @@
-Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
-Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
-
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.HList.
@@ -466,6 +463,16 @@ Section setoid.
     admit.
   Admitted.
 
+ Theorem exprT_App_castR2 tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
+          (e1 : exprT tus tvs (typD (tyArr (@typ0 _ _ T _) (@typ0 _ _ U _))))
+          (e2 : exprT tus tvs T) P
+          (H : P (castR (exprT tus tvs) U (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1) e2))) :
+    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+                  e1 (castR (exprT tus tvs) _ e2)).
+  Proof.
+    admit.
+  Admitted.
+
  Theorem exprT_App_castD tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (typD (@typ2 _ _ Fun _ (@typ0 _ _ T _) (@typ0 _ _ U _))))
           (e2 : exprT tus tvs (typD (@typ0 _ _ T _))) P 
@@ -529,6 +536,8 @@ Ltac exprT_App_red :=
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
     | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] => 
       force_apply (@exprT_App_castR typ _ _ _ _ _ _ _ tus tvs t1 t2 _ _)
+    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
+      force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
     | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] => 
       force_apply (@exprT_App_castD typ _ _ _ _ _ _ _ tus tvs (typD t) u _ Tu a b)
      | |- _ => rewrite castDR
