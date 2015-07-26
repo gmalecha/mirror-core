@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.HList.
@@ -519,16 +522,16 @@ Ltac destruct_prod :=
 
 Ltac force_apply lem :=
   let L := fresh "L" in 
-  pose proof lem as L; apply L; clear L.
+  pose proof lem as L; simpl in L; apply L; clear L.
 
 Ltac exprT_App_red :=
   match goal with
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
     | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] => 
       force_apply (@exprT_App_castR typ _ _ _ _ _ _ _ tus tvs t1 t2 _ _)
-(*    | |- context [castD _ _ (@exprT_App ?typ _ _ ?tus ?tvs _ _ _ _)] => 
-      force_apply (@exprT_App_CastD typ _ _ tus tvs t1 t2 _ _)*)
-    | |- _ => rewrite castDR
+    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] => 
+      force_apply (@exprT_App_castD typ _ _ _ _ _ _ _ tus tvs (typD t) u _ Tu a b)
+     | |- _ => rewrite castDR
     | |- _ => rewrite castRD
   end.
 
@@ -554,7 +557,11 @@ Ltac exprDI :=
     | |- context [symAs (f_insert ?p) ?t] =>
       apply (@symAs_finsertI _ _ _ _ _ _ _ _ t p);
         try (unfold symAs; simpl; rewrite type_cast_refl; [|apply _]; simpl; reflexivity)
-    | _ => eassumption
+    | |- context [ExprDsimul.ExprDenote.exprD' ?tus ?tvs ?t (Red.beta ?e)] =>
+      apply (@exprD'_beta _ _ _ _ _ _ _ _ tus tvs e t);
+        eexists; split; [exprDI | try reflexivity]
+    | _ => try eassumption
+    | _ => try reflexivity
   end.
 
 Ltac ptrnE :=

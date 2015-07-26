@@ -1,3 +1,4 @@
+Require Import FunctionalExtensionality.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
@@ -5,6 +6,7 @@ Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.ExprDFacts.
+Require Import MirrorCore.Lambda.Red.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -91,8 +93,18 @@ Section some_lemmas.
     inv_all; subst. apply H2.
   Qed.
 
-  Require Import MirrorCore.ExprI.
-
+  Lemma exprD'_beta tus tvs e t P 
+        (H : exists v, exprD' tus tvs t e = Some v /\ P (Some v)) :
+    P (exprD' tus tvs t (beta e)).
+  Proof.
+    destruct H as [v [H1 H2]].
+    pose proof (beta_sound tus tvs e t).
+    forward; inv_all; subst.
+    assert (v = e1).
+    do 2 (apply functional_extensionality; intro).
+    apply H3. subst. apply H2.
+  Qed.
+        
   Global Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ sym) (t : typ) 
          (v : exprT tus tvs (typD t)):
     Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (App e1 e2) = Some v) := {
@@ -118,6 +130,7 @@ Section some_lemmas.
     eexists; repeat split.
   Defined.
 
+  
 End some_lemmas.
 
 Ltac red_exprD :=

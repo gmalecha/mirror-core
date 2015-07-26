@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Map.FMapPositive.
@@ -11,6 +14,7 @@ Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.RedAll.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Views.Ptrns.
@@ -500,9 +504,60 @@ Section Tactics.
 
 
 (* Coq goes into a loop when parsing this *)
-
 (*
-  Fixpoint lst_combine (xs ys : expr typ func) (t u : typ) : expr typ func:=
+  Fixpoint lst_combine (xs ys : expr typ func) (t u : typ) {struct xs} : expr typ func:=
+         match xs with
+         | ExprCore.Var _ => mkCombine t u xs ys
+         | Inj a =>
+             match f_view a with
+             | Some (pNil _) => mkNil (tyProd t u)
+             | Some (pCons _) => mkCombine t u xs ys
+             | None => mkCombine t u xs ys
+             end
+         | App (ExprCore.Var _) _ => mkCombine t u xs ys
+         | App (Inj _) _ => mkCombine t u xs ys
+         | App (App (ExprCore.Var _) _) _ => mkCombine t u xs ys
+         | App (App (Inj a0) r) b =>
+             match f_view a0 with
+             | Some (pNil _) => mkCombine t u xs ys
+             | Some (pCons _) =>
+                 match ys with
+                 | ExprCore.Var _ => mkCombine t u xs ys
+                 | Inj a1 =>
+                     match f_view a1 with
+                     | Some (pNil _) => mkNil (tyProd t u)
+                     | Some (pCons _) => mkCombine t u xs ys
+                     | None => mkCombine t u xs ys
+                     end
+                 | App (ExprCore.Var _) _ => mkCombine t u xs ys
+                 | App (Inj _) _ => mkCombine t u xs ys
+                 | App (App (ExprCore.Var _) _) _ => mkCombine t u xs ys
+                 | App (App (Inj a2) r0) b0 =>
+                     match f_view a2 with
+                     | Some (pNil _) => mkCombine t u xs ys
+                     | Some (pCons _) =>
+                         mkCons (tyProd t u) (mkPair t u r r0)
+                           (lst_combine b b0 t u)
+                     | None => mkCombine t u xs ys
+                     end
+                 | App (App (App _ _) _) _ => mkCombine t u xs ys
+                 | App (App (Abs _ _) _) _ => mkCombine t u xs ys
+                 | App (App (ExprCore.UVar _) _) _ => mkCombine t u xs ys
+                 | App (Abs _ _) _ => mkCombine t u xs ys
+                 | App (ExprCore.UVar _) _ => mkCombine t u xs ys
+                 | Abs _ _ => mkCombine t u xs ys
+                 | ExprCore.UVar _ => mkCombine t u xs ys
+                 end
+             | None => mkCombine t u xs ys
+             end
+         | App (App (App _ _) _) _ => mkCombine t u xs ys
+         | App (App (Abs _ _) _) _ => mkCombine t u xs ys
+         | App (App (ExprCore.UVar _) _) _ => mkCombine t u xs ys
+         | App (Abs _ _) _ => mkCombine t u xs ys
+         | App (ExprCore.UVar _) _ => mkCombine t u xs ys
+         | Abs _ _ => mkCombine t u xs ys
+         | ExprCore.UVar _ => mkCombine t u xs ys
+         end.
     run_tptrn
       (@list_cases typ func FV_list (expr typ func)
          (fun _ => @mkNil typ func FV_list (tyProd t u))
@@ -512,10 +567,63 @@ Section Tactics.
                  (fun _ => @mkNil typ func FV_list (tyProd t u))
                  (fun _ y ys' => @mkCons typ func FV_list (tyProd t u) 
                                          (@mkPair typ func FV_prod t u x y) 
-                                        (lst_combine xs' ys' t u))
+                                        (TODO xs' ys' t u)) 
                  (@mkCombine typ func FV_listOp t u xs ys)) ys)
          (@mkCombine typ func FV_listOp t u xs ys)) xs.
+
+Print lst_combine.
+Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
+  ptrnNil, ptrnCons, app, inj, Mmap, Mrebuild, Mbind, ptrn_view, fptrnCons, fptrnNil, get in lst_combine.
 *)
+
+  Fixpoint red_map_ptrn t u (f lst : expr typ func) : expr typ func :=
+    run_tptrn (@list_cases typ func _ _
+                           (fun _ => mkNil u)
+                           (fun _ x xs => mkCons u (beta (App f x)) (red_map_ptrn t u f xs))
+                           (mkMap t u f lst)) lst.
+
+  Lemma red_map_unfold (t u : typ) (f lst : expr typ func) : 
+    red_map_ptrn t u f lst =
+    run_tptrn (@list_cases typ func _ _
+                           (fun _ => mkNil u)
+                           (fun _ x xs => mkCons u (beta (App f x)) (red_map_ptrn t u f xs))
+                           (mkMap t u f lst)) lst.
+  Proof.
+    destruct lst; simpl; reflexivity.
+  Qed.    
+
+  Definition red_map := 
+    run_tptrn (pdefault_id (pmap (fun x => match x with
+                                             | ((t, u), f, lst) => red_map_ptrn t u f lst
+                                           end) (ptrnMap get get get))).
+
+
+  Fixpoint red_fold_ptrn t u (f acc lst : expr typ func) : expr typ func :=
+    run_tptrn (@list_cases typ func _ _
+                           (fun _ => acc)
+                           (fun _ x xs => 
+                              red_fold_ptrn t u f (beta (beta (App (App f x) acc))) xs)
+                           (mkFold t u f acc lst)) lst.
+
+  Lemma red_fold_unfold (t u : typ) (f acc lst : expr typ func) : 
+    red_fold_ptrn t u f acc lst =
+    run_tptrn (@list_cases typ func _ _
+                           (fun _ => acc)
+                           (fun _ x xs => 
+                              red_fold_ptrn t u f (beta (beta (App (App f x) acc))) xs)
+                           (mkFold t u f acc lst)) lst.
+  Proof.
+    destruct lst; simpl; reflexivity.
+  Qed.    
+
+  Definition red_fold := 
+    run_tptrn (pdefault_id (pmap (fun x => match x with
+                                             | ((t, u), f, acc, lst) => 
+                                               red_fold_ptrn t u f acc lst
+                                           end) (ptrnFold get get get get))).
+
+
+
 
   Lemma lst_length_sound tus tvs (t : typ) (lst : expr typ func) 
         (x : exprT tus tvs (typD (tyList t))) (n : nat)
@@ -531,7 +639,7 @@ Section Tactics.
     unfold run_tptrn, list_cases.
     apply pdefault_sound; [apply _ | | intros; ptrnE; destruct H1; ptrnE |].
     { intros a b Hab c d Hcd; subst; erewrite Hcd; reflexivity. }
-    { unfold nilR, mkNat, fNat, ptret; solve_denotation. 
+    { unfold nilR, mkNat, fNat, ptret. solve_denotation. 
       unfold natR. solve_denotation. reflexivity. }
     { unfold ptret, consR. solve_denotation; simpl.
       erewrite H; [| eauto with acc_db | eassumption].
@@ -561,6 +669,155 @@ Section Tactics.
     solve_denotation. simpl.
     rewrite lst_length_sound with (x := x1); [|assumption].
     repeat f_equal. do 2 (apply functional_extensionality; intros). omega.
+  Qed.
+
+  Lemma map_ptrn_ok tus tvs (t u : typ) (f lst : expr typ func) 
+        (df : exprT tus tvs (typD (tyArr t u)))
+        (dlst : exprT tus tvs (typD (tyList t)))
+        (Hf : ExprDsimul.ExprDenote.exprD' tus tvs (tyArr t u) f = Some df) 
+        (Hlst : ExprDsimul.ExprDenote.exprD' tus tvs (tyList t) lst = Some dlst) :
+    ExprDsimul.ExprDenote.exprD' tus tvs (tyList u) (red_map_ptrn t u f lst) = 
+    Some (castR (exprT tus tvs) (list (typD u))
+                (fun vs us =>
+                   map (castD (exprT tus tvs) (Fun (typD t) (typD u)) df vs us)
+                       (castD (exprT tus tvs) (list (typD t)) dlst vs us))).
+  Proof.
+    Opaque beta.
+    revert Hlst. generalize dependent dlst.
+    apply expr_strong_ind_no_case with (e := lst); intros.
+    rewrite red_map_unfold.
+    unfold run_tptrn, list_cases.
+    apply pdefault_sound; [apply _ | | intros; ptrnE; destruct H0 |].
+    { intros a b Hab c d Hcd; subst; erewrite Hcd; reflexivity. }
+    { intros; unfold ptret; simpl; solve_denotation.
+      unfold mkNil, fNil; solve_denotation.
+       unfold nilR. solve_denotation. reflexivity. }
+    { unfold ptret. solve_denotation.
+      unfold mkCons, fCons; solve_denotation; simpl.
+      erewrite H; [| eauto with acc_db | eassumption].
+      reflexivity.
+      unfold consR. solve_denotation. reflexivity. }
+    { unfold ptret, mkMap, fMap.
+      solve_denotation.
+      unfold mapR. solve_denotation.
+      reflexivity.
+    }
+  Qed.
+
+  Lemma map_red_ok : partial_reducer_ok (fun e args => red_map (apps e args)).
+  Proof.
+    unfold partial_reducer_ok; intros.
+    exists val; split; [|reflexivity].
+    generalize dependent (apps e es); clear e es; intros e H.
+    unfold red_map.
+    apply run_tptrn_id_sound; [assumption|]; intros.
+    solve_denotation.
+    unfold mapR.
+    solve_denotation.
+    erewrite map_ptrn_ok; [reflexivity | eassumption | eassumption].
+  Qed.
+
+  Lemma fold_ptrn_ok tus tvs (t u : typ) (f acc lst : expr typ func) 
+        (df : exprT tus tvs (typD (tyArr t (tyArr u u))))
+        (dacc : exprT tus tvs (typD u))
+        (dlst : exprT tus tvs (typD (tyList t)))
+        (Hf : ExprDsimul.ExprDenote.exprD' tus tvs (tyArr t (tyArr u u)) f = Some df) 
+        (HAcc : ExprDsimul.ExprDenote.exprD' tus tvs u acc = Some dacc) 
+        (Hlst : ExprDsimul.ExprDenote.exprD' tus tvs (tyList t) lst = Some dlst) :
+    ExprDsimul.ExprDenote.exprD' tus tvs u (red_fold_ptrn t u f acc lst) = 
+    Some (castR (exprT tus tvs) (typD u)
+                (fun vs us =>
+                   fold_right (castD (exprT tus tvs) (Fun (typD t) (Fun (typD u) (typD u))) df vs us)
+                              (castD (exprT tus tvs) (typD u) dacc vs us)
+                              (castD (exprT tus tvs) (list (typD t)) dlst vs us))).
+  Proof.
+    Opaque beta.
+    revert Hlst. generalize dependent dlst. generalize dependent acc. generalize dependent dacc.
+    apply expr_strong_ind_no_case with (e := lst); intros.
+    rewrite red_fold_unfold.
+    unfold run_tptrn, list_cases.
+    apply pdefault_sound; [apply _ | | intros; ptrnE; destruct H0 |].
+    { intros a b Hab c d Hcd; subst; erewrite Hcd; reflexivity. }
+    { intros; unfold ptret; simpl; solve_denotation.
+      unfold nilR. solve_denotation. simpl.
+      solve_denotation. }
+
+    { unfold ptret. solve_denotation.
+      unfold consR. solve_denotation.
+      erewrite H; [|eauto with acc_db | solve_denotation | eassumption].
+      solve_denotation. 
+      SearchAbout fold_right.
+      simpl.
+      Focus 2.
+      solve_denotation.
+      unfold mkCons, fCons; solve_denotation; simpl.
+      erewrite H; [| eauto with acc_db | eassumption].
+      reflexivity.
+      unfold consR. solve_denotation. reflexivity. }
+    { unfold ptret, mkMap, fMap.
+      solve_denotation.
+      unfold mapR. solve_denotation.
+      reflexivity.
+    }
+  Qed.
+
+  Lemma map_red_ok : partial_reducer_ok (fun e args => red_map (apps e args)).
+  Proof.
+    unfold partial_reducer_ok; intros.
+    exists val; split; [|reflexivity].
+    generalize dependent (apps e es); clear e es; intros e H.
+    unfold red_map.
+    apply run_tptrn_id_sound; [assumption|]; intros.
+    solve_denotation.
+    unfold mapR.
+    solve_denotation.
+    erewrite map_length_ptrn_ok; [reflexivity | eassumption | eassumption].
+  Qed.
+
+  Lemma map_length_ptrn_ok tus tvs (t u : typ) (f lst : expr typ func) 
+        (df : exprT tus tvs (typD (tyArr t u)))
+        (dlst : exprT tus tvs (typD (tyList t)))
+        (Hf : ExprDsimul.ExprDenote.exprD' tus tvs (tyArr t u) f = Some df) 
+        (Hlst : ExprDsimul.ExprDenote.exprD' tus tvs (tyList t) lst = Some dlst) :
+    ExprDsimul.ExprDenote.exprD' tus tvs (tyList u) (red_map_ptrn t u f lst) = 
+    Some (castR (exprT tus tvs) (list (typD u))
+                (fun vs us =>
+                   map (castD (exprT tus tvs) (Fun (typD t) (typD u)) df vs us)
+                       (castD (exprT tus tvs) (list (typD t)) dlst vs us))).
+  Proof.
+    Opaque beta.
+    revert Hlst. generalize dependent dlst.
+    apply expr_strong_ind_no_case with (e := lst); intros.
+    rewrite red_map_unfold.
+    unfold run_tptrn, list_cases.
+    apply pdefault_sound; [apply _ | | intros; ptrnE; destruct H0 |].
+    { intros a b Hab c d Hcd; subst; erewrite Hcd; reflexivity. }
+    { intros; unfold ptret; simpl; solve_denotation.
+      unfold mkNil, fNil; solve_denotation.
+       unfold nilR. solve_denotation. reflexivity. }
+    { unfold ptret. solve_denotation.
+      unfold mkCons, fCons; solve_denotation; simpl.
+      erewrite H; [| eauto with acc_db | eassumption].
+      reflexivity.
+      unfold consR. solve_denotation. reflexivity. }
+    { unfold ptret, mkMap, fMap.
+      solve_denotation.
+      unfold mapR. solve_denotation.
+      reflexivity.
+    }
+  Qed.
+
+  Lemma map_red_ok : partial_reducer_ok (fun e args => red_map (apps e args)).
+  Proof.
+    unfold partial_reducer_ok; intros.
+    exists val; split; [|reflexivity].
+    generalize dependent (apps e es); clear e es; intros e H.
+    unfold red_map.
+    apply run_tptrn_id_sound; [assumption|]; intros.
+    solve_denotation.
+    unfold mapR.
+    solve_denotation.
+    erewrite map_length_ptrn_ok; [reflexivity | eassumption | eassumption].
   Qed.
 
 End Tactics.
