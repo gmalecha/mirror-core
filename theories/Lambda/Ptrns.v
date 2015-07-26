@@ -1,3 +1,6 @@
+Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
+Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
+
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.HList.
@@ -419,15 +422,15 @@ Section setoid.
   { result := _
   ; injection := @Succeeds_abs _ _ _ _ _ _ _ _ }.
 
-  Global Instance app_SucceedsE {T U : Type} {e : expr typ func} 
-         {p : ptrn (expr typ func) T} {q : ptrn (expr typ func) U} {res : T * U} 
+  Global Instance app_SucceedsE {T U : Type} {e : expr typ func}
+         {p : ptrn (expr typ func) T} {q : ptrn (expr typ func) U} {res : T * U}
          {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
     SucceedsE e (app p q) res := {
       s_result := exists l r, e = App l r /\ Succeeds l p (fst res) /\ Succeeds r q (snd res);
       s_elim := Succeeds_app pok_p pok_q
     }.
 
-  Global Instance inj_SucceedsE {T : Type} {e : expr typ func} 
+  Global Instance inj_SucceedsE {T : Type} {e : expr typ func}
          {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p} :
     SucceedsE e (inj p) res := {
       s_result := exists f, e = Inj f /\ Succeeds f p res;
@@ -445,23 +448,24 @@ Section setoid.
           (e1 : exprT tus tvs (Fun T U))
           (e2 : exprT tus tvs (typD (@typ0 _ _ T _))) P
           (H : P (castR (exprT tus tvs) U (Applicative.ap e1 (castD (exprT tus tvs) T e2)))) :
-    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
                   (castR (exprT tus tvs) _ e1) e2).
   Proof.
-    revert H.
+    revert H. clear.
     unfold AbsAppI.exprT_App; simpl.
     repeat (unfold castR, castD; simpl).
-    generalize dependent (typ2_cast (typ0 (F:=T)) (typ0 (F:=U))).
+    autorewrite_with_eq_rw.
     generalize dependent (typ0_cast (F:=T)).
     generalize dependent (typ0_cast (F:=U)).
-    intros.
-    autorewrite_with_eq_rw.
-    generalize dependent (typD (typ2 (typ0 (F:=T)) (typ0 (F:=U)))).
-    intros. subst T1.
-    destruct (eq_sym e); simpl in *.  
-    destruct (eq_sym e0). simpl in *.
-    admit.
-  Admitted.
+    generalize dependent (typ0 (F:=U)).
+    generalize dependent (typ0 (F:=T)).
+    intros. revert H. subst U. simpl.
+     subst T. simpl.
+    generalize dependent (typ2_cast t t0).
+    generalize dependent (typD (typ2 t t0)).
+    do 2 intro; subst.
+    simpl. exact (fun x => x).
+  Qed.
 
  Theorem exprT_App_castR2 tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (typD (tyArr (@typ0 _ _ T _) (@typ0 _ _ U _))))
@@ -470,34 +474,47 @@ Section setoid.
     P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
                   e1 (castR (exprT tus tvs) _ e2)).
   Proof.
+    revert H. clear.
+    unfold AbsAppI.exprT_App; simpl.
+    repeat (unfold castR, castD; simpl).
+    autorewrite_with_eq_rw.
+    generalize dependent (typ0_cast (F:=T)).
+    generalize dependent (typ0_cast (F:=U)).
+    generalize dependent (typ0 (F:=T)).
+    generalize dependent (typ0 (F:=U)).
+    intros. revert H. subst U. simpl in *.
+    subst T. simpl.
+    generalize dependent (typ2_cast t0 t).
     admit.
   Admitted.
 
  Theorem exprT_App_castD tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (typD (@typ2 _ _ Fun _ (@typ0 _ _ T _) (@typ0 _ _ U _))))
-          (e2 : exprT tus tvs (typD (@typ0 _ _ T _))) P 
-          (H : P (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1) 
+          (e2 : exprT tus tvs (typD (@typ0 _ _ T _))) P
+          (H : P (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1)
                                  (castD (exprT tus tvs) T e2))) :
    P (castD (exprT tus tvs) U
-            (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+            (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
                         e1 e2)).
   Proof.
-    revert H.
-    unfold AbsAppI.exprT_App. simpl. 
-    unfold castD. simpl.
-    generalize dependent (typ2_cast (typ0 (F:=T)) (typ0 (F:=U))).
+    revert H. clear.
+    unfold AbsAppI.exprT_App; simpl.
+    repeat (unfold castR, castD; simpl).
+    autorewrite_with_eq_rw.
     generalize dependent (typ0_cast (F:=T)).
     generalize dependent (typ0_cast (F:=U)).
-    autorewrite_with_eq_rw.
-    generalize dependent (typD (typ2 (typ0 (F:=T)) (typ0 (F:=U)))).
-    intros; subst T1.
-    destruct (eq_sym e0).
-    destruct (eq_sym e). simpl in *.  
-    admit.
-  Admitted.
+    generalize dependent (typ0 (F:=U)).
+    generalize dependent (typ0 (F:=T)).
+    intros. subst U. simpl in *.
+    revert H. subst T. simpl.
+    generalize dependent (typ2_cast t t0).
+    generalize dependent (typD (typ2 t t0)).
+    do 3 intro; subst.
+    simpl. exact (fun x => x).
+  Qed.
 
   Lemma exprT_App_castR_pure {A : Type} {T0 : Typ0 RType_typD A} tus tvs (f : exprT tus tvs A) :
-    (fun us vs => castR id A (f us vs)) = 
+    (fun us vs => castR id A (f us vs)) =
     (castR (exprT tus tvs) A f).
   Proof.
     unfold castR, eq_sym, id; simpl.
@@ -522,26 +539,26 @@ Section setoid.
 End setoid.
 
 Ltac destruct_prod :=
-  match goal with 
+  match goal with
     | p : ?A * ?B |- _ => destruct p; destruct_prod
     | _ => idtac
   end.
 
 Ltac force_apply lem :=
-  let L := fresh "L" in 
+  let L := fresh "L" in
   pose proof lem as L; simpl in L; apply L; clear L.
 
 Ltac exprT_App_red :=
   match goal with
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
-    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] => 
+    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] =>
       force_apply (@exprT_App_castR typ _ _ _ _ _ _ _ tus tvs t1 t2 _ _)
     | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
       force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
-    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] => 
+    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
       force_apply (@exprT_App_castD typ _ _ _ _ _ _ _ tus tvs (typD t) u _ Tu a b)
      | |- _ => rewrite castDR
-    | |- _ => rewrite castRD
+     | |- _ => rewrite castRD
   end.
 
 
@@ -558,7 +575,7 @@ Ltac symAsE :=
 Ltac exprDI :=
   match goal with
     | |- context [ExprDsimul.ExprDenote.exprD' ?tus ?tvs ?t (App ?e1 ?e2)] =>
-      apply (@exprD'_AppI _ _ _ _ _ _ _ _ tus tvs t e1 e2); 
+      apply (@exprD'_AppI _ _ _ _ _ _ _ _ tus tvs t e1 e2);
         (do 3 eexists); split; [exprDI | split; [exprDI | try reflexivity]]
     | |- context [ExprDsimul.ExprDenote.exprD' ?tus ?tvs ?t (Inj ?f)] =>
       apply (@exprD'_InjI _ _ _ _ _ _ _ _ tus tvs t f);
@@ -579,4 +596,3 @@ Ltac ptrnE :=
 
 Ltac solve_denotation :=
   ptrnE; repeat exprDI; repeat exprT_App_red.
-

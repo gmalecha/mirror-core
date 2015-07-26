@@ -855,24 +855,16 @@ Section typed.
             forward_reason.
             forward_exprD.
             inv_all. subst.
-            assert (x = t1 /\ x0 = t /\ x = t0).
-            { generalize (exprD'_deterministic e1_1 _ _ H7 H11).
-              generalize (exprD'_deterministic e2_1 _ _ H14 H8).
-              intros. inv_all. auto. }
-            destruct H10 as [ ? [ ? ? ] ]; subst. subst.
+            rewrite H14 in *. rewrite H7 in *. inv_all; subst.
             specialize (H4 _ _ _ H12 H9 H16).
             forward_reason.
             eexists; split; eauto.
             { etransitivity; eauto. }
             split; eauto.
             intros.
-            eapply H13 in H18; clear H13.
-            destruct H18. eapply H17 in H13; clear H17.
+            eapply H10 in H11; clear H10.
+            destruct H11. eapply H17 in H10; clear H17.
             forward_reason; split; auto.
-            repeat match goal with
-                     | H : ?X = _ , H' : ?Y = _ |- _ =>
-                       change X with Y in H ; rewrite H in H'; inv_all; subst
-                   end.
             intros. eapply Open_App_equal; eauto. }
           { rewrite H3 in H2. congruence. } } }
       { (* rewrite exprUnify_simul'_eq. *)

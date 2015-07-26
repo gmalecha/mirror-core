@@ -5,8 +5,6 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
--arg -type-in-type
-
 src/reify_gen.ml
 src/reify_gen.mli
 src/reify_lambda.ml
@@ -79,14 +77,14 @@ theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
 theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/Ptrns.v
+
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
 theories/Views/ListView.v
 theories/Views/ListOpView.v
 theories/Views/NatView.v
 theories/Views/ProdView.v
-theories/Views/TrmD.v
-theories/Views/PropD.v
+
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
 theories/RTac/Core.v
