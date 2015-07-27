@@ -2107,7 +2107,7 @@ Section setoid.
             unfold type_of_apply in H9.
             rewrite typ2_match_iota in H9 by eauto with typeclass_instances.
             autorewrite_with_eq_rw_in H9. forwardy.
-            red in y4. inv_all. subst. clear H9.
+            red in y4. (* inv_all. *) subst. clear H9.
             generalize (exprD'_apps _ _ _
                           (getUVars ctx) (tvs' ++ getVars ctx)
                           (map fst es) (App f (fst a)) t).
@@ -2117,8 +2117,9 @@ Section setoid.
             rewrite H6. unfold Relim.
             autorewrite_with_eq_rw.
             destruct (typ2_inj _ _ _ _ x3).
-            red in H9. red in H11; subst.
+            red in H9. red in H12; subst.
             rewrite type_cast_refl; eauto with typeclass_instances.
+            inversion H11; clear H11; subst.
             rewrite H7. rewrite H8.
             intro Hx.
             specialize (H1 _ _ _ Hx H7 H10).
@@ -2147,7 +2148,7 @@ Section setoid.
             rewrite (UIP_refl x3) in H13.
             simpl in H13.
             clear H6.
-            unfold exprT_App.
+            unfold AbsAppI.exprT_App.
             generalize dependent (typ2_cast x1 (fold_right (typ2 (F:=Fun)) t ts)).
             intros. revert H13.
             autorewrite_with_eq_rw.
