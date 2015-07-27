@@ -85,6 +85,7 @@ theories/Views/ListOpView.v
 theories/Views/NatView.v
 theories/Views/ProdView.v
 theories/Views/ApplicativeView.v
+theories/Views/ILogicView.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v

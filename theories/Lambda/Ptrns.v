@@ -1,6 +1,3 @@
-Add Rec LoadPath "/Users/jebe/git/coq-ext-lib/theories" as ExtLib.
-Add Rec LoadPath "/Users/jebe/git/mirror-core/theories" as MirrorCore.
-
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Data.HList.
@@ -552,15 +549,15 @@ Ltac exprT_App_red :=
   match goal with
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
     | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] =>
-      force_apply (@exprT_App_castR typ _ _ _ _ _ _ _ tus tvs t1 t2 _ _)
-    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
+      force_apply (@exprT_App_castR typ _ _ tus tvs t1 t2 _ _)
+    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] => 
       force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
-    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
-      force_apply (@exprT_App_castD typ _ _ _ _ _ _ _ tus tvs (typD t) u _ Tu a b)
-     | |- _ => rewrite castDR
-     | |- _ => rewrite castRD
+    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu 
+                         (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
+      force_apply (@exprT_App_castD typ _ _ tus tvs (typD t) u _ Tu a b)
+    | |- _ => rewrite castDR
+    | |- _ => rewrite castRD
   end.
-
 
 Ltac symAsE :=
   match goal with
