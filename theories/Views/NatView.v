@@ -68,7 +68,7 @@ Section NatFuncInst.
   Definition multR : typD (tyArr tyNat (tyArr tyNat tyNat)) :=
     castR id (Fun nat (Fun nat nat)) mult.
 
-  Definition base_func_symD bf :=
+  Definition nat_func_symD bf :=
     match bf as bf return match typeofNatFunc bf return Type with
 			    | Some t => typD t
 			    | None => unit
@@ -83,7 +83,7 @@ Section NatFuncInst.
   : SymI.RSym natFunc := 
     {
       typeof_sym := typeofNatFunc;
-      symD := base_func_symD ;
+      symD := nat_func_symD ;
       sym_eqb := natFuncEq
     }.
   
