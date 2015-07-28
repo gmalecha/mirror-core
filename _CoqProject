@@ -77,6 +77,7 @@ theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
+theories/Lambda/AutoSetoidRewrite.v
 theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/Ptrns.v
 
@@ -134,14 +135,17 @@ examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
+
 examples/Cancel/Lang.v
 examples/Cancel/LtacDemo.v
 examples/Cancel/CancelTac.v
 examples/Cancel/RtacDemo.v
-examples/Cancel/CancelTac2.v
-examples/Cancel/RtacDemo2.v
+examples/Cancel/CancelTacNoMatch.v
+examples/Cancel/RtacDemoNoMatch.v
+
 examples/Auto/Demo.v
 examples/RTac/Demo.v
+examples/AutoRewrite/DemoQuantPullRtac.v
+
 # examples/AutoRewrite/Demo.v
-# examples/AutoRewrite/DemoQuantPull.v
 # examples/AutoRewrite/AutoRewriteLambda.v

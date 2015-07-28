@@ -21,9 +21,12 @@ Let Rbase := expr typ func.
 Definition m : Type -> Type :=
   @mrw typ func.
 
-Definition goal : expr typ func :=
-  fAnd (fEx tyNat (fEq_nat (Var 0) (fN 3)))
-       (fEx tyNat (fEq_nat (Var 0) (fN 7))).
+Fixpoint goal n : expr typ func :=
+  match n with
+  | 0 => fEq_nat (fN 0) (fN 0)
+  | S n =>
+    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n))
+  end.
 
 Theorem pull_ex_nat_and_left
 : forall T P Q, ((exists n : T, P n) /\ Q) = (exists n, P n /\ Q).
@@ -108,8 +111,11 @@ Definition quant_pull (e : expr typ func) : mrw (expr typ func) :=
   bottom_up is_refl is_trans (the_rewrites the_lemmas) get_respectful
             e (Rinj (Inj (Eq tyProp))).
 
-
-Time Eval vm_compute in quant_pull goal nil nil nil 0 0 (TopSubst _ nil nil).
+Time Eval vm_compute
+  in match quant_pull (goal 19) nil nil nil 0 0 (TopSubst _ nil nil) with
+     | None => tt
+     | Some _ => tt
+     end.
 
 
 (*
