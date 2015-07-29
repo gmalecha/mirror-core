@@ -358,4 +358,16 @@ Section lem.
     rewrite H1. apply H4. assumption.
   Qed.
 
+  Lemma lemmaD_lemmaD' : forall (l : lemma),
+      lemmaD nil nil l <->
+      exists pf, lemmaD' nil nil l = Some pf /\
+                 pf Hnil Hnil.
+  Proof using.
+    clear. unfold lemmaD. simpl. intros.
+    destruct (lemmaD' nil nil l).
+    { split; eauto. intros; forward_reason.
+      inv_all. subst. assumption. }
+    { split; intros. inversion H. forward_reason. inversion H. }
+  Qed.
+
 End lem.
