@@ -84,7 +84,6 @@ Section setoid.
       (Fails x p).
   Existing Class ptrn_ok.
 
-
   Definition Mrebuild {X Y T} (f : X -> Y) (m : M X T) : M Y T :=
     fun _T good bad => m _T good (fun x => bad (f x)).
 

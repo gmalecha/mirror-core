@@ -21,8 +21,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive stringFunc : Type :=
-  | pString  : string -> stringFunc.
+Inductive stringFunc : Type  :=
+  | pString  : string -> stringFunc%type.
 
 Section StringFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
