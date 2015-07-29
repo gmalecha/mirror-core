@@ -7,7 +7,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.Cancel.Lang.
-Require Import McExamples.Cancel.CancelTac2.
+Require Import McExamples.Cancel.CancelTacNoMatch.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -243,9 +243,9 @@ Definition lem_refl : Lemma.lemma typ (expr typ func) (expr typ func) :=
  |}.
 
 Definition the_tactic fs :=
-  @CancelTac2.cancel typ func RType_typ _ _ (RSym_func fs)
-                    tyM (known mR) (known mP) (known mU)
-                    (@EAPPLY typ func RType_typ Typ0_tyProp Typ2_tyArr (RSym_func fs) lem_refl).
+  @CancelTacNoMatch.cancel typ func RType_typ _ _ (RSym_func fs)
+                           tyM (known mR) (known mP) (known mU)
+                           (@EAPPLY typ func RType_typ Typ0_tyProp Typ2_tyArr (RSym_func fs) lem_refl).
 
 Definition the_Expr fs := (@Expr.Expr_expr typ func _ _ (RSym_func fs)).
 
@@ -254,7 +254,7 @@ Theorem sound_tac : forall fs,
     @rtac_sound typ (expr typ func) RType_typ Typ0_tyProp
                  (the_Expr fs) (the_tactic fs).
 Proof.
-  intros. eapply CancelTac2.cancel_sound; eauto with typeclass_instances.
+  intros. eapply CancelTacNoMatch.cancel_sound; eauto with typeclass_instances.
   constructor; exact plus_unit_c.
   constructor; exact plus_assoc_c1.
   constructor; exact plus_assoc_c2.

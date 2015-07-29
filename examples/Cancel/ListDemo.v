@@ -202,8 +202,6 @@ Qed.
 Require MirrorCore.syms.SymEnv.
 Require MirrorCore.syms.SymSum.
 
-Print BaseType.
-
 Instance BaseType_typ : BaseType typ := {
   tyNat := tyNat;
   tyBool := tyBool;

@@ -66,9 +66,10 @@ Section canceller.
                                    | _ => false
                                    end) x y).
 
+
   Fixpoint remove (e lst : expr typ func) {struct lst}
   : InContext ident ctx (option (expr typ func)) :=
-    Ptrns.run_tptrn
+      Ptrns.run_tptrn
       (list_cases (T := InContext ident ctx (option (expr typ func)))
                   (fun (_ : typ) =>
                      Monad.ret None)
@@ -79,7 +80,10 @@ Section canceller.
                                      Monad.ret (Monad.ret xs)
                                    else
                                      Monad.bind (remove e xs)
-                                                (fun xs' => Monad.ret (Functor.fmap (F:=option) (mkCons t x) xs'))))
+                                                (fun xs' => Monad.ret (match xs' with
+                                                                       | None => None
+                                                                       | Some xs' => Some (mkCons t x xs')
+                                                                       end))))
                   (Monad.ret None))
       lst.
 
