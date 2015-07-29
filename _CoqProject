@@ -90,6 +90,7 @@ theories/Views/StringView.v
 theories/Views/BoolView.v
 theories/Views/ProdView.v
 theories/Views/ApplicativeView.v
+theories/Views/EqView.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
