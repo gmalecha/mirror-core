@@ -213,8 +213,6 @@ Section nth_error_get_hlist_nth.
         end
     end.
 
-  Axiom todo : forall T : Prop, T.
-
   Theorem nth_error_get_hlist_nth_Some
   : forall ls n s,
       nth_error_get_hlist_nth ls n = Some s ->

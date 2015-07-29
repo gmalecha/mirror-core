@@ -13,6 +13,7 @@ Definition fOr a b : expr typ func := App (App (Inj Simple.And) a) b.
 Definition fAll t P : expr typ func := App (Inj (Simple.All t)) (Abs t P).
 Definition fEx t P : expr typ func := App (Inj (Simple.Ex t)) (Abs t P).
 Definition fEq t : expr typ func := (Inj (Simple.Eq t)).
+Definition fImpl : expr typ func := (Inj Simple.Impl).
 Definition fEq_nat a b : expr typ func := App (App (fEq tyNat) a) b.
 Definition fN n : expr typ func := Inj (Simple.N n).
 
@@ -29,14 +30,17 @@ Fixpoint goal n : expr typ func :=
   end.
 
 Theorem pull_ex_nat_and_left
-: forall T P Q, ((exists n : T, P n) /\ Q) = (exists n, P n /\ Q).
-Admitted.
+: forall T P Q, ((@ex T P) /\ Q) -> (exists n, P n /\ Q).
+Proof.
+  intros.
+  destruct H. destruct H. eexists; split; eauto.
+Qed.
 
 Definition lem_pull_ex_nat_and_left : rw_lemma (typ:=typ) (func:=func) (expr typ func) :=
 {| Lemma.vars := tyArr tyNat tyProp :: tyProp :: nil
  ; Lemma.premises := nil
  ; Lemma.concl := {| lhs := fAnd (App (Inj (Simple.Ex tyNat)) (Var 0)) (Var 1)
-             ; rel := Rinj (fEq tyProp)
+             ; rel := Rinj fImpl
              ; rhs := fEx tyNat (fAnd (App (Var 1) (Var 0)) (Var 2))
              |}
  |}.
@@ -52,14 +56,17 @@ Eval compute in Lemma.lemmaD (@rw_conclD _ _ _ _ _ _ RbaseD)
                              nil nil lem_pull_ex_nat_and_left .
 
 Theorem pull_ex_nat_and_right
-: forall T P Q, (Q /\ (exists n : T, P n)) = (exists n, Q /\ P n).
-Admitted.
+: forall T P Q, (Q /\ (exists n : T, P n)) -> (exists n, Q /\ P n).
+Proof.
+  destruct 1. destruct H0.
+  eexists; split; eauto.
+Qed.
 
 Definition lem_pull_ex_nat_and_right : rw_lemma (typ:=typ) (func:=func) (expr typ func) :=
 {| Lemma.vars := tyArr tyNat tyProp :: tyProp :: nil
  ; Lemma.premises := nil
  ; Lemma.concl := {| lhs := fAnd (Var 1) (App (Inj (Simple.Ex tyNat)) (Var 0))
-             ; rel := Rinj (fEq tyProp)
+             ; rel := Rinj fImpl
              ; rhs := fEx tyNat (fAnd (Var 2) (App (Var 1) (Var 0)))
              |}
  |}.
@@ -83,6 +90,12 @@ Fixpoint is_trans (r : @R typ (expr typ func)) : bool :=
   | _ => false
   end.
 
+Definition get_respectful_only_all_ex :=
+  do_respectful (expr_eq_sdec (typ:=typ) (func:=func) _ rel_dec)
+    ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
+     (Inj (All tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
+     nil).
+
 Definition get_respectful :=
   do_respectful (expr_eq_sdec (typ:=typ) (func:=func) _ rel_dec)
     ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
@@ -93,10 +106,26 @@ Definition get_respectful :=
 
 nil).
 
+Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Views.Ptrns.
+
+Definition simple_reduce (e : expr typ func) : expr typ func :=
+  run_tptrn
+    (pdefault_id
+       (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
+                          App a (Abs c (App (App b d) e)))
+             (app get (abs get (fun t =>
+                                  app (app get (pmap (fun x => (t,Red.beta x)) get))
+                                      (pmap Red.beta get))))))
+    e.
+
 Definition the_rewrites
            (lems : list (rw_lemma (typ:=typ) (func:=func) (expr typ func) * CoreK.rtacK typ (expr typ func)))
-: expr typ func -> R (typ:=typ) Rbase -> mrw (typ:=typ) (func:=func) (expr typ func) :=
-  @using_rewrite_db typ func _ _ _ _ (expr typ func) (@expr_eq_sdec typ func _ rel_dec) lems.
+: expr typ func -> R (typ:=typ) Rbase -> mrw (typ:=typ) (func:=func) (Progressing (expr typ func)) :=
+  fun e r =>
+    rw_bind
+      (@using_rewrite_db typ func _ _ _ _ (expr typ func) (@expr_eq_sdec typ func _ rel_dec) lems (Red.beta e) r)
+      (fun e' => rw_ret (Progress (simple_reduce e'))).
 
 Require Import MirrorCore.RTac.RunOnGoals.
 Require Import MirrorCore.RTac.Idtac.
@@ -106,102 +135,79 @@ Definition the_lemmas : list (rw_lemma (typ:=typ) (func:=func) (expr typ func) *
   (lem_pull_ex_nat_and_right, ON_ALL IDTAC) ::
   nil.
 
+Fixpoint repeatFunc (n : nat) (p : expr typ func -> Progressing (expr typ func))
+: (expr typ func -> R (typ:=typ) (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func))) ->
+  expr typ func -> R (typ:=typ) (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func)) :=
+  match n with
+  | 0 => fun f e r =>
+           rw_bind (f e r)
+                   (fun e' =>
+                      match e' with
+                      | NoProgress _ => rw_ret (p e)
+                      | Progress e' => rw_ret (Progress e')
+                      end)
+  | S n => fun f e r =>
+             rw_bind
+               (f e r)
+               (fun e' =>
+                  match e' with
+                  | NoProgress _ => rw_ret (p e)
+                  | Progress e' => repeatFunc n (@Progress _) f e' r
+                  end)
+  end.
+
+Eval compute in fun F => repeatFunc 3 F.
+
+Require Import MirrorCore.Lambda.Red.
+
+Definition pull_all_quant :=
+  repeatFunc 300 (fun _ => NoProgress _)
+             (fun e r =>
+                bottom_up is_refl is_trans (the_rewrites the_lemmas)
+                          get_respectful_only_all_ex e r).
+
 (** this doesn't lift everything, but it does what it is programmed to do **)
-Definition quant_pull (e : expr typ func) : mrw (expr typ func) :=
-  bottom_up is_refl is_trans (the_rewrites the_lemmas) get_respectful
-            e (Rinj (Inj (Eq tyProp))).
+Definition quant_pull (e : expr typ func) : mrw (Progressing (expr typ func)) :=
+  bottom_up is_refl is_trans (pull_all_quant) get_respectful
+            e (Rinj fImpl).
+
+Fixpoint goal2 n (acc : nat) : expr typ func :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] 8 then
+      fEx tyNat (fEq_nat (fN 0) (fN 0))
+    else
+      fEq_nat (fN 0) (fN 0)
+  | S n =>
+    fAnd (goal2 n (acc * 2)) (goal2 n (acc * 2 + 1)) (*
+    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
+  end.
 
 Time Eval vm_compute
-  in match quant_pull (goal 19) nil nil nil 0 0 (TopSubst _ nil nil) with
-     | None => tt
+  in match quant_pull (goal2 8 0) nil nil nil 0 0 (TopSubst _ nil nil) with
      | Some _ => tt
+     | None => tt
      end.
 
-
 (*
-  match
-(*    rw_fix 10 (@setoid_rewrite typ func (expr typ func)
-                     rel_dec
-                     rewrite_exs rewrite_respects)
-      e nil (RGinj (Inj (Eq tyProp)))
-      (rsubst_empty _)
-*)
-  with
-    | None => e
-    | Some (e,_) => e
-  end.
-*)
+Theorem pull_ex_nat_and_left_iff
+: forall T P Q, ((@ex T P) /\ Q) <-> (exists n, P n /\ Q).
+Proof. Admitted.
+Theorem pull_ex_nat_and_right_iff
+: forall T P Q, (Q /\ (@ex T P)) <-> (exists n, Q /\ P n).
+Proof. Admitted.
 
-(*
-Require Import MirrorCore.Lambda.AppN.
-(** I'm only pulling one quantifier.
- ** What do I need to instantiate with?
- **)
-Definition quant_pull' (e : expr typ func) : expr typ func :=
-  match
-    interleave (@setoid_rewrite typ func (expr typ func)
-                                rel_dec
-                                rewrite_exs)
-               (fun rw e rvars rg rs =>
-                  rw (beta_all (@apps _ _) nil nil e) rvars rg rs)
-               10 e nil (RGinj (Inj (Eq tyProp)))
-               (rsubst_empty _)
-  with
-    | None => e
-    | Some (e,_) => e
-  end.
-*)
-
-
-(*
-Definition rewrite_exs (e : expr typ func) (rvars : list (R (expr typ func)))
-           (rg : R (expr typ func)) : m (expr typ func) :=
-  match e with
-    | App (App (Inj Simple.And) (App (Inj (Simple.Ex t)) P)) Q =>
-      rg_bind
-        (unifyRG rel_dec rg (RGinj (Inj (Simple.Eq tyProp))))
-        (fun _ =>
-           rg_ret (App (Inj (Simple.Ex t)) (Abs t (App (App (Inj Simple.And) (App P (Var 0))) Q))))
-    | App (App (Inj Simple.And) Q) (App (Inj (Simple.Ex t)) P) =>
-      rg_bind
-        (unifyRG rel_dec rg (RGinj (Inj (Simple.Eq tyProp))))
-        (fun _ =>
-           rg_ret (App (Inj (Simple.Ex t)) (Abs t (App (App (Inj Simple.And) Q) (App P (Var 0))))))
-    | _ => rg_fail
-  end.
-
-Definition respects : list (expr typ func * R Rbase * expr typ func) :=
-  map (fun xy => let '(x,y) := xy in (x,y,x))
-      ((Inj Simple.And, Rrespects (Rinj (Inj (Eq tyProp))) (Rrespects (Rinj (Inj (Eq tyProp))) (Rinj (Inj (Eq tyProp))))) ::
-       (Inj (Simple.Ex tyNat), Rrespects (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyProp)))) (Rinj (Inj (Eq tyProp))))
-
- :: nil).
-
-Definition rewrite_respects := fromRewrites rel_dec respects.
-
-Definition rw_type := expr typ func -> list (RG (expr typ func))
-                      -> RG (expr typ func) -> m (expr typ func).
-
-Section interleave.
-  Variables (rw rw' : rw_type -> rw_type).
-
-  Fixpoint interleave (n : nat)
-           (e : expr typ func) (rvars : list (RG (expr typ func)))
-           (rg : RG (expr typ func)) : m (expr typ func) :=
-    match n with
-      | 0 => rg_fail
-      | S n => rw (fun rs => rw' (fun e rvars rg rs => interleave n e rvars rg rs) rs) e rvars rg
-    end.
-End interleave.
-
-Fixpoint rw_fix (n : nat)
-  (rw : rw_type -> rw_type)
-  (e : expr typ func) (rvars : list (RG Rbase)) (rg : RG Rbase)
-  (rs : rsubst Rbase)
-: option (expr typ func * rsubst Rbase) :=
-  match n with
-    | 0 => Some (e,rs)
-    | S n => rw (fun e rvars rg rs => rw_fix n rw e rvars rg rs) e rvars rg rs
-  end.
-
+Goal match exprD nil nil (goal2 8 0) tyProp return Prop with
+     | None => True
+     | Some x => x
+     end -> True.
+simpl. unfold AbsAppI.exprT_App, exprT_Inj. simpl.
+Require Import Morphisms.
+Require Import Setoid.
+Require Import RelationClasses.
+intro H.
+Time repeat first [ setoid_rewrite pull_ex_nat_and_left_iff in H
+                  | setoid_rewrite pull_ex_nat_and_right_iff in H ].
+trivial.
+Time Qed.
 *)
