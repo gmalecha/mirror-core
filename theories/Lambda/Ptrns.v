@@ -38,6 +38,22 @@ Section setoid.
       | Inj a => bad (Inj a)
       end%type.
 
+  Definition appr (typ func T U : Type) (f : ptrn (expr typ func) (U -> T))
+             (g : ptrn (expr typ func) U) : ptrn (expr typ func) T :=
+    fun (e : expr typ func) 
+        (_T : Type) (good : T -> _T) (bad : expr typ func -> _T) =>
+      match e with
+      | Var a => bad (Var a)
+      | Inj a => bad (Inj a)
+      | App l r =>
+        Mbind (Mrebuild (App l) (g r)) 
+              (fun x : U => Mmap (fun y : U -> T => y x)
+                                 (Mrebuild (fun x : expr typ func => App x r) (f l)))
+              good bad
+      | Abs a b => bad (Abs a b)
+      | UVar a => bad (UVar a)
+      end.
+
   Definition var : ptrn (expr typ func) nat :=
     fun e _T good bad =>
       match e with

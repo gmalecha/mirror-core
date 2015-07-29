@@ -21,7 +21,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive stringFunc :=
+Inductive stringFunc : Type :=
   | pString  : string -> stringFunc.
 
 Section StringFuncInst.

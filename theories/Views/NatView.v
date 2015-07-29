@@ -19,7 +19,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive natFunc :=
+Inductive natFunc : Type :=
   | pNat  : nat -> natFunc
   | pPlus : natFunc
   | pMinus : natFunc

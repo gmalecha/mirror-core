@@ -101,26 +101,36 @@ Section ApplicativeFuncInst.
 End ApplicativeFuncInst.
 
 Section MakeApplicative.
-  Context {typ func : Type} {FV : FuncView func (ap_func typ)}.
+  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {FV : FuncView func (ap_func typ)}.
+  Context {Typ2_tyArr : Typ2 _ Fun}.
+    	
+  Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
   Definition fPure t := f_insert (pPure t).
   Definition fAp t u := f_insert (pAp t u).
 
-  Definition mkPure t : expr typ func := Inj (fPure t).
+  Definition mkPure (t : typ) (f : expr typ func) : expr typ func := App (Inj (fPure t)) f.
   Definition mkAp (t u : typ) (f a : expr typ func) := App (App (Inj (fAp t u)) f) a.
+
+  Fixpoint mkAps f es t :=
+    match es with 
+    | nil => mkPure t f
+    | (e, t')::es => mkAp t' t (mkAps f es (tyArr t' t)) e
+    end.
 
   Definition fptrnPure {T : Type} (p : Ptrns.ptrn typ T) : ptrn (ap_func typ) T :=
     fun f U good bad =>
       match f with
-        | pPure t => p t U good (fun _ => bad f)
-        | _ => bad f
+        | pPure t => p t U good (fun _ => bad (pPure t))
+        | pAp t u => bad (pAp t u)
       end.
 
   Definition fptrnAp {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (ap_func typ) T :=
     fun f U good bad =>
       match f with
-        | pAp t u => p (t, u) U good (fun _ => bad f)
-        | _ => bad f
+        | pPure t => bad (pPure t)
+        | pAp t u => p (t, u) U good (fun _ => bad (pAp t u))
       end.
 
   Global Instance fptrnPure_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
@@ -145,9 +155,9 @@ Section MakeApplicative.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnPure {T : Type}
-             (p : ptrn typ T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnPure p)).
+  Definition ptrnPure {T A : Type}
+             (p : ptrn typ T)  (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A):=
+    app (inj (ptrn_view _ (fptrnPure p))) a.
 
   Definition ptrnAp {A B T : Type}
              (p : ptrn (typ * typ) T)
@@ -198,5 +208,21 @@ Section MakeApplicative.
       s_result := exists t u, Succeeds (t, u) p res /\ f = pAp t u;
       s_elim := @Succeeds_fptrnAp T f p res pok
     }.
-  
+
+  Definition applicative_ptrn_cases {T : Type}
+             (do_pure : typ  -> expr typ func -> T)
+             (do_ap : typ -> typ -> expr typ func -> expr typ func -> T) :=
+    por (appr (inj (ptrn_view _ (fptrnPure (pmap do_pure Ptrns.get)))) Ptrns.get)
+        (appr (appr (inj (ptrn_view _ (fptrnAp (pmap (fun x a b => do_ap (fst x) (snd x) a b)
+                                                     Ptrns.get))))
+                    Ptrns.get) 
+              Ptrns.get).
+
+Definition applicative_cases {T : Type}
+           (do_pure : typ  -> expr typ func -> T)
+           (do_ap : typ -> typ -> expr typ func -> expr typ func -> T) 
+           (do_default : T) : Ptrns.tptrn (expr typ func) T :=
+  pdefault (applicative_ptrn_cases do_pure do_ap)
+           do_default.
+
 End MakeApplicative.
