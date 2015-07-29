@@ -181,27 +181,6 @@ Section MakeNat.
     { left; exists tt; compute; reflexivity. }
   Qed.
 
-  Definition ptrnNat {T : Type} (p : ptrn nat T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnNat p)).
-
-  Definition ptrnPlus {A B T : Type}
-             (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
-         (app (app (inj (ptrn_view _ fptrnPlus)) a) b).
-
-  Definition ptrnMinus {A B T : Type}
-             (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
-         (app (app (inj (ptrn_view _ fptrnMinus)) a) b).
-
-  Definition ptrnMult {A B T : Type}
-             (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
-         (app (app (inj (ptrn_view _ fptrnMult)) a) b).
-
   Lemma Succeeds_fptrnNat {T : Type} (f : natFunc) (p : ptrn nat T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnNat p) res) :
     exists n, Succeeds n p res /\ f = pNat n.
@@ -267,3 +246,33 @@ Section MakeNat.
     }.
 
 End MakeNat.
+
+Section PtrnNat.
+  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {FV : FuncView func natFunc}.
+
+(* Putting this in the previous sectioun caused universe inconsistencies 
+  when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
+
+  Definition ptrnNat {T : Type} (p : ptrn nat T) : ptrn (expr typ func) T :=
+    inj (ptrn_view _ (fptrnNat p)).
+
+  Definition ptrnPlus {A B T : Type}
+             (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
+         (app (app (inj (ptrn_view _ fptrnPlus)) a) b).
+
+  Definition ptrnMinus {A B T : Type}
+             (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
+         (app (app (inj (ptrn_view _ fptrnMinus)) a) b).
+
+  Definition ptrnMult {A B T : Type}
+             (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
+         (app (app (inj (ptrn_view _ fptrnMult)) a) b).
+
+End PtrnNat.

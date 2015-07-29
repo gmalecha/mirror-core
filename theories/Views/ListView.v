@@ -129,16 +129,6 @@ Section MakeList.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnNil {T : Type}
-             (p : ptrn typ T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnNil p)).
-
-  Definition ptrnCons {A B T : Type}
-             (p : ptrn typ T)
-             (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
-    app (app (inj (ptrn_view _ (fptrnCons p))) a) b.
-
   Lemma Succeeds_fptrnNil {T : Type} (f : list_func typ) (p : ptrn typ T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnNil p) res) :
     exists t, Succeeds t p res /\ f = pNil t.
@@ -183,6 +173,25 @@ Section MakeList.
       s_elim := @Succeeds_fptrnCons T f p res pok
     }.
   
+End MakeList.
+
+Section PtrnList.
+  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {FV : FuncView func (list_func typ)}.
+
+(* Putting this in the previous sectioun caused universe inconsistencies 
+  when calling '@mkNil typ func' in JavaFunc (with typ and func instantiated) *)
+
+  Definition ptrnNil {T : Type}
+             (p : ptrn typ T) : ptrn (expr typ func) T :=
+    inj (ptrn_view _ (fptrnNil p)).
+
+  Definition ptrnCons {A B T : Type}
+             (p : ptrn typ T)
+             (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnCons p))) a) b.
+
   Definition list_cases {T : Type}
              (do_nil : typ -> T)
              (do_cons : typ -> expr typ func -> expr typ func -> T)
@@ -196,5 +205,5 @@ Section MakeList.
                         do_cons t x xs) (ptrnCons Ptrns.get Ptrns.get Ptrns.get)))
       do_default.
 
-End MakeList.
 
+End PtrnList.

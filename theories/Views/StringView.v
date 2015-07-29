@@ -93,9 +93,10 @@ Section MakeString.
       rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
-
+(*
   Definition ptrnString {T : Type} (p : ptrn string T) : ptrn (expr typ func) T :=
     inj (ptrn_view _ (fptrnString p)).
+*)
 
   Lemma Succeeds_fptrnString {T : Type} (f : stringFunc) (p : ptrn string T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnString p) res) :
@@ -120,3 +121,15 @@ Section MakeString.
     }.
 
 End MakeString.
+
+Section PtrnString.
+  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {FV : FuncView func stringFunc}.
+
+(* Putting this in the previous sectioun caused universe inconsistencies 
+  when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
+
+  Definition ptrnString {T : Type} (p : ptrn string T) : ptrn (expr typ func) T :=
+    inj (ptrn_view _ (fptrnString p)).
+
+End PtrnString.

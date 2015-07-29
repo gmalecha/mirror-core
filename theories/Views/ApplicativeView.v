@@ -27,7 +27,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive ap_func typ :=
+Inductive ap_func (typ : Type) :=
 | pPure (_ : typ)
 | pAp (_ _ : typ).
     
@@ -155,16 +155,6 @@ Section MakeApplicative.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnPure {T A : Type}
-             (p : ptrn typ T)  (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A):=
-    app (inj (ptrn_view _ (fptrnPure p))) a.
-
-  Definition ptrnAp {A B T : Type}
-             (p : ptrn (typ * typ) T)
-             (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
-    app (app (inj (ptrn_view _ (fptrnAp p))) a) b.
-
   Lemma Succeeds_fptrnPure {T : Type} (f : ap_func typ) (p : ptrn typ T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPure p) res) :
     exists t, Succeeds t p res /\ f = pPure t.
@@ -226,3 +216,23 @@ Definition applicative_cases {T : Type}
            do_default.
 
 End MakeApplicative.
+
+Section PtrnString.
+  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {FV : FuncView func (ap_func typ)}.
+
+(* Putting this in the previous sectioun caused universe inconsistencies 
+  when calling '@mkAp typ func' in JavaFunc (with typ and func instantiated) *)
+
+  Definition ptrnPure {T A : Type}
+             (p : ptrn typ T)  (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A):=
+    app (inj (ptrn_view _ (fptrnPure p))) a.
+
+  Definition ptrnAp {A B T : Type}
+             (p : ptrn (typ * typ) T)
+             (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnAp p))) a) b.
+
+
+End PtrnString.

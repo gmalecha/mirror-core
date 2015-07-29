@@ -87,6 +87,7 @@ theories/Views/ListView.v
 theories/Views/ListOpView.v
 theories/Views/NatView.v
 theories/Views/StringView.v
+theories/Views/BoolView.v
 theories/Views/ProdView.v
 theories/Views/ApplicativeView.v
 

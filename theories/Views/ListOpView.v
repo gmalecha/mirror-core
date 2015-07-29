@@ -286,34 +286,6 @@ Section MakeListOp.
       rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
-
-  Definition ptrnLength {T A : Type}
-             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
-    app (inj (ptrn_view _ (fptrnLength p))) a.
-
-  Definition ptrnNoDup {T A : Type}
-             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
-    app (inj (ptrn_view _ (fptrnNoDup p))) a.
-
-  Definition ptrnIn {T A : Type}
-             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
-    app (inj (ptrn_view _ (fptrnIn p))) a.
-
-  Definition ptrnMap {T A B : Type}
-             (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
-    app (app (inj (ptrn_view _ (fptrnMap p))) a) b.
-  
-  Definition ptrnFold {T A B C : Type}
-             (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) (c : ptrn (expr typ func) C) : 
-    ptrn (expr typ func) (T * A * B * C) :=
-    app (app (app (inj (ptrn_view _ (fptrnFold p))) a) b) c.
-  
-  Definition ptrnCombine {T A B : Type}
-             (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A) 
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
-    app (app (inj (ptrn_view _ (fptrnCombine p))) a) b.
   
   Lemma Succeeds_fptrnLength {T : Type} (f : listOp_func typ) (p : ptrn typ T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnLength p) res) :
@@ -448,6 +420,43 @@ Section MakeListOp.
     }.
 	
 End MakeListOp.
+
+Section PtrnListOp.
+  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {FV : FuncView func (listOp_func typ)}.
+
+(* Putting this in the previous sectioun caused universe inconsistencies 
+  when calling '@mkLength typ func' in JavaFunc (with typ and func instantiated) *)
+
+  Definition ptrnLength {T A : Type}
+             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
+    app (inj (ptrn_view _ (fptrnLength p))) a.
+
+  Definition ptrnNoDup {T A : Type}
+             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
+    app (inj (ptrn_view _ (fptrnNoDup p))) a.
+
+  Definition ptrnIn {T A : Type}
+             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
+    app (inj (ptrn_view _ (fptrnIn p))) a.
+
+  Definition ptrnMap {T A B : Type}
+             (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnMap p))) a) b.
+  
+  Definition ptrnFold {T A B C : Type}
+             (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) (c : ptrn (expr typ func) C) : 
+    ptrn (expr typ func) (T * A * B * C) :=
+    app (app (app (inj (ptrn_view _ (fptrnFold p))) a) b) c.
+  
+  Definition ptrnCombine {T A B : Type}
+             (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A) 
+             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnCombine p))) a) b.
+
+End PtrnListOp.
 
 Section Tactics.
   Context {typ func : Type}.
