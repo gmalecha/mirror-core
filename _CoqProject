@@ -83,6 +83,7 @@ theories/Lambda/Ptrns.v
 
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
+theories/Views/ViewsSumN.v
 theories/Views/ListView.v
 theories/Views/ListOpView.v
 theories/Views/NatView.v
@@ -91,6 +92,7 @@ theories/Views/BoolView.v
 theories/Views/ProdView.v
 theories/Views/ApplicativeView.v
 theories/Views/EqView.v
+
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
@@ -108,6 +110,7 @@ theories/RTac/First.v
 theories/RTac/Fail.v
 theories/RTac/Solve.v
 theories/RTac/ThenK.v
+theories/RTac/IdtacK.v
 theories/RTac/runTacK.v
 theories/RTac/Assumption.v
 theories/RTac/Intro.v

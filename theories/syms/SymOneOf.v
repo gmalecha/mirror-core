@@ -19,10 +19,13 @@ Section RSym_OneOf.
   }.
 
   Definition typeof_sym_OneOf {m : pmap Type}
-    (H : forall p, RSym (match pmap_lookup' m p with | Some T => T | None => Empty_set end))
+    (H : forall p, RSym (match pmap_lookup' m p with
+                         | Some T => T
+                         | None => Empty_set
+                         end))
     (s : OneOf m) : option typ :=
     match s with
-      | Build_OneOf _ x v =>
+      | mkOneOf _ x v =>
         match pmap_lookup' m x as o return o = pmap_lookup' m x -> option typ with
           | Some T =>
             fun pf =>
@@ -41,7 +44,6 @@ Section RSym_OneOf.
         end eq_refl
     end.
 
-
   Definition symD_OneOf (m : pmap Type)
     (H : forall p, RSym (match pmap_lookup' m p with
                          | Some T => T
@@ -58,7 +60,7 @@ Section RSym_OneOf.
                            | Some t => typD t
                            | None => unit:Type
                          end with
-      | Build_OneOf _ x v =>
+      | mkOneOf _ x v =>
         fun eqf =>
           match pmap_lookup' m x as o
                 return o = pmap_lookup' m x ->
@@ -172,16 +174,16 @@ Section RSym_OneOf.
                    | None => True
                    end
       with
-      | Build_OneOf _ x1 v1 =>
+      | mkOneOf _ x1 v1 =>
           match f2 as f2'
                 return
-                match sym_eqb (Build_OneOf _ x1 v1) f2' with
-                | Some true => (Build_OneOf _ x1 v1) = f2'
-                | Some false => (Build_OneOf _ x1 v1) <> f2'
+                match sym_eqb (mkOneOf _ x1 v1) f2' with
+                | Some true => (mkOneOf _ x1 v1) = f2'
+                | Some false => (mkOneOf _ x1 v1) <> f2'
                 | None => True
                 end
           with
-          | Build_OneOf _ x2 v2 => _
+          | mkOneOf _ x2 v2 => _
           end
       end
   }.

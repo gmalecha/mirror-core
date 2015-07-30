@@ -53,7 +53,14 @@ Section setoid.
   Inductive R : Type :=
   | Rinj (r : Rbase)
   | Rrespects (l r : R)
-  | Rpointwise (t : typ) (r : R).
+  | Rpointwise (t : typ) (r : R)
+  | Rflip (r : R).
+
+  Definition Rflip' (r : R) : R :=
+    match r with
+    | Rflip r => r
+    | _ => Rflip r
+    end.
 
   Fixpoint Req_dec (a b : R) : bool :=
     match a , b with
@@ -62,6 +69,7 @@ Section setoid.
       if Req_dec l l' then Req_dec r r' else false
     | Rpointwise t a , Rpointwise t' a' =>
       if t ?[ eq ] t' then Req_dec a a' else false
+    | Rflip a , Rflip b => Req_dec a b
     | _ , _ => false
     end.
 
@@ -78,6 +86,7 @@ Section setoid.
       f_equal; tauto. }
     { consider (t ?[ eq ] t0); intros.
       { subst. f_equal; eauto. } }
+    { intros. eapply IHx in H. f_equal. assumption. }
   Qed.
 
   Variable RbaseD : Rbase -> forall t : typ, option (typD t -> typD t -> Prop).
@@ -96,6 +105,9 @@ Section setoid.
   Definition pointwise_relation :=
     fun (A B : Type) (R : B -> B -> Prop) (f g : A -> B) =>
       forall a : A, R (f a) (g a).
+
+  Definition flip (A : Type) (R : A -> A -> Prop) : A -> A -> Prop :=
+    fun x y => R y x.
 
   Fixpoint RD (r : R) (t : typ) : option (typD t -> typD t -> Prop) :=
     match r with
@@ -120,6 +132,11 @@ Section setoid.
                         | None => None
                       end)
                    None
+      | Rflip r =>
+        match RD r t with
+        | Some rD => Some (flip rD)
+        | None => None
+        end
     end.
 
   Theorem RD_single_type
@@ -152,6 +169,8 @@ Section setoid.
         autorewrite_with_eq_rw_in H.
         forward. }
       { rewrite H2 in *. congruence. } }
+    { forwardy.
+      inv_all. subst. eauto. }
   Qed.
 
   Definition mrw (T : Type) : Type :=
@@ -251,7 +270,8 @@ Section setoid.
       end.
 
   Definition setoid_rewrite_spec
-             (rw : expr typ func -> R -> mrw (Progressing (expr typ func))) : Prop :=
+             (rw : expr typ func -> R -> mrw (Progressing (expr typ func)))
+  : Prop :=
     forall e r, @setoid_rewrite_rel e r (rw e r).
 
   Definition respectful_spec (respectful : expr typ func -> R -> mrw (list R))
@@ -338,7 +358,7 @@ Section setoid.
     : expr typ func -> expr typ func :=
       expr_subst _lookupU (_lookupV u above) 0.
 
-    (** TODO(gmalecha): Move **)
+    (** TODO(gmalecha): Move to EnvI or ExtLib.Data.HList **)
     Lemma nth_error_get_hlist_nth_appR'
     : forall T (F : T -> Type) ls u v,
         nth_error_get_hlist_nth F ls u = Some v ->
@@ -347,8 +367,8 @@ Section setoid.
           nth_error_get_hlist_nth F (ls' ++ ls) (u + length ls') = Some (existT _ (projT1 v) v') /\
           forall a b,
             projT2 v a = v' (hlist_app b a).
-    Proof.
-      clear. induction ls'.
+    Proof using.
+      induction ls'.
       { simpl.
         replace (u + 0) with u by omega.
         destruct v. eexists; split; eauto.
@@ -721,6 +741,12 @@ Section setoid.
     ; rel : R
     ; rhs : expr typ func }.
 
+    Definition flip_rw_concl (a : rw_concl) : rw_concl :=
+      {| lhs := a.(rhs)
+       ; rel := Rflip' a.(rel)
+       ; rhs := a.(lhs)
+       |}.
+
     Definition rw_conclD (tus tvs : tenv typ) (c : rw_concl)
     : option (exprT tus tvs Prop) :=
       match typeof_expr tus tvs c.(lhs) with
@@ -737,6 +763,39 @@ Section setoid.
       end.
 
     Definition rw_lemma : Type := Lemma.lemma typ (expr typ func) rw_concl.
+
+    Definition flip_rw_lemma (lem : rw_lemma) : rw_lemma :=
+    {| vars := lem.(vars)
+     ; premises := lem.(premises)
+     ; concl := flip_rw_concl lem.(concl) |}.
+
+    Lemma RD_Rflip'_Rflip : forall a b,
+        RD (Rflip' a) b = RD (Rflip a) b.
+    Proof.
+      destruct a; simpl; eauto.
+      intros. destruct (RD a b); reflexivity.
+    Qed.
+
+    Theorem flip_rw_lemma_sound
+    : forall (lem : rw_lemma),
+        lemmaD rw_conclD nil nil lem ->
+        lemmaD rw_conclD nil nil (flip_rw_lemma lem).
+    Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func.
+      unfold lemmaD, lemmaD'. simpl.
+      intros. forwardy.
+      Cases.rewrite_all_goal.
+      destruct (concl lem); simpl in *.
+      unfold flip_rw_concl. simpl.
+      unfold rw_conclD in *. simpl in *.
+      forwardy.
+      erewrite exprD_typeof_Some; eauto.
+      Cases.rewrite_all_goal.
+      rewrite RD_Rflip'_Rflip.
+      simpl.
+      Cases.rewrite_all_goal.
+      inv_all.
+      subst. unfold flip. eauto.
+    Qed.
 
     (** Note, this is quite inefficient due to building and destructing
      ** the pair
@@ -897,7 +956,8 @@ Section setoid.
              (k : ctx_subst (Ctx_append ctx ctx') -> ctx_subst ctx),
         (forall cs, WellFormed_ctx_subst cs -> WellFormed_ctx_subst (k cs)) ->
         WellFormed_ctx_subst cs ->
-        WellFormed_ctx_subst (@unwrap_tvs_ctx_subst (ctx_subst ctx)  tvs' (Ctx_append ctx ctx') cs k).
+        WellFormed_ctx_subst
+          (@unwrap_tvs_ctx_subst (ctx_subst ctx) tvs' (Ctx_append ctx ctx') cs k).
     Proof using.
       induction tvs'; simpl; auto.
       intros. specialize (IHtvs' ctx (CAll ctx' a) cs).
@@ -906,7 +966,8 @@ Section setoid.
       inv_all. assumption.
     Qed.
 
-    Fixpoint unwrap_tvs_ctx_subst' (tvs : tenv typ) (ctx : Ctx typ (expr typ func)) : ctx_subst (wrap_tvs tvs ctx) -> ctx_subst ctx :=
+    Fixpoint unwrap_tvs_ctx_subst' (tvs : tenv typ) (ctx : Ctx typ (expr typ func))
+    : ctx_subst (wrap_tvs tvs ctx) -> ctx_subst ctx :=
       match tvs as tvs return ctx_subst (wrap_tvs tvs ctx) -> ctx_subst ctx with
       | nil => fun X => X
       | t :: tvs => fun X => fromAll (unwrap_tvs_ctx_subst' tvs _ X)
@@ -1150,6 +1211,12 @@ Section setoid.
                          then Some (snd er, x)
                          else None) (data r).
 
+    Definition do_respectful_poly
+             (polys : expr typ func -> R -> list R)
+    : expr typ func -> R -> mrw (list R) :=
+      fun e r _ _ _ _ _ _ x =>
+        Some (polys e r, x).
+
     Definition for_tactic
                (m : expr typ func ->
                     tenv typ -> tenv typ -> nat -> nat ->
@@ -1383,6 +1450,97 @@ Section setoid.
     Instance SubstOk_amap : SubstOk (Subst_amap (expr typ func)) :=
       @FMapSubst.SUBST.SubstOk_subst typ _ (expr typ func) _.
 
+    (** TODO(gmalecha): Move this to amap *)
+    Lemma pigeon_principle'
+    : forall {T} n (m : amap T) low,
+        UVarMap.MAP.cardinal m > n ->
+        Forall_amap (fun k _ => low <= k < low + n) m ->
+        False.
+    Proof using.
+      induction n.
+      { simpl. intros.
+        assert (exists x, UVarMap.MAP.cardinal m = S x).
+        { destruct (UVarMap.MAP.cardinal m); eauto.
+          exfalso; omega. }
+        destruct H1.
+        eapply FMapSubst.SUBST.PROPS.cardinal_inv_2 in H1.
+        destruct H1.
+        eapply FMapSubst.SUBST.FACTS.find_mapsto_iff in m0.
+        eapply H0 in m0.
+        omega. }
+      { intros.
+        consider (UVarMap.MAP.find low m).
+        { intros.
+          specialize (IHn (UVarMap.MAP.remove low m) (S low)).
+          apply IHn; clear IHn.
+          { erewrite cardinal_remove in H; [ | eassumption ].
+            eapply gt_S_n in H. assumption. }
+          { red. red in H0.
+            intros.
+            unfold amap_lookup in *.
+            rewrite FMapSubst.SUBST.PROPS.F.remove_o in H2.
+            destruct (UVarMap.MAP.E.eq_dec low u); try congruence.
+            eapply H0 in H2. omega. } }
+        { intros.
+          eapply IHn with (m:=m) (low :=S low).
+          { omega. }
+          { clear - H0 H1.
+            unfold Forall_amap in *.
+            intros.
+            assert (u <> low).
+            { unfold amap_lookup in H.
+              intro. subst.
+              rewrite H1 in H. congruence. }
+            { eapply H0 in H.
+              omega. } } } }
+    Qed.
+
+    Lemma pigeon_principle
+      : forall {T} (m : amap T) n low,
+        amap_is_full n m = true ->
+        Forall_amap (fun k _ => low <= k < low + n) m ->
+        forall k, k < n ->
+                  amap_lookup (low + k) m <> None.
+    Proof using.
+      unfold amap_is_full.
+      intros T m n low H.
+      rewrite rel_dec_correct in H.
+      red; intros. revert H2. revert H0. revert H.
+      revert low. revert m. generalize dependent n. induction k.
+      { intros.
+        destruct n; try omega.
+        eapply pigeon_principle' with (m0:=m) (n0:=n) (low0:=S low).
+        { omega. }
+        { red. intros.
+          assert (low <> u).
+          { intro. subst. replace (u + 0) with u in H2 by omega. congruence. }
+          eapply H0 in H3. omega. } }
+      { intros.
+        destruct n; try omega.
+        eapply lt_S_n in H1.
+        consider (amap_lookup low m).
+        { intros.
+          unfold amap_lookup in *.
+          eapply (IHk _ H1 (UVarMap.MAP.remove low m) (S low)).
+          { erewrite cardinal_remove in H by eassumption.
+            omega. }
+          { clear - H0.
+            unfold Forall_amap in *. intros.
+            rewrite FMapSubst.SUBST.FACTS.remove_o in H.
+            destruct (UVarMap.MAP.E.eq_dec low u); try congruence.
+            eapply H0 in H. omega. }
+          { rewrite FMapSubst.SUBST.FACTS.remove_o.
+            destruct (UVarMap.MAP.E.eq_dec low (S low + k)); auto.
+            rewrite <- H2. f_equal. omega. } }
+        { intros.
+          apply (@pigeon_principle' T n m (S low)).
+          { omega. }
+          { unfold Forall_amap in *; intros.
+            assert (u <> low) by congruence.
+            eapply H0 in H4.
+            omega. } } }
+    Qed.
+
     (** TODO: Move **)
     Lemma core_rewrite_sound :
       forall ctx (cs : ctx_subst ctx),
@@ -1419,12 +1577,8 @@ Section setoid.
                 end
               | None => True
               end).
-    Proof using RelDec_Correct_eq_typ RbaseD_single_type RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+    Proof using RelDec_Correct_eq_typ RbaseD_single_type RTypeOk_typD RSymOk_func Typ2Ok_Fun tyArr.
       Opaque vars_to_uvars.
-(*
-      clear transitiveOk reflexiveOk respectfulOk rwOk.
-      clear rw respectful transitive reflexive.
-*)
       unfold core_rewrite. generalize dependent 10.
       simpl.
       intros.
@@ -1697,7 +1851,7 @@ Section setoid.
                 generalize dependent (length l).
                 clear.
                 intros.
-                (** pigeon **) admit. }
+                eapply pigeon_principle; eauto. }
               destruct H.
               { destruct H. eauto. }
               { destruct H. destruct H. destruct H as [ ? [ ? ? ] ].
@@ -1756,7 +1910,7 @@ Section setoid.
         eapply Forall_impl.
         intro. rewrite hlist_app_nil_r. tauto. }
       { exfalso; clear - H3; inversion H3. }
-    Time Admitted.
+    Time Qed.
 
     Theorem using_rewrite_db'_sound
     : forall r ctx (cs : ctx_subst ctx),
@@ -1812,8 +1966,6 @@ Section setoid.
         destruct H1. subst. clear IHForall H0.
         simpl in H. destruct H.
         revert H2. revert H3. revert H. revert H0.
-        clear - RTypeOk_typD Typ2Ok_Fun RSymOk_func
-                RelDec_eq_typ RelDec_Correct_eq_typ RbaseD_single_type.
         intros.
         eapply core_rewrite_sound in H3; eauto. }
     Qed.
@@ -2624,74 +2776,6 @@ Section setoid.
   Qed.
 
 End setoid.
-
-(*
-Definition my_respectfulness (f : expr typ func)
-           (es : list (expr typ func * (RG -> mrw (expr typ func))))
-           (rg : RG)
-: mrw (expr typ func) :=
-  rw_ret (apps f (List.map (fun x => fst x) es)).
-
-
-Definition my_respectfulness' (f : expr nat nat)
-               (es : list (expr nat nat * (RG (typ:=nat) nat -> mrw (typ:=nat) nat (expr nat nat))))
-               (rg : RG (typ:=nat) nat)
-    : mrw (typ:=nat) nat (expr nat nat) :=
-      rw_ret (apps f (List.map (fun x => snd x rg) es)).
-
-  Fixpoint build_big (n : nat) : expr nat nat :=
-    match n with
-      | 0 => Inj 0
-      | S n => App (build_big n) (build_big n)
-    end.
-
-  Time Eval vm_compute in
-      match setoid_rewrite (Rbase:=nat) (@my_respectfulness nat nat nat) (build_big 24) nil (RGinj 0) (rsubst_empty _) with
-        | Some e => true
-        | None => false
-      end.
-*)
-
-(*
-    Definition apply_rewrite (l : rw_lemma * rtacK typ (expr typ func)) (e : expr typ func) (t : typ) (r : R)
-    : tenv typ -> tenv typ -> nat -> nat ->
-      forall c : Ctx typ (expr typ func), ctx_subst c -> option (expr typ func * ctx_subst c).
-    refine (
-      let '(lem,tac) := l in
-      if lem.(concl).(rel) ?[ eq ] r then
-        (fun tus tvs nus nvs ctx cs =>
-           let ctx' := CExs ctx (t :: lem.(vars)) in
-           let cs' : ctx_subst ctx' := ExsSubst cs (amap_empty _) in
-           match exprUnify 10 tus tvs 0 (vars_to_uvars 0 (S nus) lem.(concl).(lhs)) e t cs' with
-           | None => None
-           | Some cs'' =>
-             let prems := List.map (fun e => GGoal (vars_to_uvars 0 (S nus) e)) lem.(premises) in
-             match tac tus tvs nus nvs ctx' cs'' (GConj_list prems) with
-             | Solved cs''' =>
-               match cs''' in ctx_subst ctx
-                     return match ctx with
-                            | CExs z _ => option (expr typ func * ctx_subst z)
-                            | _ => unit
-                            end
-               with
-               | ExsSubst _ _ cs'''' sub =>
-                 match amap_lookup nus sub with
-                 | None => None
-                 | Some e =>
-                   if amap_is_full (S (length lem.(vars))) sub then
-                     Some (e, cs'''')
-                   else
-                     None
-                 end
-               | _ => tt
-               end
-             | _ => None
-             end
-           end)
-      else
-        (fun _ _ _ _ _ _ => None)).
-    Defined.
-*)
 
 (* This fast-path eliminates the need to build environments when unification is definitely going to fail
     Fixpoint checkUnify (e1 e2 : expr typ func) : bool :=

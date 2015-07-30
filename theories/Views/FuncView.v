@@ -1,6 +1,3 @@
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
-Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.TypesI.
@@ -184,70 +181,3 @@ Section FuncView.
   Qed.
 
 End FuncView.
-
-
-Section FuncViewSumN.
-  Context {A func : Type}.
-
-  Global Instance FuncViewPMap (p : positive) (m : FMapPositive.pmap Type)
-	 (pf : Some A = pmap_lookup' m p)
-  : FuncView (OneOf m) A :=
-  { f_insert f := Into f p pf
-  ; f_view f :=
-      match f with
-      | Build_OneOf _ p' pf1 =>
-	match Pos.eq_dec p p' with
-	| left Heq =>
-	  vSome (eq_rect_r (fun o => match o with
-                                    | Some T => T
-                                    | None => Empty_set
-                                    end) pf1
-	                  (eq_rect _ (fun p => Some A = pmap_lookup' m p) pf _ Heq))
-	| right _ => vNone
-	end
-      end
-  }.
-
-  Variable typ : Type.
-  Variable RType_typ : RType typ.
-
-  Global Instance FuncViewOkPMap
-         (p : positive) (m : FMapPositive.pmap Type)
-         (syms : forall p : positive,
-             RSym match pmap_lookup' m p with
-                  | Some T => T
-                  | None => Empty_set
-                  end)
-	 (pf : Some A = pmap_lookup' m p)
-         (RSa : RSym A)
-  : FuncViewOk (FuncViewPMap p m pf) (RSymOneOf _ _) RSa.
-  Proof.
-    constructor.
-    { simpl. destruct f.
-      destruct (Pos.eq_dec p index).
-      { subst. split; intros.
-        { unfold Into. f_equal.
-          inversion H; clear H; subst.
-          destruct pf. reflexivity. }
-        { f_equal.
-          unfold Into in H.
-          cutrewrite (value = match
-                        pf in (_ = z)
-                        return match z with
-                               | Some T => T
-                               | None => Empty_set
-                               end
-                      with
-                      | eq_refl => a
-                      end).
-          { clear. simpl. destruct pf. reflexivity. }
-          clear - H.
-          admit. } }
-      { split.
-        { inversion 1. }
-        { intros. unfold Into in H.
-          admit. } } }
-    { admit. }
-  Admitted.
-
-End FuncViewSumN.

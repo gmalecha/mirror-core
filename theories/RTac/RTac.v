@@ -20,6 +20,7 @@ Require Export MirrorCore.RTac.RunOnGoals.
 Require Export MirrorCore.RTac.RunOnGoals_list.
 Require Export MirrorCore.RTac.runTacK.
 Require Export MirrorCore.RTac.ThenK.
+Require Export MirrorCore.RTac.IdtacK.
 Require Export MirrorCore.RTac.Minify.
 Require Export MirrorCore.RTac.AtGoal.
 

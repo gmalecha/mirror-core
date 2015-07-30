@@ -56,6 +56,16 @@ Section setoid.
   Definition pfail {X} : ptrn X Empty_set :=
     fun e _ _ bad => bad e.
 
+  Section pors.
+    Context {X T : Type}.
+
+    Fixpoint pors (ps : list (ptrn X T)) : ptrn X T :=
+      match ps with
+      | nil => pmap (fun (x : Empty_set) => match x with end) pfail
+      | List.cons p ps => por p (pors ps)
+      end.
+  End pors.
+
   Definition pdefault {X T} (p : ptrn X T) (d : T) : tptrn X T :=
     fun e _T good => p e _T good (fun _ => good d).
 
@@ -125,6 +135,13 @@ Section setoid.
       eauto. }
   Qed.
 
+  Theorem Succeeds_pfail : forall {X : Type} x res,
+      Succeeds x (@pfail X) res ->
+      False.
+  Proof.
+    compute. intros. destruct res.
+  Qed.
+
   Definition run_tptrn {X T} (p : tptrn X T) (x : X) : T := p x T (fun x => x).
 
   Theorem pdefault_sound
@@ -149,7 +166,7 @@ Section setoid.
   Qed.
 
   Definition pdefault_id {X} (p : ptrn X X) : tptrn X X :=
-    fun e => pdefault p e e. 
+    fun e => pdefault p e e.
 
   Lemma pmap_sound {X T U} {x : X} {f : T -> U} {p : ptrn X T} {res : U}
         (HSucceeds : Succeeds x (pmap f p) res)
@@ -162,7 +179,7 @@ Section setoid.
     destruct HSucceeds as [y [H1 Heq]].
     subst; apply Hstep; assumption.
   Qed.
-    
+
   Theorem Succeeds_get : forall {X} (x res : X),
       Succeeds x get res ->
       x = res.
@@ -211,7 +228,7 @@ Section setoid.
     left. exists tt. compute. reflexivity.
   Qed.
 
-  Global Instance ptrn_ok_fail : forall {X}, ptrn_ok (@pfail X).
+  Global Instance ptrn_ok_pfail : forall {X}, ptrn_ok (@pfail X).
   Proof.
     right. compute. reflexivity.
   Qed.
@@ -257,15 +274,15 @@ Class SucceedsE {X T : Type} (f : X) (p : ptrn X T) (v : T) := {
   s_elim : Succeeds f p v -> s_result
 }.
 
-Global Instance pmap_SucceedsE {X T U : Type} {x : X} {f : T -> U} {p : ptrn X T} {res : U} 
-         {pok : ptrn_ok p} : 
+Global Instance pmap_SucceedsE {X T U : Type} {x : X} {f : T -> U} {p : ptrn X T} {res : U}
+         {pok : ptrn_ok p} :
   SucceedsE x (pmap f p) res := {
   s_result := exists y, Succeeds x p y /\ res = f y;
   s_elim := Succeeds_pmap pok
 }.
 
-Global Instance por_SucceedsE {X T : Type} {x : X}  {p q : ptrn X T} {res : T} 
-         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} : 
+Global Instance por_SucceedsE {X T : Type} {x : X}  {p q : ptrn X T} {res : T}
+         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
   SucceedsE x (por p q) res := {
   s_result := Succeeds x p res \/ Succeeds x q res;
   s_elim := Succeeds_por pok_p pok_q
@@ -274,17 +291,58 @@ Global Instance por_SucceedsE {X T : Type} {x : X}  {p q : ptrn X T} {res : T}
 Global Instance get_SucceedsE {X : Type} {x res : X} :
   SucceedsE x get res := {
   s_result := x = res;
-  s_elim := @Succeeds_get X x res 
+  s_elim := @Succeeds_get X x res
 }.
 
 Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
   SucceedsE x ignore res := {
   s_result := res = tt;
-  s_elim := 
+  s_elim :=
     fun _ => match res as x return (x = tt) with
                | tt => eq_refl
              end
 }.
+
+
+  Definition run_default {X T} (p : ptrn X T) (def : T) (x : X) : T :=
+    Eval compute in run_tptrn (pdefault p def) x.
+
+  Section Anyof.
+    Context {T : Type}.
+    Variable (P : T -> Prop).
+
+    Fixpoint Anyof (ls : list T) : Prop :=
+      match ls with
+      | List.nil => False
+      | List.cons l ls => P l \/ Anyof ls
+      end.
+  End Anyof.
+
+  Global Instance ptrn_ok_pors : forall {X T} (ps : list (ptrn X T)),
+      List.Forall ptrn_ok ps ->
+      ptrn_ok (pors ps).
+  Proof.
+    induction 1; simpl; intros; eauto with typeclass_instances.
+  Qed.
+
+  Theorem Succeeds_pors : forall {X T} ps (x : X) (res : T),
+      List.Forall ptrn_ok ps ->
+      Succeeds x (pors ps) res ->
+      Anyof (fun p => Succeeds x p res) ps.
+  Proof.
+    induction 1; simpl; intros.
+    { eapply Succeeds_pmap in H; eauto with typeclass_instances.
+      destruct H. destruct x0. }
+    { eapply Succeeds_por in H1; eauto with typeclass_instances.
+      destruct H1; auto. }
+  Qed.
+
+  Global Instance pors_SucceedsE {X : Type} {x : X} (res : unit) ps
+         (Hoks : List.Forall ptrn_ok ps)
+  : SucceedsE x (pors ps) res :=
+  { s_result := Anyof (fun p => Succeeds x p res) ps
+  ; s_elim := Succeeds_pors Hoks
+  }.
 
 End setoid.
 
@@ -296,4 +354,3 @@ Ltac ptrn_elim :=
          let z := constr:(_:SucceedsE f p v) in
          apply s_elim in H; do 2 red in H; destruct_ands H
    end.
-
