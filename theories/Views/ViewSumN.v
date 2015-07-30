@@ -91,7 +91,7 @@ Section FuncViewSumN.
     { unfold f_view, f_insert; simpl.
       clear. intros.
       split.
-      { consider (OutOf A p (eq_sym pf) f); intros; try congruence.
+      { consider (OutOf p (eq_sym pf) f); intros; try congruence.
         inversion H0; clear H0; subst.
         eauto using Into_OutOf. }
       { intros.
