@@ -613,6 +613,13 @@ Section canceller.
             end.
   Proof. clear. destruct x; reflexivity. Qed.
 
+  Lemma Roption_impl_tauto : forall {T} (R : T -> T -> Prop) a x,
+      (forall y, R y x) ->
+      Roption_impl R a (Some x).
+  Proof.
+    clear. destruct a; constructor; auto.
+  Qed.
+
   Theorem cancel_sound
   : forall lst1 lst2 (t : typ),
       @InContext_spec typ (expr typ func)
@@ -698,13 +705,7 @@ Section canceller.
                   { constructor; compute; tauto. } } }
               { destruct (exprD' (getUVars ctx) (getVars ctx) lst2 (typ1 t)); constructor;
                 compute; tauto. } }
-            { Lemma Roption_impl_tauto : forall {T} (R : T -> T -> Prop) a x,
-                (forall y, R y x) ->
-                Roption_impl R a (Some x).
-              Proof.
-                clear. destruct a; constructor; auto.
-              Qed.
-              destruct (exprD' (getUVars ctx) (getVars ctx) e1 t);
+            { destruct (exprD' (getUVars ctx) (getVars ctx) e1 t);
                 try solve [ eapply Roption_impl_tauto ; compute; tauto ].
               destruct (exprD' (getUVars ctx) (getVars ctx) lst2 (typ1 t));
                 try solve [ eapply Roption_impl_tauto ; compute; tauto ].

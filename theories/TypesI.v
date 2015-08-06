@@ -1,7 +1,9 @@
+Require Coq.Classes.EquivDec.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -47,8 +49,6 @@ Section typed.
   }.
 
   Variable RType_typ : RType.
-
-  Require Coq.Classes.EquivDec.
 
   Class RTypeOk  : Type :=
   { Relim_refl
@@ -483,7 +483,7 @@ End typed.
 Section CastRD.
   Context {typ : Type} {RType_typ : RType typ}.
 
-  Theorem castRD (F : Type -> Type) (U : Type) 
+  Theorem castRD (F : Type -> Type) (U : Type)
           {HTyp0 : Typ0 RType_typ U} (x : F (typD (typ0 (F := U)))) :
     castR F (castD F x) = x.
   Proof.
@@ -491,7 +491,7 @@ Section CastRD.
     destruct typ0_cast; reflexivity.
   Qed.
 
-  Theorem castDR (F : Type -> Type) (U : Type) 
+  Theorem castDR (F : Type -> Type) (U : Type)
           {HTyp0 : Typ0 RType_typ U} (x : F U) :
     castD F (castR F x) = x.
   Proof.
@@ -500,6 +500,29 @@ Section CastRD.
     generalize dependent (typD (typ0 (F := U))).
     destruct e; reflexivity.
   Qed.
+
+  Lemma castD_option
+  : forall T (Ty0 : Typ0 _ T) x,
+      castD option x = match x with
+                       | None => None
+                       | Some x => Some (castD (fun x => x) x)
+                       end.
+  Proof.
+    intros. unfold castD.
+    autorewrite_with_eq_rw. reflexivity.
+  Qed.
+
+  Lemma castR_option
+  : forall T (Ty0 : Typ0 _ T) x,
+      castR option x = match x with
+                       | None => None
+                       | Some x => Some (castR (fun x => x) x)
+                       end.
+  Proof.
+    intros. unfold castR.
+    autorewrite_with_eq_rw. reflexivity.
+  Qed.
+
 
 End CastRD.
 

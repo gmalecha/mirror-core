@@ -1,4 +1,3 @@
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Data.SumN.
 Require Import ExtLib.Tactics.

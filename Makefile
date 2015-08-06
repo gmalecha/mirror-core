@@ -17,5 +17,7 @@ init:
 	@ ./tools/setup.sh -b $(EXTBRANCH)
 	@ (cd coq-ext-lib; $(MAKE))
 
+check-imports:
+	./tools/opt-import.py -p _CoqProject
 
 .PHONY: all clean dist init coq

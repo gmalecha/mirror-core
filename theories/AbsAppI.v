@@ -1,17 +1,6 @@
-Require Import Coq.Bool.Bool.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Classes.Morphisms.
-Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.OpenT.
 Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.

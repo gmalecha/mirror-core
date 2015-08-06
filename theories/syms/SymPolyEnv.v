@@ -6,7 +6,6 @@ Require Import Coq.PArith.BinPos Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.

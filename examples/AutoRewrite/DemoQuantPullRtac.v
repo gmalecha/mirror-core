@@ -2,6 +2,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
+Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
 Require Import McExamples.Simple.Simple.
 
@@ -36,7 +37,7 @@ Proof.
   destruct H. destruct H. eexists; split; eauto.
 Qed.
 
-Definition lem_pull_ex_nat_and_left : rw_lemma (typ:=typ) (func:=func) (expr typ func) :=
+Definition lem_pull_ex_nat_and_left : rw_lemma typ func (expr typ func) :=
 {| Lemma.vars := tyArr tyNat tyProp :: tyProp :: nil
  ; Lemma.premises := nil
  ; Lemma.concl := {| lhs := fAnd (App (Inj (Simple.Ex tyNat)) (Var 0)) (Var 1)
@@ -52,8 +53,8 @@ Definition RbaseD (e : expr typ func) (t : typ)
 : option (TypesI.typD t -> TypesI.typD t -> Prop) :=
   exprD nil nil e (tyArr t (tyArr t tyProp)).
 
-Eval compute in Lemma.lemmaD (@rw_conclD _ _ _ _ _ _ RbaseD)
-                             nil nil lem_pull_ex_nat_and_left .
+Eval compute in
+    Lemma.lemmaD (rw_conclD RbaseD) nil nil lem_pull_ex_nat_and_left.
 
 Theorem pull_ex_nat_and_right
 : forall T P Q, (Q /\ (exists n : T, P n)) -> (exists n, Q /\ P n).
@@ -62,7 +63,7 @@ Proof.
   eexists; split; eauto.
 Qed.
 
-Definition lem_pull_ex_nat_and_right : rw_lemma (typ:=typ) (func:=func) (expr typ func) :=
+Definition lem_pull_ex_nat_and_right : rw_lemma typ func (expr typ func) :=
 {| Lemma.vars := tyArr tyNat tyProp :: tyProp :: nil
  ; Lemma.premises := nil
  ; Lemma.concl := {| lhs := fAnd (Var 1) (App (Inj (Simple.Ex tyNat)) (Var 0))
@@ -71,7 +72,7 @@ Definition lem_pull_ex_nat_and_right : rw_lemma (typ:=typ) (func:=func) (expr ty
              |}
  |}.
 
-Fixpoint is_refl (r : @R typ (expr typ func)) : bool :=
+Fixpoint is_refl (r : R typ (expr typ func)) : bool :=
   match r with
   | Rinj (Inj (Eq _)) => true
   | Rinj (Inj Impl) => true
@@ -80,7 +81,7 @@ Fixpoint is_refl (r : @R typ (expr typ func)) : bool :=
   | _ => false
   end.
 
-Fixpoint is_trans (r : @R typ (expr typ func)) : bool :=
+Fixpoint is_trans (r : R typ (expr typ func)) : bool :=
   match r with
   | Rinj (Inj (Eq _)) => true
   | Rinj (Inj Lt) => true
@@ -120,30 +121,30 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
     e.
 
 Definition the_rewrites
-           (lems : list (rw_lemma (typ:=typ) (func:=func) (expr typ func) * CoreK.rtacK typ (expr typ func)))
-: expr typ func -> R (typ:=typ) Rbase -> mrw (typ:=typ) (func:=func) (Progressing (expr typ func)) :=
+           (lems : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)))
+: expr typ func -> R typ Rbase -> mrw (typ:=typ) (func:=func) (Progressing (expr typ func)) :=
   fun e r =>
     rw_bind
       (@using_rewrite_db typ func _ _ _ _ (expr typ func) (@expr_eq_sdec typ func _ rel_dec) lems (Red.beta e) r)
       (fun e' => rw_ret (Progress (simple_reduce e'))).
 
 Require Import MirrorCore.RTac.RunOnGoals.
-Require Import MirrorCore.RTac.Idtac.
+Require Import MirrorCore.RTac.IdtacK.
 
-Definition the_lemmas : list (rw_lemma (typ:=typ) (func:=func) (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
-  (lem_pull_ex_nat_and_left, ON_ALL IDTAC) ::
-  (lem_pull_ex_nat_and_right, ON_ALL IDTAC) ::
+Definition the_lemmas : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
+  (lem_pull_ex_nat_and_left, IDTACK) ::
+  (lem_pull_ex_nat_and_right, IDTACK) ::
   nil.
 
 Fixpoint repeatFunc (n : nat) (p : expr typ func -> Progressing (expr typ func))
-: (expr typ func -> R (typ:=typ) (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func))) ->
-  expr typ func -> R (typ:=typ) (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func)) :=
+: (expr typ func -> R typ (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func))) ->
+  expr typ func -> R typ (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func)) :=
   match n with
   | 0 => fun f e r =>
            rw_bind (f e r)
                    (fun e' =>
                       match e' with
-                      | NoProgress _ => rw_ret (p e)
+                      | NoProgress => rw_ret (p e)
                       | Progress e' => rw_ret (Progress e')
                       end)
   | S n => fun f e r =>
@@ -151,17 +152,15 @@ Fixpoint repeatFunc (n : nat) (p : expr typ func -> Progressing (expr typ func))
                (f e r)
                (fun e' =>
                   match e' with
-                  | NoProgress _ => rw_ret (p e)
+                  | NoProgress => rw_ret (p e)
                   | Progress e' => repeatFunc n (@Progress _) f e' r
                   end)
   end.
 
-Eval compute in fun F => repeatFunc 3 F.
-
 Require Import MirrorCore.Lambda.Red.
 
 Definition pull_all_quant :=
-  repeatFunc 300 (fun _ => NoProgress _)
+  repeatFunc 300 (fun _ => NoProgress)
              (fun e r =>
                 bottom_up is_refl is_trans (the_rewrites the_lemmas)
                           get_respectful_only_all_ex e r).

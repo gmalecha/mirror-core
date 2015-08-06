@@ -84,19 +84,42 @@ def optimize(f, try_compile):
 
     return [(x, lines[x]) for x in remove]
 
+def opt_project(coq_project):
+    lines = open(coq_project,'r').readlines()
+    args = [(x.strip() if not x.startswith('-arg') else x[5:].strip()).split(' ')
+            for x in lines if x.startswith('-')]
+    args = [arg for x in args for arg in x]
+    files = [x.strip() for x in lines if x.strip().endswith('.v')]
+
+    compile = try_compile(args)
+    for fn in files:
+        print "Optimizing '%s'..." % fn
+        remove = optimize(fn, compile)
+        remove.sort()
+        if len(remove) == 0:
+            print (" ok")
+        else:
+            print (" %d extra imports" % len(remove))
+            for (n,x) in remove:
+                print ("%2d: %s" % (n,x.strip()))
+
 
 if __name__ == '__main__':
-    fn = sys.argv[-1]
-    args = sys.argv[1:-1]
-
-    print ("Optimizing '%s'..." % fn)
-
-    remove = optimize(fn, try_compile(args))
-    remove.sort()
-
-    if len(remove) == 0:
-        print (" ok")
+    if len(sys.argv) == 3 and sys.argv[1] == '-p':
+        # '-p' _CoqProject
+        opt_project(sys.argv[2])
     else:
-        print (" %d extra imports" % len(remove))
-        for (n,x) in remove:
-            print ("%2d: %s" % (n,x.strip()))
+        fn = sys.argv[-1]
+        args = sys.argv[1:-1]
+
+        print ("Optimizing '%s'..." % fn)
+
+        remove = optimize(fn, try_compile(args))
+        remove.sort()
+
+        if len(remove) == 0:
+            print (" ok")
+        else:
+            print (" %d extra imports" % len(remove))
+            for (n,x) in remove:
+                print ("%2d: %s" % (n,x.strip()))

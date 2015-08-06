@@ -2,15 +2,12 @@ Require Import Coq.Sorting.Permutation.
 Require Coq.FSets.FMapFacts.
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Bool.
-Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Instantiate.

@@ -1,4 +1,3 @@
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.

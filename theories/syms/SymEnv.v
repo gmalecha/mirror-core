@@ -6,7 +6,6 @@
  ** NOTE
  **  It is not generic because it builds on top of Ext.Types
  **)
-Require Import Coq.PArith.BinPos.
 Require Import Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.

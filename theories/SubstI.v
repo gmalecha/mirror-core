@@ -7,7 +7,6 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.CtxLogic.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Instantiate.
 

@@ -1,11 +1,9 @@
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Util.Nat.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.VariablesI.
-Require Import MirrorCore.CtxLogic.
 
 Set Implicit Arguments.
 Set Strict Implicit.

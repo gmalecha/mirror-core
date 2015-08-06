@@ -1,8 +1,5 @@
 Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
