@@ -1,8 +1,3 @@
-Require Import Coq.Classes.Morphisms.
-Require Import Coq.Relations.Relations.
-Require Import ExtLib.Data.HList.
-Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
@@ -40,13 +35,13 @@ Section setoid.
 
   Definition appr (typ func T U : Type) (f : ptrn (expr typ func) (U -> T))
              (g : ptrn (expr typ func) U) : ptrn (expr typ func) T :=
-    fun (e : expr typ func) 
+    fun (e : expr typ func)
         (_T : Type) (good : T -> _T) (bad : expr typ func -> _T) =>
       match e with
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
       | App l r =>
-        Mbind (Mrebuild (App l) (g r)) 
+        Mbind (Mrebuild (App l) (g r))
               (fun x : U => Mmap (fun y : U -> T => y x)
                                  (Mrebuild (fun x : expr typ func => App x r) (f l)))
               good bad
@@ -484,7 +479,7 @@ Section setoid.
           (e1 : exprT tus tvs (typD (tyArr (@typ0 _ _ T _) (@typ0 _ _ U _))))
           (e2 : exprT tus tvs T) P
           (H : P (castR (exprT tus tvs) U (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1) e2))) :
-    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _) 
+    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
                   e1 (castR (exprT tus tvs) _ e2)).
   Proof.
     revert H. clear.
@@ -566,9 +561,9 @@ Ltac exprT_App_red :=
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
     | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] =>
       force_apply (@exprT_App_castR typ _ _ tus tvs t1 t2 _ _)
-    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] => 
+    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
       force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
-    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu 
+    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu
                          (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
       force_apply (@exprT_App_castD typ _ _ tus tvs (typD t) u _ Tu a b)
     | |- _ => rewrite castDR

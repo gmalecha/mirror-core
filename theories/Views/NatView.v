@@ -1,15 +1,10 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
-Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.FuncView.
@@ -20,15 +15,15 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive natFunc : Type :=
-  | pNat  : nat -> natFunc
-  | pPlus : natFunc
-  | pMinus : natFunc
-  | pMult : natFunc.
+| pNat  : nat -> natFunc
+| pPlus : natFunc
+| pMinus : natFunc
+| pMult : natFunc.
 
 Section NatFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
-  
+
   Context {Typ2_tyArr : Typ2 _ Fun}.
   Context {Typ0_tyNat : Typ0 _ nat}.
 
@@ -37,22 +32,21 @@ Section NatFuncInst.
 
   Definition typeofNatFunc (nf : natFunc) : option typ :=
     match nf with
-      | pNat _ => Some tyNat
-      | pPlus => Some (tyArr tyNat (tyArr tyNat tyNat))
-      | pMinus => Some (tyArr tyNat (tyArr tyNat tyNat))
-      | pMult => Some (tyArr tyNat (tyArr tyNat tyNat))
-   end.
-  
+    | pNat _ => Some tyNat
+    | pPlus => Some (tyArr tyNat (tyArr tyNat tyNat))
+    | pMinus => Some (tyArr tyNat (tyArr tyNat tyNat))
+    | pMult => Some (tyArr tyNat (tyArr tyNat tyNat))
+    end.
+
   Definition natFuncEq (a b : natFunc) : option bool :=
     match a , b with
-      | pNat n, pNat m => Some (n ?[ eq ] m)
-      | pPlus, pPlus => Some true
-      | pMinus, pMinus => Some true
-      | pMult, pMult => Some true
+    | pNat n, pNat m => Some (n ?[ eq ] m)
+    | pPlus, pPlus => Some true
+    | pMinus, pMinus => Some true
+    | pMult, pMult => Some true
+    | _, _ => None
+    end.
 
-      | _, _ => None
-  end.
-	
   Definition natR (n : nat) : typD tyNat :=
     castR id nat n.
 
@@ -70,23 +64,22 @@ Section NatFuncInst.
 
   Definition nat_func_symD bf :=
     match bf as bf return match typeofNatFunc bf return Type with
-			    | Some t => typD t
-			    | None => unit
+			  | Some t => typD t
+			  | None => unit
 			  end with
-      | pNat n => natR n
-      | pPlus => plusR
-      | pMinus => minusR
-      | pMult => multR
+    | pNat n => natR n
+    | pPlus => plusR
+    | pMinus => minusR
+    | pMult => multR
     end.
-  
+
   Global Instance RSym_NatFunc
-  : SymI.RSym natFunc := 
-    {
-      typeof_sym := typeofNatFunc;
-      symD := nat_func_symD ;
-      sym_eqb := natFuncEq
-    }.
-  
+  : SymI.RSym natFunc :=
+  { typeof_sym := typeofNatFunc;
+    symD := nat_func_symD ;
+    sym_eqb := natFuncEq
+  }.
+
   Global Instance RSymOk_NatFunc : SymI.RSymOk RSym_NatFunc.
   Proof.
     split; intros.
@@ -220,30 +213,30 @@ Section MakeNat.
     destruct f; simpl in H; try congruence.
   Qed.
 
-  Global Instance fptrnNat_SucceedsE {T : Type} {f : natFunc} 
-         {p : ptrn nat T} {res : T} {pok : ptrn_ok p} :
-    SucceedsE f (fptrnNat p) res := {
-      s_result := exists n, Succeeds n p res /\ f = pNat n;
-      s_elim := @Succeeds_fptrnNat T f p res pok
-    }.
+  Global Instance fptrnNat_SucceedsE {T : Type} {f : natFunc}
+         {p : ptrn nat T} {res : T} {pok : ptrn_ok p}
+  : SucceedsE f (fptrnNat p) res :=
+  { s_result := exists n, Succeeds n p res /\ f = pNat n;
+    s_elim := @Succeeds_fptrnNat T f p res pok
+  }.
 
-  Global Instance fptrnPlus_SucceedsE {f : natFunc} (res : unit) :
-    SucceedsE f fptrnPlus res := {
-      s_result := f = pPlus /\ res = tt;
-      s_elim := @Succeeds_fptrnPlus f res
-    }.
+  Global Instance fptrnPlus_SucceedsE {f : natFunc} (res : unit)
+  : SucceedsE f fptrnPlus res :=
+  { s_result := f = pPlus /\ res = tt;
+    s_elim := @Succeeds_fptrnPlus f res
+  }.
 
-  Global Instance fptrnMinus_SucceedsE {f : natFunc} (res : unit) :
-    SucceedsE f fptrnMinus res := {
-      s_result := f = pMinus /\ res = tt;
-      s_elim := @Succeeds_fptrnMinus f res
-    }.
+  Global Instance fptrnMinus_SucceedsE {f : natFunc} (res : unit)
+  : SucceedsE f fptrnMinus res :=
+  { s_result := f = pMinus /\ res = tt;
+    s_elim := @Succeeds_fptrnMinus f res
+  }.
 
-  Global Instance fptrnMult_SucceedsE {f : natFunc} (res : unit) :
-    SucceedsE f fptrnMult res := {
-      s_result := f = pMult /\ res = tt;
-      s_elim := @Succeeds_fptrnMult f res
-    }.
+  Global Instance fptrnMult_SucceedsE {f : natFunc} (res : unit)
+  : SucceedsE f fptrnMult res :=
+  { s_result := f = pMult /\ res = tt;
+    s_elim := @Succeeds_fptrnMult f res
+  }.
 
 End MakeNat.
 
@@ -251,28 +244,28 @@ Section PtrnNat.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {FV : FuncView func natFunc}.
 
-(* Putting this in the previous sectioun caused universe inconsistencies 
+(* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnNat {T : Type} (p : ptrn nat T) : ptrn (expr typ func) T :=
     inj (ptrn_view _ (fptrnNat p)).
 
   Definition ptrnPlus {A B T : Type}
-             (a : ptrn (expr typ func) A) 
+             (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end)
          (app (app (inj (ptrn_view _ fptrnPlus)) a) b).
 
   Definition ptrnMinus {A B T : Type}
-             (a : ptrn (expr typ func) A) 
+             (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end)
          (app (app (inj (ptrn_view _ fptrnMinus)) a) b).
 
   Definition ptrnMult {A B T : Type}
-             (a : ptrn (expr typ func) A) 
+             (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end) 
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end)
          (app (app (inj (ptrn_view _ fptrnMult)) a) b).
 
 End PtrnNat.

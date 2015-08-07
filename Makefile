@@ -20,4 +20,9 @@ init:
 check-imports:
 	./tools/opt-import.py -p _CoqProject
 
-.PHONY: all clean dist init coq
+deps.pdf:
+	@ coqdep -dumpgraph deps.dot `sed '/COQLIB/d' _CoqProject` > /dev/null
+	@ sed -i '/ext-lib/d' deps.dot
+	@ dot -Tpdf deps.dot -o deps.pdf
+
+.PHONY: all clean dist init coq deps.pdf check-imports

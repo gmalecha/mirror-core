@@ -1,12 +1,9 @@
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
-Require Import MirrorCore.Lambda.ExprLift.
-Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.

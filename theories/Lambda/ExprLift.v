@@ -95,15 +95,16 @@ Section types.
     { consider (v ?[ lt ] length tvs); intros; forward.
       { inv_all; subst.
         autorewrite with exprD_rw. simpl.
-        generalize H.
-        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tvs' ++ tvs'') in H.
-        intro.
-        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tvs'') in H0.
+        generalize (@nth_error_get_hlist_nth_appL _ typD (tvs' ++ tvs'') _ _ H).
+        generalize (@nth_error_get_hlist_nth_appL _ typD tvs'' _ _ H).
+        intros.
         forward_reason; Cases.rewrite_all_goal.
-        destruct x0; simpl in *.
+        rewrite H6 in *.
+        inv_all. subst.
+        destruct x0; destruct x1; simpl in *.
         rewrite H3 in *. rewrite H1 in *. inv_all; subst.
         simpl in *. rewrite H2. eexists; split; eauto.
-        intros. simpl. rewrite H6. rewrite H4. reflexivity. }
+        intros. simpl. rewrite H7. rewrite H5. reflexivity. }
       { inv_all; subst.
         autorewrite with exprD_rw. simpl.
         consider (nth_error_get_hlist_nth typD (tvs ++ tvs'') (v - length tvs')); intros.
@@ -201,19 +202,16 @@ Section types.
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
-      { generalize H.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs' ++ tvs'') (F := typD) in H; eauto with typeclass_instances.
-        intro.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs'') (F := typD)
-          in H2; eauto with typeclass_instances.
+      { generalize (@nth_error_get_hlist_nth_appL _ typD (tvs' ++ tvs'') _ _ H).
+        generalize (@nth_error_get_hlist_nth_appL _ typD tvs'' _ _ H).
+        clear H. intros.
         forward_reason.
-        revert H2. Cases.rewrite_all_goal. destruct x1.
-        simpl in *. intros.
-        destruct r. rewrite H5 in *.
-        inv_all; subst. simpl in *.
-        rewrite type_cast_refl; eauto.
+        revert H3. revert H0. Cases.rewrite_all_goal. destruct x1.
+        intros; simpl in *. destruct x0; simpl in *.
+        inv_all. subst.
+        Cases.rewrite_all_goal.
         intros.
-        rewrite H4. rewrite H6. auto. }
+        rewrite H4. rewrite H6. reflexivity. }
       { eapply nth_error_get_hlist_nth_appR in H0; [ simpl in * | omega ].
         forward_reason.
         consider (nth_error_get_hlist_nth typD (tvs ++ tvs' ++ tvs'')

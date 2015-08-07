@@ -1,66 +1,58 @@
+Require Import Coq.Strings.String.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.String.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
-Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
-
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
-
-Require Import Coq.Strings.String.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive stringFunc : Type  :=
-  | pString  : string -> stringFunc%type.
+| pString  : string -> stringFunc%type.
 
 Section StringFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
-  
+
   Context {Typ0_tyString : Typ0 _ string}.
 
   Let tyString : typ := @typ0 _ _ _ Typ0_tyString.
 
   Definition typeofStringFunc (nf : stringFunc) : option typ :=
     match nf with
-      | pString _ => Some tyString
-   end.
-  
+    | pString _ => Some tyString
+    end.
+
   Definition stringFuncEq (a b : stringFunc) : option bool :=
     match a , b with
-      | pString s, pString t => Some (s ?[ eq ] t)
-  end.
-	
+    | pString s, pString t => Some (s ?[ eq ] t)
+    end.
+
   Definition stringR (s : string) : typD tyString :=
     castR id string s.
 
   Definition string_func_symD bf :=
     match bf as bf return match typeofStringFunc bf return Type with
-			    | Some t => typD t
-			    | None => unit
+			  | Some t => typD t
+			  | None => unit
 			  end with
-      | pString s => stringR s
+    | pString s => stringR s
     end.
-  
+
   Global Instance RSym_StringFunc
-  : SymI.RSym stringFunc := 
-    {
-      typeof_sym := typeofStringFunc;
-      symD := string_func_symD ;
-      sym_eqb := stringFuncEq
-    }.
-  
+  : SymI.RSym stringFunc :=
+  { typeof_sym := typeofStringFunc;
+    symD := string_func_symD ;
+    sym_eqb := stringFuncEq
+  }.
+
   Global Instance RSymOk_StringFunc : SymI.RSymOk RSym_StringFunc.
   Proof.
     split; intros.
@@ -81,7 +73,7 @@ Section MakeString.
   Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
     fun f U good bad =>
       match f with
-        | pString s => p s U good (fun x => bad f)
+      | pString s => p s U good (fun x => bad f)
       end.
 
   Global Instance fptrnString_ok {T : Type} {p : ptrn string T} {Hok : ptrn_ok p} :
@@ -113,12 +105,12 @@ Section MakeString.
     exists s; split; [assumption | reflexivity].
   Qed.
 
-  Global Instance fptrnString_SucceedsE {T : Type} {f : stringFunc} 
-         {p : ptrn string T} {res : T} {pok : ptrn_ok p} :
-    SucceedsE f (fptrnString p) res := {
-      s_result := exists s, Succeeds s p res /\ f = pString s;
-      s_elim := @Succeeds_fptrnString T f p res pok
-    }.
+  Global Instance fptrnString_SucceedsE {T : Type} {f : stringFunc}
+         {p : ptrn string T} {res : T} {pok : ptrn_ok p}
+  : SucceedsE f (fptrnString p) res :=
+  { s_result := exists s, Succeeds s p res /\ f = pString s;
+    s_elim := @Succeeds_fptrnString T f p res pok
+  }.
 
 End MakeString.
 
@@ -126,7 +118,7 @@ Section PtrnString.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {FV : FuncView func stringFunc}.
 
-(* Putting this in the previous sectioun caused universe inconsistencies 
+(* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnString {T : Type} (p : ptrn string T) : ptrn (expr typ func) T :=

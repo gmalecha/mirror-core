@@ -5,16 +5,11 @@ Require Import Coq.Classes.Morphisms.
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Bool.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.VariablesI.
-Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.
 
 Require Import MirrorCore.Lambda.ExprLift.

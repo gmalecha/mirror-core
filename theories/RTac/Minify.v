@@ -1,7 +1,5 @@
 Require Import Coq.omega.Omega.
-Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monad.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Tactics.
@@ -332,6 +330,18 @@ Section parameterized.
         { rewrite IHxs. forward.
           f_equal. simpl. omega. }
         { reflexivity. } }
+    Qed.
+
+    Lemma nth_error_get_hlist_nth_conv
+    : forall (iT : Type) (F : iT -> Type) (ls ls' : list iT) n (pf : ls' = ls),
+        nth_error_get_hlist_nth F ls n =
+        match pf in _ = ls'
+              return option { t : _ & hlist F ls' -> F t }
+        with
+        | eq_refl => nth_error_get_hlist_nth F ls' n
+        end.
+    Proof.
+      destruct pf; reflexivity.
     Qed.
 
     (** NOTE: This proof is ugly b/c of all of the extraction operations

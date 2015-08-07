@@ -1,17 +1,11 @@
 Require Import Coq.Bool.Bool.
 Require Import Coq.Classes.Morphisms.
-Require Import Coq.Relations.Relations.
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Prop.
-Require Import ExtLib.Data.Pair.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.ListFirstnSkipn.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
@@ -2378,11 +2372,9 @@ Section parameterized.
         forward_reason.
         assert (uv < length (getUVars c)) by omega.
         generalize (ctx_substD_envs _ H14); intros; inv_all; subst.
-        edestruct (nth_error_get_hlist_nth_appL); eauto.
-        destruct H17.
+        destruct (@nth_error_get_hlist_nth_appL _ typD ts _ _ H15) as [ ? [ ? ? ] ].
         rewrite H17 in H10.
-        forward_reason.
-        inv_all; subst; simpl in *.
+        forward_reason; inv_all; subst; simpl in *.
         eapply H8 in H19; eauto; clear H8.
         forward_reason.
         change_rewrite H8.
@@ -2943,23 +2935,6 @@ Section parameterized.
       intros. eapply H2. trivial. }
     { simpl. destruct 1. }
   Qed.
-
-(*
-  Lemma WellFormed_pre_entry_WellFormed_subst
-  : forall a b (m : amap),
-      WellFormed_bimap a b m ->
-      WellFormed m.
-  Proof.
-    red; red; intros.
-    rewrite SUBST.FACTS.find_mapsto_iff in H0.
-    eapply H in H0. destruct H0 as [ ? [ ? XXX ] ].
-    intro.
-    rewrite XXX in H1. congruence.
-    red in H3. destruct H3.
-    rewrite SUBST.FACTS.find_mapsto_iff in H3.
-    change_rewrite H3. congruence.
-  Qed.
-*)
 
 End parameterized.
 

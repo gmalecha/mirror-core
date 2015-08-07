@@ -1,4 +1,3 @@
-Require Import Coq.Arith.Compare_dec.
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
@@ -296,7 +295,7 @@ Section beta.
         intros. autorewrite_with_eq_rw.
         rewrite H5. reflexivity. }
       { split; auto.
-        clear H5. unfold Open_App.
+        clear H5. unfold AbsAppI.exprT_App.
         autorewrite_with_eq_rw.
         generalize (@substitute_one_sound _ _ _ _ _ _ _ _ _ tus f nil x _ eq_refl tvs d r).
         autorewrite with exprD_rw in H0. simpl in H0.

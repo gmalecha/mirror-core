@@ -4,6 +4,7 @@ Require Import Coq.Bool.Bool.
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Export MirrorCore.Lambda.ExprCore.
@@ -23,7 +24,6 @@ Section expr.
   Context {RTypeOk_typD : RTypeOk}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
-
 
   Lemma Proper_mentionsAny
   : Proper ((@eq uvar ==> @eq bool) ==>

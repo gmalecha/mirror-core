@@ -1,16 +1,12 @@
 Require Import Coq.omega.Omega.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
-Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
-Require Import MirrorCore.Lambda.Red.
 
 Require Import Coq.Logic.FunctionalExtensionality.
 

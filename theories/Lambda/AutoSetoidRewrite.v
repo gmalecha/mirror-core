@@ -9,9 +9,11 @@ Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
+Require Import MirrorCore.Lambda.RewriteRelations.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -36,11 +38,6 @@ Section setoid.
   Variable Rbase : Type.
   Variable Req : Rbase -> Rbase -> bool.
 
-  Inductive R : Type :=
-  | Rinj (r : Rbase)
-  | Rrespects (l r : R)
-  | Rpointwise (t : typ) (r : R).
-
   Variable RbaseD : Rbase -> forall t : typ, option (relation (typD t)).
 
   Hypothesis RbaseD_single_type
@@ -49,59 +46,7 @@ Section setoid.
       RbaseD r t2 = Some rD2 ->
       t1 = t2.
 
-  Fixpoint RD (r : R) (t : typ) : option (relation (typD t)) :=
-    match r with
-      | Rinj r => RbaseD r t
-      | Rrespects l r =>
-        typ2_match (F:=Fun) (fun T => option (relation T)) t
-                   (fun lt rt =>
-                      match RD l lt , RD r rt with
-                        | Some l , Some r => Some (respectful l r)
-                        | _ , _ => None
-                      end)
-                   None
-      | Rpointwise _t r =>
-        typ2_match (F:=Fun) (fun T => option (relation T)) t
-                   (fun lt rt =>
-                      match type_cast t _t with
-                        | Some _ =>
-                          match RD r rt with
-                            | Some r => Some (pointwise_relation (typD lt) r)
-                            | _ => None
-                          end
-                        | None => None
-                      end)
-                   None
-    end.
-
-  Theorem RD_single_type
-  : forall r t1 t2 rD1 rD2,
-      RD r t1 = Some rD1 ->
-      RD r t2 = Some rD2 ->
-      t1 = t2.
-  Proof.
-    clear - RbaseD_single_type Typ2Ok_Fun.
-    induction r; simpl; intros.
-    { eapply RbaseD_single_type; eauto. }
-    { arrow_case_any; try congruence.
-      red in x1. subst.
-      destruct (typ2_match_case t1); forward_reason.
-      { rewrite H2 in H. clear H1 H2.
-        red in x3. subst.
-        simpl in *.
-        autorewrite with eq_rw in *. forward.
-        inv_all; subst. specialize (IHr1 _ _ _ _ H H0).
-        specialize (IHr2 _ _ _ _ H2 H5). subst; reflexivity. }
-      { rewrite H2 in *. congruence. } }
-    { arrow_case_any; try congruence.
-      destruct (typ2_match_case t1); forward_reason.
-      { rewrite H2 in *.
-        red in x1; red in x4. subst.
-        clear H2 H1. simpl in *.
-        autorewrite with eq_rw in *.
-        forward. }
-      { rewrite H2 in *. congruence. } }
-  Qed.
+  Local Notation "'R'" := (R typ Rbase).
 
   Definition mrw (T : Type) : Type :=
     option T.
@@ -143,7 +88,7 @@ Section setoid.
   Definition setoid_rewrite_spec (rw : _) : Prop :=
     forall tus tvs e e' r t eD rD,
       rw e r = Some e' ->
-      RD r t = Some rD ->
+      RD RbaseD r t = Some rD ->
       exprD' tus tvs t e = Some eD ->
       exists eD',
         exprD' tus tvs t e' = Some eD' /\
@@ -152,10 +97,10 @@ Section setoid.
   Definition respectful_spec (respectful : _) : Prop :=
     forall tus tvs e r rs t ts rD eD,
       respectful e r = Some rs ->
-      RD r t = Some rD ->
+      RD RbaseD r t = Some rD ->
       exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) e = Some eD ->
       exists rD',
-        RD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD' /\
+        RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD' /\
         forall us vs,
           Proper rD' (eD us vs).
 
@@ -191,7 +136,7 @@ Section setoid.
                   exprD' tus tvs t (fst e) = Some eD ->
                   forall r e' rD,
                     snd e r = Some e' ->
-                    RD r t = Some rD ->
+                    RD RbaseD r t = Some rD ->
                     exists eD',
                       exprD' tus tvs t e' = Some eD' /\
                       forall us vs,
@@ -200,7 +145,7 @@ Section setoid.
     Hypothesis respectfulness_sound
     : forall e e' tus tvs t es rg rD eesD,
         respectfulness e es rg = Some e' ->
-        RD rg t = Some rD ->
+        RD RbaseD rg t = Some rD ->
         exprD' tus tvs t (apps e (map fst es)) = Some eesD ->
         setoid_rewrite_rec tus tvs es ->
         exists eesD',
@@ -211,7 +156,7 @@ Section setoid.
     Theorem setoid_rewrite_sound
     : forall e e' tus tvs t es rg rD eesD,
         setoid_rewrite e es rg = Some e' ->
-        RD rg t = Some rD ->
+        RD RbaseD rg t = Some rD ->
         exprD' tus tvs t (apps e (map fst es)) = Some eesD ->
         setoid_rewrite_rec tus tvs es ->
         exists eesD',
@@ -249,7 +194,7 @@ Section setoid.
                     consider (type_cast (typ2 t t2) t1); intros.
                     - generalize dependent (typ2_cast t t2).
                       intro e1. autorewrite with eq_rw.
-                      consider (RD rg t2); intros.
+                      consider (RD RbaseD rg t2); intros.
                       + inv_all; subst.
                         eapply IHe in H; eauto.
                         2: constructor.
@@ -257,14 +202,16 @@ Section setoid.
                         change_rewrite H.
                         eexists; split; eauto.
                         destruct r. unfold Rcast. simpl.
-                        unfold relation. intros.
-                        Require Import MirrorCore.Util.Compat.
+                        revert H6.
+                        autorewrite_with_eq_rw.
+                        intros. inv_all. subst.
                         autorewrite_with_eq_rw.
                         red. intros.
                         do 2 rewrite Eq.match_eq_sym_eq with (pf:=e1).
-                        eapply H6.
-                      + inversion H6.
-                    - clear - H5. autorewrite with eq_rw in H5. inversion H5. }
+                        eapply H7.
+                      + exfalso; clear - H6.
+                        revert H6. autorewrite_with_eq_rw. congruence.
+                    - clear - H5. autorewrite_with_eq_rw_in H5. inversion H5. }
                   { autorewrite with eq_rw in H5. inversion H5. }
                 * inversion H5.
               + inversion H4.
@@ -279,9 +226,9 @@ Section setoid.
             (respectful : expr typ func -> R -> option (list R)).
 
     Hypothesis reflexiveOk
-    : forall r t rD, reflexive r = true -> RD r t = Some rD -> Reflexive rD.
+    : forall r t rD, reflexive r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
     Hypothesis transitiveOk
-    : forall r t rD, transitive r = true -> RD r t = Some rD -> Transitive rD.
+    : forall r t rD, transitive r = true -> RD RbaseD r t = Some rD -> Transitive rD.
 
     Hypothesis rwOk : setoid_rewrite_spec rw.
     Hypothesis respectfulOk : respectful_spec respectful.
@@ -402,7 +349,7 @@ Section setoid.
            destruct c; simpl; intros; auto.
     Qed.
     Lemma Proper_rw_bind (T U : Type)
-    : Proper (@eq (mrw T) ==> (pointwise_relation T (@eq (mrw U))) ==> @eq (mrw U)) (@rw_bind T U).
+    : Proper (@eq (mrw T) ==> (pointwise_relation (@eq (mrw U))) ==> @eq (mrw U)) (@rw_bind T U).
     Proof.
       clear. compute. intros; subst.
       destruct y; auto.
@@ -447,7 +394,7 @@ Section setoid.
         rw_map2 (fun ef r => snd ef r) es rs = Some es' ->
         forall tus tvs ts esD,
           setoid_rewrite_rec tus tvs es ->
-          Forall2 (fun t r => exists rD, RD r t = Some rD) ts rs ->
+          Forall2 (fun t r => exists rD, RD RbaseD r t = Some rD) ts rs ->
           hlist_build (fun t => ExprI.exprT tus tvs (typD t))
                       (fun t e => exprD' tus tvs t (fst e)) ts es = Some esD ->
           exists esD',
@@ -455,7 +402,7 @@ Section setoid.
                         (fun t e => exprD' tus tvs t e) ts es' = Some esD' /\
             Forall2_hlist2 (fun r t (e e' : ExprI.exprT tus tvs (typD t)) =>
                               forall us vs rD,
-                                RD r t = Some rD ->
+                                RD RbaseD r t = Some rD ->
                                 rD (e us vs) (e' us vs)) rs esD esD'.
     Proof.
       induction es; destruct ts; destruct rs; simpl in *; intros;
@@ -478,7 +425,7 @@ Section setoid.
 
     Theorem recursive_rewrite_sound
     : forall tus tvs t r rD',
-        RD r t = Some rD' ->
+        RD RbaseD r t = Some rD' ->
         forall es f f' rs e',
         recursive_rewrite f' es rs = rw_ret e' ->
         forall ts fD rD eD fD'
@@ -486,7 +433,7 @@ Section setoid.
           exprD' tus tvs t (apps f (map fst es)) = Some eD ->
           exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) f = Some fD ->
           exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) f' = Some fD' ->
-          RD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD ->
+          RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD ->
           exists eD',
             exprD' tus tvs t e' = Some eD' /\
             forall us vs,
@@ -499,7 +446,7 @@ Section setoid.
       { inversion 1; subst. clear H0.
         intros.
         match goal with
-          | H : RD _ ?t = _ , H' : RD _ ?t' = _ |- _ =>
+          | H : RD RbaseD _ ?t = _ , H' : RD RbaseD _ ?t' = _ |- _ =>
             let HH := fresh in
             (assert (HH : t = t')); [ | destruct HH ]
         end.
@@ -618,7 +565,7 @@ Section setoid.
     Lemma bottom_up_sound_lem
     : forall e e' tus tvs t rg rD eD,
         bottom_up e rg = Some e' ->
-        RD rg t = Some rD ->
+        RD RbaseD rg t = Some rD ->
         exprD' tus tvs t e = Some eD ->
         exists eD',
           exprD' tus tvs t e' = Some eD' /\
