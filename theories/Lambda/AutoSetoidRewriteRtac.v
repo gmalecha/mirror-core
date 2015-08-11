@@ -2565,3 +2565,4 @@ End setoid.
 
 Arguments NoProgress {_}.
 Arguments Progress {_} _.
+Export MirrorCore.Lambda.RewriteRelations.

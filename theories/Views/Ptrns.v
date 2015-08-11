@@ -307,6 +307,25 @@ Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
   Definition run_default {X T} (p : ptrn X T) (def : T) (x : X) : T :=
     Eval compute in run_tptrn (pdefault p def) x.
 
+  Theorem run_default_sound
+  : forall {X T} (P : X -> T -> Prop) (p : ptrn X T) (d : T) x,
+      ptrn_ok p ->
+      (forall res,
+          Succeeds x p res ->
+          P x res) ->
+      P x d ->
+      P x (run_default p d x).
+  Proof using.
+    intros.
+    change (@run_default X T) with (fun p d => @run_tptrn X T (pdefault p d)).
+    unfold run_tptrn.
+    unfold pdefault.
+    destruct (H x).
+    { destruct H2. red in H2.
+      rewrite H2. auto. }
+    { red in H2. rewrite H2. auto. }
+  Qed.
+
   Section Anyof.
     Context {T : Type}.
     Variable (P : T -> Prop).
@@ -354,3 +373,13 @@ Ltac ptrn_elim :=
          let z := constr:(_:SucceedsE f p v) in
          apply s_elim in H; do 2 red in H; destruct_ands H
    end.
+
+Ltac ptrn_contradict :=
+  match goal with
+  | H : forall (x : _), forall y, forall z, z _ = y _ |- _ =>
+    exfalso; clear - H;
+    specialize (H _ (fun _ => true) (fun _ => false)); simpl in H; congruence
+  | H : forall (x : _), forall y, forall z, y _ = z _ |- _ =>
+    exfalso; clear - H;
+    specialize (H _ (fun _ => true) (fun _ => false)); simpl in H; congruence
+  end.

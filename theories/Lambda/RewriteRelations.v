@@ -158,16 +158,6 @@ Section setoid.
       inv_all. subst. eauto. }
   Qed.
 
-  Ltac ptrn_contradict :=
-    match goal with
-    | H : forall (x : _), forall y, forall z, z _ = y _ |- _ =>
-      exfalso; clear - H;
-      specialize (H _ (fun _ => true) (fun _ => false)); simpl in H; congruence
-    | H : forall (x : _), forall y, forall z, y _ = z _ |- _ =>
-      exfalso; clear - H;
-      specialize (H _ (fun _ => true) (fun _ => false)); simpl in H; congruence
-    end.
-
   (** Patterns *)
   Definition ptrnRinj {T : Type} (p : ptrn Rbase T) : ptrn R T :=
     fun r _T good bad =>
