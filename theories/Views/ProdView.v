@@ -30,10 +30,10 @@ Section ExprDInject.
   Context {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
   Context {RSym_func : RSym func} {RSymOk_func : RSymOk RSym_func}.
   Context {Typ2_tyArr : Typ2 _ Fun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
-  
+
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
- 
-  Global Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ func) (t : typ) 
+
+  Global Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ func) (t : typ)
          (v : exprT tus tvs (typD t)):
     Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (App e1 e2) = Some v) := {
       result := exists u v1 v2, ExprDsimul.ExprDenote.exprD' tus tvs (tyArr u t) e1 = Some v1 /\
@@ -263,8 +263,8 @@ Section MakeProd.
     rewrite H0 in H; inv_all; subst.
     exists t, t0; split; [assumption | reflexivity].
   Qed.
-  
-  Global Instance fptrnPair_SucceedsE {T : Type} {f : prod_func typ} 
+
+  Global Instance fptrnPair_SucceedsE {T : Type} {f : prod_func typ}
          {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
 
     SucceedsE f (fptrnPair p) res := {
@@ -272,14 +272,14 @@ Section MakeProd.
       s_elim := @Succeeds_fptrnPair T f p res  pok
     }.
 
-  Global Instance fptrnFst_SucceedsE {T : Type} {f : prod_func typ} 
+  Global Instance fptrnFst_SucceedsE {T : Type} {f : prod_func typ}
          {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
     SucceedsE f (fptrnFst p) res := {
       s_result := exists t u, Succeeds (t, u) p res /\ f = pFst t u;
       s_elim := @Succeeds_fptrnFst T f p res pok
     }.
 
-  Global Instance fptrnSnd_SucceedsE {T : Type} {f : prod_func typ} 
+  Global Instance fptrnSnd_SucceedsE {T : Type} {f : prod_func typ}
          {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
     SucceedsE f (fptrnSnd p) res := {
       s_result := exists t u, Succeeds (t, u) p res /\ f = pSnd t u;
@@ -308,10 +308,33 @@ Section Tactics.
   Definition red_fst_ptrn : ptrn (expr typ func) (expr typ func) :=
     pmap (fun xy => snd (fst (snd xy))) (ptrnFst ignore (ptrnPair ignore get ignore)).
 
+  Local Ltac solve_ok :=
+    repeat first [ simple eapply ptrn_ok_pmap
+                 | simple eapply ptrn_ok_app
+                 | simple eapply ptrn_ok_inj
+                 | simple eapply ptrn_view_ok
+                 | simple eapply ptrn_ok_ignore
+                 | simple eapply ptrn_ok_get
+                 | simple eapply fptrnFst_ok
+                 | simple eapply fptrnSnd_ok
+                 | simple eapply fptrnPair_ok ].
+
+  Local Instance ptrn_ok_red_fst_ptrn : ptrn_ok red_fst_ptrn.
+  Proof.
+    unfold red_fst_ptrn, ptrnFst, ptrnPair.
+    solve_ok.
+  Defined.
+
   Definition red_fst := run_tptrn (pdefault_id red_fst_ptrn).
 
   Definition red_snd_ptrn : ptrn (expr typ func) (expr typ func) :=
     pmap (fun xy => snd (snd xy)) (ptrnSnd ignore (ptrnPair ignore ignore get)).
+
+  Local Instance ptrn_ok_red_snd_ptrn : ptrn_ok red_snd_ptrn.
+  Proof.
+    unfold red_snd_ptrn, ptrnSnd, ptrnPair.
+    solve_ok.
+  Defined.
 
   Definition red_snd := run_tptrn (pdefault_id red_snd_ptrn).
 
@@ -319,32 +342,32 @@ Section Tactics.
                              (fun _ _ _ _ =>
                                 (beta_all (fun _ e args => red_fst (apps e args)))).
 
-Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
-Proof.
-  unfold partial_reducer_ok; intros.
-  exists val; split; [|reflexivity].
-  generalize dependent (apps e es); clear e es; intros e H.
-  unfold red_fst.
-  
-  apply run_tptrn_id_sound; [assumption|]; intros.
-  solve_denotation.
-  unfold pairR, fstR.
-  solve_denotation.
-  assumption.
-Qed.
+  Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
+  Proof.
+    unfold partial_reducer_ok; intros.
+    exists val; split; [|reflexivity].
+    generalize dependent (apps e es); clear e es; intros e H.
+    unfold red_fst.
 
-Lemma red_snd_ok : partial_reducer_ok (fun e args => red_snd (apps e args)).
-Proof.
-  unfold partial_reducer_ok; intros.
-  exists val; split; [|reflexivity].
-  generalize dependent (apps e es); clear e es; intros e H.
-  unfold red_snd.
-  
-  apply run_tptrn_id_sound; [assumption|]; intros.
-  solve_denotation.
-  unfold pairR, sndR.
-  solve_denotation.
-  assumption.
-Qed.
+    apply run_tptrn_id_sound; [eauto with typeclass_instances|assumption|]; intros.
+    solve_denotation.
+    unfold pairR, fstR.
+    solve_denotation.
+    assumption.
+  Qed.
+
+  Lemma red_snd_ok : partial_reducer_ok (fun e args => red_snd (apps e args)).
+  Proof.
+    unfold partial_reducer_ok; intros.
+    exists val; split; [|reflexivity].
+    generalize dependent (apps e es); clear e es; intros e H.
+    unfold red_snd.
+
+    apply run_tptrn_id_sound; [eauto with typeclass_instances|assumption|]; intros.
+    solve_denotation.
+    unfold pairR, sndR.
+    solve_denotation.
+    assumption.
+  Qed.
 
 End Tactics.

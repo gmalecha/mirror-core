@@ -49,6 +49,22 @@ Section setoid.
       | UVar a => bad (UVar a)
       end.
 
+  Definition appl {typ func T U : Type}
+        (f : ptrn (expr typ func) T)
+        (g : ptrn (expr typ func) (T -> U)) : ptrn (expr typ func) U :=
+          fun e _T good bad =>
+      match e with
+      | ExprCore.Var a => bad (ExprCore.Var a)
+      | Inj a => bad (Inj a)
+      | App l r =>
+        Mbind (Mrebuild (fun x => App x r) (f l))
+              (fun x : T =>
+                 Mmap (fun y : T -> U => y x)
+                      (Mrebuild (App l) (g r))) good bad
+      | Abs a b => bad (Abs a b)
+      | ExprCore.UVar a => bad (ExprCore.UVar a)
+      end.
+
   Definition var : ptrn (expr typ func) nat :=
     fun e _T good bad =>
       match e with
@@ -292,39 +308,6 @@ Section setoid.
     eapply Hstep; try eassumption.
   Qed.
 
-
-(*
-  Require Import MirrorCore.Lambda.AppN.
-
-  Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T)
-           (args : hlist (ptrn (expr typ func)) Ts)
-  : ptrn (expr typ func) (T * hlist (fun x => x) Ts) :=
-    match args in hlist _ Ts
-          return ptrn (expr typ func) (T * hlist (fun x => x) Ts)
-    with
-    | Hnil => pmap (fun x => (x,Hnil)) f
-    | Hcons p ps => pmap (fun a => let '(a,b,c) := a in
-                                   (a, Hcons b c)) (appN (app f p) ps)
-    end.
-
-  Inductive Forall_hlist {T : Type} {F : T -> Type} (P : forall x, F x -> Prop)
-  : forall {Ts : list T}, hlist F Ts -> Prop :=
-  | Forall_hlist_nil : Forall_hlist P Hnil
-  | Forall_hlist_cons : forall t Ts x xs,
-      @P t x ->
-      Forall_hlist P xs ->
-      Forall_hlist (Ts:=t::Ts) P (Hcons x xs).
-
-  Inductive Forall3_hlist {T : Type} {F : Type} {G : T -> Type} {H : T -> Type}
-            (P : forall x, F -> G x -> H x -> Prop)
-  : forall {Ts : list T}, list F -> hlist G Ts -> hlist H Ts -> Prop :=
-  | Forall3_hlist_nil : Forall3_hlist P nil Hnil Hnil
-  | Forall3_hlist_cons : forall t Ts x xs y ys z zs,
-      @P t x y z ->
-      Forall3_hlist P xs ys zs ->
-      Forall3_hlist (Ts:=t::Ts) P (x :: xs) (Hcons y ys) (Hcons z zs).
-*)
-
   Global Instance ptrn_ok_app
   : forall {T U} (p1 : ptrn _ T) (p2 : ptrn _ U),
       ptrn_ok p1 -> ptrn_ok p2 -> ptrn_ok (app p1 p2).
@@ -333,6 +316,30 @@ Section setoid.
     destruct x; eauto.
     destruct (H x1) as [ [ ? ? ] | ? ]; setoid_rewrite H1; eauto.
     destruct (H0 x2) as [ [ ? ? ] | ? ]; setoid_rewrite H2; eauto.
+  Qed.
+
+  Global Instance ptrn_ok_appl
+  : forall {typ func T U}
+           (f : ptrn (expr typ func) T)
+           (g : ptrn (expr typ func) (T -> U)),
+      ptrn_ok f -> ptrn_ok g -> ptrn_ok (appl f g).
+  Proof using.
+    clear; compute.
+    destruct x; eauto.
+    destruct (H x1) as [ [ ? ? ] | ? ]; setoid_rewrite H1; eauto.
+    destruct (H0 x2) as [ [ ? ? ] | ? ]; setoid_rewrite H2; eauto.
+  Qed.
+
+  Global Instance ptrn_ok_appr
+  : forall {typ func T U}
+           (f : ptrn (expr typ func) (T -> U))
+           (g : ptrn (expr typ func) T),
+      ptrn_ok f -> ptrn_ok g -> ptrn_ok (appr f g).
+  Proof using.
+    clear; compute.
+    destruct x; eauto.
+    destruct (H x1) as [ [ ? ? ] | ? ]; destruct (H0 x2) as [ [ ? ? ] | ? ];
+    setoid_rewrite H2; try setoid_rewrite H1; eauto.
   Qed.
 
   Global Instance ptrn_ok_inj
@@ -364,55 +371,13 @@ Section setoid.
     destruct (H0 x0 x) as [ [ ? ? ] | ? ] ; setoid_rewrite H2; eauto.
   Qed.
 
-(*
-  Instance ptrn_ok_appN : forall {Ts} (ps : hlist _ Ts),
-      Forall_hlist (fun _ x => ptrn_ok x) ps ->
-      forall T (p : ptrn _ T), ptrn_ok p ->
-      ptrn_ok (appN p ps).
-  Proof.
-    induction 1; simpl; eauto with typeclass_instances.
-  Qed.
-
-  Theorem Succeeds_appN : forall {Ts} ps,
-      Forall_hlist (fun _ x => ptrn_ok x) ps ->
-      forall T val e (p : ptrn _ T), ptrn_ok p ->
-      Succeeds e (appN p ps) val ->
-      exists f es fv esv,
-           e = apps f es
-        /\ Succeeds f p fv
-        /\ @Forall3_hlist _ _ _ _ (fun T e p v => Succeeds e p v) Ts es ps esv.
-  Proof.
-    induction 1.
-    { simpl. intros.
-      eapply Succeeds_pmap in H0; eauto.
-      destruct H0 as [ ? [ ? ? ] ].
-      subst.
-      exists e; exists nil; exists x; exists Hnil.
-      simpl. split; eauto.
-      split; eauto.
-      constructor. }
-    { simpl. intros.
-      eapply Succeeds_pmap in H2; eauto with typeclass_instances.
-      forward_reason.
-      eapply IHForall_hlist in H2; eauto with typeclass_instances.
-      subst.
-      forward_reason.
-      subst.
-      eapply Succeeds_app in H3; eauto with typeclass_instances.
-      forward_reason. subst.
-      do 4 eexists.
-      split.
-      { change (apps (App x5 x6) x2) with (apps x5 (x6 :: x2)). reflexivity. }
-      split; eauto.
-      constructor; eauto. }
-  Qed.
-*)
-
-  Instance Injective_Succeeds_app {T U} p1 p2 x res : ptrn_ok p1 -> ptrn_ok p2 ->  Injective (Succeeds x (app p1 p2) res) :=
+  Instance Injective_Succeeds_app {T U} p1 p2 x res
+  : ptrn_ok p1 -> ptrn_ok p2 ->  Injective (Succeeds x (app p1 p2) res) :=
   { result := _
   ; injection := @Succeeds_app T U _ _ _ _ _ _ }.
 
-  Instance Injective_Succeeds_inj {X} p x res : ptrn_ok p -> Injective (Succeeds x (inj p) res) :=
+  Instance Injective_Succeeds_inj {X} p x res
+  : ptrn_ok p -> Injective (Succeeds x (inj p) res) :=
   { result := _
   ; injection := @Succeeds_inj X _ _ _ _ }.
 
@@ -451,6 +416,7 @@ Section setoid.
   Global Existing Instance MirrorCore.ExprI.Applicative_exprT.
 
   Require Import MirrorCore.Util.Compat.
+  Require Import Coq.Classes.Morphisms.
 
   Theorem exprT_App_castR tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (Fun T U))
@@ -475,17 +441,16 @@ Section setoid.
     simpl. exact (fun x => x).
   Qed.
 
- Theorem exprT_App_castR2 tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
+  Theorem exprT_App_castR2 tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (typD (tyArr (@typ0 _ _ T _) (@typ0 _ _ U _))))
-          (e2 : exprT tus tvs T) P
-          (H : P (castR (exprT tus tvs) U (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1) e2))) :
-    P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
-                  e1 (castR (exprT tus tvs) _ e2)).
+          (e2 : exprT tus tvs T) (P : _ -> Prop)
+          (H : P (castR (exprT tus tvs) U (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1) e2)))
+  : P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
+                          e1 (castR (exprT tus tvs) _ e2)).
   Proof.
     revert H. clear.
     unfold AbsAppI.exprT_App; simpl.
     repeat (unfold castR, castD; simpl).
-    autorewrite_with_eq_rw.
     generalize dependent (typ0_cast (F:=T)).
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=T)).
@@ -493,8 +458,13 @@ Section setoid.
     intros. revert H. subst U. simpl in *.
     subst T. simpl.
     generalize dependent (typ2_cast t0 t).
-    admit.
-  Admitted.
+    intro.
+    rewrite @Eq.eq_sym_eq.
+    generalize (eq_sym e).
+    clear. unfold tyArr in *.
+    generalize dependent (@typD typ RType_typD (@typ2 typ RType_typD Fun Typ2_Fun t0 t)).
+    intros; subst. assumption.
+  Qed.
 
  Theorem exprT_App_castD tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (typD (@typ2 _ _ Fun _ (@typ0 _ _ T _) (@typ0 _ _ U _))))
@@ -533,15 +503,21 @@ Section setoid.
 
 (* This is not true, it needs a morphism *)
 
- Lemma run_tptrn_id_sound tus tvs t p e val
+ Lemma run_tptrn_id_sound tus tvs t p e val (p_ok : ptrn_ok p)
         (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
         (HSucceeds : forall e', Succeeds e p e' ->
                                 ExprDsimul.ExprDenote.exprD' tus tvs t e' = Some val) :
     ExprDsimul.ExprDenote.exprD' tus tvs t
                                  (run_tptrn (pdefault_id p) e) = Some val.
   Proof.
-    admit.
-  Admitted.
+    unfold run_tptrn, pdefault_id, pdefault.
+    destruct (p_ok e).
+    { destruct H0.
+      specialize (HSucceeds _ H0).
+      unfold Succeeds in *.
+      setoid_rewrite H0. eauto. }
+    { red in H0. setoid_rewrite H0. eauto. }
+  Qed.
 
 
 End setoid.
@@ -604,3 +580,36 @@ Ltac ptrnE :=
 
 Ltac solve_denotation :=
   ptrnE; repeat exprDI; repeat exprT_App_red.
+
+
+(*
+  Require Import MirrorCore.Lambda.AppN.
+
+  Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T)
+           (args : hlist (ptrn (expr typ func)) Ts)
+  : ptrn (expr typ func) (T * hlist (fun x => x) Ts) :=
+    match args in hlist _ Ts
+          return ptrn (expr typ func) (T * hlist (fun x => x) Ts)
+    with
+    | Hnil => pmap (fun x => (x,Hnil)) f
+    | Hcons p ps => pmap (fun a => let '(a,b,c) := a in
+                                   (a, Hcons b c)) (appN (app f p) ps)
+    end.
+
+  Inductive Forall_hlist {T : Type} {F : T -> Type} (P : forall x, F x -> Prop)
+  : forall {Ts : list T}, hlist F Ts -> Prop :=
+  | Forall_hlist_nil : Forall_hlist P Hnil
+  | Forall_hlist_cons : forall t Ts x xs,
+      @P t x ->
+      Forall_hlist P xs ->
+      Forall_hlist (Ts:=t::Ts) P (Hcons x xs).
+
+  Inductive Forall3_hlist {T : Type} {F : Type} {G : T -> Type} {H : T -> Type}
+            (P : forall x, F -> G x -> H x -> Prop)
+  : forall {Ts : list T}, list F -> hlist G Ts -> hlist H Ts -> Prop :=
+  | Forall3_hlist_nil : Forall3_hlist P nil Hnil Hnil
+  | Forall3_hlist_cons : forall t Ts x xs y ys z zs,
+      @P t x y z ->
+      Forall3_hlist P xs ys zs ->
+      Forall3_hlist (Ts:=t::Ts) P (x :: xs) (Hcons y ys) (Hcons z zs).
+*)
