@@ -191,27 +191,21 @@ Section setoid.
                   { autorewrite with eq_rw in H5.
                     inv_all; subst.
                     simpl in H0. rewrite typ2_match_iota in H0; eauto.
-                    consider (type_cast (typ2 t t2) t1); intros.
-                    - generalize dependent (typ2_cast t t2).
-                      intro e1. autorewrite with eq_rw.
-                      consider (RD RbaseD rg t2); intros.
-                      + inv_all; subst.
-                        eapply IHe in H; eauto.
-                        2: constructor.
-                        forward_reason.
-                        change_rewrite H.
-                        eexists; split; eauto.
-                        destruct r. unfold Rcast. simpl.
-                        revert H6.
-                        autorewrite_with_eq_rw.
-                        intros. inv_all. subst.
-                        autorewrite_with_eq_rw.
-                        red. intros.
-                        do 2 rewrite Eq.match_eq_sym_eq with (pf:=e1).
-                        eapply H7.
-                      + exfalso; clear - H6.
-                        revert H6. autorewrite_with_eq_rw. congruence.
-                    - clear - H5. autorewrite_with_eq_rw_in H5. inversion H5. }
+                    autorewrite_with_eq_rw_in H0.
+                    forwardy. inv_all. subst.
+                    eapply IHe with (tvs:=t::tvs) in H; eauto.
+                    2: constructor.
+                    forward_reason.
+                    rewrite H.
+                    autorewrite_with_eq_rw.
+                    eexists; split; eauto.
+                    simpl. unfold Rcast. simpl.
+                    revert H5.
+                    generalize (typ2_cast t t2).
+                    generalize (typD (typ2 t t2)).
+                    intros; subst.
+                    simpl. red. intros.
+                    eapply H5. }
                   { autorewrite with eq_rw in H5. inversion H5. }
                 * inversion H5.
               + inversion H4.

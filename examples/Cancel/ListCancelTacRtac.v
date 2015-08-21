@@ -225,7 +225,7 @@ Section canceller.
 
   Instance Injective_Succeeds_ptrn_view
     : forall (func A : Type) (FV : FuncView func A) (typ : Type)
-             (RType_typ : RType typ) (Sym_func : RSym func) 
+             (RType_typ : RType typ) (Sym_func : RSym func)
              (Sym_A : RSym A),
       FuncViewOk FV Sym_func Sym_A ->
       forall (T : Type) (p : ptrn A T) (x : func) (res : T),
@@ -256,50 +256,6 @@ Section canceller.
     generalize dependent (typD (typ2 t (typ2 (typ1 t) (typ1 t)))).
     intros; subst. reflexivity.
   Qed.
-
-  (** TODO: this should be moved **)
-  Ltac Rty_inv :=
-    let rec find A B more none :=
-        match A with
-        | B => none tt
-        | typ1 ?A' =>
-          match B with
-          | typ1 ?B' => find A' B' more none
-          | _ => let r := constr:(A = B) in more r
-          end
-        | typ2 ?A1' ?A2' =>
-          match B with
-          | typ2 ?B1' ?B2' =>
-            let m' x := find A2' B2' ltac:(fun y => let r := constr:(x /\ y) in more r) ltac:(fun _ => more x) in
-            let n' x := find A2' B2' more none in
-            find A1' B1' m' n'
-          | _ => let r := constr:(A = B) in more r
-          end
-        | _ => let r := constr:(A = B) in more r
-        end
-    in
-    let rec break_ands H P :=
-        match P with
-        | ?A /\ ?B =>
-          let H1 := fresh in
-          let H2 := fresh in
-          destruct H as [ H1 H2 ]; break_ands H1 A ; break_ands H2 B
-        | _ => idtac
-        end
-    in
-    let finish Hstart P :=
-        let H := fresh in
-        assert (H : P) by (inv_all; eauto) ;
-          break_ands H P ; repeat progress subst ;
-          try ( rewrite (UIP_refl Hstart) in * ) ; try clear Hstart
-    in
-    match goal with
-    | H : Rty ?A ?B |- _ =>
-      find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
-    | H : @eq (option typ) (Some ?A) (Some ?B) |- _ =>
-      find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
-    end.
-
 
 
 (*
