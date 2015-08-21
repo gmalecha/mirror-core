@@ -107,7 +107,7 @@ Section setoid.
       | Rpointwise _t r =>
         typ2_match (F:=Fun) (fun T => option (T -> T -> Prop)) t
                    (fun lt rt =>
-                      match type_cast t _t with
+                      match type_cast lt _t with
                         | Some _ =>
                           match RD r rt with
                             | Some r => Some (pointwise_relation (A:=typD lt) r)
@@ -151,9 +151,7 @@ Section setoid.
       autorewrite_with_eq_rw.
       intros; forwardy; inv_all; subst.
       red in y0, y3; subst.
-      f_equal; eauto.
-      clear H0; eapply typ2_inj in y3; eauto.
-      symmetry. tauto. }
+      f_equal; eauto. }
     { forwardy.
       inv_all. subst. eauto. }
   Qed.
