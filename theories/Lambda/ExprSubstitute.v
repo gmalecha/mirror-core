@@ -3,7 +3,6 @@
  **)
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
@@ -50,7 +49,7 @@ Section substitute.
     subst' lookupU lookupV under e.
 
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)

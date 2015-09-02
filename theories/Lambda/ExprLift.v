@@ -7,6 +7,7 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -50,7 +51,7 @@ Section types.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
-  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)

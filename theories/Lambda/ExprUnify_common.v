@@ -18,7 +18,7 @@ Section typed.
   Context {RSym_func : RSym func}.
   Context {RSymOk_func : RSymOk RSym_func}.
   Local Existing Instance Expr_expr. (* : Expr _ (expr typ func) := Expr_expr. *)
-  Context {Typ2_arr : Typ2 _ Fun}.
+  Context {Typ2_arr : Typ2 _ RFun}.
   Context {Typ2Ok_arr : Typ2Ok Typ2_arr}.
   Context {Subst_subst : Subst subst (expr typ func)}.
   Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.

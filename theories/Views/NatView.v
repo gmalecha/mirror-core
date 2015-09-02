@@ -1,5 +1,4 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
@@ -24,7 +23,7 @@ Section NatFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
-  Context {Typ2_tyArr : Typ2 _ Fun}.
+  Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ0_tyNat : Typ0 _ nat}.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
@@ -54,13 +53,13 @@ Section NatFuncInst.
     castD id nat n.
 
   Definition plusR : typD (tyArr tyNat (tyArr tyNat tyNat)) :=
-    castR id (Fun nat (Fun nat nat)) plus.
+    castR id (RFun nat (RFun nat nat)) plus.
 
   Definition minusR : typD (tyArr tyNat (tyArr tyNat tyNat)) :=
-    castR id (Fun nat (Fun nat nat)) minus.
+    castR id (RFun nat (RFun nat nat)) minus.
 
   Definition multR : typD (tyArr tyNat (tyArr tyNat tyNat)) :=
-    castR id (Fun nat (Fun nat nat)) mult.
+    castR id (RFun nat (RFun nat nat)) mult.
 
   Definition nat_func_symD bf :=
     match bf as bf return match typeofNatFunc bf return Type with

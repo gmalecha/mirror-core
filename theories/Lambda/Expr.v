@@ -17,7 +17,7 @@ Section expr.
   Variable typ : Type.
   Variable func : Type.
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)

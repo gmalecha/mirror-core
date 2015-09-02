@@ -16,7 +16,7 @@ Section setoid.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
-  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
@@ -97,7 +97,7 @@ Section setoid.
     match r with
       | Rinj r => RbaseD r t
       | Rrespects l r =>
-        typ2_match (F:=Fun) (fun T => option (T -> T -> Prop)) t
+        typ2_match (F:=RFun) (fun T => option (T -> T -> Prop)) t
                    (fun lt rt =>
                       match RD l lt , RD r rt with
                         | Some l , Some r => Some (respectful l r)
@@ -105,7 +105,7 @@ Section setoid.
                       end)
                    None
       | Rpointwise _t r =>
-        typ2_match (F:=Fun) (fun T => option (T -> T -> Prop)) t
+        typ2_match (F:=RFun) (fun T => option (T -> T -> Prop)) t
                    (fun lt rt =>
                       match type_cast lt _t with
                         | Some _ =>

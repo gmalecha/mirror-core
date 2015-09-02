@@ -10,7 +10,6 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.

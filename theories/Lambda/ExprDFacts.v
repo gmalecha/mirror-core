@@ -21,7 +21,7 @@ Module Make (ED : ExprDenote).
   Section with_types.
     Context {typ : Type}.
     Context {RType_typD : RType typ}.
-    Context {Typ2_Fun : Typ2 _ Fun}.
+    Context {Typ2_Fun : Typ2 _ RFun}.
     Context {func : Type}.
     Context {RSym_func : RSym func}.
 
@@ -113,7 +113,7 @@ Module Make (ED : ExprDenote).
         rewrite <- H1. auto.
         rewrite <- H2. auto. }
       { clear Hinj Huvar Hvar Happ.
-        destruct (@typ2_match_case _ _ Fun _ _ t0).
+        destruct (@typ2_match_case _ _ RFun _ _ t0).
         { specialize (H tvs t0). autorewrite with exprD_rw in *.
           (do 3 destruct H0); rewrite H0 in *; clear H0.
           consider (type_cast x t); intros.
@@ -215,8 +215,7 @@ Module Make (ED : ExprDenote).
       { intros. destruct H0. destruct H1.
         split; eauto.
         autorewrite with exprD_rw.
-        Cases.rewrite_all_goal. simpl.
-        rewrite H0. rewrite H1. reflexivity. }
+        Cases.rewrite_all_goal. reflexivity. }
       { intros. destruct H. split; eauto.
         autorewrite with exprD_rw.
         rewrite typ2_match_iota; eauto.
@@ -252,16 +251,16 @@ Module Make (ED : ExprDenote).
     Proof.
       intros ? ? ? tus tvs e t val tus' tvs'.
       revert e t val.
-      refine (@exprD'_ind 
-                          (fun tus tvs e t val =>
-                             forall val'',
-                               val = Some val'' ->
-                               exists val' : exprT (tus ++ tus') (tvs ++ tvs') (typD t),
-                                 ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
-                                 (forall (us : hlist typD tus) (vs : hlist typD tvs)
-                                         (us' : hlist typD tus') (vs' : hlist typD tvs'),
-                                    val'' us vs = val' (hlist_app us us') (hlist_app vs vs')))
-                          _ _ _ _ _ _ _ _).
+      refine (@exprD'_ind
+                (fun tus tvs e t val =>
+                   forall val'',
+                     val = Some val'' ->
+                     exists val' : exprT (tus ++ tus') (tvs ++ tvs') (typD t),
+                       ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+                       (forall (us : hlist typD tus) (vs : hlist typD tvs)
+                               (us' : hlist typD tus') (vs' : hlist typD tvs'),
+                           val'' us vs = val' (hlist_app us us') (hlist_app vs vs')))
+                _ _ _ _ _ _ _ _).
       { congruence. }
       { intros; inv_all; subst.
         autorewrite with exprD_rw in *; simpl.
@@ -341,7 +340,7 @@ Module Make (ED : ExprDenote).
         eapply IHe2 in H2.
         forward_reason.
         unfold ED.type_of_apply in H3.
-        destruct (typ2_match_case (F := Fun)  t0).
+        destruct (typ2_match_case (F := RFun)  t0).
         { forward_reason. rewrite H4 in H3; clear H4.
           unfold Relim in H3.
           rewrite eq_Const_eq in H3.

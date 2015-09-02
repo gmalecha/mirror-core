@@ -17,7 +17,7 @@ Section reducer.
   Context {sym : Type}.
   Context {typ : Type}.
   Context {RT : RType typ}
-          {T2 : Typ2 _ PreFun.Fun}
+          {T2 : Typ2 _ RFun}
           {RS : RSym sym}.
 
   Context {RTOk : RTypeOk}
@@ -163,11 +163,11 @@ Section reducer.
            (args : list (expr typ sym)), expr typ sym.
 
   Fixpoint applys {ts : tenv typ} {t : typ}
-           (xs : hlist typD ts) : typD (fold_right (@typ2 _ _ Fun _) t ts) -> typD t :=
-    match xs in hlist _ ts return typD (fold_right (@typ2 _ _ Fun _) t ts) -> typD t with
+           (xs : hlist typD ts) : typD (fold_right (@typ2 _ _ RFun _) t ts) -> typD t :=
+    match xs in hlist _ ts return typD (fold_right (@typ2 _ _ RFun _) t ts) -> typD t with
       | Hnil => fun f => f
       | @Hcons _ _ t' ts' x xs => fun f =>
-        @applys ts' t xs (match typ2_cast t' (fold_right (@typ2 _ _ Fun _) t ts') in _ = t return t with
+        @applys ts' t xs (match typ2_cast t' (fold_right (@typ2 _ _ RFun _) t ts') in _ = t return t with
                             | eq_refl => f
                           end x)
     end.
@@ -176,7 +176,7 @@ Section reducer.
     forall e var_terms tus tvs tus' tvs' P,
       @var_termsP tus tvs tus' tvs' var_terms P ->
       forall es t targs fD esD,
-      let arrow_type := fold_right (@typ2 _ _ Fun _) t targs in
+      let arrow_type := fold_right (@typ2 _ _ RFun _) t targs in
       exprD' tus tvs arrow_type e = Some fD ->
       hlist_build (fun t => ExprI.exprT tus' tvs' (typD t))
                   (fun t e => exprD' tus' tvs' t e) targs es = Some esD ->
@@ -678,7 +678,7 @@ Section reducer.
       simpl.
       destruct (delta s).
       - intros.
-        specialize (@delta_ok _ eq_refl (fold_right (typ2 (F:=Fun)) t targs)).
+        specialize (@delta_ok _ eq_refl (fold_right (typ2 (F:=RFun)) t targs)).
         revert delta_ok. revert H0.
         autorewrite with exprD_rw; simpl; intros.
         forward.
@@ -700,13 +700,13 @@ Section reducer.
         rewrite exprD'_apps; eauto.
         unfold apps_sem'.
         cutrewrite (typeof_expr tus' tvs' (Inj s) =
-                    Some (fold_right (typ2 (F:=Fun)) t targs)).
+                    Some (fold_right (typ2 (F:=RFun)) t targs)).
         + revert H0.
           autorewrite with exprD_rw. simpl.
           intro; forward; inv_all; subst.
           change
             (exists val' : ExprI.exprT tus' tvs' (typD t),
-               apply_sem' T2 RS (fold_right (typ2 (F:=Fun)) t targs)
+               apply_sem' T2 RS (fold_right (typ2 (F:=RFun)) t targs)
                           (fun (us : hlist typD tus') (vs : hlist typD tvs') =>
                              (fun (_ : hlist typD tus') (_ : hlist typD tvs') => t0) us vs) es t =
                Some val' /\
@@ -801,7 +801,7 @@ Section reducer.
             change Y with X; generalize dependent X
         end.
         clear.
-        generalize dependent (typD (typ2 t0 (fold_right (typ2 (F:=Fun)) t targs))).
+        generalize dependent (typD (typ2 t0 (fold_right (typ2 (F:=RFun)) t targs))).
         intros; subst. simpl in *. eauto. }
       { (* Abs *)
         simpl; intros.
@@ -913,7 +913,7 @@ Section test.
   Context {sym : Type}.
   Context {typ : Type}.
   Context {RT : RType typ}
-          {T2 : Typ2 _ PreFun.Fun}
+          {T2 : Typ2 _ RFun}
           {RS : RSym sym}.
 
   Context {RTOk : RTypeOk}

@@ -1,5 +1,4 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 
@@ -32,7 +31,7 @@ Section ListOpFuncInst.
   Context {func : Type}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
-  Context {Typ2_tyArr : Typ2 _ Fun}.
+  Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
   Context {Typ1_tyList : Typ1 _ list}.
   Context {Typ0_tyProp : Typ0 _ Prop}.
@@ -81,25 +80,25 @@ Section ListOpFuncInst.
     }.
 
   Definition lengthR t : typD (tyArr (tyList t) tyNat) :=
-    castR id (Fun (list (typD t)) nat) (@length (typD t)).
+    castR id (RFun (list (typD t)) nat) (@length (typD t)).
 
   Definition NoDupR t : typD (tyArr (tyList t) tyProp) :=
-    castR id (Fun (list (typD t)) Prop) (@NoDup (typD t)).
+    castR id (RFun (list (typD t)) Prop) (@NoDup (typD t)).
 
   Definition InR t : typD (tyArr t (tyArr (tyList t) tyProp)) :=
-    castR id (Fun (typD t) (Fun (list (typD t)) Prop)) (@In (typD t)).
+    castR id (RFun (typD t) (RFun (list (typD t)) Prop)) (@In (typD t)).
 
   Definition mapR t u : typD (tyArr (tyArr t u) (tyArr (tyList t) (tyList u))) :=
-    castR id (Fun (Fun (typD t) (typD u)) (Fun (list (typD t)) (list (typD u))))
+    castR id (RFun (RFun (typD t) (typD u)) (RFun (list (typD t)) (list (typD u))))
           (@map (typD t) (typD u)).
 
   Definition foldR t u : typD (tyArr (tyArr u (tyArr t t)) (tyArr t (tyArr (tyList u) t))) :=
-    castR id (Fun (Fun (typD u) (Fun (typD t) (typD t)))
-                  (Fun (typD t) (Fun (list (typD u)) (typD t))))
+    castR id (RFun (RFun (typD u) (RFun (typD t) (typD t)))
+                  (RFun (typD t) (RFun (list (typD u)) (typD t))))
           (@fold_right (typD t) (typD u)).
 
   Definition combineR t u : typD (tyArr (tyList t) (tyArr (tyList u) (tyList (tyProd t u)))) :=
-    castR id (Fun (list (typD t)) (Fun (list (typD u)) (list ((typD t) * (typD u)))))
+    castR id (RFun (list (typD t)) (RFun (list (typD u)) (list ((typD t) * (typD u)))))
           (@combine (typD t) (typD u)).
 
   Definition listOp_func_symD lf :=
@@ -466,7 +465,7 @@ Section Tactics.
   Context {RSymOk_func : RSymOk RSym_func}.
   Context {RelDecEq : RelDec (@eq typ)}.
   Context {RelDecCorrectEq : RelDec_Correct RelDecEq}.
-  Context {Typ2_tyArr : Typ2 _ Fun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
+  Context {Typ2_tyArr : Typ2 _ RFun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
   Context {Typ2_tyProd : Typ2 _ prod} {Typ2Ok_tyProd : Typ2Ok Typ2_tyProd}.
   Context {Typ1_tyList : Typ1 _ list} {Typ1Ok_tyList : Typ1Ok Typ1_tyList}.
   Context {Typ0_tyProp : Typ0 _ Prop} {Typ0Ok_tyProp : Typ0Ok Typ0_tyProp}.
@@ -699,7 +698,7 @@ Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
     ExprDsimul.ExprDenote.exprD' tus tvs (tyList u) (red_map_ptrn t u f lst) =
     Some (castR (exprT tus tvs) (list (typD u))
                 (fun vs us =>
-                   map (castD (exprT tus tvs) (Fun (typD t) (typD u)) df vs us)
+                   map (castD (exprT tus tvs) (RFun (typD t) (typD u)) df vs us)
                        (castD (exprT tus tvs) (list (typD t)) dlst vs us))).
   Proof.
     Opaque beta.
@@ -748,7 +747,7 @@ Eval unfold lst_combine, list_cases, run_tptrn, pdefault, por, pmap,
     ExprDsimul.ExprDenote.exprD' tus tvs t (red_fold_ptrn t u f acc lst) =
     Some (castR (exprT tus tvs) (typD t)
                 (fun vs us =>
-                   fold_right (castD (exprT tus tvs) (Fun (typD u) (Fun (typD t) (typD t))) df vs us)
+                   fold_right (castD (exprT tus tvs) (RFun (typD u) (RFun (typD t) (typD t))) df vs us)
                               (castD (exprT tus tvs) (typD t) dacc vs us)
                               (castD (exprT tus tvs) (list (typD u)) dlst vs us))).
   Proof.

@@ -46,7 +46,7 @@ Section app_full_proofs.
   Variable typ : Type.
   Variable sym : Type.
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Variable RSym_sym : RSym sym.
 
   Variable RTypeOk : RTypeOk.
@@ -186,10 +186,10 @@ Section app_full_proofs.
     Variables tus tvs : tenv typ.
 
     Fixpoint apply' {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
-      typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+      typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
       typD t :=
       match ls as ls
-            return typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+            return typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
                    typD t
       with
         | nil => fun x => x
@@ -213,7 +213,7 @@ Section app_full_proofs.
             | Some cast => Some (Rcast (exprT tus tvs) cast e)
           end
         | l :: ls =>
-          typ2_match (F := Fun) (fun T => exprT tus tvs T -> _) tf
+          typ2_match (F := RFun) (fun T => exprT tus tvs T -> _) tf
                      (fun d r f =>
                         match exprD' tus tvs d l with
                           | None => None
@@ -322,10 +322,10 @@ Section app_full_proofs.
     Variables us vs : env.
 
     Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
-      typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+      typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
       typD t :=
       match ls as ls
-            return typD (fold_right (@typ2 _ _ Fun _) t (map (@projT1 _ _) ls)) ->
+            return typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
                    typD t
       with
         | nil => fun x => x

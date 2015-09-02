@@ -13,7 +13,7 @@ Section setoid.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
   Context {RSym_func : RSym func}.
-  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {RSymOk_func : RSymOk RSym_func}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
@@ -419,7 +419,7 @@ Section setoid.
   Require Import Coq.Classes.Morphisms.
 
   Theorem exprT_App_castR tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
-          (e1 : exprT tus tvs (Fun T U))
+          (e1 : exprT tus tvs (RFun T U))
           (e2 : exprT tus tvs (typD (@typ0 _ _ T _))) P
           (H : P (castR (exprT tus tvs) U (Applicative.ap e1 (castD (exprT tus tvs) T e2)))) :
     P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
@@ -444,7 +444,7 @@ Section setoid.
   Theorem exprT_App_castR2 tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (typD (tyArr (@typ0 _ _ T _) (@typ0 _ _ U _))))
           (e2 : exprT tus tvs T) (P : _ -> Prop)
-          (H : P (castR (exprT tus tvs) U (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1) e2)))
+          (H : P (castR (exprT tus tvs) U (Applicative.ap (castD (exprT tus tvs) (RFun T U) e1) e2)))
   : P (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
                           e1 (castR (exprT tus tvs) _ e2)).
   Proof.
@@ -462,14 +462,14 @@ Section setoid.
     rewrite @Eq.eq_sym_eq.
     generalize (eq_sym e).
     clear. unfold tyArr in *.
-    generalize dependent (@typD typ RType_typD (@typ2 typ RType_typD Fun Typ2_Fun t0 t)).
+    generalize dependent (@typD typ RType_typD (@typ2 typ RType_typD RFun Typ2_Fun t0 t)).
     intros; subst. assumption.
   Qed.
 
  Theorem exprT_App_castD tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
-          (e1 : exprT tus tvs (typD (@typ2 _ _ Fun _ (@typ0 _ _ T _) (@typ0 _ _ U _))))
+          (e1 : exprT tus tvs (typD (@typ2 _ _ RFun _ (@typ0 _ _ T _) (@typ0 _ _ U _))))
           (e2 : exprT tus tvs (typD (@typ0 _ _ T _))) P
-          (H : P (Applicative.ap (castD (exprT tus tvs) (Fun T U) e1)
+          (H : P (Applicative.ap (castD (exprT tus tvs) (RFun T U) e1)
                                  (castD (exprT tus tvs) T e2))) :
    P (castD (exprT tus tvs) U
             (@AbsAppI.exprT_App typ _ Typ2_Fun tus tvs (@typ0 _ _ T _) (@typ0 _ _ U _)
@@ -503,7 +503,7 @@ Section setoid.
 
 (* This is not true, it needs a morphism *)
 
- Lemma run_tptrn_id_sound tus tvs t p e val (p_ok : ptrn_ok p)
+  Lemma run_tptrn_id_sound tus tvs t p e val (p_ok : ptrn_ok p)
         (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
         (HSucceeds : forall e', Succeeds e p e' ->
                                 ExprDsimul.ExprDenote.exprD' tus tvs t e' = Some val) :
@@ -535,7 +535,7 @@ Ltac force_apply lem :=
 Ltac exprT_App_red :=
   match goal with
     | |- context [castR id _ _] => rewrite exprT_App_castR_pure
-    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (Fun ?t1 ?t2) _) _] =>
+    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (RFun ?t1 ?t2) _) _] =>
       force_apply (@exprT_App_castR typ _ _ tus tvs t1 t2 _ _)
     | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
       force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)

@@ -36,7 +36,7 @@ Section setoid.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
-  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
@@ -177,9 +177,9 @@ Section setoid.
       forall ts t rD,
       RD RbaseD r t = Some rD ->
       match pctxD cs
-          , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=Fun)) t ts) e
+          , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) e
           , pctxD cs'
-          , RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts)
+          , RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts)
       with
       | Some _ , Some eD , Some csD' , Some rD' =>
         SubstMorphism cs cs' /\
@@ -466,7 +466,7 @@ Section setoid.
     (** TODO(gmalecha): Move **)
     Lemma exprD'_App
     : forall tus tvs td tr f x fD xD,
-        exprD' tus tvs (typ2 (F:=Fun) td tr) f = Some fD ->
+        exprD' tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
         exprD' tus tvs td x = Some xD ->
         exprD' tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
     Proof.
@@ -480,10 +480,10 @@ Section setoid.
     (** TODO: Move **)
     Fixpoint apply_fold tus tvs t ts
              (es : HList.hlist (fun t => ExprI.exprT tus tvs (typD t)) ts)
-    : ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=Fun)) t ts))
+    : ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
       -> ExprI.exprT tus tvs (typD t) :=
       match es in HList.hlist _ ts
-            return ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=Fun)) t ts))
+            return ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
                    -> ExprI.exprT tus tvs (typD t)
       with
       | HList.Hnil => fun f => f
@@ -496,7 +496,7 @@ Section setoid.
     : forall tus tvs es e t eD,
         exprD' tus tvs t (apps e es) = Some eD ->
         exists ts fD esD,
-          exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) e = Some fD /\
+          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some fD /\
           hlist_build (fun t => ExprI.exprT tus tvs (typD t))
                       (fun t e => exprD' tus tvs t e) ts es = Some esD /\
           forall us vs,
@@ -519,7 +519,7 @@ Section setoid.
           forward; inv_all; subst.
           eapply IHes with (e := App e a) in H3; eauto.
           { forward_reason.
-            assert (x0 = fold_right (typ2 (F:=Fun)) t x1).
+            assert (x0 = fold_right (typ2 (F:=RFun)) t x1).
             { autorewrite with exprD_rw in H2; simpl in H2.
               rewrite (exprD_typeof_Some _ _ _ _ _ H) in H2.
               rewrite H in H2.
@@ -1927,10 +1927,10 @@ Section setoid.
               RD RbaseD r t = Some rD' ->
             forall ts fD rD eD,
               exprD' tus (tvs' ++ tvs) t (apps f (map fst es)) = Some eD ->
-              exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=Fun)) t ts) f = Some fD ->
-              RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD ->
+              exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
+              RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts) = Some rD ->
               match pctxD cs
-                  , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=Fun)) t ts) f'
+                  , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f'
                   , pctxD cs'
               with
               | Some csD , Some fD' , Some csD' =>
@@ -1958,7 +1958,7 @@ Section setoid.
           destruct ts; auto.
           simpl. intros.
           exfalso.
-          assert (TransitiveClosure.rightTrans (@tyAcc _ _) t (typ2 t0 (fold_right (typ2 (F:=Fun)) t ts))).
+          assert (TransitiveClosure.rightTrans (@tyAcc _ _) t (typ2 t0 (fold_right (typ2 (F:=RFun)) t ts))).
           { clear - Typ2Ok_Fun. revert t. revert t0.
             induction ts.
             { simpl. constructor. eapply tyAcc_typ2R; eauto. }
@@ -2039,7 +2039,7 @@ Section setoid.
             specialize (H0 _ _ H5).
             destruct (pctxD cs) eqn:HpctxDcs; trivial.
             destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx)
-                             (typ2 t0 (fold_right (typ2 (F:=Fun)) t ts)) f')
+                             (typ2 t0 (fold_right (typ2 (F:=RFun)) t ts)) f')
                      eqn:HexprD'f'; trivial.
             specialize (H1 _ _ _ H2 ts).
             red in x4.
@@ -2091,9 +2091,9 @@ Section setoid.
               rewrite (UIP_refl x4).
               simpl.
               unfold AbsAppI.exprT_App.
-              generalize (typ2_cast x2 (fold_right (typ2 (F:=Fun)) t ts)).
+              generalize (typ2_cast x2 (fold_right (typ2 (F:=RFun)) t ts)).
               clear.
-              generalize dependent (typD (typ2 x2 (fold_right (typ2 (F:=Fun)) t ts))).
+              generalize dependent (typD (typ2 x2 (fold_right (typ2 (F:=RFun)) t ts))).
               intros; subst.
               simpl in *.
               eauto. }
@@ -2109,9 +2109,9 @@ Section setoid.
               rewrite (UIP_refl x4).
               simpl.
               unfold AbsAppI.exprT_App.
-              generalize (typ2_cast x2 (fold_right (typ2 (F:=Fun)) t ts)).
+              generalize (typ2_cast x2 (fold_right (typ2 (F:=RFun)) t ts)).
               clear.
-              generalize dependent (typD (typ2 x2 (fold_right (typ2 (F:=Fun)) t ts))).
+              generalize dependent (typD (typ2 x2 (fold_right (typ2 (F:=RFun)) t ts))).
               intros; subst.
               simpl in *.
               eauto. } } }
@@ -2133,10 +2133,10 @@ Section setoid.
               RD RbaseD r t = Some rD' ->
             forall ts fD rD eD,
               exprD' tus (tvs' ++ tvs) t (apps f (map fst es)) = Some eD ->
-              exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=Fun)) t ts) f = Some fD ->
-              RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD ->
+              exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
+              RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts) = Some rD ->
               match pctxD cs
-                  , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=Fun)) t ts) f'
+                  , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f'
                   , pctxD cs'
               with
               | Some csD , Some fD' , Some csD' =>
@@ -2243,7 +2243,7 @@ Section setoid.
                 rewrite H9 in H4.
                 destruct (pctxD x0) eqn:HpctxDx0; try contradiction.
                 destruct (RD RbaseD (fold_right Rrespects rg x)
-                             (fold_right (typ2 (F:=Fun)) t x4)) eqn:Hrd;
+                             (fold_right (typ2 (F:=RFun)) t x4)) eqn:Hrd;
                   try contradiction.
                 specialize (H5 _ _ _ H9 Hrd).
                 rewrite H9 in *.
@@ -2290,7 +2290,7 @@ Section setoid.
                 rewrite H7 in H4.
                 destruct (pctxD x0) eqn:HpctxDx0; try contradiction.
                 destruct (RD RbaseD (fold_right Rrespects rg x)
-                             (fold_right (typ2 (F:=Fun)) t x1)) eqn:Hrd;
+                             (fold_right (typ2 (F:=RFun)) t x1)) eqn:Hrd;
                   try contradiction.
                 specialize (H5 _ _ _ H7 Hrd).
                 rewrite H7 in *.
@@ -2378,7 +2378,7 @@ Section setoid.
               rewrite H6 in *.
               destruct (pctxD x0) eqn:HpctxDx0; try contradiction.
               destruct (RD RbaseD (fold_right Rrespects rg x)
-                           (fold_right (typ2 (F:=Fun)) t x1)); try contradiction.
+                           (fold_right (typ2 (F:=RFun)) t x1)); try contradiction.
               specialize (H5 _ eq_refl).
               destruct (pctxD cs') eqn:HpctxDcs'; try assumption.
               forward_reason.

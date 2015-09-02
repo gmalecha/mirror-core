@@ -1,7 +1,5 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
@@ -27,7 +25,7 @@ Section ListFuncInst.
   Context {func : Type}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
   
-  Context {Typ2_tyArr : Typ2 _ Fun}.
+  Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ1_tyList : Typ1 _ list}.
   
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
@@ -56,7 +54,7 @@ Section ListFuncInst.
 
   Definition nilR t : typD (tyList t) := castR id (list (typD t)) nil.
   Definition consR t : typD (tyArr t (tyArr (tyList t) (tyList t))) :=
-    castR id (Fun (typD t) (Fun (list (typD t)) (list (typD t)))) cons.
+    castR id (RFun (typD t) (RFun (list (typD t)) (list (typD t)))) cons.
 
   Definition list_func_symD lf :=
     match lf as lf return match typeof_list_func lf return Type with

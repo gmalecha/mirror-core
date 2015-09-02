@@ -1,5 +1,4 @@
 Require Import FunctionalExtensionality.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.AbsAppI.
@@ -16,7 +15,7 @@ Section some_lemmas.
   Variable sym : Type.
   Variable RType_typ : RType typ.
   Variable RTypeOk : RTypeOk.
-  Variable Typ2_arr : Typ2 _ Fun.
+  Variable Typ2_arr : Typ2 _ RFun.
   Variable Typ2Ok_arr : Typ2Ok Typ2_arr.
   Variable RSym_sym : RSym sym.
   Variable RSymOk_sym : RSymOk RSym_sym.

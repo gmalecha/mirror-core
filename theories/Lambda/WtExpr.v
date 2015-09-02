@@ -1,5 +1,5 @@
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Member.
+Require Import ExtLib.Data.HList.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -19,7 +19,7 @@ Section ways_to_do_terms.
   Variable func : Type.
   Variable RT : RType typ.
   Variable RSym_func : RSym func.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
 
   (** A guaranteed well-typed expr **)
   Inductive wtexpr (tus : list typ) : list typ -> typ -> Type :=
@@ -235,8 +235,6 @@ Section ways_to_do_terms.
   (** exprD' tus tvs e t = Some ->
    ** WellTyped_expr tus tvs t e
    **)
-
-  Require Import ExtLib.Data.HList.
 
   Fixpoint exprD'_wt tus tvs t e (wt : WellTyped_expr tus tvs t e)
   : HList.hlist typD tus -> HList.hlist typD tvs -> typD t :=

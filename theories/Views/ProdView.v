@@ -1,5 +1,4 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Relations.TransitiveClosure.
 
@@ -29,7 +28,7 @@ Section ExprDInject.
   Context {typ func : Type}.
   Context {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
   Context {RSym_func : RSym func} {RSymOk_func : RSymOk RSym_func}.
-  Context {Typ2_tyArr : Typ2 _ Fun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
+  Context {Typ2_tyArr : Typ2 _ RFun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
 
@@ -66,7 +65,7 @@ Section ProdFuncInst.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {RelDecCorrect_typ : RelDec_Correct RelDec_typ}.
 
-  Context {Typ2_tyArr : Typ2 _ Fun}.
+  Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
@@ -91,13 +90,13 @@ Section ProdFuncInst.
     end.
 
   Definition pairR t u : typD (tyArr t (tyArr u (tyProd t u))) :=
-    castR id (Fun (typD t) (Fun (typD u) (typD t * typD u))) pair.
+    castR id (RFun (typD t) (RFun (typD u) (typD t * typD u))) pair.
 
   Definition fstR t u : typD (tyArr (tyProd t u) t) :=
-    castR id (Fun (typD t * typD u) (typD t)) fst.
+    castR id (RFun (typD t * typD u) (typD t)) fst.
 
   Definition sndR t u : typD (tyArr (tyProd t u) u) :=
-    castR id (Fun (typD t * typD u) (typD u)) snd.
+    castR id (RFun (typD t * typD u) (typD u)) snd.
 
   Definition prod_func_symD bf :=
     match bf as bf return match typeof_prod_func bf return Type with
@@ -135,7 +134,7 @@ Section MakeProd.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {HF : FuncView func (prod_func typ)}.
   Context {RelDec_typ : RelDec (@eq typ)}.
-  Context {Typ2_tyArr : Typ2 _ Fun}.
+  Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
 
   Definition fPair t u := f_insert (pPair t u).
@@ -294,7 +293,7 @@ Section Tactics.
   Context {RType_typ : RType typ} {RSym_func : RSym func}.
   Context {RTypeOk_typ : @RTypeOk _ RType_typ}.
   Context {RSymOk_func : RSymOk RSym_func}.
-  Context {Typ2_tyArr : Typ2 _ Fun}.
+  Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
   Context {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
   Context {Typ2Ok_tyProd : Typ2Ok Typ2_tyProd}.

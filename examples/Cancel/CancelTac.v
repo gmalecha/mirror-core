@@ -14,7 +14,7 @@ Section canceller.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 RType_typ Prop}.
-  Context {Typ2_func : Typ2 RType_typ Fun}.
+  Context {Typ2_func : Typ2 RType_typ RFun}.
   Context {Typ2Ok_func : Typ2Ok Typ2_func}.
   Context {RSym_sym : RSym func}.
   Context {RSymOk_sym : RSymOk RSym_sym}.

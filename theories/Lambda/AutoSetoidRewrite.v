@@ -22,7 +22,7 @@ Section setoid.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
-  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
@@ -98,9 +98,9 @@ Section setoid.
     forall tus tvs e r rs t ts rD eD,
       respectful e r = Some rs ->
       RD RbaseD r t = Some rD ->
-      exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) e = Some eD ->
+      exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some eD ->
       exists rD',
-        RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD' /\
+        RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts) = Some rD' /\
         forall us vs,
           Proper rD' (eD us vs).
 
@@ -229,7 +229,7 @@ Section setoid.
 
     Lemma exprD'_App
     : forall tus tvs td tr f x fD xD,
-        exprD' tus tvs (typ2 (F:=Fun) td tr) f = Some fD ->
+        exprD' tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
         exprD' tus tvs td x = Some xD ->
         exprD' tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
     Proof.
@@ -241,10 +241,10 @@ Section setoid.
     Qed.
     Fixpoint apply_fold tus tvs t ts
              (es : HList.hlist (fun t => ExprI.exprT tus tvs (typD t)) ts)
-    : ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=Fun)) t ts))
+    : ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
       -> ExprI.exprT tus tvs (typD t) :=
       match es in HList.hlist _ ts
-            return ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=Fun)) t ts))
+            return ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
                    -> ExprI.exprT tus tvs (typD t)
       with
         | HList.Hnil => fun f => f
@@ -255,7 +255,7 @@ Section setoid.
     : forall tus tvs es e t eD,
         exprD' tus tvs t (apps e es) = Some eD ->
         exists ts fD esD,
-          exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) e = Some fD /\
+          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some fD /\
           hlist_build (fun t => ExprI.exprT tus tvs (typD t))
                       (fun t e => exprD' tus tvs t e) ts es = Some esD /\
           forall us vs,
@@ -279,7 +279,7 @@ Section setoid.
           admit. (*
           eapply IHes with (e := App e a) in H1; eauto.
           { forward_reason.
-            assert (x0 = fold_right (typ2 (F:=Fun)) t x1).
+            assert (x0 = fold_right (typ2 (F:=RFun)) t x1).
             { autorewrite with exprD_rw in H1; simpl in H1.
               forward; inv_all; subst.
               eapply exprD_typeof_Some in H0; eauto.
@@ -425,9 +425,9 @@ Section setoid.
         forall ts fD rD eD fD'
                (Hrws : setoid_rewrite_rec tus tvs es),
           exprD' tus tvs t (apps f (map fst es)) = Some eD ->
-          exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) f = Some fD ->
-          exprD' tus tvs (fold_right (typ2 (F:=Fun)) t ts) f' = Some fD' ->
-          RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=Fun)) t ts) = Some rD ->
+          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
+          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) f' = Some fD' ->
+          RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts) = Some rD ->
           exists eD',
             exprD' tus tvs t e' = Some eD' /\
             forall us vs,
@@ -518,12 +518,12 @@ Section setoid.
             unfold relation.
             autorewrite with eq_rw.
             unfold exprT_App in *.
-            generalize dependent (typ2_cast x (fold_right (typ2 (F:=Fun)) t ts)).
+            generalize dependent (typ2_cast x (fold_right (typ2 (F:=RFun)) t ts)).
             revert x1. revert y2.
             simpl in *.
             intros.
             rewrite (UIP_refl x1) in H; clear x1.
-            generalize dependent (typD (typ2 x (fold_right (typ2 (F:=Fun)) t ts))).
+            generalize dependent (typD (typ2 x (fold_right (typ2 (F:=RFun)) t ts))).
             intros; subst.
             eapply H15; clear H15.
             eapply H. eauto. }

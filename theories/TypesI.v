@@ -1,12 +1,16 @@
 Require Coq.Classes.EquivDec.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Universe Urefl.
+
+(* This is Fun for reflected things *)
+Definition RFun (A B : Type@{Urefl}) : Type@{Urefl} := A -> B.
 
 Section typed.
   Variable typ : Type.
@@ -18,7 +22,7 @@ Section typed.
   Class RType : Type :=
   { (** NOTE: This must be decidable if [exprD] will respect it.
      **)
-    typD : typ -> Type
+    typD : typ -> Type@{Urefl}
 (*
     (** NOTE: weakening is not implementable unless types are strongly typed **)
   ; type_weaken : forall ts t, typD nil t -> typD ts t
@@ -32,7 +36,7 @@ Section typed.
      *
      * The solution is to require that the function respects [Rty].
      *)
-  ; Relim : forall (F : Type -> Type) {to from}
+  ; Relim : forall (F : Type@{Urefl} -> Type) {to from}
                    (pf : Rty to from),
               F (typD from) ->
               F (typD to) :=
@@ -60,7 +64,7 @@ Section typed.
         Relim F (Rsym pf) val =
         Relim (fun T => F T -> F _) pf (fun x => x) val
   ; Relim_trans
-    : forall t u v (pf1 : Rty t u) (pf2 : Rty u v) F
+    : forall t u v (pf1 : Rty t u) (pf2 : Rty u v) (F : Type@{Urefl} -> Type)
              (val : F (typD v)),
         Relim F (Rtrans pf1 pf2) val =
         Relim F pf1 (Relim F pf2 val)
@@ -110,12 +114,12 @@ Section typed.
   Qed.
 
   Section Typ0.
-    Variable F : Type.
+    Variable F : Type@{Urefl}.
 
     Class Typ0 : Type :=
     { typ0 : typ
     ; typ0_cast : typD typ0 = F
-    ; typ0_match : forall (T : Type -> Type) t,
+    ; typ0_match : forall (T : Type@{Urefl} -> Type) t,
                      T F ->
                      T (typD t) ->
                      T (typD t)
@@ -123,7 +127,7 @@ Section typed.
 
     Class Typ0Ok (TI : Typ0) : Type :=
     { typ0_match_iota
-      : forall T tr fa,
+      : forall (T : Type@{Urefl} -> Type) tr fa,
           typ0_match T typ0 tr fa =
           match eq_sym typ0_cast in _ = t return T t with
             | eq_refl => tr
@@ -131,27 +135,27 @@ Section typed.
     ; typ0_match_case
       : forall x,
           (exists (pf : Rty x typ0),
-             forall T tr fa,
+             forall (T: Type@{Urefl} -> Type) tr fa,
                typ0_match T x tr fa =
                Relim T pf
                      match eq_sym typ0_cast in _ = t return T t with
                        | eq_refl => tr
                      end) \/
-          (forall T tr fa, typ0_match T x tr fa = fa)
+          (forall (T: Type@{Urefl} -> Type) tr fa, typ0_match T x tr fa = fa)
     ; typ0_match_Proper
-      : forall T t t' (pf : Rty t' t) tr fa,
+      : forall (T: Type@{Urefl} -> Type) t t' (pf : Rty t' t) tr fa,
           typ0_match T t tr fa =
           Relim T (Rsym pf) (typ0_match T t' tr (Relim T pf fa))
     }.
   End Typ0.
 
   Section Typ1.
-    Variable F : Type -> Type.
+    Variable F : Type@{Urefl} -> Type@{Urefl}.
 
     Class Typ1 : Type :=
     { typ1 : typ -> typ
     ; typ1_cast : forall a, typD (typ1 a) = F (typD a)
-    ; typ1_match : forall (T : Type -> Type) t,
+    ; typ1_match : forall (T : Type@{Urefl} -> Type) t,
                      (forall a, T (F (typD a))) ->
                      T (typD t) ->
                      T (typD t)
@@ -159,7 +163,7 @@ Section typed.
 
     Class Typ1Ok (TI : Typ1) : Type :=
     { typ1_match_iota
-      : forall T a tr fa,
+      : forall (T: Type@{Urefl} -> Type) a tr fa,
           typ1_match T (typ1 a) tr fa =
           match eq_sym (typ1_cast a) in _ = t return T t with
             | eq_refl => tr a
@@ -172,27 +176,27 @@ Section typed.
     ; typ1_match_case
       : forall x,
           (exists d (pf : Rty x (typ1 d)),
-             forall T tr fa,
+             forall (T: Type@{Urefl} -> Type) tr fa,
                typ1_match T x tr fa =
                Relim T pf
                      (match eq_sym (typ1_cast d) in _ = t return T t with
                         | eq_refl => tr d
                       end)) \/
-          (forall T tr fa, typ1_match T x tr fa = fa)
+          (forall (T: Type@{Urefl} -> Type) tr fa, typ1_match T x tr fa = fa)
     ; typ1_match_Proper
-      : forall T t t' (pf : Rty t' t) tr fa,
+      : forall (T: Type@{Urefl} -> Type) t t' (pf : Rty t' t) tr fa,
           typ1_match T t tr fa =
           Relim T (Rsym pf) (typ1_match T t' tr (Relim T pf fa))
     }.
   End Typ1.
 
   Section Typ2.
-    Variable F : Type -> Type -> Type.
+    Variable F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}.
 
     Class Typ2 : Type :=
     { typ2 : typ -> typ -> typ
     ; typ2_cast : forall a b, typD (typ2 a b) = F (typD a) (typD b)
-    ; typ2_match : forall (T : Type -> Type) t,
+    ; typ2_match : forall (T : Type@{Urefl} -> Type) t,
                      (forall a b, T (F (typD a) (typD b))) ->
                      T (typD t) ->
                      T (typD t)
@@ -229,7 +233,7 @@ Section typed.
   End Typ2.
 
   Section apps.
-    Variables (F : Type -> Type -> Type) (G : Type -> Type) (X : Type).
+    Variables (F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}) (G : Type@{Urefl} -> Type@{Urefl}) (X : Type@{Urefl}).
     Context {T2 : Typ2 F} {T1 : Typ1 G} {T0 : Typ0 X}.
 
     Let typ0 := @typ0 _ T0.
@@ -265,7 +269,6 @@ Section typed.
     Context {Typ2Ok_T2 : Typ2Ok T2}.
     Context {Typ1Ok_T1 : Typ1Ok T1}.
     Context {Typ0Ok_T0 : Typ0Ok T0}.
-
 
     Theorem Typ1Ok_App : Typ1Ok Typ2_App.
     Proof.
@@ -432,10 +435,10 @@ Section typed.
 
   End apps.
 
-  Instance Typ0_Arr {T U : Type} (TF : Typ2 Fun) (T0T : Typ0 T) (T0U : Typ0 U)
+  Instance Typ0_Arr {T U : Type@{Urefl}} (TF : Typ2 RFun) (T0T : Typ0 T) (T0U : Typ0 U)
   : Typ0 (T -> U) := @Typ1_App _ _ (@Typ2_App _ _ TF T0T) T0U.
 
-  Instance Typ0Ok_Arr T U (TF : Typ2 Fun) (T0T : Typ0 T) (T0U : Typ0 U)
+  Instance Typ0Ok_Arr (T U:Type@{Urefl}) (TF : Typ2 RFun) (T0T : Typ0 T) (T0U : Typ0 U)
            (TFO : Typ2Ok TF) (T0TO : Typ0Ok T0T) (T0UO : Typ0Ok T0U)
   : Typ0Ok (Typ0_Arr TF T0T T0U).
   Proof.
@@ -468,12 +471,14 @@ Section typed.
     { simpl. intros. destruct pf. reflexivity. }
   Qed.
 
-  Definition castD F U {T : Typ0 U} (val : F (typD (typ0 (F:=U)))) : F U :=
+  Definition castD (F : Type@{Urefl} -> Type) (U: Type@{Urefl})
+             {T : Typ0 U} (val : F (typD (typ0 (F:=U)))) : F U :=
     match @typ0_cast _ T in _ = x return F x with
       | eq_refl => val
     end.
 
-  Definition castR F U {T : Typ0 U} (val : F U) : F (typD (typ0 (F:=U))) :=
+  Definition castR (F : Type@{Urefl} -> Type) (U: Type@{Urefl})
+             {T : Typ0 U} (val : F U) : F (typD (typ0 (F:=U))) :=
     match eq_sym (@typ0_cast _ T) in _ = x return F x with
     | eq_refl => val
     end.
@@ -483,7 +488,7 @@ End typed.
 Section CastRD.
   Context {typ : Type} {RType_typ : RType typ}.
 
-  Theorem castRD (F : Type -> Type) (U : Type)
+  Theorem castRD (F : Type@{Urefl} -> Type) (U : Type@{Urefl})
           {HTyp0 : Typ0 RType_typ U} (x : F (typD (typ0 (F := U)))) :
     castR F (castD F x) = x.
   Proof.
@@ -491,7 +496,7 @@ Section CastRD.
     destruct typ0_cast; reflexivity.
   Qed.
 
-  Theorem castDR (F : Type -> Type) (U : Type)
+  Theorem castDR (F : Type@{Urefl} -> Type) (U : Type@{Urefl})
           {HTyp0 : Typ0 RType_typ U} (x : F U) :
     castD F (castR F x) = x.
   Proof.
@@ -502,7 +507,7 @@ Section CastRD.
   Qed.
 
   Lemma castD_option
-  : forall T (Ty0 : Typ0 _ T) x,
+  : forall (T:Type@{Urefl}) (Ty0 : Typ0 _ T) x,
       castD option x = match x with
                        | None => None
                        | Some x => Some (castD (fun x => x) x)
@@ -513,7 +518,7 @@ Section CastRD.
   Qed.
 
   Lemma castR_option
-  : forall T (Ty0 : Typ0 _ T) x,
+  : forall (T:Type@{Urefl}) (Ty0 : Typ0 _ T) x,
       castR option x = match x with
                        | None => None
                        | Some x => Some (castR (fun x => x) x)

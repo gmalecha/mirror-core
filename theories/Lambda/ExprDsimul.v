@@ -1,5 +1,4 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
@@ -19,7 +18,7 @@ Module ExprDenote <: ExprDenote.
     Context {typ : Type}.
     Context {func : Type}.
     Context {RType_typD : RType typ}.
-    Context {Typ2_Fun : Typ2 _ Fun}.
+    Context {Typ2_Fun : Typ2 _ RFun}.
     Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
@@ -46,25 +45,25 @@ Module ExprDenote <: ExprDenote.
       (** Auxiliary definitions **)
       Definition exprT_GetUAs (n : nat) (t : typ) :
         option (exprT tus tvs (typD t)) :=
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tus n)
-             (fun t_get =>
-                let '(existT _ t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get us)))).
+        match nth_error_get_hlist_nth typD tus n with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get us))
+          | _ => None
+          end
+        | _ => None
+        end.
 
       Definition exprT_GetVAs (n : nat) (t : typ) :
         option (exprT tus tvs (typD t)) :=
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tvs n)
-             (fun t_get =>
-                let '(existT _ t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get vs)))).
+        match nth_error_get_hlist_nth typD tvs n with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get vs))
+          | _ => None
+          end
+        | _ => None
+        end.
 
     End exprT.
 
@@ -74,15 +73,15 @@ Module ExprDenote <: ExprDenote.
       with
         | None => fun _ => None
         | Some T => fun pf =>
-                      Some (@existT _ _ T
-                                    (match pf in _ = Z
-                                           return match Z with
-                                                    | Some t => typD t
-                                                    | None => unit:Type
-                                                  end -> typD _
-                                     with
-                                       | eq_refl => fun x => x
-                                     end (symD f)))
+          Some (@existT _ _ T
+                        (match pf in _ = Z
+                               return match Z with
+                                      | Some t => typD t
+                                      | None => unit:Type
+                                      end -> typD _
+                         with
+                         | eq_refl => fun x => x
+                         end (symD f)))
       end eq_refl.
 
     Section exprD'.
@@ -210,73 +209,75 @@ Module ExprDenote <: ExprDenote.
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t v,
         exprD' tus tvs t (Var v) =
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tvs v)
-             (fun t_get =>
-                let '(existT _ t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get vs)))).
+        match nth_error_get_hlist_nth typD tvs v with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get vs))
+          | _ => None
+          end
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_UVar
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t u,
         exprD' tus tvs t (UVar u) =
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tus u)
-             (fun t_get =>
-                let '(existT _ t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get us)))).
+        match nth_error_get_hlist_nth typD tus u with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get us))
+          | _ => None
+          end
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_Inj
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t s,
         exprD' tus tvs t (Inj s) =
-        bind (m := option)
-             (symAs s t)
-             (fun val =>
-                ret (fun _ _ => val)).
+        match symAs s t with
+        | Some val => Some (fun _ _ => val)
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
     Lemma exprD'_App'
     : forall tus tvs t f x,
         exprD' tus tvs t (App f x) =
-        bind (m := option)
-             (exprD'_simul tus tvs x)
-                 (fun t_x =>
-                    let '(existT _ t' x) := t_x in
-                    bind (m := option)
-                         (exprD' tus tvs (typ_arr t' t) f)
-                         (fun f => ret (exprT_App f x))).
+        match exprD'_simul tus tvs x with
+        | Some (existT _ t' x) =>
+          match exprD' tus tvs (typ_arr t' t) f with
+          | Some f => Some (exprT_App f x)
+          | _ => None
+          end
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
     Lemma exprD'_simul_App'
     : forall tus tvs f x,
         exprD'_simul tus tvs (App f x) =
-        bind (m := option)
-                      (exprD'_simul tus tvs f)
-                      (fun t_f =>
-                         let '(existT _ t' f) := t_f in
-                         arr_match (fun T =>
-                                      exprT tus tvs T ->
-                                      option { t : typ & exprT tus tvs (typD t) })
-                                   t'
-                                   (fun d r f =>
-                                      bind (m := option)
-                                           (exprD' tus tvs d x)
-                                           (fun x =>
-                                              ret (@existT _
-                                                           (fun t => exprT tus tvs (typD t))
-                                                           r
-                                                           (fun us vs => (f us vs) (x us vs)))))
-                                   (fun _ => None)
-                                   f).
+        match exprD'_simul tus tvs f with
+        | Some (existT _ t' f) =>
+          arr_match (fun T =>
+                       exprT tus tvs T ->
+                       option { t : typ & exprT tus tvs (typD t) })
+                    t'
+                    (fun d r f =>
+                       match exprD' tus tvs d x with
+                       | Some x =>
+                         Some (@existT _
+                                       (fun t => exprT tus tvs (typD t))
+                                       r
+                                       (fun us vs => (f us vs) (x us vs)))
+                       | _ => None
+                       end)
+                    (fun _ => None)
+                    f
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
     Lemma exprD'_Abs'
@@ -284,31 +285,31 @@ Module ExprDenote <: ExprDenote.
         exprD' tus tvs t (Abs t' e) =
         arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
-                     bind (m := option)
-                          (type_cast d t')
-                          (fun cast =>
-                             bind (m := option)
-                                  (exprD' tus (t' :: tvs) r e)
-                                  (fun val =>
-                                     ret (fun us vs x =>
-                                            val us (Hcons (Rcast_val cast x) vs)))))
+                     match type_cast d t'
+                         , exprD' tus (t' :: tvs) r e
+                     with
+                     | Some cast , Some val =>
+                       Some (fun us vs x =>
+                               val us (Hcons (Rcast_val cast x) vs))
+                     | _ , _ => None
+                     end)
                   None.
     Proof. reflexivity. Qed.
 
     Lemma exprD'_simul_Abs'
     : forall tus e tvs t,
         exprD'_simul tus tvs (Abs t e) =
-        bind (m := option)
-             (exprD'_simul tus (t :: tvs) e)
-             (fun t_val =>
-                let '(existT _ t' f) := t_val in
-                ret (@existT _ (fun t => exprT tus tvs (typD t))
-                             (typ_arr t t')
-                             match eq_sym (typD_arr t t') in _ = T
-                                   return exprT tus tvs T
-                             with
-                               | eq_refl => fun us vs x => f us (Hcons x vs)
-                             end)).
+        match exprD'_simul tus (t :: tvs) e with
+        | Some (existT _ t' f) =>
+          Some (@existT _ (fun t => exprT tus tvs (typD t))
+                        (typ_arr t t')
+                        match eq_sym (typD_arr t t') in _ = T
+                              return exprT tus tvs T
+                        with
+                        | eq_refl => fun us vs x => f us (Hcons x vs)
+                        end)
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
     Theorem exprD'_Abs
@@ -317,14 +318,14 @@ Module ExprDenote <: ExprDenote.
         exprD' tus tvs t (Abs t' e) =
         arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
-                     bind (m := option)
-                          (type_cast d t')
-                          (fun cast =>
-                             bind (m := option)
-                                  (exprD' tus (t' :: tvs) r e)
-                                  (fun val =>
-                                     ret (fun us vs x =>
-                                            val us (Hcons (Rcast_val cast x) vs)))))
+                     match type_cast d t'
+                         , exprD' tus (t' :: tvs) r e
+                     with
+                     | Some cast , Some val =>
+                       Some (fun us vs x =>
+                               val us (Hcons (Rcast_val cast x) vs))
+                     | _ , _ => None
+                     end)
                   None.
     Proof. reflexivity. Qed.
 
@@ -530,7 +531,7 @@ Module ExprDenote <: ExprDenote.
             specialize (IHe1 (@existT _ _ (typ_arr x x0) e0)).
             simpl in *. destruct IHe1. forward_reason.
             rewrite H8. rewrite H0.
-            repeat (rewrite eq_Arr_eq; rewrite eq_Const_eq).
+            autorewrite_with_eq_rw.
             Cases.rewrite_all_goal. f_equal. f_equal. subst.
             unfold exprT_App. clear.
             generalize (typ2_cast x x0). intro.
@@ -578,14 +579,16 @@ Module ExprDenote <: ExprDenote.
     : (* RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall tus tvs t f x,
         exprD' tus tvs t (App f x) =
-        bind (m := option)
-             (typeof_expr tus tvs x)
-             (fun t' =>
-                bind (exprD' tus tvs (typ_arr t' t) f)
-                     (fun f =>
-                        bind (exprD' tus tvs t' x)
-                             (fun x =>
-                                ret (exprT_App f x)))).
+        match typeof_expr tus tvs x with
+        | Some t' =>
+          match exprD' tus tvs (typ_arr t' t) f
+              , exprD' tus tvs t' x
+          with
+          | Some f , Some x => Some (exprT_App f x)
+          | _ , _ => None
+          end
+        | _ => None
+        end.
     Proof.
       simpl. intros.
       rewrite exprD'_App'. simpl.

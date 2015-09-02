@@ -17,7 +17,7 @@ Section substitute.
   Context {typ : Type}.
   Context {sym : Type}.
   Context {RT : RType typ}
-          {T2 : Typ2 _ PreFun.Fun}
+          {T2 : Typ2 _ RFun}
           {RS : RSym sym}.
 
   Context {RTOk : RTypeOk}
@@ -225,7 +225,7 @@ Section beta.
   Context {typ : Type}.
   Context {sym : Type}.
   Context {RT : RType typ}
-          {T2 : Typ2 _ PreFun.Fun}
+          {T2 : Typ2 _ RFun}
           {RS : RSym sym}
           {TD : EqDec _ (@eq typ)}.
 

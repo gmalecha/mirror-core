@@ -13,7 +13,7 @@ Section AppAbs.
   Variable expr : Type.
   Variable Expr_expr : Expr RType_typ expr.
 
-  Variable Typ2_fun : Typ2 _ Fun.
+  Variable Typ2_fun : Typ2 _ RFun.
 
   Class Abstraction :=
   { Abs : typ -> expr -> expr
@@ -53,7 +53,7 @@ Section AppAbs.
   Definition exprT_Abs {tus tvs t u}
   : exprT tus (t :: tvs) (typD u) ->
     exprT tus tvs (typD (typ2 t u)) :=
-    match eq_sym (typ2_cast (F:=Fun) t u) in _ = T
+    match eq_sym (typ2_cast (F:=RFun) t u) in _ = T
           return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
     with
     | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
@@ -63,7 +63,7 @@ Section AppAbs.
   : exprT tus tvs (typD (typ2 T U)) ->
     exprT tus tvs (typD T) ->
     exprT tus tvs (typD U) :=
-    match eq_sym (typ2_cast (F:=Fun) T U) in _ = t
+    match eq_sym (typ2_cast (F:=RFun) T U) in _ = t
           return exprT tus tvs t ->
                  exprT tus tvs (typD T) ->
                  exprT tus tvs (typD U)
@@ -89,3 +89,5 @@ End AppAbs.
 
 Arguments exprT_App {_ _ _ _ _ _ _} _ _ _ _.
 Arguments exprT_Abs {_ _ _ _ _ _ _} _ _ _.
+
+Print Universes.
