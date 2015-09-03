@@ -1,4 +1,6 @@
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.Classes.RelationClasses.
+Require Import Coq.Setoids.Setoid.
 Require Import Coq.Relations.Relations.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
@@ -8,101 +10,108 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section setoid.
-  Definition M p t := forall T, (t -> T) -> (p -> T) -> T.
+  Universe Um.
+  Universe Ux.
+  Universe Uresult.
+  Universe Uk.
+  Set Printing Universes.
 
-  Definition Mret {p t} (v : t) : M p t :=
+  Variable X : Type@{Ux}.
+
+  Definition M (t : Type@{Uresult}) : Type@{Um}
+    := forall T : Type@{Uk}, (t -> T) -> (X -> T) -> T.
+
+  Definition Mret {t} (v : t) : M t :=
     fun _ good _ => good v.
 
-  Definition Mfail {p t} (v : p) : M p t :=
+  Definition Mfail {t} (v : X) : M t :=
     fun _ _ bad => bad v.
 
-  Definition Mprod {p t u} (ma : M p t) (mb : M p u)
-  : M p (t * u) :=
+  Definition Mprod {t u} (ma : M t) (mb : M u)
+  : M (t * u) :=
     fun _T good bad =>
       @ma _T (fun t => @mb _T (fun u => good (t,u)) bad) bad.
 
-  Definition Mmap {p t u} (f : t -> u) (m : M p t) : M p u :=
+  Definition Mmap {t u} (f : t -> u) (m : M t) : M u :=
     fun _T good bad =>
       m _T (fun x => good (f x)) bad.
 
-  Definition ptrn (X : Type) (t : Type) : Type :=
-    X -> M X t.
+  Definition ptrn (t : Type) : Type :=
+    X -> M t.
 
-  Definition Mt t := forall T, (t -> T) -> T.
+  Definition Mt (t : Type@{Uresult}) : Type@{Um} :=
+    forall T : Type@{Uk}, (t -> T) -> T.
 
-  Definition tptrn X (t : Type) : Type :=
+  Definition tptrn (t : Type@{Uresult}) : Type@{Um} :=
     X -> Mt t.
 
-  Definition por {X t} (l r : ptrn X t) : ptrn X t :=
+  Definition por {t} (l r : ptrn t) : ptrn t :=
     fun e T good bad =>
       l e T good (fun x => r x T good bad).
 
-  Definition pmap {X t u} (f : t -> u) (p : ptrn X t) : ptrn X u :=
+  Definition pmap {t u} (f : t -> u) (p : ptrn t) : ptrn u :=
     fun e T good bad =>
       p e T (fun x => good (f x)) bad.
 
-  Definition get {X} : ptrn X X :=
+  Definition get : ptrn X :=
     fun e _ good _ => good e.
 
-  Definition ignore {X} : ptrn X unit :=
+  Definition ignore : ptrn unit :=
     fun e _ good _ => good tt.
 
-  Definition pret {X t} (v : t) : ptrn X t :=
+  Definition pret {t} (v : t) : ptrn t :=
     fun e _ good _ => good v.
 
-  Definition ptret {X t} (v : t) : tptrn X t :=
+  Definition ptret {t} (v : t) : tptrn t :=
     fun e _ good => good v.
 
-  Definition pfail {X} : ptrn X Empty_set :=
+  Definition pfail : ptrn Empty_set :=
     fun e _ _ bad => bad e.
 
   Section pors.
-    Context {X T : Type}.
+    Context {T : Type@{Uresult}}.
 
-    Fixpoint pors (ps : list (ptrn X T)) : ptrn X T :=
+    Fixpoint pors (ps : list (ptrn T)) : ptrn T :=
       match ps with
       | nil => pmap (fun (x : Empty_set) => match x with end) pfail
-      | List.cons p ps => por p (pors ps)
+      | cons p ps => por p (pors ps)
       end.
   End pors.
 
-  Definition pdefault {X T} (p : ptrn X T) (d : T) : tptrn X T :=
+  Definition pdefault {T} (p : ptrn T) (d : T) : tptrn T :=
     fun e _T good => p e _T good (fun _ => good d).
 
-  Definition MR {T U} : relation (M T U) :=
+  Definition MR {U} : relation (M U) :=
     (fun a b => forall x,
          ((eq ==> eq) ==> (eq ==> eq) ==> eq) (a x) (b x))%signature.
 
-  Definition ptrnR {T U} : relation (ptrn T U) :=
+  Definition ptrnR {U} : relation (ptrn U) :=
     (eq ==> MR)%signature.
 
   Definition MtR {T} : relation (Mt T) :=
     (fun a b => forall x, ((eq ==> eq) ==> eq) (a x) (b x))%signature.
 
-  Definition tptrnR {T U} : relation (tptrn T U) :=
+  Definition tptrnR {U} : relation (tptrn U) :=
     (eq ==> MtR)%signature.
 
-  Definition Succeeds {X T} e (m : ptrn X T) val : Prop :=
+  Definition Succeeds {T} e (m : ptrn T) val : Prop :=
     forall T good bad, m e T good bad = good val.
 
-  Definition Fails {X T} e (m : ptrn X T) : Prop :=
+  Definition Fails {T} e (m : ptrn T) : Prop :=
     forall T good bad, m e T good bad = bad e.
 
-  Definition ptrn_ok {A B} (p : ptrn A B) : Prop :=
+  Definition ptrn_ok {A} (p : ptrn A) : Prop :=
     forall x,
       (exists y, Succeeds x p y) \/
       (Fails x p).
   Existing Class ptrn_ok.
 
-  Definition Mrebuild {X Y T} (f : X -> Y) (m : M X T) : M Y T :=
-    fun _T good bad => m _T good (fun x => bad (f x)).
-
-  Definition Mbind {X T U} (m1 : M X T) (m2 : T -> M X U)
-  : M X U :=
+  Definition Mbind {T U} (m1 : M T) (m2 : T -> M U)
+  : M U :=
     fun _T good bad =>
       m1 _T (fun x => m2 x _T good bad) bad.
 
-  Theorem Succeeds_pmap : forall {X T U} (f : T -> U) p (x : X) res,
+  Theorem Succeeds_pmap : forall {T U} (f : T -> U) p (x : X) res,
       ptrn_ok p ->
       Succeeds x (pmap f p) res ->
       exists y, Succeeds x p y /\ res = f y.
@@ -119,7 +128,7 @@ Section setoid.
       exfalso. specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
   Qed.
 
-  Theorem Succeeds_por : forall {X T} p1 p2 (x : X) (res : T),
+  Theorem Succeeds_por : forall {T} p1 p2 (x : X) (res : T),
       ptrn_ok p1 -> ptrn_ok p2 ->
       Succeeds x (por p1 p2) res ->
       Succeeds x p1 res \/ Succeeds x p2 res.
@@ -135,17 +144,17 @@ Section setoid.
       eauto. }
   Qed.
 
-  Theorem Succeeds_pfail : forall {X : Type} x res,
-      Succeeds x (@pfail X) res ->
+  Theorem Succeeds_pfail : forall x res,
+      Succeeds x pfail res ->
       False.
   Proof.
     compute. intros. destruct res.
   Qed.
 
-  Definition run_tptrn {X T} (p : tptrn X T) (x : X) : T := p x T (fun x => x).
+  Definition run_tptrn {T} (p : tptrn T) (x : X) : T := p x T (fun x => x).
 
   Theorem pdefault_sound
-  : forall X T (P : X -> _ -> Prop) (p : ptrn X T) (d : T) x
+  : forall T (P : X -> _ -> Prop) (p : ptrn T) (d : T) x
            (Hpokp : ptrn_ok p),
       (Proper (eq ==> MtR ==> iff) P) ->
       (forall r, Succeeds x p r -> P x (ptret r x)) ->
@@ -165,10 +174,10 @@ Section setoid.
       eapply H2. }
   Qed.
 
-  Definition pdefault_id {X} (p : ptrn X X) : tptrn X X :=
+  Definition pdefault_id (p : ptrn X) : tptrn X :=
     fun e => pdefault p e e.
 
-  Lemma pmap_sound {X T U} {x : X} {f : T -> U} {p : ptrn X T} {res : U}
+  Lemma pmap_sound {T U} {x : X} {f : T -> U} {p : ptrn T} {res : U}
         (HSucceeds : Succeeds x (pmap f p) res)
         (H : ptrn_ok p)
         {P : U -> Prop}
@@ -180,7 +189,7 @@ Section setoid.
     subst; apply Hstep; assumption.
   Qed.
 
-  Theorem Succeeds_get : forall {X} (x res : X),
+  Theorem Succeeds_get : forall (x res : X),
       Succeeds x get res ->
       x = res.
   Proof.
@@ -189,7 +198,7 @@ Section setoid.
   Qed.
 
   Global Instance ptrn_ok_por
-  : forall {X T} (p1 : ptrn X T) (p2 : ptrn X T),
+  : forall {T} (p1 : ptrn T) (p2 : ptrn T),
       ptrn_ok p1 -> ptrn_ok p2 -> ptrn_ok (por p1 p2).
   Proof.
     clear.
@@ -206,7 +215,7 @@ Section setoid.
   Qed.
 
   Global Instance ptrn_ok_pmap
-  : forall {X T U} (p1 : ptrn X T) (f : T -> U),
+  : forall {T U} (p1 : ptrn T) (f : T -> U),
       ptrn_ok p1 -> ptrn_ok (pmap f p1).
   Proof.
     clear. unfold pmap.
@@ -218,35 +227,35 @@ Section setoid.
       setoid_rewrite H0; eauto. }
   Qed.
 
-  Global Instance ptrn_ok_get : forall {X}, ptrn_ok (@get X).
+  Global Instance ptrn_ok_get : ptrn_ok get.
   Proof.
     left. exists x. compute. reflexivity.
   Qed.
 
-  Global Instance ptrn_ok_ignore : forall {X}, ptrn_ok (@ignore X).
+  Global Instance ptrn_ok_ignore : ptrn_ok ignore.
   Proof.
     left. exists tt. compute. reflexivity.
   Qed.
 
-  Global Instance ptrn_ok_pfail : forall {X}, ptrn_ok (@pfail X).
+  Global Instance ptrn_ok_pfail : ptrn_ok pfail.
   Proof.
     right. compute. reflexivity.
   Qed.
 
-  Instance Injective_Succeeds_por {X T} p1 p2 x res
+  Instance Injective_Succeeds_por {T} p1 p2 x res
   : ptrn_ok p1 -> ptrn_ok p2 -> Injective (Succeeds x (por p1 p2) res) :=
   { result := _
-  ; injection := @Succeeds_por X T _ _ _ _ _ _ }.
+  ; injection := @Succeeds_por T _ _ _ _ _ _ }.
 
-  Instance Injective_Succeeds_pmap {X T U} f p x res
+  Instance Injective_Succeeds_pmap {T U} f p x res
   : ptrn_ok p -> Injective (Succeeds x (pmap f p) res) :=
   { result := _
-  ; injection := @Succeeds_pmap X T U _ _ _ _ _ }.
+  ; injection := @Succeeds_pmap T U _ _ _ _ _ }.
 
-  Instance Injective_Succeeds_get X x res
-  : Injective (Succeeds x (@get X) res) :=
+  Instance Injective_Succeeds_get x res
+  : Injective (Succeeds x get res) :=
   { result := _
-  ; injection := @Succeeds_get _ _ _ }.
+  ; injection := @Succeeds_get _ _ }.
 
 (*
   Ltac drive_Succeeds :=
@@ -269,32 +278,32 @@ Section setoid.
            end.
 *)
 
-Class SucceedsE {X T : Type} (f : X) (p : ptrn X T) (v : T) := {
+Class SucceedsE {T : Type} (f : X) (p : ptrn T) (v : T) := {
   s_result : Prop;
   s_elim : Succeeds f p v -> s_result
 }.
 
-Global Instance pmap_SucceedsE {X T U : Type} {x : X} {f : T -> U} {p : ptrn X T} {res : U}
+Global Instance pmap_SucceedsE {T U : Type} {x : X} {f : T -> U} {p : ptrn T} {res : U}
          {pok : ptrn_ok p} :
   SucceedsE x (pmap f p) res := {
   s_result := exists y, Succeeds x p y /\ res = f y;
   s_elim := Succeeds_pmap pok
 }.
 
-Global Instance por_SucceedsE {X T : Type} {x : X}  {p q : ptrn X T} {res : T}
+Global Instance por_SucceedsE {T : Type} {x : X}  {p q : ptrn T} {res : T}
          {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
   SucceedsE x (por p q) res := {
   s_result := Succeeds x p res \/ Succeeds x q res;
   s_elim := Succeeds_por pok_p pok_q
 }.
 
-Global Instance get_SucceedsE {X : Type} {x res : X} :
+Global Instance get_SucceedsE {x res : X} :
   SucceedsE x get res := {
   s_result := x = res;
-  s_elim := @Succeeds_get X x res
+  s_elim := @Succeeds_get x res
 }.
 
-Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
+Global Instance ignore_SucceedsE {x : X} (res : unit) :
   SucceedsE x ignore res := {
   s_result := res = tt;
   s_elim :=
@@ -304,11 +313,11 @@ Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
 }.
 
 
-  Definition run_default {X T} (p : ptrn X T) (def : T) (x : X) : T :=
+  Definition run_default {T} (p : ptrn T) (def : T) (x : X) : T :=
     Eval compute in run_tptrn (pdefault p def) x.
 
   Theorem run_default_sound
-  : forall {X T} (P : X -> T -> Prop) (p : ptrn X T) (d : T) x,
+  : forall {T} (P : X -> T -> Prop) (p : ptrn T) (d : T) x,
       ptrn_ok p ->
       (forall res,
           Succeeds x p res ->
@@ -317,7 +326,7 @@ Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
       P x (run_default p d x).
   Proof using.
     intros.
-    change (@run_default X T) with (fun p d => @run_tptrn X T (pdefault p d)).
+    change (@run_default T) with (fun p d => @run_tptrn T (pdefault p d)).
     unfold run_tptrn.
     unfold pdefault.
     destruct (H x).
@@ -337,15 +346,21 @@ Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
       end.
   End Anyof.
 
-  Global Instance ptrn_ok_pors : forall {X T} (ps : list (ptrn X T)),
-      List.Forall ptrn_ok ps ->
+  Print List.Forall.
+  Inductive _Forall (A : Type) (P : A -> Prop) : list A -> Prop :=
+    _Forall_nil : _Forall P nil
+  | _Forall_cons : forall (x : A) (l : list A),
+      P x -> _Forall P l -> _Forall P (x :: l).
+
+  Global Instance ptrn_ok_pors : forall {T} (ps : list (ptrn T)),
+      _Forall ptrn_ok ps ->
       ptrn_ok (pors ps).
   Proof.
     induction 1; simpl; intros; eauto with typeclass_instances.
   Qed.
 
-  Theorem Succeeds_pors : forall {X T} ps (x : X) (res : T),
-      List.Forall ptrn_ok ps ->
+  Theorem Succeeds_pors : forall {T} ps (x : X) (res : T),
+      _Forall ptrn_ok ps ->
       Succeeds x (pors ps) res ->
       Anyof (fun p => Succeeds x p res) ps.
   Proof.
@@ -356,8 +371,8 @@ Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
       destruct H1; auto. }
   Qed.
 
-  Global Instance pors_SucceedsE {X : Type} {x : X} (res : unit) ps
-         (Hoks : List.Forall ptrn_ok ps)
+  Global Instance pors_SucceedsE {x : X} (res : unit) ps
+         (Hoks : _Forall ptrn_ok ps)
   : SucceedsE x (pors ps) res :=
   { s_result := Anyof (fun p => Succeeds x p res) ps
   ; s_elim := Succeeds_pors Hoks
@@ -365,13 +380,16 @@ Global Instance ignore_SucceedsE {X : Type} {x : X} (res : unit) :
 
 End setoid.
 
+Definition Mrebuild {X Y T} (f : X -> Y) (m : M X T) : M Y T :=
+  fun _T good bad => m _T good (fun x => bad (f x)).
+
 Ltac ptrn_elim :=
   repeat
    match goal with
    | H:Succeeds ?f ?p ?v
      |- _ =>
          let z := constr:(_:SucceedsE f p v) in
-         apply s_elim in H; do 2 red in H; destruct_ands H
+         apply (@s_elim _ _ _ _ _ z) in H; do 2 red in H; destruct_ands H
    end.
 
 Ltac ptrn_contradict :=
@@ -383,3 +401,7 @@ Ltac ptrn_contradict :=
     exfalso; clear - H;
     specialize (H _ (fun _ => true) (fun _ => false)); simpl in H; congruence
   end.
+
+Arguments get {_} _ _ _ _.
+Arguments ignore {_} _ _ _ _.
+Arguments Succeeds {_ _} _ _ _.
