@@ -9,11 +9,12 @@ Require Import ExtLib.Tactics.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Universe Um.
+Universe Ux.
+Universe Uresult.
+Universe Uk.
+
 Section setoid.
-  Universe Um.
-  Universe Ux.
-  Universe Uresult.
-  Universe Uk.
   Set Printing Universes.
 
   Variable X : Type@{Ux}.
@@ -21,22 +22,22 @@ Section setoid.
   Definition M (t : Type@{Uresult}) : Type@{Um}
     := forall T : Type@{Uk}, (t -> T) -> (X -> T) -> T.
 
-  Definition Mret {t} (v : t) : M t :=
+  Definition Mret {t : Type@{Uresult}} (v : t) : M t :=
     fun _ good _ => good v.
 
-  Definition Mfail {t} (v : X) : M t :=
+  Definition Mfail {t : Type@{Uresult}} (v : X) : M t :=
     fun _ _ bad => bad v.
 
-  Definition Mprod {t u} (ma : M t) (mb : M u)
+  Definition Mprod {t u : Type@{Uresult}} (ma : M t) (mb : M u)
   : M (t * u) :=
     fun _T good bad =>
       @ma _T (fun t => @mb _T (fun u => good (t,u)) bad) bad.
 
-  Definition Mmap {t u} (f : t -> u) (m : M t) : M u :=
+  Definition Mmap {t u : Type@{Uresult}} (f : t -> u) (m : M t) : M u :=
     fun _T good bad =>
       m _T (fun x => good (f x)) bad.
 
-  Definition ptrn (t : Type) : Type :=
+  Definition ptrn (t : Type@{Uresult}) : Type@{Um} :=
     X -> M t.
 
   Definition Mt (t : Type@{Uresult}) : Type@{Um} :=
@@ -45,11 +46,11 @@ Section setoid.
   Definition tptrn (t : Type@{Uresult}) : Type@{Um} :=
     X -> Mt t.
 
-  Definition por {t} (l r : ptrn t) : ptrn t :=
+  Definition por {t : Type@{Uresult}} (l r : ptrn t) : ptrn t :=
     fun e T good bad =>
       l e T good (fun x => r x T good bad).
 
-  Definition pmap {t u} (f : t -> u) (p : ptrn t) : ptrn u :=
+  Definition pmap {t u : Type@{Uresult}} (f : t -> u) (p : ptrn t) : ptrn u :=
     fun e T good bad =>
       p e T (fun x => good (f x)) bad.
 
@@ -59,10 +60,10 @@ Section setoid.
   Definition ignore : ptrn unit :=
     fun e _ good _ => good tt.
 
-  Definition pret {t} (v : t) : ptrn t :=
+  Definition pret {t : Type@{Uresult}} (v : t) : ptrn t :=
     fun e _ good _ => good v.
 
-  Definition ptret {t} (v : t) : tptrn t :=
+  Definition ptret {t : Type@{Uresult}} (v : t) : tptrn t :=
     fun e _ good => good v.
 
   Definition pfail : ptrn Empty_set :=
