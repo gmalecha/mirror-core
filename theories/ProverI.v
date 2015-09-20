@@ -1,3 +1,6 @@
+(** Provers that establish [expr]-encoded facts.
+ ** They can also choose particular substitutions.
+ **)
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ExprProp.
@@ -5,9 +8,6 @@ Require Import MirrorCore.ExprProp.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** Provers that establish [expr]-encoded facts.
- ** They can also choose particular substitutions.
- **)
 Section proverI.
   Context {typ : Type}.
   Context {RType_typ : RType typ}.

@@ -6,7 +6,7 @@ A framework for general, extensible, reflective decision procedures.
 Bugs
 ----
 
-If you find a bug, please report it.
+If you find a bug, please report it on github: [[https://github.com/gmalecha/mirror-core/issues]]
 
 Quick Start
 -----------

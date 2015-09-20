@@ -71,8 +71,9 @@ theories/Lambda/StrongFoldApp.v
 theories/Lambda/WtExpr.v
 theories/Lambda/Lemma.v
 theories/Lambda/ExprUnify_common.v
-theories/Lambda/ExprUnify.v
+theories/Lambda/ExprUnify_simple.v
 theories/Lambda/ExprUnify_simul.v
+theories/Lambda/ExprUnify.v
 theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v

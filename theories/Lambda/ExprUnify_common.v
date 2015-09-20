@@ -318,3 +318,4 @@ Section typed.
 End typed.
 
 Export MirrorCore.Lambda.ExprVariables.
+Export MirrorCore.UnifyI.

@@ -19,17 +19,17 @@ Section semantic.
 
   Definition Provable_val (val : typD tvProp) : Prop :=
     match @typ0_cast _ _ _ _ in _ = t return t with
-      | eq_refl => val
+    | eq_refl => val
     end.
 
   Definition Provable tus tvs (e : expr) : option (exprT tus tvs Prop) :=
     match exprD' tus tvs e tvProp with
-      | None => None
-      | Some p => Some (match @typ0_cast _ _ _ _  in _ = t
-                              return exprT tus tvs t
-                        with
-                          | eq_refl => p
-                        end)
+    | None => None
+    | Some p => Some match @typ0_cast _ _ _ _ in _ = t
+                           return exprT tus tvs t
+                     with
+                     | eq_refl => p
+                     end
     end.
 
   Theorem Provable_weaken
@@ -53,8 +53,8 @@ Section semantic.
   Definition AllProvable tus tvs (es : list expr)
   : option (exprT tus tvs Prop) :=
     match mapT (T:=list) (F:=option) (Provable tus tvs) es with
-      | None => None
-      | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)
+    | None => None
+    | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)
     end.
 
   Theorem AllProvable_nil

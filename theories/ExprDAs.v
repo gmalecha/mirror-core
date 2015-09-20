@@ -15,12 +15,14 @@ Section parameterized.
 
   Definition exprD'_typ0 (tus tvs : list typ) (goal : expr)
   : option (exprT tus tvs T) :=
-    match exprD' tus tvs goal (@typ0 _ _ _ _) return option (exprT tus tvs T) with
-      | None => None
-      | Some val =>
-        Some match typ0_cast(F:=T) in _ = T return exprT tus tvs T with
-               | eq_refl => val
-             end
+    match exprD' tus tvs goal (@typ0 _ _ _ _)
+          return option (exprT tus tvs T)
+    with
+    | None => None
+    | Some val =>
+      Some match typ0_cast(F:=T) in _ = T return exprT tus tvs T with
+           | eq_refl => val
+           end
     end.
 
   Lemma exprD'_typ0_conv
@@ -29,7 +31,7 @@ Section parameterized.
       match pfu in _ = tu , pfv in _ = tv
             return expr -> option (exprT tu tv T)
       with
-        | eq_refl , eq_refl => exprD'_typ0 tus' tvs'
+      | eq_refl , eq_refl => exprD'_typ0 tus' tvs'
       end.
   Proof.
     destruct pfu; destruct pfv. reflexivity.
