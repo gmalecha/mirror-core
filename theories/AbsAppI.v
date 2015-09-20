@@ -89,5 +89,3 @@ End AppAbs.
 
 Arguments exprT_App {_ _ _ _ _ _ _} _ _ _ _.
 Arguments exprT_Abs {_ _ _ _ _ _ _} _ _ _.
-
-Print Universes.
