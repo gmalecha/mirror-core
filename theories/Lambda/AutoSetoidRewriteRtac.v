@@ -1841,6 +1841,110 @@ Section setoid.
         intros. rewrite H5. rewrite <- H6. eauto. }
     Time Qed.
 
+    (** TODO(gmalecha): This is almost identical to the above theorem *)
+    Theorem using_prewrite_db_sound
+    : forall hints : expr typ func ->
+                     list (rw_lemma typ func Rbase * rtacK typ (expr typ func)),
+        (forall e, Forall (fun lt =>
+                             lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
+                             rtacK_sound (snd lt)) (hints e)) ->
+        setoid_rewrite_spec (fun e r =>
+                               rw_bind (using_prewrite_db hints e r)
+                                       (fun e => rw_ret (Progress e))).
+    Proof.
+      intros.
+      clear transitiveOk reflexiveOk respectfulOk rwOk.
+      clear rw respectful transitive reflexive.
+      unfold using_prewrite_db.
+      unfold for_tactic.
+      red. red. intros.
+      unfold rw_bind in H0.
+      forwardy. inv_all. subst.
+      rewrite Plus.plus_comm in H0. rewrite <- app_length in H0.
+      destruct (fun Hx =>
+                    @using_rewrite_db'_sound r _ (wrap_tvs_ctx_subst tvs' cs)
+                                             (hints (expr_convert (length tvs') (length (getVars ctx)) e)) (H _)
+                                             (expr_convert (length tvs') (length (getVars ctx)) e) e1 c0 Hx
+                                             (WellFormed_ctx_subst_wrap_tvs _ H1)).
+      { rewrite <- H0. f_equal.
+        eauto using getUVars_wrap_tvs.
+        eauto using getVars_wrap_tvs.
+        rewrite getUVars_wrap_tvs. reflexivity.
+        rewrite getVars_wrap_tvs. reflexivity. }
+      clear H0. subst.
+      split.
+      { eapply WellFormed_ctx_subst_unwrap_tvs
+          with (ctx':=CTop nil nil); eauto. }
+      intros.
+      specialize (H3 _ _ H0); clear H0.
+      destruct (pctxD cs) eqn:HpctxD_cs; trivial.
+      destruct (@pctxD_wrap_tvs_ctx_subst tvs' _ _ _ HpctxD_cs) as [ ? [ ? ? ] ].
+      rewrite H0 in H3.
+      destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:HexprD'_e; trivial.
+      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      intro Hconv.
+      rewrite Hconv
+         with (tus':=getUVars ctx) (tvs':=getVars ctx++tvs')
+              (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym (getVars_wrap_tvs tvs' ctx))
+           in H3.
+      clear Hconv.
+      eapply expr_convert_sound in HexprD'_e.
+      destruct HexprD'_e as [ ? [ Hx ? ] ].
+      rewrite Hx in *; clear Hx.
+      autorewrite_with_eq_rw_in H3.
+      forwardy.
+      destruct (pctxD_unwrap_tvs_ctx_subst _ _ _ H3) as [ ? [ HpctxD_x1 ? ] ].
+      rewrite HpctxD_x1.
+      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      intro Hconv.
+      rewrite Hconv
+         with (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym(getVars_wrap_tvs tvs' ctx))
+           in H6.
+      clear Hconv.
+      autorewrite_with_eq_rw_in H6.
+      forwardy; inv_all; subst.
+      eapply expr_convert_sound in H6.
+      destruct H6 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
+      destruct H7.
+      split.
+      { clear H9 H8 H4.
+        eapply SubstMorphism_wrap_tvs_ctx_subst; eauto. }
+      { intros.
+        specialize (H9 match
+                        eq_sym (getAmbientUVars_wrap_tvs tvs' ctx) in (_ = V)
+                        return (hlist typD V)
+                      with
+                      | eq_refl => us
+                      end
+                       match
+                         eq_sym (getAmbientVars_wrap_tvs tvs' ctx) in (_ = V)
+                         return (hlist typD V)
+                       with
+                       | eq_refl => vs
+                       end).
+        specialize (H8 us vs
+                   (fun us0 vs0 =>
+                      rD (x0 us0 vs0) (y2 us0 vs0))).
+        simpl in H8.
+        generalize dependent (getVars_wrap_tvs tvs' ctx).
+        generalize dependent (getUVars_wrap_tvs tvs' ctx).
+        generalize dependent (getAmbientUVars_wrap_tvs tvs' ctx).
+        generalize dependent (getAmbientVars_wrap_tvs tvs' ctx).
+        generalize (Ap_pctxD _ HpctxD_x1).
+        generalize (Pure_pctxD _ HpctxD_x1).
+        revert H5 H6 H7. clear.
+        generalize dependent (getAmbientVars (wrap_tvs tvs' ctx)).
+        generalize dependent (getAmbientUVars (wrap_tvs tvs' ctx)).
+        generalize dependent (getUVars (wrap_tvs tvs' ctx)).
+        generalize dependent (getVars (wrap_tvs tvs' ctx)).
+        intros; subst; simpl in *.
+        eapply H8 in H9; clear H8.
+        revert H9. eapply H0; clear H0.
+        eapply H; clear H.
+        clear - H5 H6.
+        intros. rewrite H5. rewrite <- H6. eauto. }
+    Qed.
+
     Instance Injective_mrw_equiv_rw_ret {T} (rT : T -> T -> Prop) (a b : T)
     : Injective (mrw_equiv rT (rw_ret a) (rw_ret b)) :=
     { result := rT a b }.
@@ -1850,7 +1954,9 @@ Section setoid.
       inv_all. assumption.
     Defined.
 
-    Definition rw_bind_catch {T U : Type} (c : mrw T) (k : T -> mrw U) (otherwise : mrw U) : mrw U :=
+    Definition rw_bind_catch {T U : Type} (c : mrw T) (k : T -> mrw U)
+               (otherwise : mrw U)
+    : mrw U :=
       fun tus' tus tvs nus nvs ctx cs =>
         match c tus' tus tvs nus nvs ctx cs with
         | None => otherwise tus' tus tvs nus nvs ctx cs
@@ -2265,7 +2371,7 @@ Section setoid.
                 { intros.
                   gather_facts.
                   eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
-                  gather_facts. 
+                  gather_facts.
                   eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
                   gather_facts.
                   eapply Pure_pctxD; eauto.
