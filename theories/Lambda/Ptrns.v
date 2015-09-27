@@ -397,18 +397,18 @@ Section setoid.
 
   Global Instance app_SucceedsE {T U : Type} {e : expr typ func}
          {p : ptrn (expr typ func) T} {q : ptrn (expr typ func) U} {res : T * U}
-         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
-    SucceedsE e (app p q) res := {
-      s_result := exists l r, e = App l r /\ Succeeds l p (fst res) /\ Succeeds r q (snd res);
-      s_elim := Succeeds_app pok_p pok_q
-    }.
+         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q}
+  : SucceedsE e (app p q) res :=
+  { s_result := exists l r, e = App l r /\ Succeeds l p (fst res) /\ Succeeds r q (snd res)
+  ; s_elim := Succeeds_app pok_p pok_q
+  }.
 
   Global Instance inj_SucceedsE {T : Type} {e : expr typ func}
-         {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p} :
-    SucceedsE e (inj p) res := {
-      s_result := exists f, e = Inj f /\ Succeeds f p res;
-      s_elim := Succeeds_inj pok_p
-    }.
+         {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p}
+  : SucceedsE e (inj p) res :=
+  { s_result := exists f, e = Inj f /\ Succeeds f p res
+  ; s_elim := Succeeds_inj pok_p
+  }.
 
   Lemma Succeeds_appr
   : forall (T U : Type)
@@ -473,6 +473,22 @@ Section setoid.
     { setoid_rewrite H0 in H1.
       specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
   Qed.
+
+  Global Instance SucceedsE_appl (T U : Type)
+           (a : ptrn (expr typ func) (T -> U)) (b : ptrn (expr typ func) T)
+           (e : expr typ func) (res : U) (pok_a : ptrn_ok a) (pok_b : ptrn_ok b)
+  : SucceedsE e (appl b a) res :=
+  { s_result := exists resL resR, exists l r : expr typ func,
+          e = App l r /\ Succeeds r a resL /\ Succeeds l b resR /\
+          res = resL resR
+  ; s_elim := @Succeeds_appl T U a b e res _ _ }.
+
+  Global Instance SucceedsE_appr (T U : Type)
+           (a : ptrn (expr typ func) (T -> U)) (b : ptrn (expr typ func) T)
+           (e : expr typ func) (res : U) (pok_a : ptrn_ok a) (pok_b : ptrn_ok b)
+  : SucceedsE e (appr a b) res :=
+  { s_result := _
+  ; s_elim := @Succeeds_appr T U a b e res _ _ }.
 
   Global Existing Instance Typ2_App.
   Global Existing Instance Typ1_App.
