@@ -162,6 +162,16 @@ Section parameterized.
              sD us vs -> get us = val us vs).
   Proof. eapply SUBST.substD_lookup'; eauto. Qed.
 
+  Lemma amap_substD_amap_empty
+    : forall tus tvs,
+      exists sD,
+        amap_substD tus tvs amap_empty = Some sD /\
+        forall a b, sD a b.
+  Proof using.
+    intros.
+    eapply FMapSubst.SUBST.substD_empty.
+  Qed.
+
   Lemma amap_domain_WellFormed
   : forall (s : amap) (ls : list uvar),
        WellFormed_amap s ->
@@ -792,6 +802,97 @@ Section parameterized.
         auto; try solve [ intros; exfalso; omega ].
       intros.
       f_equal. f_equal. omega.
+  Qed.
+
+  Lemma pigeon_principle'
+  : forall n (m : amap) low,
+      UVarMap.MAP.cardinal m > n ->
+      Forall_amap (fun k _ => low <= k < low + n) m ->
+      False.
+  Proof using.
+    induction n.
+    { simpl. intros.
+      assert (exists x, UVarMap.MAP.cardinal m = S x).
+      { destruct (UVarMap.MAP.cardinal m); eauto.
+        exfalso; omega. }
+      destruct H1.
+      eapply FMapSubst.SUBST.PROPS.cardinal_inv_2 in H1.
+      destruct H1.
+      eapply FMapSubst.SUBST.FACTS.find_mapsto_iff in m0.
+      eapply H0 in m0.
+      omega. }
+    { intros.
+      consider (UVarMap.MAP.find low m).
+      { intros.
+        specialize (IHn (UVarMap.MAP.remove low m) (S low)).
+        apply IHn; clear IHn.
+        { erewrite cardinal_remove in H; [ | eassumption ].
+          eapply gt_S_n in H. assumption. }
+        { red. red in H0.
+          intros.
+          unfold amap_lookup in *.
+          rewrite FMapSubst.SUBST.PROPS.F.remove_o in H2.
+          destruct (UVarMap.MAP.E.eq_dec low u); try congruence.
+          eapply H0 in H2. omega. } }
+      { intros.
+        eapply IHn with (m:=m) (low :=S low).
+        { omega. }
+        { clear - H0 H1.
+          unfold Forall_amap in *.
+          intros.
+          assert (u <> low).
+          { unfold amap_lookup in H.
+            intro. subst.
+            rewrite H1 in H. congruence. }
+          { eapply H0 in H.
+            omega. } } } }
+  Qed.
+
+  Lemma pigeon_principle
+  : forall (m : amap) n low,
+      amap_is_full n m = true ->
+      Forall_amap (fun k _ => low <= k < low + n) m ->
+      forall k, k < n ->
+                amap_lookup (low + k) m <> None.
+  Proof using.
+    unfold amap_is_full.
+    intros m n low H.
+    rewrite rel_dec_correct in H.
+    red; intros. revert H2. revert H0. revert H.
+    revert low. revert m. generalize dependent n. induction k.
+    { intros.
+      destruct n; try omega.
+      eapply pigeon_principle' with (m:=m) (n:=n) (low:=S low).
+      { omega. }
+      { red. intros.
+        assert (low <> u).
+        { intro. subst. replace (u + 0) with u in H2 by omega. congruence. }
+        eapply H0 in H3. omega. } }
+    { intros.
+      destruct n; try omega.
+      eapply lt_S_n in H1.
+      consider (amap_lookup low m).
+      { intros.
+        unfold amap_lookup in *.
+        eapply (IHk _ H1 (UVarMap.MAP.remove low m) (S low)).
+        { erewrite cardinal_remove in H by eassumption.
+          omega. }
+        { clear - H0.
+          unfold Forall_amap in *. intros.
+          unfold amap_lookup in H.
+          rewrite FMapSubst.SUBST.FACTS.remove_o in H.
+          destruct (UVarMap.MAP.E.eq_dec low u); try congruence.
+          eapply H0 in H. omega. }
+        { rewrite FMapSubst.SUBST.FACTS.remove_o.
+          destruct (UVarMap.MAP.E.eq_dec low (S low + k)); auto.
+          rewrite <- H2. f_equal. omega. } }
+      { intros.
+        apply (@pigeon_principle' n m (S low)).
+        { omega. }
+        { unfold Forall_amap in *; intros.
+          assert (u <> low) by congruence.
+          eapply H0 in H4.
+          omega. } } }
   Qed.
 
 End parameterized.

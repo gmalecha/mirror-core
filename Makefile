@@ -26,3 +26,6 @@ deps.pdf:
 	@ dot -Tpdf deps.dot -o deps.pdf
 
 .PHONY: all clean dist init coq deps.pdf check-imports
+
+todo:
+	git grep TODO

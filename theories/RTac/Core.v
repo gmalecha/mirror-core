@@ -156,6 +156,24 @@ Section parameterized.
                    end
     end.
 
+  Lemma WellFormed_Goal_GConj_list
+  : forall tus tvs gs,
+      Forall (WellFormed_Goal tus tvs) gs ->
+      WellFormed_Goal tus tvs (GConj_list gs).
+  Proof.
+    clear.
+    induction 1.
+    { constructor. }
+    { simpl. destruct l; eauto.
+      eapply WFConj_; eauto. }
+  Qed.
+
+  Fixpoint GConj_list_simple (gs : list Goal) : Goal :=
+    match gs with
+    | nil => GSolved
+    | g :: gs => GConj_ g (GConj_list_simple gs)
+    end.
+
   Local Notation "'CSUBST' c" := (ctx_subst (typ:=typ) (expr:=expr) c) (at level 0).
 
   (** StateT subst Option Goal **)
@@ -635,6 +653,58 @@ Section parameterized.
     eapply pctxD_SubstMorphism; [ eassumption | eauto | eauto | ].
     gather_facts.
     eapply Pure_pctxD; eauto.
+  Qed.
+
+  Lemma goalD_GConj_list_GConj_list_simple : forall tus tvs gs,
+      Roption (RexprT _ _ iff)
+              (goalD tus tvs (GConj_list gs))
+              (goalD tus tvs (GConj_list_simple gs)).
+  Proof.
+    clear. induction gs using list_ind_singleton.
+    { reflexivity. }
+    { simpl.
+      destruct (goalD tus tvs t); try reflexivity.
+      constructor. do 5 red.
+      intros.
+      apply equiv_eq_eq in H. apply equiv_eq_eq in H0.
+      subst. tauto. }
+    { simpl in *.
+      destruct (goalD tus tvs t); try constructor.
+      destruct IHgs; try constructor.
+      do 5 red. intros.
+      apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst.
+      apply Data.Prop.and_cancel. intros.
+      apply H; reflexivity. }
+  Qed.
+
+  Lemma goalD_GConj_list
+  : forall tus tvs gs,
+      Roption (RexprT _ _ iff)
+              (goalD tus tvs (GConj_list gs))
+              (List.fold_right (fun e P =>
+                                  match P , goalD tus tvs e with
+                                  | Some P' , Some G =>
+                                    Some (fun us vs => P' us vs /\ G us vs)
+                                  | _ , _ => None
+                                  end) (Some (fun _ _ => True)) gs).
+  Proof.
+    clear. induction gs using list_ind_singleton.
+    { simpl.
+      reflexivity. }
+    { simpl.
+      destruct (goalD tus tvs t); try constructor.
+      do 5 red. intros.
+      eapply equiv_eq_eq in H.
+      eapply equiv_eq_eq in H0. subst. tauto. }
+    { simpl in *.
+      destruct IHgs.
+      { destruct (goalD tus tvs t); constructor. }
+      { destruct (goalD tus tvs t); try constructor.
+        do 5 red. intros.
+        do 5 red in H. rewrite H; eauto.
+        eapply equiv_eq_eq in H0.
+        eapply equiv_eq_eq in H1. subst.
+        tauto. } }
   Qed.
 
 End parameterized.

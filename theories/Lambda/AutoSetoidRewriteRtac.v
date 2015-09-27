@@ -548,17 +548,17 @@ Section setoid.
              (rs : list R)
     : mrw (Progressing (expr typ func)) :=
       match es , rs with
-        | nil , nil => rw_ret (if prog then Progress f else NoProgress)
-        | (e,rec) :: es , r :: rs =>
-          rw_bind (rec r)
-                  (fun e' =>
-                     match e' with
-                     | Progress e' =>
-                       recursive_rewrite' true (App f e') es rs
-                     | NoProgress =>
-                       recursive_rewrite' prog (App f e) es rs
-                     end)
-        | _ , _ => rw_fail
+      | nil , nil => rw_ret (if prog then Progress f else NoProgress)
+      | (e,rec) :: es , r :: rs =>
+        rw_bind (rec r)
+                (fun e' =>
+                   match e' with
+                   | Progress e' =>
+                     recursive_rewrite' true (App f e') es rs
+                   | NoProgress =>
+                     recursive_rewrite' prog (App f e) es rs
+                   end)
+      | _ , _ => rw_fail
       end.
 
     Definition recursive_rewrite := recursive_rewrite' false.
@@ -640,7 +640,8 @@ Section setoid.
         end
       end.
 
-    Definition core_rewrite (lem : rw_lemma typ func Rbase) (tac : rtacK typ (expr typ func))
+    Definition core_rewrite (lem : rw_lemma typ func Rbase)
+               (tac : rtacK typ (expr typ func))
     : expr typ func -> tenv typ -> tenv typ -> nat -> nat ->
       forall c : Ctx typ (expr typ func),
         ctx_subst c -> option (expr typ func * ctx_subst c) :=
@@ -836,7 +837,7 @@ Section setoid.
     Qed.
 
     Lemma pctxD_unwrap_tvs_ctx_subst
-      : forall tvs ctx (cs : ctx_subst _) cD,
+    : forall tvs ctx (cs : ctx_subst _) cD,
         pctxD cs = Some cD ->
         exists cD',
           pctxD (@unwrap_tvs_ctx_subst _ tvs ctx cs (fun x => x)) = Some cD' /\
@@ -926,7 +927,7 @@ Section setoid.
     Qed.
 
     Lemma pctxD_wrap_tvs_ctx_subst
-      : forall tvs ctx (cs : ctx_subst ctx) cD,
+    : forall tvs ctx (cs : ctx_subst ctx) cD,
         pctxD cs = Some cD ->
         exists cD',
           pctxD (wrap_tvs_ctx_subst tvs cs) = Some cD' /\
@@ -1112,193 +1113,20 @@ Section setoid.
       eauto.
     Qed.
 
-    (** TODO(gmalecha): Move **)
-    Lemma WellFormed_Goal_GConj_list
-      : forall tus tvs gs,
-        Forall (WellFormed_Goal tus tvs) gs ->
-        WellFormed_Goal tus tvs (GConj_list gs).
-    Proof.
-      clear.
-      induction 1.
-      { constructor. }
-      { simpl. destruct l; eauto.
-        eapply WFConj_; eauto. }
-    Qed.
-
-    (** TODO: Move **)
-    Fixpoint GConj_list_simple {T U} (gs : list (Goal T U)) : Goal T U :=
-      match gs with
-      | nil => GSolved
-      | g :: gs => GConj_ g (GConj_list_simple gs)
-      end.
-
     Existing Instance Reflexive_Roption.
     Existing Instance Reflexive_RexprT.
-
-    (** TODO: Move **)
-    Lemma goalD_GConj_list_GConj_list_simple : forall tus tvs gs,
-        Roption (RexprT _ _ iff)
-                (goalD tus tvs (GConj_list gs))
-                (goalD tus tvs (GConj_list_simple gs)).
-    Proof.
-      clear. induction gs using list_ind_singleton.
-      { reflexivity. }
-      { simpl.
-        destruct (goalD tus tvs t); try reflexivity.
-        constructor. do 5 red.
-        intros.
-        apply equiv_eq_eq in H. apply equiv_eq_eq in H0.
-        subst. tauto. }
-      { simpl in *.
-        destruct (goalD tus tvs t); try constructor.
-        destruct IHgs; try constructor.
-        do 5 red. intros.
-        apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst.
-        apply Data.Prop.and_cancel. intros.
-        apply H; reflexivity. }
-    Qed.
-
-    (** TODO: Move **)
-    Lemma goalD_GConj_list : forall tus tvs gs,
-        Roption (RexprT _ _ iff)
-                (goalD tus tvs (GConj_list gs))
-                (List.fold_right (fun e P =>
-                                    match P , goalD tus tvs e with
-                                    | Some P' , Some G =>
-                                      Some (fun us vs => P' us vs /\ G us vs)
-                                    | _ , _ => None
-                                    end) (Some (fun _ _ => True)) gs).
-    Proof.
-      clear. induction gs using list_ind_singleton.
-      { simpl.
-        reflexivity. }
-      { simpl.
-        destruct (goalD tus tvs t); try constructor.
-        do 5 red. intros.
-        eapply equiv_eq_eq in H.
-        eapply equiv_eq_eq in H0. subst. tauto. }
-      { simpl in *.
-        destruct IHgs.
-        { destruct (goalD tus tvs t); constructor. }
-        { destruct (goalD tus tvs t); try constructor.
-          do 5 red. intros.
-          do 5 red in H. rewrite H; eauto.
-          eapply equiv_eq_eq in H0.
-          eapply equiv_eq_eq in H1. subst.
-          tauto. } }
-    Qed.
-
-    (** TODO: Move **)
-    Lemma amap_substD_amap_empty : forall tus tvs,
-        exists sD,
-          amap_substD tus tvs (amap_empty (expr typ func)) = Some sD /\
-          forall a b, sD a b.
-    Proof.
-      clear - RTypeOk_typD. intros.
-      eapply FMapSubst.SUBST.substD_empty.
-    Qed.
 
     Opaque instantiate.
 
     (** TODO(gmalecha): Move **)
-    Instance Subst_amap T : Subst (amap T) T := FMapSubst.SUBST.Subst_subst T.
-    Instance SubstOk_amap : SubstOk (Subst_amap (expr typ func)) :=
+    Local Instance Subst_amap T : Subst (amap T) T :=
+      FMapSubst.SUBST.Subst_subst T.
+    Local Instance SubstOk_amap : SubstOk (Subst_amap (expr typ func)) :=
       @FMapSubst.SUBST.SubstOk_subst typ _ (expr typ func) _.
 
-    (** TODO(gmalecha): Move this to amap *)
-    Lemma pigeon_principle'
-    : forall {T} n (m : amap T) low,
-        UVarMap.MAP.cardinal m > n ->
-        Forall_amap (fun k _ => low <= k < low + n) m ->
-        False.
-    Proof using.
-      induction n.
-      { simpl. intros.
-        assert (exists x, UVarMap.MAP.cardinal m = S x).
-        { destruct (UVarMap.MAP.cardinal m); eauto.
-          exfalso; omega. }
-        destruct H1.
-        eapply FMapSubst.SUBST.PROPS.cardinal_inv_2 in H1.
-        destruct H1.
-        eapply FMapSubst.SUBST.FACTS.find_mapsto_iff in m0.
-        eapply H0 in m0.
-        omega. }
-      { intros.
-        consider (UVarMap.MAP.find low m).
-        { intros.
-          specialize (IHn (UVarMap.MAP.remove low m) (S low)).
-          apply IHn; clear IHn.
-          { erewrite cardinal_remove in H; [ | eassumption ].
-            eapply gt_S_n in H. assumption. }
-          { red. red in H0.
-            intros.
-            unfold amap_lookup in *.
-            rewrite FMapSubst.SUBST.PROPS.F.remove_o in H2.
-            destruct (UVarMap.MAP.E.eq_dec low u); try congruence.
-            eapply H0 in H2. omega. } }
-        { intros.
-          eapply IHn with (m:=m) (low :=S low).
-          { omega. }
-          { clear - H0 H1.
-            unfold Forall_amap in *.
-            intros.
-            assert (u <> low).
-            { unfold amap_lookup in H.
-              intro. subst.
-              rewrite H1 in H. congruence. }
-            { eapply H0 in H.
-              omega. } } } }
-    Qed.
-
-    Lemma pigeon_principle
-      : forall {T} (m : amap T) n low,
-        amap_is_full n m = true ->
-        Forall_amap (fun k _ => low <= k < low + n) m ->
-        forall k, k < n ->
-                  amap_lookup (low + k) m <> None.
-    Proof using.
-      unfold amap_is_full.
-      intros T m n low H.
-      rewrite rel_dec_correct in H.
-      red; intros. revert H2. revert H0. revert H.
-      revert low. revert m. generalize dependent n. induction k.
-      { intros.
-        destruct n; try omega.
-        eapply pigeon_principle' with (m0:=m) (n0:=n) (low0:=S low).
-        { omega. }
-        { red. intros.
-          assert (low <> u).
-          { intro. subst. replace (u + 0) with u in H2 by omega. congruence. }
-          eapply H0 in H3. omega. } }
-      { intros.
-        destruct n; try omega.
-        eapply lt_S_n in H1.
-        consider (amap_lookup low m).
-        { intros.
-          unfold amap_lookup in *.
-          eapply (IHk _ H1 (UVarMap.MAP.remove low m) (S low)).
-          { erewrite cardinal_remove in H by eassumption.
-            omega. }
-          { clear - H0.
-            unfold Forall_amap in *. intros.
-            rewrite FMapSubst.SUBST.FACTS.remove_o in H.
-            destruct (UVarMap.MAP.E.eq_dec low u); try congruence.
-            eapply H0 in H. omega. }
-          { rewrite FMapSubst.SUBST.FACTS.remove_o.
-            destruct (UVarMap.MAP.E.eq_dec low (S low + k)); auto.
-            rewrite <- H2. f_equal. omega. } }
-        { intros.
-          apply (@pigeon_principle' T n m (S low)).
-          { omega. }
-          { unfold Forall_amap in *; intros.
-            assert (u <> low) by congruence.
-            eapply H0 in H4.
-            omega. } } }
-    Qed.
-
     (** TODO: Move **)
-    Lemma core_rewrite_sound :
-      forall ctx (cs : ctx_subst ctx),
+    Lemma core_rewrite_sound
+    : forall ctx (cs : ctx_subst ctx),
         let tus := getUVars ctx in
         let tvs := getVars ctx in
         forall l0 r0 e e' cs',
@@ -2264,6 +2092,10 @@ Section setoid.
       eapply recursive_rewrite'_sound in H; eauto.
     Qed.
 
+    (** THIS ALGORITHM DOES NOT SEEM TO BE THE BEST
+     ** Is there a way to handle the possibility of [rw] failing without
+     ** the possibility of redundant back-tracking?
+     **)
     Definition bottom_up (e : expr typ func) (r : R)
     : mrw (Progressing (expr typ func)) :=
       setoid_rewrite
@@ -2304,6 +2136,43 @@ Section setoid.
               else rw_fail))
         e r.
 
+(* This is an alternative implementation that seems like it might be nicer
+    Definition bottom_up (e : expr typ func) (r : R)
+    : mrw (Progressing (expr typ func)) :=
+      setoid_rewrite
+        (fun e efs r =>
+	   let es := map fst efs in
+           rw_orelse
+	     (rw_bind_catch
+                (respectful e r)
+                (fun rs =>
+                   rw_bind (recursive_rewrite e efs rs)
+			   (fun e' =>
+                              match e' with
+                              | NoProgress =>
+                                let e := apps e es in
+                                rw_orelse (rw e r)
+                                          (rw_ret NoProgress)
+                              | Progress e' as X =>
+                                if transitive r
+                                then rw_orelse
+                                       (rw_bind
+                                          (rw e' r)
+                                          (fun x =>
+                                             match x with
+                                             | NoProgress =>
+                                               rw_ret (Progress e')
+                                             | _ => rw_ret x
+                                             end))
+                                       (rw_ret (Progress e'))
+                                else rw_ret X
+                              end))
+                (fun x => rw (apps e es) r x))
+	     (if reflexive r
+              then rw_ret NoProgress
+              else rw_fail))
+        e r.
+*)
     Lemma bottom_up_sound_lem
     : forall e rg,
         @setoid_rewrite_rel e rg (bottom_up e rg).
