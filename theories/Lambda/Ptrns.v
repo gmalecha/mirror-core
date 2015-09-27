@@ -410,6 +410,70 @@ Section setoid.
       s_elim := Succeeds_inj pok_p
     }.
 
+  Lemma Succeeds_appr
+  : forall (T U : Type)
+           (a : ptrn (expr typ func) (T -> U)) (b : ptrn (expr typ func) T)
+           (e : expr typ func) (res : U),
+      ptrn_ok a ->
+      ptrn_ok b ->
+      Succeeds e (appr a b) res ->
+      exists resL resR, exists l r : expr typ func,
+          e = App l r /\ Succeeds l a resL /\ Succeeds r b resR /\
+          res = resL resR.
+  Proof using.
+    unfold appr.
+    intros.
+    red in H1.
+    destruct e;
+      try solve [ specialize (H1 _ (fun _ => true) (fun _ => false));
+                  inversion H1 ].
+    compute in H1.
+    specialize (H0 e2).
+    specialize (H e1).
+    destruct H0.
+    { destruct H0. setoid_rewrite H0 in H1.
+      destruct H.
+      { destruct H. setoid_rewrite H in H1.
+        do 4 eexists. split; [ reflexivity | ]. split; eauto.
+        split; eauto. symmetry; eapply (H1 _ (fun x => x) (fun _ => res)). }
+      { setoid_rewrite H in H1.
+        specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. } }
+    { setoid_rewrite H0 in H1.
+      specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
+  Qed.
+
+  Lemma Succeeds_appl
+    : forall (T U : Type)
+             (a : ptrn (expr typ func) (T -> U)) (b : ptrn (expr typ func) T)
+             (e : expr typ func) (res : U),
+      ptrn_ok a ->
+      ptrn_ok b ->
+      Succeeds e (appl b a) res ->
+      exists resL resR, exists l r : expr typ func,
+          e = App l r /\ Succeeds r a resL /\ Succeeds l b resR /\
+          res = resL resR.
+  Proof using.
+    unfold appl.
+    intros.
+    red in H1.
+    destruct e;
+      try solve [ specialize (H1 _ (fun _ => true) (fun _ => false));
+                  inversion H1 ].
+    compute in H1.
+    specialize (H0 e1).
+    specialize (H e2).
+    destruct H0.
+    { destruct H0. setoid_rewrite H0 in H1.
+      destruct H.
+      { destruct H. setoid_rewrite H in H1.
+        do 4 eexists. split; [ reflexivity | ]. split; eauto.
+        split; eauto. symmetry; eapply (H1 _ (fun x => x) (fun _ => res)). }
+      { setoid_rewrite H in H1.
+        specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. } }
+    { setoid_rewrite H0 in H1.
+      specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
+  Qed.
+
   Global Existing Instance Typ2_App.
   Global Existing Instance Typ1_App.
   Global Existing Instance Typ0_term.
@@ -582,7 +646,7 @@ Ltac solve_denotation :=
   ptrnE; repeat exprDI; repeat exprT_App_red.
 
 
-(*
+(* NOTE: These introduce universe problems!
   Require Import MirrorCore.Lambda.AppN.
 
   Fixpoint appN {T} {Ts : list Type} (f : ptrn (expr typ func) T)
