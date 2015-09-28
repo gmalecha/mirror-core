@@ -10,6 +10,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Util.HListBuild.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
@@ -239,66 +240,6 @@ Section setoid.
       erewrite exprD_typeof_Some by eauto.
       rewrite H. rewrite H0. reflexivity.
     Qed.
-    Fixpoint apply_fold tus tvs t ts
-             (es : HList.hlist (fun t => ExprI.exprT tus tvs (typD t)) ts)
-    : ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
-      -> ExprI.exprT tus tvs (typD t) :=
-      match es in HList.hlist _ ts
-            return ExprI.exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
-                   -> ExprI.exprT tus tvs (typD t)
-      with
-        | HList.Hnil => fun f => f
-        | @HList.Hcons _ _ t' ts x xs => fun f =>
-                                      @apply_fold tus tvs t ts xs (AbsAppI.exprT_App f x)
-      end.
-    Lemma apps_exprD'_fold_type
-    : forall tus tvs es e t eD,
-        exprD' tus tvs t (apps e es) = Some eD ->
-        exists ts fD esD,
-          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some fD /\
-          hlist_build (fun t => ExprI.exprT tus tvs (typD t))
-                      (fun t e => exprD' tus tvs t e) ts es = Some esD /\
-          forall us vs,
-            eD us vs = @apply_fold _ _ _ _ esD fD us vs.
-    Proof.
-      clear - Typ2Ok_Fun RTypeOk_typD RSymOk_func.
-      intros.
-      rewrite exprD'_apps in H; eauto.
-      unfold apps_sem' in H. forward. clear H.
-      revert H0; revert H1; revert eD; revert t; revert e0; revert e.
-      revert t0.
-      induction es; simpl; intros.
-      { exists nil. exists eD. exists HList.Hnil.
-        simpl. split; eauto.
-        forward. destruct r. inv_all; subst. assumption. }
-      { arrow_case_any.
-        { clear H.
-          red in x1. subst.
-          simpl in H1. autorewrite_with_eq_rw_in H1.
-          forward; inv_all; subst.
-          admit. (*
-          eapply IHes with (e := App e a) in H1; eauto.
-          { forward_reason.
-            assert (x0 = fold_right (typ2 (F:=RFun)) t x1).
-            { autorewrite with exprD_rw in H1; simpl in H1.
-              forward; inv_all; subst.
-              eapply exprD_typeof_Some in H0; eauto.
-              eapply exprD_typeof_Some in H4; eauto.
-              rewrite H0 in H4.
-              inv_all. assumption. }
-            { subst.
-              eexists (x :: x1). exists e0.
-              eexists. split; eauto.
-              split. simpl.
-              rewrite H2. rewrite H. reflexivity.
-              simpl. intros.
-              erewrite exprD'_App in H1; eauto.
-              inv_all; subst. eauto. } }
-          { erewrite exprD'_App; eauto.
-            unfold exprT_App. autorewrite with eq_rw.
-            reflexivity. } }
-        { inversion H1. } } *)
-    Admitted.
 
     Inductive Forall3 {T U V : Type} (P : T -> U -> V -> Prop)
     : list T -> list U -> list V -> Prop :=
@@ -389,10 +330,10 @@ Section setoid.
         forall tus tvs ts esD,
           setoid_rewrite_rec tus tvs es ->
           Forall2 (fun t r => exists rD, RD RbaseD r t = Some rD) ts rs ->
-          hlist_build (fun t => ExprI.exprT tus tvs (typD t))
+          hlist_build_option (fun t => ExprI.exprT tus tvs (typD t))
                       (fun t e => exprD' tus tvs t (fst e)) ts es = Some esD ->
           exists esD',
-            hlist_build (fun t => ExprI.exprT tus tvs (typD t))
+            hlist_build_option (fun t => ExprI.exprT tus tvs (typD t))
                         (fun t e => exprD' tus tvs t e) ts es' = Some esD' /\
             Forall2_hlist2 (fun r t (e e' : ExprI.exprT tus tvs (typD t)) =>
                               forall us vs rD,
@@ -575,7 +516,7 @@ Section setoid.
         { unfold rw_bind in H6.
           forwardy.
           generalize H4.
-          eapply apps_exprD'_fold_type in H4.
+          eapply apps_exprD'_fold_type in H4; try eassumption.
           forward_reason.
           intro.
           eapply respectfulOk in H2; eauto.

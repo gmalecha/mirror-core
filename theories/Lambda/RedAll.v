@@ -4,6 +4,7 @@ Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Util.HListBuild.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.AppN.
@@ -178,8 +179,9 @@ Section reducer.
       forall es t targs fD esD,
       let arrow_type := fold_right (@typ2 _ _ RFun _) t targs in
       exprD' tus tvs arrow_type e = Some fD ->
-      hlist_build (fun t => ExprI.exprT tus' tvs' (typD t))
-                  (fun t e => exprD' tus' tvs' t e) targs es = Some esD ->
+      hlist_build_option
+        (fun t => ExprI.exprT tus' tvs' (typD t))
+        (fun t e => exprD' tus' tvs' t e) targs es = Some esD ->
       exists val',
         exprD' tus' tvs' t (red var_terms e es) = Some val' /\
         forall us vs us' vs',

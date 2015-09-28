@@ -6,66 +6,13 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.ListMapT.
 Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Util.HListBuild.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Instantiate.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
-Fixpoint hlist_build {T U} (F : T -> Type) (f : forall x : T, U -> option (F x))
-           (ls : list T) (ls' : list U)
-: option (hlist F ls) :=
-  match ls as ls , ls' return option (hlist F ls) with
-    | nil , nil => Some Hnil
-    | l :: ls , l' :: ls' =>
-      match hlist_build F f ls ls' with
-        | None => None
-        | Some res =>
-          match f l l' with
-            | None => None
-            | Some x =>
-              Some (Hcons x res)
-          end
-      end
-    | _ , _ => None
-  end.
-
-Lemma hlist_build_app_if
-: forall A T (F : T -> Type) G a b c d e f,
-    @length T a = @length A c ->
-    hlist_build F G (a ++ b) (c ++ d) = Some (hlist_app e f) ->
-    hlist_build F G a c = Some e /\
-    hlist_build F G b d = Some f.
-Proof.
-  clear.
-  induction a; simpl; intros.
-  { intuition; destruct c; simpl in *; try congruence.
-    rewrite (hlist_eta e). reflexivity.
-    rewrite (hlist_eta e) in H0. simpl in H0. assumption. }
-  { destruct c; simpl in *; try congruence.
-    inversion H; clear H; subst.
-    forward. inv_all.
-    rewrite (hlist_eta e) in *.
-    simpl in *.
-    assert (h = hlist_app (hlist_tl e) f).
-    { inversion H1. inv_all. assumption. }
-    subst.
-    destruct (@IHa _ _ _ _ _ H2 H); clear IHa.
-    rewrite H3. intuition. inversion H1; inv_all. subst; reflexivity. }
-Qed.
-
-Lemma hlist_build_app_only_if
-: forall A T (F : T -> Type) G a b (c : list A) d e f,
-    hlist_build F G a c = Some e ->
-    hlist_build F G b d = Some f ->
-    hlist_build F G (a ++ b) (c ++ d) = Some (hlist_app e f).
-Proof.
-  induction a; simpl; intros; forward.
-  { rewrite (hlist_eta e). simpl. auto. }
-  { inv_all; subst.
-    simpl. eapply IHa in H0; eauto. rewrite H0. rewrite H2. reflexivity. }
-Qed.
 
 Inductive hlist_Forall2 T (F G : T -> Type) (P : forall t, F t -> G t -> Prop)
 : forall ls, hlist F ls -> hlist G ls -> Prop :=
@@ -328,7 +275,7 @@ Section subst.
       WellFormed_subst s ->
       substD (tus ++ ts) tvs s = Some sD ->
       exists esD : hlist (fun t => exprT tus tvs (typD t)) ts,
-        @hlist_build typ expr (fun t => exprT tus tvs (typD t))
+        @hlist_build_option typ (fun t => exprT tus tvs (typD t)) expr
                      (fun t e => exprD' tus tvs e t) ts es = Some esD /\
         forall us vs us',
           sD (hlist_app us (hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us')) vs ->
@@ -355,7 +302,7 @@ Section subst.
         exists sD',
           substD tus tvs s' = Some sD' /\
           exists us' : hlist (fun t => hlist typD tus -> hlist typD tvs -> typD t) tus',
-            @hlist_build _ _ _ (fun t e => exprD' tus tvs e t) tus' eus' = Some us' /\
+            @hlist_build_option _ _ _ (fun t e => exprD' tus tvs e t) tus' eus' = Some us' /\
             forall us vs,
               let us' := hlist_map (fun t (x : hlist typD tus -> hlist typD tvs -> typD t) => x us vs) us' in
               sD' us vs <->
@@ -417,7 +364,7 @@ Section subst.
         eexists; split; eauto.
         simpl. rewrite H15.
         assert (exists us',
-                  hlist_build
+                  hlist_build_option
                     (fun t1 : typ =>
                        hlist typD tus -> hlist typD tvs -> typD t1)
                     (fun (t1 : typ) (e : expr) => exprD' tus tvs e t1) tus' x0 = Some us' /\

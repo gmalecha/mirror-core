@@ -40,12 +40,14 @@ theories/provers/DefaultProver.v
 theories/provers/AutoProver.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
+
 theories/Util/Approx.v
 theories/Util/Iteration.v
 theories/Util/ListMapT.v
 theories/Util/Forwardy.v
 theories/Util/Quant.v
 theories/Util/Nat.v
+theories/Util/HListBuild.v
 theories/Util/Compat.v
 
 theories/syms/SymEnv.v

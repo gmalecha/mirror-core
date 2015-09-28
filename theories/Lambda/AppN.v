@@ -5,6 +5,7 @@ Require Import ExtLib.Recur.Facts.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Util.HListBuild.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 
@@ -185,20 +186,6 @@ Section app_full_proofs.
   Section exprD'_app.
     Variables tus tvs : tenv typ.
 
-    Fixpoint apply' {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
-      typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
-      typD t :=
-      match ls as ls
-            return typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
-                   typD t
-      with
-        | nil => fun x => x
-        | l :: ls => fun f =>
-          apply' x ls _ (match typ2_cast (projT1 l) _ in _ = t return t with
-                          | eq_refl => f
-                        end (projT2 l x))
-      end.
-
     Local Existing Instance Applicative_exprT.
 
     Fixpoint apply_sem'
@@ -315,8 +302,77 @@ Section app_full_proofs.
           clear. destruct x1. destruct e1. reflexivity. } }
     Qed.
 
+    Fixpoint apply_fold t ts
+             (es : HList.hlist (fun t => exprT tus tvs (typD t)) ts)
+    :    exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
+      -> exprT tus tvs (typD t) :=
+      match es in HList.hlist _ ts
+            return    exprT tus tvs (typD (fold_right (typ2 (F:=RFun)) t ts))
+                   -> exprT tus tvs (typD t)
+      with
+      | HList.Hnil => fun f => f
+      | HList.Hcons x xs => fun f =>
+                              @apply_fold t _ xs (AbsAppI.exprT_App f x)
+      end.
+
+    Lemma apps_exprD'_fold_type
+    : forall es e t eD,
+        exprD' tus tvs t (apps e es) = Some eD ->
+        exists ts fD esD,
+          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some fD /\
+          hlist_build_option
+            (fun t => ExprI.exprT tus tvs (typD t))
+            (fun t e => exprD' tus tvs t e) ts es = Some esD /\
+          forall us vs,
+            eD us vs = @apply_fold _ _ esD fD us vs.
+    Proof using Typ2Ok_Fun RTypeOk RSymOk_sym.
+      intros.
+      rewrite exprD'_apps in H; eauto.
+      unfold apps_sem' in H. forward. clear H.
+      revert H0; revert H1; revert eD; revert t; revert e0; revert e.
+      revert t0.
+      induction es; simpl; intros.
+      { exists nil. exists eD. exists HList.Hnil.
+        simpl. split; eauto.
+        forward. destruct r. inv_all; subst. assumption. }
+      { arrow_case_any.
+        { clear H.
+          red in x1. subst.
+          simpl in H1. autorewrite_with_eq_rw_in H1.
+          forward; inv_all; subst.
+          eapply IHes with (e := App e a) in H3; eauto.
+          { forward_reason.
+            assert (x0 = fold_right (typ2 (F:=RFun)) t x1).
+            { autorewrite with exprD_rw in H2; simpl in H2.
+              rewrite (exprD_typeof_Some _ _ _ _ _ H) in H2.
+              rewrite H in H2.
+              forward; inv_all; subst.
+              eapply exprD_typeof_Some in H2; eauto.
+              eapply exprD_typeof_Some in H0; eauto.
+              rewrite H0 in H2.
+              inv_all. assumption. }
+            { subst.
+              eexists (x :: x1). exists e0.
+              eexists. split; eauto.
+              split.
+              { simpl.
+                rewrite H3. rewrite H. reflexivity. }
+              { simpl. intros.
+                erewrite exprD'_App in H2; eauto.
+                erewrite exprD_typeof_Some in H2 by eassumption.
+                rewrite H0 in H2. rewrite H in H2.
+                inv_all; subst. eauto. } } }
+          { erewrite exprD'_App; eauto.
+            erewrite exprD_typeof_Some by eassumption.
+            rewrite H0; clear H0. rewrite H; clear H.
+            unfold AbsAppI.exprT_App. autorewrite_with_eq_rw.
+            reflexivity. } }
+        { inversion H1. } }
+    Qed.
+
   End exprD'_app.
 
+(* DEAD CODE!
   (** TODO: Does this actually get used? *)
   Section exprD_app.
     Variables us vs : env.
@@ -383,4 +439,5 @@ Section app_full_proofs.
     Qed.
 
   End exprD_app.
+*)
 End app_full_proofs.
