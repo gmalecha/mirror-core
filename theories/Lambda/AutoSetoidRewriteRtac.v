@@ -1276,6 +1276,136 @@ Section setoid.
     inversion H.
   Qed.
 
+  (** Apply the same rewrite multiple times while it is still making progress **)
+  Section repeat_rewrite.
+    Variable rw : expr typ func -> R -> mrw (Progressing (expr typ func)).
+    Variable is_trans : R -> bool.
+    Variable is_refl : R -> bool.
+
+    Fixpoint repeat_rewrite' (n : nat) (prog : expr typ func -> Progressing (expr typ func))
+             (e : expr typ func) (r : R)
+    : mrw (Progressing (expr typ func)) :=
+      match n with
+      | 0 => if is_refl r
+             then rw_ret (prog e)
+             else rw_fail
+      | S n => rw_bind_catch
+                 (rw e r)
+                 (fun e' =>
+                    match e' with
+                    | NoProgress =>
+                      if is_refl r then rw_ret (prog e) else rw_fail
+                    | Progress e' as X =>
+                      if is_trans r then repeat_rewrite' n (@Progress _) e' r
+                      else rw_ret X
+                    end)
+                 (if is_refl r
+                  then rw_ret (prog e)
+                  else rw_fail)
+      end.
+
+    Hypothesis rw_sound : setoid_rewrite_spec rw.
+    Hypothesis is_reflOk : forall r t rD, is_refl r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
+    Hypothesis is_transOk : forall r t rD, is_trans r = true -> RD RbaseD r t = Some rD -> Transitive rD.
+
+    Lemma repeat_rewrite'_mono : forall n e r c A B C D E F X Y,
+        repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F= Some (X,Y) ->
+        X <> NoProgress.
+    Proof using.
+      induction n; simpl.
+      { intros. destruct (is_refl r). inversion H. congruence. inversion H. }
+      { intros.
+        eapply rw_bind_catch_case in H. destruct H; forward_reason.
+        { destruct x.
+          { destruct (is_trans r); eauto.
+            inversion H0. congruence. }
+          { destruct (is_refl r).
+            { inversion H0; congruence. }
+            { inversion H0. } } }
+        { destruct (is_refl r).
+          { inversion H; congruence. }
+          { inversion H. } } }
+    Qed.
+
+    Theorem repeat_rewrite'_sound
+    : forall n (prog : bool),
+        setoid_rewrite_spec (repeat_rewrite' n (if prog then @Progress _ else (fun _ => NoProgress))).
+    Proof.
+      induction n.
+      { intros. simpl. destruct prog.
+        { do 2 red. intros.
+          specialize (@is_reflOk r).
+          destruct (is_refl r).
+          { inversion H; clear H; subst.
+            split; auto.
+            intros.
+            eapply is_reflOk in H; trivial.
+            simpl.
+            forward.
+            split; [ reflexivity | ].
+            intros. eapply Pure_pctxD; eauto. }
+          { inversion H. } }
+        { do 2 red; intros.
+          specialize (@is_reflOk r).
+          destruct (is_refl r).
+          { inversion H; clear H; subst.
+            split; auto.
+            intros.
+            eapply is_reflOk in H; eauto.
+            simpl. forward.
+            split; [ reflexivity | ].
+            intros; eapply Pure_pctxD; eauto. }
+          { inversion H. } } }
+      { simpl. do 2 red; intros.
+        eapply rw_bind_catch_case in H; destruct H; forward_reason.
+        { eapply rw_sound in H.
+          forward_reason. destruct x.
+          { specialize (@is_transOk r).
+            destruct (is_trans r).
+            { generalize (repeat_rewrite'_mono _ _ _ _ _ _ _ _ _ H1).
+              eapply (IHn true) in H1.
+              forward_reason. split; auto.
+              intros.
+              specialize (H3 _ _ H5).
+              specialize (H2 _ _ H5).
+              simpl in *.
+              forward.
+              forward_reason.
+              destruct e'; simpl in *.
+              { Cases.rewrite_all_goal.
+                split; [ reflexivity | ].
+                intros. gather_facts.
+                eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
+                gather_facts.
+                eapply is_transOk in H5; eauto.
+                eapply Pure_pctxD; eauto. }
+              { congruence. } }
+            { inversion H1; clear H1; subst.
+              simpl in *. split; auto. } }
+          { specialize (@is_reflOk r).
+            destruct (is_refl r); [ | inversion H1 ].
+            inversion H1; clear H1; subst.
+            split; auto.
+            intros. specialize (H2 _ _ H1).
+            forward. destruct prog; simpl in *.
+            { rewrite H5. forward_reason.
+              split; auto. }
+            { rewrite H5; forward_reason; auto. } } }
+        { specialize (@is_reflOk r).
+          destruct (is_refl r); [ | inversion H ].
+          inversion H; clear H; subst.
+          split; auto.
+          intros.
+          forward.
+          cutrewrite (ProgressD e
+                                ((if prog then (@Progress _) else fun _ : expr typ func => NoProgress) e) = e); [ | destruct prog; reflexivity ].
+          rewrite H3; forward_reason.
+          split; [ reflexivity | ].
+          eapply is_reflOk in H; eauto.
+          eapply Pure_pctxD; eauto. } }
+    Qed.
+  End repeat_rewrite.
+
   Section core_rewrite.
     (* This is the implementation of rewriting a single lemma *)
     (** Note, this is quite inefficient due to building and destructing
@@ -1384,18 +1514,106 @@ Section setoid.
 
     Opaque instantiate.
 
+    Lemma core_rewrite_lemma
+    : forall (ctx : Ctx typ (expr typ func)) (t0 : typ)
+               (x12 : amap (expr typ func)) (x13 : ctx_subst ctx)
+               (l : list typ) (y0 : exprT (getUVars ctx) l (typD t0)),
+        WellFormed_entry x13 (length l) x12 ->
+        forall (e : expr typ func) (t : tenv typ)
+               (y3 : exprT (getUVars ctx ++ l) t Prop)
+               (x5 : hlist (fun t1 : typ => exprT (getUVars ctx) t (typD t1)) l),
+          amap_substD (getUVars ctx ++ l) t x12 = Some y3 ->
+          amap_is_full (length l) x12 = true ->
+          (forall (us : hlist typD (getUVars ctx)) (vs : hlist typD t),
+              let us' :=
+                  hlist_map
+                    (fun (t1 : typ) (x : exprT (getUVars ctx) t (typD t1)) => x us vs) x5
+              in
+              y3 (hlist_app us us') vs) ->
+          exprD' (getUVars ctx) l t0 e = Some y0 ->
+          exists e'D : exprT (getUVars ctx) t (typD t0),
+            exprD' (getUVars ctx) t t0
+                   (instantiate (fun u : ExprI.uvar => amap_lookup u x12) 0
+                                (vars_to_uvars 0 (length (getUVars ctx)) e)) =
+            Some e'D /\
+            (forall (us : hlist typD (getUVars ctx)) (vs : hlist typD t),
+                e'D us vs =
+                y0 us
+                   (hlist_map
+                      (fun (t1 : typ) (x6 : exprT (getUVars ctx) t (typD t1)) =>
+                         x6 us vs) x5)).
+    Proof using RType_typD RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+      intros ctx t0 x12 x13 l y0 H40 e t y3 x5 Hamap_substD H4 H H13.
+      generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ e nil t0 l _ H13).
+      destruct 1 as [ ? [ ? ? ] ].
+      eapply ExprI.exprD'_weakenV with (tvs':=t) in H0; eauto with typeclass_instances.
+      destruct H0 as [ ? [ ? ? ] ].
+      destruct (@instantiate_sound typ (expr typ func) _ _ _ (getUVars ctx++l) t
+                                   (fun u : ExprI.uvar => amap_lookup u x12)
+                                   (vars_to_uvars 0 (length (getUVars ctx)) e) nil t0 x0 y3).
+      { generalize (@sem_preserves_if_substD (amap (expr typ func)) typ (expr typ func) RType_typD (Expr_expr _ _ _ _) _ _).
+        simpl. intro. eapply H3.
+        2: eapply Hamap_substD.
+        eapply WellFormed_entry_WellFormed_pre_entry in H40.
+        destruct H40. assumption. }
+      { eassumption. }
+      { destruct H3.
+        eapply exprD'_strengthenU_multi in H3.
+        2: eauto with typeclass_instances.
+        { destruct H3 as [ ? [ ? ? ] ].
+          eexists; split; try eassumption.
+          intros.
+          specialize (H us vs).
+          specialize (H5 _ _ Hnil H).
+          simpl in *.
+          symmetry.
+          etransitivity; [ eapply (H1 _ _ Hnil) | ].
+          etransitivity; [ eapply H2 | ].
+          etransitivity; [ eapply H5 | ].
+          eapply H6. }
+        { intros.
+          clear H2 H1 H3 H5 H.
+          match goal with
+          | |- ?X = _ => consider X; try reflexivity; intro
+          end.
+          exfalso.
+          eapply mentionsU_instantiate in H.
+          assert (amap_lookup (length (getUVars ctx) + u) x12 <> None).
+          { clear - H4 H40 H6.
+            destruct H40.
+            clear H0.
+            red in H.
+            destruct H as [ ? [ ? ? ] ].
+            clear H H1.
+            generalize dependent (length (getUVars ctx)).
+            generalize dependent (length l).
+            intros.
+            eapply pigeon_principle; eauto. }
+          destruct H.
+          { destruct H. eauto. }
+          { destruct H. destruct H. destruct H as [ ? [ ? ? ] ].
+            destruct H40.
+            consider (amap_lookup (length (getUVars ctx) + u) x12); intros; try congruence.
+            eapply FMapSubst.SUBST.normalized_fmapsubst in H1.
+            3: eapply H.
+            cut (true = false); [ clear; intros; congruence | ].
+            rewrite <- H3. rewrite <- H1. reflexivity.
+            destruct H5. assumption. } } }
+    Qed.
+
     (* TODO(gmalecha): This is not a nice interface! *)
     Theorem core_rewrite_sound
     : forall ctx (cs : ctx_subst ctx),
         let tus := getUVars ctx in
         let tvs := getVars ctx in
         forall l0 r0 e e' cs',
-          rtacK_sound r0 ->
-          lemmaD (rw_conclD RbaseD) nil nil l0 ->
+          WellFormed_rtacK r0 ->
           core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
           WellFormed_ctx_subst cs ->
           WellFormed_ctx_subst cs' /\
-          (forall (t : typ) (rD : typD t -> typD t -> Prop),
+          (forall (Hlem : lemmaD (rw_conclD RbaseD) nil nil l0)
+                  (Hrtac :           rtacK_sound r0),
+           forall (t : typ) (rD : typD t -> typD t -> Prop),
               RD RbaseD (rel (concl l0)) t = Some rD ->
               match pctxD cs with
               | Some _ =>
@@ -1434,86 +1652,105 @@ Section setoid.
                  | H : None = Some _ |- _ => exfalso ; clear - H ; inversion H
                  end.
         match goal with
-        | Hrt : rtacK_sound ?X , _ : match ?X _ _ _ _ ?C ?CS ?G with _ => _ end = _ |- _ =>
+        | Hrt : WellFormed_rtacK ?X , _ : match ?X _ _ _ _ ?C ?CS ?G with _ => _ end = _ |- _ =>
           specialize (@Hrt C CS G _ eq_refl)
         end.
         match goal with
-        | Hrt : rtacK_spec _ _ ?X , H : match ?Y with _ => _ end = _ |- _ =>
-          replace Y with X in H ; [ generalize dependent X; intros | f_equal ]
-        end.
+        | Hrt : rtacK_spec_wf _ _ ?X , H : match ?Y with _ => _ end = _ |- _ =>
+          replace Y with X in H ; [ destruct X eqn:?; intros | f_equal ]
+        end; try congruence.
         2: clear; simpl; repeat rewrite app_length; simpl; omega.
-        destruct r; try solve [ exfalso; clear - H4; inversion H4 ].
-        rewrite (ctx_subst_eta c0) in H4.
+        rewrite (ctx_subst_eta c0) in H3.
         repeat match goal with
                | H : match ?X with _ => _ end = _ |- _ =>
                  let H' := fresh in
-                 destruct X eqn:H'; [ | solve [ exfalso; clear - H4; inversion H4 ] ]
+                 destruct X eqn:H'; [ | solve [ exfalso; clear - H3; inversion H3 ] ]
                end.
         inv_all. subst.
         destruct (@exprUnify_sound (ctx_subst (CExs ctx (vars l0))) typ func _ _ _ _ _ _ _ _ _ _ n
-                                   _ _ _ _ _ _ _ nil H3).
+                                   _ _ _ _ _ _ _ nil H2).
         { constructor; eauto using WellFormed_entry_amap_empty. }
-        destruct H; eauto.
-        { eapply WellFormed_Goal_GConj_list.
-          induction (premises l0); simpl.
-          - constructor.
-          - constructor; eauto. constructor. }
         split.
-        { rewrite ctx_subst_eta in H.
-          inv_all. assumption. }
-        intros.
+        { red in H.
+          assert (WellFormed_Goal (getUVars (CExs ctx (vars l0)))
+                                  (getVars (CExs ctx (vars l0)))
+                                  (GConj_list
+                                     (map
+                                        (fun e : expr typ func =>
+                                           GGoal (vars_to_uvars 0 (length (getUVars ctx)) e))
+                                        (premises l0)))).
+          { eapply WellFormed_Goal_GConj_list. clear.
+            induction (premises l0); simpl.
+            - constructor.
+            - constructor; eauto. constructor. }
+          specialize (H H6 H3); clear H6.
+          rewrite (ctx_subst_eta c0) in H.
+          inv_all. auto. }
+        clear H. intro. intro H. intros.
         destruct (pctxD cs) eqn:HpctxDcs; trivial.
         destruct (exprD' (getUVars ctx) (getVars ctx) t0 e) eqn:HexprD'e; trivial.
         simpl in *.
-        eapply lemmaD_lemmaD' in H0. forward_reason.
-        eapply lemmaD'_weakenU with (tus':=getUVars ctx) in H0;
+        eapply lemmaD_lemmaD' in Hlem. forward_reason.
+        eapply lemmaD'_weakenU with (tus':=getUVars ctx) in H7;
           eauto using ExprOk_expr, rw_concl_weaken.
-        simpl in H0. forward_reason.
-        unfold lemmaD' in H0.
+        simpl in H7. forward_reason.
+        unfold lemmaD' in H7.
         forwardy. inv_all. subst.
-        unfold rw_conclD in H11.
+        unfold rw_conclD in H10.
         forwardy. inv_all; subst.
+        assert (t0 = t).
+        { revert H0.
+          assert (y1 = t0).
+          { eapply RD_single_type; eauto. }
+          subst t0.
+          intro.
+          eapply ExprFacts.typeof_expr_weaken with (tus':=getUVars ctx) (tvs':=nil) in H0; eauto.
+          simpl in H0. rewrite H10 in H0. inv_all; auto. }
+        subst.
         assert (y1 = t).
-        { revert H11. revert H1. clear - RTypeOk_typD Typ2Ok_Fun RSymOk_func.
-          intros.
-          eapply ExprFacts.typeof_expr_weaken
-            with (tus':=getUVars ctx)
-                 (tvs':=nil)
-              in H1; eauto.
-          simpl in H1.
-          rewrite H1 in H11. inv_all. auto. }
+        { revert H13. revert H6.
+          intros. eapply RD_single_type; eauto. }
         subst t. rename y1 into t.
         generalize (fun tus tvs e t => @ExprI.exprD'_conv typ _ (expr typ func)
                                           _ tus tus (tvs ++ nil) tvs e t eq_refl
                                           (eq_sym (app_nil_r_trans _))). simpl.
         intro HexprD'_conv.
         rewrite HexprD'_conv in H12. autorewrite_with_eq_rw_in H12.
-        rewrite HexprD'_conv in H13. autorewrite_with_eq_rw_in H13.
+        rewrite HexprD'_conv in H11. autorewrite_with_eq_rw_in H11.
         forwardy. inv_all. subst.
 
-        generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ _ nil _ _ _ H12).
+        generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ _ nil _ _ _ H11).
         simpl. destruct 1 as [ ? [ HexprD'e_subst ? ] ].
         eapply exprD'_weakenV with (tvs':=getVars ctx) in HexprD'e_subst; eauto.
         simpl in HexprD'e_subst. forward_reason.
-        assert (t = t0) by eauto using RD_single_type.
         intros; subst.
-        replace (length (getUVars ctx ++ t0 :: nil))
-           with (S (length (getUVars ctx))) in H17
+        replace (length (getUVars ctx ++ t :: nil))
+           with (S (length (getUVars ctx))) in H15
              by (rewrite app_length; simpl; omega).
         eapply exprD'_weakenU
           with (tus':=l0.(vars)) in HexprD'e; eauto.
         destruct (drop_exact_append_exact (vars l0) (getUVars ctx)) as [ ? [ Hx ? ] ].
         rewrite Hx in *; clear Hx.
-        destruct (pctxD_substD H2 HpctxDcs) as [ ? [ Hx ? ] ].
+        destruct (pctxD_substD H1 HpctxDcs) as [ ? [ Hx ? ] ].
         rewrite Hx in *; clear Hx.
         destruct HexprD'e as [ ? [ Hx ? ] ].
-        specialize (H6 _ _ _ H16 Hx eq_refl).
+        specialize (H5 _ _ _ H15 Hx eq_refl).
         clear Hx.
         forward_reason.
-        generalize (pctxD_SubstMorphism_progress H6).
+        generalize (pctxD_SubstMorphism_progress H5).
         simpl. rewrite HpctxDcs.
         intro Hx; specialize (Hx _ eq_refl). destruct Hx.
-        rewrite H23 in *.
+        red in H.
+        replace (getUVars ctx ++ vars l0)
+           with (getUVars (CExs ctx (vars l0)))
+             in Heqr
+             by reflexivity.
+        eapply (H (CExs ctx (vars l0))) in Heqr. red in Heqr.
+        destruct Heqr; eauto.
+        { clear. induction (premises l0); simpl. constructor.
+          destruct l; simpl. constructor.
+          constructor. constructor. eauto. }
+        rewrite H22 in *.
         assert (exists Ps,
                    goalD (getUVars ctx ++ vars l0) (getVars ctx)
                          (GConj_list
@@ -1524,7 +1761,7 @@ Section setoid.
                    forall (us : hlist typD (getUVars ctx)) us' vs,
                      Ps (hlist_app us us') vs <->
                      Forall (fun y => y us (hlist_app us' Hnil)) y).
-        { revert H0.
+        { revert H7.
           destruct l0. simpl in *.
           clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun.
           intros.
@@ -1552,9 +1789,9 @@ Section setoid.
             { intros; forward_reason.
               inv_all. subst. eexists; split; eauto.
               intros.
-              rewrite <- H2. eapply H.
+              rewrite <- H1. eapply H.
               reflexivity. reflexivity. } }
-          revert H0. revert y.
+          revert H7. revert y.
           induction premises; simpl; intros.
           { eexists; split; eauto.
             simpl. inv_all. subst.
@@ -1598,21 +1835,21 @@ Section setoid.
             generalize (app_nil_r_trans vars).
             generalize dependent (vars ++ nil).
             intros; subst. reflexivity. } }
-        destruct H24 as [ ? [ Hx ? ] ].
-        rewrite Hx in *; clear Hx.
+        destruct H25 as [ ? [ Hx ? ] ].
+        change_rewrite Hx in H24; clear Hx.
         forwardy.
-        rewrite (ctx_subst_eta c0) in H7.
-        simpl in H7.
-        forwardy. rewrite H26.
+        rewrite (ctx_subst_eta c0) in H24.
+        simpl in H24.
+        forwardy. rewrite H27.
         inv_all; subst.
         destruct (amap_substD_amap_empty (getUVars ctx ++ vars l0)
-                                         (getVars ctx)) as [ ? [ Hx ? ] ];
-          change_rewrite Hx in H6; clear Hx.
-        rewrite HpctxDcs in H6.
+                                         (getVars ctx)) as [ ? [ Hx ? ] ].
+          change_rewrite Hx in H5; clear Hx.
+        rewrite HpctxDcs in H5.
         simpl in *.
         destruct (drop_exact_append_exact l0.(vars) (getUVars ctx)) as [ ? [ Hx ? ] ];
           rewrite Hx in *; clear Hx.
-        destruct H25.
+        destruct H26.
         inv_all. subst.
         forwardy.
         repeat match goal with
@@ -1620,19 +1857,19 @@ Section setoid.
                end.
         forward_reason; inv_all; subst.
         simpl in *.
-        rewrite H7 in *.
-        rewrite H4 in *.
-        rewrite H6 in *.
-        rewrite H26 in *.
+        rewrite H5 in *.
+        rewrite H3 in *.
+        rewrite H27 in *.
+        rewrite H24 in *.
         inv_all.
         forwardy.
-        generalize H7. intro Hamap_substD.
-        eapply subst_getInstantiation in H7;
+        generalize H24. intro Hamap_substD.
+        eapply subst_getInstantiation in H24;
           eauto using WellFormed_entry_WellFormed_pre_entry
                  with typeclass_instances.
-        destruct H7.
+        destruct H24.
         assert (exists e'D,
-                   exprD' (getUVars ctx) (getVars ctx) t0
+                   exprD' (getUVars ctx) (getVars ctx) t
                           (instantiate (fun u : ExprI.uvar => amap_lookup u x12)
                                        0 (vars_to_uvars 0 (length (getUVars ctx)) l0.(concl).(rhs))) = Some e'D /\
                    forall us vs,
@@ -1640,120 +1877,109 @@ Section setoid.
                      y0 us (hlist_map
                               (fun (t : typ) (x6 : exprT (getUVars ctx) (getVars ctx) (typD t)) =>
                                  x6 us vs) x5)).
-        { (** this says that I can strengthen the expression **)
-          (** TODO: This should be a lemma **)
-          revert H13. revert H. revert H5. revert Hamap_substD.
-          clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun H40.
-          generalize dependent (getVars ctx).
-          generalize dependent (rhs (concl l0)).
-          generalize dependent (vars l0).
-          clear - RType_typD RTypeOk_typD RSymOk_func Typ2Ok_Fun.
-          intros.
-          generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ e nil t0 l _ H13).
-          destruct 1 as [ ? [ ? ? ] ].
-          eapply ExprI.exprD'_weakenV with (tvs':=t) in H0; eauto with typeclass_instances.
-          destruct H0 as [ ? [ ? ? ] ].
-          destruct (@instantiate_sound typ (expr typ func) _ _ _ (getUVars ctx++l) t
-                                       (fun u : ExprI.uvar => amap_lookup u x12)
-                                       (vars_to_uvars 0 (length (getUVars ctx)) e) nil t0 x0 y3).
-          { generalize (@sem_preserves_if_substD (amap (expr typ func)) typ (expr typ func) RType_typD (Expr_expr _ _ _ _) _ _).
-            simpl. intro. eapply H3.
-            2: eapply Hamap_substD.
-            eapply WellFormed_entry_WellFormed_pre_entry in H40.
-            destruct H40. assumption. }
-          { eassumption. }
-          { destruct H3.
-            eapply exprD'_strengthenU_multi in H3.
-            2: eauto with typeclass_instances.
-            { destruct H3 as [ ? [ ? ? ] ].
-              eexists; split; try eassumption.
-              intros.
-              specialize (H us vs).
-              specialize (H4 _ _ Hnil H).
-              simpl in *.
-              symmetry.
-              etransitivity; [ eapply (H1 _ _ Hnil) | ].
-              etransitivity; [ eapply H2 | ].
-              etransitivity; [ eapply H4 | ].
-              eapply H6. }
-            { intros.
-              clear H2 H1 H3 H4 H.
-              match goal with
-              | |- ?X = _ => consider X; try reflexivity; intro
-              end.
-              exfalso.
-              eapply mentionsU_instantiate in H.
-              assert (amap_lookup (length (getUVars ctx) + u) x12 <> None).
-              { clear - H5 H40 H6.
-                destruct H40.
-                clear H0.
-                red in H.
-                destruct H as [ ? [ ? ? ] ].
-                clear H H1.
-                generalize dependent (length (getUVars ctx)).
-                generalize dependent (length l).
-                clear.
-                intros.
-                eapply pigeon_principle; eauto. }
-              destruct H.
-              { destruct H. eauto. }
-              { destruct H. destruct H. destruct H as [ ? [ ? ? ] ].
-                destruct H40.
-                consider (amap_lookup (length (getUVars ctx) + u) x12); intros; try congruence.
-                eapply FMapSubst.SUBST.normalized_fmapsubst in H1.
-                3: eapply H.
-                cut (true = false); [ clear; intros; congruence | ].
-                rewrite <- H3. rewrite <- H1. reflexivity.
-                destruct H4. assumption. } } } }
-        destruct H7 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
+        { eapply core_rewrite_lemma; eauto. }
+        destruct H20 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
         split.
         { etransitivity; eassumption. }
         intros.
-        eapply pctxD_substD' with (us:=us) (vs:=vs) in H37; eauto with typeclass_instances.
+        eapply pctxD_substD' with (us:=us) (vs:=vs) in H38; eauto with typeclass_instances.
         gather_facts.
         eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
         gather_facts.
         eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
         gather_facts.
         eapply Pure_pctxD; eauto. intros.
-        specialize (H us0 vs0).
-        specialize (H7 us0 vs0).
+        specialize (H20 us0 vs0).
+        specialize (H6 us0 vs0).
         generalize dependent (hlist_map
            (fun (t : typ) (x6 : exprT (getUVars ctx) (getVars ctx) (typD t)) =>
             x6 us0 vs0) x5); simpl; intros.
-        apply (H10 _ us0 _) in H9; clear H10.
-        rewrite foralls_sem in H9.
-        setoid_rewrite impls_sem in H9.
-        generalize (H9 h); clear H9.
-        rewrite Quant._forall_sem in H25.
+        rewrite H20; clear H20.
+        generalize H6.
+        eapply H24 in H6; clear H24.
+        specialize (H29 us0 h).
+        clear - H19 H16 H14 H17 H25 H28 H21 H9 H18 H22 H23 H26 H6 H8 H29.
+        eapply H9 in H8; clear H9.
+        rewrite foralls_sem in H8.
+        specialize (H8 h).
+        setoid_rewrite impls_sem in H8.
+        rewrite Quant._forall_sem in H26.
+        repeat match goal with
+               | H : (forall x : hlist _ _ , _) , H' : hlist _ _ |- _ =>
+                 specialize (H H')
+               end.
+        specialize (H16 (hlist_app us0 h) Hnil vs0).
+        specialize (H21 (hlist_app us0 h) vs0).
+        rewrite H19; clear H19.
+        rewrite H29 in *; clear H29.
+        destruct H21; auto.
+        specialize (H0 Hnil). simpl in H0.
+        rewrite <- H0; clear H0.
+        simpl in *.
+        rewrite <- H16; clear H16.
+        rewrite <- H14; clear H14.
         simpl.
-        specialize (H25 _ H).
-        specialize (H23 _ H).
-        specialize (H21 _ H23).
-        rewrite H7; clear H7.
-        rewrite (H20 us0 vs0 h); clear H20.
-        specialize (H22 (hlist_app us0 h) vs0).
-        rewrite H28 in H22.
-        specialize (H22 (conj H23 H19)).
-        forward_reason.
-        specialize (H9 Hnil).
-        simpl in H9.
-        rewrite <- H9; clear H9.
-        specialize (fun X => H17 X Hnil); simpl in H17.
-        rewrite <- H17; clear H17.
-        rewrite <- H15; clear H15.
+        revert H8.
+        instantiate (1:= us0).
+        autorewrite_with_eq_rw.
         rewrite hlist_app_nil_r.
-        autorewrite with eq_rw.
-        simpl.
-        refine (fun x => x _).
-        clear x14.
+        autorewrite_with_eq_rw.
+        intros. apply H8; clear H8.
         eapply List.Forall_map.
-        eapply H24 in H25.
-        revert H25.
-        eapply Forall_impl.
-        intro. rewrite hlist_app_nil_r. tauto. }
-      { exfalso; clear - H3; inversion H3. }
+        eapply H26 in H0; clear H26.
+        eapply H25 in H0; clear H25.
+        revert H0.
+        eapply Forall_impl. clear.
+        intros.
+        rewrite <- hlist_app_nil_r.
+        assumption. }
+      { exfalso; clear - H2; inversion H2. }
     Time Qed.
+
+    Theorem core_rewrite_soundX
+    : forall ctx (cs : ctx_subst ctx),
+        let tus := getUVars ctx in
+        let tvs := getVars ctx in
+        forall l0 r0 e e' cs'
+          (Hlem : lemmaD (rw_conclD RbaseD) nil nil l0)
+          (Hrtac :           rtacK_sound r0),
+          core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
+          WellFormed_ctx_subst cs ->
+          WellFormed_ctx_subst cs' /\
+          (forall (t : typ) (rD : typD t -> typD t -> Prop),
+              RD RbaseD (rel (concl l0)) t = Some rD ->
+              match pctxD cs with
+              | Some _ =>
+                match exprD' tus tvs t e with
+                | Some eD =>
+                  match pctxD cs' with
+                  | Some csD' =>
+                    match exprD' tus tvs t e' with
+                    | Some eD' =>
+                      SubstMorphism cs cs' /\
+                      (forall (us : hlist typD (getAmbientUVars ctx))
+                              (vs : hlist typD (getAmbientVars ctx)),
+                          csD'
+                            (fun (us0 : hlist typD (getUVars ctx))
+                                 (vs0 : hlist typD (getVars ctx)) =>
+                               rD (eD us0 vs0) (eD' us0 vs0)) us vs)
+                    | None => False
+                    end
+                  | None => False
+                  end
+                | None => True
+                end
+              | None => True
+              end).
+    Proof using RelDec_Correct_eq_typ RbaseD_single_type
+          RTypeOk_typD RSymOk_func Typ2Ok_Fun tyArr.
+      Opaque vars_to_uvars.
+      intros.
+      eapply core_rewrite_sound in H; eauto using rtacK_sound_WellFormed_rtacK.
+      forward_reason.
+      split; eauto.
+    Qed.
+
   End core_rewrite.
 
   (* This section implements the re-indexing operation
@@ -1942,18 +2168,6 @@ Section setoid.
           else res e r tus tvs nus nvs ctx cs
       end.
 
-    Definition using_rewrite_db
-               (ls : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
-    : expr typ func -> R -> mrw (expr typ func) :=
-      let rw_db := using_rewrite_db' ls in
-      fun e r => for_tactic (fun e => rw_db e r) e.
-
-    Definition using_prewrite_db
-        (lems : expr typ func -> list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
-    : expr typ func -> R -> mrw (expr typ func) :=
-      fun e r =>
-        for_tactic (fun e => using_rewrite_db' (lems e) e r) e.
-
     Lemma using_rewrite_db'_sound
     : forall r ctx (cs : ctx_subst ctx),
         let tus := getUVars ctx in
@@ -2007,8 +2221,156 @@ Section setoid.
         simpl in H. destruct H.
         revert H2. revert H3. revert H. revert H0.
         intros.
-        eapply core_rewrite_sound in H3; eauto. }
+        eapply core_rewrite_sound in H3; eauto using rtacK_sound_WellFormed_rtacK.
+        forward_reason. eauto. }
     Qed.
+
+    Section using_prewrite_db.
+      Variable phints : expr typ func -> R -> list (rw_lemma typ func Rbase * rtacK typ (expr typ func)).
+
+      Definition using_prewrite_db' :=
+        fun e r => using_rewrite_db' (phints e r) e r.
+
+      Lemma using_prewrite_db_sound'
+      : forall r ctx (cs : ctx_subst ctx),
+          let tus := getUVars ctx in
+          let tvs := getVars ctx in
+          forall e e' cs',
+            @using_prewrite_db' e r tus tvs (length tus) (length tvs) ctx cs = Some (e', cs') ->
+            forall (Hrtac_wf : forall e r,
+                       Forall (fun lt => WellFormed_rtacK (snd lt)) (phints e r)),
+            WellFormed_ctx_subst cs ->
+            WellFormed_ctx_subst cs' /\
+            ((forall e r tus tvs t eD,
+                 exprD' tus tvs t e = Some eD ->
+                 Forall (fun lt =>
+                           lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
+                           rtacK_sound (snd lt)) (phints e r)) ->
+             (forall (t : typ) (rD : typD t -> typD t -> Prop),
+                 RD RbaseD r t = Some rD ->
+                 match pctxD cs with
+                 | Some _ =>
+                   match exprD' tus tvs t e with
+                   | Some eD =>
+                     match pctxD cs' with
+                     | Some csD' =>
+                       match exprD' tus tvs t e' with
+                       | Some eD' =>
+                         SubstMorphism cs cs' /\
+                         (forall (us : hlist typD (getAmbientUVars ctx))
+                                 (vs : hlist typD (getAmbientVars ctx)),
+                             csD'
+                               (fun (us0 : hlist typD (getUVars ctx))
+                                    (vs0 : hlist typD (getVars ctx)) =>
+                                  rD (eD us0 vs0)
+                                     (eD' us0 vs0)) us vs)
+                       | None => False
+                       end
+                     | None => False
+                     end
+                   | None => True
+                   end
+                 | None => True
+                 end)).
+      Proof.
+        simpl.
+        unfold using_prewrite_db'.
+        intros r ctx cs e. revert cs.
+        cut (forall (cs : ctx_subst ctx) (e' : expr typ func) (cs' : ctx_subst ctx),
+                using_rewrite_db' (phints e r) e r (getUVars ctx) 
+                                  (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs =
+                Some (e', cs') ->
+                (Forall
+                   (fun lt : rw_lemma typ func Rbase * rtacK typ (expr typ func) =>
+                      WellFormed_rtacK (snd lt)) (phints e r)) ->
+                WellFormed_ctx_subst cs ->
+                WellFormed_ctx_subst cs' /\
+                ((forall (tus tvs : tenv typ) 
+                         (t : typ) (eD : exprT tus tvs (typD t)),
+                     exprD' tus tvs t e = Some eD ->
+                     Forall
+                       (fun
+                           lt : lemma typ (expr typ func) (rw_concl typ func Rbase) *
+                                rtacK typ (expr typ func) =>
+                           lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\ rtacK_sound (snd lt))
+                       (phints e r)) ->
+                 forall (t : typ) (rD : typD t -> typD t -> Prop),
+                   RD RbaseD r t = Some rD ->
+                   match pctxD cs with
+                   | Some _ =>
+                     match exprD' (getUVars ctx) (getVars ctx) t e with
+                     | Some eD =>
+                       match pctxD cs' with
+                       | Some csD' =>
+                         match exprD' (getUVars ctx) (getVars ctx) t e' with
+                         | Some eD' =>
+                           SubstMorphism cs cs' /\
+                           (forall (us : hlist typD (getAmbientUVars ctx))
+                                   (vs : hlist typD (getAmbientVars ctx)),
+                               csD'
+                                 (fun (us0 : hlist typD (getUVars ctx))
+                                      (vs0 : hlist typD (getVars ctx)) =>
+                                    rD (eD us0 vs0) (eD' us0 vs0)) us vs)
+                         | None => False
+                         end
+                       | None => False
+                       end
+                     | None => True
+                     end
+                   | None => True
+                   end)).
+        { clear.
+          intros; forward_reason.
+          eapply H in H0; eauto.
+          forward_reason. split; eauto.
+          intros.
+          eapply H2; eauto. }
+        induction (phints e r).
+        { inversion 1. }
+        { simpl. intros.
+          destruct a.
+          assert (using_rewrite_db' l e r (getUVars ctx) (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs = Some (e',cs')
+                  \/ (r = r0.(concl).(rel) /\
+                      core_rewrite r0 r1 e (getUVars ctx) (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs = Some (e',cs'))).
+          { generalize (Req_dec_ok Rbase_eq Rbase_eq_ok r r0.(concl).(rel)).
+            destruct (Req_dec Rbase_eq r r0.(concl).(rel)); eauto.
+            intros. destruct (core_rewrite r0 r1 e (getUVars ctx) (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs); eauto. }
+          clear H.
+          destruct H2.
+          { eapply IHl in H; clear IHl; eauto.
+            forward_reason. split; eauto.
+            intros. eapply H2; eauto.
+            intros. eapply H3 in H5; eauto. inversion H5; eauto.
+            inversion H0; auto. }
+          { forward_reason. subst.
+            split.
+            { eapply core_rewrite_sound in H2; eauto.
+              forward_reason; eauto.
+              inversion H0; trivial. }
+            { intros. forward.
+              specialize (H _ _ _ _ H5).
+              inversion H; clear H; subst; forward_reason.
+              eapply core_rewrite_sound in H1; eauto.
+              forward_reason; eauto.
+              eapply H7 in H3.
+              revert H3.
+              Cases.rewrite_all_goal.
+              trivial.
+              inversion H0; trivial. } } }
+      Qed.
+    End using_prewrite_db.
+
+    Definition using_rewrite_db
+               (ls : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
+    : expr typ func -> R -> mrw (expr typ func) :=
+      let rw_db := using_rewrite_db' ls in
+      fun e r => for_tactic (fun e => rw_db e r) e.
+
+    Definition using_prewrite_db
+        (lems : expr typ func -> R -> list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
+    : expr typ func -> R -> mrw (expr typ func) :=
+      fun e r =>
+        for_tactic (fun e => using_rewrite_db' (lems e r) e r) e.
 
     Lemma getAmbientUVars_wrap_tvs : forall tvs ctx,
         getAmbientUVars (wrap_tvs tvs ctx) = getAmbientUVars ctx.
@@ -2389,11 +2751,14 @@ Section setoid.
 
     (** TODO(gmalecha): This is almost identical to the above theorem *)
     Theorem using_prewrite_db_sound
-    : forall hints : expr typ func ->
+    : forall hints : expr typ func -> R ->
                      list (rw_lemma typ func Rbase * rtacK typ (expr typ func)),
-        (forall e, Forall (fun lt =>
-                             lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
-                             rtacK_sound (snd lt)) (hints e)) ->
+        (forall r e,
+            Forall (fun lt =>
+                      (forall tus tvs t eD,
+                          exprD' tus tvs t e = Some eD ->
+                          lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
+                      rtacK_sound (snd lt)) (hints e r)) ->
         setoid_rewrite_spec (fun e r =>
                                rw_bind (using_prewrite_db hints e r)
                                        (fun e => rw_ret (Progress e))).
@@ -2405,22 +2770,25 @@ Section setoid.
       unfold rw_bind in H0.
       forwardy. inv_all. subst.
       rewrite Plus.plus_comm in H0. rewrite <- app_length in H0.
-      destruct (fun Hx =>
-                    @using_rewrite_db'_sound r _ (wrap_tvs_ctx_subst tvs' cs)
-                                             (hints (expr_convert (length tvs') (length (getVars ctx)) e)) (H _)
-                                             (expr_convert (length tvs') (length (getVars ctx)) e) e1 c0 Hx
-                                             (WellFormed_ctx_subst_wrap_tvs _ H1)).
-      { rewrite <- H0. f_equal.
+      destruct (@using_prewrite_db_sound' hints r _ (wrap_tvs_ctx_subst tvs' cs)
+                                          (expr_convert (length tvs') (length (getVars ctx)) e) e1 c0).
+      { rewrite <- H0.
+        unfold using_prewrite_db'. f_equal.
         eauto using getUVars_wrap_tvs.
         eauto using getVars_wrap_tvs.
         rewrite getUVars_wrap_tvs. reflexivity.
         rewrite getVars_wrap_tvs. reflexivity. }
-      clear H0. subst.
-      split.
+      { clear - H.
+        intros. specialize (H r e).
+        revert H.
+        eapply Forall_impl. intros. destruct H.
+        eauto using rtacK_sound_WellFormed_rtacK. }
+      { eauto using WellFormed_ctx_subst_wrap_tvs. }
+      clear H0. subst. split.
       { eapply WellFormed_ctx_subst_unwrap_tvs
           with (ctx':=CTop nil nil); eauto. }
       intros.
-      specialize (H3 _ _ H0); clear H0.
+      specialize (fun Hx => H3 Hx _ _ H0); clear H0.
       destruct (pctxD cs) eqn:HpctxD_cs; trivial.
       destruct (@pctxD_wrap_tvs_ctx_subst tvs' _ _ _ HpctxD_cs) as [ ? [ ? ? ] ].
       rewrite H0 in H3.
@@ -2436,6 +2804,18 @@ Section setoid.
       destruct HexprD'_e as [ ? [ Hx ? ] ].
       rewrite Hx in *; clear Hx.
       autorewrite_with_eq_rw_in H3.
+      match goal with
+      | H : ?X -> _ |- _ =>
+        match type of X with
+        | Prop =>
+          let H' := fresh in
+          assert (H' : X) ; [ clear H | specialize (H H'); clear H' ]
+        end
+      end.
+      { clear - H.
+        intros. generalize (H r e).
+        eapply Forall_impl. intros; forward_reason.
+        split; eauto. }
       forwardy.
       destruct (pctxD_unwrap_tvs_ctx_subst _ _ _ H3) as [ ? [ HpctxD_x1 ? ] ].
       rewrite HpctxD_x1.
@@ -2616,14 +2996,56 @@ Section setoid.
         end.
 
     Theorem apply_prespectful_sound : forall {T} get (lem : T -> _) (tacK : _),
-        (forall x, Lemma.lemmaD Proper_conclD nil nil (lem x)) ->
+        (forall e r x,
+            get e r = Some x ->
+            forall tus tvs t eD,
+              exprD' tus tvs e t = Some eD ->
+              Lemma.lemmaD Proper_conclD nil nil (lem x)) ->
         rtacK_sound tacK ->
         respectful_spec (apply_prespectful get lem tacK).
     Proof.
       intros. unfold apply_prespectful.
       red. intros.
-      destruct (get e r); try solve [ inversion H1 ].
-      eapply apply_respectful_sound; eauto.
+      destruct (get e r) eqn:?; try solve [ inversion H1 ].
+      (** above *)
+      unfold apply_respectful in H1.
+      destruct (split_R t.(lem).(concl).(relation)) eqn:?.
+      eapply split_R_sound in Heqp.
+      destruct (t.(lem).(vars)) eqn:Hvars; [ | inversion H1 ].
+      destruct (t.(lem).(premises)) eqn:Hprems; [ | inversion H1 ].
+      generalize (expr_sdec_sound e t.(lem).(concl).(term)).
+      destruct (expr_sdec e t.(lem).(concl).(term)); [ | inversion H1 ].
+      generalize (Req_dec_ok _ Rbase_eq_ok r r0).
+      destruct (Req_dec Rbase_eq r r0); [ | inversion H1 ].
+      intro X; specialize (X eq_refl); subst.
+      intro X; specialize (X eq_refl); subst.
+      inversion H1; clear H1; subst.
+      split; auto.
+      intros.
+      forward.
+      eapply H in Heqo; [ | eapply H4 ].
+      rename Heqo into Hlem.
+      red in Hlem.
+      simpl in Hlem.
+      red in Hlem. rewrite Hprems in *. rewrite Hvars in *.
+      simpl in Hlem. red in Hlem.
+      revert Hlem.
+      forward. inv_all. subst.
+      destruct (ExprFacts.exprD'_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
+      simpl in H.
+      generalize (@exprD'_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H6 H4).
+      intro. red in H10. revert Hlem. subst.
+      simpl in *.
+      rewrite Heqp in *.
+      rewrite H7 in *.
+      rewrite H4 in *.
+      inv_all. subst.
+      intros.
+      intros; split; [ reflexivity | ].
+      intros. eapply Pure_pctxD; eauto.
+      intros. red.
+      rewrite (H9 Hnil Hnil us0 (hlist_app vs' vs0)) in Hlem.
+      eapply Hlem.
     Qed.
 
     Definition or_respectful

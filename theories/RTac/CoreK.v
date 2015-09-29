@@ -103,6 +103,28 @@ Section parameterized.
         end
     end.
 
+  Definition rtacK_spec_wf ctx (s : ctx_subst ctx) (g : Goal _ _)
+             (r : Result ctx) : Prop :=
+    match r with
+      | Fail => True
+      | Solved s' =>
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+        WellFormed_ctx_subst s ->
+        WellFormed_ctx_subst s'
+      | More_ s' g' =>
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+        WellFormed_ctx_subst s ->
+        WellFormed_ctx_subst (c:=ctx) s' /\
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g'
+    end.
+
+  Theorem rtacK_spec_rtacK_spec_wf : forall ctx s g r,
+      @rtacK_spec ctx s g r ->
+      @rtacK_spec_wf ctx s g r.
+  Proof.
+    unfold rtacK_spec, rtacK_spec_wf; destruct r; tauto.
+  Qed.
+
   Theorem Proper_rtacK_spec ctx s
   : Proper (EqGoal (getUVars ctx) (getVars ctx) ==>
             @EqResult _ _ _ _ _ ctx ==> iff)
@@ -170,9 +192,25 @@ Section parameterized.
        tac tus tvs (length tus) (length tvs) ctx s g = result) ->
       @rtacK_spec ctx s g result.
 
+  Definition WellFormed_rtacK (tac : rtacK)
+  : Prop :=
+    forall ctx s g result,
+      (let tus := getUVars ctx in
+       let tvs := getVars ctx in
+       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      @rtacK_spec_wf ctx s g result.
+
+  Theorem rtacK_sound_WellFormed_rtacK : forall tac,
+      rtacK_sound tac -> WellFormed_rtacK tac.
+  Proof.
+    intros. red. intros.
+    eapply rtacK_spec_rtacK_spec_wf. eauto.
+  Qed.
+
 End parameterized.
 
 Arguments rtacK_sound {typ expr _ _ _} tac : rename.
+Arguments WellFormed_rtac {typ expr _ _} tac : rename.
 
 Export MirrorCore.ExprI.
 Export MirrorCore.SubstI.

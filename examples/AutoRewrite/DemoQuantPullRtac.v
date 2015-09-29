@@ -170,6 +170,9 @@ Definition quant_pull (e : expr typ func) : mrw (Progressing (expr typ func)) :=
   bottom_up is_refl is_trans (pull_all_quant) get_respectful
             e (Rinj fImpl).
 
+
+
+
 Fixpoint goal2 n (acc : nat) : expr typ func :=
   match n with
   | 0 =>

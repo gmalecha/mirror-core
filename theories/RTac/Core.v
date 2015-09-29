@@ -445,6 +445,28 @@ Section parameterized.
         end
     end.
 
+  Definition rtac_spec_wf ctx (s : CSUBST ctx) g r : Prop :=
+    match r with
+      | Fail _ => True
+      | Solved s' =>
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+        WellFormed_ctx_subst s ->
+        WellFormed_ctx_subst s
+      | More_ s' g' =>
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+        WellFormed_ctx_subst s ->
+        WellFormed_ctx_subst (c:=ctx) s' /\
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g'
+    end.
+
+  Theorem rtac_spec_rtac_spec_wf : forall ctx s g r,
+      @rtac_spec ctx s g r ->
+      @rtac_spec_wf ctx s g r.
+  Proof.
+    unfold rtac_spec, rtac_spec_wf.
+    destruct r; tauto.
+  Qed.
+
   Definition GoalImplies ctx (sg : CSUBST ctx * Goal) (sg' : CSUBST ctx * Goal)
   : Prop :=
     let (s,g) := sg in
@@ -508,6 +530,20 @@ Section parameterized.
        let tvs := getVars ctx in
        tac tus tvs (length tus) (length tvs) ctx s g = result) ->
       @rtac_spec ctx s (GGoal g) result.
+
+  Definition WellFormed_rtac (tac : rtac) : Prop :=
+    forall ctx s g result,
+      (let tus := getUVars ctx in
+       let tvs := getVars ctx in
+       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      @rtac_spec_wf ctx s (GGoal g) result.
+
+  Theorem rtac_sound_WellFormed_rtac : forall tac,
+      rtac_sound tac -> WellFormed_rtac tac.
+  Proof.
+    red; intros.
+    eapply rtac_spec_rtac_spec_wf. eauto.
+  Qed.
 
   Lemma left_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
