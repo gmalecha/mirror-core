@@ -212,45 +212,36 @@ Section MakeListOp.
     ptrn_ok (fptrnLength p).
   Proof.
     red; intros.
-    destruct x; simpl; [destruct (Hok t) | | | | | ].
+    destruct x; simpl;
+    try (right; unfold Fails; reflexivity).
+    destruct (Hok t).
     { left. destruct H; exists x. revert H. compute; intros.
       rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
   Qed.
 
   Global Instance fptrnNoDup_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
     ptrn_ok (fptrnNoDup p).
   Proof.
     red; intros.
-    destruct x; simpl; [|destruct (Hok t) | | | | ].
-    { right; unfold Fails; reflexivity. }
+    destruct x; simpl;
+    try (right; unfold Fails; reflexivity).
+    destruct (Hok t).
     { left. destruct H; exists x. revert H. compute; intros.
       rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
   Qed.
 
   Global Instance fptrnIn_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
     ptrn_ok (fptrnIn p).
   Proof.
     red; intros.
-    destruct x; simpl; [| | destruct (Hok t) | | | ].
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
+    destruct x; simpl;
+    try (right; unfold Fails; reflexivity).
+    destruct (Hok t).
     { left. destruct H; exists x. revert H. compute; intros.
       rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
-    { right; unfold Fails; reflexivity. }
   Qed.
 
   Global Instance fptrnMap_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p} :
@@ -432,9 +423,10 @@ Section PtrnListOp.
              (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
     app (inj (ptrn_view _ (fptrnNoDup p))) a.
 
-  Definition ptrnIn {T A : Type}
-             (p : ptrn typ T) (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
-    app (inj (ptrn_view _ (fptrnIn p))) a.
+  Definition ptrnIn {T A B : Type}
+             (p : ptrn typ T) (a : ptrn (expr typ func) A) (b : ptrn (expr typ func) B) : 
+    ptrn (expr typ func) (T * A * B) :=
+    app (app (inj (ptrn_view _ (fptrnIn p))) a) b.
 
   Definition ptrnMap {T A B : Type}
              (p : ptrn (typ * typ) T) (a : ptrn (expr typ func) A)
@@ -502,6 +494,124 @@ Section Tactics.
   Definition red_length_ptrn : ptrn (expr typ func) (expr typ func) :=
     pmap (fun x => lst_length (snd x) (fst x) 0) (ptrnLength get get).
 
+Require Import MirrorCore.RTac.RTac.
+Require Import MirrorCore.Lambda.ExprCore.
+
+  Fixpoint expr_eqb (e1 e2 : expr typ func) : option bool :=
+    match e1, e2 with
+    | Var v1, Var v2 =>
+      if EqNat.beq_nat v1 v2 then Some true else None
+    | UVar v1, UVar v2 =>
+      if EqNat.beq_nat v1 v2 then Some true else None
+    | Inj f, Inj g => sym_eqb f g
+    | App f a, App g b =>
+      match expr_eqb f g, expr_eqb a b with
+      | Some true, Some true => Some true
+      | None, Some true => None
+      | Some true, None => None
+      | None, None => None
+      | _, _ => Some false
+      end
+    | Abs t f, Abs u g =>
+      if t ?[ eq ] u then
+        expr_eqb f g
+      else
+        Some false
+    | _, _ => None
+    end.
+
+  Lemma expr_eqbOk (e1 e2 : expr typ func) :
+    match expr_eqb e1 e2 with
+    | Some true => e1 = e2
+    | Some false => e1 <> e2
+    | None => True
+    end.
+  Proof.
+    generalize dependent e2.
+    induction e1; destruct e2; simpl; try apply I.
+    { consider (PeanoNat.Nat.eqb v v0); intros; intuition congruence. }
+    { consider (sym_eqb f f0); intros; [|apply I].
+      destruct b;
+      pose proof sym_eqbOk f f0; rewrite H in H0; intuition congruence. } 
+    { specialize (IHe1_1 e2_1); specialize (IHe1_2 e2_2).
+      consider (expr_eqb e1_1 e2_1); intros;
+      consider (expr_eqb e1_2 e2_2); intros; [| | | apply I].
+      destruct b, b0; subst; intuition congruence.
+      destruct b; subst; intuition congruence.
+      destruct b; subst; intuition congruence. }
+    { consider (t ?[ eq ] t0); intros; subst;
+      specialize (IHe1 e2).
+      (consider (expr_eqb e1 e2); intros; [|apply I]).
+      destruct b; intuition congruence.
+      (consider (expr_eqb e1 e2); intros).
+      destruct b; intuition congruence.
+      intuition congruence. }
+    { consider (PeanoNat.Nat.eqb u u0); intros; intuition congruence. }
+  Qed.
+
+  Lemma expr_eqb_true_sound tus tvs t (e1 e2 : expr typ func) 
+        (H : expr_eqb e1 e2 = Some true) :
+    ExprDsimul.ExprDenote.exprD' tus tvs t e1 = ExprDsimul.ExprDenote.exprD' tus tvs t e2.
+  Proof.
+    pose proof (expr_eqbOk e1 e2). forward.
+  Qed.
+  
+  Fixpoint solve_in_aux (e : expr typ func) (lst : expr typ func) (c : Ctx typ (expr typ func)) s : Result c :=
+    run_tptrn
+      (list_cases
+         (fun _ => Fail)
+         (fun t x xs =>
+            match expr_eqb x e with
+            | Some true => Solved s
+            | Some false => solve_in_aux e xs c s
+            | None => Fail
+            end)
+         Fail) lst.
+  
+  Definition solve_in : rtac typ (expr typ func) :=
+    fun _ _ _ _ _ s e => 
+      run_default (pmap (fun t_x_xs => 
+                           let '(_, x, xs) := t_x_xs in 
+                           solve_in_aux x xs s)
+                        (ptrnIn ignore get get)) Fail e.
+  
+  Fixpoint solve_notin_aux (e : expr typ func) (lst : expr typ func) (c : Ctx typ (expr typ func)) s : Result c :=
+    run_tptrn
+      (list_cases
+         (fun _ => Solved s)
+         (fun t x xs =>
+            match expr_eqb x e with
+            | Some true => Fail
+            | Some false => solve_notin_aux e xs c s
+            | None => Fail
+            end)
+       Fail) lst.
+  
+  Definition solve_notin : rtac typ (expr typ func) :=
+    fun _ _ _ _ _ s e => 
+      run_default (pmap (fun t_x_xs => 
+                           let '(_, x, xs) := t_x_xs in 
+                           solve_in_aux x xs s)
+                        (ptrnIn ignore get get)) Fail e.
+
+  Fixpoint solve_nodup_aux (lst : expr typ func) (c : Ctx typ (expr typ func)) s : Result c :=
+    run_tptrn
+      (list_cases
+         (fun _ => Solved s)
+         (fun t x xs =>
+            match solve_notin_aux x xs s with
+            | Solved s' => solve_nodup_aux xs c s'
+            | _ => Fail
+            end)
+         Fail) lst.
+
+  Definition solve_nodup : rtac typ (expr typ func) :=
+    fun _ _ _ _ _ s e => 
+      run_default (pmap (fun t_xs => 
+                           let '(_, xs) := t_xs in 
+                           solve_nodup_aux xs s)
+                        (ptrnNoDup ignore get)) Fail e.
+  
   Local Ltac solve_ok :=
     repeat first [ simple eapply ptrn_ok_pmap
                  | simple eapply ptrn_ok_app
