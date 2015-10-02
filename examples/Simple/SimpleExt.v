@@ -49,7 +49,7 @@ Ltac reify_typ trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple_typ k [ True ] [ trm ].
+  reify_expr reify_simple_typ k [[ True ]] [[ trm ]].
 
 Ltac reify trm :=
   let k tbl e :=
@@ -57,8 +57,8 @@ Ltac reify trm :=
       refine e
   in
   reify_expr reify_simple k
-             [ (fun x : mk_dvar_map table_terms map_ctor => True) ]
-             [ trm ].
+             [[ (fun x : mk_dvar_map table_terms map_ctor => True) ]]
+             [[ trm ]].
 
 Definition test_1 : expr typ func.
   pose (x := 0).

@@ -34,76 +34,85 @@ Section canceller.
     App (App R a) b.
 
   Definition lem_plus_unit_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil;
-     concl := App (App R (ExprCore.Var 0))  (App (App P U) (ExprCore.Var 1)) |}.
+  {| vars := T :: T :: nil
+   ; premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil
+   ; concl := App (App R (ExprCore.Var 0))  (App (App P U) (ExprCore.Var 1))
+   |}.
   Definition lem_plus_assoc_c1 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 3))
+  {| vars := T :: T :: T :: T :: nil
+   ; premises := App (App R (ExprCore.Var 3))
                      (App (App P (ExprCore.Var 0))
-                          (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))) :: nil;
-     concl := App (App R (ExprCore.Var 3))
+                          (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))) :: nil
+   ; concl := App (App R (ExprCore.Var 3))
                   (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                       (ExprCore.Var 2)) |}.
+                       (ExprCore.Var 2))
+   |}.
   Definition lem_plus_assoc_c2 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 3))
+  {| vars := T :: T :: T :: T :: nil
+   ; premises := App (App R (ExprCore.Var 3))
                      (App (App P (ExprCore.Var 1))
-                          (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))) :: nil;
-     concl := App (App R (ExprCore.Var 3))
+                          (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))) :: nil
+   ; concl := App (App R (ExprCore.Var 3))
                   (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                       (ExprCore.Var 2)) |}.
+                       (ExprCore.Var 2))
+   |}.
   Definition lem_plus_comm_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 2))
-                     (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)) :: nil;
-     concl := App (App R (ExprCore.Var 2))
-                  (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)) |}.
+  {| vars := T :: T :: T :: nil
+   ; premises := App (App R (ExprCore.Var 2))
+                     (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)) :: nil
+   ; concl := App (App R (ExprCore.Var 2))
+                  (App (App P (ExprCore.Var 1)) (ExprCore.Var 0))
+   |}.
   Definition lem_plus_cancel : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 2)
-                     :: App (App R (ExprCore.Var 1)) (ExprCore.Var 3)
-                     :: nil;
-     concl := App
+  {| vars := T :: T :: T :: T :: nil
+   ; premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 2)
+              :: App (App R (ExprCore.Var 1)) (ExprCore.Var 3)
+              :: nil
+   ; concl := App
                 (App R (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                (App (App P (ExprCore.Var 2)) (ExprCore.Var 3)) |}.
+                (App (App P (ExprCore.Var 2)) (ExprCore.Var 3))
+   |}.
 
   Definition lem_plus_unit_p : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil;
-     concl := App (App R (App (App P U) (ExprCore.Var 0)))
-                  (ExprCore.Var 1) |}.
+  {| vars := T :: T :: nil
+   ; premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil
+   ; concl := App (App R (App (App P U) (ExprCore.Var 0)))
+                  (ExprCore.Var 1)
+   |}.
   Definition lem_plus_assoc_p1 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App
+  {| vars := T :: T :: T :: T :: nil
+   ; premises := App
                    (App R
                         (App (App P (ExprCore.Var 0))
                              (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))))
-                   (ExprCore.Var 3) :: nil;
-     concl := App
+                   (ExprCore.Var 3) :: nil
+   ; concl := App
                 (App R
                      (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                          (ExprCore.Var 2))) (ExprCore.Var 3) |}.
+                          (ExprCore.Var 2))) (ExprCore.Var 3)
+   |}.
   Definition lem_plus_assoc_p2 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App
+  {| vars := T :: T :: T :: T :: nil
+   ; premises := App
                    (App R
                         (App (App P (ExprCore.Var 1))
                              (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))))
-                   (ExprCore.Var 3) :: nil;
-     concl := App
+                   (ExprCore.Var 3) :: nil
+   ; concl := App
                 (App R
                      (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                          (ExprCore.Var 2))) (ExprCore.Var 3) |}.
+                          (ExprCore.Var 2))) (ExprCore.Var 3)
+   |}.
   Definition lem_plus_comm_p : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: nil;
-     premises := App
+  {| vars := T :: T :: T :: nil
+   ; premises := App
                    (App R
                         (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                   (ExprCore.Var 2) :: nil;
-     concl := App
+                   (ExprCore.Var 2) :: nil
+   ; concl := App
                 (App R (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)))
-                (ExprCore.Var 2) |}.
+                (ExprCore.Var 2)
+   |}.
   Context {RL1 : ReifiedLemma lem_plus_unit_c}.
   Context {RL2 : ReifiedLemma lem_plus_assoc_c1}.
   Context {RL3 : ReifiedLemma lem_plus_assoc_c2}.
@@ -115,15 +124,12 @@ Section canceller.
   Context {RL9 : ReifiedLemma lem_plus_comm_p}.
 
   Definition EAPPLY (l : Lemma.lemma typ (expr typ func) (expr typ func)) : rtac typ (expr typ func) :=
-    THEN (@EAPPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30) l) (@MINIFY _ _ _ _ _).
+    (EAPPLY (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30) l ;; MINIFY)%rtac.
   Definition APPLY (l : Lemma.lemma typ (expr typ func) (expr typ func)) : rtac typ (expr typ func) :=
-    THEN (@APPLY _ _ _ _ _ _ (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30) l) (@MINIFY _ _ _ _ _).
-  Definition ON_EACH : list (rtac typ (expr typ func)) -> rtacK typ (expr typ func) :=
-    ON_EACH.
-  Definition ON_ALL : rtac typ (expr typ func) -> rtacK typ (expr typ func) := ON_ALL.
+    (APPLY (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30) l ;; MINIFY)%rtac.
 
   Local Instance RtacSound_EAPPLY l (RL : ReifiedLemma l)
-  : RtacSound _ _ (EAPPLY l).
+  : RtacSound (EAPPLY l).
   Proof.
     constructor.
     eapply THEN_sound.
@@ -133,7 +139,7 @@ Section canceller.
   Qed.
 
   Local Instance RtacSound_APPLY l (RL : ReifiedLemma l)
-  : RtacSound _ _ (APPLY l).
+  : RtacSound (APPLY l).
   Proof.
     constructor.
     eapply THEN_sound.
@@ -142,23 +148,17 @@ Section canceller.
     eapply MINIFY_sound; eauto with typeclass_instances.
   Qed.
 
-  Lemma ON_EACH_sound
-  : forall ls, Forall rtac_sound ls -> rtacK_sound (ON_EACH ls).
-  Proof. eapply ON_EACH_sound. Qed.
-  Lemma ON_ALL_sound : forall t, rtac_sound t -> rtacK_sound (ON_ALL t).
-  Proof. eapply ON_ALL_sound. Qed.
-
   Variable SOLVER : rtac typ (expr typ func).
-  Variable RtacSound_SOLVER : RtacSound _ _ SOLVER.
+  Variable RtacSound_SOLVER : RtacSound SOLVER.
 
   Definition iter_right (n : nat) : rtac typ (expr typ func) :=
     REC n (fun rec =>
-    FIRST (   EAPPLY lem_plus_unit_c
-           :: THEN (EAPPLY lem_plus_assoc_c1) (ON_ALL rec)
-           :: THEN (EAPPLY lem_plus_assoc_c2) (ON_ALL rec)
-           :: THEN (EAPPLY lem_plus_cancel)
-                   (ON_EACH (SOLVE SOLVER :: IDTAC :: nil))
-           :: nil))
+             FIRST [ EAPPLY lem_plus_unit_c
+                   | EAPPLY lem_plus_assoc_c1 ;; ON_ALL rec
+                   | EAPPLY lem_plus_assoc_c2 ;; ON_ALL rec
+                   | EAPPLY lem_plus_cancel ;;
+                     ON_EACH [ SOLVE SOLVER | IDTAC ]
+                   ])
         IDTAC.
 
   Opaque FIRST APPLY EAPPLY.
@@ -170,18 +170,17 @@ Section canceller.
   Proof.
     unfold iter_right. intros.
     rtac_derive_soundness_default.
-    eapply ON_EACH_sound; rtac_derive_soundness_default.
   Qed.
 
   Section afterwards.
     Variable k : rtac typ (expr typ func).
     Definition iter_left (n : nat) : rtac typ (expr typ func) :=
       REC n (fun rec =>
-      FIRST (   EAPPLY lem_plus_unit_p
-             :: THEN (EAPPLY lem_plus_assoc_p1) (ON_ALL rec)
-             :: THEN (EAPPLY lem_plus_assoc_p2) (ON_ALL rec)
-             :: k
-             :: nil))
+               FIRST [ EAPPLY lem_plus_unit_p
+                     | EAPPLY lem_plus_assoc_p1 ;; ON_ALL rec
+                     | EAPPLY lem_plus_assoc_p2 ;; ON_ALL rec
+                     | k
+                     ])
           IDTAC.
 
     Hypothesis k_sound : rtac_sound k.
@@ -195,13 +194,13 @@ Section canceller.
 
   Definition cancel' (n m : nat) : rtac typ (expr typ func) :=
     let k :=
-        FIRST (   THEN (EAPPLY lem_plus_comm_c) (ON_ALL (iter_right m))
-               :: iter_right m
-               :: nil)
+        FIRST [ EAPPLY lem_plus_comm_c ;; ON_ALL (iter_right m)
+              | iter_right m
+              ]
     in
-    FIRST (   iter_left k n
-           :: THEN (EAPPLY lem_plus_comm_p) (ON_ALL (iter_left k n))
-           :: nil).
+    FIRST [ iter_left k n
+          | EAPPLY lem_plus_comm_p ;; ON_ALL (iter_left k n)
+          ].
 
   Lemma cancel'_sound : forall P Q, rtac_sound (cancel' P Q).
   Proof.
@@ -224,10 +223,9 @@ Section canceller.
     AT_GOAL (fun _ _ e =>
                let fuel := size e in
                REPEAT fuel
-                      (FIRST (   SOLVE SOLVER
-                              :: THEN (THEN (cancel' fuel fuel) (ON_ALL (TRY SOLVER)))
-                                      (@MINIFY _ _ _ _ _)
-                              :: nil))).
+                      (FIRST [ SOLVE SOLVER
+                             | (cancel' fuel fuel ;; ON_ALL (TRY SOLVER)) ;; MINIFY
+                             ])).
 
   Theorem cancel_sound : rtac_sound cancel.
   Proof.

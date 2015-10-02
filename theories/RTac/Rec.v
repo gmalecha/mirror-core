@@ -111,6 +111,6 @@ Section parameterized.
 
 End parameterized.
 
-Arguments REC {_ _} n f last _ _ _ _ _ _ _ : rename.
-Arguments REC_N {_ _} n f last _ _ _ _ _ _ _ : rename.
-Arguments RECK {_ _} n f last _ _ _ _ _ _ _ : rename.
+Arguments REC {_ _} n%nat f%rtac last%rtac _ _ _ _ _ _ _ : rename.
+Arguments REC_N {_ _} n%positive_scope f%rtac last%rtac _ _ _ _ _ _ _ : rename.
+Arguments RECK {_ _} n%nat f%rtacK last%rtac _ _ _ _ _ _ _ : rename.

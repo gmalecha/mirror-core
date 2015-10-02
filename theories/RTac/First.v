@@ -65,3 +65,33 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments FIRST {_ _} _%or_rtac _ _ _ _ _ _ _.
+Arguments FIRSTK {_ _} _%or_rtacK _ _ _ _ _ _ _.
+
+Section parse_demo.
+  Variable IDTAC : rtac unit unit.
+  Variable IDTACK : rtacK unit unit.
+
+  Goal @eq (rtac unit unit) (FIRST nil) (FIRST [ ])%rtac.
+    reflexivity.
+  Abort.
+  Goal @eq (rtac unit unit) (FIRST (IDTAC :: nil)) (FIRST [ IDTAC ])%rtac.
+    reflexivity.
+  Abort.
+  Goal @eq (rtac unit unit) (FIRST (IDTAC :: FIRST (IDTAC :: nil) :: IDTAC :: nil))
+       (FIRST [ IDTAC | FIRST [ IDTAC ] | IDTAC ])%rtac.
+    reflexivity.
+  Abort.
+
+  Goal @eq (rtacK unit unit) (FIRSTK nil) (FIRSTK [ ])%rtac.
+    reflexivity.
+  Abort.
+  Goal @eq (rtacK unit unit) (FIRSTK (IDTACK :: nil)) (FIRSTK [ IDTACK ])%rtac.
+    reflexivity.
+  Abort.
+  Goal @eq (rtacK unit unit) (FIRSTK (IDTACK :: FIRSTK (IDTACK :: nil) :: IDTACK :: nil))
+       (FIRSTK [ IDTACK | FIRSTK [ IDTACK ] | IDTACK ])%rtac.
+    reflexivity.
+  Abort.
+End parse_demo.

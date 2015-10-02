@@ -46,3 +46,7 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments THEN {_ _} _%rtac _%rtacK _ _ _ _ _ _ _.
+
+Notation "X  ;; Y" := (@THEN _ _ X%rtac Y%rtacK) (at level 100, right associativity) : rtac_scope.

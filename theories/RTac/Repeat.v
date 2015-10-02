@@ -40,7 +40,7 @@ Section parameterized.
             match @tac tus tvs nus nvs ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
+                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -73,6 +73,7 @@ Section parameterized.
 
 End parameterized.
 
+Arguments REPEAT {_ _ _ _} _%nat _%rtac _ _ _ _ _ _ _.
 
 (*
   Section repeater.

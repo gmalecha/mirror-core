@@ -33,4 +33,32 @@ Section parameterized.
     eapply rtac_spec_Fail.
   Qed.
 
+  Fixpoint SOLVES (tacs : list (rtac typ expr)) : rtac typ expr :=
+    match tacs with
+    | nil => fun tus tvs nus nvs ctx s g => Fail
+    | tac :: tacs =>
+      let rec := SOLVES tacs in
+      fun tus tvs nus nvs ctx s g =>
+        match tac tus tvs nus nvs ctx s g with
+        | Solved s => Solved s
+        | _ => rec tus tvs nus nvs ctx s g
+        end
+    end.
+
+  Theorem SOLVES_sound
+  : forall tacs, Forall rtac_sound tacs -> rtac_sound (SOLVES tacs).
+  Proof.
+    induction 1; simpl.
+    { red. intros; subst. eapply rtac_spec_Fail. }
+    { red.
+      intros.
+      specialize (H ctx s g _ eq_refl).
+      destruct (x (getUVars ctx) (getVars ctx)
+                  (length (getUVars ctx)) (length (getVars ctx)) ctx s g); auto.
+      subst; auto. }
+  Qed.
+
 End parameterized.
+
+Arguments SOLVE {_ _} _%rtac _ _ _ _ _ _ _.
+Arguments SOLVES {_ _} _%or_rtac _ _ _ _ _ _ _.

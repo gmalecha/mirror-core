@@ -90,3 +90,5 @@ Section parameterized.
     { inversion H2. }
   Qed.
 End parameterized.
+
+Arguments RtacSound {typ expr _ _ _} _.

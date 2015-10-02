@@ -1265,7 +1265,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
       else
 	assert false ]
   | [ "Reify" "Seed" "Typed" "Table" constr(tbl) "+=" integer(key) "=>"
-	"[" constr(typ) "," constr(value) "]" ] ->
+	"[[" constr(typ) "," constr(value) "]]" ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
       (** TODO: Universes... **)
       let (tbl,tbl_univ)     = Constrintern.interp_constr env evm tbl in
@@ -1278,7 +1278,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
 END
 
 TACTIC EXTEND Reify_Lambda_Shell_reify
-  | ["reify_expr" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
+  | ["reify_expr" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
     [ let tbls = Reification.parse_tables tbls in
       Proofview.Goal.enter begin fun gl ->
 	try
@@ -1312,7 +1312,7 @@ END
 
 
 TACTIC EXTEND Reify_Lambda_Shell_reify_bind
-  | ["reify_expr_bind" constr(name) tactic(k) "[" constr(tbls) "]" "[" ne_constr_list(es) "]" ] ->
+  | ["reify_expr_bind" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
     [ let tbls = Reification.parse_tables tbls in
       Proofview.Goal.enter begin fun gl ->
         Printf.fprintf stderr "binding version!\n" ;

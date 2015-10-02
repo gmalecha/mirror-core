@@ -34,3 +34,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments TRY {_ _} _%rtac _ _ _ _ _ _ _.

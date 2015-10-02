@@ -745,7 +745,16 @@ Section parameterized.
 
 End parameterized.
 
-Arguments rtac_sound {typ expr _ _ _} tac : rename.
+Delimit Scope rtac_scope with rtac.
+
+Arguments rtac_sound {typ expr _ _ _} tac%rtac : rename.
+Arguments WellFormed_rtac {typ expr _ _} tac%rtac : rename.
+
+Delimit Scope or_rtac_scope with or_rtac.
+
+Notation " [ ] " := (@nil (rtac _ _)) : or_rtac_scope.
+Notation " [  x ] " := (@cons (rtac _ _) x%rtac (@nil (rtac _ _))) : or_rtac_scope.
+Notation " [  x  | ..  | y  ] " := (@cons (rtac _ _) x%rtac .. (@cons (rtac _ _) y%rtac (@nil (rtac _ _))) ..) : or_rtac_scope.
 
 (*Arguments GEx {typ expr} _ _ _ : rename. *)
 Arguments GAll {typ expr} _ _ : rename.

@@ -22,7 +22,7 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Section runOnGoals.
+Section runOnGoals_list.
   Context {typ : Type}.
   Context {expr : Type}.
 
@@ -305,7 +305,7 @@ Section runOnGoals.
       eapply rtac_spec_GSolved_Solved. }
   Qed.
 
-End runOnGoals.
+End runOnGoals_list.
 
 Arguments runOnGoals_list {typ expr RType Expr} tac tus tvs nus nvs ctx csub goal : rename.
 
@@ -342,3 +342,6 @@ Section runOnGoals_list_proof.
   : forall tacs, Forall rtac_sound tacs -> rtacK_sound (ON_EACH tacs)
   := runOnGoals_list_sound.
 End runOnGoals_list_proof.
+
+Arguments ON_EACH {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.
+Arguments runOnGoals_list {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.

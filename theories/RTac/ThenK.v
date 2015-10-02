@@ -46,3 +46,9 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments THENK {_ _} _%rtacK _%rtacK _ _ _ _ _ _ _.
+
+Notation "X  ;;; Y" := (@THENK _ _ X%rtacK Y%rtacK) (at level 100, right associativity) : rtacK_scope.
+Require Import MirrorCore.RTac.RunOnGoals.
+Notation "X  ;; Y" := (@THENK _ _ (runOnGoals X%rtac) Y%rtacK) (at level 100, right associativity) : rtacK_scope.

@@ -204,3 +204,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments EAPPLY {typ expr _ _ _ _} unify lem _ _ _ _ _ _ _ : rename.

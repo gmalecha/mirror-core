@@ -180,7 +180,7 @@ Section runOnGoals.
 
 End runOnGoals.
 
-Arguments runOnGoals {typ expr _ _} tac tus tvs nus nvs ctx csub goal : rename.
+Arguments runOnGoals {typ expr _ _} tac%rtac tus tvs nus nvs {ctx} csub goal : rename.
 
 Section runOnGoals_proof.
   Context {typ : Type}.
@@ -210,3 +210,5 @@ Section runOnGoals_proof.
   Definition ON_ALL_sound : forall tac, rtac_sound tac -> rtacK_sound (ON_ALL tac)
   := runOnGoals_sound.
 End runOnGoals_proof.
+
+Arguments ON_ALL {typ expr _ _} tac%rtac tus tvs nus nvs {ctx} csub goal : rename.

@@ -65,7 +65,7 @@ Ltac reify_left m :=
           clear ts fs us
       in
       (let X := constr:((fun (t : table_types) (trm : table_terms t) => Type)) in
-       reify_expr reify_monad K [ X ] [ L ])
+       reify_expr reify_monad K [[ X ]] [[ L ]])
   end.
 
 Ltac reduce_monads m :=
@@ -86,6 +86,6 @@ Ltac reduce_monads m :=
           clear ts fs us result'V ]
       in
       reify_expr reify_monad K
-              [ (fun (t : table_types) (trm : table_terms t) => Type) ]
-              [ L R ]
+              [[ (fun (t : table_types) (trm : table_terms t) => Type) ]]
+              [[ L R ]]
   end.

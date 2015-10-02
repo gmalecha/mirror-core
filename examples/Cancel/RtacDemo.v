@@ -285,7 +285,9 @@ Ltac rtac_canceler :=
             | vm_cast_no_check (@eq_refl _ resultV) ]
       end
   in
-  reify_expr_bind reify_monoid k [ (fun x : @mk_dvar_map _ _ _ typD table_terms (@SymEnv.F typ _) => True)  ] [ trm ]
+  reify_expr_bind reify_monoid k
+                  [[ (fun x : @mk_dvar_map _ _ _ typD table_terms (@SymEnv.F typ _) => True) ]]
+                  [[ trm ]]
   end.
 
 Goal goal 120.

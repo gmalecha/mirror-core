@@ -2260,3 +2260,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments MINIFY {typ expr _ _ _} _ _ _ _ {_} _ _.

@@ -35,3 +35,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments AT_GOAL {typ expr} _%rtac _ _ _ _ _ _ _.

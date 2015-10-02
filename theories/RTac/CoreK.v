@@ -209,8 +209,16 @@ Section parameterized.
 
 End parameterized.
 
-Arguments rtacK_sound {typ expr _ _ _} tac : rename.
-Arguments WellFormed_rtac {typ expr _ _} tac : rename.
+Delimit Scope rtacK_scope with rtacK.
+
+Arguments rtacK_sound {typ expr _ _ _} tac%rtacK : rename.
+Arguments WellFormed_rtacK {typ expr _ _} tac%rtacK : rename.
+
+Delimit Scope or_rtacK_scope with or_rtacK.
+
+Notation " [ ] " := (@nil (rtacK _ _)) : or_rtacK_scope.
+Notation " [  x ] " := (@cons (rtacK _ _) x%rtacK (@nil (rtacK _ _))) : or_rtacK_scope.
+Notation " [  x  | ..  | y  ] " := (@cons (rtacK _ _) x%rtacK .. (@cons (rtacK _ _) y%rtacK (@nil (rtacK _ _))) ..) : or_rtacK_scope.
 
 Export MirrorCore.ExprI.
 Export MirrorCore.SubstI.

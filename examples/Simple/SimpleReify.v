@@ -41,16 +41,16 @@ Ltac reify_typ trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple_typ k [ True ] [ trm ].
+  reify_expr reify_simple_typ k [[ True ]] [[ trm ]].
 
 Ltac reify trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 Ltac reify_simple trm k :=
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 
 Definition test_typ : typ.
@@ -107,7 +107,7 @@ Defined.
 Print test_fail.
 
 Definition foo : nat := 6.
-Reify Seed Typed Table table_terms += 1 => [ Simple.tyNat , foo ].
+Reify Seed Typed Table table_terms += 1 => [[ Simple.tyNat , foo ]].
 
 Definition test_table : expr typ func.
   reify (foo).
