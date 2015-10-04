@@ -47,6 +47,6 @@ Section parameterized.
 
 End parameterized.
 
-Arguments THEN {_ _} _%rtac _%rtacK _ _ _ _ _ _ _.
+Arguments THEN {typ expr} _%rtac _%rtacK _ _ _ _ {_} _ _ : rename.
 
-Notation "X  ;; Y" := (@THEN _ _ X%rtac Y%rtacK) (at level 100, right associativity) : rtac_scope.
+Notation "X  ;; Y" := (@THEN _ _ X%rtac Y%rtacK) (at level 70, right associativity) : rtac_scope.

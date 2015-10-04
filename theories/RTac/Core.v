@@ -24,18 +24,18 @@ Set Strict Implicit.
 (** TODO: Move to Data.HList **)
 Theorem rev_app_distr_trans
 : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
-Proof. clear.
-       induction x; simpl; intros.
-       - symmetry. apply app_nil_r_trans.
-       - rewrite IHx. apply app_ass_trans.
+Proof using.
+  induction x; simpl; intros.
+  - symmetry. apply app_nil_r_trans.
+  - rewrite IHx. apply app_ass_trans.
 Defined.
 
 (** TODO: This is cubic! **)
 Theorem rev_involutive_trans (A : Type)
 : forall (l : list A), rev (rev l) = l.
-Proof. clear.
-       induction l; simpl; auto.
-       rewrite rev_app_distr_trans. rewrite IHl. reflexivity.
+Proof using.
+  induction l; simpl; auto.
+  rewrite rev_app_distr_trans. rewrite IHl. reflexivity.
 Defined.
 
 Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))

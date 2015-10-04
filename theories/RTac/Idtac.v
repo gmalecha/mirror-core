@@ -28,3 +28,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments IDTAC {typ expr} _ _ _ _ {_} _ _.

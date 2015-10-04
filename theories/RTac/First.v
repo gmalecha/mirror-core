@@ -66,8 +66,8 @@ Section parameterized.
 
 End parameterized.
 
-Arguments FIRST {_ _} _%or_rtac _ _ _ _ _ _ _.
-Arguments FIRSTK {_ _} _%or_rtacK _ _ _ _ _ _ _.
+Arguments FIRST {typ expr} _%or_rtac _ _ _ _ {_} _ _ : rename.
+Arguments FIRSTK {typ expr} _%or_rtacK _ _ _ _ {_} _ _ : rename.
 
 Section parse_demo.
   Variable IDTAC : rtac unit unit.

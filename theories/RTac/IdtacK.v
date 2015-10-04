@@ -39,3 +39,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments IDTACK {typ expr} _ _ _ _ {_} _ _ : rename.
