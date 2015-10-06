@@ -87,6 +87,12 @@ struct
       let compare = Term.constr_ord
      end)
 
+  module IntMap = Map.Make
+    (struct
+      type t = int
+      let compare = Int.compare
+    end)
+
   type map_sort =
     SimpleMap
   | TypedMap
@@ -184,6 +190,53 @@ struct
   | RImpl  of rpattern * rpattern
   | RExact of Term.constr
 
+  type 'a ptrn_tree =
+  { if_app      : 'a IntMap.t
+  ; if_has_type : 'a Cmap.t
+  ; if_exact    : 'a Cmap.t
+  ; otherwise   : 'a
+  }
+
+  let empty_ptrn_tree default =
+    { if_app = IntMap.empty
+    ; if_has_type = Cmap.empty
+    ; if_exact = Cmap.empty
+    ; otherwise = default
+    }
+
+  let rec count_apps = function
+    | RApp (a,_) -> count_apps a + 1
+    | RExact t ->
+      let result =
+        match Term.kind_of_term t with
+        | Term.App (_,args) -> Array.length args
+        | _ -> 0
+      in result
+    | _ -> 0
+
+  let ptrn_tree_add (type a) (p : rpattern) (v : a option -> a) (t : a ptrn_tree) =
+    match p with
+    | RApp (l,r) ->
+      let arity = 1 + count_apps l in
+      let cur =
+        try Some (IntMap.find arity t.if_app)
+        with Not_found -> None
+      in { t with
+           if_app = IntMap.add arity (v cur) t.if_app }
+    | RExact trm -> (** Check universes **)
+      let cur =
+        try Some (Cmap.find trm t.if_exact)
+        with Not_found -> None
+      in { t with
+           if_exact = Cmap.add trm (v cur) t.if_exact }
+    | RHasType (typ,_) ->
+      let cur =
+        try Some (Cmap.find typ t.if_has_type)
+        with Not_found -> None
+      in { t with
+           if_has_type = Cmap.add typ (v cur) t.if_has_type }
+    | _ -> { t with
+             otherwise = v (Some t.otherwise) }
 
   (** Get the head symbol **)
   let rec app_full trm acc =
@@ -291,7 +344,7 @@ struct
   module Patterns =
   struct
     (** State **)
-    let pattern_table : ((reify_env rule) list) Cmap.t ref =
+    let pattern_table : ((reify_env rule) list) ptrn_tree Cmap.t ref =
       ref Cmap.empty
 
     (** Freezing and thawing of state (for backtracking) **)
@@ -455,7 +508,11 @@ struct
 	  let (p,l) = compile_pattern p effect in
 	  (Term_match.Filter
 	     ((fun env trm ->
+(*               let start_time = Sys.time () in *)
 	       let (_,ty) = Typing.type_of env.env env.evm trm in
+(*
+               let end_time = Sys.time () in
+               Pp.(msg_info (str "type checking time: " ++ real (end_time -. start_time) ++ fnl ())) ; *)
 	       Term.eq_constr ty t), p), l)
       in
       compile_pattern
@@ -547,10 +604,12 @@ struct
 	  fun ls _ _ -> reifier_ret (Vars.substnl ls 0 tmp)
       in compile_template
 
-    let extend trm rul =
+    let extend trm key rul =
       try
 	let objs = Cmap.find trm !pattern_table in
-	pattern_table := Cmap.add trm (rul :: objs) !pattern_table
+        let updated = ptrn_tree_add key (function None -> [rul]
+                                                | Some xs -> rul :: xs) objs in
+	pattern_table := Cmap.add trm updated !pattern_table
       with
       | Not_found -> assert false
 
@@ -559,9 +618,10 @@ struct
 	: unit =
       try
 	let effects = Hashtbl.create 1 in
-	let (ptrn, occs) = compile_pattern effects (into_rpattern ptrn) None in
+        let rptrn = into_rpattern ptrn in
+	let (ptrn, occs) = compile_pattern effects rptrn None in
 	let action = compile_template effects dispatch template 0 [] in
-	extend name (ptrn, action)
+	extend name rptrn (ptrn, action)
       with
 	Term_match.Match_failure -> raise (Failure "match failed, please report")
 
@@ -587,29 +647,67 @@ struct
     let print_patterns sep out (name : Term.constr) : unit =
       try
 	let vals = Cmap.find name !pattern_table in
-	List.iter (fun x -> Format.fprintf out "%a%a" sep () print_rule (fst x)) vals
+        let print_them = List.iter (fun x -> Format.fprintf out "%a%a" sep () print_rule (fst x)) in
+        IntMap.iter (fun _ -> print_them) vals.if_app ;
+	Cmap.iter (fun _ -> print_them) vals.if_has_type ;
+        Cmap.iter (fun _ -> print_them) vals.if_exact ;
+        print_them vals.otherwise
       with
 	Not_found -> Pp.(msg_warning (   (str "Unknown pattern table '")
 				      ++ (Printer.pr_constr name)
 				      ++ (str "'.")))
 
+    let run_ptrn_tree tr trm gl =
+      match trm with
+        Term trm ->
+        begin
+          try
+            Term_match.matches gl
+              (Cmap.find trm tr.if_exact)
+              trm gl
+          with Not_found | Term_match.Match_failure ->
+            try
+              match Term.kind_of_term trm with
+              | Term.App (_,args) ->
+                Term_match.matches gl
+                  (IntMap.find (Array.length args) tr.if_app)
+                  trm gl
+              | _ -> raise Not_found
+            with Not_found | Term_match.Match_failure ->
+              try
+                if not (Cmap.is_empty tr.if_has_type) then
+                  (* get the type *)
+                  let (_,ty) = Typing.type_of gl.env gl.evm trm in
+                  Term_match.matches gl
+                    (Cmap.find ty tr.if_has_type) trm gl
+                else raise Not_found
+              with Not_found | Term_match.Match_failure ->
+                Term_match.matches gl tr.otherwise trm gl
+        end
+      | App (trm, args, from) ->
+        begin
+          assert false
+        end
+
+
     let reify_patterns (i : Term.constr) trm
     : Term.constr reifier =
       fun gl ->
+(*        let start_time = Sys.time () in *)
 	try
-	  match trm with
-	    Term trm ->
-	      Term_match.matches gl
-		(Cmap.find i !pattern_table)
-		trm gl
-	  | App (trm,args,from) ->
-	    Term_match.matches_app gl
-	      (Cmap.find i !pattern_table)
-	      trm args from gl
+          let result = run_ptrn_tree (Cmap.find i !pattern_table) trm gl in
+(*          let end_time = Sys.time () in
+          Pp.(msg_info (str "reify_pattern time: " ++ real (end_time -. start_time) ++ fnl ())) ; *)
+          result
 	with
-	  Term_match.Match_failure ->
+        | Term_match.Match_failure ->
+          begin
+(*            let end_time = Sys.time () in
+            Pp.(msg_info (str "backtracking...time:" ++ real (end_time -. start_time) ++ fnl ())) ; *)
 	    reifier_fail_lazy trm gl
+          end
 
+    let empty_tree = empty_ptrn_tree []
     let add_empty_pattern name =
       if Cmap.mem name !pattern_table then
 	Pp.(
@@ -617,7 +715,7 @@ struct
 		 ++ (Printer.pr_constr name)
 	         ++ (str "' already exists.")))
       else
-	pattern_table := Cmap.add name [] !pattern_table
+	pattern_table := Cmap.add name empty_tree !pattern_table
 
     let declare_pattern (obj : Term.constr) =
       add_empty_pattern obj
@@ -940,8 +1038,13 @@ struct
     (result, { tables = !(env.typed_tables) })
 
   let reify_all gl tbls ns_e =
+    let start_time = Sys.time () in
     let st = initial_env gl tbls in
-    let result = List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e in
+    let result =
+      List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e
+    in
+    let end_time = Sys.time () in
+    Pp.(msg_info (str "Total time = " ++ real (end_time -. start_time) ++ fnl ())) ;
     (result, { tables = !(st.typed_tables) })
 
   let export_table bindings mt tbls =
