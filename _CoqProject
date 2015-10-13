@@ -5,8 +5,6 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
--arg -type-in-type
-
 src/reify_gen.ml
 src/reify_gen.mli
 src/reify_lambda.ml
@@ -89,7 +87,6 @@ theories/Views/Ptrns.v
 theories/Views/FuncView.v
 theories/Views/ViewSumN.v
 theories/Views/ListView.v
-theories/Views/ListOpView.v
 theories/Views/NatView.v
 theories/Views/StringView.v
 theories/Views/BoolView.v
@@ -138,8 +135,10 @@ examples/Monad2/MonadExpr.v
 examples/Monad2/Tests.v
 examples/Monad2/MonadReify.v
 examples/Monad2/MonadReduce.v
+
 examples/Imp/Imp.v
 examples/Imp/Wp.v
+
 examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
@@ -153,8 +152,7 @@ examples/Cancel/CancelTacNoMatch.v
 examples/Cancel/RtacDemoNoMatch.v
 
 examples/Auto/Demo.v
-examples/RTac/Demo.v
-examples/AutoRewrite/DemoQuantPullRtac.v
 
-# examples/AutoRewrite/Demo.v
-# examples/AutoRewrite/AutoRewriteLambda.v
+examples/RTac/Demo.v
+
+examples/AutoRewrite/DemoQuantPullRtac.v

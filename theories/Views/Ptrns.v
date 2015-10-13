@@ -347,7 +347,6 @@ Global Instance ignore_SucceedsE {x : X} (res : unit) :
       end.
   End Anyof.
 
-  Print List.Forall.
   Inductive _Forall (A : Type) (P : A -> Prop) : list A -> Prop :=
     _Forall_nil : _Forall P nil
   | _Forall_cons : forall (x : A) (l : list A),

@@ -6,19 +6,21 @@ Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Printing Universes.
 
 Module OneOfType.
 
   (** This universe will be created each time the functor is instantiated *)
   Definition TypeR := Type.
+  Definition TypeS := Type.
 
-  Inductive _option : TypeR :=
+  Inductive _option : TypeS :=
   | _Some : TypeR -> _option
   | _None.
   Arguments _None.
   Arguments _Some _.
 
-  Inductive pmap : TypeR :=
+  Inductive pmap : TypeS :=
   | Empty : pmap
   | Branch : _option -> pmap -> pmap -> pmap.
   Arguments Empty.
@@ -186,18 +188,50 @@ Module OneOfType.
       { congruence. } }
   Qed.
 
+  Lemma asNth'_get_lookup : forall p ts v, asNth' (ts:=ts) p p v = Some v.
+  Proof.
+    induction p; simpl; intros; auto.
+  Qed.
+
   Theorem Outof_Into : forall ts T p pf v,
     @OutOf ts T p pf (@Into ts T p pf v) = Some v.
   Proof using.
-  Admitted.
+    unfold OutOf, Into.
+    intros.
+    Require Import MirrorCore.Util.Compat.
+    autorewrite_with_eq_rw.
+    unfold asNth. simpl.
+    rewrite asNth'_get_lookup.
+    { generalize dependent (pmap_lookup' ts p).
+      intros. subst. reflexivity. }
+  Qed.
 
   Theorem Into_OutOf : forall ts T p pf v e,
       @OutOf ts T p pf e = Some v ->
       @Into ts T p pf v = e.
   Proof using.
-    unfold OutOf. unfold Into.
+    unfold OutOf, Into.
     intros. revert H.
-  Admitted.
+    autorewrite_with_eq_rw.
+    unfold asNth.
+    destruct e; simpl in *.
+    intro.
+    assert (p = index0).
+    { destruct (asNth' p index0 value0) eqn:?; try congruence.
+      inv_all. subst.
+      clear - Heqo.
+      revert Heqo.
+      revert value0 y.
+      revert index0. revert ts.
+      induction p; destruct index0; simpl; intros; try congruence.
+      { f_equal. eauto. }
+      { f_equal. eauto. } }
+    subst.
+    rewrite asNth'_get_lookup in H. inv_all. subst.
+    f_equal. clear.
+    generalize dependent (pmap_lookup' ts index0).
+    intros; subst. reflexivity.
+  Qed.
 
 End OneOfType.
 
@@ -237,8 +271,6 @@ Section RSym_OneOf.
       | _None => fun _ => None
       end eq_refl
     end.
-
-  Set Printing Universes.
 
   Definition symD_OneOf (m : pmap)
     (H : forall p, RSym match pmap_lookup' m p return TypeR with
