@@ -1404,11 +1404,11 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 	  in
 	  generate tbls []
 	with
-	  (Reification.ReificationFailure trm) as ex->
-(*	    let pr = lazy (Pp.(   (str "Failed to reify term '")
-			       ++ (Printer.pr_constr (Lazy.force trm))
-			       ++ (str "'."))) in *)
-	    Proofview.tclZERO ex
+	  (Reification.ReificationFailure trm) as ex ->
+	    let pr = Pp.(   (str "Failed to reify term '")
+		              ++ (Printer.pr_constr (Lazy.force trm))
+                              ++ (str "'.")) in
+	    Tacticals.New.tclZEROMSG pr
 			    end
     ]
 END
@@ -1441,10 +1441,10 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
 	  generate tbls []
 	with
 	  (Reification.ReificationFailure trm) as ex ->
-(*	    let pr = lazy (Pp.(   (str "Failed to reify term '")
-			       ++ (Printer.pr_constr (Lazy.force trm))
-			       ++ (str "'."))) in *)
-	    Proofview.tclZERO ex
+	    let pr = Pp.(   (str "Failed to reify term '")
+		         ++ (Printer.pr_constr (Lazy.force trm))
+	                 ++ (str "'.")) in
+            Tacticals.New.tclZEROMSG pr
 			   end
     ]
 END
