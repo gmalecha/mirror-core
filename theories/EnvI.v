@@ -19,6 +19,12 @@ Section Env.
   Definition typeof_env (e : env) : tenv :=
     map (@projT1 _ _) e.
 
+  Fixpoint valof_env (e : env) : hlist typD (typeof_env e) :=
+    match e as e return hlist typD (typeof_env e) with
+    | nil => Hnil
+    | t :: ts => Hcons (projT2 t) (valof_env ts)
+    end.
+
   Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD ty) :=
     match nth_error e n with
       | None => None
@@ -181,6 +187,13 @@ Section Env.
     { destruct v; inversion H. }
     { destruct v; simpl in *; eauto.
       inversion H; clear H; subst. eauto. }
+  Qed.
+
+  Theorem split_env_eta : forall vs,
+      split_env vs = existT _ (typeof_env vs) (valof_env vs).
+  Proof.
+    induction vs; simpl; auto.
+    rewrite IHvs. simpl. reflexivity.
   Qed.
 
 End Env.

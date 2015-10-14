@@ -21,3 +21,4 @@ coq-ext-lib
 *.o
 *.d
 .*.aux
+.merlin
