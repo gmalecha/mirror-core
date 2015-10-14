@@ -383,40 +383,40 @@ struct
     let into_rpattern =
       let rec into_rpattern (ptrn : Term.constr) : rpattern =
 	Term_match.(matches ()
-	  [ (EGlob_no_univ ptrn_ignore,
+	  [ (Glob_no_univ ptrn_ignore,
 	     fun _ _ -> RIgnore)
-	  ; (apps (EGlob_no_univ ptrn_get) [get 0; get 1],
+	  ; (apps (Glob_no_univ ptrn_get) [get 0; get 1],
 	     fun _ s ->
 	       let num  = Hashtbl.find s 0 in
 	       let next = Hashtbl.find s 1 in
 	       RGet (Std.Nat.of_nat num, into_rpattern next))
-	  ; (apps (EGlob_no_univ ptrn_exact) [Ignore; get 0],
+	  ; (apps (Glob_no_univ ptrn_exact) [Ignore; get 0],
 	     fun _ s ->
 	       let t = Hashtbl.find s 0 in
 	       RExact t)
-	  ; (apps (EGlob_no_univ ptrn_app) [get 0; get 1],
+	  ; (apps (Glob_no_univ ptrn_app) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RApp (into_rpattern f, into_rpattern x))
-	  ; (apps (EGlob_no_univ ptrn_impl) [get 0; get 1],
+	  ; (apps (Glob_no_univ ptrn_impl) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RImpl (into_rpattern f, into_rpattern x))
-	  ; (apps (EGlob_no_univ ptrn_pi) [get 0; get 1],
+	  ; (apps (Glob_no_univ ptrn_pi) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RPi (into_rpattern f, into_rpattern x))
-	  ; (apps (EGlob_no_univ ptrn_lam) [get 0; get 1],
+	  ; (apps (Glob_no_univ ptrn_lam) [get 0; get 1],
 	     fun _ s ->
 	       let f = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
 	       RLam (into_rpattern f, into_rpattern x))
-	  ; (EGlob_no_univ ptrn_const,
+	  ; (Glob_no_univ ptrn_const,
 	     fun _ _ -> RConst)
-	  ; (apps (EGlob_no_univ ptrn_has_type) [get 0; get 1],
+	  ; (apps (Glob_no_univ ptrn_has_type) [get 0; get 1],
 	     fun _ s ->
 	       let t = Hashtbl.find s 0 in
 	       let x = Hashtbl.find s 1 in
@@ -536,9 +536,9 @@ struct
 
     let parse_action : Term.constr -> action option =
       Term_match.(matches ()
-	[ (App (EGlob_no_univ action_function, get 0),
+	[ (App (Glob_no_univ action_function, get 0),
 	   fun _ s -> Some (Func (Hashtbl.find s 0)))
-	; (App (EGlob_no_univ action_id, Ignore),
+	; (App (Glob_no_univ action_id, Ignore),
 	   fun _ s -> Some Id)
 	; (Ignore, fun _ _ -> None)
 	])
@@ -792,29 +792,29 @@ struct
 	cmd)
     and parse_command cmd : Term.constr * command =
       Term_match.(matches ()
-	[ (apps (EGlob_no_univ cmd_patterns) [get ~-1(*T*);get 0],
+	[ (apps (Glob_no_univ cmd_patterns) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Patterns (Hashtbl.find s 0)))
-	; (apps (EGlob_no_univ cmd_call) [get ~-1(*T*);get 0],
+	; (apps (Glob_no_univ cmd_call) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Call (Hashtbl.find s 0)))
-	; (apps (EGlob_no_univ cmd_app) [get ~-1(*T*);get 0],
+	; (apps (Glob_no_univ cmd_app) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,App (Hashtbl.find s 0)))
-	; (apps (EGlob_no_univ cmd_var) [get ~-1(*T*);get 0],
+	; (apps (Glob_no_univ cmd_var) [get ~-1(*T*);get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Var (Hashtbl.find s 0)))
-	; (apps (EGlob_no_univ cmd_abs) [get ~-1(*T*);get 1;get 0],
+	; (apps (Glob_no_univ cmd_abs) [get ~-1(*T*);get 1;get 0],
 	   fun _ s -> (Hashtbl.find s ~-1,Abs (Hashtbl.find s 1,Hashtbl.find s 0)))
-	; (apps (EGlob_no_univ cmd_table) [get ~-1(*T*);Ignore;get 0;get 1],
+	; (apps (Glob_no_univ cmd_table) [get ~-1(*T*);Ignore;get 0;get 1],
 	   fun _ s -> (Hashtbl.find s ~-1,Table (Hashtbl.find s 0, Hashtbl.find s 1)))
-	; (apps (EGlob_no_univ cmd_typed_table)
+	; (apps (Glob_no_univ cmd_typed_table)
 	     [get ~-1(*T*);Ignore(*K*);get 0(*Ty*);
 	      get 1(*tbl*);get 2(*ctor*)],
 	   fun _ s ->
 	     (Hashtbl.find s ~-1,TypedTable (Hashtbl.find s 1, Hashtbl.find s 0, Hashtbl.find s 2)))
-	; (apps (EGlob_no_univ cmd_map)
+	; (apps (Glob_no_univ cmd_map)
 	     [get ~-1(*T*);Ignore;get 1(*F*);get 0(*cmd*)],
 	   fun _ s ->
 	     let (_,c) = parse_command (Hashtbl.find s 0) in
 	     (Hashtbl.find s ~-1,Map (Hashtbl.find s 1, c)))
-	; (apps (EGlob_no_univ cmd_first)
+	; (apps (Glob_no_univ cmd_first)
 	     [get ~-1(*T*);get 0(*cmds*)],
 	   fun _ s ->
 	     (Hashtbl.find s ~-1,First (parse_commands (Hashtbl.find s 0))))
@@ -1089,10 +1089,11 @@ struct
       let pr = Syntax.reify_type prem_rule in
       let co = Syntax.reify_type concl_rule in
       reifier_ret
-        (Term.mkApp (build_lemma, [| ty ; pr ; co
-                                   ; Std.List.to_list ty (List.rev alls)
-                                   ; Std.List.to_list pr (List.rev prems)
-                                   ; pred |]))
+        (Term.mkApp (Lazy.force build_lemma,
+                     [| ty ; pr ; co
+                      ; Std.List.to_list ty (List.rev alls)
+                      ; Std.List.to_list pr (List.rev prems)
+                      ; pred |]))
     in
     let get_prems alls =
       let rec get_prems prems pred =
@@ -1247,8 +1248,8 @@ struct
       else assert false
     in
     let key_ary = [| key |] in
-    let obj = decl_constant ~typ:(Term.mkApp (table_type, key_ary))
-      id evm (Term.mkApp (table_value, key_ary))
+    let obj = decl_constant ~typ:(Term.mkApp (Lazy.force table_type, key_ary))
+      id evm (Term.mkApp (Lazy.force table_value, key_ary))
     in
     if Tables.declare_table obj key_type then
       let _ = Lib.add_anonymous_leaf (new_table (obj, key_type))
@@ -1262,8 +1263,8 @@ struct
       else assert false
     in
     let key_ary = [| key ; typ |] in
-    let obj = decl_constant ~typ:(Term.mkApp (typed_table_type, key_ary))
-      id evm (Term.mkApp (typed_table_value, key_ary))
+    let obj = decl_constant ~typ:(Term.mkApp (Lazy.force typed_table_type, key_ary))
+      id evm (Term.mkApp (Lazy.force typed_table_value, key_ary))
     in
     if Tables.declare_table obj key_type then
       let _ = Lib.add_anonymous_leaf (new_table (obj, key_type)) in
@@ -1303,7 +1304,7 @@ struct
   let a_pattern = Std.resolve_symbol pattern_mod "a_pattern"
 
   let declare_pattern (name : Names.identifier) evd (value : Term.constr) =
-    let obj = decl_constant name evd (Term.mkApp (a_pattern, [| value |])) in
+    let obj = decl_constant name evd (Term.mkApp (Lazy.force a_pattern, [| value |])) in
     let _ = Lib.add_anonymous_leaf (pattern_table_object obj) in
     Patterns.declare_pattern obj
 
@@ -1335,18 +1336,18 @@ struct
 
   let parse_table (trm : Term.constr) : map_type =
     Term_match.(matches ()
-		  [(apps (EGlob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
+		  [(apps (Glob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
 		    fun _ s -> { table_name = Hashtbl.find s 0
 			       ; table_elem_type = Hashtbl.find s 2
 			       ; table_elem_ctor = Hashtbl.find s 1
 			       ; table_scheme = SimpleMap })
-		  ;(apps (EGlob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
+		  ;(apps (Glob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
 					      get 0;get 1],
 		    fun _ s -> { table_name = Hashtbl.find s 0
 			       ; table_elem_type = Hashtbl.find s 2
 			       ; table_elem_ctor = Hashtbl.find s 1
 			       ; table_scheme = TypedMap })
-		  ;(apps (EGlob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
+		  ;(apps (Glob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
 						  Ignore;get 0;get 1],
 		    fun _ s ->
 		      { table_name = Hashtbl.find s 0
