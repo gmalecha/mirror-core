@@ -30,7 +30,7 @@ Section parameterized.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk _}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 

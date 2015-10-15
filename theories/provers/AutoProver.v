@@ -80,9 +80,9 @@ Section parameterized.
 
   Variable subst : Type.
   Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstOk_subst : SubstOk subst typ expr}.
   Context {SU : SubstUpdate subst expr}.
-  Context {SubstUpdateOk : SubstUpdateOk SU _}.
+  Context {SubstUpdateOk : SubstUpdateOk subst typ expr}.
   Context {SO : SubstOpen subst}.
   Context {SubstOpenOk : SubstOpenOk _ SO}.
 

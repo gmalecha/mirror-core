@@ -54,7 +54,7 @@ Section with_instantiation.
     end.
 
   Variable RType_typ : RType typ.
-  Variable Expr_expr : Expr RType_typ expr.
+  Variable Expr_expr : Expr typ expr.
   Variable Typ0_Prop : Typ0 _ Prop.
 
   Definition env_of_Ctx (c : Ctx typ expr) : Type :=
@@ -263,7 +263,7 @@ Section with_instantiation.
                     unifier typ expr subst.
 
     Variable exprUnify_sound
-    : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
+    : forall subst (S : Subst subst expr) (SO : SubstOk subst typ expr) SU (SUO : SubstUpdateOk subst typ expr),
         unify_sound (@exprUnify subst S SU).
 
     Variable ctx : Ctx typ expr.
@@ -275,11 +275,9 @@ Section with_instantiation.
         | Some s' => Monad.ret (s', true)
         end.
 
-    Check @InContext_spec.
-
     Theorem unify_sound
     : forall e1 e2 t,
-        InContext_spec 
+        InContext_spec
           (fun _ => True)
           (fun res : bool =>
              if res then

@@ -534,4 +534,6 @@ Section subst.
 *)
 End subst.
 
+Arguments SubstOk T typ expr {_ _ _}.
+Arguments SubstUpdateOk T typ expr {_ _ _ _ _}.
 Arguments subst_pull {T SO} _ _ _ : rename.

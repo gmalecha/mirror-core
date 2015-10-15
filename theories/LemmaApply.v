@@ -37,12 +37,12 @@ Section lemma_apply.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
   Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstOk_subst : SubstOk subst typ expr}.
   (** TODO: Ideally I wouldn't need these things, but they are necessary b/c of
    ** where [substR] fits into things
    **)
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : SubstUpdateOk _ _}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ expr}.
 
   Variable unify : unifier typ expr subst.
 

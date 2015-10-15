@@ -22,7 +22,7 @@ Section parameterized.
   Variable Typ0_Prop : Typ0 _ Prop.
   Let tyProp : typ := @typ0 _ _ _ _.
 
-  Variable Expr_expr : Expr RType_typ expr.
+  Variable Expr_expr : Expr typ expr.
   Variable ExprOk_expr : ExprOk Expr_expr.
   Variable Subst_subst : Subst subst expr.
   Variable SubstOk_subst : @SubstOk _ _ _ _ Expr_expr Subst_subst.

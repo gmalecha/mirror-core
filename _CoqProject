@@ -144,7 +144,9 @@ examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
 
-examples/Cancel/Lang.v
+examples/Cancel/Monoid.v
+examples/Cancel/MonoidSyntax.v
+examples/Cancel/MonoidLemmasSyntax.v
 examples/Cancel/LtacDemo.v
 examples/Cancel/CancelTac.v
 examples/Cancel/RtacDemo.v

@@ -29,3 +29,6 @@ deps.pdf:
 
 todo:
 	git grep TODO
+
+admit:
+	git grep -i admit

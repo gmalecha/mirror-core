@@ -264,3 +264,6 @@ Section expr.
   { eapply Proper_subst. }
   Qed.
 End expr.
+
+Arguments Expr_expr {typ _ _ _ _}.
+Arguments ExprOk_expr {_ _ _ _ _ _ _ _}.

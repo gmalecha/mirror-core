@@ -17,14 +17,13 @@ Section typed.
   Context {RTypeOk_typ : RTypeOk}.
   Context {RSym_func : RSym func}.
   Context {RSymOk_func : RSymOk RSym_func}.
-  Local Existing Instance Expr_expr. (* : Expr _ (expr typ func) := Expr_expr. *)
+  Local Existing Instance Expr_expr.
   Context {Typ2_arr : Typ2 _ RFun}.
   Context {Typ2Ok_arr : Typ2Ok Typ2_arr}.
   Context {Subst_subst : Subst subst (expr typ func)}.
   Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
-  Context {SubstUpdateOk_subst
-  : @SubstUpdateOk _ _ _ _ (Expr_expr _ _ _ _) _ SubstUpdate_subst _}.
+  Context {SubstOk_subst : SubstOk subst typ (expr typ func)}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ (expr typ func)}.
 
   Lemma handle_set
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)

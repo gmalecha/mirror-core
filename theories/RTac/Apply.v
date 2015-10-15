@@ -20,7 +20,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
@@ -29,7 +29,7 @@ Section parameterized.
     unifier typ expr subst.
 
   Variable exprUnify_sound
-  : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
+  : forall subst (S : Subst subst expr) (SO : SubstOk subst typ expr) SU (SUO : SubstUpdateOk subst typ expr),
       unify_sound (@exprUnify subst S SU).
 
   Variable lem : Lemma.lemma typ expr expr.

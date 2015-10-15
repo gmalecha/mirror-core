@@ -1,4 +1,4 @@
-Require Import McExamples.Cancel.Lang.
+Require Import McExamples.Cancel.Monoid.
 
 Local Infix "&" := P (at level 50).
 Local Infix "%is" := R (at level 70).

@@ -83,16 +83,18 @@ Local Existing Instance Expr_expr.
 Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
       lem_0 : Even_0.
 
-Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
-      lem_SS : Even_SS.
-
 (*
 Definition lem_0 : lemma typ (expr typ func) (expr typ func) :=
   Eval simpl makeNat in
     {| vars := nil
      ; premises := nil
      ; concl := App (Inj 1%positive) (makeNat 0) |}.
+*)
 
+Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
+      lem_SS : Even_SS.
+
+(*
 Definition lem_SS : lemma typ (expr typ func) (expr typ func) :=
   {| vars := tyNat :: nil
    ; premises := App (Inj 1%positive) (Var 0) :: nil
@@ -156,9 +158,9 @@ Local Instance Subst_subst : SubstI.Subst subst (expr typ func) :=
 Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func) :=
   @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
 
-Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ Subst_subst :=
+Local Instance SubstOk_fmap_subst : SubstI.SubstOk subst typ (expr typ func) :=
   @FMapSubst.SUBST.SubstOk_subst _ _ _ _.
-Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk _ _.
+Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk subst typ (expr typ func).
 eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
 Qed.
 
@@ -259,14 +261,6 @@ Ltac run_auto := idtac;
 Goal Even 2.
 Proof.
   Time run_auto.
-Show Proof.
-Definition XXX := let g := App (Inj 1%positive) (makeNat 3) in
-   the_auto evenHints fuel nil nil nil g
-         (SUBST.raw_empty (expr typ func)).
-Time Eval vm_compute
-in XXX.
-Print the_auto.
-Print auto_prove. Print auto_prove_rec.
 Qed.
 
 Goal Even 200.

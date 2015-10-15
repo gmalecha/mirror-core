@@ -8,12 +8,12 @@ Set Strict Implicit.
 
 Section AppAbs.
   Variable typ : Type.
-  Variable RType_typ : RType typ.
+  Context {RType_typ : RType typ}.
 
   Variable expr : Type.
-  Variable Expr_expr : Expr RType_typ expr.
+  Context {Expr_expr : Expr typ expr}.
 
-  Variable Typ2_fun : Typ2 _ RFun.
+  Context {Typ2_fun : Typ2 _ RFun}.
 
   Class Abstraction :=
   { Abs : typ -> expr -> expr
@@ -87,5 +87,7 @@ Section AppAbs.
 
 End AppAbs.
 
-Arguments exprT_App {_ _ _ _ _ _ _} _ _ _ _.
-Arguments exprT_Abs {_ _ _ _ _ _ _} _ _ _.
+Arguments exprT_App {typ _ _ _ _ _ _} _ _ _ _.
+Arguments exprT_Abs {typ _ _ _ _ _ _} _ _ _.
+Arguments ApplicationOk {typ _ expr _ _} _ : rename.
+Arguments AbstractionOk {typ _ expr _ _} _ : rename.

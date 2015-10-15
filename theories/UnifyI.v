@@ -13,9 +13,9 @@ Section with_Expr.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : @Expr typ _ expr}.
   Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstOk_subst : SubstOk subst typ expr}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ expr}.
 
   Local Existing Instance RType_typ.
   Local Existing Instance Expr_expr.

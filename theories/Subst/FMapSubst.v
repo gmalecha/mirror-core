@@ -18,8 +18,6 @@ Set Strict Implicit.
 (** Finite Maps **)
 Require Import FMapInterface.
 
-Let uvar : Type := nat.
-
 Module Make (FM : WS with Definition E.t := uvar
                      with Definition E.eq := @eq uvar).
 
@@ -31,7 +29,7 @@ Module Make (FM : WS with Definition E.t := uvar
     Context {RType_typ : RType typ}.
     Context {RTypeOk_typ : RTypeOk}.
     Variable expr : Type.
-    Context {Expr_expr : Expr _ expr}.
+    Context {Expr_expr : Expr typ expr}.
     Context {ExprOk_expr : ExprOk Expr_expr}.
 
     Definition raw : Type := FM.t expr.
@@ -553,7 +551,7 @@ Module Make (FM : WS with Definition E.t := uvar
       red. eexists. eauto. eauto.
     Qed.
 
-    Instance SubstOk_subst : SubstOk Subst_subst :=
+    Instance SubstOk_subst : SubstOk raw typ expr :=
     {| SubstI.WellFormed_subst := WellFormed
      ; SubstI.substD := raw_substD
      ; SubstI.substD_lookup := substD_lookup
@@ -1094,75 +1092,6 @@ Module Make (FM : WS with Definition E.t := uvar
           eexists; split; eauto. } }
     Qed.
 
-(*
-    Theorem strengthenV_sound
-    : forall (s : raw) (n c : nat),
-        raw_strengthenV n c s = true ->
-        WellFormed_subst s ->
-        forall (tus : tenv typ) (tvs tvs' : list typ)
-               (sD : hlist typD tus ->
-                     hlist typD (tvs ++ tvs') -> Prop),
-          substD tus (tvs ++ tvs') s = Some sD ->
-          n = length tvs ->
-          c = length tvs' ->
-          exists
-            sD' : hlist typD tus -> hlist typD tvs -> Prop,
-            substD tus tvs s = Some sD' /\
-            (forall (us : hlist typD tus)
-                    (vs : hlist typD tvs)
-                    (vs' : hlist typD tvs'),
-               sD us (hlist_app vs vs') <-> sD' us vs).
-  Abort.
-
-    Theorem strengthenU_sound
-    : forall (s : raw) (n c : nat),
-        raw_strengthenU n c s = true ->
-        WellFormed_subst s ->
-        forall (tus : list typ) (tvs : tenv typ)
-               (tus' : list typ)
-               (sD : hlist typD (tus ++ tus') ->
-                     hlist typD tvs -> Prop),
-          substD (tus ++ tus') tvs s = Some sD ->
-          n = length tus ->
-          c = length tus' ->
-          exists
-            sD' : hlist typD tus -> hlist typD tvs -> Prop,
-            substD tus tvs s = Some sD' /\
-            (forall (us : hlist typD tus)
-                    (vs : hlist typD tvs)
-                    (us' : hlist typD tus'),
-               sD (hlist_app us us') vs <-> sD' us vs).
-    Abort.
-
-    Theorem forget_sound
-    : forall s u s' oe,
-        forget u s = (s', oe) ->
-        WellFormed_subst s ->
-        WellFormed_subst s' /\
-        forall tus tvs sD,
-          substD tus tvs s = Some sD ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            match oe with
-              | None =>
-                forall us vs,
-                  sD us vs <-> sD' us vs
-              | Some e =>
-                mentionsU u e = false /\
-                match nth_error_get_hlist_nth typD tus u with
-                  | Some (existT t get) =>
-                    match exprD' tus tvs e t with
-                      | None => False
-                      | Some eD =>
-                        forall us vs,
-                          sD us vs <-> (get us = eD us vs /\ sD' us vs)
-                    end
-                  | None => False
-                end
-            end.
-     Abort.
-*)
-
     Definition raw_substR (tus tvs : tenv typ) (a b : raw) : Prop :=
       Roption (RexprT tus tvs impl) (substD tus tvs b) (substD tus tvs a).
 
@@ -1216,7 +1145,7 @@ Module Make (FM : WS with Definition E.t := uvar
       eassumption.
     Qed.
 
-    Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
+    Instance SubstUpdateOk_subst : SubstUpdateOk raw typ expr :=
     {| SubstI.substR := raw_substR
      ; SubstI.set_sound := set_sound
      ; SubstI.Transitive_substR := Transitive_substR

@@ -16,7 +16,7 @@ Section proverI.
   Context {typ : Type}.
   Variable expr : Type.
   Context {RType_typ : RType typ}.
-  Context {Expr_expr : Expr _ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
@@ -31,7 +31,7 @@ Section proverI.
 
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : SubstOk Ssubst)
+             (SsubstOk : SubstOk subst typ expr)
     (Valid : forall tus tvs, summary -> option (exprT tus tvs Prop))
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
@@ -91,7 +91,7 @@ Section proverI.
             sumD' us vs
   ; Prove_sound
     : forall subst (Ssubst : Subst subst expr)
-             (Sok : SubstOk Ssubst),
+             (Sok : SubstOk subst typ expr),
         EProveOk Sok factsD (@Prove P subst Ssubst)
   }.
 

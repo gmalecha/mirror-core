@@ -1509,7 +1509,7 @@ Section setoid.
 
     Local Instance Subst_amap T : Subst (amap T) T :=
       FMapSubst.SUBST.Subst_subst T.
-    Local Instance SubstOk_amap : SubstOk (Subst_amap (expr typ func)) :=
+    Local Instance SubstOk_amap : SubstOk (amap (expr typ func)) typ (expr typ func) :=
       @FMapSubst.SUBST.SubstOk_subst typ _ (expr typ func) _.
 
     Opaque instantiate.
@@ -1551,7 +1551,7 @@ Section setoid.
       destruct (@instantiate_sound typ (expr typ func) _ _ _ (getUVars ctx++l) t
                                    (fun u : ExprI.uvar => amap_lookup u x12)
                                    (vars_to_uvars 0 (length (getUVars ctx)) e) nil t0 x0 y3).
-      { generalize (@sem_preserves_if_substD (amap (expr typ func)) typ (expr typ func) RType_typD (Expr_expr _ _ _ _) _ _).
+      { generalize (@sem_preserves_if_substD (amap (expr typ func)) typ (expr typ func) RType_typD Expr_expr _ _).
         simpl. intro. eapply H3.
         2: eapply Hamap_substD.
         eapply WellFormed_entry_WellFormed_pre_entry in H40.
@@ -1941,8 +1941,8 @@ Section setoid.
         let tus := getUVars ctx in
         let tvs := getVars ctx in
         forall l0 r0 e e' cs'
-          (Hlem : lemmaD (rw_conclD RbaseD) nil nil l0)
-          (Hrtac :           rtacK_sound r0),
+          (Hlem  : lemmaD (rw_conclD RbaseD) nil nil l0)
+          (Hrtac : rtacK_sound r0),
           core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
           WellFormed_ctx_subst cs ->
           WellFormed_ctx_subst cs' /\
@@ -2036,7 +2036,7 @@ Section setoid.
       unfold expr_convert.
       intros.
       destruct (fun Hu Hv => @ExprI.expr_subst_sound
-                    typ _ (expr typ func) (Expr_expr _ _ _ _) _
+                    typ _ (expr typ func) Expr_expr _
                     _lookupU
                     (_lookupV (length tvs) (length tvs'))
                     0 e _ eq_refl nil

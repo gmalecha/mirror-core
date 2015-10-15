@@ -9,7 +9,7 @@ Set Strict Implicit.
 Section parameterized.
   Context {typ expr : Type}.
   Context {RType_typ : RType typ}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Variable T : Type.
   Context {Typ0_T : Typ0 _ T}.
 

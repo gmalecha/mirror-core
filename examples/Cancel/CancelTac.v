@@ -4,11 +4,14 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.Lemma.
 Require Import MirrorCore.RTac.RTac.
-Require Import McExamples.Cancel.Lang.
+Require Import McExamples.Cancel.MonoidLemmasSyntax.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(* This code purposefully does not use the reification mechanism so that it
+ * can remain agnostic to the underlying implementation.
+ *)
 Section canceller.
   Variables typ func : Type.
   Context {RType_typ : RType typ}.
@@ -18,92 +21,26 @@ Section canceller.
   Context {Typ2Ok_func : Typ2Ok Typ2_func}.
   Context {RSym_sym : RSym func}.
   Context {RSymOk_sym : RSymOk RSym_sym}.
-
-  Let Expr_expr := @Expr_expr typ func RType_typ _ _.
+  Let Expr_expr : Expr typ (expr typ func) := Expr_expr.
   Local Existing Instance Expr_expr.
-  Let ExprOk_expr : ExprOk Expr_expr := @ExprOk_expr typ func _ _ _ _ _ _.
+  Let ExprOk_expr : ExprOk Expr_expr := ExprOk_expr.
   Local Existing Instance ExprOk_expr.
   Local Existing Instance ExprUVarOk_expr.
 
   Variable T : typ.
   Variable R P U : expr typ func.
 
-  Let p (a b : expr typ func) : expr typ func :=
-    App (App P a) b.
-  Let r (a b : expr typ func) : expr typ func :=
-    App (App R a) b.
+  Let lem_plus_unit_c := lem_plus_unit_c T R P U.
+  Let lem_plus_assoc_c1 := lem_plus_assoc_c1 T R P.
+  Let lem_plus_assoc_c2 := lem_plus_assoc_c2 T R P.
+  Let lem_plus_comm_c := lem_plus_comm_c T R P.
+  Let lem_plus_cancel := lem_plus_cancel T R P.
+  Let lem_plus_unit_p := lem_plus_unit_p T R P U.
+  Let lem_plus_assoc_p1 := lem_plus_assoc_p1 T R P.
+  Let lem_plus_assoc_p2 := lem_plus_assoc_p2 T R P.
+  Let lem_plus_comm_p := lem_plus_comm_p T R P.
 
-  Definition lem_plus_unit_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil;
-     concl := App (App R (ExprCore.Var 0))  (App (App P U) (ExprCore.Var 1)) |}.
-  Definition lem_plus_assoc_c1 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 3))
-                     (App (App P (ExprCore.Var 0))
-                          (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))) :: nil;
-     concl := App (App R (ExprCore.Var 3))
-                  (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                       (ExprCore.Var 2)) |}.
-  Definition lem_plus_assoc_c2 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 3))
-                     (App (App P (ExprCore.Var 1))
-                          (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))) :: nil;
-     concl := App (App R (ExprCore.Var 3))
-                  (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                       (ExprCore.Var 2)) |}.
-  Definition lem_plus_comm_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 2))
-                     (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)) :: nil;
-     concl := App (App R (ExprCore.Var 2))
-                  (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)) |}.
-  Definition lem_plus_cancel : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 2)
-                     :: App (App R (ExprCore.Var 1)) (ExprCore.Var 3)
-                     :: nil;
-     concl := App
-                (App R (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                (App (App P (ExprCore.Var 2)) (ExprCore.Var 3)) |}.
 
-  Definition lem_plus_unit_p : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: nil;
-     premises := App (App R (ExprCore.Var 0)) (ExprCore.Var 1) :: nil;
-     concl := App (App R (App (App P U) (ExprCore.Var 0)))
-                  (ExprCore.Var 1) |}.
-  Definition lem_plus_assoc_p1 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App
-                   (App R
-                        (App (App P (ExprCore.Var 0))
-                             (App (App P (ExprCore.Var 1)) (ExprCore.Var 2))))
-                   (ExprCore.Var 3) :: nil;
-     concl := App
-                (App R
-                     (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                          (ExprCore.Var 2))) (ExprCore.Var 3) |}.
-  Definition lem_plus_assoc_p2 : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: T :: nil;
-     premises := App
-                   (App R
-                        (App (App P (ExprCore.Var 1))
-                             (App (App P (ExprCore.Var 0)) (ExprCore.Var 2))))
-                   (ExprCore.Var 3) :: nil;
-     concl := App
-                (App R
-                     (App (App P (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                          (ExprCore.Var 2))) (ExprCore.Var 3) |}.
-  Definition lem_plus_comm_p : Lemma.lemma typ (expr typ func) (expr typ func) :=
-  {| vars := T :: T :: T :: nil;
-     premises := App
-                   (App R
-                        (App (App P (ExprCore.Var 0)) (ExprCore.Var 1)))
-                   (ExprCore.Var 2) :: nil;
-     concl := App
-                (App R (App (App P (ExprCore.Var 1)) (ExprCore.Var 0)))
-                (ExprCore.Var 2) |}.
   Context {RL1 : ReifiedLemma lem_plus_unit_c}.
   Context {RL2 : ReifiedLemma lem_plus_assoc_c1}.
   Context {RL3 : ReifiedLemma lem_plus_assoc_c2}.
@@ -113,12 +50,11 @@ Section canceller.
   Context {RL7 : ReifiedLemma lem_plus_assoc_p1}.
   Context {RL8 : ReifiedLemma lem_plus_assoc_p2}.
   Context {RL9 : ReifiedLemma lem_plus_comm_p}.
-(*  Context {RL10 : ReifiedLemma refl}. *)
 
   Definition EAPPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
-    EAPPLY (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30).
+    EAPPLY (fun subst Ssubst SUsubst => exprUnify 30).
   Definition APPLY : Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
-    APPLY (fun subst Ssubst SUsubst => @exprUnify subst _ _ _ _ _ Ssubst SUsubst 30).
+    APPLY (fun subst Ssubst SUsubst => exprUnify 30).
 
   Local Instance RtacSound_EAPPLY l (RL : ReifiedLemma l)
   : RtacSound (EAPPLY l).
@@ -269,65 +205,3 @@ Section canceller.
   Qed.
 
 End canceller.
-
-(*
-Fixpoint build_plusL n : expr typ func :=
-  match n with
-    | 0 => Inj (N 1)
-    | S n' => App (App (Inj Plus) (Inj (N (S n)))) (build_plusL n')
-  end.
-
-Fixpoint build_plusR n : expr typ func :=
-  match n with
-    | 0 => Inj (N 1)
-    | S n' => App (App (Inj Plus) (build_plusR n')) (Inj (N (S n)))
-  end.
-
-Definition goal n := App (App (Inj (Eq tyNat)) (build_plusL n)) (build_plusR n).
-
-Time Eval vm_compute in @runRtac _ _ nil nil (goal 200) automation.
-
-Eval vm_compute in goal 1.
-Goal True.
-
-vm_compute in r.
-*)
-
-(**
-Definition lem_plus_unit_c : Lemma.lemma typ (expr typ func) (expr typ func) :=
-{|
-vars := T :: T :: nil;
-premises := App (App (Inj (Eq T)) (ExprCore.Var 1)) (ExprCore.Var 0) :: nil;
-concl := App (App R (ExprCore.Var 1))  (App (App P U) (ExprCore.Var 0)) |}.
-reify_simple_lemma plus_unit_c.
-Show Proof. Defined.
-Definition lem_plus_assoc_c1 : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_assoc_c1.
-Defined.
-Definition lem_plus_assoc_c2 : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_assoc_c2.
-Defined.
-Definition lem_plus_comm_c : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_comm_c.
-Defined.
-Definition lem_plus_cancel : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_cancel.
-Defined.
-
-Definition lem_plus_unit_p : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_unit_p.
-
-Defined.
-Definition lem_plus_assoc_p1 : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_assoc_p1.
-Defined.
-Definition lem_plus_assoc_p2 : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_assoc_p2.
-Defined.
-Definition lem_plus_comm_p : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma plus_comm_p.
-Defined.
-Definition lem_refl : Lemma.lemma typ (expr typ func) (expr typ func).
-reify_simple_lemma refl.
-Defined.
-**)

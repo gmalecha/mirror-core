@@ -32,7 +32,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprVar_expr : ExprVar expr}.
   Context {ExprVarOk_expr : ExprVarOk _}.
@@ -2477,7 +2477,7 @@ Section parameterized.
   Qed.
 
   Global Instance SubstUpdateOk_ctx_subst ctx
-  : SubstUpdateOk (SubstUpdate_ctx_subst ctx) (SubstOk_ctx_subst ctx) :=
+  : SubstUpdateOk (ctx_subst ctx) typ expr :=
   { substR := fun _ _ a b => SubstMorphism a b
   ; set_sound := _ }.
   Proof.
@@ -2911,7 +2911,7 @@ Section parameterized.
       assumption. }
     split.
     { eapply Forall_amap_Proper. 2: eauto.
-      instantiate (1 := fun (k : FMapSubst.uvar) (_ : expr) => a <= k < a + 0).
+      instantiate (1 := fun (k : uvar) (_ : expr) => a <= k < a + 0).
       reflexivity.
       eapply Forall_amap_empty. }
     { eapply Forall_amap_Proper. 2: eauto.

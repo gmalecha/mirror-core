@@ -62,8 +62,7 @@ sig
   (** Patterns **)
   val declare_pattern : Names.identifier -> Evd.evar_map -> Term.constr -> unit
   val add_pattern     : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> unit
-  val print_patterns  : (Format.formatter -> unit -> unit) ->
-    Format.formatter -> Term.constr -> unit
+  val print_patterns  : Term.constr -> Pp.std_ppcmds
 
   (** Functions **)
   val declare_syntax : Names.identifier -> Evd.evar_map -> Term.constr (* command *) -> unit
@@ -83,6 +82,8 @@ sig
     Environ.env -> Evd.evar_map -> Term.constr -> unit
 
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
+
+  val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
 end
 
 module Reification : REIFICATION =
@@ -636,37 +637,39 @@ struct
       with
 	Term_match.Match_failure -> raise (Failure "match failed, please report")
 
-    let rec print_rule out ptrn =
-      Term_match.(
+    let pr_paren a =
+      Pp.(str "(" ++ a ++ str ")")
+
+    let rec print_rule ptrn =
+      Term_match.(Pp.(
 	match ptrn with
-	  Ignore -> Format.fprintf out "<any>"
-	| As (a,i) -> Format.fprintf out "((%a) as %d)" print_rule a i
-	| App (l,r) -> Format.fprintf out "(%a %@ %a)" print_rule l print_rule r
-	| Impl (l,r) -> Format.fprintf out "(%a -> %a)" print_rule l print_rule r
-	| Glob g -> Format.fprintf out "%a" Std.pp_constr (Lazy.force g)
-	| EGlob g -> Format.fprintf out "%a" Std.pp_constr g
-	| Glob_no_univ g -> Format.fprintf out "%a" Std.pp_constr (Lazy.force g)
-	| EGlob_no_univ g -> Format.fprintf out "%a" Std.pp_constr g
-	| Lam (a,b,c) -> Format.fprintf out "(fun (%d : %a) => %a)" a print_rule b print_rule c
-	| Ref i -> Format.fprintf out "<%d>" i
-	| Choice ls -> Format.fprintf out "[...]"
-	| Pi (a,b) -> Format.fprintf out "(Pi %a . %a)" print_rule a print_rule b
-	| Filter (_,a) -> Format.fprintf out "(Filter - %a)" print_rule a)
+	  Ignore -> str "<any>"
+	| As (a,i) -> pr_paren (pr_paren (print_rule a) ++ str " as " ++ int i)
+	| App (l,r) -> pr_paren (print_rule l ++ str " @ " ++ print_rule r)
+	| Impl (l,r) -> pr_paren (print_rule l ++ str " -> " ++ print_rule r)
+	| Glob g | Glob_no_univ g -> Printer.pr_constr (Lazy.force g)
+	| EGlob g | EGlob_no_univ g -> Printer.pr_constr g
+	| Lam (a,b,c) -> pr_paren (str "fun " ++ pr_paren (int a ++ str " : " ++ print_rule b) ++ str " => " ++ print_rule c)
+	| Ref i -> str "<" ++ int i ++ str ">"
+	| Choice ls -> pr_sequence print_rule ls
+	| Pi (a,b) -> pr_paren (str "Pi " ++ print_rule a ++ str " . " ++ print_rule b)
+	| Filter (_,a) -> pr_paren (str "Filter - " ++ print_rule a)))
 
     let apps = List.fold_right Pp.(++)
 
-    let print_patterns sep out (name : Term.constr) : unit =
+    let print_patterns (name : Term.constr) : Pp.std_ppcmds =
       try
 	let vals = Cmap.find name !pattern_table in
-        let print_them = List.iter (fun x -> Format.fprintf out "%a%a" sep () print_rule (fst x)) in
-        IntMap.iter (fun _ -> print_them) vals.if_app ;
-	Cmap.iter (fun _ -> print_them) vals.if_has_type ;
-        Cmap.iter (fun _ -> print_them) vals.if_exact ;
-        print_them vals.otherwise
-      with
-	Not_found -> Pp.(msg_warning (   (str "Unknown pattern table '")
-				      ++ (Printer.pr_constr name)
-				      ++ (str "'.")))
+        Pp.pr_vertical_list (fun (x,_) -> print_rule x)
+          (List.flatten (List.map snd (IntMap.bindings vals.if_app) @
+                         List.map snd (Cmap.bindings vals.if_has_type) @
+                         List.map snd (Cmap.bindings vals.if_exact) @
+                         [vals.otherwise]))
+      with Not_found ->
+        Pp.(msg_warning (   (str "Unknown pattern table '")
+  		         ++ (Printer.pr_constr name)
+                         ++ (str "'."))) ;
+        Pp.mt ()
 
     let run_ptrn_tree tr trm gl =
       match trm with
@@ -1043,9 +1046,9 @@ struct
       Libobject.(declare_object
 	{ (default_object "REIFY_SYNTAX") with
 	  cache_function = (fun (_,_) -> ())
-	; load_function = fun i ((b,n),value) ->
+	; load_function = (fun i ((b,n),value) ->
 	  let (name, typ, cmds) = value in
-	  add_syntax name typ cmds
+	  add_syntax name typ cmds)
 	})
 
     let declare_syntax (name : Names.identifier) evm
@@ -1141,8 +1144,13 @@ struct
     ~name:name ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
     env evm pred =
     let body =
-      reify_lemma ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
-        env evm pred
+      try
+        reify_lemma ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
+          env evm pred
+      with
+        Not_found ->
+        Printf.eprintf "not found here\n" ;
+        assert false
     in
     let _ = decl_constant name evm body in
     ()
@@ -1371,35 +1379,32 @@ struct
       [] -> k []
     | (s,trm) :: ls ->
        Plugin_utils.Use_ltac.pose s trm (fun var -> pose_each ls (fun vs -> k (var :: vs)))
+
+  let ic ?env ?sigma c =
+    let env =
+      match env with
+      | None -> Global.env()
+      | Some x -> x
+    in
+    let sigma =
+      match sigma with
+      | None -> Evd.empty
+      | Some x -> x
+    in
+    Constrintern.interp_open_constr env sigma c
+
 end
-
-let print_newline out () =
-  Format.fprintf out "\n"
-
-let ic ?env ?sigma c =
-  let env =
-    match env with
-    | None -> Global.env()
-    | Some x -> x
-  in
-  let sigma =
-    match sigma with
-    | None -> Evd.empty
-    | Some x -> x
-  in
-  Constrintern.interp_open_constr env sigma c
-
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" "{" constr(cmd) "}" ] ->
-    [ let (evm,cmd) = ic cmd in
+    [ let (evm,cmd) = Reification.ic cmd in
       Reification.declare_syntax name evm cmd ]
 END
 
 (** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
   | [ "Reify" "Declare" "Patterns" ident(name) ":=" lconstr(value) ] ->
-    [ let (evd,value) = ic value in
+    [ let (evd,value) = Reification.ic value in
       Reification.declare_pattern name evd value
     ]
 END
@@ -1421,27 +1426,18 @@ END
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern CLASSIFIED AS QUERY
   | [ "Reify" "Print" "Patterns" constr(name) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      (** TODO: I need this **)
-      let (name,name_univ) = Constrintern.interp_constr env evm name in
-      let as_string = (** TODO: I don't really understand Ocaml's formatting **)
-	let _ = Format.flush_str_formatter () in
-	let _ =
-	  Format.fprintf Format.err_formatter "%a"
-	    (Reification.print_patterns print_newline) name in
-	Format.flush_str_formatter ()
-      in
-      Pp.(
-      msgnl (   (str "Patterns for ")
-	     ++ (Printer.pr_constr name)
-	     ++ (str ":")
-	     ++ (fnl ())
-	     ++ (str as_string)))
+      let (name,_) = Constrintern.interp_constr env evm name in
+      Pp.(msg_info (   str "Patterns for "
+	            ++ Printer.pr_constr name
+	            ++ str ":"
+	            ++ fnl ()
+	            ++ Reification.print_patterns name))
     ]
 END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
-    [ let (evm,key) = ic key in
+    [ let (evm,key) = Reification.ic key in
       if Reification.declare_table name evm key then
 	()
       else
@@ -1450,8 +1446,8 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
                        ++ str "'."))
     ]
   | [ "Reify" "Declare" "Typed" "Table" ident(name) ":" constr(key) "=>" constr(typ) ] ->
-    [ let (evm,key) = ic key in
-      let (evm,typ) = ic ~sigma:evm typ in
+    [ let (evm,key) = Reification.ic key in
+      let (evm,typ) = Reification.ic ~sigma:evm typ in
       if Reification.declare_typed_table name evm key typ then
 	()
       else

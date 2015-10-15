@@ -30,8 +30,8 @@ Section typed.
 
   Context {Subst_subst : Subst subst (expr typ func)}.
   Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
-  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _}.
+  Context {SubstOk_subst : SubstOk subst typ (expr typ func)}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ (expr typ func)}.
 
   Local Instance RelDec_Rty : RelDec Rty :=
   { rel_dec := fun a b => match type_cast a b with

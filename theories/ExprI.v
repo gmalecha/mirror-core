@@ -679,6 +679,7 @@ Section Expr.
 
 End Expr.
 
+Arguments Expr _ {_} _.
 Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprT {_ RType} _ _ _ : rename.
