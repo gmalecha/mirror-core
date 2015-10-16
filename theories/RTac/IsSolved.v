@@ -130,4 +130,33 @@ Section parameterized.
     { inversion 1. reflexivity. }
   Qed.
 
+  Lemma Proper_rtac_spec_impl : forall
+      (ctx : Ctx typ expr) (s : ctx_subst ctx),
+      Morphisms.Proper
+        (Morphisms.respectful (fun x y => GoalImplies (s,x) (s,y))
+                              (Morphisms.respectful (Basics.flip (ImplResult (c:=ctx))) (Basics.flip Basics.impl))) 
+        (rtac_spec s).
+  Proof.
+    do 3 red. simpl.
+    intros.
+    red. intro.
+    eapply rtac_spec_rtac_spec_modular; try reflexivity.
+    eapply rtac_spec_rtac_spec_modular in H1; try reflexivity.
+    unfold rtac_spec_modular in *. revert H1.
+    inversion H0; clear H0; auto.
+    simpl.
+    clear H1 H2.
+    destruct x1; destruct y1; simpl in *.
+    intros; forward_reason.
+    split; auto.
+    split; auto.
+    forward. forward_reason.
+    split.
+    { etransitivity; eauto. }
+    { intros.
+      repeat progress (gather_facts;
+                       eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto).
+      eapply Pure_pctxD; eauto. }
+  Qed.
+
 End parameterized.

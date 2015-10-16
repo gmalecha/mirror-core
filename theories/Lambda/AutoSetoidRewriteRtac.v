@@ -1446,6 +1446,8 @@ Section setoid.
         end
       end.
 
+    Require Import MirrorCore.RTac.SolveK.
+
     (** TODO(gmalecha): This is not a nice interface because it is not
      ** a standard rewriter for two reasons:
      ** 1) It assumes that tvs' = nil, and
@@ -1474,7 +1476,7 @@ Section setoid.
                  List.map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
              in
              match
-               tac tus' tvs (length lem.(vars) + nus) nvs ctx' cs'' (GConj_list prems)
+               (SOLVEK tac) tus' tvs (length lem.(vars) + nus) nvs ctx' cs'' (GConj_list prems)
              with
              | Solved cs''' =>
                match cs''' in ctx_subst ctx
@@ -1675,6 +1677,9 @@ Section setoid.
         end; try match goal with
                  | H : None = Some _ |- _ => exfalso ; clear - H ; inversion H
                  end.
+        assert (WellFormed_rtacK (SOLVEK r0)).
+        { apply WF_SOLVEK. assumption. }
+        clear H; rename H4 into H.
         match goal with
         | Hrt : WellFormed_rtacK ?X , _ : match ?X _ _ _ _ ?C ?CS ?G with _ => _ end = _ |- _ =>
           specialize (@Hrt C CS G _ eq_refl)
@@ -1710,7 +1715,11 @@ Section setoid.
           specialize (H H6 H3); clear H6.
           rewrite (ctx_subst_eta c0) in H.
           inv_all. auto. }
-        clear H. intro. intro H. intros.
+        clear H. intro. intro H.
+        assert (rtacK_sound (SOLVEK r0)).
+        { apply SOLVEK_sound. assumption. }
+        clear H; rename H6 into H.
+        intros.
         destruct (pctxD cs) eqn:HpctxDcs; trivial.
         destruct (exprD' (getUVars ctx) (getVars ctx) t0 e) eqn:HexprD'e; trivial.
         simpl in *.

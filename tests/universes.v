@@ -98,6 +98,7 @@ Require Import MirrorCore.RTac.Idtac.
 Require Import MirrorCore.RTac.First.
 Require Import MirrorCore.RTac.Fail.
 Require Import MirrorCore.RTac.Solve.
+Require Import MirrorCore.RTac.SolveK.
 Require Import MirrorCore.RTac.ThenK.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.RTac.runTacK.

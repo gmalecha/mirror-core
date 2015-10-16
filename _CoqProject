@@ -110,6 +110,7 @@ theories/RTac/Idtac.v
 theories/RTac/First.v
 theories/RTac/Fail.v
 theories/RTac/Solve.v
+theories/RTac/SolveK.v
 theories/RTac/ThenK.v
 theories/RTac/IdtacK.v
 theories/RTac/runTacK.v
