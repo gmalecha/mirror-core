@@ -7,7 +7,6 @@
 
 src/reify_gen.ml
 src/reify_gen.mli
-src/reify_lambda.ml
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 

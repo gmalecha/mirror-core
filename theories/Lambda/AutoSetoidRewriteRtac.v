@@ -1188,13 +1188,7 @@ Section setoid.
       end.
 
   Variable R_impl : R.
-(*
-  Variable Rflip_impl_is_flip_impl
-    : RD RbaseD Rflip_impl (typ0 (F:=Prop)) =
-      Some match eq_sym (typ0_cast (F:=Prop)) in _ = t return t -> t -> Prop with
-           | eq_refl => Basics.flip Basics.impl
-           end.
-*)
+
   Hypothesis R_impl_is_impl
     : RD RbaseD R_impl (typ0 (F:=Prop)) =
       Some match eq_sym (typ0_cast (F:=Prop)) in _ = t return t -> t -> Prop with
@@ -1309,7 +1303,7 @@ Section setoid.
     Hypothesis is_transOk : forall r t rD, is_trans r = true -> RD RbaseD r t = Some rD -> Transitive rD.
 
     Lemma repeat_rewrite'_mono : forall n e r c A B C D E F X Y,
-        repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F= Some (X,Y) ->
+        repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F = Some (X,Y) ->
         X <> NoProgress.
     Proof using.
       induction n; simpl.
