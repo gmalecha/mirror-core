@@ -101,6 +101,10 @@ Definition is_refl : refl_dec Rbase :=
     | _ => false
     end.
 
+(* TODO(gmalecha): The majority the complexity of this file comes from
+ * simplifying the denotation function. A few tactics should improve this
+ * dramatically.
+ *)
 Theorem is_refl_ok : refl_dec_ok RbaseD is_refl.
 Proof.
   red.
@@ -334,7 +338,6 @@ Proof.
   + eapply is_transROk. eapply is_trans_ok.
 Qed.
 
-(** this doesn't lift everything, but it does what it is programmed to do **)
 Definition quant_pull : lem_rewriter _ _ _ :=
   bottom_up (is_reflR is_refl) (is_transR is_trans) pull_all_quant get_respectful.
 
@@ -348,6 +351,8 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
+(** Begin Demo **)
+(****************)
 Definition run_quant_pull e :=
   quant_pull e (Rinj fImpl).
 
@@ -387,7 +392,7 @@ Eval vm_compute
 Eval vm_compute
   in quant_pull (goal2 2 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil).
 
- Eval vm_compute
+Eval vm_compute
   in match run_quant_pull (goal2 7 0) nil nil nil 0 0 (TopSubst _ nil nil) with
      | Some (Progress e, _) => count_quant e
      | _ => 0
