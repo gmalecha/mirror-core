@@ -86,6 +86,7 @@ Require Import MirrorCore.RTac.BIMap.
 Require Import MirrorCore.RTac.Ctx.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
+Require Import MirrorCore.RTac.IsSolved.
 Require Import MirrorCore.RTac.SpecLemmas.
 Require Import MirrorCore.RTac.RunOnGoals.
 Require Import MirrorCore.RTac.RunOnGoals_list.

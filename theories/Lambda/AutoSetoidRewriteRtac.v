@@ -1407,12 +1407,27 @@ Section setoid.
           intros.
           forward.
           cutrewrite (ProgressD e
-                                ((if prog then (@Progress _) else fun _ : expr typ func => NoProgress) e) = e); [ | destruct prog; reflexivity ].
+                                ((if prog then (@Progress _)
+                                  else fun _ : expr typ func => NoProgress) e) = e);
+            [ | destruct prog; reflexivity ].
           rewrite H3; forward_reason.
           split; [ reflexivity | ].
           eapply is_reflOk in H; eauto.
           eapply Pure_pctxD; eauto. } }
     Qed.
+
+    Definition repeat_rewrite (progress : bool) : nat -> lem_rewriter :=
+      let prog := if progress then @Progress _ else (fun _ => NoProgress) in
+      fun n =>
+        repeat_rewrite' n prog.
+
+    Theorem repeat_rewrite_sound
+    : forall b n, setoid_rewrite_spec (repeat_rewrite b n).
+    Proof.
+      unfold repeat_rewrite. simpl. intros.
+      eapply repeat_rewrite'_sound.
+    Qed.
+
   End repeat_rewrite.
 
   Section core_rewrite.
@@ -2889,6 +2904,84 @@ Section setoid.
     Qed.
 
   End reindexing.
+
+  Section reduction.
+    Variable reducer : expr typ func -> expr typ func.
+    Variable lr : lem_rewriter.
+
+    Definition rw_simplify : lem_rewriter :=
+      fun e => lr (reducer e).
+
+    Hypothesis reducer_sound
+    : forall tus tvs t e eD,
+        exprD' tus tvs t e = Some eD ->
+        exists eD',
+          exprD' tus tvs t (reducer e) = Some eD' /\
+          forall us vs, eD us vs = eD' us vs.
+    Hypothesis lr_sound : setoid_rewrite_spec lr.
+
+    Theorem rw_simplify_sound
+    : setoid_rewrite_spec rw_simplify.
+    Proof.
+      unfold rw_simplify. do 2 red. intros.
+      eapply lr_sound in H; eauto.
+      forward_reason; split; eauto.
+      intros. eapply H1 in H2; clear H1.
+      forward.
+      specialize (@reducer_sound _ _ _ _ _ H3).
+      destruct reducer_sound as [ ? [ ? ? ] ].
+      rewrite H4 in *.
+      destruct (pctxD cs') eqn:?; auto.
+      destruct e'.
+      { simpl in *.
+        forward.
+        destruct H6; split; auto.
+        intros.
+        gather_facts.
+        eapply Pure_pctxD; eauto.
+        intros. rewrite H5. eauto. }
+      { simpl in *. rewrite H4 in *.
+        rewrite H3.
+        destruct H2; split; auto.
+        intros.
+        gather_facts.
+        eapply Pure_pctxD; eauto.
+        intros. rewrite H5.
+        auto. }
+    Qed.
+
+    Definition rw_post_simplify : lem_rewriter :=
+      Eval unfold rw_bind, rw_ret in 
+      fun e r => rw_bind (lr e r)
+                         (fun e' => rw_ret (match e' with
+                                            | Progress e' => Progress (reducer e')
+                                            | NoProgress => NoProgress
+                                            end)).
+
+    Theorem rw_post_simplify_sound
+    : setoid_rewrite_spec rw_post_simplify.
+    Proof.
+      unfold rw_post_simplify. do 2 red. intros.
+      forward. inv_all; subst.
+      eapply lr_sound in H1; eauto.
+      forward_reason; split; eauto.
+      intros. eapply H1 in H2; clear H1.
+      destruct (pctxD cs) eqn:?; auto.
+      destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:?; auto.
+      destruct (pctxD cs') eqn:?; auto.
+      destruct p0; simpl in *.
+      { destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t new_val) eqn:?; try contradiction.
+        eapply reducer_sound in Heqo2.
+        destruct Heqo2 as [ ? [ ? ? ] ].
+        rewrite H1. destruct H2; split; auto.
+        intros.
+        gather_facts.
+        eapply Pure_pctxD; eauto.
+        intros. rewrite <- H3. eauto. }
+      { destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e); auto. }
+    Qed.
+
+  End reduction.
 
   Section get_respectful.
     (* This is just a "special" version of the rewriting lemma *)

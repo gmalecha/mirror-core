@@ -40,7 +40,6 @@ Reify Pattern patterns_concl += (!!Basics.impl @ ?0 @ ?1) =>
   (fun (a b : function reify_simple) =>
      @Build_rw_concl typ func Rbase a (@Rinj typ Rbase (Inj Impl)) b).
 
-
 Fixpoint goal n : expr typ func :=
   match n with
   | 0 => fEq_nat (fN 0) (fN 0)
@@ -131,62 +130,71 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                       (pmap Red.beta get))))))
     e.
 
-(** TODO(gmalecha): This needs to do reduction **)
 Definition the_rewrites
            (lems : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)))
-: lem_rewriter _ _ _ :=
-  using_rewrite_db rel_dec lems.
+: lem_rewriter typ func Rbase := 
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).
+
 (*
   fun e r =>
     rw_bind
       (@using_rewrite_db typ func _ _ _ _ (expr typ func) (@expr_eq_sdec typ func _ rel_dec) lems (Red.beta e) r)
-      (fun e' => rw_ret (Progress (simple_reduce e'))).
+      (fun e' => rw_ret (Progress (simple_reduce match e' with
+                                                 | Progress e' => e'
+                                                 | NoProgress => e
+                                                 end))).
 *)
+
+Definition rewrite_db_sound hints : Prop :=
+  Forall
+    (fun
+       lt : Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) *
+            CoreK.rtacK typ (expr typ func) =>
+     Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
+     CoreK.rtacK_sound (snd lt)) hints.
+
+Theorem the_rewrites_sound
+: forall hints, rewrite_db_sound hints ->
+    setoid_rewrite_spec RbaseD (the_rewrites hints).
+Proof. (*
+  unfold the_rewrites. intros. 
+  eapply rw_post_simplify_sound.
+  { admit. }
+  eapply rw_simplify_sound.
+  { admit. }
+  eapply using_rewrite_db_sound; eauto.
+*)
+Admitted.
 
 Require Import MirrorCore.RTac.RunOnGoals.
 Require Import MirrorCore.RTac.IdtacK.
+Require Import MirrorCore.RTac.Minify.
 
 Definition the_lemmas : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
   (lem_pull_ex_nat_and_left, IDTACK) ::
   (lem_pull_ex_nat_and_right, IDTACK) ::
   nil.
 
-Fixpoint repeatFunc (n : nat) (p : expr typ func -> Progressing (expr typ func))
-: (expr typ func -> R typ (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func))) ->
-  expr typ func -> R typ (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func)) :=
-  match n with
-  | 0 => fun f e r =>
-           rw_bind (f e r)
-                   (fun e' =>
-                      match e' with
-                      | NoProgress => rw_ret (p e)
-                      | Progress e' => rw_ret (Progress e')
-                      end)
-  | S n => fun f e r =>
-             rw_bind
-               (f e r)
-               (fun e' =>
-                  match e' with
-                  | NoProgress => rw_ret (p e)
-                  | Progress e' => repeatFunc n (@Progress _) f e' r
-                  end)
-  end.
+Theorem the_lemmas_sound : rewrite_db_sound the_lemmas.
+Proof.
+  repeat first [ apply Forall_cons; [ simple apply conj | ] | apply Forall_nil ];
+  simpl; solve [ apply IDTACK_sound
+               | exact (@pull_ex_and_right nat)
+               | exact (@pull_ex_and_left nat) ].
+Qed.
 
 Require Import MirrorCore.Lambda.Red.
 
-Definition pull_all_quant :=
-  repeatFunc 300 (fun _ => NoProgress)
-             (fun e r =>
-                bottom_up is_refl is_trans (the_rewrites the_lemmas)
-                          get_respectful_only_all_ex e r).
+Definition pull_all_quant : lem_rewriter typ func Rbase :=
+  repeat_rewrite (fun e r =>
+                    bottom_up is_refl is_trans (the_rewrites the_lemmas)
+                              get_respectful_only_all_ex e r)
+                 is_refl is_trans false 300.
 
 (** this doesn't lift everything, but it does what it is programmed to do **)
 Definition quant_pull (e : expr typ func) : mrw (Progressing (expr typ func)) :=
   bottom_up is_refl is_trans (pull_all_quant) get_respectful
             e (Rinj fImpl).
-
-
-
 
 Fixpoint goal2 n (acc : nat) : expr typ func :=
   match n with
@@ -200,12 +208,71 @@ Fixpoint goal2 n (acc : nat) : expr typ func :=
     fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
   end.
 
-Time Eval vm_compute
-  in match quant_pull (goal2 8 0) nil nil nil 0 0 (TopSubst _ nil nil) with
-     | Some _ => tt
-     | None => tt
-     end.
+Eval compute in goal2 1 0.
 
+(*
+Print lem_pull_ex_nat_and_left.
+Goal the_rewrites (firstn 1 the_lemmas) (goal2 1 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil) <> None.
+  compute.
+  simpl. unfold the_rewrites.
+  unfold rw_post_simplify, rw_simplify, using_rewrite_db.
+  simpl beta.
+  unfold using_rewrite_db''.
+  unfold for_tactic. unfold using_rewrite_db'.
+  Ltac go :=
+    match goal with
+    | |- not (?X = _) =>
+      let Y := eval red in X in change X with Y
+    end.
+  go. go. go. do 5 go. go. go. go.
+  go.
+  Ltac GO :=
+    let rec find X :=
+        match X with
+        | match ?Y with _ => _ end => find Y
+        | match ?Y with _ => _ end _ => find Y
+        | match ?Y with _ => _ end _ _ => find Y
+        | match ?Y with _ => _ end _ _ _ => find Y
+        | match ?Y with _ => _ end _ _ _ _ => find Y
+        | match ?Y with _ => _ end _ _ _ _ _ => find Y
+        | match ?Y with _ => _ end _ _ _ _ _ _ => find Y
+        | match ?Y with _ => _ end _ _ _ _ _ _ _ => find Y
+        | match ?Y with _ => _ end _ _ _ _ _ _ _ _ => find Y
+        | _ => let X' := eval compute in X in change X with X'
+        end
+    in
+    match goal with
+    | |- not (?X = _) =>
+      find X
+    end.
+  GO.
+  go.
+  GO. cbv iota beta.
+  GO.
+  compute.
+
+
+  Eval compute in (GConj_list
+                   (map
+                      (fun e : expr typ func =>
+                       GGoal (VarsToUVars.vars_to_uvars 0 0 e))
+                      (Lemma.premises lem_pull_ex_nat_and_left))).
+
+  pose ().
+  simpl in o. unfold the_rewrites in o.
+  ree
+
+Eval vm_compute
+  in the_rewrites the_lemmas (goal2 1 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil).
+
+
+Eval vm_compute
+  in pull_all_quant (goal2 1 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil).
+
+
+Eval vm_compute
+  in quant_pull (goal2 1 0) nil nil nil 0 0 (TopSubst _ nil nil).
+*)
 (*
 Theorem pull_ex_nat_and_left_iff
 : forall T P Q, ((@ex T P) /\ Q) <-> (exists n, P n /\ Q).
@@ -227,4 +294,25 @@ Time repeat first [ setoid_rewrite pull_ex_nat_and_left_iff in H
                   | setoid_rewrite pull_ex_nat_and_right_iff in H ].
 trivial.
 Time Qed.
+
+Fixpoint repeatFunc (n : nat) (p : expr typ func -> Progressing (expr typ func))
+: (expr typ func -> R typ (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func))) ->
+  expr typ func -> R typ (expr typ func) -> mrw (func:=func) (typ:=typ) (Progressing (expr typ func)) :=
+  match n with
+  | 0 => fun f e r =>
+           rw_bind (f e r)
+                   (fun e' =>
+                      match e' with
+                      | NoProgress => rw_ret (p e)
+                      | Progress e' => rw_ret (Progress e')
+                      end)
+  | S n => fun f e r =>
+             rw_bind
+               (f e r)
+               (fun e' =>
+                  match e' with
+                  | NoProgress => rw_ret (p e)
+                  | Progress e' => repeatFunc n (@Progress _) f e' r
+                  end)
+  end.
 *)

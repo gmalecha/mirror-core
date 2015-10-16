@@ -98,6 +98,7 @@ theories/RTac/BIMap.v
 theories/RTac/Ctx.v
 theories/RTac/Core.v
 theories/RTac/CoreK.v
+theories/RTac/IsSolved.v
 theories/RTac/SpecLemmas.v
 theories/RTac/RunOnGoals.v
 theories/RTac/RunOnGoals_list.v
