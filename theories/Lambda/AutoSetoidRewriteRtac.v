@@ -504,23 +504,23 @@ Section setoid.
 
   End setoid_rewrite.
 
+(*
   Definition refl_dec : Type := R -> bool.
   Definition trans_dec : Type := R -> bool.
   Definition refl_dec_ok (rd : refl_dec) : Prop :=
     forall r t rD, rd r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
-  Definition trans_dec_ok (rd : refl_dec) : Prop :=
+  Definition trans_dec_ok (rd : trans_dec) : Prop :=
     forall r t rD, rd r = true -> RD RbaseD r t = Some rD -> Transitive rD.
+*)
 
   Section top_bottom.
-    Context (reflexive : refl_dec)
-            (transitive : trans_dec)
+    Context (reflexive : refl_dec R)
+            (transitive : trans_dec R)
             (rw : expr typ func -> R -> mrw (Progressing (expr typ func)))
             (respectful : expr typ func -> R -> mrw (list R)).
 
-    Hypothesis reflexiveOk
-    : forall r t rD, reflexive r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
-    Hypothesis transitiveOk
-    : forall r t rD, transitive r = true -> RD RbaseD r t = Some rD -> Transitive rD.
+    Hypothesis reflexiveOk : refl_dec_ok (RD RbaseD) reflexive.
+    Hypothesis transitiveOk : trans_dec_ok (RD RbaseD) transitive.
 
     Hypothesis rwOk : setoid_rewrite_spec rw.
     Hypothesis respectfulOk : respectful_spec respectful.
@@ -531,12 +531,37 @@ Section setoid.
         exprD' tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
         exprD' tus tvs td x = Some xD ->
         exprD' tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
-    Proof.
-      clear - Typ2Ok_Fun RSymOk_func RTypeOk_typD.
+    Proof using Typ2Ok_Fun RSymOk_func RTypeOk_typD.
       intros.
       autorewrite with exprD_rw; simpl.
       erewrite exprD_typeof_Some by eauto.
       rewrite H. rewrite H0. reflexivity.
+    Qed.
+
+    Lemma exprD'_Abs_prem
+      : forall tus tvs t t' x xD,
+        ExprDsimul.ExprDenote.exprD' tus tvs t (Abs t' x) = Some xD ->
+        exists t'' (pf : typ2 t' t'' = t) bD,
+          ExprDsimul.ExprDenote.exprD' tus (t' :: tvs) t'' x = Some bD /\
+          xD = match pf with
+               | eq_refl => AbsAppI.exprT_Abs bD
+               end.
+    Proof using tyArr Typ2Ok_Fun RSymOk_func RTypeOk_typD.
+      intros.
+      autorewrite with exprD_rw in H.
+      destruct (typ2_match_case t); forward_reason.
+      { rewrite H0 in H; clear H0.
+        red in x2; subst. simpl in *.
+        autorewrite_with_eq_rw_in H.
+        destruct (type_cast x0 t'); subst; try congruence.
+        red in r; subst.
+        forward. inv_all; subst.
+        eexists; exists eq_refl.
+        eexists; split; eauto. inversion H.
+        unfold AbsAppI.exprT_Abs.
+        autorewrite_with_eq_rw.
+        reflexivity. }
+      { rewrite H0 in H. congruence. }
     Qed.
 
     Fixpoint recursive_rewrite' (prog : bool) (f : expr typ func)
@@ -615,7 +640,7 @@ Section setoid.
               | None , _ , _ => True
               end.
     Proof using tyArr RTypeOk_typD Typ2Ok_Fun RSymOk_func Typ0_Prop
-          RelDec_Correct_eq_typ Rbase_eq_ok RbaseD_single_type.
+          RelDec_Correct_eq_typ (* Rbase_eq_ok *) RbaseD_single_type.
       induction es; destruct rs; simpl in *.
       { inversion 1; subst. clear H.
         intros.
@@ -819,7 +844,7 @@ Section setoid.
               | None , _ , _ => True
               end.
     Proof using tyArr RTypeOk_typD Typ2Ok_Fun RSymOk_func Typ0_Prop
-          RelDec_Correct_eq_typ Rbase_eq_ok RbaseD_single_type.
+          RelDec_Correct_eq_typ RbaseD_single_type.
       intros.
       eapply recursive_rewrite'_sound in H; eauto.
     Qed.
@@ -909,7 +934,7 @@ Section setoid.
     Lemma bottom_up_sound_lem
     : forall e rg,
         @setoid_rewrite_rel e rg (bottom_up e rg).
-    Proof.
+    Proof. clear Rbase_eq_ok Rbase_eq.
       unfold bottom_up. intros.
       eapply setoid_rewrite_sound; eauto; try solve [ constructor ].
       clear rg e.
@@ -978,7 +1003,7 @@ Section setoid.
                   gather_facts.
                   eapply Pure_pctxD; eauto.
                   intros.
-                  eapply transitiveOk in H3; eauto.
+                  eapply transitiveOk in H8; eauto.
                   etransitivity; [ clear H17 | eapply H17 ].
                   eapply H14; clear H14.
                   eapply H12. } }
@@ -1014,16 +1039,16 @@ Section setoid.
                   eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
                   gather_facts.
                   eapply Pure_pctxD; eauto.
-                  intros.
-                  eapply transitiveOk in H3; eauto.
-                  eapply H12. eapply H11. } } }
+                  intros. eapply H12. eapply H11. } } }
+
             { eapply rw_orelse_case in H6. destruct H6.
               { eapply rwOk in H6.
                 forward_reason.
                 split; auto. intros.
                 specialize (fun ts => H4 ts _ _ H8); specialize (H7 _ _ H8).
                 destruct (pctxD cs) eqn:pctxD_cs; trivial.
-                destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))) eqn:HexprD'apps_e_es; trivial.
+                destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t
+                                 (apps e (map fst es))) eqn:HexprD'apps_e_es; trivial.
                 specialize (H5 _ _ _ H8).
                 rewrite HexprD'apps_e_es in H5.
                 eapply apps_exprD'_fold_type in HexprD'apps_e_es; try assumption.
@@ -1071,6 +1096,7 @@ Section setoid.
                 clear.
                 intros. eapply H0.
                 eapply H. } } }
+
           { clear H3.
             destruct x1.
             { inversion H6; clear H6; subst.
@@ -1188,8 +1214,8 @@ Section setoid.
 
   Definition auto_setoid_rewrite_bu
              (r : R)
-             (reflexive : refl_dec)
-             (transitive : trans_dec)
+             (reflexive : refl_dec R)
+             (transitive : trans_dec R)
              (rewriter : lem_rewriter)
              (respectful : respectful_dec)
   : rtac typ (expr typ func) :=
@@ -1209,11 +1235,10 @@ Section setoid.
            | eq_refl => Basics.impl
            end.
 
-
   Theorem auto_setoid_rewrite_bu_sound
   : forall is_refl is_trans rw proper
-           (His_reflOk : refl_dec_ok is_refl)
-           (His_transOk : trans_dec_ok is_trans),
+           (His_reflOk : refl_dec_ok (RD RbaseD) is_refl)
+           (His_transOk : trans_dec_ok (RD RbaseD) is_trans),
       setoid_rewrite_spec rw ->
       respectful_spec proper ->
       rtac_sound (auto_setoid_rewrite_bu (Rflip R_impl)
@@ -1287,8 +1312,8 @@ Section setoid.
   (** Apply the same rewrite multiple times while it is still making progress **)
   Section repeat_rewrite.
     Variable rw : lem_rewriter.
-    Variable is_refl : refl_dec.
-    Variable is_trans : trans_dec.
+    Variable is_refl : refl_dec R.
+    Variable is_trans : trans_dec R.
 
     Fixpoint repeat_rewrite' (n : nat)
              (prog : expr typ func -> Progressing (expr typ func))
@@ -1314,8 +1339,8 @@ Section setoid.
       end.
 
     Hypothesis rw_sound : setoid_rewrite_spec rw.
-    Hypothesis is_reflOk : refl_dec_ok is_refl.
-    Hypothesis is_transOk : trans_dec_ok is_trans.
+    Hypothesis is_reflOk : refl_dec_ok (RD RbaseD) is_refl.
+    Hypothesis is_transOk : trans_dec_ok (RD RbaseD) is_trans.
 
     Lemma repeat_rewrite'_mono : forall n e r c A B C D E F X Y,
         repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F = Some (X,Y) ->

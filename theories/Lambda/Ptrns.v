@@ -403,6 +403,14 @@ Section setoid.
   ; s_elim := Succeeds_app pok_p pok_q
   }.
 
+  Global Instance abs_SucceedsE {T U : Type} {e : expr typ func}
+         {p : ptrn typ T} {q : T -> ptrn (expr typ func) U} {res : U}
+         {pok_p : ptrn_ok p} {pok_q : forall x, ptrn_ok (q x)}
+  : SucceedsE e (abs p q) res :=
+  { s_result := _
+  ; s_elim := Succeeds_abs pok_p pok_q
+  }.
+
   Global Instance inj_SucceedsE {T : Type} {e : expr typ func}
          {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p}
   : SucceedsE e (inj p) res :=

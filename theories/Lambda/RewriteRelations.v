@@ -358,60 +358,43 @@ Section setoid.
   intros.  eauto using Succeeds_ptrnRpointwiseL.
   Defined.
 
-  (** Reflexivity and transitivity *)
-  Section is_trans_refl.
+  Section refl_trans_types.
+    Context {T} (RD : T -> forall t : typ, option (typD t -> typD t -> Prop)).
 
+    Definition refl_dec : Type := T -> bool.
+    Definition trans_dec : Type := T -> bool.
+    Definition refl_dec_ok (rd : refl_dec) : Prop :=
+      forall r t rD, rd r = true -> RD r t = Some rD -> Reflexive rD.
+    Definition trans_dec_ok (rd : trans_dec) : Prop :=
+      forall r t rD, rd r = true -> RD r t = Some rD -> Transitive rD.
+  End refl_trans_types.
+
+  Arguments refl_dec _ : clear implicits.
+  Arguments trans_dec _ : clear implicits.
+
+  (** Reflexivity and transitivity *)
+  Section is_refl.
     Lemma Refl_pointwise : forall {T U : Type} (R : T -> T -> Prop),
       Reflexive R -> Reflexive (pointwise_relation (A:=U) R).
     Proof using.
       compute. auto.
     Qed.
 
-    Lemma Trans_pointwise : forall {T U : Type} (R : T -> T -> Prop),
-        Transitive R -> Transitive (pointwise_relation (A:=U) R).
-    Proof using.
-      compute. eauto.
-    Qed.
+    Variable is_refl : refl_dec Rbase.
+    Definition is_reflR : refl_dec R :=
+      fix is_reflR (r : R) : bool :=
+        match r with
+        | Rinj r => is_refl r
+        | Rpointwise _ x => is_reflR x
+        | Rflip r => is_reflR r
+        | _ => false
+        end.
 
-    Variable is_trans : Rbase -> bool.
-    Fixpoint is_transR (r : R) : bool :=
-      match r with
-      | Rinj r => is_trans r
-      | Rpointwise _ x => is_transR x
-      | Rflip r => is_transR r
-      | _ => false
-      end.
+    Hypothesis is_reflOk : refl_dec_ok RbaseD is_refl.
 
-    Definition is_reflR := is_transR.
-
-    Hypothesis is_transOk : forall r t rD,
-        is_trans r = true -> RbaseD r t = Some rD -> Transitive rD.
-
-    Theorem is_transROk : forall r t rD,
-        is_transR r = true -> RD r t = Some rD -> Transitive rD.
-    Proof using Typ2Ok_Fun is_transOk.
-      induction r; simpl; intros; eauto; try congruence.
-      { simpl. intros.
-        destruct (typ2_match_case t0) as [ [ ? [ ? [ ? H1 ] ] ] | H1 ];
-          rewrite H1 in *; [ clear H1 | congruence ].
-        revert H0.
-        red in x1; subst; simpl.
-        autorewrite_with_eq_rw.
-        intros. forwardy; inv_all; subst.
-        eapply IHr in H; [ | eassumption ].
-        red.
-        do 3 intro. autorewrite_with_eq_rw.
-        eapply Trans_pointwise. eassumption. }
-      { forwardy; inv_all; subst.
-        red. intros. unfold flip. eapply IHr; eauto. }
-    Qed.
-
-    Hypothesis is_reflOk : forall r t rD,
-        is_trans r = true -> RbaseD r t = Some rD -> Reflexive rD.
-
-    Theorem is_reflROk : forall r t rD,
-        is_reflR r = true -> RD r t = Some rD -> Reflexive rD.
+    Theorem is_reflROk : refl_dec_ok RD is_reflR.
     Proof using Typ2Ok_Fun is_reflOk.
+      red.
       induction r; simpl; intros; eauto; try congruence.
       { simpl. intros.
         destruct (typ2_match_case t0) as [ [ ? [ ? [ ? H1 ] ] ] | H1 ];
@@ -427,8 +410,46 @@ Section setoid.
       { forwardy; inv_all; subst.
         red. intros. unfold flip. eapply IHr; eauto. }
     Qed.
+  End is_refl.
 
-  End is_trans_refl.
+  Section is_trans.
+    Lemma Trans_pointwise : forall {T U : Type} (R : T -> T -> Prop),
+        Transitive R -> Transitive (pointwise_relation (A:=U) R).
+    Proof using.
+      compute. eauto.
+    Qed.
+
+    Variable is_trans : trans_dec Rbase.
+    Definition is_transR : trans_dec R :=
+      fix is_transR (r : R) : bool :=
+        match r with
+        | Rinj r => is_trans r
+        | Rpointwise _ x => is_transR x
+        | Rflip r => is_transR r
+        | _ => false
+        end.
+
+    Hypothesis is_transOk : trans_dec_ok RbaseD is_trans.
+
+    Theorem is_transROk : trans_dec_ok RD is_transR.
+    Proof using Typ2Ok_Fun is_transOk.
+      red.
+      induction r; simpl; intros; eauto; try congruence.
+      { simpl. intros.
+        destruct (typ2_match_case t0) as [ [ ? [ ? [ ? H1 ] ] ] | H1 ];
+          rewrite H1 in *; [ clear H1 | congruence ].
+        revert H0.
+        red in x1; subst; simpl.
+        autorewrite_with_eq_rw.
+        intros. forwardy; inv_all; subst.
+        eapply IHr in H; [ | eassumption ].
+        red.
+        do 3 intro. autorewrite_with_eq_rw.
+        eapply Trans_pointwise. eassumption. }
+      { forwardy; inv_all; subst.
+        red. intros. unfold flip. eapply IHr; eauto. }
+    Qed.
+  End is_trans.
 
   (** Rewriting Lemmas **)
   Section lemmas.
@@ -531,3 +552,5 @@ Arguments Rrespects {_ _} _ _.
 Arguments Rpointwise {_ _} _ _.
 Arguments Rflip {_ _} _.
 Arguments Rinj {_ _} _.
+Arguments refl_dec _ : clear implicits.
+Arguments trans_dec _ : clear implicits.
