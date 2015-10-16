@@ -18,8 +18,8 @@ Reify Declare Patterns patterns_monad := (expr typ mext).
 Reify Declare Table table_types : BinNums.positive.
 
 Reify Declare Syntax reify_monad_typ :=
-  { (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_monad_typ ::
-                        (@Patterns.CTable typ _ table_types tyType) :: nil)) }.
+  (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_monad_typ ::
+                      (@Patterns.CTable typ _ table_types tyType) :: nil)).
 
 Definition otherFunc (p : BinNums.positive) : expr typ mext :=
   Inj (inl p).
@@ -30,12 +30,11 @@ Reify Declare Typed Table table_terms : BinNums.positive => reify_monad_typ.
 
 (** Declare syntax **)
 Reify Declare Syntax reify_monad :=
-  { (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ mext) patterns_monad) ::
-                         (@Patterns.CApp (expr typ mext) (@ExprCore.App typ mext)) ::
-                         (@Patterns.CAbs (expr typ mext) reify_monad_typ (@ExprCore.Abs typ mext)) ::
-                         (@Patterns.CVar (expr typ mext) (@ExprCore.Var typ mext)) ::
-                         (@Patterns.CTypedTable (expr typ mext) _ _ table_terms otherFunc) :: nil))
-  }.
+  (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ mext) patterns_monad) ::
+                       (@Patterns.CApp (expr typ mext) (@ExprCore.App typ mext)) ::
+                       (@Patterns.CAbs (expr typ mext) reify_monad_typ (@ExprCore.Abs typ mext)) ::
+                       (@Patterns.CVar (expr typ mext) (@ExprCore.Var typ mext)) ::
+                       (@Patterns.CTypedTable (expr typ mext) _ _ table_terms otherFunc) :: nil)).
 
 Reify Pattern patterns_monad_typ += (@RExact _ Prop) => tyProp.
 Reify Pattern patterns_monad_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_monad_typ) => tyArr a b).

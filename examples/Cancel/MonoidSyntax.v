@@ -210,18 +210,17 @@ Reify Declare Patterns patterns_monoid_typ := typ.
 Reify Declare Patterns patterns_monoid := (expr typ func).
 
 Reify Declare Syntax reify_monoid_typ :=
-  { (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_monoid_typ :: nil)) }.
+  (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_monoid_typ :: nil)).
 
 Reify Declare Typed Table table_terms : BinNums.positive => reify_monoid_typ.
 
 (** Declare syntax **)
 Reify Declare Syntax reify_monoid :=
-  { (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_monoid) ::
-                         (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
-                         (@Patterns.CAbs (expr typ func) reify_monoid_typ (@ExprCore.Abs typ func)) ::
-                         (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
-                         (@Patterns.CTypedTable (expr typ func) _ _ table_terms other) :: nil))
-  }.
+  (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_monoid) ::
+                       (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
+                       (@Patterns.CAbs (expr typ func) reify_monoid_typ (@ExprCore.Abs typ func)) ::
+                       (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
+                       (@Patterns.CTypedTable (expr typ func) _ _ table_terms other) :: nil)).
 
 Reify Pattern patterns_monoid_typ += (@RExact _ nat)  => tyNat.
 Reify Pattern patterns_monoid_typ += (@RExact _ Monoid.M) => tyM.

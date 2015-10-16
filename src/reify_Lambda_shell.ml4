@@ -1397,7 +1397,7 @@ struct
 end
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
-  | [ "Reify" "Declare" "Syntax" ident(name) ":=" "{" constr(cmd) "}" ] ->
+  | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->
     [ let (evm,cmd) = Reification.ic cmd in
       Reification.declare_syntax name evm cmd ]
 END
@@ -1411,7 +1411,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
 END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
-  | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" constr(template) ] ->
+  | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" lconstr(template) ] ->
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
 	(** TODO: I probably need this as well! **)

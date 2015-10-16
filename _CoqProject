@@ -128,12 +128,12 @@ theories/RTac/InContext.v
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
-examples/Monad2/MonadTypes.v
-examples/Monad2/MonadSym.v
-examples/Monad2/MonadExpr.v
-examples/Monad2/Tests.v
-examples/Monad2/MonadReify.v
-examples/Monad2/MonadReduce.v
+examples/Monad/MonadTypes.v
+examples/Monad/MonadSym.v
+examples/Monad/MonadExpr.v
+examples/Monad/Tests.v
+examples/Monad/MonadReify.v
+examples/Monad/MonadReduce.v
 
 examples/Imp/Imp.v
 examples/Imp/Wp.v

@@ -9,7 +9,7 @@ Reify Declare Patterns patterns_simple_typ := typ.
 Reify Declare Patterns patterns_simple := (expr typ func).
 
 Reify Declare Syntax reify_simple_typ :=
-  { (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_simple_typ :: nil)) }.
+  (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_simple_typ :: nil)).
 
 Axiom otherFunc : BinNums.positive -> expr typ func.
 
@@ -17,12 +17,11 @@ Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
 
 (** Declare syntax **)
 Reify Declare Syntax reify_simple :=
-  { (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_simple) ::
-                         (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
-                         (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
-                         (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
-                         (@Patterns.CTypedTable (expr typ func) _ _ table_terms otherFunc) :: nil))
-  }.
+  (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_simple) ::
+                       (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
+                       (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
+                       (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
+                       (@Patterns.CTypedTable (expr typ func) _ _ table_terms otherFunc) :: nil)).
 
 Reify Pattern patterns_simple_typ += (@RExact _ nat)  => tyNat.
 Reify Pattern patterns_simple_typ += (@RExact _ bool) => tyBool.

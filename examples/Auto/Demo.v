@@ -54,11 +54,10 @@ Let func := SymEnv.func.
 
 Reify Declare Patterns patterns_even := (expr typ func).
 Reify Declare Syntax reify_even :=
-  { (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_even) ::
-                         (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
-                         (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
-                         (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) :: nil))
-  }.
+  (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_even) ::
+                       (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
+                       (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
+                       (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) :: nil)).
 
 
 
