@@ -185,9 +185,11 @@ struct
   let reifier_local (f : reify_env -> reify_env) (c : 'a reifier) : 'a reifier =
     fun gl -> c (f gl)
 
-  let reifier_under_binder (b : bool) (c : 'a reifier) : 'a reifier =
+  let reifier_under_binder (b : bool) (t : Term.constr) (c : 'a reifier)
+  : 'a reifier =
     fun gl -> c { gl with
-                  bindings = b :: gl.bindings }
+                  bindings = b :: gl.bindings
+                ; env = Environ.push_rel (Names.Anonymous, None, t) gl.env }
 
   let reifier_run (c : 'a reifier) (gl : reify_env) = c gl
 
@@ -1108,7 +1110,7 @@ struct
                reifier_bind
                  (Syntax.reify_term prem_rule (Term t))
                  (fun pr ->
-                    reifier_under_binder false
+                    reifier_under_binder false t
                       (get_prems (pr :: prems) b)))
           ; (Term_match.Ignore,
              fun () s ->
@@ -1130,7 +1132,7 @@ struct
              reifier_bind
                (Syntax.reify_term typ_rule (Term t))
                (fun ty ->
-                  reifier_under_binder true (get_foralls (ty :: alls) b)))
+                  reifier_under_binder true t (get_foralls (ty :: alls) b)))
         ; (Term_match.Ignore,
            fun _ _ -> get_prems alls [] pred)
         ]
@@ -1149,7 +1151,6 @@ struct
           env evm pred
       with
         Not_found ->
-        Printf.eprintf "not found here\n" ;
         assert false
     in
     let _ = decl_constant name evm body in
