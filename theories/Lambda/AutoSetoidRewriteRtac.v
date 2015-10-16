@@ -504,8 +504,16 @@ Section setoid.
 
   End setoid_rewrite.
 
+  Definition refl_dec : Type := R -> bool.
+  Definition trans_dec : Type := R -> bool.
+  Definition refl_dec_ok (rd : refl_dec) : Prop :=
+    forall r t rD, rd r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
+  Definition trans_dec_ok (rd : refl_dec) : Prop :=
+    forall r t rD, rd r = true -> RD RbaseD r t = Some rD -> Transitive rD.
+
   Section top_bottom.
-    Context (reflexive transitive : R -> bool)
+    Context (reflexive : refl_dec)
+            (transitive : trans_dec)
             (rw : expr typ func -> R -> mrw (Progressing (expr typ func)))
             (respectful : expr typ func -> R -> mrw (list R)).
 
@@ -1173,11 +1181,17 @@ Section setoid.
   (** This should probably go somewhere else **)
   Section the_tactic.
 
+    Definition lem_rewriter : Type :=
+      expr typ func -> R -> mrw (Progressing (expr typ func)).
+    Definition respectful_dec : Type :=
+      expr typ func -> R -> mrw (list R).
+
   Definition auto_setoid_rewrite_bu
              (r : R)
-             (reflexive transitive : R -> bool)
-             (rewriter : expr typ func -> R -> mrw (Progressing (expr typ func)))
-             (respectful : expr typ func -> R -> mrw (list R))
+             (reflexive : refl_dec)
+             (transitive : trans_dec)
+             (rewriter : lem_rewriter)
+             (respectful : respectful_dec)
   : rtac typ (expr typ func) :=
     let rw := bottom_up reflexive transitive rewriter respectful in
     fun tus tvs nus nvs ctx cs g =>
@@ -1198,8 +1212,8 @@ Section setoid.
 
   Theorem auto_setoid_rewrite_bu_sound
   : forall is_refl is_trans rw proper
-           (His_reflOk :forall r t rD, is_refl r = true -> RD RbaseD r t = Some rD -> Reflexive rD)
-           (His_transOk :forall r t rD, is_trans r = true -> RD RbaseD r t = Some rD -> Transitive rD),
+           (His_reflOk : refl_dec_ok is_refl)
+           (His_transOk : trans_dec_ok is_trans),
       setoid_rewrite_spec rw ->
       respectful_spec proper ->
       rtac_sound (auto_setoid_rewrite_bu (Rflip R_impl)
@@ -1272,11 +1286,12 @@ Section setoid.
 
   (** Apply the same rewrite multiple times while it is still making progress **)
   Section repeat_rewrite.
-    Variable rw : expr typ func -> R -> mrw (Progressing (expr typ func)).
-    Variable is_trans : R -> bool.
-    Variable is_refl : R -> bool.
+    Variable rw : lem_rewriter.
+    Variable is_refl : refl_dec.
+    Variable is_trans : trans_dec.
 
-    Fixpoint repeat_rewrite' (n : nat) (prog : expr typ func -> Progressing (expr typ func))
+    Fixpoint repeat_rewrite' (n : nat)
+             (prog : expr typ func -> Progressing (expr typ func))
              (e : expr typ func) (r : R)
     : mrw (Progressing (expr typ func)) :=
       match n with
@@ -1299,8 +1314,8 @@ Section setoid.
       end.
 
     Hypothesis rw_sound : setoid_rewrite_spec rw.
-    Hypothesis is_reflOk : forall r t rD, is_refl r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
-    Hypothesis is_transOk : forall r t rD, is_trans r = true -> RD RbaseD r t = Some rD -> Transitive rD.
+    Hypothesis is_reflOk : refl_dec_ok is_refl.
+    Hypothesis is_transOk : trans_dec_ok is_trans.
 
     Lemma repeat_rewrite'_mono : forall n e r c A B C D E F X Y,
         repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F = Some (X,Y) ->
@@ -2354,13 +2369,13 @@ Section setoid.
       Qed.
     End using_prewrite_db.
 
-    Definition using_rewrite_db
+    Definition using_rewrite_db''
                (ls : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
     : expr typ func -> R -> mrw (expr typ func) :=
       let rw_db := using_rewrite_db' ls in
       fun e r => for_tactic (fun e => rw_db e r) e.
 
-    Definition using_prewrite_db
+    Definition using_prewrite_db''
         (lems : expr typ func -> R -> list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
     : expr typ func -> R -> mrw (expr typ func) :=
       fun e r =>
@@ -2645,16 +2660,20 @@ Section setoid.
         inv_all. rewrite H. assumption. }
     Qed.
 
+    Definition using_rewrite_db
+               (hints : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
+    : lem_rewriter :=
+      fun e r => rw_bind (using_rewrite_db'' hints e r)
+                         (fun e => rw_ret (Progress e)).
+
     Theorem using_rewrite_db_sound
     : forall hints : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)),
         Forall (fun lt =>
                   lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
                   rtacK_sound (snd lt)) hints ->
-        setoid_rewrite_spec (fun e r =>
-                               rw_bind (using_rewrite_db hints e r)
-                                       (fun e => rw_ret (Progress e))).
+        setoid_rewrite_spec (using_rewrite_db hints).
     Proof.
-      unfold using_rewrite_db.
+      unfold using_rewrite_db, using_rewrite_db''.
       unfold for_tactic.
       red. red. intros.
       unfold rw_bind in H0.
@@ -2743,6 +2762,14 @@ Section setoid.
         intros. rewrite H5. rewrite <- H6. eauto. }
     Time Qed.
 
+    Definition using_prewrite_db
+               (hints : expr typ func -> R ->
+                        list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
+    : lem_rewriter :=
+      fun e r => rw_bind (using_prewrite_db'' hints e r)
+                         (fun e => rw_ret (Progress e)).
+
+
     (** TODO(gmalecha): This is almost identical to the above theorem *)
     Theorem using_prewrite_db_sound
     : forall hints : expr typ func -> R ->
@@ -2753,12 +2780,10 @@ Section setoid.
                           exprD' tus tvs t e = Some eD ->
                           lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       rtacK_sound (snd lt)) (hints e r)) ->
-        setoid_rewrite_spec (fun e r =>
-                               rw_bind (using_prewrite_db hints e r)
-                                       (fun e => rw_ret (Progress e))).
+        setoid_rewrite_spec (using_prewrite_db hints).
     Proof.
       intros.
-      unfold using_prewrite_db.
+      unfold using_prewrite_db, using_prewrite_db''.
       unfold for_tactic.
       red. red. intros.
       unfold rw_bind in H0.
@@ -2911,7 +2936,7 @@ Section setoid.
 
     Definition apply_respectful (lem : Proper_lemma)
                (tacK : rtacK typ (expr typ func))
-    : expr typ func -> R -> mrw (list R) :=
+    : respectful_dec :=
       let (rs,r_final) := split_R lem.(Lemma.concl).(relation) in
       match lem.(Lemma.vars) with
       | nil => match lem.(Lemma.premises) with
@@ -2982,7 +3007,7 @@ Section setoid.
     Definition apply_prespectful {T : Type}
                (get : expr typ func -> R -> option T)
                (lem : T -> Proper_lemma) (tacK : rtacK _ _)
-    : expr typ func -> R -> mrw (list R) :=
+    : respectful_dec :=
       fun e r =>
         match get e r with
         | Some t => apply_respectful (lem t) tacK e r
@@ -3044,7 +3069,7 @@ Section setoid.
 
     Definition or_respectful
                (a b : expr typ func -> R -> mrw (list R))
-    : expr typ func -> R -> mrw (list R) :=
+    : respectful_dec :=
       fun e r => rw_orelse (a e r) (b e r).
 
     Theorem or_respectful_sound : forall a b,
@@ -3058,7 +3083,7 @@ Section setoid.
       eassumption.
     Qed.
 
-    Definition fail_respectful : expr typ func -> R -> mrw (list R) :=
+    Definition fail_respectful : respectful_dec :=
       fun _ _ => rw_fail.
 
     Theorem fail_respectful_sound : respectful_spec fail_respectful.
@@ -3069,7 +3094,7 @@ Section setoid.
     Require Import MirrorCore.RTac.IdtacK.
 
     Fixpoint do_respectful (propers : list (expr typ func * R))
-    : expr typ func -> R -> mrw (list R) :=
+    : respectful_dec :=
       match propers with
       | nil => fail_respectful
       | (f,rel) :: propers =>
@@ -3131,4 +3156,7 @@ End setoid.
 
 Arguments NoProgress {_}.
 Arguments Progress {_} _.
+Arguments lem_rewriter typ func Rbase : clear implicits.
+Arguments respectful_dec typ func Rbase : clear implicits.
+
 Export MirrorCore.Lambda.RewriteRelations.

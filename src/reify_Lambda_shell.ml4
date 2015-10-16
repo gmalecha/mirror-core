@@ -120,7 +120,6 @@ struct
   { env : Environ.env
   ; evm : Evd.evar_map
   ; bindings : bool list
-  ; flip_bindings : bool
   ; typed_tables : (int * Term.constr) environment Cmap.t ref
   }
 
@@ -842,7 +841,7 @@ struct
 	]
 	cmd)
 
-    let find flip =
+    let find =
       let rec find ls i acc =
 	match ls with
           [] -> assert false
@@ -852,15 +851,7 @@ struct
           else
 	    find ls (i - 1) (if l then acc + 1 else acc)
       in
-      let rec count_true acc = function
-        | [] -> acc
-        | true :: ls -> count_true (1+acc) ls
-        | false :: ls -> count_true acc ls
-      in
-      if flip then
-        fun ls i -> count_true (-1) ls - find ls i 0
-      else
-        fun ls i -> find ls i 0
+      fun ls i -> find ls i 0
 
     let compile_command (ls : command)
     : lazy_term -> Term.constr reifier =
@@ -920,7 +911,7 @@ struct
 	    begin
 	      match Term.kind_of_term (get_term trm) with
 		Term.Rel i ->
-		  let idx = find gl.flip_bindings gl.bindings (i-1) in
+		  let idx = find gl.bindings (i-1) in
 		  Term.mkApp (ctor, [| Std.Nat.to_nat idx |])
 	      | _ -> reifier_fail_lazy trm gl
 	    end
@@ -1082,7 +1073,6 @@ struct
     { env = env
     ; evm = evar_map
     ; bindings = []
-    ; flip_bindings = false
     ; typed_tables = ref !Tables.the_seed_table }
 
   let reify (env : Environ.env) (evm : Evd.evar_map) tbls (name : Term.constr) trm =
@@ -1112,7 +1102,7 @@ struct
       reifier_ret
         (Term.mkApp (Lazy.force build_lemma,
                      [| ty ; pr ; co
-                      ; Std.List.to_list ty (List.rev alls)
+                      ; Std.List.to_list ty alls
                       ; Std.List.to_list pr (List.rev prems)
                       ; pred |]))
     in
@@ -1155,8 +1145,7 @@ struct
         pred
     in
     reifier_run (get_foralls [] pred)
-      { initial_env env evm [] with
-        flip_bindings = true }
+      (initial_env env evm [])
 
   let declare_syntax_lemma
     ~name:name ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule

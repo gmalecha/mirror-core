@@ -70,16 +70,4 @@ mirror-core/ $ make init
 
 which will pull a fresh copy of coq-ext-lib and build it.
 
-If you opted not to install coq-ext-lib you need to create a
-Makefile.paths file that tells Coq where to find the coq-ext-lib
-theories. The following command will achieve this.
-
-```
-mirror-core/ $ echo 'ARGS := -R ../coq-ext-lib/theories ExtLib $(ARGS)' > Makefile.paths
-```
-
-You should replace ../coq-ext-lib with the appropriate path but if the
-path is relative, make sure that it is relative to the theories
-directory (thus the leading ../ in the example above).
-
 In order to build the reification plugin, you must use OCaml 4.01 or later.
