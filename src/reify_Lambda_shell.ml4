@@ -228,15 +228,30 @@ struct
       in result
     | _ -> 0
 
+  let rec has_open_end = function
+    | RApp (a,_) -> has_open_end a
+    | RExact _
+    | RLam _
+    | RPi _
+    | RImpl _ -> false
+    | _ -> true
+
   let ptrn_tree_add (type a) (p : rpattern) (v : a option -> a) (t : a ptrn_tree) =
     match p with
     | RApp (l,r) ->
+      (* NOTE: This is conservative, if ends in an open pattern
+       * (one that could match an application) then it is added
+       * to 'otherwise' as well
+       *)
       let arity = 1 + count_apps l in
       let cur =
         try Some (IntMap.find arity t.if_app)
         with Not_found -> None
       in { t with
-           if_app = IntMap.add arity (v cur) t.if_app }
+           if_app = IntMap.add arity (v cur) t.if_app
+         ; otherwise =
+             if has_open_end l then v (Some t.otherwise)
+             else t.otherwise }
     | RExact trm -> (** Check universes **)
       let cur =
         try Some (Cmap.find trm t.if_exact)
@@ -528,6 +543,7 @@ struct
                let end_time = Sys.time () in
                Pp.(msg_info (str "type checking time: " ++ real (end_time -. start_time) ++ fnl ())) ; *)
 	       Term.eq_constr ty t), p), l)
+        | RLam (a,b) -> assert false
       in
       compile_pattern
 
@@ -892,7 +908,7 @@ struct
 		  let new_gl =
 		    { gl with
 		      env = Environ.push_rel (name, None, lhs) gl.env
-		      ; bindings = true :: gl.bindings
+		    ; bindings = true :: gl.bindings
 		    }
 		  in
 		  let body = reifier_run (!top (Term rhs)) new_gl in
@@ -1494,9 +1510,9 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
           env evm lem_type
       with
         (Reification.ReificationFailure trm) as ex ->
-          let pr = Pp.(   (str "Failed to reify term '")
-		       ++ (Printer.pr_constr (Lazy.force trm))
-                       ++ (str "'.")) in
+          Pp.(msg_error (   str "Failed to reify term '"
+		         ++ Printer.pr_constr (Lazy.force trm)
+                         ++ str "'.")) ;
           raise (Failure "Reification failed")
     ]
 END

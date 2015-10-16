@@ -23,18 +23,26 @@ Reify Declare Syntax reify_simple :=
                        (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
                        (@Patterns.CTypedTable (expr typ func) _ _ table_terms otherFunc) :: nil)).
 
-Reify Pattern patterns_simple_typ += (@RExact _ nat)  => tyNat.
-Reify Pattern patterns_simple_typ += (@RExact _ bool) => tyBool.
-Reify Pattern patterns_simple_typ += (@RExact _ Prop) => tyProp.
+Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+Reify Pattern patterns_simple_typ += (!! nat)  => tyNat.
+Reify Pattern patterns_simple_typ += (!! bool) => tyBool.
+Reify Pattern patterns_simple_typ += (!! Prop) => tyProp.
 Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
 
 Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
-Reify Pattern patterns_simple += (@RExact _ plus) => (Inj (typ:=typ) Plus).
-Reify Pattern patterns_simple += (@RExact _ NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
-Reify Pattern patterns_simple += (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) =>
+Reify Pattern patterns_simple += (!! plus) => (Inj (typ:=typ) Plus).
+Reify Pattern patterns_simple += (!! NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
+Reify Pattern patterns_simple += (!! @eq @ ?0) =>
 (fun (t : function reify_simple_typ) => Inj (typ:=typ) (Eq t)).
-Reify Pattern patterns_simple += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (All t)) (Abs t b))).
-Reify Pattern patterns_simple += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (@Inj typ func Impl) a) b).
+Reify Pattern patterns_simple += (RPi (?0) (?1)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (All t)) (Abs t b))).
+Reify Pattern patterns_simple += (!! @ex @ ?0) => (fun (t : function reify_simple_typ) => Inj (typ:=typ) (Ex t)).
+Reify Pattern patterns_simple += (!! and) => (Inj (typ:=typ) And).
+Reify Pattern patterns_simple += (!! or) => (Inj (typ:=typ) Or).
 
 Ltac reify_typ trm :=
   let k e :=
