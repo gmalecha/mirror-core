@@ -1,8 +1,8 @@
 Require Import ExtLib.Structures.Monad.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Reify.Reify.
-Require Import McExamples.Monad2.MonadExpr.
-Require Import McExamples.Monad2.MonadReduce.
+Require Import McExamples.Monad.MonadExpr.
+Require Import McExamples.Monad.MonadReduce.
 
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).

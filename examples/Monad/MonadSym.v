@@ -5,7 +5,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
-Require Import McExamples.Monad2.MonadTypes.
+Require Import McExamples.Monad.MonadTypes.
 
 Set Implicit Arguments.
 Set Strict Implicit.

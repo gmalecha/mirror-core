@@ -3,8 +3,8 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
-Require Export McExamples.Monad2.MonadTypes.
-Require Import McExamples.Monad2.MonadSym.
+Require Export McExamples.Monad.MonadTypes.
+Require Import McExamples.Monad.MonadSym.
 
 Set Implicit Arguments.
 Set Strict Implicit.
