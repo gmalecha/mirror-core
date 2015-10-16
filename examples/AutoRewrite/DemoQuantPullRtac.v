@@ -4,7 +4,9 @@ Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
+Require Import MirrorCore.Reify.Reify.
 Require Import McExamples.Simple.Simple.
+Require Import McExamples.Simple.SimpleReify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -20,8 +22,24 @@ Definition fN n : expr typ func := Inj (Simple.N n).
 
 Let Rbase := expr typ func.
 
-Definition m : Type -> Type :=
-  @mrw typ func.
+Reify Declare Patterns patterns_concl := (rw_concl typ func Rbase).
+
+Reify Declare Syntax reify_concl_base :=
+  (@CPatterns _ patterns_concl).
+
+Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+Reify Pattern patterns_concl += (?0 @ ?1 @ ?2) =>
+  (fun (a b c : function reify_simple) =>
+     @Build_rw_concl typ func Rbase b (@Rinj typ Rbase a) c).
+Reify Pattern patterns_concl += (!!Basics.impl @ ?0 @ ?1) =>
+  (fun (a b : function reify_simple) =>
+     @Build_rw_concl typ func Rbase a (@Rinj typ Rbase (Inj Impl)) b).
+
 
 Fixpoint goal n : expr typ func :=
   match n with
@@ -30,22 +48,6 @@ Fixpoint goal n : expr typ func :=
     fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n))
   end.
 
-Theorem pull_ex_nat_and_left
-: forall T P Q, ((@ex T P) /\ Q) -> (exists n, P n /\ Q).
-Proof.
-  intros.
-  destruct H. destruct H. eexists; split; eauto.
-Qed.
-
-Definition lem_pull_ex_nat_and_left : rw_lemma typ func (expr typ func) :=
-{| Lemma.vars := tyArr tyNat tyProp :: tyProp :: nil
- ; Lemma.premises := nil
- ; Lemma.concl := {| lhs := fAnd (App (Inj (Simple.Ex tyNat)) (Var 0)) (Var 1)
-             ; rel := Rinj fImpl
-             ; rhs := fEx tyNat (fAnd (App (Var 1) (Var 0)) (Var 2))
-             |}
- |}.
-
 Existing Instance RType_typ.
 Existing Instance Expr.Expr_expr.
 
@@ -53,24 +55,33 @@ Definition RbaseD (e : expr typ func) (t : typ)
 : option (TypesI.typD t -> TypesI.typD t -> Prop) :=
   exprD nil nil e (tyArr t (tyArr t tyProp)).
 
-Eval compute in
-    Lemma.lemmaD (rw_conclD RbaseD) nil nil lem_pull_ex_nat_and_left.
+Theorem pull_ex_and_left
+: forall T P Q, Basics.impl ((@ex T P) /\ Q) (exists n, P n /\ Q).
+Proof.
+  red. intros.
+  destruct H. destruct H. eexists; split; eauto.
+Qed.
 
-Theorem pull_ex_nat_and_right
-: forall T P Q, (Q /\ (exists n : T, P n)) -> (exists n, Q /\ P n).
+Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
+      lem_pull_ex_nat_and_left : @pull_ex_and_left nat.
+
+Definition lem_pull_ex_nat_and_left_sound
+: Lemma.lemmaD (rw_conclD RbaseD) nil nil lem_pull_ex_nat_and_left :=
+  @pull_ex_and_left nat.
+
+Theorem pull_ex_and_right
+: forall T P Q, Basics.impl (Q /\ (exists n : T, P n)) (exists n, Q /\ P n).
 Proof.
   destruct 1. destruct H0.
   eexists; split; eauto.
 Qed.
 
-Definition lem_pull_ex_nat_and_right : rw_lemma typ func (expr typ func) :=
-{| Lemma.vars := tyArr tyNat tyProp :: tyProp :: nil
- ; Lemma.premises := nil
- ; Lemma.concl := {| lhs := fAnd (Var 1) (App (Inj (Simple.Ex tyNat)) (Var 0))
-             ; rel := Rinj fImpl
-             ; rhs := fEx tyNat (fAnd (Var 2) (App (Var 1) (Var 0)))
-             |}
- |}.
+Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
+      lem_pull_ex_nat_and_right : @pull_ex_and_right nat.
+
+Definition lem_pull_ex_nat_and_right_sound
+: Lemma.lemmaD (rw_conclD RbaseD) nil nil lem_pull_ex_nat_and_right :=
+  @pull_ex_and_right nat.
 
 Fixpoint is_refl (r : R typ (expr typ func)) : bool :=
   match r with
@@ -91,14 +102,14 @@ Fixpoint is_trans (r : R typ (expr typ func)) : bool :=
   | _ => false
   end.
 
-Definition get_respectful_only_all_ex :=
-  do_respectful (expr_eq_sdec (typ:=typ) (func:=func) _ rel_dec)
+Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
+  do_respectful rel_dec
     ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
      (Inj (All tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
      nil).
 
-Definition get_respectful :=
-  do_respectful (expr_eq_sdec (typ:=typ) (func:=func) _ rel_dec)
+Definition get_respectful : respectful_dec typ func Rbase :=
+  do_respectful rel_dec
     ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
      (Inj (All tyNat), Rrespects (Rpointwise tyNat (Rinj (Inj Impl))) (Rinj (Inj Impl))) ::
      (Inj And, Rrespects (Rinj (Inj Impl)) (Rrespects (Rinj (Inj Impl)) (Rinj (Inj Impl)))) ::
@@ -120,13 +131,17 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                       (pmap Red.beta get))))))
     e.
 
+(** TODO(gmalecha): This needs to do reduction **)
 Definition the_rewrites
            (lems : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)))
-: expr typ func -> R typ Rbase -> mrw (typ:=typ) (func:=func) (Progressing (expr typ func)) :=
+: lem_rewriter _ _ _ :=
+  using_rewrite_db rel_dec lems.
+(*
   fun e r =>
     rw_bind
       (@using_rewrite_db typ func _ _ _ _ (expr typ func) (@expr_eq_sdec typ func _ rel_dec) lems (Red.beta e) r)
       (fun e' => rw_ret (Progress (simple_reduce e'))).
+*)
 
 Require Import MirrorCore.RTac.RunOnGoals.
 Require Import MirrorCore.RTac.IdtacK.
