@@ -83,7 +83,7 @@ sig
 
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 
-  val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
+  val ic : env:Environ.env -> sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
 end
 
 module Reification : REIFICATION =
@@ -1386,8 +1386,8 @@ struct
     | (s,trm) :: ls ->
        Plugin_utils.Use_ltac.pose s trm (fun var -> pose_each ls (fun vs -> k (var :: vs)))
 
-  let ic ?env ?sigma c =
-    let env =
+  let ic ~env ~sigma c =
+(*    let env =
       match env with
       | None -> Global.env()
       | Some x -> x
@@ -1397,20 +1397,23 @@ struct
       | None -> Evd.empty
       | Some x -> x
     in
+*)
     Constrintern.interp_open_constr env sigma c
 
 end
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->
-    [ let (evm,cmd) = Reification.ic cmd in
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let (evm,cmd) = Reification.ic ~env:env ~sigma:evm cmd in
       Reification.declare_syntax name evm cmd ]
 END
 
 (** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
   | [ "Reify" "Declare" "Patterns" ident(name) ":=" lconstr(value) ] ->
-    [ let (evd,value) = Reification.ic value in
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let (evd,value) = Reification.ic ~env:env ~sigma:evm value in
       Reification.declare_pattern name evd value
     ]
 END
@@ -1443,7 +1446,8 @@ END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
-    [ let (evm,key) = Reification.ic key in
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let (evm,key) = Reification.ic ~env:env ~sigma:evm key in
       if Reification.declare_table name evm key then
 	()
       else
@@ -1452,8 +1456,9 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
                        ++ str "'."))
     ]
   | [ "Reify" "Declare" "Typed" "Table" ident(name) ":" constr(key) "=>" constr(typ) ] ->
-    [ let (evm,key) = Reification.ic key in
-      let (evm,typ) = Reification.ic ~sigma:evm typ in
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let (evm,key) = Reification.ic ~env:env ~sigma:evm key in
+      let (evm,typ) = Reification.ic ~env:env ~sigma:evm typ in
       if Reification.declare_typed_table name evm key typ then
 	()
       else
