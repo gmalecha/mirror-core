@@ -83,7 +83,7 @@ sig
 
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 
-  val ic : env:Environ.env -> sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
+  val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
 end
 
 module Reification : REIFICATION =
@@ -1386,34 +1386,31 @@ struct
     | (s,trm) :: ls ->
        Plugin_utils.Use_ltac.pose s trm (fun var -> pose_each ls (fun vs -> k (var :: vs)))
 
-  let ic ~env ~sigma c =
-(*    let env =
+  let ic ?env ?sigma c =
+    let env =
       match env with
-      | None -> Global.env()
+      | None -> snd (Lemmas.get_current_context ())
       | Some x -> x
     in
     let sigma =
       match sigma with
-      | None -> Evd.empty
+      | None -> fst (Lemmas.get_current_context ())
       | Some x -> x
     in
-*)
     Constrintern.interp_open_constr env sigma c
 
 end
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let (evm,cmd) = Reification.ic ~env:env ~sigma:evm cmd in
+    [ let (evm,cmd) = Reification.ic cmd in
       Reification.declare_syntax name evm cmd ]
 END
 
 (** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
   | [ "Reify" "Declare" "Patterns" ident(name) ":=" lconstr(value) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let (evd,value) = Reification.ic ~env:env ~sigma:evm value in
+    [ let (evd,value) = Reification.ic value in
       Reification.declare_pattern name evd value
     ]
 END
