@@ -408,30 +408,18 @@ Section RSym_OneOf.
                                 | _None => Empty_set
                                 end)
            (H2 : forall p, RSymOk (H1 p))
-  : RSymOk (RSymOneOf m H1) :=
-  { sym_eqbOk f1 f2 :=
-      match f1 as f1'
-            return match sym_eqb f1' f2 with
-                   | Some true => f1' = f2
-                   | Some false => f1' <> f2
-                   | None => True
-                   end
-      with
-      | mkOneOf _ x1 v1 =>
-          match f2 as f2'
-                return
-                match sym_eqb (mkOneOf _ x1 v1) f2' with
-                | Some true => (mkOneOf _ x1 v1) = f2'
-                | Some false => (mkOneOf _ x1 v1) <> f2'
-                | None => True
-                end
-          with
-          | mkOneOf _ x2 v2 => _
-          end
-      end
-  }.
+    : RSymOk (RSymOneOf m H1) :=
+    { sym_eqbOk f1 f2 := 
+        match f1 with
+        | mkOneOf _ x1 v1 => _ 
+                               match f2 with
+                               | mkOneOf _ x2 v2 => _
+                               end 
+        end
+    }.
+  intros W. destruct W as [x2 v2].
   simpl. unfold sym_eqb_OneOf. simpl.
-  destruct (Pos.eq_dec x1 x2).
+  destruct (Pos.eq_dec x1 ).
   { destruct e.
     generalize (@sym_eqbOk _ _ _ _ (H2 x1) v1 v2).
     destruct (sym_eqb v1 v2); auto.
@@ -439,8 +427,8 @@ Section RSym_OneOf.
       intro.
       apply H. inv_all.
       rewrite H3. clear - RTypeOk_typ.
-      rewrite (UIP_refl x). reflexivity. } }
+      rewrite (UIP_refl x). reflexivity.  } }
   { trivial. }
   Defined.
-
+  
 End RSym_OneOf.

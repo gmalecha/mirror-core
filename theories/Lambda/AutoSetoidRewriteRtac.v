@@ -719,8 +719,9 @@ Section setoid.
           { exfalso.
             simpl in *.
             red in x4. subst.
-            clear - RTypeOk_typD Typ2Ok_Fun RbaseD_single_type H10 H2.
+
             eapply RD_tyAcc in H10; eauto.
+            clear - RTypeOk_typD Typ2Ok_Fun RbaseD_single_type H10 H2.
             destruct H10.
             { eapply tyArr_circ_R; eauto. }
             { assert ((TransitiveClosure.leftTrans (@tyAcc _ _)) x3 (typ2 x2 x3)).
@@ -2547,7 +2548,7 @@ Section setoid.
                | eq_refl => vs
                end.
     Proof.
-      clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+      clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun tyArr.
       intros. rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
       generalize dependent cD. revert cs. revert ctx.
       induction tvs.
@@ -2588,7 +2589,7 @@ Section setoid.
           simpl in *.
           generalize dependent ((getVars ctx ++ a :: nil) ++ tvs).
           intros; subst. reflexivity. }
-        { clear - H.
+        { clear - H tyArr.
           match goal with
           | |- _ _ ?U ?V <-> _ _ ?U' ?V' =>
             replace V with V' ; [ replace U with U' | ]
@@ -2699,7 +2700,7 @@ Section setoid.
         SubstMorphism cs
                       (unwrap_tvs_ctx_subst tvs' c (fun x : ctx_subst ctx => x)).
     Proof.
-      clear. intros.
+      clear -tyArr _lookupU _lookupV. intros.
       rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
       revert H. revert ctx c cs.
       induction tvs'.

@@ -278,7 +278,7 @@ struct
     (** TODO: This looks weird... **)
     let (evm, _) = Typing.type_of (Global.env ()) evm c in
     let vars = Universes.universes_of_constr c in
-    let ctx = Universes.restrict_universe_context (Univ.ContextSet.of_context (Evd.universe_context evm)) vars in
+    let ctx = Universes.restrict_universe_context (Univ.ContextSet.of_context (snd (Evd.universe_context evm))) vars in
     Declare.(Term.mkConst(declare_constant na
 			    (Entries.(DefinitionEntry
 					(definition_entry ~opaque:false ~univs:(Univ.ContextSet.to_context ctx) c))
