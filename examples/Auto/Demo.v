@@ -257,7 +257,8 @@ Ltac run_auto := idtac;
       end
   end.
 
-Goal Even 2.
+
+Goal Even 4.
 Proof.
   Time run_auto.
 Qed.
