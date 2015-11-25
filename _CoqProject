@@ -38,6 +38,8 @@ theories/provers/AutoProver.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
+theories/ModularTypes.v
+
 theories/Util/Approx.v
 theories/Util/Iteration.v
 theories/Util/ListMapT.v
