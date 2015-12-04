@@ -32,6 +32,8 @@ Require Import MirrorCore.Lambda.RewriteRelations.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Set Suggest Proof Using.
+
 Section setoid.
   Context {typ : Type}.
   Context {func : Type}.
@@ -44,11 +46,14 @@ Section setoid.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
   Context {Typ0_Prop : Typ0 _ Prop}.
+
+  (** TODO(gmalecha): This is not necessary *)
   Context {RelDec_eq_typ : RelDec (@eq typ)}.
   Context {RelDec_Correct_eq_typ : RelDec_Correct RelDec_eq_typ}.
 
-  Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
-
+  (* TODO(gmalecha): Wrap all of this up in a type class?
+   * Why should it be different than Expr?
+   *)
   Variable Rbase : Type.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
@@ -420,7 +425,7 @@ Section setoid.
         @setoid_rewrite_rec es ->
         @setoid_rewrite_rel (apps e (map fst es))
                             rg (setoid_rewrite' e es rg).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun respectfulness_sound.
       induction e; eauto using respectfulness_sound.
       { simpl in *. intros.
         eapply IHe1; eauto.
@@ -497,21 +502,12 @@ Section setoid.
     Theorem setoid_rewrite_sound
     : forall e rg,
         @setoid_rewrite_rel e rg (setoid_rewrite e rg).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun respectfulness_sound.
       intros. eapply setoid_rewrite'_sound.
       constructor.
     Qed.
 
   End setoid_rewrite.
-
-(*
-  Definition refl_dec : Type := R -> bool.
-  Definition trans_dec : Type := R -> bool.
-  Definition refl_dec_ok (rd : refl_dec) : Prop :=
-    forall r t rD, rd r = true -> RD RbaseD r t = Some rD -> Reflexive rD.
-  Definition trans_dec_ok (rd : trans_dec) : Prop :=
-    forall r t rD, rd r = true -> RD RbaseD r t = Some rD -> Transitive rD.
-*)
 
   Section top_bottom.
     Context (reflexive : refl_dec R)
@@ -546,7 +542,7 @@ Section setoid.
           xD = match pf with
                | eq_refl => AbsAppI.exprT_Abs bD
                end.
-    Proof using tyArr Typ2Ok_Fun RSymOk_func RTypeOk_typD.
+    Proof using Typ2Ok_Fun RSymOk_func RTypeOk_typD.
       intros.
       autorewrite with exprD_rw in H.
       destruct (typ2_match_case t); forward_reason.
@@ -588,7 +584,7 @@ Section setoid.
         RD RbaseD a b = Some c ->
         RD RbaseD (fold_right Rrespects a d) e = Some f ->
         b = e \/ TransitiveClosure.leftTrans (@tyAcc _ _) b e.
-    Proof using RTypeOk_typD Typ2Ok_Fun RbaseD_single_type.
+    Proof using Typ2Ok_Fun RbaseD_single_type.
       induction d.
       { simpl; left.
         eapply RD_single_type; eauto. }
@@ -639,8 +635,7 @@ Section setoid.
               | Some _ , None , _  => True
               | None , _ , _ => True
               end.
-    Proof using tyArr RTypeOk_typD Typ2Ok_Fun RSymOk_func Typ0_Prop
-          RelDec_Correct_eq_typ (* Rbase_eq_ok *) RbaseD_single_type.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type Typ2Ok_Fun.
       induction es; destruct rs; simpl in *.
       { inversion 1; subst. clear H.
         intros.
@@ -844,8 +839,7 @@ Section setoid.
               | Some _ , None , _  => True
               | None , _ , _ => True
               end.
-    Proof using tyArr RTypeOk_typD Typ2Ok_Fun RSymOk_func Typ0_Prop
-          RelDec_Correct_eq_typ RbaseD_single_type.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type Typ2Ok_Fun.
       intros.
       eapply recursive_rewrite'_sound in H; eauto.
     Qed.
@@ -935,7 +929,8 @@ Section setoid.
     Lemma bottom_up_sound_lem
     : forall e rg,
         @setoid_rewrite_rel e rg (bottom_up e rg).
-    Proof. clear Rbase_eq_ok Rbase_eq.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type Typ2Ok_Fun
+          reflexiveOk respectfulOk rwOk transitiveOk.
       unfold bottom_up. intros.
       eapply setoid_rewrite_sound; eauto; try solve [ constructor ].
       clear rg e.
@@ -1172,7 +1167,8 @@ Section setoid.
 
     Theorem bottom_up_sound
     : setoid_rewrite_spec bottom_up.
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type Typ2Ok_Fun
+          reflexiveOk respectfulOk rwOk transitiveOk.
       intros. red. eapply bottom_up_sound_lem.
     Qed.
 
@@ -1244,7 +1240,8 @@ Section setoid.
       respectful_spec proper ->
       rtac_sound (auto_setoid_rewrite_bu (Rflip R_impl)
                                          is_refl is_trans rw proper).
-  Proof.
+  Proof using RSymOk_func RTypeOk_typD R_impl_is_impl
+        RbaseD_single_type Typ2Ok_Fun.
     intros. unfold auto_setoid_rewrite_bu. red.
     intros.
     generalize (@bottom_up_sound is_refl is_trans rw proper
@@ -1302,7 +1299,7 @@ Section setoid.
 
   Lemma expr_sdec_sound
   : forall a b : expr typ func, expr_sdec a b = true -> a = b.
-  Proof.
+  Proof using RSymOk_func RelDec_Correct_eq_typ.
     eapply expr_eq_sdec_ok; eauto.
     unfold func_sdec.
     intros. generalize (sym_eqbOk a b); eauto with typeclass_instances.
@@ -1365,7 +1362,7 @@ Section setoid.
     Theorem repeat_rewrite'_sound
     : forall n (prog : bool),
         setoid_rewrite_spec (repeat_rewrite' n (if prog then @Progress _ else (fun _ => NoProgress))).
-    Proof.
+    Proof using is_reflOk is_transOk rw_sound.
       induction n.
       { intros. simpl. destruct prog.
         { do 2 red. intros.
@@ -1449,7 +1446,7 @@ Section setoid.
 
     Theorem repeat_rewrite_sound
     : forall b n, setoid_rewrite_spec (repeat_rewrite b n).
-    Proof.
+    Proof using is_reflOk is_transOk rw_sound.
       unfold repeat_rewrite. simpl. intros.
       eapply repeat_rewrite'_sound.
     Qed.
@@ -1537,7 +1534,7 @@ Section setoid.
           (forall (us : hlist typD tus) (vs : hlist typD tvs)
                   (vs' : hlist typD tvs'),
               val us vs = val' us (hlist_app vs vs')).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun.
       intros.
       generalize (@exprD'_weakenV typ _ (expr typ func) _ _ tus tvs tvs' e t val H).
       eauto.
@@ -1553,7 +1550,7 @@ Section setoid.
           (forall (us : hlist typD tus) (vs : hlist typD tvs)
                   (us' : hlist typD tus'),
               val us vs = val' (hlist_app us us') vs).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun.
       intros.
       generalize (@exprD'_weakenU typ _ (expr typ func) _ _ tus tus' tvs e t val H).
       eauto.
@@ -1691,7 +1688,7 @@ Section setoid.
               | None => True
               end).
     Proof using RelDec_Correct_eq_typ RbaseD_single_type
-          RTypeOk_typD RSymOk_func Typ2Ok_Fun tyArr.
+          RTypeOk_typD RSymOk_func Typ2Ok_Fun.
       Opaque vars_to_uvars.
       unfold core_rewrite. generalize dependent 10.
       simpl.
@@ -2031,7 +2028,7 @@ Section setoid.
               | None => True
               end).
     Proof using RelDec_Correct_eq_typ RbaseD_single_type
-          RTypeOk_typD RSymOk_func Typ2Ok_Fun tyArr.
+          RTypeOk_typD RSymOk_func Typ2Ok_Fun.
       Opaque vars_to_uvars.
       intros.
       eapply core_rewrite_sound in H; eauto using rtacK_sound_WellFormed_rtacK.
@@ -2090,8 +2087,7 @@ Section setoid.
           exprD' tus (tvs' ++ tvs) t (expr_convert (length tvs) (length tvs') e) = Some eD' /\
           forall a b c,
             eD a (hlist_app b c) = eD' a (hlist_app c b).
-    Proof.
-      clear - Typ2Ok_Fun RTypeOk_typD RSymOk_func.
+    Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun.
       unfold expr_convert.
       intros.
       destruct (fun Hu Hv => @ExprI.expr_subst_sound
@@ -2265,7 +2261,7 @@ Section setoid.
                 end
               | None => True
               end).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type Rbase_eq_ok RelDec_Correct_eq_typ Typ2Ok_Fun.
       induction 1.
       { simpl. inversion 1. }
       { simpl. intros. destruct x.
@@ -2331,12 +2327,13 @@ Section setoid.
                    end
                  | None => True
                  end)).
-      Proof.
+      Proof using RSymOk_func RTypeOk_typD RbaseD_single_type
+            Rbase_eq_ok RelDec_Correct_eq_typ Typ2Ok_Fun.
         simpl.
         unfold using_prewrite_db'.
         intros r ctx cs e. revert cs.
         cut (forall (cs : ctx_subst ctx) (e' : expr typ func) (cs' : ctx_subst ctx),
-                using_rewrite_db' (phints e r) e r (getUVars ctx) 
+                using_rewrite_db' (phints e r) e r (getUVars ctx)
                                   (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs =
                 Some (e', cs') ->
                 (Forall
@@ -2344,7 +2341,7 @@ Section setoid.
                       WellFormed_rtacK (snd lt)) (phints e r)) ->
                 WellFormed_ctx_subst cs ->
                 WellFormed_ctx_subst cs' /\
-                ((forall (tus tvs : tenv typ) 
+                ((forall (tus tvs : tenv typ)
                          (t : typ) (eD : exprT tus tvs (typD t)),
                      exprD' tus tvs t e = Some eD ->
                      Forall
@@ -2417,6 +2414,7 @@ Section setoid.
               trivial.
               inversion H0; trivial. } } }
       Qed.
+
     End using_prewrite_db.
 
     Definition using_rewrite_db''
@@ -2505,7 +2503,7 @@ Section setoid.
 
     Lemma forall_hlist_cons : forall T (F : T -> Type) t ts (P : hlist F (t :: ts) -> Prop),
         (forall x, P x) <-> (forall x xs, P (Hcons x xs)).
-    Proof.
+    Proof using.
       intros. split. eauto. intros. rewrite hlist_eta. eapply H.
     Qed.
 
@@ -2547,8 +2545,7 @@ Section setoid.
                with
                | eq_refl => vs
                end.
-    Proof.
-      clear - RTypeOk_typD RSymOk_func Typ2Ok_Fun tyArr.
+    Proof using.
       intros. rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
       generalize dependent cD. revert cs. revert ctx.
       induction tvs.
@@ -2589,7 +2586,7 @@ Section setoid.
           simpl in *.
           generalize dependent ((getVars ctx ++ a :: nil) ++ tvs).
           intros; subst. reflexivity. }
-        { clear - H tyArr.
+        { clear - H.
           match goal with
           | |- _ _ ?U ?V <-> _ _ ?U' ?V' =>
             replace V with V' ; [ replace U with U' | ]
@@ -2637,7 +2634,7 @@ Section setoid.
                 with
                 | eq_refl => vs
                 end.
-    Proof using RTypeOk_typD RSymOk_func Typ2Ok_Fun.
+    Proof using.
       induction tvs.
       { simpl. eauto.
         eexists; split; eauto.
@@ -2699,8 +2696,8 @@ Section setoid.
         SubstMorphism (wrap_tvs_ctx_subst tvs' cs) c ->
         SubstMorphism cs
                       (unwrap_tvs_ctx_subst tvs' c (fun x : ctx_subst ctx => x)).
-    Proof.
-      clear -tyArr _lookupU _lookupV. intros.
+    Proof using.
+      intros.
       rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
       revert H. revert ctx c cs.
       induction tvs'.
@@ -2722,7 +2719,8 @@ Section setoid.
                   lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
                   rtacK_sound (snd lt)) hints ->
         setoid_rewrite_spec (using_rewrite_db hints).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type
+          Rbase_eq_ok RelDec_Correct_eq_typ Typ2Ok_Fun.
       unfold using_rewrite_db, using_rewrite_db''.
       unfold for_tactic.
       red. red. intros.
@@ -2831,7 +2829,8 @@ Section setoid.
                           lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       rtacK_sound (snd lt)) (hints e r)) ->
         setoid_rewrite_spec (using_prewrite_db hints).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD RbaseD_single_type Rbase_eq_ok
+          RelDec_Correct_eq_typ Typ2Ok_Fun.
       intros.
       unfold using_prewrite_db, using_prewrite_db''.
       unfold for_tactic.
@@ -2957,7 +2956,7 @@ Section setoid.
 
     Theorem rw_simplify_sound
     : setoid_rewrite_spec rw_simplify.
-    Proof.
+    Proof using lr_sound reducer_sound.
       unfold rw_simplify. do 2 red. intros.
       eapply lr_sound in H; eauto.
       forward_reason; split; eauto.
@@ -2986,16 +2985,16 @@ Section setoid.
     Qed.
 
     Definition rw_post_simplify : lem_rewriter :=
-      Eval unfold rw_bind, rw_ret in 
+      Eval unfold rw_bind, rw_ret in
       fun e r => rw_bind (lr e r)
-                         (fun e' => rw_ret (match e' with
-                                            | Progress e' => Progress (reducer e')
-                                            | NoProgress => NoProgress
-                                            end)).
+                         (fun e' => rw_ret match e' with
+                                           | Progress e' => Progress (reducer e')
+                                           | NoProgress => NoProgress
+                                           end).
 
     Theorem rw_post_simplify_sound
     : setoid_rewrite_spec rw_post_simplify.
-    Proof.
+    Proof using lr_sound reducer_sound.
       unfold rw_post_simplify. do 2 red. intros.
       forward. inv_all; subst.
       eapply lr_sound in H1; eauto.
@@ -3087,7 +3086,8 @@ Section setoid.
         Lemma.lemmaD Proper_conclD nil nil lem ->
         forall Htac : rtacK_sound tacK,
           respectful_spec (apply_respectful lem tacK).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
+          Typ2Ok_Fun.
       red; intros.
       unfold apply_respectful in H0.
       consider (split_R (relation (Lemma.concl lem))); intros.
@@ -3150,7 +3150,8 @@ Section setoid.
               Lemma.lemmaD Proper_conclD nil nil (lem x)) ->
         rtacK_sound tacK ->
         respectful_spec (apply_prespectful get lem tacK).
-    Proof.
+    Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
+          Typ2Ok_Fun.
       intros. unfold apply_prespectful.
       red. intros.
       destruct (get e r) eqn:?; try solve [ inversion H1 ].
@@ -3204,7 +3205,7 @@ Section setoid.
         respectful_spec a ->
         respectful_spec b ->
         respectful_spec (or_respectful a b).
-    Proof.
+    Proof using.
       unfold or_respectful. intros.
       red. intros.
       eapply rw_orelse_case in H1; destruct H1; [ eapply H | eapply H0 ];
@@ -3251,7 +3252,7 @@ Section setoid.
                     end
                   end) propers ->
         respectful_spec (do_respectful propers).
-    Proof.
+    Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
       induction 1.
       { eapply fail_respectful_sound. }
       { simpl. destruct x. eapply or_respectful_sound.

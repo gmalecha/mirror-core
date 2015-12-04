@@ -8,32 +8,6 @@ let contrib_name = "MirrorCore.Reify"
 
 DECLARE PLUGIN "reify_Lambda_plugin"
 
-module Std = Plugin_utils.Coqstd.Std
-  (struct
-    let contrib_name = contrib_name
-   end)
-
-let do_debug = false
-
-let rec pr_constrs sep ks =
-  match ks with
-    [] -> Pp.(str) ""
-  | [k] -> Printer.pr_constr k
-  | k :: ks -> Pp.(Printer.pr_constr k ++ sep ++ pr_constrs sep ks)
-
-let debug_constr s e =
-  if do_debug then
-    Pp.(msg_warning (  (str s) ++ (str ": ") ++ (Printer.pr_constr e)))
-  else
-    ()
-
-let debug s =
-  if do_debug then
-    Pp.(msg_warning (  (str s)))
-  else
-    ()
-
-
 module type REIFICATION =
 sig
   type map_sort =
@@ -88,6 +62,38 @@ end
 
 module Reification : REIFICATION =
 struct
+  module Std = Plugin_utils.Coqstd.Std
+      (struct
+        let contrib_name = contrib_name
+      end)
+
+  let do_debug = true
+
+  let rec pr_constrs sep ks =
+    Pp.prlist_with_sep (fun _ -> sep) Printer.pr_constr ks
+(*
+    match ks with
+      [] -> Pp.(str) ""
+    | [k] -> Printer.pr_constr k
+    | k :: ks -> Pp.(Printer.pr_constr k ++ sep ++ pr_constrs sep ks)
+*)
+
+  let debug_constr s e =
+    if do_debug then
+      Pp.(msg_warning (  (str s) ++ (str ": ") ++ (Printer.pr_constr e)))
+    else
+      ()
+  let debug_pp p =
+    if do_debug then
+      Pp.(msg_debug p)
+    else ()
+
+  let debug s =
+    if do_debug then
+      Pp.(msg_warning (  (str s)))
+    else
+      ()
+
   module Cmap = Map.Make
     (struct
       type t = Term.constr
@@ -141,17 +147,6 @@ struct
 
   exception ReificationFailure of (Term.constr Lazy.t)
 
-  (** [reifier]s are the actual functions that get run **)
-  type 'a reifier =
-    reify_env -> 'a
-
-  (** [rule]s implement the pattern feature **)
-  type 'a rule =
-    ((int,int,reify_env) Term_match.pattern) *
-      ('a -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)
-
-  let empty_array : Term.constr array = [| |]
-
   let get_term (trm : lazy_term) =
     match trm with
       Term trm -> trm
@@ -160,6 +155,10 @@ struct
       else if from = Array.length args then
 	Term.mkApp (trm, args)
       else Term.mkApp (trm, Array.sub args 0 (from+1))
+
+  (** [reifier]s are the actual functions that get run **)
+  type 'a reifier =
+    reify_env -> 'a
 
   let reifier_bind (c : 'a reifier) (k : 'a -> 'b reifier) : 'b reifier =
     fun gl ->
@@ -192,88 +191,6 @@ struct
 
   let reifier_run (c : 'a reifier) (gl : reify_env) = c gl
 
-  type rpattern =
-  | RIgnore
-  | RHasType of Term.constr * rpattern
-  | RConst
-  | RGet   of int * rpattern
-  | RApp   of rpattern * rpattern
-  | RPi    of rpattern * rpattern
-  | RLam   of rpattern * rpattern
-  | RImpl  of rpattern * rpattern
-  | RExact of Term.constr
-
-  type 'a ptrn_tree =
-  { if_app      : 'a IntMap.t
-  ; if_has_type : 'a Cmap.t
-  ; if_exact    : 'a Cmap.t
-  ; otherwise   : 'a
-  }
-
-  let empty_ptrn_tree default =
-    { if_app = IntMap.empty
-    ; if_has_type = Cmap.empty
-    ; if_exact = Cmap.empty
-    ; otherwise = default
-    }
-
-  let rec count_apps = function
-    | RApp (a,_) -> count_apps a + 1
-    | RExact t ->
-      let result =
-        match Term.kind_of_term t with
-        | Term.App (_,args) -> Array.length args
-        | _ -> 0
-      in result
-    | _ -> 0
-
-  let rec has_open_end = function
-    | RApp (a,_) -> has_open_end a
-    | RExact _
-    | RLam _
-    | RPi _
-    | RImpl _ -> false
-    | _ -> true
-
-  let ptrn_tree_add (type a) (p : rpattern) (v : a option -> a) (t : a ptrn_tree) =
-    match p with
-    | RApp (l,r) ->
-      (* NOTE: This is conservative, if ends in an open pattern
-       * (one that could match an application) then it is added
-       * to 'otherwise' as well
-       *)
-      let arity = 1 + count_apps l in
-      let cur =
-        try Some (IntMap.find arity t.if_app)
-        with Not_found -> None
-      in { t with
-           if_app = IntMap.add arity (v cur) t.if_app
-         ; otherwise =
-             if has_open_end l then v (Some t.otherwise)
-             else t.otherwise }
-    | RExact trm -> (** Check universes **)
-      let cur =
-        try Some (Cmap.find trm t.if_exact)
-        with Not_found -> None
-      in { t with
-           if_exact = Cmap.add trm (v cur) t.if_exact }
-    | RHasType (typ,_) ->
-      let cur =
-        try Some (Cmap.find typ t.if_has_type)
-        with Not_found -> None
-      in { t with
-           if_has_type = Cmap.add typ (v cur) t.if_has_type }
-    | _ -> { t with
-             otherwise = v (Some t.otherwise) }
-
-  (** Get the head symbol **)
-  let rec app_full trm acc =
-    match Term.kind_of_term trm with
-      Term.App (f, xs) -> app_full f (Array.to_list xs @ acc)
-    | _ -> (trm, acc)
-
-  let pattern_mod = ["MirrorCore";"Reify";"Patterns"]
-
   let decl_constant ?typ (na : Names.identifier) evm (c : Term.constr) =
     (** TODO: This looks weird... **)
     let (evm, _) = Typing.type_of (Global.env ()) evm c in
@@ -290,6 +207,14 @@ struct
 					  const_entry_type = typ;
 					  const_entry_opaque = false }) *),
 			     Decl_kinds.(IsDefinition Definition))))
+
+  let (reify_term, set_reify_term) =
+    let global_reifier = ref (fun _ -> assert false) in
+    let reify_term (t : Term.constr) = !global_reifier t in
+    let set_reify_term rt = global_reifier := rt in
+    (reify_term, set_reify_term)
+
+  let pattern_mod = ["MirrorCore";"Reify";"Patterns"]
 
   module Tables =
   struct
@@ -371,8 +296,109 @@ struct
 
   module Patterns =
   struct
+
+    type rpattern =
+      | RIgnore
+      | RHasType of Term.constr * rpattern
+      | RConst
+      | RGet   of int * rpattern
+      | RApp   of rpattern * rpattern
+      | RPi    of rpattern * rpattern
+      | RLam   of rpattern * rpattern
+      | RImpl  of rpattern * rpattern
+      | RExact of Term.constr
+
+    type action =
+      Func of Term.constr
+    | Id
+    | Associate of Term.constr (* table name *) * Term.constr (* key *)
+    | Store of Term.constr (* table name *)
+
+    type template =
+      Bind of action * template
+    | Return of Term.constr
+
+    (** [rule]s implement the pattern feature **)
+    type rule =
+    { rule_pattern : rpattern
+    ; rule_template : template
+    ; mutable rule_cache :
+      (((int,int,reify_env) Term_match.pattern) *
+       (reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)) Ephemeron.key
+    }
+
+    type 'a ptrn_tree =
+      { if_app      : 'a IntMap.t
+      ; if_has_type : 'a Cmap.t
+      ; if_exact    : 'a Cmap.t
+      ; otherwise   : 'a
+      }
+
+    let empty_ptrn_tree default =
+      { if_app = IntMap.empty
+      ; if_has_type = Cmap.empty
+      ; if_exact = Cmap.empty
+      ; otherwise = default
+      }
+
+    let rec count_apps = function
+      | RApp (a,_) -> count_apps a + 1
+      | RExact t ->
+        let result =
+          match Term.kind_of_term t with
+          | Term.App (_,args) -> Array.length args
+          | _ -> 0
+        in result
+      | _ -> 0
+
+    let rec has_open_end = function
+      | RApp (a,_) -> has_open_end a
+      | RExact _
+      | RLam _
+      | RPi _
+      | RImpl _ -> false
+      | _ -> true
+
+    let ptrn_tree_add (type a) (p : rpattern) (v : a option -> a) (t : a ptrn_tree) =
+      match p with
+      | RApp (l,r) ->
+        (* NOTE: This is conservative, if ends in an open pattern
+         * (one that could match an application) then it is added
+         * to 'otherwise' as well
+        *)
+        let arity = 1 + count_apps l in
+        let cur =
+          try Some (IntMap.find arity t.if_app)
+          with Not_found -> None
+        in { t with
+             if_app = IntMap.add arity (v cur) t.if_app
+           ; otherwise =
+               if has_open_end l then v (Some t.otherwise)
+               else t.otherwise }
+      | RExact trm -> (** Check universes **)
+        let cur =
+          try Some (Cmap.find trm t.if_exact)
+          with Not_found -> None
+        in { t with
+             if_exact = Cmap.add trm (v cur) t.if_exact }
+      | RHasType (typ,_) ->
+        let cur =
+          try Some (Cmap.find typ t.if_has_type)
+          with Not_found -> None
+        in { t with
+             if_has_type = Cmap.add typ (v cur) t.if_has_type }
+      | _ -> { t with
+               otherwise = v (Some t.otherwise) }
+
+    (** Get the head symbol **)
+    let rec app_full trm acc =
+      match Term.kind_of_term trm with
+        Term.App (f, xs) -> app_full f (Array.to_list xs @ acc)
+      | _ -> (trm, acc)
+
+
     (** State **)
-    let pattern_table : ((reify_env rule) list) ptrn_tree Cmap.t ref =
+    let pattern_table : rule list ptrn_tree Cmap.t ref =
       ref Cmap.empty
 
     (** Freezing and thawing of state (for backtracking) **)
@@ -397,85 +423,90 @@ struct
     let action_associate = Std.resolve_symbol pattern_mod "associate"
     let action_store     = Std.resolve_symbol pattern_mod "store"
 
-    let into_rpattern =
-      let rec into_rpattern (ptrn : Term.constr) : rpattern =
-	Term_match.(matches ()
-	  [ (Glob_no_univ ptrn_ignore,
-	     fun _ _ -> RIgnore)
-	  ; (apps (Glob_no_univ ptrn_get) [get 0; get 1],
-	     fun _ s ->
-	       let num  = Hashtbl.find s 0 in
-	       let next = Hashtbl.find s 1 in
-	       RGet (Std.Nat.of_nat num, into_rpattern next))
-	  ; (apps (Glob_no_univ ptrn_exact) [Ignore; get 0],
-	     fun _ s ->
-	       let t = Hashtbl.find s 0 in
-	       RExact t)
-	  ; (apps (Glob_no_univ ptrn_app) [get 0; get 1],
-	     fun _ s ->
-	       let f = Hashtbl.find s 0 in
-	       let x = Hashtbl.find s 1 in
-	       RApp (into_rpattern f, into_rpattern x))
-	  ; (apps (Glob_no_univ ptrn_impl) [get 0; get 1],
-	     fun _ s ->
-	       let f = Hashtbl.find s 0 in
-	       let x = Hashtbl.find s 1 in
-	       RImpl (into_rpattern f, into_rpattern x))
-	  ; (apps (Glob_no_univ ptrn_pi) [get 0; get 1],
-	     fun _ s ->
-	       let f = Hashtbl.find s 0 in
-	       let x = Hashtbl.find s 1 in
-	       RPi (into_rpattern f, into_rpattern x))
-	  ; (apps (Glob_no_univ ptrn_lam) [get 0; get 1],
-	     fun _ s ->
-	       let f = Hashtbl.find s 0 in
-	       let x = Hashtbl.find s 1 in
-	       RLam (into_rpattern f, into_rpattern x))
-	  ; (Glob_no_univ ptrn_const,
-	     fun _ _ -> RConst)
-	  ; (apps (Glob_no_univ ptrn_has_type) [get 0; get 1],
-	     fun _ s ->
-	       let t = Hashtbl.find s 0 in
-	       let x = Hashtbl.find s 1 in
-	       RHasType (t, into_rpattern x))
-	  ]
-	  ptrn)
-      in
-      into_rpattern
+    (* This function parses a [constr] and produces an [rpattern] and
+     * 1+maximum bound variable.
+     *)
+    let rec parse_pattern (ptrn : Term.constr) : rpattern * int =
+      Term_match.(matches ()
+	[ (Glob_no_univ ptrn_ignore,
+	   fun _ _ -> (RIgnore, 0))
+        ; (apps (Glob_no_univ ptrn_get) [get 0; get 1],
+	   fun _ s ->
+	     let num  = Std.Nat.of_nat (Hashtbl.find s 0) in
+	     let next = Hashtbl.find s 1 in
+             let (rst, mx) = parse_pattern next in
+	     (RGet (num, rst), max mx (1+num)))
+	; (apps (Glob_no_univ ptrn_exact) [Ignore; get 0],
+	   fun _ s ->
+	     let t = Hashtbl.find s 0 in
+	     (RExact t, 0))
+	; (apps (Glob_no_univ ptrn_app) [get 0; get 1],
+	   fun _ s ->
+	     let (f,mx1) = parse_pattern (Hashtbl.find s 0) in
+	     let (x,mx2) = parse_pattern (Hashtbl.find s 1) in
+      	     (RApp (f, x), max mx1 mx2))
+	; (apps (Glob_no_univ ptrn_impl) [get 0; get 1],
+	   fun _ s ->
+	     let (f,mx1) = parse_pattern (Hashtbl.find s 0) in
+	     let (x,mx2) = parse_pattern (Hashtbl.find s 1) in
+      	     (RImpl (f, x), max mx1 mx2))
+	; (apps (Glob_no_univ ptrn_pi) [get 0; get 1],
+	   fun _ s ->
+	     let (f,mx1) = parse_pattern (Hashtbl.find s 0) in
+	     let (x,mx2) = parse_pattern (Hashtbl.find s 1) in
+	     (RPi (f, x), max mx1 mx2))
+	; (apps (Glob_no_univ ptrn_lam) [get 0; get 1],
+	   fun _ s ->
+             let (f,mx1) = parse_pattern (Hashtbl.find s 0) in
+	     let (x,mx2) = parse_pattern (Hashtbl.find s 1) in
+	     (RLam (f, x), max mx1 mx2))
+	; (Glob_no_univ ptrn_const,
+	   fun _ _ -> (RConst, 0))
+	; (apps (Glob_no_univ ptrn_has_type) [get 0; get 1],
+	   fun _ s ->
+	     let t = Hashtbl.find s 0 in
+	     let (x,mx) = parse_pattern (Hashtbl.find s 1) in
+	     (RHasType (t, x), mx))
+	]
+	ptrn)
 
-    let compile_pattern (effects : (int, (int, Term.constr) Hashtbl.t -> reify_env -> reify_env) Hashtbl.t) =
+    (* This function compiles an [rpattern] into a [Term_match.pattern] and a set of bindings
+     *)
+    let compile_pattern p =
       let fresh = ref (-1) in
+      let effects : (int, (int, Term.constr) Hashtbl.t -> reify_env -> reify_env) Hashtbl.t =
+        Hashtbl.create 1
+      in
       let rec compile_pattern (p : rpattern)
 	  (effect : ((int, Term.constr) Hashtbl.t -> reify_env -> reify_env) option)
-	  : (int,int,reify_env) Term_match.pattern * int list =
+	  : (int,int,reify_env) Term_match.pattern =
 	match p with
-	  RExact g ->
-	    (Term_match.EGlob_no_univ g, [])
-	| RIgnore -> (Term_match.Ignore, [])
+	  RExact g -> Term_match.EGlob_no_univ g
+	| RIgnore -> Term_match.Ignore
 	| RGet (i, p) ->
-	  let (p,us) = compile_pattern p effect in
+	  let p = compile_pattern p effect in
 	  let _ =
 	    match effect with
 	      None -> ()
 	    | Some eft -> Hashtbl.add effects i eft
 	  in
-	  (Term_match.As (p, i), i :: us)
+          Term_match.As (p, i)
 	| RApp (p1, p2) ->
-	  let (p1,l1) = compile_pattern p1 effect in
-	  let (p2,l2) = compile_pattern p2 effect in
-	  (Term_match.App (p1,p2), l1 @ l2)
+	  let p1 = compile_pattern p1 effect in
+	  let p2 = compile_pattern p2 effect in
+          Term_match.App (p1,p2)
 	| RConst ->
 	  let filter _ =
 	    let rec filter trm =
-	    (** TODO: This does not handle polymorphic types right now **)
+	      (** TODO: This does not support polymorphic types **)
 	      let (f, args) = app_full trm [] in
 	      Term.isConstruct f && List.for_all filter args
 	    in
 	    filter
 	  in
-	  (Term_match.Filter (filter, Term_match.Ignore),[])
+	  Term_match.Filter (filter, Term_match.Ignore)
 	| RImpl (p1, p2) ->
-	  let (p1,l1) = compile_pattern p1 effect in
+	  let p1 = compile_pattern p1 effect in
 	  let fresh =
 	    let r = !fresh in
 	    fresh := r - 1 ;
@@ -501,10 +532,10 @@ struct
 		in
 		{ x with bindings = nbindings ; env = nenv }
 	  in
-	  let (p2,l2) = compile_pattern p2 (Some new_effect) in
-	  (Term_match.Impl (Term_match.As (p1,fresh),p2), l1 @ l2)
+	  let p2 = compile_pattern p2 (Some new_effect) in
+	  Term_match.Impl (Term_match.As (p1,fresh),p2)
 	| RPi (p1, p2) ->
-	  let (p1,l1) = compile_pattern p1 effect in
+	  let p1 = compile_pattern p1 effect in
 	  let fresh =
 	    let r = !fresh in
 	    fresh := r - 1 ;
@@ -530,27 +561,18 @@ struct
 		in
 		{ x with bindings = nbindings ; env = nenv }
 	  in
-	  let (p2,l2) = compile_pattern p2 (Some new_effect) in
-	  (Term_match.Pi (Term_match.As (p1,fresh),p2), l1 @ l2)
+	  let p2 = compile_pattern p2 (Some new_effect) in
+	  Term_match.Pi (Term_match.As (p1,fresh),p2)
 	| RHasType (t,p) ->
-	  let (p,l) = compile_pattern p effect in
-	  (Term_match.Filter
-	     ((fun env trm ->
-(*               let start_time = Sys.time () in *)
-	       let (_,ty) = Typing.type_of env.env env.evm trm in
-(*
-               let end_time = Sys.time () in
-               Pp.(msg_info (str "type checking time: " ++ real (end_time -. start_time) ++ fnl ())) ; *)
-	       Term.eq_constr ty t), p), l)
+	  let p = compile_pattern p effect in
+	  Term_match.Filter
+	    ((fun env trm ->
+	      let (_,ty) = Typing.type_of env.env env.evm trm in
+	      Term.eq_constr ty t), p)
         | RLam (a,b) -> assert false
       in
-      compile_pattern
-
-    type action =
-      Func of Term.constr
-    | Id
-    | Associate of Term.constr (* table name *) * Term.constr (* key *)
-    | Store of Term.constr (* table name *)
+      let ptrn = compile_pattern p None in
+      (ptrn, effects)
 
     let parse_action : Term.constr -> action option =
       Term_match.(matches ()
@@ -561,48 +583,93 @@ struct
 	; (Ignore, fun _ _ -> None)
 	])
 
+    let rec parse_template (n : int) (tmp : Term.constr) : template =
+      if n > 0 then
+        try
+          let (_, typ, body) = Term.destLambda tmp in
+          match parse_action typ with
+	    None ->
+	    let _ = Pp.(msgerrnl (    (str "Failed to parse action:\n")
+			          ++ (Printer.pr_constr typ)))
+            in raise Term_match.Match_failure
+	  | Some act ->
+            let rst = parse_template (n-1) body in
+            Bind (act, rst)
+        with
+        | Term.DestKO ->
+          let _ = Pp.(msgerrnl (   (str "Failed to parse template:\n")
+                                ++ Printer.pr_constr tmp)) in
+          raise Term_match.Match_failure
+      else
+        Return tmp
+
+    let run_template (t : template)
+        (effects : (int, (int, Term.constr) Hashtbl.t -> reify_env -> reify_env) Hashtbl.t)
+        (reify_term : Term.constr -> lazy_term -> Term.constr reifier)
+    : reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr reifier =
+      let rec run_template (t : template) (at : int)
+      : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t ->
+        Term.constr reifier =
+        match t with
+          Return t -> fun ls _ _ -> reifier_ret (Vars.substnl ls 0 t)
+        | Bind (act, t) ->
+          let rest = run_template t (1+at) in
+          let eft =
+	    try Hashtbl.find effects at
+            with Not_found -> (fun _ x -> x)
+	  in
+          match act with
+          | Id ->
+            fun vals gl s ->
+	      let cur_val = Hashtbl.find s at in
+              reifier_bind reifier_get_env
+                (fun env ->
+		   if Vars.noccur_between 1 (List.length env.bindings) cur_val
+                   then rest (cur_val :: vals) gl s
+                   else reifier_fail cur_val)
+          | Func f ->
+            fun vals gl s ->
+	      let cur_val = Hashtbl.find s at in
+              let rval = reifier_run (reifier_local (eft s) (reify_term f (Term cur_val))) gl in
+              rest (rval :: vals) gl s
+          | _ -> (** Unsupported **)
+            assert false
+      in
+      run_template t 0 []
+
     let compile_template
 	(effects : (int, (int, Term.constr) Hashtbl.t -> reify_env -> reify_env) Hashtbl.t)
-	(reify_term : Term.constr -> lazy_term -> Term.constr reifier) =
-      let rec compile_template (tmp : Term.constr) (at : int)
+	(* (reify_term : Term.constr -> lazy_term -> Term.constr reifier) *)
+        tmp =
+      let rec compile_template (tmp : template) (at : int)
       : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t ->
 	Term.constr reifier =
-	match Term.kind_of_term tmp with
-	  Term.Lambda (_, typ, body) ->
-	    begin
-	      match parse_action typ with
-		None ->
-		let _ =
-		  Pp.(msgerrnl (    (str "Failed to parse action from lambda. Got term: \n")
-				 ++ (Printer.pr_constr typ)))
-		in
-		fun ls _ _ -> reifier_ret (Vars.substnl ls 0 tmp)
-	      | Some act ->
-		let rest = compile_template body (at + 1) in
-		let eft =
-		  try
-		    Hashtbl.find effects at
-		  with
-		    Not_found -> (fun _ x -> x)
-		in
-		match act with
-		| Func f ->
-		  fun vals gl s ->
-		    let cur_val = Hashtbl.find s at in
-		    let rval = reifier_run (reifier_local (eft s) (reify_term f (Term cur_val))) gl in
-		    rest (rval :: vals) gl s
-		| Id ->
-		  fun vals gl s ->
-		    let cur_val = Hashtbl.find s at in
-		    reifier_bind
-		      reifier_get_env
-		      (fun env ->
-		       if Vars.noccur_between 1 (List.length env.bindings) cur_val then
-			 rest (cur_val :: vals) gl s
-		       else
-			 reifier_fail cur_val)
-		| Associate (tbl_name, key) ->
-		  assert false (*
+        match tmp with
+        | Return t -> fun ls _ _ -> reifier_ret (Vars.substnl ls 0 t)
+        | Bind (act, rest) ->
+	  let rest = compile_template rest (at + 1) in
+          let eft =
+            try Hashtbl.find effects at
+	    with Not_found -> (fun _ x -> x)
+          in
+	  match act with
+          | Func f ->
+	    fun vals gl s ->
+              let cur_val = Hashtbl.find s at in
+	      let rval = reifier_run (reifier_local (eft s) (reify_term f (Term cur_val))) gl in
+	      rest (rval :: vals) gl s
+	  | Id ->
+            fun vals gl s ->
+	      let cur_val = Hashtbl.find s at in
+              reifier_bind
+	        reifier_get_env
+	        (fun env ->
+	           if Vars.noccur_between 1 (List.length env.bindings) cur_val then
+	             rest (cur_val :: vals) gl s
+	           else
+	             reifier_fail cur_val)
+          | Associate (tbl_name, key) ->
+	    assert false (*
 		  fun vals gl s ->
 		    let cur_val = Hashtbl.find s at in
 		    let get_key =
@@ -626,12 +693,9 @@ struct
 		    (** TODO **)
 		    rest (Lazy.force Std.Unit.tt :: vals) gl s
 			       *)
-		| Store tbl ->
-		  assert false
-	    end
-	| _ ->
-	  fun ls _ _ -> reifier_ret (Vars.substnl ls 0 tmp)
-      in compile_template
+	    | Store tbl ->
+              assert false
+      in compile_template tmp 0 []
 
     let extend trm key rul =
       try
@@ -642,42 +706,48 @@ struct
       with
       | Not_found -> assert false
 
+    let pr_paren = Pp.surround
+
+    let rec print_pattern ptrn =
+      Term_match.(Pp.(
+	match ptrn with
+	  RIgnore -> str "<any>"
+        | RHasType (t,p) -> pr_paren (print_pattern p ++ str " : " ++ Printer.pr_constr t)
+        | RConst -> str "<constant>"
+        | RGet (i, p) -> pr_paren (int i ++ str " <- " ++ print_pattern p)
+        | RApp (l, r) -> pr_paren (print_pattern l ++ str " @ " ++ print_pattern r)
+        | RPi (l, r) -> pr_paren (str "forall _ : " ++ print_pattern l ++ str ", " ++ print_pattern r)
+        | RLam (l, r) -> pr_paren (str "fun _ : " ++ print_pattern l ++ str " => " ++ print_pattern r)
+        | RImpl (l,r) -> pr_paren (print_pattern l ++ str " -> " ++ print_pattern r)
+        | RExact p -> pr_paren (str "! " ++ Printer.pr_constr p)))
+
+    let print_rule r = print_pattern r.rule_pattern
+
+    let compile_rule rptrn template =
+      let (ptrn, effects) = compile_pattern rptrn in
+      let action = compile_template effects template in
+      (ptrn, action)
+
     let add_pattern (dispatch : Term.constr -> lazy_term -> 'a reifier)
 	(name : Term.constr) (ptrn : Term.constr) (template : Term.constr)
 	: unit =
       try
-	let effects = Hashtbl.create 1 in
-        let rptrn = into_rpattern ptrn in
-	let (ptrn, occs) = compile_pattern effects rptrn None in
-	let action = compile_template effects dispatch template 0 [] in
-	extend name rptrn (ptrn, action)
+        let (rptrn, bindings) = parse_pattern ptrn in
+        let template = parse_template bindings template in
+
+	extend name rptrn { rule_pattern = rptrn
+                          ; rule_template = template
+                          ; rule_cache = Ephemeron.create (compile_rule rptrn template)
+                          }
       with
 	Term_match.Match_failure -> raise (Failure "match failed, please report")
-
-    let pr_paren a =
-      Pp.(str "(" ++ a ++ str ")")
-
-    let rec print_rule ptrn =
-      Term_match.(Pp.(
-	match ptrn with
-	  Ignore -> str "<any>"
-	| As (a,i) -> pr_paren (pr_paren (print_rule a) ++ str " as " ++ int i)
-	| App (l,r) -> pr_paren (print_rule l ++ str " @ " ++ print_rule r)
-	| Impl (l,r) -> pr_paren (print_rule l ++ str " -> " ++ print_rule r)
-	| Glob g | Glob_no_univ g -> Printer.pr_constr (Lazy.force g)
-	| EGlob g | EGlob_no_univ g -> Printer.pr_constr g
-	| Lam (a,b,c) -> pr_paren (str "fun " ++ pr_paren (int a ++ str " : " ++ print_rule b) ++ str " => " ++ print_rule c)
-	| Ref i -> str "<" ++ int i ++ str ">"
-	| Choice ls -> pr_sequence print_rule ls
-	| Pi (a,b) -> pr_paren (str "Pi " ++ print_rule a ++ str " . " ++ print_rule b)
-	| Filter (_,a) -> pr_paren (str "Filter - " ++ print_rule a)))
 
     let apps = List.fold_right Pp.(++)
 
     let print_patterns (name : Term.constr) : Pp.std_ppcmds =
       try
 	let vals = Cmap.find name !pattern_table in
-        Pp.pr_vertical_list (fun (x,_) -> print_rule x)
+        Pp.pr_vertical_list print_rule
           (List.flatten (List.map snd (IntMap.bindings vals.if_app) @
                          List.map snd (Cmap.bindings vals.if_has_type) @
                          List.map snd (Cmap.bindings vals.if_exact) @
@@ -687,21 +757,34 @@ struct
   		         ++ (Printer.pr_constr name)
                          ++ (str "'."))) ;
         Pp.mt ()
+(*
+    let cnt = ref 0
+*)
+    let get_rule rule =
+(*
+      Printf.eprintf "get_rule %d\n" (!cnt) ; flush stderr ;
+      cnt := !cnt + 1 ;
+*)
+      try Ephemeron.get rule.rule_cache
+      with Ephemeron.InvalidKey ->
+        let cache = compile_rule rule.rule_pattern rule.rule_template in
+        let _ = rule.rule_cache <- Ephemeron.create cache in
+        cache
 
-    let run_ptrn_tree tr trm gl =
+    let run_ptrn_tree (tr : rule list ptrn_tree) trm gl =
       match trm with
         Term trm ->
         begin
           try
             Term_match.matches gl
-              (Cmap.find trm tr.if_exact)
+              (List.map get_rule (Cmap.find trm tr.if_exact))
               trm gl
           with Not_found | Term_match.Match_failure ->
             try
               match Term.kind_of_term trm with
               | Term.App (_,args) ->
                 Term_match.matches gl
-                  (IntMap.find (Array.length args) tr.if_app)
+                  (List.map get_rule (IntMap.find (Array.length args) tr.if_app))
                   trm gl
               | _ -> raise Not_found
             with Not_found | Term_match.Match_failure ->
@@ -710,10 +793,10 @@ struct
                   (* get the type *)
                   let (_,ty) = Typing.type_of gl.env gl.evm trm in
                   Term_match.matches gl
-                    (Cmap.find ty tr.if_has_type) trm gl
+                    (List.map get_rule (Cmap.find ty tr.if_has_type)) trm gl
                 else raise Not_found
               with Not_found | Term_match.Match_failure ->
-                Term_match.matches gl tr.otherwise trm gl
+                Term_match.matches gl (List.map get_rule tr.otherwise) trm gl
         end
       | App (trm, args, from) ->
         begin
@@ -783,6 +866,7 @@ struct
     let reify_term (name : Term.constr) =
       let reifier = Cmap.find name !reify_table in
       reifier.reify
+    let _ = set_reify_term  reify_term
 
     let reify_type (name : Term.constr) =
       let reifier = Cmap.find name !reify_table in

@@ -17,15 +17,6 @@ Require Import McExamples.Simple.SimpleReify.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Definition fAnd a b : expr typ func := App (App (Inj Simple.And) a) b.
-Definition fOr a b : expr typ func := App (App (Inj Simple.And) a) b.
-Definition fAll t P : expr typ func := App (Inj (Simple.All t)) (Abs t P).
-Definition fEx t P : expr typ func := App (Inj (Simple.Ex t)) (Abs t P).
-Definition fEq t : expr typ func := (Inj (Simple.Eq t)).
-Definition fImpl : expr typ func := (Inj Simple.Impl).
-Definition fEq_nat a b : expr typ func := App (App (fEq tyNat) a) b.
-Definition fN n : expr typ func := Inj (Simple.N n).
-
 Let Rbase := expr typ func.
 
 Reify Declare Patterns patterns_concl := (rw_concl typ func Rbase).
@@ -351,8 +342,19 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
+
 (** Begin Demo **)
 (****************)
+Definition fAnd a b : expr typ func := App (App (Inj Simple.And) a) b.
+Definition fOr a b : expr typ func := App (App (Inj Simple.And) a) b.
+Definition fAll t P : expr typ func := App (Inj (Simple.All t)) (Abs t P).
+Definition fEx t P : expr typ func := App (Inj (Simple.Ex t)) (Abs t P).
+Definition fEq t : expr typ func := (Inj (Simple.Eq t)).
+Definition fImpl : expr typ func := (Inj Simple.Impl).
+Definition fEq_nat a b : expr typ func := App (App (fEq tyNat) a) b.
+Definition fN n : expr typ func := Inj (Simple.N n).
+
+
 Definition run_quant_pull e :=
   quant_pull e (Rinj fImpl).
 
@@ -364,19 +366,17 @@ Fixpoint goal n : expr typ func :=
   end.
 
 
-Fixpoint goal2 n (acc : nat) : expr typ func :=
+Fixpoint goal2 mx n (acc : nat) : expr typ func :=
   match n with
   | 0 =>
-(*    if acc ?[ lt ] 32 then *)
+    if acc ?[ lt ] mx then
       fEx tyNat (fEq_nat (fN 0) (fN 0))
-(*    else
-      fEq_nat (fN 0) (fN 0) *)
+    else
+      fEq_nat (fN 0) (fN 0)
   | S n =>
-    fAnd (goal2 n (acc * 2)) (goal2 n (acc * 2 + 1)) (*
+    fAnd (goal2 mx n (acc * 2)) (goal2 mx n (acc * 2 + 1)) (*
     fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
   end.
-
-Eval compute in goal2 3 0.
 
 Fixpoint count_quant (e : expr typ func) : nat :=
   match e with
@@ -384,16 +384,27 @@ Fixpoint count_quant (e : expr typ func) : nat :=
   | _ => 0
   end.
 
+(*
 Eval compute in goal2 5 0.
 
 Eval vm_compute
   in pull_all_quant (goal2 1 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil).
 
-Eval vm_compute
+Time Eval vm_compute
   in quant_pull (goal2 2 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil).
+*)
 
+Definition benchmark (n m : nat) : unit :=
+  match quant_pull (goal2 m n 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil)
+  with
+  | Some _ => tt
+  | _ => tt
+  end.
+
+(*
 Eval vm_compute
   in match run_quant_pull (goal2 7 0) nil nil nil 0 0 (TopSubst _ nil nil) with
      | Some (Progress e, _) => count_quant e
      | _ => 0
      end.
+*)
