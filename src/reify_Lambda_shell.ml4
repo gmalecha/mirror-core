@@ -1631,7 +1631,6 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
   | ["reify_expr_bind" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
     [ let tbls = Reification.parse_tables tbls in
       Proofview.Goal.enter begin fun gl ->
-        Printf.fprintf stderr "binding version!\n" ;
 	try
 	  let (res,tbl_data) =
 	    Reification.reify_all (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)

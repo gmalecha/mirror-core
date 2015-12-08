@@ -156,6 +156,8 @@ examples/Cancel/RtacDemo.v
 examples/Cancel/CancelTacNoMatch.v
 examples/Cancel/RtacDemoNoMatch.v
 
+examples/Reify/ModularReify.v
+
 examples/Auto/Demo.v
 
 examples/RTac/Demo.v
