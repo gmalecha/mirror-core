@@ -1584,7 +1584,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
           ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
           env evm lem_type
       with
-        (Reification.ReificationFailure trm) as ex ->
+        (Reification.ReificationFailure trm) ->
           Pp.(msg_error (   str "Failed to reify term '"
 		         ++ Printer.pr_constr (Lazy.force trm)
                          ++ str "'.")) ;
