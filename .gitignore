@@ -22,3 +22,4 @@ coq-ext-lib
 *.d
 .*.aux
 .merlin
+*.vio
