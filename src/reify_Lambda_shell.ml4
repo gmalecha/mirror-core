@@ -1,7 +1,6 @@
 (*i camlp4deps: "parsing/grammar.cma" i*)
 (*i camlp4use: "pa_extend.cmo" i*)
 
-open Reify_gen
 open Plugin_utils
 
 let contrib_name = "MirrorCore.Reify"
@@ -838,20 +837,6 @@ struct
 
   module Syntax =
   struct
-    type syntax_data =
-      { reify : lazy_term -> Term.constr reifier
-      ; result_type : Term.constr
-      }
-    let reify_table : syntax_data Cmap.t ref =
-      ref Cmap.empty
-
-    (** Freezing and thawing of state (for backtracking) **)
-    let _ =
-      Summary.(declare_summary "reify-lambda-shell-syntax-table"
-	{ freeze_function   = (fun _ -> !reify_table);
-	  unfreeze_function = (fun pt -> reify_table := pt);
-	  init_function     = (fun () -> reify_table := Cmap.empty) })
-
     type command =
     | Patterns of Term.constr
     | Call of Term.constr
@@ -863,14 +848,21 @@ struct
     | Table of Term.constr * Term.constr
     | TypedTable of Term.constr * Term.constr * Term.constr
 
-    let reify_term (name : Term.constr) =
-      let reifier = Cmap.find name !reify_table in
-      reifier.reify
-    let _ = set_reify_term  reify_term
+    type syntax_data =
+    { reify : command
+    ; result_type : Term.constr
+    ; mutable cache : (lazy_term -> Term.constr reifier) Ephemeron.key
+    }
 
-    let reify_type (name : Term.constr) =
-      let reifier = Cmap.find name !reify_table in
-      reifier.result_type
+    let reify_table : syntax_data Cmap.t ref =
+      ref Cmap.empty
+
+    (** Freezing and thawing of state (for backtracking) **)
+    let _ =
+      Summary.(declare_summary "reify-lambda-shell-syntax-table"
+	{ freeze_function   = (fun _ -> !reify_table);
+	  unfreeze_function = (fun pt -> reify_table := pt);
+	  init_function     = (fun () -> reify_table := Cmap.empty) })
 
     let cmd_patterns = Std.resolve_symbol pattern_mod "CPatterns"
     let cmd_call     = Std.resolve_symbol pattern_mod "CCall"
@@ -1120,11 +1112,26 @@ struct
       top := result ;
       result
 
+    let reify_term (name : Term.constr) =
+      let reifier = Cmap.find name !reify_table in
+      try Ephemeron.get reifier.cache
+      with Ephemeron.InvalidKey ->
+        let result = compile_command reifier.reify in
+        reifier.cache <- Ephemeron.create result ;
+        result
+
+    let _ = set_reify_term  reify_term
+
+    let reify_type (name : Term.constr) =
+      let reifier = Cmap.find name !reify_table in
+      reifier.result_type
+
     let add_syntax (name : Term.constr) (typ : Term.constr) (cmds : Term.constr) : unit =
       let (_,program) = parse_command cmds in
       let meta_reifier =
-        { reify = compile_command program
-        ; result_type = typ }
+        { reify = program
+        ; result_type = typ
+        ; cache = Ephemeron.create (compile_command program) }
       in
       let _ =
 	if Cmap.mem name !reify_table then
@@ -1631,7 +1638,6 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
   | ["reify_expr_bind" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
     [ let tbls = Reification.parse_tables tbls in
       Proofview.Goal.enter begin fun gl ->
-        Printf.fprintf stderr "binding version!\n" ;
 	try
 	  let (res,tbl_data) =
 	    Reification.reify_all (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)

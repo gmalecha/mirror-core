@@ -38,6 +38,16 @@ Inductive Command (T : Type) :=
 | CMap (F : Type) (f : F -> T) (c : Command F)
 | CFirst (ls : list (Command T)).
 
+Arguments CPatterns {_} _.
+Arguments CCall {_} _.
+Arguments CApp {_} _.
+Arguments CAbs {_} _ _.
+Arguments CVar {_} _.
+Arguments CTable {_ _} _ _.
+Arguments CTypedTable {_ _ _} _ _.
+Arguments CMap {_ _} _ _.
+Arguments CFirst {_} _.
+
 (** Tables Reification Specification **)
 Definition mk_var_map {K V T : Type} (_ : table K) (ctor : V -> T) : Type :=
   FMapPositive.PositiveMap.t T.
