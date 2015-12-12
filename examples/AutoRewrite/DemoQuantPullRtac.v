@@ -213,14 +213,13 @@ Proof.
 Qed.
 
 Definition simple_reduce (e : expr typ func) : expr typ func :=
-  run_tptrn
-    (pdefault_id
-       (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
-                          App a (Abs c (App (App b d) e)))
-             (app get (abs get (fun t =>
-                                  app (app get
-                                           (pmap (fun x => (t,Red.beta x)) get))
-                                      (pmap Red.beta get))))))
+  run_ptrn_id
+    (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
+                       App a (Abs c (App (App b d) e)))
+          (app get (abs get (fun t =>
+                               app (app get
+                                        (pmap (fun x => (t,Red.beta x)) get))
+                                   (pmap Red.beta get)))))
     e.
 
 Definition the_rewrites
@@ -248,19 +247,13 @@ Lemma simple_reduce_sound :
 Proof.
   unfold simple_reduce.
   intros.
-  unfold run_tptrn, pdefault_id.
-  eapply pdefault_sound.
+  eapply run_ptrn_id_sound; eauto with typeclass_instances.
   { repeat first [ simple eapply ptrn_ok_pmap
                  | simple eapply ptrn_ok_app
                  | simple eapply ptrn_ok_abs; intros
                  | simple eapply ptrn_ok_get
                  ]. }
-  { do 3 red. intros; subst.
-    erewrite H1.
-    reflexivity.
-    reflexivity. }
   { intros. ptrnE.
-    unfold ptret.
     eapply exprD'_Abs_prem in H0; forward_reason; subst.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
@@ -278,7 +271,6 @@ Proof.
     intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
     f_equal. apply FunctionalExtensionality.functional_extensionality.
     intros. rewrite H5. rewrite H6. reflexivity. }
-  { unfold ptret. eauto. }
 Qed.
 
 Theorem the_rewrites_sound

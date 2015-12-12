@@ -22,7 +22,7 @@ Inductive prod_func {typ : Type} :=
 | pFst : typ -> typ -> prod_func
 | pSnd : typ -> typ -> prod_func.
 
-Implicit Arguments prod_func [].
+Arguments prod_func _ : clear implicits.
 
 Section ExprDInject.
   Context {typ func : Type}.
@@ -324,7 +324,8 @@ Section Tactics.
     solve_ok.
   Defined.
 
-  Definition red_fst := run_tptrn (pdefault_id red_fst_ptrn).
+  Definition red_fst : expr typ func -> expr typ func :=
+    run_ptrn_id red_fst_ptrn.
 
   Definition red_snd_ptrn : ptrn (expr typ func) (expr typ func) :=
     pmap (fun xy => snd (snd xy)) (ptrnSnd ignore (ptrnPair ignore ignore get)).
@@ -335,11 +336,23 @@ Section Tactics.
     solve_ok.
   Defined.
 
-  Definition red_snd := run_tptrn (pdefault_id red_snd_ptrn).
+  Definition red_snd : expr typ func -> expr typ func :=
+    run_ptrn_id red_snd_ptrn.
 
-  Definition FST := SIMPLIFY (typ := typ)
-                             (fun _ _ _ _ =>
-                                (beta_all (fun _ e args => red_fst (apps e args)))).
+  Definition FST :=
+    SIMPLIFY (typ := typ)
+             (fun _ _ _ _ =>
+                (beta_all (fun _ e args => red_fst (apps e args)))).
+
+  Ltac ok :=
+      repeat first [ eapply ptrn_ok_app
+                   | eapply ptrn_ok_get
+                   | eapply ptrn_ok_ignore
+                   | eapply ptrn_ok_inj
+                   | eapply ptrn_view_ok
+                   | eapply fptrnFst_ok
+                   | eapply fptrnPair_ok
+                   ].
 
   Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
   Proof.
@@ -347,8 +360,9 @@ Section Tactics.
     exists val; split; [|reflexivity].
     generalize dependent (apps e es); clear e es; intros e H.
     unfold red_fst.
-
-    apply run_tptrn_id_sound; [eauto with typeclass_instances|assumption|]; intros.
+    eapply run_ptrn_id_sound; eauto with typeclass_instances.
+    unfold red_fst_ptrn.
+    intros.
     solve_denotation.
     unfold pairR, fstR.
     solve_denotation.
@@ -361,8 +375,9 @@ Section Tactics.
     exists val; split; [|reflexivity].
     generalize dependent (apps e es); clear e es; intros e H.
     unfold red_snd.
-
-    apply run_tptrn_id_sound; [eauto with typeclass_instances|assumption|]; intros.
+    eapply run_ptrn_id_sound; eauto with typeclass_instances.
+    unfold red_snd_ptrn.
+    intros.
     solve_denotation.
     unfold pairR, sndR.
     solve_denotation.

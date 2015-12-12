@@ -65,8 +65,11 @@ Require Import MirrorCore.Lambda.ExprSubst.
 Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.ExprVariables.
+(*
 Require Import MirrorCore.Lambda.AutoSetoidRewrite.
+*)
 Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
+
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Ptrns.
 
@@ -113,7 +116,9 @@ Require Import MirrorCore.RTac.AtGoal.
 Require Import MirrorCore.RTac.Reduce.
 Require Import MirrorCore.RTac.Interface.
 Require Import MirrorCore.RTac.RTac.
-Require Import MirrorCore.RTac.InContext.
+(** Require Import MirrorCore.RTac.InContext. *)
 
 Require Import MirrorCore.Reify.Patterns.
 Require Import MirrorCore.Reify.Reify.
+
+Print Sorted Universes "universes.txt".

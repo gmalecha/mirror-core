@@ -17,7 +17,9 @@ init:
 	@ ./tools/setup.sh -b $(EXTBRANCH)
 	@ (cd coq-ext-lib; $(MAKE))
 
-universes: coq
+universes: universes.txt
+
+universes.txt: coq tests/universes.v
 	coqc `grep '\-Q' _CoqProject` `grep '\-I' _CoqProject` tests/universes
 
 check-imports:

@@ -79,8 +79,8 @@ theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
-theories/Lambda/AutoSetoidRewrite.v
-theories/Lambda/AutoSetoidRewriteRtac.v
+# theories/Lambda/AutoSetoidRewrite.v
+# theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 

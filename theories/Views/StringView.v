@@ -5,8 +5,10 @@ Require Import ExtLib.Data.String.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
+(*
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
+*)
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 
@@ -68,9 +70,9 @@ Section MakeString.
 
   Definition fString s := f_insert (pString s).
 
-  Definition mkString (s : string) := Inj (typ := typ) (fString s).
+  Definition mkString (s : string) := fString s.
 
-  Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
+  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
     fun f U good bad =>
       match f with
       | pString s => p s U good (fun x => bad f)
@@ -114,6 +116,9 @@ Section MakeString.
 
 End MakeString.
 
+(*
+Set Printing Universes.
+
 Section PtrnString.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {FV : FuncView func stringFunc}.
@@ -125,3 +130,4 @@ Section PtrnString.
     inj (ptrn_view _ (fptrnString p)).
 
 End PtrnString.
+*)

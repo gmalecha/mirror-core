@@ -22,12 +22,12 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive boolFunc : Type  :=
-  | pBool  : bool -> boolFunc.
+| pBool  : bool -> boolFunc.
 
 Section BoolFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
-  
+
   Context {Typ0_tyBool : Typ0 _ bool}.
 
   Let tyBool : typ := @typ0 _ _ _ Typ0_tyBool.
@@ -36,12 +36,12 @@ Section BoolFuncInst.
     match nf with
       | pBool _ => Some tyBool
    end.
-  
+
   Definition boolFuncEq (a b : boolFunc) : option bool :=
     match a , b with
       | pBool s, pBool t => Some (s ?[ eq ] t)
   end.
-	
+
   Definition boolR (b : bool) : typD tyBool :=
     castR id bool b.
 
@@ -52,15 +52,15 @@ Section BoolFuncInst.
 			  end with
       | pBool b => boolR b
     end.
-  
+
   Global Instance RSym_BoolFunc
-  : SymI.RSym boolFunc := 
+  : SymI.RSym boolFunc :=
     {
       typeof_sym := typeofBoolFunc;
       symD := bool_func_symD ;
       sym_eqb := boolFuncEq
     }.
-  
+
   Global Instance RSymOk_BoolFunc : SymI.RSymOk RSym_BoolFunc.
   Proof.
     split; intros.
@@ -109,7 +109,7 @@ Section MakeBool.
     exists b; split; [assumption | reflexivity].
   Qed.
 
-  Global Instance fptrnBool_SucceedsE {T : Type} {f : boolFunc} 
+  Global Instance fptrnBool_SucceedsE {T : Type} {f : boolFunc}
          {p : ptrn bool T} {res : T} {pok : ptrn_ok p} :
     SucceedsE f (fptrnBool p) res := {
       s_result := exists s, Succeeds s p res /\ f = pBool s;
@@ -122,10 +122,10 @@ Section PtrnBool.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {FV : FuncView func boolFunc}.
 
-(* Putting this in the previous sectioun caused universe inconsistencies 
+(* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkBool typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnBool {T : Type} (p : ptrn bool T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnBool p)).
+    inj (ptrn_view FV (fptrnBool p)).
 
 End PtrnBool.

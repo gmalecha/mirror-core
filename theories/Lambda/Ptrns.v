@@ -1,6 +1,6 @@
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Views.Ptrns.
-Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Views.FuncView. (* Ghost dependency *)
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
@@ -256,17 +256,6 @@ Section setoid.
         inversion H. } }
   Qed.
 
-  Lemma run_tptrn_id_sound (tus tvs : tenv typ) (t : typ) (p : ptrn (expr typ func) (expr typ func))
-        (e : expr typ func) (val : ExprI.exprT tus tvs (typD t))
-        (H : exprD' tus tvs t e =Some val)
-        (HSucceeds : forall e', Succeeds e p e' ->
-                                exprD' tus tvs t e' = Some val) :
-    exprD' tus tvs t (run_tptrn (pdefault_id p) e) = Some val.
-  Proof.
-    unfold run_tptrn, pdefault_id.
-    eapply pdefault_sound; eauto.
-  Abort. (** Not Provable *)
-
   Lemma app_sound {A B : Type} {tus tvs t e res val}
         {p1 : ptrn (expr typ func) A} {p2 : ptrn (expr typ func) B}
         (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
@@ -371,25 +360,27 @@ Section setoid.
     destruct (H0 x0 x) as [ [ ? ? ] | ? ] ; setoid_rewrite H2; eauto.
   Qed.
 
-  Instance Injective_Succeeds_app {T U} p1 p2 x res
+  Global Instance Injective_Succeeds_app {T U} p1 p2 x res
   : ptrn_ok p1 -> ptrn_ok p2 ->  Injective (Succeeds x (app p1 p2) res) :=
   { result := _
   ; injection := @Succeeds_app T U _ _ _ _ _ _ }.
 
-  Instance Injective_Succeeds_inj {X} p x res
+  Global Instance Injective_Succeeds_inj {X} p x res
   : ptrn_ok p -> Injective (Succeeds x (inj p) res) :=
   { result := _
   ; injection := @Succeeds_inj X _ _ _ _ }.
 
-  Instance Injective_Succeeds_var x res : Injective (Succeeds x var res) :=
+  Global Instance Injective_Succeeds_var x res
+  : Injective (Succeeds x var res) :=
   { result := _
   ; injection := @Succeeds_var _ _ }.
 
-  Instance Injective_Succeeds_uvar x res : Injective (Succeeds x uvar res) :=
+  Global Instance Injective_Succeeds_uvar x res
+  : Injective (Succeeds x uvar res) :=
   { result := _
   ; injection := @Succeeds_uvar _ _ }.
 
-  Instance Injective_Succeeds_abs {T U} x res pt pe
+  Global Instance Injective_Succeeds_abs {T U} x res pt pe
   : ptrn_ok pt -> (forall x, ptrn_ok (pe x)) ->
     Injective (Succeeds x (@abs T U pt pe) res) :=
   { result := _
@@ -589,16 +580,14 @@ Section setoid.
     reflexivity.
   Qed.
 
-(* This is not true, it needs a morphism *)
-
   Lemma run_tptrn_id_sound tus tvs t p e val (p_ok : ptrn_ok p)
         (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
         (HSucceeds : forall e', Succeeds e p e' ->
                                 ExprDsimul.ExprDenote.exprD' tus tvs t e' = Some val) :
     ExprDsimul.ExprDenote.exprD' tus tvs t
-                                 (run_tptrn (pdefault_id p) e) = Some val.
+                                 (run_ptrn p e e) = Some val.
   Proof.
-    unfold run_tptrn, pdefault_id, pdefault.
+    unfold run_ptrn.
     destruct (p_ok e).
     { destruct H0.
       specialize (HSucceeds _ H0).
@@ -607,14 +596,13 @@ Section setoid.
     { red in H0. setoid_rewrite H0. eauto. }
   Qed.
 
-
 End setoid.
 
 Ltac destruct_prod :=
-  match goal with
-    | p : ?A * ?B |- _ => destruct p; destruct_prod
-    | _ => idtac
-  end.
+  repeat match goal with
+         | p : ?A * ?B |- _ => destruct p
+         | _ => idtac
+         end.
 
 Ltac force_apply lem :=
   let L := fresh "L" in
@@ -622,16 +610,16 @@ Ltac force_apply lem :=
 
 Ltac exprT_App_red :=
   match goal with
-    | |- context [castR id _ _] => rewrite exprT_App_castR_pure
-    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (RFun ?t1 ?t2) _) _] =>
-      force_apply (@exprT_App_castR typ _ _ tus tvs t1 t2 _ _)
-    | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
-      force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
-    | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu
-                         (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
-      force_apply (@exprT_App_castD typ _ _ tus tvs (typD t) u _ Tu a b)
-    | |- _ => rewrite castDR
-    | |- _ => rewrite castRD
+  | |- context [castR id _ _] => rewrite exprT_App_castR_pure
+  | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (RFun ?t1 ?t2) _) _] =>
+    force_apply (@exprT_App_castR typ _ _ tus tvs t1 t2 _ _)
+  | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
+    force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
+  | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu
+                       (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
+    force_apply (@exprT_App_castD typ _ _ tus tvs (typD t) u _ Tu a b)
+  | |- _ => rewrite castDR
+  | |- _ => rewrite castRD
   end.
 
 Ltac symAsE :=
