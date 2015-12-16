@@ -149,13 +149,6 @@ Module MonoidCancel (M : Monoid).
     | _ , _ => false
     end.
 
-(*
-  Definition func'_eq_dec : forall a b : func', {a = b} + {a <> b}.
-  Proof. decide equality; try eapply typ_eq_dec. Defined.
-*)
-
-  Print RSym_simple.
-
   Definition typeof_func' (f : func') : option typ :=
     Some match f with
          | mU => tyM
@@ -165,7 +158,6 @@ Module MonoidCancel (M : Monoid).
          | And | Or | Impl => tyArr tyProp (tyArr tyProp tyProp)
          | Ex t | All t => tyArr (tyArr t tyProp) tyProp
          end.
-
 
   Definition func'D (f : func')
   : match typeof_func' f with
