@@ -82,50 +82,14 @@ Local Existing Instance Expr_expr.
 Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
       lem_0 : Even_0.
 
-(*
-Definition lem_0 : lemma typ (expr typ func) (expr typ func) :=
-  Eval simpl makeNat in
-    {| vars := nil
-     ; premises := nil
-     ; concl := App (Inj 1%positive) (makeNat 0) |}.
-*)
-
 Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
       lem_SS : Even_SS.
 
-(*
-Definition lem_SS : lemma typ (expr typ func) (expr typ func) :=
-  {| vars := tyNat :: nil
-   ; premises := App (Inj 1%positive) (Var 0) :: nil
-   ; concl := App (Inj 1%positive)
-                  (App (Inj 3%positive) (App (Inj 3%positive) (Var 0)))
-  |}.
-*)
-
 Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
       lem_plus : Even_plus.
-(*
-Definition lem_plus : lemma typ (expr typ func) (expr typ func) :=
-  {| vars := tyNat :: tyNat :: nil
-   ; premises := App (Inj 1%positive) (Var 0) ::
-                 App (Inj 1%positive) (Var 1) :: nil
-   ; concl := App (Inj 1%positive)
-                  (App (App (Inj 4%positive) (Var 0)) (Var 1))
-  |}.
-*)
 
 Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
       lem_minus : Even_minus.
-
-(*
-Definition lem_minus : lemma typ (expr typ func) (expr typ func) :=
-  {| vars := tyNat :: tyNat :: nil
-   ; premises := App (Inj 1%positive) (Var 0) ::
-                 App (Inj 1%positive) (Var 1) :: nil
-   ; concl := App (Inj 1%positive)
-                  (App (App (Inj 5%positive) (Var 0)) (Var 1))
-  |}.
-*)
 
 
 Definition evenHints : Hints typ (expr typ func) :=

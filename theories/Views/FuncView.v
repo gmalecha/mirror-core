@@ -2,17 +2,16 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.syms.SymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive view_option (A : Type) :=
-  | vSome : A -> view_option A
-  | vNone : view_option A.
+| vSome : A -> view_option A
+| vNone : view_option A.
 
-Implicit Arguments vNone [[A]].
+Arguments vNone {A}.
 
 Section FuncView.
   Variables func A : Type.

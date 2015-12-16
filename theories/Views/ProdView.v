@@ -3,8 +3,6 @@ Require Import ExtLib.Tactics.
 Require Import ExtLib.Relations.TransitiveClosure.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
@@ -22,7 +20,7 @@ Inductive prod_func {typ : Type} :=
 | pFst : typ -> typ -> prod_func
 | pSnd : typ -> typ -> prod_func.
 
-Implicit Arguments prod_func [].
+Arguments prod_func _ : clear implicits.
 
 Section ExprDInject.
   Context {typ func : Type}.

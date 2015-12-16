@@ -15,8 +15,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section reducer.
-  Context {sym : Type}.
-  Context {typ : Type}.
+  Context {typ : Type} {sym : Type}.
   Context {RT : RType typ}
           {T2 : Typ2 _ RFun}
           {RS : RSym sym}.
@@ -909,6 +908,12 @@ Section reducer.
   End interleave.
 
 End reducer.
+
+Arguments full_reducer _ _ : clear implicits.
+Arguments full_reducer_ok {_ _ _ _ _} _: clear implicits.
+
+Arguments partial_reducer _ _ : clear implicits.
+Arguments partial_reducer_ok {_ _ _ _ _} _: clear implicits.
 
 (*
 Section test.

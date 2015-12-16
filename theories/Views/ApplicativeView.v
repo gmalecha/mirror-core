@@ -1,26 +1,17 @@
+Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Data.String.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
-Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
-
-Require Import Coq.Strings.String.
-Require Import Coq.Bool.Bool.
-Require Import FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -29,8 +20,6 @@ Set Maximal Implicit Insertion.
 Inductive ap_func (typ : Type) :=
 | pPure (_ : typ)
 | pAp (_ _ : typ).
-
-Implicit Arguments ap_func [].
 
 Section ApplicativeFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.

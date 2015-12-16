@@ -18,7 +18,7 @@ Section canceller.
   Context {Typ2Ok_func : Typ2Ok Typ2_func}.
   Context {RSym_sym : RSym func}.
   Context {RSymOk_sym : RSymOk RSym_sym}.
-
+About Expr_expr.
   Let Expr_expr := @Expr_expr typ func RType_typ _ _.
   Local Existing Instance Expr_expr.
   Let ExprOk_expr : ExprOk Expr_expr := @ExprOk_expr typ func _ _ _ _ _ _.

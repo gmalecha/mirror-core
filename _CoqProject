@@ -29,10 +29,13 @@ theories/Instantiate.v
 theories/VarsToUVars.v
 theories/Lemma.v
 theories/LemmaApply.v
+theories/Simple.v
+
 theories/provers/ProverTac.v
 theories/provers/AssumptionProver.v
 theories/provers/DefaultProver.v
 theories/provers/AutoProver.v
+
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
@@ -81,6 +84,7 @@ theories/Lambda/AutoSetoidRewrite.v
 theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
+theories/Lambda/Rtac.v
 
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
@@ -146,13 +150,14 @@ examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
 
 examples/Cancel/Monoid.v
-examples/Cancel/MonoidSyntax.v
-examples/Cancel/MonoidLemmasSyntax.v
-examples/Cancel/LtacDemo.v
-examples/Cancel/CancelTac.v
-examples/Cancel/RtacDemo.v
-examples/Cancel/CancelTacNoMatch.v
-examples/Cancel/RtacDemoNoMatch.v
+examples/Cancel/MonoidDemo.v
+# examples/Cancel/MonoidSyntax.v
+# examples/Cancel/MonoidLemmasSyntax.v
+# examples/Cancel/LtacDemo.v
+# examples/Cancel/CancelTac.v
+# examples/Cancel/RtacDemo.v
+# examples/Cancel/CancelTacNoMatch.v
+# examples/Cancel/RtacDemoNoMatch.v
 
 examples/Reify/ModularReify.v
 

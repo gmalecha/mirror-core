@@ -1,12 +1,8 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
@@ -17,17 +13,17 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive list_func (typ : Type) :=
-  | pNil : typ -> list_func typ
-  | pCons : typ -> list_func typ.
+| pNil : typ -> list_func typ
+| pCons : typ -> list_func typ.
 
 Section ListFuncInst.
   Context {typ : Type} {RType_typ : RType typ}.
   Context {func : Type}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
-  
+
   Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ1_tyList : Typ1 _ list}.
-  
+
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
   Let tyList : typ -> typ := @typ1 _ _ _ _.
 
@@ -44,11 +40,11 @@ Section ListFuncInst.
       | _, _ => None
     end.
 
-  Global Instance RelDec_list_func : RelDec (@eq (list_func typ)) := 
+  Global Instance RelDec_list_func : RelDec (@eq (list_func typ)) :=
     {
-      rel_dec a b := match list_func_eq a b with 
-    	  	       | Some b => b 
-    		       | None => false 
+      rel_dec a b := match list_func_eq a b with
+    	  	       | Some b => b
+    		       | None => false
     		     end
     }.
 
@@ -65,7 +61,7 @@ Section ListFuncInst.
       | pCons t => consR t
     end.
 
-  Global Instance RSym_ListFunc : SymI.RSym (list_func typ) := 
+  Global Instance RSym_ListFunc : SymI.RSym (list_func typ) :=
     {
       typeof_sym := typeof_list_func;
       symD := list_func_symD;
@@ -84,7 +80,7 @@ End ListFuncInst.
 
 Section MakeList.
   Context {typ func : Type} {FV : FuncView func (list_func typ)}.
-  
+
   Definition fNil t := f_insert (pNil t).
   Definition fCons t := f_insert (pCons t).
 
@@ -156,28 +152,28 @@ Section MakeList.
     rewrite H0 in H; inv_all; subst.
     exists t; split; [assumption | reflexivity].
   Qed.
-  
-  Global Instance fptrnNil_SucceedsE {T : Type} {f : list_func typ} 
+
+  Global Instance fptrnNil_SucceedsE {T : Type} {f : list_func typ}
          {p : ptrn typ T} {res : T} {pok : ptrn_ok p} :
     SucceedsE f (fptrnNil p) res := {
       s_result := exists t, Succeeds t p res /\ f = pNil t;
       s_elim := @Succeeds_fptrnNil T f p res pok
     }.
 
-  Global Instance fptrnCons_SucceedsE {T : Type} {f : list_func typ} 
+  Global Instance fptrnCons_SucceedsE {T : Type} {f : list_func typ}
          {p : ptrn typ T} {res : T} {pok : ptrn_ok p} :
     SucceedsE f (fptrnCons p) res := {
       s_result := exists t, Succeeds t p res /\ f = pCons t;
       s_elim := @Succeeds_fptrnCons T f p res pok
     }.
-  
+
 End MakeList.
 
 Section PtrnList.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {FV : FuncView func (list_func typ)}.
 
-(* Putting this in the previous sectioun caused universe inconsistencies 
+(* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkNil typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnNil {T : Type}
@@ -186,7 +182,7 @@ Section PtrnList.
 
   Definition ptrnCons {A B T : Type}
              (p : ptrn typ T)
-             (a : ptrn (expr typ func) A) 
+             (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnCons p))) a) b.
 
