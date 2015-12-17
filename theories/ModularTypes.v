@@ -221,9 +221,8 @@ Section parametric.
     induction a; constructor; inversion 1; subst; auto.
     - inv_all. subst. eapply ForallV_vector_In; eauto.
   Defined.
-      
 
-  Instance RType_typ0 : RType mtyp :=
+  Instance RType_mtyp : RType mtyp :=
   { typD := mtypD
   ; type_cast := mtyp_cast
   ; tyAcc := mtyp_acc }.
@@ -250,7 +249,8 @@ Section parametric.
       Unshelve. assumption.
   Qed.
 
-  Lemma symbol_dec_refl : forall n (a : symbol n), symbol_dec a a = left eq_refl.
+  Lemma symbol_dec_refl
+  : forall n (a : symbol n), symbol_dec a a = left eq_refl.
   Proof using.
     intro. apply dec_refl.
   Qed.
@@ -266,7 +266,7 @@ Section parametric.
     - repeat rewrite dec_refl. reflexivity.
   Qed.
 
-  Instance RTypeOk_typ0 : RTypeOk.
+  Instance RTypeOk_mtyp : RTypeOk.
   Proof.
     constructor.
     - reflexivity.
@@ -386,3 +386,12 @@ Section parametric.
   Qed.
 
 End parametric.
+
+Arguments Typ0_sym {_ _ _} _.
+Arguments Typ1_sym {_ _ _} _.
+Arguments Typ2_sym {_ _ _} _.
+Arguments Typ2_Fun {_ _ _}.
+Arguments Typ0Ok_sym {_ _ _} _.
+Arguments Typ1Ok_sym {_ _ _} _.
+Arguments Typ2Ok_sym {_ _ _} _.
+Arguments Typ2Ok_Fun {_ _ _}.
