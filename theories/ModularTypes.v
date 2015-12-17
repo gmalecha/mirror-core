@@ -217,12 +217,6 @@ Section parametric.
       rewrite (EqDep.UIP_refl e). reflexivity.
   Qed.
 
-  Theorem typn_cast_nrefl : forall x y : typ, typn_cast x y = None -> ~ x = y.
-  Proof.
-    unfold typ. intros. intro. subst.
-    rewrite typn_cast_refl in H. congruence.
-  Qed.
-
   Instance RTypeOk_typ0 : RTypeOk.
   Proof.
     constructor.
@@ -231,7 +225,6 @@ Section parametric.
     - destruct pf; reflexivity.
     - destruct pf1; destruct pf2; reflexivity.
     - apply typn_cast_refl.
-    - eapply typn_cast_nrefl.
     - eauto with typeclass_instances.
   Qed.
 

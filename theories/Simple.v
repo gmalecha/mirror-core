@@ -31,8 +31,6 @@ Section SimpleRType_ctor.
     { compute. intros. destruct (Tdec x x).
       { eapply Eqdep_dec.K_dec_type with (p := e); eauto. }
       { congruence. } }
-    { compute. intros. subst.
-      destruct (Tdec y y); congruence. }
     { red. eapply Tdec. }
   Defined.
 End SimpleRType_ctor.

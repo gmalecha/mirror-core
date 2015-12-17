@@ -88,16 +88,6 @@ Module MonoidCancel (M : Monoid).
     - induction x; simpl; try reflexivity.
       + change_rewrite IHx1.
         change_rewrite IHx2. reflexivity.
-    - induction x; destruct y; simpl; try congruence.
-      specialize (IHx1 y1). specialize (IHx2 y2).
-      simpl in *.
-      destruct (typ_eq_odec x1 y1).
-      + destruct (typ_eq_odec x2 y2); try congruence.
-        intro. red. intro.
-        inversion H0.
-        eapply IHx2; eauto.
-      + red; intros. inversion H0.
-        eapply IHx1; eauto.
     - red. unfold equiv. unfold complement.
       intros; change (x = y -> False) with (not (x = y)).
       decide equality.
