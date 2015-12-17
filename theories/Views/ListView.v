@@ -191,11 +191,13 @@ Section PtrnList.
              (do_nil : typ -> T)
              (do_cons : typ -> expr typ func -> expr typ func -> T)
              (do_default : T)
-  : Ptrns.ptrn (expr typ func) T :=
-    Ptrns.por
-      (Ptrns.pmap do_nil (ptrnNil Ptrns.get))
-      (Ptrns.pmap (fun t_x_xs =>
-                     let '(t,x,xs) := t_x_xs in
-                     do_cons t x xs) (ptrnCons Ptrns.get Ptrns.get Ptrns.get)).
+  : expr typ func -> T :=
+    run_ptrn
+      (Ptrns.por
+         (Ptrns.pmap do_nil (ptrnNil Ptrns.get))
+         (Ptrns.pmap (fun t_x_xs =>
+                        let '(t,x,xs) := t_x_xs in
+                        do_cons t x xs) (ptrnCons Ptrns.get Ptrns.get Ptrns.get)))
+      do_default.
 
 End PtrnList.
