@@ -1,4 +1,5 @@
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.CoreK.
 
 Section parameterized.
   Variable typ : Type.
@@ -9,6 +10,7 @@ Section parameterized.
   Context {Expr_expr : Expr typ expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
 
+  Section RtacSound.
   Variable tac : rtac typ expr.
 
   Class RtacSound : Prop :=
@@ -89,6 +91,38 @@ Section parameterized.
     { destruct H2. eapply H3; eauto. }
     { inversion H2. }
   Qed.
+  End RtacSound.
+
+  Lemma rtac_sound_let
+  : forall (t1 : rtac typ expr)
+           (t2 : _ -> rtac typ expr),
+      rtac_sound t1 ->
+      (forall x, RtacSound x -> rtac_sound (t2 x)) ->
+      rtac_sound (let x := t1 in t2 x).
+  Proof using. intros. eapply H0. constructor. eauto. Qed.
+
+  Lemma rtac_sound_letK
+  : forall (t1 : rtacK typ expr) (t2 : _ -> rtac typ expr),
+      rtacK_sound t1 ->
+      (forall x, rtacK_sound x -> rtac_sound (t2 x)) ->
+      rtac_sound (let x := t1 in t2 x).
+  Proof using. eauto. Qed.
+
+  Lemma rtacK_sound_let
+  : forall (t1 : rtac typ expr)
+           (t2 : _ -> rtacK typ expr),
+      rtac_sound t1 ->
+      (forall x, RtacSound x -> rtacK_sound (t2 x)) ->
+      rtacK_sound (let x := t1 in t2 x).
+  Proof using. intros. eapply H0. constructor. eauto. Qed.
+
+  Lemma rtacK_sound_letK
+  : forall (t1 : rtacK typ expr) (t2 : _ -> rtacK typ expr),
+      rtacK_sound t1 ->
+      (forall x, rtacK_sound x -> rtacK_sound (t2 x)) ->
+      rtacK_sound (let x := t1 in t2 x).
+  Proof using. eauto. Qed.
+
 End parameterized.
 
 Arguments RtacSound {typ expr _ _ _} _.

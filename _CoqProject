@@ -5,8 +5,6 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
-src/reify_gen.ml
-src/reify_gen.mli
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 
@@ -31,10 +29,13 @@ theories/Instantiate.v
 theories/VarsToUVars.v
 theories/Lemma.v
 theories/LemmaApply.v
+theories/Simple.v
+
 theories/provers/ProverTac.v
 theories/provers/AssumptionProver.v
 theories/provers/DefaultProver.v
 theories/provers/AutoProver.v
+
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
@@ -83,6 +84,7 @@ theories/Lambda/ExprVariables.v
 # theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
+theories/Lambda/Rtac.v
 
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
@@ -148,13 +150,16 @@ examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
 
 examples/Cancel/Monoid.v
-examples/Cancel/MonoidSyntax.v
-examples/Cancel/MonoidLemmasSyntax.v
-examples/Cancel/LtacDemo.v
-examples/Cancel/CancelTac.v
-examples/Cancel/RtacDemo.v
-examples/Cancel/CancelTacNoMatch.v
-examples/Cancel/RtacDemoNoMatch.v
+examples/Cancel/MonoidDemo.v
+examples/Cancel/MonoidDemoNoDec.v
+examples/Cancel/MonoidDemoWithConst.v
+# examples/Cancel/MonoidSyntax.v
+# examples/Cancel/MonoidLemmasSyntax.v
+# examples/Cancel/LtacDemo.v
+# examples/Cancel/CancelTac.v
+# examples/Cancel/RtacDemo.v
+# examples/Cancel/CancelTacNoMatch.v
+# examples/Cancel/RtacDemoNoMatch.v
 
 examples/Reify/ModularReify.v
 

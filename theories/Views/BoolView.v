@@ -1,21 +1,13 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.String.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.SumN.
-Require Import ExtLib.Data.Positive.
+Require Import ExtLib.Data.Bool.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
-
-Require Import Coq.Strings.String.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -34,7 +26,7 @@ Section BoolFuncInst.
 
   Definition typeofBoolFunc (nf : boolFunc) : option typ :=
     match nf with
-      | pBool _ => Some tyBool
+    | pBool _ => Some tyBool
    end.
 
   Definition boolFuncEq (a b : boolFunc) : option bool :=

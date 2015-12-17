@@ -1,12 +1,8 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Map.FMapPositive.
-Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.Consider.
 Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.

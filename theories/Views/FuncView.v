@@ -3,12 +3,10 @@ Require Import ExtLib.Data.POption.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.syms.SymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
-Set Printing Universes.
 
 Section FuncView.
   Polymorphic Universes s t.
@@ -176,7 +174,7 @@ Section FuncView.
   Qed.
 
   Global Polymorphic Instance ptrn_view_SucceedsE
-         {x : func} {res : T} {p : ptrn A T} 
+         {x : func} {res : T} {p : ptrn A T}
          {Sym_A : RSym A}
          {pok : ptrn_ok p}
   : SucceedsE x (ptrn_view p) res :=

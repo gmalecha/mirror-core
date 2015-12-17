@@ -93,7 +93,7 @@ Section soundness.
   Variable m : Type -> Type.
   Variable Monad_m : Monad m.
   Variable tys : types.
-  Variable fs : functions (RType_typ m tys).
+  Variable fs : functions typ (RType_typ m tys).
 
   Let exprD' :=
     @exprD' _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).

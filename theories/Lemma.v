@@ -107,49 +107,6 @@ Section lem.
       | _ , _ => None
     end.
 
-(*   Fixpoint rev_app_distr_trans {T} (a b : list T) : rev (a ++ b) = rev b ++ rev a. *)
-(*   destruct a. *)
-(*   { simpl. rewrite app_nil_r_trans. reflexivity. } *)
-(*   { simpl. rewrite rev_app_distr_trans. *)
-(*     rewrite app_ass_trans. reflexivity. } *)
-(*   Defined. *)
-(* About app_nil_r_trans. *)
-
-(*   Fixpoint rev_involutive_trans {T} (a : list T) : rev (rev a) = a. *)
-(*   refine *)
-(*     match a as a return rev (rev a) = a with *)
-(*     | nil => _ *)
-(*     | x :: xs => _ *)
-(*     end. *)
-(*   { reflexivity. } *)
-(*   { simpl. rewrite rev_app_distr_trans. rewrite rev_involutive_trans. *)
-(*     reflexivity. } *)
-(*   Defined. *)
-
-(*   Definition lemmaD'' (tus tvs : tenv typ) (l : lemma) *)
-(*   : option (exprT tus tvs Prop) := *)
-(*     match *)
-(*         Traversable.mapT (T := list) (F := option) *)
-(*                          (fun e : expr => exprD'_typ0 tus (vars l ++ tvs) e) *)
-(*                          (premises l) *)
-(*       , conclusionD tus (vars l ++ tvs) (concl l) *)
-(*     with *)
-(*       | Some prems , Some concl => *)
-(*         Some (fun us vs => *)
-(*                 foralls (fun h : hlist (typD) (rev (vars l)) => *)
-(*                            let h : hlist typD (vars l) := *)
-(*                                match rev_involutive_trans (vars l) *)
-(*                                      in _ = X return hlist _ X *)
-(*                                with *)
-(*                                | eq_refl => hlist_rev h *)
-(*                                end in *)
-(*                            let vs' := hlist_app h vs in *)
-(*                            impls (map (fun x => x us vs') prems) *)
-(*                                  (concl us vs'))) *)
-(*       | _ , _ => None *)
-(*     end. *)
-
-
   Hypothesis conclusionD_weaken
   : forall tus tvs l lD,
       conclusionD tus tvs l = Some lD ->

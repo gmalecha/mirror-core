@@ -28,16 +28,12 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
 
-  Class ReifiedLemma (L : Lemma.lemma typ expr expr) : Prop :=
-  { ReifiedLemma_proof
-    : @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
-                    _ nil nil L }.
-
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     unifier typ expr subst.
 
   Variable exprUnify_sound
-  : forall subst (S : Subst subst expr) (SO : SubstOk subst typ expr) SU (SUO : SubstUpdateOk subst typ expr),
+  : forall subst (S : Subst subst expr) (SO : SubstOk subst typ expr) SU
+           (SUO : SubstUpdateOk subst typ expr),
       unify_sound (@exprUnify subst S SU).
 
   Variable lem : Lemma.lemma typ expr expr.
@@ -64,6 +60,9 @@ Section parameterized.
                      ctx (CExs (CTop tus tvs) lem.(vars))
                      (GConj_list premises) sub'
       end.
+
+  Class ReifiedLemma (L : lemma typ expr expr) : Prop := mkRL
+  { ReifiedLemma_proof : lemmaD (@exprD'_typ0 _ _ _ _ Prop _) nil nil L }.
 
   Hypothesis lemD : ReifiedLemma lem.
 

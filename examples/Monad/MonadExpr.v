@@ -17,7 +17,8 @@ Section mext.
   Variable m : Type -> Type.
   Variable Monad_m : Monad m.
   Variable tys : types.
-  Variable fs : functions (RType_typ m tys).
+
+  Variable fs : @functions _ (RType_typ m tys).
 
   Instance RSym_mext : @RSym _ (RType_typ m tys) mext.
   apply RSym_sum.

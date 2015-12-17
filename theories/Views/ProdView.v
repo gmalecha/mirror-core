@@ -3,8 +3,6 @@ Require Import ExtLib.Tactics.
 Require Import ExtLib.Relations.TransitiveClosure.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
