@@ -151,10 +151,11 @@ examples/Simple/FoldTest.v
 
 examples/Cancel/Monoid.v
 examples/Cancel/MonoidDemo.v
-examples/Cancel/MonoidDemoNoDec.v
-examples/Cancel/MonoidDemoWithConst.v
-examples/Cancel/MonoidDemoModular.v
-# examples/Cancel/MonoidSyntax.v
+examples/Cancel/MonoidSyntaxSimple.v
+examples/Cancel/MonoidSyntaxNoDec.v
+examples/Cancel/MonoidSyntaxWithConst.v
+examples/Cancel/MonoidSyntaxModular.v
+
 # examples/Cancel/MonoidLemmasSyntax.v
 # examples/Cancel/LtacDemo.v
 # examples/Cancel/CancelTac.v

@@ -19,10 +19,10 @@ Set Strict Implicit.
 
 Let Rbase := expr typ func.
 
-Reify Declare Patterns patterns_concl := (rw_concl typ func Rbase).
+Reify Declare Patterns patterns_concl : (rw_concl typ func Rbase).
 
 Reify Declare Syntax reify_concl_base :=
-  (@CPatterns _ patterns_concl).
+  (CPatterns patterns_concl).
 
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
