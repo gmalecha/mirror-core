@@ -3,7 +3,7 @@ Require Import Coq.Strings.String.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Lambda.Expr.
-Require Import McExamples.Imp.Imp.
+Require Import McExamples.Wp.Imp.
 
 Axiom typ : Type.
 

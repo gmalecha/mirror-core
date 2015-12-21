@@ -141,8 +141,8 @@ examples/Monad/Tests.v
 examples/Monad/MonadReify.v
 examples/Monad/MonadReduce.v
 
-examples/Imp/Imp.v
-examples/Imp/Wp.v
+examples/Wp/Imp.v
+examples/Wp/Wp.v
 
 examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
