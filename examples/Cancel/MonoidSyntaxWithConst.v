@@ -1,17 +1,11 @@
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Nat.
-Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require MirrorCore.syms.SymEnv.
 Require MirrorCore.syms.SymSum.
-Require Import MirrorCore.ModularTypes.
-Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.Rtac.
 Require Import MirrorCore.Simple.
 Require Import MirrorCore.Reify.Reify.
 

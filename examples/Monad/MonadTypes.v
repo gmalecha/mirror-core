@@ -1,9 +1,7 @@
 Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.Option.
-Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.

@@ -1,10 +1,5 @@
-Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.ExprDI.
 Require Import McExamples.Monad.MonadTypes.
 
 Set Implicit Arguments.

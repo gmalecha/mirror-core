@@ -1,11 +1,6 @@
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Data.Nat.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.syms.SymEnv.
 Require Import McExamples.Monad.MonadExpr.
 
