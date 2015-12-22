@@ -53,13 +53,6 @@ Inductive RPattern : Type :=
 (** Actions **)
 Definition function  {T} (f : Command T) : Type := T.
 Definition id        (T : Type) : Type := T.
-Coercion function : Command >-> Sortclass.
-
-Record PatternRule {T : Type} (p : patterns T) : Type := mkPtrnRule
-{ PR_pattern : RPattern
-; PR_ruleT   : Type
-; PR_rule    : PR_ruleT
-}.
 
 (** Tables Reification Specification **)
 Definition mk_var_map {K V T : Type} (_ : table K) (ctor : V -> T) : Type :=
