@@ -36,6 +36,7 @@ Fixpoint CFirst {T} (ls : list (Command T)) : Command T :=
   | cons l nil => l
   | cons l ls => COr l (CFirst ls)
   end.
+Coercion CPatterns : patterns >-> Command.
 
 (** Patterns **)
 Inductive RPattern : Type :=
@@ -52,6 +53,7 @@ Inductive RPattern : Type :=
 (** Actions **)
 Definition function  {T} (f : Command T) : Type := T.
 Definition id        (T : Type) : Type := T.
+Coercion function : Command >-> Sortclass.
 
 Record PatternRule {T : Type} (p : patterns T) : Type := mkPtrnRule
 { PR_pattern : RPattern
