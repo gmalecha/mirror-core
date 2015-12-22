@@ -387,6 +387,11 @@ Section parametric.
 
 End parametric.
 
+Arguments tyBase0 {_} _.
+Arguments tyBase1 {_} _ _.
+Arguments tyBase2 {_} _ _ _.
+Arguments tyApp {_ _} _ _.
+
 Arguments Typ0_sym {_ _ _} _.
 Arguments Typ1_sym {_ _ _} _.
 Arguments Typ2_sym {_ _ _} _.
