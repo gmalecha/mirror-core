@@ -514,13 +514,14 @@ Ltac the_solver :=
     end.
 
   About EASSUMPTION.
+  Arguments EASSUMPTION {_ _ _ _ _ _} _ _ _ _ _ _ _.
 
   Definition the_final_tactic : imp_tac :=
     THEN (THENS (sym_eval_no_mem 100 (TRY entailment_tac) ::
                  REPEAT 1000 (EAPPLY andI_lemma) ::
                  TRY (EAPPLY prove_Prop_lemma) ::
                  TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                             TRY (@EASSUMPTION _ _ _ _ _ _) :: nil)) ::
+                             TRY EASSUMPTION :: nil)) ::
                  INSTANTIATE :: TRY prove_eq_tac :: nil)) (MINIFY).
 
   Definition PHASE1 : imp_tac :=
@@ -529,25 +530,26 @@ Ltac the_solver :=
   Definition PHASE2 : imp_tac :=
     sym_eval_no_mem 100 SIMPLIFY.
 
-Definition PHASE3 : imp_tac :=
-  sym_eval_only 100
-     (THENS (TRY (EAPPLY embed_ltrue_lemma) ::
-            TRY (THENS (EAPPLY entails_exL_lemma ::
-                 INTRO_All ::
-                 BETA_REDUCE :: nil)) ::
-            TRY (THENS (EAPPLY go_lower_raw_lemma ::
-                        BETA_REDUCE :: INTRO_All ::
-                        BETA_REDUCE :: nil)) ::
-            SIMPLIFY :: SIMPLIFY ::
-            REPEAT 200
-               (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil)) ::
-            TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil)) ::
-            REPEAT 1000 (EAPPLY andI_lemma) ::
-             TRY (EAPPLY prove_Prop_lemma) ::
-             TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                         TRY EASSUMPTION :: nil)) ::
-             INSTANTIATE :: TRY prove_eq_tac :: nil)).
+  Definition PHASE3 : imp_tac :=
+    sym_eval_no_mem 100
+                  (THENS (TRY (EAPPLY embed_ltrue_lemma) ::
+                              TRY (THENS (EAPPLY entails_exL_lemma ::
+                                                 INTRO_All ::
+                                                 BETA_REDUCE :: nil)) ::
+                              TRY (THENS (EAPPLY go_lower_raw_lemma ::
+                                                 BETA_REDUCE :: INTRO_All ::
+                                                 BETA_REDUCE :: nil)) ::
+                              SIMPLIFY :: SIMPLIFY ::
+                              REPEAT 200
+                              (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil)) ::
+                              TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil)) ::
+                              REPEAT 1000 (EAPPLY andI_lemma) ::
+                              TRY (EAPPLY prove_Prop_lemma) ::
+                              TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
+                                                 TRY EASSUMPTION :: nil)) ::
+                              INSTANTIATE :: TRY prove_eq_tac :: nil)).
 
+(*
 Definition PHASE3_tauto : imp_tac :=
   let leaf :=
       (THENS (   SIMPLIFY
@@ -564,16 +566,18 @@ Definition PHASE3_tauto : imp_tac :=
               :: TRY prove_eq_tac
               :: nil))
   in
-  sym_eval_only 100
+  sym_eval_no_mem 100
      (THENS (   SIMPLIFY
              :: EAPPLY embed_ltrue_lemma
              :: EAPPLY entails_exL_lemma
              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
              :: tauto_tac leaf :: nil)).
+*)
 
+(*
 Fixpoint parse_ands (e : expr typ func) : list (expr typ func) :=
   match e with
-    | App (App (Inj (inr (ILogicFunc.ilf_and tyProp))) P) Q =>
+    | App (App (Inj (inr (ILogicFunc.ilf_and (ModularTypestyBase0 tyProp)))) P) Q =>
       parse_ands P ++ parse_ands Q
     | _ => e :: nil
   end.
@@ -602,7 +606,7 @@ Definition PHASE3_tauto2 : imp_tac :=
              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
              :: EAPPLY go_lower_raw_lemma :: INTRO_All :: BETA_REDUCE
              :: SIMPLIFY :: BETA_REDUCE :: tauto_tac leaf :: nil)).
-
+*)
 
 Ltac reducer :=
   unfold seq, tonums, map, Ascii.ascii_of_nat, Ascii.ascii_of_N, plus, BinNat.N.of_nat, increment_all, Swap_n, cycle, cycle', assign_linear, Datatypes.length;
