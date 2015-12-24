@@ -2,6 +2,7 @@
  **)
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.RedAll.
@@ -172,6 +173,81 @@ Section tactics.
       generalize dependent (typD (typ0 (F:=Prop))).
       intros; subst.
       rewrite H4. assumption.
+  Qed.
+
+  Definition INTRO_ptrn (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
+  : rtac typ (expr typ func) :=
+    INTRO (fun e => run_tptrn (pdefault (pmap Some p) None) e).
+
+  Definition open_ptrn_sound (p : ptrn (expr typ func) (OpenAs typ (expr typ func))) : Prop :=
+    forall (tus tvs : list typ) (e : expr typ func) (ot : OpenAs typ (expr typ func)),
+      Succeeds e p ot ->
+      match ot with
+      | AsEx t gl' =>
+        forall (eD : exprT tus tvs Prop) (e' : expr typ func)
+               (e'D : exprT (tus ++ t :: nil) tvs (typD t)),
+          Ctx.propD tus tvs e = Some eD ->
+          exprD' (tus ++ t :: nil) tvs e' t = Some e'D ->
+          exists eD' : exprT (tus ++ t :: nil) tvs Prop,
+            Ctx.propD (tus ++ t :: nil) tvs (gl' e') = Some eD' /\
+            (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
+                (exists x : typD t,
+                    eD'
+                      (HList.hlist_app us
+                                       (HList.Hcons
+                                          (e'D (HList.hlist_app us (HList.Hcons x HList.Hnil)) vs)
+                                          HList.Hnil)) vs) -> eD us vs)
+      | AsAl t gl' =>
+        forall (eD : exprT tus tvs Prop) (e' : expr typ func)
+               (e'D : exprT tus (tvs ++ t :: nil) (typD t)),
+          Ctx.propD tus tvs e = Some eD ->
+          exprD' tus (tvs ++ t :: nil) e' t = Some e'D ->
+          exists eD' : exprT tus (tvs ++ t :: nil) Prop,
+            Ctx.propD tus (tvs ++ t :: nil) (gl' e') = Some eD' /\
+            (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
+                (forall x : typD t,
+                    eD' us
+                        (HList.hlist_app vs
+                                         (HList.Hcons
+                                            (e'D us (HList.hlist_app vs (HList.Hcons x HList.Hnil)))
+                                            HList.Hnil))) -> eD us vs)
+      | AsHy h gl' =>
+        forall eD : exprT tus tvs Prop,
+          Ctx.propD tus tvs e = Some eD ->
+          exists eD' hD : exprT tus tvs Prop,
+            Ctx.propD tus tvs h = Some hD /\
+            Ctx.propD tus tvs gl' = Some eD' /\
+            (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
+                (hD us vs -> eD' us vs) -> eD us vs)
+      end.
+
+  Definition INTRO_ptrn_sound : forall p,
+      ptrn_ok p ->
+      open_ptrn_sound p ->
+      rtac_sound (INTRO_ptrn p).
+  Proof.
+    intros.
+    apply INTRO_sound.
+    red. intros. eapply H0; clear H0.
+    revert H1.
+    unfold run_tptrn.
+    eapply pdefault_sound.
+    - eapply ptrn_ok_pmap. eassumption.
+    - red. red. red. intros.
+      subst. red in H1. red in H1.
+      split.
+      + intros.
+        eapply H0. erewrite H1. eassumption.
+        compute; auto.
+      + intros.
+        eapply H0. erewrite <- H1. eassumption.
+        compute; auto.
+    - intros.
+      eapply Succeeds_pmap in H0; eauto.
+      destruct H0. destruct H0.
+      subst. unfold ptret in H1. inv_all.
+      subst. assumption.
+    - unfold ptret. inversion 1.
   Qed.
 
 End tactics.

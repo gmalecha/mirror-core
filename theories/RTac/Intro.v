@@ -156,3 +156,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments OpenAs _ _ : clear implicits.

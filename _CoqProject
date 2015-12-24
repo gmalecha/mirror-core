@@ -134,6 +134,22 @@ theories/RTac/InContext.v
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
+examples/Cancel/Monoid.v
+examples/Cancel/MonoidDemo.v
+examples/Cancel/MonoidSyntaxSimple.v
+examples/Cancel/MonoidSyntaxNoDec.v
+examples/Cancel/MonoidSyntaxWithConst.v
+examples/Cancel/MonoidSyntaxModular.v
+
+examples/Hoare/ILogic.v
+examples/Hoare/ILogicFunc.v
+examples/Hoare/LogicTac.v
+examples/Hoare/Imp.v
+examples/Hoare/ImpMetaTheory.v
+examples/Hoare/ImpSyntax.v
+examples/Hoare/Verify.v
+examples/Hoare/TestCases.v
+
 examples/Monad/MonadTypes.v
 examples/Monad/MonadSym.v
 examples/Monad/MonadExpr.v
@@ -149,12 +165,6 @@ examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
 
-examples/Cancel/Monoid.v
-examples/Cancel/MonoidDemo.v
-examples/Cancel/MonoidSyntaxSimple.v
-examples/Cancel/MonoidSyntaxNoDec.v
-examples/Cancel/MonoidSyntaxWithConst.v
-examples/Cancel/MonoidSyntaxModular.v
 
 # examples/Cancel/MonoidLemmasSyntax.v
 # examples/Cancel/LtacDemo.v
@@ -169,4 +179,4 @@ examples/Auto/Demo.v
 
 examples/RTac/Demo.v
 
-examples/AutoRewrite/DemoQuantPullRtac.v
+# examples/AutoRewrite/DemoQuantPullRtac.v
