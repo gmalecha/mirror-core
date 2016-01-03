@@ -97,7 +97,6 @@ theories/Views/ProdView.v
 theories/Views/ApplicativeView.v
 theories/Views/EqView.v
 
-
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
 theories/RTac/Core.v
@@ -148,7 +147,7 @@ examples/Hoare/Imp.v
 examples/Hoare/ImpMetaTheory.v
 examples/Hoare/ImpSyntax.v
 examples/Hoare/Verify.v
-examples/Hoare/TestCases.v
+examples/Hoare/Tests.v
 
 examples/Monad/MonadTypes.v
 examples/Monad/MonadSym.v

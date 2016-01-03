@@ -2,10 +2,12 @@
  **)
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.RedAll.
+Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.RTac.RTac.
 
 Set Implicit Arguments.
@@ -177,49 +179,184 @@ Section tactics.
 
   Definition INTRO_ptrn (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
   : rtac typ (expr typ func) :=
-    INTRO (fun e => run_tptrn (pdefault (pmap Some p) None) e).
+    INTRO (fun e =>
+             run_tptrn (pdefault (pmap Some p) None) e).
 
-  Definition open_ptrn_sound (p : ptrn (expr typ func) (OpenAs typ (expr typ func))) : Prop :=
-    forall (tus tvs : list typ) (e : expr typ func) (ot : OpenAs typ (expr typ func)),
+  Inductive SimpleOpen : Type :=
+  | sAsEx (t : typ) (l : expr typ func)
+  | sAsAl (t : typ) (l : expr typ func)
+  | sAsHy (p q : expr typ func).
+
+  Definition SimpleOpen_to_OpenAs (x : SimpleOpen)
+  : OpenAs typ (expr typ func) :=
+    match x with
+    | sAsEx t body =>
+      AsEx t (fun arg => Red.beta (App body arg))
+    | sAsAl t body =>
+      AsAl t (fun arg => Red.beta (App body arg))
+    | sAsHy p q => AsHy p q
+    end.
+
+  Definition open_ptrn_sound
+             (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
+  :=
+    forall (tus tvs : list typ) (e : expr typ func)
+           (ot : OpenAs typ (expr typ func)),
       Succeeds e p ot ->
-      match ot with
-      | AsEx t gl' =>
-        forall (eD : exprT tus tvs Prop) (e' : expr typ func)
-               (e'D : exprT (tus ++ t :: nil) tvs (typD t)),
-          Ctx.propD tus tvs e = Some eD ->
-          exprD' (tus ++ t :: nil) tvs e' t = Some e'D ->
-          exists eD' : exprT (tus ++ t :: nil) tvs Prop,
-            Ctx.propD (tus ++ t :: nil) tvs (gl' e') = Some eD' /\
-            (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
-                (exists x : typD t,
-                    eD'
-                      (HList.hlist_app us
-                                       (HList.Hcons
-                                          (e'D (HList.hlist_app us (HList.Hcons x HList.Hnil)) vs)
-                                          HList.Hnil)) vs) -> eD us vs)
-      | AsAl t gl' =>
-        forall (eD : exprT tus tvs Prop) (e' : expr typ func)
-               (e'D : exprT tus (tvs ++ t :: nil) (typD t)),
-          Ctx.propD tus tvs e = Some eD ->
-          exprD' tus (tvs ++ t :: nil) e' t = Some e'D ->
-          exists eD' : exprT tus (tvs ++ t :: nil) Prop,
-            Ctx.propD tus (tvs ++ t :: nil) (gl' e') = Some eD' /\
-            (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
-                (forall x : typD t,
-                    eD' us
-                        (HList.hlist_app vs
-                                         (HList.Hcons
-                                            (e'D us (HList.hlist_app vs (HList.Hcons x HList.Hnil)))
-                                            HList.Hnil))) -> eD us vs)
-      | AsHy h gl' =>
-        forall eD : exprT tus tvs Prop,
-          Ctx.propD tus tvs e = Some eD ->
-          exists eD' hD : exprT tus tvs Prop,
-            Ctx.propD tus tvs h = Some hD /\
-            Ctx.propD tus tvs gl' = Some eD' /\
-            (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
-                (hD us vs -> eD' us vs) -> eD us vs)
+      open_spec tus tvs e ot.
+
+  Definition simple_open_spec (tus tvs : list typ) (e : expr typ func)
+             (ot : SimpleOpen) : Prop :=
+    match ot with
+    | sAsEx t gl' =>
+      forall (eD : exprT tus tvs Prop),
+        Ctx.propD tus tvs e = Some eD ->
+        exists gD' : exprT tus tvs (typD (typ2 t (typ0 (F:=Prop)))),
+          exprD' tus tvs gl' (typ2 (F:=RFun) t (typ0 (F:=Prop))) = Some gD' /\
+          (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
+              (exists x : typD t,
+                  castD (fun x => x) (typD t -> Prop) (Typ0:=Typ0_Arr _ (Typ0_term _ t) _) (gD' us vs) x) -> eD us vs)
+    | sAsAl t gl' =>
+      forall (eD : exprT tus tvs Prop),
+        Ctx.propD tus tvs e = Some eD ->
+        exists gD' : exprT tus tvs (typD (typ2 t (typ0 (F:=Prop)))),
+          exprD' tus tvs gl' (typ2 (F:=RFun) t (typ0 (F:=Prop))) = Some gD' /\
+          (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
+              (forall x : typD t,
+                  castD (fun x => x) (typD t -> Prop) (Typ0:=Typ0_Arr _ (Typ0_term _ t) _) (gD' us vs) x) -> eD us vs)
+    | sAsHy h gl' =>
+      forall eD : exprT tus tvs Prop,
+        Ctx.propD tus tvs e = Some eD ->
+        exists eD' hD : exprT tus tvs Prop,
+          Ctx.propD tus tvs h = Some hD /\
+          Ctx.propD tus tvs gl' = Some eD' /\
+          (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
+              (hD us vs -> eD' us vs) -> eD us vs)
+    end.
+
+  Definition simple_open_ptrn_sound (p : ptrn (expr typ func) SimpleOpen) : Prop :=
+    forall tus tvs e ot,
+      Succeeds e p ot ->
+      simple_open_spec tus tvs e ot.
+
+  Local Opaque Red.beta.
+
+  (** TODO(gmalecha): These exist elsewhere. *)
+  Lemma exprD'_AppL : forall tus tvs tx ty f x fD,
+      exprD' tus tvs f (typ2 (F:=RFun) tx ty) = Some fD ->
+      exprD' tus tvs (App f x) ty =
+      match exprD' tus tvs x tx with
+      | None => None
+      | Some xD => Some (AbsAppI.exprT_App fD xD)
       end.
+  Proof.
+    simpl; intros.
+    rewrite exprD'_App.
+    destruct (ExprDsimul.ExprDenote.exprD' tus tvs tx x) eqn:?.
+    { erewrite ExprTac.exprD_typeof_Some by eassumption.
+      rewrite H. rewrite Heqo. reflexivity. }
+    { destruct (typeof_expr tus tvs x) eqn:?; auto.
+      destruct (ExprDsimul.ExprDenote.exprD' tus tvs (typ2 t ty) f) eqn:?; auto.
+      assert (t = tx).
+      { destruct (ExprFacts.exprD'_single_type H Heqo1).
+        clear H0. eapply typ2_inj in x0; eauto.
+        destruct x0. symmetry. apply H0. }
+      { subst. rewrite Heqo. reflexivity. } }
+  Qed.
+
+  (** TODO(gmalecha): These exist elsewhere. *)
+  Lemma exprD'_AppR : forall tus tvs tx ty f x xD,
+      exprD' tus tvs x tx = Some xD ->
+      exprD' tus tvs (App f x) ty =
+      match exprD' tus tvs f (typ2 tx ty) with
+      | None => None
+      | Some fD => Some (AbsAppI.exprT_App fD xD)
+      end.
+  Proof.
+    simpl; intros.
+    rewrite exprD'_App.
+    erewrite ExprTac.exprD_typeof_Some by eassumption.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  (** TODO(gmalecha): These exist elsewhere. *)
+  Lemma exprD'_App_both_cases : forall tus tvs tx ty f x fD xD,
+      exprD' tus tvs f (typ2 (F:=RFun) tx ty) = Some fD ->
+      exprD' tus tvs x tx = Some xD ->
+      exprD' tus tvs (App f x) ty = Some (AbsAppI.exprT_App fD xD).
+  Proof.
+    intros. erewrite exprD'_AppR by eassumption.
+    rewrite H. reflexivity.
+  Qed.
+
+
+  Theorem SimpleOpen_to_OpenAs_sound : forall tus tvs e ot,
+      simple_open_spec tus tvs e ot ->
+      open_spec tus tvs e (SimpleOpen_to_OpenAs ot).
+  Proof.
+    destruct ot; eauto.
+    + unfold simple_open_spec, open_spec.
+      simpl. intros.
+      specialize (H _ H0); clear H0.
+      destruct H as [ ? [ ? ? ] ].
+      generalize (Red.beta_sound (tus ++ t::nil) tvs (App l e') (typ0 (F:=Prop))).
+      change (ExprDsimul.ExprDenote.exprD' (tus ++ t::nil) tvs (typ0 (F:=Prop)) (App l e'))
+        with (exprD' (tus ++ t::nil) tvs (App l e') (typ0 (F:=Prop))).
+      destruct (@exprD'_weakenU typ _ (expr typ func) Expr_expr _ _ (t::nil) _ l _ x H) as [ ? [ ? ? ] ].
+      erewrite exprD'_App_both_cases; eauto.
+      intros; forwardy.
+      unfold Ctx.propD, exprD'_typ0.
+      change_rewrite H5.
+      eexists; split; [ reflexivity | ].
+      intros.
+      destruct H7.
+      eapply H0; clear H0.
+      specialize (H6 (HList.hlist_app us (HList.Hcons x1 HList.Hnil)) vs).
+      specialize (H4 us vs (HList.Hcons x1 HList.Hnil)).
+      exists x1.
+      revert H7.
+      clear - H6 H4 H2.
+      unfold castD. simpl.
+      unfold AbsAppI.exprT_App in *.
+      generalize dependent (typ2_cast t (typ0 (F:=Prop))).
+      generalize dependent (typ0_cast (F:=Prop)).
+      generalize dependent (typD (typ2 t (typ0 (F:=Prop)))).
+      generalize dependent (typD (typ0 (F:=Prop))).
+      intros. subst; simpl in *.
+      rewrite H2 in *.
+      rewrite H4; clear H4.
+      rewrite H6; clear H6.
+      assumption.
+    + intros. red. red in H.
+      simpl in *. intros.
+      specialize (H _ H0). destruct H as [ ? [ ? ? ] ].
+      generalize (Red.beta_sound tus (tvs ++ t::nil) (App l e') (typ0 (F:=Prop))).
+      change (ExprDsimul.ExprDenote.exprD' tus (tvs ++ t::nil) (typ0 (F:=Prop)) (App l e'))
+      with (exprD' tus (tvs ++ t::nil) (App l e') (typ0 (F:=Prop))).
+      destruct (@exprD'_weakenV typ _ (expr typ func) Expr_expr _ tus tvs (t::nil) _ _ _ H) as [ ? [ ? ? ] ].
+      erewrite exprD'_App_both_cases; eauto.
+      intros; forwardy.
+      unfold Ctx.propD, exprD'_typ0.
+      change_rewrite H6.
+      eexists; split; [ reflexivity | ].
+      intros.
+      eapply H3; clear H3.
+      intros.
+      specialize (H8 x1).
+      clear - H8 H2 H5 H7.
+      specialize (H7 us (HList.hlist_app vs (HList.Hcons x1 HList.Hnil))).
+      specialize (H5 us vs (HList.Hcons x1 HList.Hnil)).
+      unfold AbsAppI.exprT_App, castD in *. simpl in *.
+      generalize dependent (typ2_cast t (typ0 (F:=Prop))).
+      generalize dependent (typ0_cast (F:=Prop)).
+      generalize dependent (typD (typ2 t (typ0 (F:=Prop)))).
+      generalize dependent (typD (typ0 (F:=Prop))).
+      intros; subst. simpl in *.
+      rewrite H5; clear H5.
+      rewrite H2 in *.
+      rewrite H7. assumption.
+  Qed.
 
   Definition INTRO_ptrn_sound : forall p,
       ptrn_ok p ->
@@ -228,25 +365,25 @@ Section tactics.
   Proof.
     intros.
     apply INTRO_sound.
-    red. intros. eapply H0; clear H0.
+    red. intros.
     revert H1.
     unfold run_tptrn.
     eapply pdefault_sound.
     - eapply ptrn_ok_pmap. eassumption.
     - red. red. red. intros.
-      subst. red in H1. red in H1.
-      split.
-      + intros.
-        eapply H0. erewrite H1. eassumption.
-        compute; auto.
-      + intros.
-        eapply H0. erewrite <- H1. eassumption.
-        compute; auto.
+      subst. do 2 red in H2.
+      eapply Data.Prop.impl_iff.
+      + erewrite H2. reflexivity.
+        reflexivity.
+      + reflexivity.
     - intros.
-      eapply Succeeds_pmap in H0; eauto.
-      destruct H0. destruct H0.
-      subst. unfold ptret in H1. inv_all.
-      subst. assumption.
+      eapply Succeeds_pmap in H1; eauto.
+      destruct H1 as [ ? [ ? ? ] ]; subst.
+      unfold ptret in H2.
+      inv_all; subst.
+      red in H0.
+      specialize (H0 tus tvs _ _ H1).
+      eauto.
     - unfold ptret. inversion 1.
   Qed.
 

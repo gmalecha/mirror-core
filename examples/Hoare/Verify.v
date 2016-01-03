@@ -513,7 +513,6 @@ Ltac the_solver :=
     | l :: ls => THEN l (runOnGoals (THENS ls))
     end.
 
-  About EASSUMPTION.
   Arguments EASSUMPTION {_ _ _ _ _ _} _ _ _ _ _ _ _.
 
   Definition the_final_tactic : imp_tac :=
