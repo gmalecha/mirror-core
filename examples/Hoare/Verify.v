@@ -9,6 +9,7 @@ Require Import McExamples.Hoare.Imp.
 Require Import McExamples.Hoare.ImpSyntax.
 Require Import McExamples.Hoare.ImpMetaTheory.
 Require Import McExamples.Hoare.LogicTac.
+Require McExamples.Hoare.Tests.
 (*Require Import MirrorCharge.Imp.RTacTauto. *)
 
 (*
@@ -44,9 +45,11 @@ Definition side_solver : imp_tac :=
              SIMPLIFY :: tauto_tac :: nil).
 *)
 
+
 Module ImpVerify (I : ImpLang).
   Module Import Syntax := ImpSyntax I.
   Module Import MetaTheory := ImpTheory I.
+  Module Import Tests := Tests.TestCases I.
   Definition imp_tac := rtac typ (expr typ func).
   Definition imp_tacK := rtacK typ (expr typ func).
 
@@ -67,8 +70,8 @@ Module ImpVerify (I : ImpLang).
   Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
     pull_embed_last_lemma : pull_embed_last_hyp.
 
-  Definition INTRO_All   : imp_tac := INTRO_all.
-  Axiom INTRO_Hyp   : imp_tac.
+  Definition INTRO_All : imp_tac := INTRO_all.
+  Definition INTRO_Hyp : imp_tac := INTRO_hyp.
   Axiom BETA_REDUCE : imp_tac.
   Axiom SIMPLIFY    : imp_tac.
 
@@ -226,7 +229,7 @@ Ltac rtac_derive_soundness' tac tacK lems :=
 *)
 
   Lemma EAPPLY_THEN_sound : forall lem tac,
-      ReifiedLemma lem -> rtac_sound tac -> 
+      ReifiedLemma lem -> rtac_sound tac ->
       rtac_sound (EAPPLY_THEN lem tac).
   Proof. intros; unfold EAPPLY_THEN.
          rtac_derive_soundness_default.
@@ -623,9 +626,15 @@ Lemma get_upd_not
     I.locals_get x m.
 Admitted.
 Create HintDb reduce_stuff.
-Hint Rewrite I.locals_get_locals_upd I.eval_iexpr_iPlus
-     I.eval_iexpr_iConst I.eval_iexpr_iVar land_apply : reduce_stuff.
+Hint Rewrite locals_get_locals_upd eval_iexpr_iPlus
+     eval_iexpr_iConst eval_iexpr_iVar land_apply : reduce_stuff.
 Hint Rewrite get_upd_not using congruence : reduce_stuff.
+
+Let tyNat := ModularTypes.tyBase0 tyValue.
+Let tyArr := @ModularTypes.tyArr tsym.
+Let tyLocals := ModularTypes.tyBase0 tyLocals.
+Let tyHProp := ModularTypes.tyBase0 tyHProp.
+Let tyProp := ModularTypes.tyBase0 tyProp.
 
 Definition doIt (todo : imp_tac) :=
   todo nil nil 0 0 (CTop nil nil)

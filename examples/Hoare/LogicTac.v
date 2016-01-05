@@ -43,7 +43,7 @@ Section parametric.
     appl (appl (inj t) (pmap (fun t x => (x,t)) l))
          (pmap (fun v tx => let '(t,x) := tx in f t x v) r).
 
-  Definition ptrn_ok_bin_op {T U V W} f t l r :
+  Theorem ptrn_ok_bin_op {T U V W} f t l r :
     ptrn_ok t -> ptrn_ok l -> ptrn_ok r -> ptrn_ok (@bin_op T U V W f t l r).
   Proof.
     intros. unfold bin_op.
@@ -84,8 +84,8 @@ Section parametric.
                                              App (App (Inj (f_insert (ilf_entails l))) G)
                                                  (Red.beta (App body arg)))) get))).
 
-  Definition intro_ptrn_hyp : ptrn (expr typ func) (SimpleOpen typ func) :=
-    bin_op (fun _ P Q => sAsHy P Q)
+  Definition intro_ptrn_hyp : ptrn (expr typ func) (OpenAs typ (expr typ func)) :=
+    bin_op (fun _ P Q => AsHy P Q)
            (ptrn_view _ (fptrn_limpl ignore)) get get.
 
   Ltac solve_ok :=
@@ -96,6 +96,7 @@ Section parametric.
                  | simple eapply ptrn_ok_get
                  | simple eapply ptrn_view_ok
                  | simple eapply fptrn_lforall_ok; intros
+                 | simple eapply fptrn_limpl_ok; intros
                  | simple eapply ptrn_entails_ok ].
 
   Local Existing Instance RSym_ilfunc.
@@ -128,6 +129,22 @@ Section parametric.
           end
         end.
 
+  Theorem Succeeds_bin_op {T U V W} f t l r e res
+  : ptrn_ok t -> ptrn_ok l -> ptrn_ok r ->
+    Succeeds e (@bin_op T U V W f t l r) res ->
+    exists ef el er rf rl rr,
+      e = App (App (Inj ef) el) er /\
+      res = f rf rl rr /\
+      Succeeds ef t rf /\
+      Succeeds el l rl /\
+      Succeeds er r rr.
+  Proof.
+    unfold bin_op.
+    intros.
+    solve_stuff; solve_ok; auto.
+    do 6 eexists. repeat (split; [ reflexivity | ]); auto.
+  Qed.
+
   Theorem Succeeds_ptrn_entails {T U V} e t a b r
   : ptrn_ok a -> ptrn_ok b -> ptrn_ok t ->
     Succeeds e (@ptrn_entails T U V t a b) r ->
@@ -150,10 +167,58 @@ Section parametric.
 
   Let Expr_expr := @Expr_expr _ _ RType_typ _ RSym_func.
   Local Existing Instance Expr_expr.
-  Let ExprOk_expr : ExprOk Expr_expr := @ExprOk_expr _ _ RType_typ _ RSym_func _ _ _.
+  Let ExprOk_expr : ExprOk Expr_expr :=
+    @ExprOk_expr _ _ RType_typ _ RSym_func _ _ _.
   Local Existing Instance ExprOk_expr.
 
   Local Opaque Red.beta.
+
+  Theorem intro_ptrn_hyp_sound : open_ptrn_sound intro_ptrn_hyp.
+  Proof.
+    red; intros.
+    unfold intro_ptrn_hyp in H.
+    eapply Succeeds_bin_op in H; solve_ok.
+    forward_reason. subst.
+    eapply Succeeds_ptrn_view in H1; solve_ok; try eassumption.
+    forward_reason. subst.
+    eapply (@s_elim _ _ _ _ _ (@SucceedsE_fptrn_limpl _ _ _ _ _)) in H0.
+    simpl in H0. forward_reason. subst.
+    solve_stuff.
+    red.
+    unfold Ctx.propD, exprD'_typ0.
+    red_exprD. intros.
+    forwardy; inv_all; subst.
+    assert (x = typ0 (F:=Prop) /\ x6 = typ0 (F:=Prop) /\ x0 = typ0 (F:=Prop)).
+    { unfold symAs in H; simpl in H.
+      destruct (ilo x); try congruence.
+      destruct (type_cast (typ2 x6 (typ2 x0 (typ0 (F:=Prop)))) (typ2 x (typ2 x x))); try congruence.
+      clear H.
+      apply typ2_inj in r; eauto; destruct r.
+      apply typ2_inj in H1; eauto; destruct H1.
+      unfold Rty in *. subst. clear. tauto. }
+    destruct H1 as [ ? [ ? ? ] ].
+    subst.
+    rewrite H2. rewrite H3.
+    do 2 eexists; split; [ reflexivity | split; [ reflexivity | ] ].
+    clear H2 H3 H0.
+    unfold symAs in H; simpl in H.
+    rewrite ilo_Prop in H.
+    rewrite type_cast_refl in H; eauto.
+    inv_all; subst.
+    simpl.
+    unfold AbsAppI.exprT_App, typ2_cast_bin.
+    clear ilo_Prop.
+    generalize (typ0_cast (F:=Prop)).
+    generalize (typ2_cast (typ0 (F:=Prop)) (typ0 (F:=Prop))).
+    generalize (typ2_cast (typ0 (F:=Prop))
+                    (typ2 (typ0 (F:=Prop)) (typ0 (F:=Prop)))).
+    generalize dependent (typD (typ0 (F:=Prop))).
+    generalize dependent (typD (typ2 (typ0 (F:=Prop)) (typ0 (F:=Prop)))).
+    generalize dependent (typD
+            (typ2 (typ0 (F:=Prop)) (typ2 (typ0 (F:=Prop)) (typ0 (F:=Prop))))).
+    do 8 intro; subst. simpl.
+    clear. tauto.
+  Qed.
 
   Theorem intro_ptrn_all_sound : open_ptrn_sound intro_ptrn_all.
   Proof.
@@ -295,4 +360,19 @@ Section parametric.
       eapply ptrn_ok_por; solve_ok.
     - eapply intro_ptrn_all_sound.
   Qed.
+
+  Definition INTRO_hyp : rtac typ (expr typ func) :=
+    INTRO_ptrn intro_ptrn_hyp.
+
+  Instance RtacSound_INTRO_hyp : RtacSound INTRO_hyp.
+  Proof.
+    unfold INTRO_hyp.
+    unfold Expr_expr.
+    constructor.
+    eapply INTRO_ptrn_sound; eauto.
+    - unfold intro_ptrn_hyp.
+      eapply ptrn_ok_bin_op; solve_ok.
+    - eapply intro_ptrn_hyp_sound.
+  Qed.
+
 End parametric.
