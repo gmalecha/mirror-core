@@ -178,4 +178,6 @@ examples/Auto/Demo.v
 
 examples/RTac/Demo.v
 
-# examples/AutoRewrite/DemoQuantPullRtac.v
+examples/AutoRewrite/QuantPullRtac.v
+examples/AutoRewrite/DemoQuantPullRtac.v
+examples/AutoRewrite/DemoQuantPullLtac.v
