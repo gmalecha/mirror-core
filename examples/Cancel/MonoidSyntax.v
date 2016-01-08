@@ -58,8 +58,6 @@ Section SimpleRType_ctor.
     { compute. intros. destruct (Tdec x x).
       { eapply Eqdep_dec.K_dec_type with (p := e); eauto. }
       { congruence. } }
-    { compute. intros. subst.
-      destruct (Tdec y y); congruence. }
     { red. eapply Tdec. }
   Defined.
 End SimpleRType_ctor.
@@ -244,21 +242,21 @@ Module MonoidSyntax (Import M : Monoid).
   Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
   (** Declare patterns **)
-  Reify Declare Patterns patterns_monoid_typ := typ.
-  Reify Declare Patterns patterns_monoid := (expr typ func).
+  Reify Declare Patterns patterns_monoid_typ : typ.
+  Reify Declare Patterns patterns_monoid : (expr typ func).
 
   Reify Declare Syntax reify_monoid_typ :=
-    (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_monoid_typ :: nil)).
+    Patterns.CFirst (Patterns.CPatterns patterns_monoid_typ :: nil).
 
-  Reify Declare Typed Table table_terms : BinNums.positive => reify_monoid_typ.
+  Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
   (** Declare syntax **)
   Reify Declare Syntax reify_monoid :=
-    (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_monoid) ::
-                         (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
-                         (@Patterns.CAbs (expr typ func) reify_monoid_typ (@ExprCore.Abs typ func)) ::
-                         (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
-                         (@Patterns.CTypedTable (expr typ func) _ _ table_terms other) :: nil)).
+    Patterns.CFirst (Patterns.CPatterns patterns_monoid ::
+                     Patterns.CApp (@ExprCore.App typ func) ::
+                     Patterns.CAbs reify_monoid_typ (@ExprCore.Abs typ func) ::
+                     Patterns.CVar (@ExprCore.Var typ func) ::
+                     Patterns.CMap other (Patterns.CTypedTable reify_monoid_typ table_terms) :: nil).
 
   Reify Pattern patterns_monoid_typ += (@RExact _ nat)  => tyNat.
   Reify Pattern patterns_monoid_typ += (@RExact _ M) => tyM.
