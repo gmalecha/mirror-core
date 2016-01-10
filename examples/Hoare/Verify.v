@@ -70,11 +70,6 @@ Module ImpVerify (I : ImpLang).
   Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
     pull_embed_last_lemma : pull_embed_last_hyp.
 
-  Definition INTRO_All : imp_tac := INTRO_all.
-  Definition INTRO_Hyp : imp_tac := INTRO_hyp.
-  Axiom BETA_REDUCE : imp_tac.
-  Axiom SIMPLIFY    : imp_tac.
-
   Local Existing Instance RType_typ.
   Local Existing Instance RTypeOk_typ.
   Local Existing Instance Expr_expr.
@@ -85,6 +80,12 @@ Module ImpVerify (I : ImpLang).
   Local Existing Instance Typ0Ok_Prop.
   Local Existing Instance RS.
   Local Existing Instance RSOk.
+
+  Definition INTRO_All : imp_tac := INTRO_all.
+  Definition INTRO_Hyp : imp_tac := INTRO_hyp.
+  Definition BETA_REDUCE : imp_tac :=
+    SIMPL true (RedAll.red_beta RedAll.red_id).
+  Definition SIMPLIFY    : imp_tac := BETA_REDUCE.
 
   Definition ON_ALL : rtac typ (expr typ func) -> rtacK typ (expr typ func) :=
     @ON_ALL _ _ _ _.
@@ -710,6 +711,20 @@ Definition doIt (todo : imp_tac) :=
                                       (inr (pVar "A"%string)))))
                              (Var 0)))
                      (Inj (inl (inr (pNat 1)))))))).
+
+Definition xxxx := doIt (THENS (   SIMPLIFY
+             :: EAPPLY entails_exL_lemma :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+              :: EAPPLY go_lower_raw_lemma
+              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+              :: REPEAT 200
+                   (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil))
+              :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
+              :: TRY (EAPPLY prove_Prop_lemma)
+              :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
+                             TRY EASSUMPTION :: nil))
+              :: INSTANTIATE
+              :: TRY prove_eq_tac
+              :: nil)).
 
 Eval vm_compute in
 doIt (THENS (   SIMPLIFY

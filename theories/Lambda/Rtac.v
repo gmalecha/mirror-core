@@ -1,6 +1,7 @@
 (** Basic Rtac tactics specialized for the lambda language.
  **)
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
@@ -138,43 +139,108 @@ Section tactics.
     intros; subst. assumption.
   Defined.
 
-  (* Simplification Tactics *)
-  Definition SIMPL (fr : full_reducer typ func) : rtac typ (expr typ func) :=
-    SIMPLIFY (fun Tsubst Csubst ctx subst e => fr nil e nil).
+  Section fr_to_r.
+    Variable fr : full_reducer typ func.
+    Definition full_reducer_to_reducer (inst : bool)
+    : reducer typ (expr typ func) :=
+      if inst then
+        fun _ _ ctx sub e =>
+          fr nil (instantiate (fun u => subst_lookup u sub) 0 e) nil
+      else
+        fun _ _ ctx sub e =>
+          fr nil e nil.
 
-  Global Instance RtacSound_SIMPL (fr : full_reducer typ func)
+    Hypothesis frOk : full_reducer_ok fr.
+    Theorem full_reducer_to_reducer_sound (inst : bool)
+    : reducer_sound (full_reducer_to_reducer inst).
+    Proof.
+      red; intros.
+      unfold Ctx.propD, exprD'_typ0 in *.
+      forwardy; inv_all; subst.
+      assert (vt : var_termsP nil
+                              (fun (a : HList.hlist typD (getUVars ctx))
+                                   (b : HList.hlist typD (getVars ctx))
+                                   (c : HList.hlist typD (getUVars ctx))
+                                   (d : HList.hlist typD (getVars ctx)) =>
+                                 a = c /\ b = d)).
+      { constructor. tauto. }
+      specialize (fun PD =>
+                    @frOk (if inst then
+                             instantiate (fun u => subst_lookup u s) 0 e
+                           else e) nil
+                          (getUVars ctx) (getVars ctx)
+                          (getUVars ctx) (getVars ctx)
+                          (fun a b c d => a = c /\ b = d) vt nil (typ0(F:=Prop))
+                          nil PD HList.Hnil).
+      clear vt.
+      destruct inst.
+      { destruct (@instantiate_sound_ho
+                    typ (expr typ func) _ _ _
+                    (getUVars ctx) (getVars ctx)
+                    (fun u => subst_lookup u s) e nil
+                    (typ0(F:=Prop)) y
+                    (fun P => forall us vs,
+                         cD P us vs))
+          as [ ? [ ? ? ] ]; [ | | eassumption | ].
+        { generalize (SpecLemmas.ExprTApplicative_with_extra nil _ H1).
+          clear - H1.
+          constructor.
+          { intros.
+            eapply Pure_pctxD; eauto. }
+          { intros.
+            generalize (H0 us vs); clear H0.
+            eapply Ap_pctxD; eauto.
+            generalize (H2 us vs); clear H2.
+            eapply Ap_pctxD; eauto.
+            eapply Pure_pctxD; eauto. } }
+        { eapply sem_preserves_if_ho_ctx_lookup; eauto. }
+        destruct (@frOk _ H eq_refl) as [ ? [ ? ? ] ]; clear frOk.
+        simpl. change_rewrite H5.
+        eexists; split; [ reflexivity | ].
+        intros.
+        generalize (H4 us vs).
+        eapply Ap_pctxD; eauto.
+        eapply Pure_pctxD; eauto.
+        intros.
+        specialize (H7 HList.Hnil).
+        simpl in H7.
+        specialize (@H6 us0 vs0 us0 vs0 (conj eq_refl eq_refl)).
+        simpl in H6. rewrite H6 in H7; clear H6.
+        revert H7 H9. clear.
+        generalize dependent (typ0_cast(F:=Prop)).
+        clear.
+        generalize dependent (typD (typ0(F:=Prop))).
+        clear.
+        intros; subst.
+        rewrite H7; assumption. }
+      { destruct (@frOk _ H3 eq_refl) as [ ? [ ? ? ] ]; clear frOk.
+        simpl.
+        rewrite H.
+        eexists; split; [ reflexivity | ].
+        intros.
+        eapply Pure_pctxD; eauto.
+        do 3 intro.
+        clear - H4. specialize (H4 us0 vs0 us0 vs0 (conj eq_refl eq_refl)).
+        simpl in *.
+        generalize dependent (typ0_cast (F:=Prop)).
+        generalize dependent (typD (typ0 (F:=Prop))).
+        clear; intros; subst. rewrite H4. assumption. }
+    Qed.
+  End fr_to_r.
+
+  (* Simplification Tactics *)
+  Definition SIMPL (inst : bool) (fr : full_reducer typ func)
+  : rtac typ (expr typ func) :=
+    SIMPLIFY (full_reducer_to_reducer fr inst).
+
+  Global Instance RtacSound_SIMPL (inst : bool) (fr : full_reducer typ func)
          (frOk : full_reducer_ok fr)
-  : RtacSound (SIMPL fr).
+  : RtacSound (SIMPL inst fr).
   Proof.
     unfold SIMPL.
     constructor.
     eapply SIMPLIFY_sound.
-    intros.
-    unfold Ctx.propD, exprD'_typ0 in H3.
-    forwardy.
-    inv_all.
-    edestruct (fun H =>
-                 frOk e nil (getUVars ctx) (getVars ctx)
-                      (getUVars ctx) (getVars ctx)
-                      (fun us vs => fun us' vs' => us = us' /\ vs = vs')
-                      H
-              nil (@typ0 _ _ Prop _) nil).
-    - constructor. intuition.
-    - simpl. eapply H3.
-    - reflexivity.
-    - subst.
-      destruct H5.
-      unfold Ctx.propD, exprD'_typ0.
-      change_rewrite H.
-      eexists; split; [ reflexivity | ].
-      simpl in *.
-      eapply Pure_pctxD; eauto.
-      intros. specialize (H4 us vs us vs (conj eq_refl eq_refl)).
-      generalize dependent (typ0_cast (F:=Prop)).
-      clear - H4.
-      generalize dependent (typD (typ0 (F:=Prop))).
-      intros; subst.
-      rewrite H4. assumption.
+    eapply full_reducer_to_reducer_sound. assumption.
   Qed.
 
   Definition INTRO_ptrn (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))

@@ -88,6 +88,7 @@ theories/Lambda/Rtac.v
 
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
+theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
 theories/Views/ListView.v
 theories/Views/NatView.v

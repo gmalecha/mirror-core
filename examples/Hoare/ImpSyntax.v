@@ -1,6 +1,7 @@
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.String.
+Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.ModularTypes.
@@ -8,6 +9,7 @@ Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Views.ViewSum.
 Require Import McExamples.Hoare.Imp.
 Require Import McExamples.Hoare.ILogicFunc.
 
@@ -204,7 +206,6 @@ Module ImpSyntax (I : ImpLang).
   Instance RSymOk_imp_func : SymI.RSymOk RSym_imp_func.
   constructor.
   - destruct a; destruct b; simpl; try congruence.
-    Require Import ExtLib.Tactics.Consider.
     all: match goal with
          | |- context [ if ?X then _ else _ ] =>
            consider X; intros; unfold Rty in *; try congruence
@@ -213,8 +214,53 @@ Module ImpSyntax (I : ImpLang).
     destruct H; congruence.
   Qed.
 
-  Instance FuncView_ilfunc : FuncView func (ilfunc typ).
-  Admitted.
+(*   Definition FuncView_id {T : Type} : FuncView T T := *)
+(*   {| f_insert := fun x => x *)
+(*    ; f_view := @vSome _ |}. *)
+
+(*   Theorem FuncViewOk_id {T typ} (RT : RType typ) (RS : RSym T) *)
+(*   : @FuncViewOk T T (@FuncView_id T) typ _ _ _. *)
+(*   Proof. *)
+(*     constructor. *)
+(*     { split. inversion 1. reflexivity. *)
+(*       intros; subst; reflexivity. } *)
+(*     { simpl. reflexivity. } *)
+(*   Defined. *)
+(*   Definition FuncView_left {T U V : Type} (FV_TU : FuncView U T) *)
+(*   : FuncView (U + V) T := *)
+(*   {| f_insert := fun x => inl (f_insert x) *)
+(*    ; f_view := fun x => match x with *)
+(*                         | inl x => f_view x *)
+(*                         | _ => vNone *)
+(*                         end |}. *)
+(*   Theorem FuncViewOk_left {T U V typ : Type} (RT : RType typ) (RSt : RSym T) (RSu : RSym U) (RSv : RSym V) (FV : FuncView U T) (FVo : FuncViewOk _ _ _) *)
+(*   : @FuncViewOk _ _ (@FuncView_left T U V FV) _ _ (RSym_sum RSu RSv) _. *)
+(*   Proof. *)
+(*     constructor. *)
+(*     { simpl. destruct f; simpl. *)
+(*       { intros. rewrite fv_ok. split; congruence. } *)
+(*       { split; inversion 1. } } *)
+(*     { simpl. intros. rewrite fv_compat. reflexivity. } *)
+(*   Qed. *)
+(*   Definition FuncView_right {T U V : Type} (FV_TU : FuncView U T) *)
+(*   : FuncView (V + U) T := *)
+(*   {| f_insert := fun x => inr (f_insert x) *)
+(*    ; f_view := fun x => match x with *)
+(*                         | inr x => f_view x *)
+(*                         | _ => vNone *)
+(*                         end |}. *)
+(*   Theorem FuncViewOk_right {T U V typ : Type} (RT : RType typ) (RSt : RSym T) (RSu : RSym U) (RSv : RSym V) (FV : FuncView U T) (FVo : FuncViewOk _ _ _) *)
+(*   : @FuncViewOk _ _ (@FuncView_right T U V FV) _ _ (RSym_sum RSv RSu) _. *)
+(*   Proof. *)
+(*     constructor. *)
+(*     { simpl. destruct f; simpl. *)
+(*       { split; inversion 1. } *)
+(*       { intros. rewrite fv_ok. split; congruence. } } *)
+(*     { simpl. intros. rewrite fv_compat. reflexivity. } *)
+(*   Qed. *)
+
+  Instance FuncView_ilfunc : FuncView func (ilfunc typ) :=
+    FuncView_right FuncView_id.
 
   Definition tyLProp := tyArr !tyLocals !tyHProp.
 

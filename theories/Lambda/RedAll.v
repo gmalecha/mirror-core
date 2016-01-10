@@ -26,6 +26,7 @@ Section reducer.
 
   Context {ED_typ : EqDec _ (@eq typ)}.
 
+(*
   Fixpoint var_termsD tus tvs n (ls : list (option (expr typ sym)))
   : option (ExprI.exprT tus tvs Prop) :=
     match ls with
@@ -74,6 +75,7 @@ Section reducer.
         do 3 eexists; split; eauto. split; eauto.
         firstorder.
   Qed.
+*)
 
   (** I want this to capture the fact that when the entry is [Some], then
    ** the "resulting environment" does not contain the entry.
@@ -162,7 +164,7 @@ Section reducer.
            (e : expr typ sym)
            (args : list (expr typ sym)), expr typ sym.
 
-  Fixpoint applys {ts : tenv typ} {t : typ}
+  Local Fixpoint applys {ts : tenv typ} {t : typ}
            (xs : hlist typD ts) : typD (fold_right (@typ2 _ _ RFun _) t ts) -> typD t :=
     match xs in hlist _ ts return typD (fold_right (@typ2 _ _ RFun _) t ts) -> typD t with
       | Hnil => fun f => f
@@ -216,7 +218,7 @@ Section reducer.
    ** this is because there is some fancyness going on since applied lambdas
    ** actually remove entries from the environment
    **)
-  Fixpoint get_var (v : nat) (ls : list (option (expr typ sym)))
+  Local Fixpoint get_var (v : nat) (ls : list (option (expr typ sym)))
            (acc : nat) {struct ls}
   : expr typ sym :=
     match ls with
@@ -236,7 +238,7 @@ Section reducer.
   Let exprD'_conv :=
     @ExprI.exprD'_conv typ RT (expr typ sym) (@Expr_expr typ sym RT _ _).
 
-  Lemma get_var_type_ok
+  Local Lemma get_var_type_ok
   : forall tus tvs tus'  tvs' var_terms P,
       @var_termsP tus tvs tus' tvs' var_terms P ->
       forall _tvs _tvs' v t,
@@ -287,7 +289,7 @@ Section reducer.
         eapply IHvar_termsP; eauto. } }
   Qed.
 
-  Lemma nth_error_get_hlist_nth_rwR
+  Local Lemma nth_error_get_hlist_nth_rwR
   : forall {T} (F : T -> _) tus tvs' n,
       n >= length tus ->
       match nth_error_get_hlist_nth F tvs' (n - length tus) with
@@ -318,7 +320,7 @@ Section reducer.
   Qed.
 
 
-  Lemma get_var_ok
+  Local Lemma get_var_ok
   : forall tus tvs tus'  tvs' var_terms P,
       @var_termsP tus tvs tus' tvs' var_terms P ->
       forall _tvs _tvs' v t val,
@@ -476,25 +478,26 @@ Section reducer.
   Qed.
 
   Section id.
-    Fixpoint idred' (vars : list (option (expr typ sym)))
+    Local Fixpoint idred' (vars : list (option (expr typ sym)))
                (e : expr typ sym) : expr typ sym :=
       match e with
-        | Inj i => Inj i
-        | UVar u => UVar u
-        | Var v => get_var v vars 0
-        | App e1 e2 => App (idred' vars e1) (idred' vars e2)
-        | Abs t e => Abs t (idred' (None :: vars) e)
+      | Inj i => Inj i
+      | UVar u => UVar u
+      | Var v => get_var v vars 0
+      | App e1 e2 => App (idred' vars e1) (idred' vars e2)
+      | Abs t e => Abs t (idred' (None :: vars) e)
       end.
 
     Variable par_red : partial_reducer.
     Hypothesis par_redOk : partial_reducer_ok par_red.
 
-    Definition idred (vars : list (option (expr typ sym)))
-               (e : expr typ sym)
-               (args : list (expr typ sym)) : expr typ sym :=
+    Definition red_partial : full_reducer :=
+      fun (vars : list (option (expr typ sym)))
+          (e : expr typ sym)
+          (args : list (expr typ sym)) =>
       par_red (idred' vars e) args.
 
-    Lemma idred'_type_ok
+    Local Lemma idred'_type_ok
     : forall e var_terms tus tvs tus' tvs' P,
         @var_termsP tus tvs tus' tvs' var_terms P ->
         forall t,
@@ -520,7 +523,7 @@ Section reducer.
         induction H; simpl; intros; eauto. }
     Qed.
 
-    Lemma var_termsP_tus_same
+    Local Lemma var_termsP_tus_same
     : forall tus tvs tus' tvs' vts P,
         @var_termsP tus tvs tus' tvs' vts P ->
         tus = tus'.
@@ -528,7 +531,7 @@ Section reducer.
       clear. induction 1; auto.
     Qed.
 
-    Lemma idred'_ok
+    Local Lemma idred'_ok
     : forall e var_terms tus tvs tus' tvs' P,
         @var_termsP tus tvs tus' tvs' var_terms P ->
         forall t fD,
@@ -606,9 +609,9 @@ Section reducer.
           destruct H3. eapply H4 in H3. auto. } }
     Qed.
 
-    Lemma idred_ok : full_reducer_ok idred.
+    Lemma red_partial_ok : full_reducer_ok red_partial.
     Proof.
-      unfold idred. red.
+      unfold red_partial. red.
       intros.
       eapply idred'_ok in H0; eauto.
       forward_reason.
@@ -648,30 +651,103 @@ Section reducer.
 
   End id.
 
+  Definition red_id := red_partial (@apps _ _).
+
+  Theorem red_id_sound : full_reducer_ok red_id.
+  Proof.
+    eapply red_partial_ok.
+    eapply apps_partial_reducer_ok.
+  Qed.
+
+  Definition unfolder : Type :=
+    sym -> option (expr typ sym).
+  Definition unfolder_ok (u : unfolder) : Prop :=
+    forall i e,
+      u i = Some e ->
+      forall t eD,
+        exprD' nil nil t (Inj i) = Some eD ->
+        exists eD',
+          exprD' nil nil t e = Some eD' /\
+          eD Hnil Hnil = eD' Hnil Hnil.
+
+  Section build_unfolder.
+    Section get_body.
+      Variable s : sym.
+
+      Local Fixpoint get_body (l : list (sym * expr typ sym))
+      : option (expr typ sym) :=
+        match l with
+        | nil => None
+        | (s', e') :: l' =>
+          match sym_eqb s s' with
+          | Some true => Some e'
+          | _ => get_body l'
+          end
+        end.
+    End get_body.
+
+    Variable ls : list (sym * expr typ sym).
+    Definition unfold_list : unfolder :=
+      fun s => get_body s ls.
+
+    Theorem unfold_list_ok :
+      Forall (fun se =>
+                let '(s,e) := se in
+                forall t (pf : Some t = typeof_sym s),
+                  exists eD',
+                    exprD' nil nil t e = Some eD' /\
+                    symD s = match pf in _ = T return match T with
+                                                      | Some t => typD t
+                                                      | None => unit
+                                                      end
+                             with
+                             | eq_refl => eD' Hnil Hnil
+                             end) ls ->
+      unfolder_ok unfold_list.
+    Proof.
+      unfold unfold_list. unfold unfolder_ok.
+      induction 1; simpl.
+      { inversion 1. }
+      { destruct x; intros.
+        generalize (sym_eqbOk i s).
+        destruct (sym_eqb i s).
+        { destruct b.
+          { inv_all. subst.
+            unfold symAs in *; intros.
+            subst.
+            generalize dependent (symD s).
+            generalize (typeof_sym s).
+            destruct o; try congruence.
+            destruct (type_cast t t0); try congruence.
+            red in r. subst.
+            simpl. intros; inv_all. subst.
+            specialize (H _ eq_refl).
+            assumption. }
+          { intros. eapply IHForall; eauto. } }
+        { intros; eapply IHForall; eauto. } }
+    Qed.
+  End build_unfolder.
+
   Section delta_list.
     Variable orelse : full_reducer.
-    Variable delta : sym -> option (expr typ sym).
 
-    Definition delta_all (vars : list (option (expr typ sym)))
-               (e : expr typ sym)
-               (args : list (expr typ sym)) : expr typ sym :=
+    Variable delta : unfolder.
+
+    Definition delta_all : full_reducer :=
+      fun (vars : list (option (expr typ sym)))
+          (e : expr typ sym)
+          (args : list (expr typ sym)) =>
       match e with
-        | Inj i => match delta i with
-                     | None => apps (Inj i) args
-                     | Some e => orelse vars e args
-                   end
-        | e => orelse vars e args
+      | Inj i => match delta i with
+                 | None => apps (Inj i) args
+                 | Some e => orelse vars e args
+                 end
+      | e => orelse vars e args
       end.
 
     Hypothesis orelse_ok : full_reducer_ok orelse.
-    Hypothesis delta_ok
-    : forall i e,
-        delta i = Some e ->
-        forall t eD,
-          exprD' nil nil t (Inj i) = Some eD ->
-          exists eD',
-            exprD' nil nil t e = Some eD' /\
-            eD Hnil Hnil = eD' Hnil Hnil.
+    Hypothesis delta_ok : unfolder_ok delta.
+
     Theorem delta_all_ok : full_reducer_ok delta_all.
     Proof.
       red. destruct e; eauto.
@@ -737,20 +813,49 @@ Section reducer.
     Qed.
   End delta_list.
 
+  Section reduce.
+    Variable r : full_reducer.
+    Hypothesis rOk : full_reducer_ok r.
+    Definition reduce (e : expr typ sym) : expr typ sym :=
+      r nil e nil.
+
+    Theorem reduce_ok
+    : forall e t tus tvs val P,
+      exprD' tus tvs t e = Some val ->
+      exists val',
+        exprD' tus tvs t (reduce e) = Some val' /\
+        forall us vs,
+          P us vs ->
+          val us vs = val' us vs.
+    Proof.
+      intros.
+      assert (var_termsP nil
+                         (fun (us : hlist typD tus) (vs : hlist typD tvs)
+                              (us' : hlist typD tus) (vs' : hlist typD tvs) =>
+                            us = us' /\ vs = vs')).
+      { constructor. tauto. }
+      specialize (@rOk e nil _ _ _ _ _ H0 nil t nil _ _ H eq_refl).
+      simpl.
+      destruct rOk as [ ? [ ? ? ] ].
+      unfold reduce. eexists; split; [ eassumption | ].
+      intros. exact (H2 us vs us vs (conj eq_refl eq_refl)).
+    Qed.
+  End reduce.
+
   Section beta_all.
     Variable rec : full_reducer.
 
-    Fixpoint beta_all_gen
+    Local Fixpoint beta_all_gen'
              (vars : list (option (expr typ sym)))
              (e : expr typ sym)
              (args : list (expr typ sym)) : expr typ sym :=
       match e with
         | App e' e'' =>
-          beta_all_gen vars e' (beta_all_gen vars e'' nil :: args)
+          beta_all_gen' vars e' (beta_all_gen' vars e'' nil :: args)
         | Abs t e' =>
           match args with
-            | nil => Abs t (beta_all_gen (None :: vars) e' nil) (** args = nil **)
-            | a :: args => beta_all_gen (Some a :: vars) e' args
+            | nil => Abs t (beta_all_gen' (None :: vars) e' nil) (** args = nil **)
+            | a :: args => beta_all_gen' (Some a :: vars) e' args
           end
         | Var v =>
           (** [get_var] has already done the conversion! **)
@@ -758,10 +863,11 @@ Section reducer.
         | UVar u => rec vars (UVar u) args
         | Inj i => rec vars (Inj i) args
       end.
+    Definition red_beta : full_reducer := beta_all_gen'.
 
     Hypothesis rec_sound : full_reducer_ok rec.
 
-    Theorem beta_all_gen_sound : full_reducer_ok beta_all_gen.
+    Theorem red_beta_sound : full_reducer_ok red_beta.
     Proof.
       red. induction e; try solve [ simpl; intros; eauto ].
       { (* Var *)
@@ -784,7 +890,7 @@ Section reducer.
         forward; inv_all; subst.
         specialize (IHe2 var_terms tus tvs tus' tvs' _ H nil t0 nil _ _ H3 eq_refl).
         forward_reason.
-        specialize (@IHe1 var_terms _ _ _ _ _ H (beta_all_gen var_terms e2 nil :: es) _ (t0 :: targs) _
+        specialize (@IHe1 var_terms _ _ _ _ _ H (red_beta var_terms e2 nil :: es) _ (t0 :: targs) _
                           (@Hcons _ _ t0 _ x esD) H2).
         simpl in IHe1.
         rewrite H1 in IHe1.
@@ -861,29 +967,6 @@ Section reducer.
           eauto. } }
     Qed.
 
-    Definition beta_all e := beta_all_gen nil e nil.
-
-    Theorem beta_all_sound
-    : forall e t tus tvs val P,
-      exprD' tus tvs t e = Some val ->
-      exists val',
-        exprD' tus tvs t (beta_all e) = Some val' /\
-        forall us vs,
-          P us vs ->
-          val us vs = val' us vs.
-    Proof.
-      intros.
-      assert (var_termsP nil
-                         (fun (us : hlist typD tus) (vs : hlist typD tvs)
-                              (us' : hlist typD tus) (vs' : hlist typD tvs) =>
-                            us = us' /\ vs = vs')).
-      { constructor. tauto. }
-      specialize (@beta_all_gen_sound e nil _ _ _ _ _ H0 nil t nil _ _ H eq_refl).
-      simpl.
-      intros. forward_reason.
-      eauto.
-    Qed.
-
   End beta_all.
 
   Section interleave.
@@ -891,10 +974,9 @@ Section reducer.
 
     Fixpoint interleave (n : nat) : full_reducer :=
       match n with
-        | 0 => idred (@apps _ _)
+        | 0 => red_partial (@apps _ _)
         | S n => fun x => f (fun x => g (fun x => interleave n x) x) x
       end.
-
 
     Hypothesis f_ok : forall x, full_reducer_ok x -> full_reducer_ok (f x).
     Hypothesis g_ok : forall x, full_reducer_ok x -> full_reducer_ok (g x).
@@ -902,7 +984,7 @@ Section reducer.
     Theorem interleave_ok : forall n, full_reducer_ok (interleave n).
     Proof.
       induction n; simpl; intros.
-      - eapply idred_ok. eapply apps_partial_reducer_ok.
+      - eapply red_partial_ok. eapply apps_partial_reducer_ok.
       - eapply f_ok. eapply g_ok. eapply IHn.
     Qed.
   End interleave.
@@ -914,21 +996,3 @@ Arguments full_reducer_ok {_ _ _ _ _} _: clear implicits.
 
 Arguments partial_reducer _ _ : clear implicits.
 Arguments partial_reducer_ok {_ _ _ _ _} _: clear implicits.
-
-(*
-Section test.
-  Context {sym : Type}.
-  Context {typ : Type}.
-  Context {RT : RType typ}
-          {T2 : Typ2 _ RFun}
-          {RS : RSym sym}.
-
-  Context {RTOk : RTypeOk}
-          {T2Ok : Typ2Ok T2}
-          {RSOk : RSymOk RS}.
-
-  Context {ED_typ : EqDec _ (@eq typ)}.
-
-  Eval compute in fun t =>
-                    beta_all (@apps typ sym) nil nil (App (Abs t (App (Var 10) (Abs t (Var 1)))) (Var 0)).
-*)
