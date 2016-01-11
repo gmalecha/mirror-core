@@ -398,19 +398,20 @@ Module ImpSyntax (I : ImpLang).
   Local Instance RSym_ilfunc : SymI.RSym (ilfunc typ) :=
     @ILogicFunc.RSym_ilfunc typ _ _ lops eops _ _.
 
-  Definition RS : SymI.RSym func :=
-    SymSum.RSym_sum (SymSum.RSym_sum (SymEnv.RSym_func fs) _) _.
-  Local Existing Instance RS.
+  Definition RS (fs' : functions typ RType_typ): SymI.RSym func :=
+    SymSum.RSym_sum (SymSum.RSym_sum (SymEnv.RSym_func (join_functions fs fs')) _) _.
+(*  Local Existing Instance RS. *)
 
-  Instance RSOk : SymI.RSymOk RS.
+  Instance RSOk fs' : SymI.RSymOk (RS fs').
   eapply RSymOk_sum; eauto with typeclass_instances.
   eapply RSymOk_sum; eauto with typeclass_instances.
   Defined.
 
-  Definition Expr_expr : ExprI.Expr _ (expr typ func) := @Expr_expr typ func _ _ _.
+  Definition Expr_expr (fs' : functions typ RType_typ) : ExprI.Expr _ (expr typ func) :=
+    @Expr_expr typ func _ _ (RS fs').
   Local Existing Instance Expr_expr.
 
-  Definition ExprOk_expr : ExprI.ExprOk Expr_expr := ExprOk_expr.
+  Definition ExprOk_expr fs' : ExprI.ExprOk (Expr_expr fs') := ExprOk_expr.
   Existing Instance ExprOk_expr.
 
 (*
@@ -460,12 +461,13 @@ Local Existing Instance SO.
   Definition RelDec_eq_expr : RelDec (@eq (expr typ func)) :=
     @RelDec_eq_expr typ func _ _.
 
-
+  Print fs.
   Definition fTriple : expr typ func := Inj (inl (inl 1%positive)).
   Definition fSeq : expr typ func := Inj (inl (inl 2%positive)).
   Definition fAssign : expr typ func := Inj (inl (inl 3%positive)).
-  Definition fSkip : expr typ func := Inj (inl (inl 6%positive)).
-  Definition fAssert : expr typ func := Inj (inl (inl 7%positive)).
+  Definition fSkip : expr typ func := Inj (inl (inl 4%positive)).
+  Definition fAssert : expr typ func := Inj (inl (inl 5%positive)).
+  Definition fIf : expr typ func := Inj (inl (inl 6%positive)).
 (*
   Definition fRead : expr typ func := Inj (inl (inl 4%positive)).
   Definition fWrite : expr typ func := Inj (inl (inl 5%positive)).
@@ -473,7 +475,7 @@ Local Existing Instance SO.
 *)
   Definition fEven : expr typ func := Inj (inl (inl 9%positive)).
   Definition fOdd : expr typ func := Inj (inl (inl 10%positive)).
-  Definition fS : expr typ func := Inj (inl (inl 11%positive)).
+  Definition fS : expr typ func := Inj (inl (inl 7%positive)).
 
 
   Definition feVar : expr typ func := Inj (inl (inr eVar)).
@@ -680,7 +682,14 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
   (** Table Entries **)
   Local Notation "a >> b" := (tyArr a b) (at level 31,right associativity).
 
-  Print fs.
+(*
+  Reify Pattern patterns_imp += (!!I.triple) => fTriple.
+  Reify Pattern patterns_imp += (!!I.Seq) => fSeq.
+  Reify Pattern patterns_imp += (!!I.Assign) => fAssign.
+  Reify Pattern patterns_imp += (!!I.Skip) => fSkip.
+  Reify Pattern patterns_imp += (!!I.Assert) => fAssert.
+  Reify Pattern patterns_imp += (!!I.If) => fIf.
+*)
 
   Reify Seed Typed Table term_table += 1 =>
     [[ (tyLProp >> !tyCmd >> tyLProp >> !tySProp) , I.triple ]].
@@ -691,6 +700,7 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
   Reify Seed Typed Table term_table += 4 => [[ !tyCmd , I.Skip ]].
   Reify Seed Typed Table term_table += 5 => [[ (tyLProp >> !tyCmd) , I.Assert ]].
   Reify Seed Typed Table term_table += 6 => [[ (!tyExpr >> !tyCmd >> !tyCmd >> !tyCmd) , I.If ]].
+
 (*
   Reify Seed Typed Table term_table += 4 =>
     [[ (tyVariable >> tyExpr >> tyCmd) , Read ].

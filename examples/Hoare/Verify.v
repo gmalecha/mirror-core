@@ -286,40 +286,32 @@ Ltac rtac_derive_soundness' tac tacK lems :=
 *)
   Admitted.
 
-Ltac reduce_propD g e := e. (*
-  eval cbv beta iota zeta delta
-       [ goalD g Ctx.propD exprD'_typ0 exprD' Expr_expr
-         ExprD.Expr_expr ExprDsimul.ExprDenote.exprD'
-         ExprDsimul.ExprDenote.func_simul typeof_sym RS
-         SymSum.RSym_sum
-         RSym_ilfunc typ2_match ExprDsimul.ExprDenote.funcAs
-         exprT_Inj ExprDsimul.ExprDenote.exprT_App ExprDsimul.ExprDenote.exprT_Abs
-         ILogicFunc.RSym_ilfunc RelDec_eq_typ ILogicFunc.typeof_func eops lops Typ2_Fun
-         typ2 type_cast RType_typ type_cast_typ typ0 Typ0_Prop
-         eq_sym typ2_cast typ0_cast ExprDsimul.ExprDenote.Rcast
-         ExprDsimul.ExprDenote.Rcast_val eq_rect Relim Rsym Rrefl symD
-         ILogicFunc.funcD RSym_imp_func typeof_sym_imp
-         exprT_UseV ExprDsimul.ExprDenote.exprT_GetVAs
-         exprT_UseU ExprDsimul.ExprDenote.exprT_GetUAs
-         nth_error_get_hlist_nth  Monad.bind Monad.ret OptionMonad.Monad_option
-         ILogicFunc.typ2_cast_quant ILogicFunc.typ2_cast_bin
-         HList.hlist_hd HList.hlist_tl TypesI.typD typD
-         BinPos.Pos.succ
-         FMapPositive.PositiveMap.empty
-         SymEnv.ftype SymEnv.fdenote
-         SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add
-         SymEnv.funcD tyLProp app
-         Quant._foralls HList.hlist_app
-         Traversable.mapT
-         Option.Applicative_option List.Traversable_list
-         List.mapT_list map Quant._impls
-         amap_substD FMapSubst.SUBST.raw_substD UVarMap.MAP.fold
-         FMapPositive.PositiveMap.fold FMapPositive.PositiveMap.xfoldi
-         FMapPositive.append Quant._exists
-         UVarMap.MAP.from_key pred BinPos.Pos.to_nat BinPos.Pos.iter_op
-         Applicative.ap Applicative.pure
-       ] in e.
-*)
+Ltac reduce_propD g e := eval cbv beta iota zeta delta
+    [ g Quant._foralls goalD Ctx.propD exprD'_typ0 exprD' Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.exprD' symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec 
+      typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      RS ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+    ] in e.
+
 (*
 Ltac the_solver :=
   match goal with
@@ -416,40 +408,6 @@ Ltac the_solver :=
     | l :: ls => I.Seq (I.Assign l (I.iPlus (I.iVar l) (I.iConst 1))) (increment_all ls)
     end.
 
-  Ltac run_tactic tac :=
-    match goal with
-    | |- ?goal =>
-      let k g :=
-          pose (e := g) ;
-          let result := constr:(runRtac typ (expr typ func) nil nil e tac) in
-          let resultV := eval vm_compute in result in
-          match resultV with
-          | Solved _ =>
-            change (@propD _ _ _ Typ0_Prop Expr_expr nil nil e) ;
-              cut(result = resultV) ;
-              [ admit
-              | vm_cast_no_check (@eq_refl _ resultV) ]
-          | More_ _ ?g' =>
-            pose (g'V := g') ;
-            let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
-                                | Some G => G HList.Hnil HList.Hnil
-                                | None => True
-                                end) in
-            let post := reduce_propD g'V post in
-            match post with
-            | ?G =>
-              cut G ;
-                [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
-                  cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
-                  [ admit
-                  | vm_cast_no_check (@eq_refl _ resultV) ]
-                | clear g'V e ]
-            end
-          | Fail => idtac "failed"
-          end
-      in
-      reify_expr_bind reify_imp k [[ True ]] [[ goal ]]
-    end.
 
   Fixpoint seq (n : nat) : list nat :=
     match n with
@@ -517,8 +475,6 @@ Ltac the_solver :=
     | l :: ls => THEN l (runOnGoals (THENS ls))
     end.
 
-  Arguments EASSUMPTION {_ _ _ _ _ _} _ _ _ _ _ _ _.
-
   Definition the_final_tactic : imp_tac :=
     THEN (THENS (sym_eval_no_mem 100 (TRY entailment_tac) ::
                  REPEAT 1000 (EAPPLY andI_lemma) ::
@@ -550,9 +506,9 @@ Ltac the_solver :=
                               TRY (EAPPLY prove_Prop_lemma) ::
                               TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
                                                  TRY EASSUMPTION :: nil)) ::
-                              INSTANTIATE :: TRY prove_eq_tac :: nil)).
+                              INSTANTIATE :: TRY prove_eq_tac :: nil))  ;; MINIFY.
 
-(*
+  (*
 Definition PHASE3_tauto : imp_tac :=
   let leaf :=
       (THENS (   SIMPLIFY
@@ -575,9 +531,9 @@ Definition PHASE3_tauto : imp_tac :=
              :: EAPPLY entails_exL_lemma
              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
              :: tauto_tac leaf :: nil)).
-*)
+   *)
 
-(*
+  (*
 Fixpoint parse_ands (e : expr typ func) : list (expr typ func) :=
   match e with
     | App (App (Inj (inr (ILogicFunc.ilf_and (ModularTypestyBase0 tyProp)))) P) Q =>
@@ -609,162 +565,192 @@ Definition PHASE3_tauto2 : imp_tac :=
              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
              :: EAPPLY go_lower_raw_lemma :: INTRO_All :: BETA_REDUCE
              :: SIMPLIFY :: BETA_REDUCE :: tauto_tac leaf :: nil)).
-*)
+   *)
 
-Ltac reducer :=
-  unfold seq, tonums, map, Ascii.ascii_of_nat, Ascii.ascii_of_N, plus, BinNat.N.of_nat, increment_all, Swap_n, cycle, cycle', assign_linear, Datatypes.length;
-  simpl; unfold Ascii.ascii_of_pos; unfold Ascii.shift; unfold Ascii.one.
+  Ltac reducer :=
+    unfold seq, tonums, map, Ascii.ascii_of_nat, Ascii.ascii_of_N, plus, BinNat.N.of_nat, increment_all, Swap_n, cycle, cycle', assign_linear, Datatypes.length;
+    simpl; unfold Ascii.ascii_of_pos; unfold Ascii.shift; unfold Ascii.one.
 
-Lemma land_apply
-: forall P Q x,
-    @ILogic.land I.lprop I.ILogicOps_lprop P Q x =
-    @ILogic.land I.HProp I.ILogicOps_HProp (P x) (Q x).
-Admitted.
-Lemma get_upd_not
-: forall x y x0 m,
-    x <> y ->
-    I.locals_get x (I.locals_upd y x0 m) =
-    I.locals_get x m.
-Admitted.
-Create HintDb reduce_stuff.
-Hint Rewrite locals_get_locals_upd eval_iexpr_iPlus
-     eval_iexpr_iConst eval_iexpr_iVar land_apply : reduce_stuff.
-Hint Rewrite get_upd_not using congruence : reduce_stuff.
+  Lemma land_apply
+    : forall P Q x,
+      @ILogic.land I.lprop I.ILogicOps_lprop P Q x =
+      @ILogic.land I.HProp I.ILogicOps_HProp (P x) (Q x).
+  Admitted.
+  Lemma get_upd_not
+    : forall x y x0 m,
+      x <> y ->
+      I.locals_get x (I.locals_upd y x0 m) =
+      I.locals_get x m.
+  Admitted.
+  Create HintDb reduce_stuff.
+  Hint Rewrite locals_get_locals_upd eval_iexpr_iPlus
+       eval_iexpr_iConst eval_iexpr_iVar land_apply : reduce_stuff.
+  Hint Rewrite get_upd_not using congruence : reduce_stuff.
 
-Let tyNat := ModularTypes.tyBase0 tyValue.
-Let tyArr := @ModularTypes.tyArr tsym.
-Let tyLocals := ModularTypes.tyBase0 tyLocals.
-Let tyHProp := ModularTypes.tyBase0 tyHProp.
-Let tyProp := ModularTypes.tyBase0 tyProp.
+  Let tyNat := ModularTypes.tyBase0 tyValue.
+  Let tyArr := @ModularTypes.tyArr tsym.
+  Let tyLocals := ModularTypes.tyBase0 tyLocals.
+  Let tyHProp := ModularTypes.tyBase0 tyHProp.
+  Let tyProp := ModularTypes.tyBase0 tyProp.
 
-Definition doIt (todo : imp_tac) :=
-  todo nil nil 0 0 (CTop nil nil)
-       (TopSubst
-          (expr typ
-                (BinNums.positive + imp_func +
-                 ILogicFunc.ilfunc typ)) nil nil)
-       (App
-          (App
-             (Inj
-                (inr
-                   (ILogicFunc.ilf_entails
-                      (tyArr tyLocals tyHProp))))
-             (App
-                (Inj
-                   (inr
-                      (ILogicFunc.ilf_exists tyNat
-                                             (tyArr tyLocals tyHProp))))
-                (Abs tyNat
-                     (Abs tyLocals
-                          (App
-                             (App
-                                (Inj
-                                   (inr
-                                      (ILogicFunc.ilf_and tyHProp)))
-                                (App
-                                   (Inj
-                                      (inr
-                                         (ILogicFunc.ilf_embed
-                                            tyProp tyHProp)))
-                                   (App
-                                      (App
-                                         (Inj
-                                            (inl (inr (pEq tyNat))))
-                                         (Var 1))
-                                      (Inj (inl (inr (pNat 0)))))))
-                             (App
-                                (Inj
-                                   (inr
-                                      (ILogicFunc.ilf_embed
-                                         tyProp tyHProp)))
-                                (App
-                                   (App
-                                      (Inj
-                                         (inl (inr (pEq tyNat))))
-                                      (App
-                                         (App
-                                            (Inj
-                                               (inl (inr pLocals_get)))
-                                            (Inj
-                                               (inl
-                                                  (inr (pVar "A"%string)))))
-                                         (Var 0)))
-                                   (App
-                                      (App
-                                         (Inj (inl (inr natPlus)))
-                                         (Var 1))
-                                      (Inj (inl (inr (pNat 1))))))))))))
-          (Abs tyLocals
+  Definition doIt (todo : imp_tac) :=
+    todo nil nil 0 0 (CTop nil nil)
+         (TopSubst
+            (expr typ
+                  (BinNums.positive + imp_func +
+                   ILogicFunc.ilfunc typ)) nil nil)
+         (App
+            (App
+               (Inj
+                  (inr
+                     (ILogicFunc.ilf_entails
+                        (tyArr tyLocals tyHProp))))
                (App
                   (Inj
                      (inr
-                        (ILogicFunc.ilf_embed tyProp
-                                              tyHProp)))
-                  (App
-                     (App (Inj (inl (inr (pEq tyNat))))
-                          (App
-                             (App
-                                (Inj
-                                   (inl (inr pLocals_get)))
-                                (Inj
-                                   (inl
-                                      (inr (pVar "A"%string)))))
-                             (Var 0)))
-                     (Inj (inl (inr (pNat 1)))))))).
+                        (ILogicFunc.ilf_exists tyNat
+                                               (tyArr tyLocals tyHProp))))
+                  (Abs tyNat
+                       (Abs tyLocals
+                            (App
+                               (App
+                                  (Inj
+                                     (inr
+                                        (ILogicFunc.ilf_and tyHProp)))
+                                  (App
+                                     (Inj
+                                        (inr
+                                           (ILogicFunc.ilf_embed
+                                              tyProp tyHProp)))
+                                     (App
+                                        (App
+                                           (Inj
+                                              (inl (inr (pEq tyNat))))
+                                           (Var 1))
+                                        (Inj (inl (inr (pNat 0)))))))
+                               (App
+                                  (Inj
+                                     (inr
+                                        (ILogicFunc.ilf_embed
+                                           tyProp tyHProp)))
+                                  (App
+                                     (App
+                                        (Inj
+                                           (inl (inr (pEq tyNat))))
+                                        (App
+                                           (App
+                                              (Inj
+                                                 (inl (inr pLocals_get)))
+                                              (Inj
+                                                 (inl
+                                                    (inr (pVar "A"%string)))))
+                                           (Var 0)))
+                                     (App
+                                        (App
+                                           (Inj (inl (inr natPlus)))
+                                           (Var 1))
+                                        (Inj (inl (inr (pNat 1))))))))))))
+            (Abs tyLocals
+                 (App
+                    (Inj
+                       (inr
+                          (ILogicFunc.ilf_embed tyProp
+                                                tyHProp)))
+                    (App
+                       (App (Inj (inl (inr (pEq tyNat))))
+                            (App
+                               (App
+                                  (Inj
+                                     (inl (inr pLocals_get)))
+                                  (Inj
+                                     (inl
+                                        (inr (pVar "A"%string)))))
+                               (Var 0)))
+                       (Inj (inl (inr (pNat 1)))))))).
 
-Definition xxxx := doIt (THENS (   SIMPLIFY
-             :: EAPPLY entails_exL_lemma :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-              :: EAPPLY go_lower_raw_lemma
-              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-              :: REPEAT 200
+(*
+  Eval vm_compute in
+      doIt (THENS (   SIMPLIFY
+                   :: EAPPLY entails_exL_lemma :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+                   :: EAPPLY go_lower_raw_lemma
+                   :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+                   :: REPEAT 200
                    (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil))
-              :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
-              :: TRY (EAPPLY prove_Prop_lemma)
-              :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                             TRY EASSUMPTION :: nil))
-              :: INSTANTIATE
-              :: TRY prove_eq_tac
-              :: nil)).
+                   :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
+                   :: TRY (EAPPLY prove_Prop_lemma)
+                   :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
+                                         TRY EASSUMPTION :: nil))
+                   :: INSTANTIATE
+                   :: TRY prove_eq_tac
+                   :: nil)).
+*)
 
-Eval vm_compute in
-doIt (THENS (   SIMPLIFY
-             :: EAPPLY entails_exL_lemma :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-              :: EAPPLY go_lower_raw_lemma
-              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-              :: REPEAT 200
-                   (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil))
-              :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
-              :: TRY (EAPPLY prove_Prop_lemma)
-              :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                             TRY EASSUMPTION :: nil))
-              :: INSTANTIATE
-              :: TRY prove_eq_tac
-              :: nil)).
+  Ltac ltac_finish :=
+    (intros; eapply embed_ltrue;
+     eapply ILogic.lexistsL; intros;
+     eapply I.go_lower_raw; intro;
+     autorewrite with reduce_stuff;
+     repeat (eapply pull_embed_hyp; intros);
+     try (eapply pull_embed_last_hyp; intros);
+     subst;
+     repeat eapply and_split; eapply prove_Prop; assumption).
+
+  Ltac run_tactic tac :=
+    match goal with
+    | |- ?goal =>
+      let k tbl g :=
+(*
+          let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
+          let resultV := eval vm_compute in result in
+          match resultV with
+          | Solved _ =>
+            change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
+              cut(result = resultV) ;
+              [ admit
+              | vm_cast_no_check (@eq_refl _ resultV) ]
+          | More_ _ ?g' =>
+            pose (g'V := g') ;
+            let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
+                                | Some G => G HList.Hnil HList.Hnil
+                                | None => True
+                                end) in
+            let post := reduce_propD g'V post in
+            match post with
+            | ?G =>
+              cut G ;
+                [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
+                  cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
+                  [ admit
+                  | vm_cast_no_check (@eq_refl _ resultV) ]
+                | try clear g'V g ]
+            end 
+          | Fail => idtac "failed"
+          end
+*)
+          idtac
+      in
+      reify_expr_bind reify_imp k
+                      [[ (fun x : mk_dvar_map term_table (@SymEnv.F typ RType_typ) => True) ]]
+                      [[ goal ]]
+    end.
 
 
-
-Ltac ltac_finish :=
-(intros; eapply I.embed_ltrue;
-eapply ILogic.lexistsL; intros;
-eapply I.go_lower_raw; intro;
-autorewrite with reduce_stuff;
-repeat (eapply I.pull_embed_hyp; intros);
-try (eapply I.pull_embed_last_hyp; intros);
-subst;
-repeat eapply and_split; eapply prove_Prop; assumption).
-
-Goal let lst := (tonums (seq 10)) in
+Goal let lst := (tonums (seq 1)) in
          @ILogic.lentails I.SProp I.ILogicOps_SProp (@ILogic.ltrue I.SProp I.ILogicOps_SProp)
      (I.triple (assign_linear 0 lst)
         (increment_all lst)
         (assign_linear 1 lst)).
-reducer.
-Notation "P //\\ Q" := (@ILogic.land _ _ P Q) (at level 80).
-(* Time (run_tactic PHASE1; ltac_finish).
+Proof.
+  reducer.
+  Notation "P //\\ Q" := (@ILogic.land _ _ P Q) (at level 80).
+  (* Time (run_tactic PHASE1; ltac_finish).
 Time (run_tactic PHASE2; ltac_finish). *)
- Time run_tactic (PHASE3). 
-(* Time run_tactic (PHASE3_tauto). *)
-(* Time run_tactic (PHASE3_tauto2). *)
+  Time run_tactic (PHASE3).
+About Expr_expr.
+Eval compute in exprD' nil nil e (typ0(F:=Prop)).
+  
+  (* Time run_tactic (PHASE3_tauto). *)
+  (* Time run_tactic (PHASE3_tauto2). *)
 Time Qed.
 
 

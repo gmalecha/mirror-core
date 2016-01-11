@@ -335,9 +335,11 @@ Section Tactics.
 
   Definition red_snd := run_tptrn (pdefault_id red_snd_ptrn).
 
+(*
   Definition FST := SIMPLIFY (typ := typ)
                              (fun _ _ _ _ =>
-                                (beta_all (fun _ e args => red_fst (apps e args)))).
+                                reduce (red_beta red_id) (fun _ e args => red_fst (apps e args))).
+*)
 
   Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
   Proof.

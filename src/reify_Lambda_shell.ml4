@@ -1086,8 +1086,8 @@ struct
 (*
     let add_syntax (name : Term.constr) (typ : Term.constr) (e : Environ.env) evm (cmds : Term.constr)
     : syntax_data =
-      debug_pp Pp.(str "adding syntax for " ++ Printer.pr_constr name) ;
-      try
+      debug_pp Pp.(str "adding syntax for " ++ Printer.pr_constr name) ; 
+     try
       let program = parse_command e evm cmds in
       let meta_reifier = make_syntax_data typ program in
       let _ =
@@ -1154,6 +1154,18 @@ struct
   end
 
   let initial_env (env : Environ.env) (evar_map : Evd.evar_map) (tbls : map_type list) =
+    let init_table =
+      let seed_table = !Tables.the_seed_table in
+      let find_default x =
+        try Cmap.find x seed_table
+        with
+          _ -> (* You can not use an undeclared table **)
+          raise (Failure "Bad table setup")
+      in
+      List.fold_left (fun acc tbl ->
+          Cmap.add tbl.table_name (find_default tbl.table_name) acc)
+        Cmap.empty tbls
+    in
     { env = env
     ; evm = evar_map
     ; bindings = []
@@ -1311,34 +1323,43 @@ struct
   let new_table
       : Term.constr * Tables.key_type -> Libobject.obj =
     Libobject.(declare_object
-		 { (default_object "REIFY_NEW_TABLE") with
+		 { (default_object "REIFY_TABLE") with
 		   cache_function = (fun (_,_) ->
 		     (** TODO: I don't know what to do here. **)
 		     ())
-		 ; load_function = fun i (obj_name,value) ->
+		 ; load_function = (fun i (obj_name,value) ->
 		     (** TODO: What do I do about [i] and [obj_name]? **)
+       Printf.eprintf "Loading table\n" ;
 		     let (name,typ) = value in
 		     if Tables.declare_table name typ then
 		       ()
 		     else
-		       Printf.fprintf stderr "error declaring table"
+		       Printf.fprintf stderr "error declaring table")
+                 ; classify_function = (fun a -> Substitute a)
+                 ; subst_function = (fun (sub, (c,kt)) ->
+                     (Mod_subst.subst_mps sub c, kt))
 		 })
 
 
   let new_table_entry
-      : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
+  : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
     Libobject.(declare_object
-		 { (default_object "REIFY_NEW_TABLE_ENTRY") with
+		 { (default_object "REIFY_TABLE_ENTRY") with
 		   cache_function = (fun (_,_) ->
 		     (** TODO: I don't know what to do here. **)
 		     ())
-		 ; load_function = fun i (obj_name,value) ->
+		 ; load_function = (fun i (obj_name,value) ->
 		     (** TODO: What do I do about [i] and [obj_name]? **)
 		     let (tbl_name, key, (ty,value)) = value in
+       Printf.eprintf "Loading table entry %d\n" key ;
 		     if Tables.seed_table tbl_name key ty value then
 		       ()
 		     else
-		       Printf.fprintf stderr "non-existant table"
+		       Printf.fprintf stderr "non-existant table")
+                 ; classify_function = (fun a -> Substitute a)
+                 ; subst_function = (fun (sub, (nm, i, (ty, trm))) ->
+                     (Mod_subst.subst_mps sub nm, i,
+                      (Mod_subst.subst_mps sub ty, Mod_subst.subst_mps sub trm)))
 		 })
 
 
@@ -1380,7 +1401,8 @@ struct
 	Lib.add_anonymous_leaf (new_table_entry (name, key, (ty, value)))
       in true
     else
-      false
+      (Pp.(msg_debug (str "failed to seed table: " ++ Printer.pr_constr name)) ;
+      false)
 
   let seed_typed_table name key ty value =
     if Tables.seed_table name key ty value then
@@ -1388,7 +1410,8 @@ struct
 	Lib.add_anonymous_leaf (new_table_entry (name, key, (ty, value)))
       in true
     else
-      false
+      (Pp.(msg_debug (str "failed to seed typed table: " ++ Printer.pr_constr name)) ;
+      false)
 
   let a_pattern = Std.resolve_symbol pattern_mod "a_pattern"
 
@@ -1636,6 +1659,7 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
   | ["reify_expr_bind" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
     [ let tbls = Reification.parse_tables tbls in
       Proofview.Goal.enter begin fun gl ->
+        Printf.eprintf "table length = %d\n" (List.length tbls) ;
 	try
 	  let (res,tbl_data) =
 	    Reification.reify_all (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)
