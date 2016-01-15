@@ -54,7 +54,17 @@ Module ImpVerify (I : ImpLang).
   Definition imp_tacK := rtacK typ (expr typ func).
 
   Definition ON_ENTAILMENT (yes no : imp_tac) : imp_tac :=
-    yes.
+    let check :=
+        Ptrns.run_default (X:=expr typ func) (T:=bool)
+                          (Ptrns.appr
+                             (Ptrns.appr
+                                (Ptrns.inj
+                                   (FuncView.ptrn_view FuncView_ilfunc
+                                                       (ILogicFunc.fptrn_lentails
+                                                          (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
+                                Ptrns.ignore) Ptrns.ignore)
+                          false in
+    AT_GOAL (fun _ _ gl => if check gl then yes else no).
   Arguments ON_ENTAILMENT _%rtac _%rtac _ _ _ _ _ _ _.
 
   Local Open Scope rtac_scope.
@@ -72,14 +82,24 @@ Module ImpVerify (I : ImpLang).
 
   Local Existing Instance RType_typ.
   Local Existing Instance RTypeOk_typ.
-  Local Existing Instance Expr_expr.
-  Local Existing Instance ExprOk_expr.
   Local Existing Instance Typ2_Fun.
   Local Existing Instance Typ2Ok_Fun.
   Local Existing Instance Typ0_Prop.
   Local Existing Instance Typ0Ok_Prop.
-  Local Existing Instance RS.
-  Local Existing Instance RSOk.
+
+  Section with_fs.
+    Variable fs' : SymEnv.functions typ _.
+
+    Let RS := RS fs'.
+    Local Existing Instance RS.
+    Let RSOk := RSOk fs'.
+    Local Existing Instance RSOk.
+
+    Let Expr_expr := Expr_expr fs'.
+    Local Existing Instance Expr_expr.
+    Let ExprOk_expr := ExprOk_expr fs'.
+    Local Existing Instance ExprOk_expr.
+
 
   Definition INTRO_All : imp_tac := INTRO_all.
   Definition INTRO_Hyp : imp_tac := INTRO_hyp.
@@ -163,10 +183,35 @@ Module ImpVerify (I : ImpLang).
   Qed.
 
   Lemma simplify_tac_sound : rtac_sound simplify_tac.
-  Proof. Admitted.
+  Proof.
+    unfold simplify_tac.
+    eapply SIMPLIFY_sound.
+    eapply full_reducer_to_reducer_sound.
+    eapply RedAll.red_beta_sound.
+    eapply RedAll.red_id_sound.
+  Qed.
+
+  Theorem ON_ENTAILMENT_sound (a b : imp_tac) : rtac_sound a -> rtac_sound b -> rtac_sound (ON_ENTAILMENT a b).
+  Proof.
+    intros. eapply AT_GOAL_sound.
+    intros.
+    destruct (Ptrns.run_default
+         (Ptrns.appr
+            (Ptrns.appr
+               (Ptrns.inj
+                  (FuncView.ptrn_view FuncView_ilfunc
+                     (ILogicFunc.fptrn_lentails
+                        (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
+               Ptrns.ignore) Ptrns.ignore) false e); assumption.
+  Qed.
 
   Lemma entailment_tac_sound : rtac_sound entailment_tac.
-  Proof. Admitted.
+  Proof.
+    eapply ON_ENTAILMENT_sound.
+    - rtac_derive_soundness_default.
+      all: admit.
+    - eapply IDTAC_sound.
+  Admitted.
 
   Lemma entailment_tac_solve_sound : rtac_sound entailment_tac_solve.
   Proof. apply SOLVE_sound. apply entailment_tac_sound. Qed.
@@ -177,58 +222,6 @@ Module ImpVerify (I : ImpLang).
     | _ => exact lems
     end.
 
-(*
-Ltac rtac_derive_soundness' tac tacK lems :=
-  let lems := (auto ; lems) in
-  let rec rtac :=
-      try first [ simple eapply IDTAC_sound
-                | simple eapply FAIL_sound
-                | simple eapply FIRST_sound ; Forall_rtac
-                | simple eapply SOLVE_sound ; rtac
-                | simple eapply THEN_sound ;
-                  [ rtac
-                  | rtacK ]
-                | simple eapply TRY_sound ; rtac
-                | simple eapply REPEAT_sound ; rtac
-                | simple eapply REC_sound ; intros; rtac
-                | simple eapply AT_GOAL_sound ; [ intros ; rtac ]
-                | simple eapply APPLY_sound ; [ lems ]
-                | simple eapply EAPPLY_sound ; [ lems ]
-                | simple eapply runTacK_sound ; [ rtacK ]
-                | solve [ eauto ]
-                | tac rtac rtacK lems
-                ]
-  with rtacK :=
-      try first [ simple eapply runOnGoals_sound ; rtac
-                | simple eapply MINIFY_sound
-                | simple eapply THENK_sound ; [ try rtacK | try rtacK ]
-                | solve [ eauto ]
-                | tacK rtac rtacK lems
-                | eapply runOnGoals_sound ; rtac
-                ]
-  with Forall_rtac :=
-      repeat first [ eapply Forall_nil
-                   | eapply Forall_cons ;
-                     [ rtac
-                     | Forall_rtac ]
-                   | solve [ eauto ] ]
-  in
-  match goal with
-    | |- rtac_sound _ => rtac
-    | |- rtacK_sound _ => rtacK
-    | |- Forall rtac_sound _ => Forall_rtac
-  end.
-
-  Ltac rtac_derive_soundness_default :=
-  rtac_derive_soundness' ltac:(fun rtac _ _ =>
-                                 match goal with
-                                   | |- rtac_sound match ?X with _ => _ end =>
-                                     destruct X; rtac
-                                 end)
-                         ltac:(fun _ _ _ => fail)
-                         ltac:(idtac).
-*)
-
   Lemma EAPPLY_THEN_sound : forall lem tac,
       ReifiedLemma lem -> rtac_sound tac ->
       rtac_sound (EAPPLY_THEN lem tac).
@@ -238,8 +231,11 @@ Ltac rtac_derive_soundness' tac tacK lems :=
 
   Ltac red_lemma :=
     unfold Lemma.lemmaD, Lemma.lemmaD'; simpl; (*
-    unfold ExprDsimul.ExprDenote.exprT_App, ExprDsimul.ExprDenote.exprT_Abs, exprT_Inj, SymEnv.funcD, ExprDsimul.ExprDenote.Rcast_val, ExprDsimul.ExprDenote.Rcast; simpl.
-*) idtac.
+    unfold ExprDsimul.ExprDenote.exprT_App, ExprDsimul.ExprDenote.exprT_Abs,
+           exprT_Inj, SymEnv.funcD, ExprDsimul.ExprDenote.Rcast_val,
+           ExprDsimul.ExprDenote.Rcast; simpl.
+                                                *)
+    idtac.
 
   Lemma EAPPLY_THEN_1_sound
     : forall lem tac1 tac2,
@@ -257,7 +253,7 @@ Ltac rtac_derive_soundness' tac tacK lems :=
        Assert_seq_rule
        Assert_tail_rule Skip_tail_rule
     : the_hints.
-  Axiom INTRO_All_sound : RtacSound INTRO_All.
+  Theorem INTRO_All_sound : RtacSound INTRO_All.
 
   Ltac rtac_derive_soundness_with :=
     rtac_derive_soundness'
@@ -267,7 +263,7 @@ Ltac rtac_derive_soundness' tac tacK lems :=
                     | eapply simplify_tac_sound
                     | eapply entailment_tac_sound
                     | eapply entailment_tac_solve_sound
-                    | eapply INTRO_All_sound
+(*                    | eapply INTRO_All_sound *)
                     | match goal with
                       | |- rtac_sound match ?X with _ => _ end =>
                         destruct X; rtac
@@ -393,7 +389,6 @@ Ltac the_solver :=
     | |- ?goal =>
       let k g :=
           pose (e := g) ;
-          idtac "posed" ;
           let result := constr:(runRtac typ (expr typ func) nil nil e tac) in
           let resultV := eval vm_compute in result in
           pose resultV
