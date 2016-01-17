@@ -51,18 +51,18 @@ Section parameterized.
                          (freshUVars lem.(vars) sub)
                          tus tvs lem goal
       with
-        | None => Fail
-        | Some sub' =>
-          let premises :=
-              map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
-          in
-          reduceResult (* instantiate UVar *)
-                     ctx (CExs (CTop tus tvs) lem.(vars))
-                     (GConj_list premises) sub'
+      | None => Fail
+      | Some sub' =>
+        let premises :=
+            map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
+        in
+        reduceResult (* instantiate UVar *)
+          ctx (CExs (CTop tus tvs) lem.(vars))
+          (GConj_list premises) sub'
       end.
 
   Class ReifiedLemma (L : lemma typ expr expr) : Prop := mkRL
-  { ReifiedLemma_proof : lemmaD (@exprD'_typ0 _ _ _ _ Prop _) nil nil L }.
+  { ReifiedLemma_proof : lemmaD (@exprD_typ0 _ _ _ _ Prop _) nil nil L }.
 
   Hypothesis lemD : ReifiedLemma lem.
 
@@ -156,7 +156,7 @@ Section parameterized.
       simpl in *. forward.
       destruct (drop_exact_append_exact (vars lem) (getUVars ctx)) as [ ? [ ? ? ] ].
       destruct (pctxD_substD H1 H) as [ ? [ ? ? ] ].
-      eapply exprD'_typ0_weakenU with (tus' := lem.(vars)) in H5.
+      eapply exprD_typ0_weakenU with (tus' := lem.(vars)) in H5.
       destruct H5 as [ ? [ ? ? ] ].
       forward_reason.
       repeat match goal with

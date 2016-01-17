@@ -46,7 +46,7 @@ Existing Instance Expr.Expr_expr.
 
 Definition RbaseD (e : expr typ func) (t : typ)
 : option (TypesI.typD t -> TypesI.typD t -> Prop) :=
-  exprD nil nil e (tyArr t (tyArr t tyProp)).
+  env_exprD nil nil (tyArr t (tyArr t tyProp)) e.
 
 Theorem RbaseD_single_type
 : forall (r : expr typ func) (t1 t2 : typ)
@@ -54,9 +54,9 @@ Theorem RbaseD_single_type
          (rD2 : TypesI.typD t2 -> TypesI.typD t2 -> Prop),
     RbaseD r t1 = Some rD1 -> RbaseD r t2 = Some rD2 -> t1 = t2.
 Proof.
-  unfold RbaseD, exprD. simpl; intros.
+  unfold RbaseD, env_exprD. simpl; intros.
   forward.
-  generalize (exprD'_deterministic _ _ _ H0 H). unfold Rty.
+  generalize (lambda_exprD_deterministic _ _ _ H0 H). unfold Rty.
   intros. inversion H3. reflexivity.
 Qed.
 
@@ -106,7 +106,7 @@ Proof.
   destruct r; simpl; try congruence.
   destruct f; simpl; try congruence.
   { unfold RbaseD; simpl.
-    unfold exprD. simpl. intros.
+    unfold env_exprD. simpl. intros.
     autorewrite with exprD_rw in H0.
     forward. inv_all; subst.
     unfold symAs in H0. unfold typeof_sym in H0.
@@ -117,7 +117,7 @@ Proof.
     subst.
     rewrite (UIP_refl r). compute. reflexivity. }
   { unfold RbaseD; simpl.
-    unfold exprD. simpl. intros.
+    unfold env_exprD. simpl. intros.
     autorewrite with exprD_rw in H0.
     forward. inv_all; subst.
     unfold symAs in H0. unfold typeof_sym in H0.
@@ -144,7 +144,7 @@ Proof.
   destruct r; simpl; try congruence.
   destruct f; simpl; try congruence.
   { unfold RbaseD; simpl.
-    unfold exprD. simpl. intros.
+    unfold env_exprD. simpl. intros.
     autorewrite with exprD_rw in H0.
     forward. inv_all; subst.
     unfold symAs in H0. unfold typeof_sym in H0.
@@ -152,7 +152,7 @@ Proof.
     unfold typeof_func in H0.
     forward. }
   { unfold RbaseD; simpl.
-    unfold exprD. simpl. intros.
+    unfold env_exprD. simpl. intros.
     autorewrite with exprD_rw in H0.
     forward. inv_all; subst.
     unfold symAs in H0. unfold typeof_sym in H0.
@@ -162,7 +162,7 @@ Proof.
     simpl. clear. inversion r.
     subst. rewrite (UIP_refl r). compute. congruence. }
   { unfold RbaseD; simpl.
-    unfold exprD. simpl. intros.
+    unfold env_exprD. simpl. intros.
     autorewrite with exprD_rw in H0.
     forward. inv_all; subst.
     unfold symAs in H0. unfold typeof_sym in H0.
@@ -246,9 +246,9 @@ Definition rewrite_db_sound hints : Prop :=
 Lemma simple_reduce_sound :
   forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
          (eD : exprT tus tvs (TypesI.typD t)),
-    ExprDsimul.ExprDenote.exprD' tus tvs t e = Some eD ->
+    ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some eD ->
     exists eD' : exprT tus tvs (TypesI.typD t),
-      ExprDsimul.ExprDenote.exprD' tus tvs t (simple_reduce e) = Some eD' /\
+      ExprDsimul.ExprDenote.lambda_exprD tus tvs t (simple_reduce e) = Some eD' /\
       (forall (us : HList.hlist TypesI.typD tus)
               (vs : HList.hlist TypesI.typD tvs), eD us vs = eD' us vs).
 Proof.
@@ -267,17 +267,17 @@ Proof.
     reflexivity. }
   { intros. ptrnE.
     unfold ptret.
-    eapply exprD'_Abs_prem in H0; forward_reason; subst.
+    eapply lambda_exprD_Abs_prem in H0; forward_reason; subst.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
     generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
     simpl. Cases.rewrite_all_goal. intros; forward.
-    erewrite exprD'_App; try eassumption.
-    2: erewrite exprD'_Abs; try eauto with typeclass_instances.
+    erewrite lambda_exprD_App; try eassumption.
+    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
     2: rewrite typ2_match_iota; eauto with typeclass_instances.
     2: rewrite type_cast_refl; eauto with typeclass_instances.
-    2: erewrite exprD'_App; try eassumption.
-    3: erewrite exprD'_App; try eassumption; eauto.
+    2: erewrite lambda_exprD_App; try eassumption.
+    3: erewrite lambda_exprD_App; try eassumption; eauto.
     2: autorewrite_with_eq_rw; reflexivity.
     simpl. eexists; split; eauto.
     unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.

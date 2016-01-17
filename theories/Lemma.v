@@ -94,7 +94,7 @@ Section lem.
   : option (exprT tus tvs Prop) :=
     match
         Traversable.mapT (T := list) (F := option)
-                         (fun e : expr => exprD'_typ0 tus (vars l ++ tvs) e)
+                         (fun e : expr => exprD_typ0 tus (vars l ++ tvs) e)
                          (premises l)
       , conclusionD tus (vars l ++ tvs) (concl l)
     with
@@ -162,7 +162,7 @@ Section lem.
                   @mapT_Forall2 _ _
                                  (fun e v =>
                                     exists v',
-                                      exprD'_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e = Some v' /\
+                                      exprD_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e = Some v' /\
                                       forall a b c d e,
                                         v a (hlist_app b c) = v' (hlist_app a e) (hlist_app b (hlist_app c d)))
                    _
@@ -175,10 +175,10 @@ Section lem.
           [ | intro XXX; specialize (XXX H) ]
     end.
     { simpl. intros.
-      eapply (exprD'_typ0_weaken tus' tvs') in H1;
+      eapply (exprD_typ0_weaken tus' tvs') in H1;
         eauto with typeclass_instances.
       forward_reason.
-      rewrite exprD'_typ0_conv with (pfu := eq_refl)
+      rewrite exprD_typ0_conv with (pfu := eq_refl)
                                     (pfv := eq_sym (app_ass_trans (vars l) tvs tvs')) in H1.
       autorewrite_with_eq_rw_in H1. forward.
       inv_all; subst.
@@ -193,14 +193,14 @@ Section lem.
     eapply mapT_Forall
     with (P := fun e =>
                  exists v,
-                   exprD'_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e = Some v) in H.
+                   exprD_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e = Some v) in H.
     { eapply mapT_Forall2'
-      with (f := fun e : expr => exprD'_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e)
+      with (f := fun e : expr => exprD_typ0 (tus ++ tus') (vars l ++ tvs ++ tvs') e)
            (ls := l.(premises))
            (R :=
               fun e (v' : exprT (tus ++ tus') (vars l ++ tvs ++ tvs') Prop) =>
                 forall v : exprT tus (vars l ++ tvs) Prop,
-                  exprD'_typ0 tus (vars l ++ tvs) e = Some v ->
+                  exprD_typ0 tus (vars l ++ tvs) e = Some v ->
                   forall us us' vs vs' vs'',
                     v us (hlist_app vs vs') = v' (hlist_app us us')  (hlist_app vs (hlist_app vs' vs''))) in H.
     { destruct H as [ ? [ ? ? ] ].
@@ -244,19 +244,19 @@ Section lem.
     { intros. destruct H2.
       rewrite H2. eexists; split; eauto.
       intros.
-      eapply (exprD'_typ0_weaken tus' tvs') in H3.
+      eapply (exprD_typ0_weaken tus' tvs') in H3.
       destruct H3 as [ ? [ ? ? ] ].
       rewrite H4 with (us' := us') (vs' := vs''); clear H4.
       rewrite hlist_app_assoc.
-      rewrite exprD'_typ0_conv with (pfu := eq_refl) (pfv := app_ass_trans _ _ _) in H2.
+      rewrite exprD_typ0_conv with (pfu := eq_refl) (pfv := app_ass_trans _ _ _) in H2.
       autorewrite_with_eq_rw_in H2.
       rewrite H3 in *. inv_all; subst.
       autorewrite with eq_rw.
       reflexivity. } }
     { intros.
-      eapply (exprD'_typ0_weaken tus' tvs') in H2.
+      eapply (exprD_typ0_weaken tus' tvs') in H2.
       destruct H2 as [ ? [ ? ? ] ].
-      rewrite exprD'_typ0_conv with (pfu := eq_refl)
+      rewrite exprD_typ0_conv with (pfu := eq_refl)
                                       (pfv := eq_sym (app_ass_trans _ _ _)) in H2.
       autorewrite_with_eq_rw_in H2.
       forward. eauto. }

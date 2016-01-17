@@ -16,7 +16,7 @@ Set Strict Implicit.
 
 Module Make (ED : ExprDenote).
 
-  Hint Rewrite @ED.exprD'_Var @ED.exprD'_UVar @ED.exprD'_Inj @ED.exprD'_Abs @ED.exprD'_App using (eauto with typeclass_instances) : exprD_rw.
+  Hint Rewrite @ED.lambda_exprD_Var @ED.lambda_exprD_UVar @ED.lambda_exprD_Inj @ED.lambda_exprD_Abs @ED.lambda_exprD_App using (eauto with typeclass_instances) : exprD_rw.
 
   Section with_types.
     Context {typ : Type}.
@@ -45,11 +45,11 @@ Module Make (ED : ExprDenote).
       { subst. unfold rel_dec; simpl. rewrite type_cast_refl; auto. }
     Qed.
 
-    Theorem exprD'_ind
+    Theorem lambda_exprD_ind
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tvs e t,
-                   ED.exprD' tus tvs t e = None ->
+                   ED.lambda_exprD tus tvs t e = None ->
                    P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
@@ -80,7 +80,7 @@ Module Make (ED : ExprDenote).
                   P tus (d :: tvs) e r (Some fval) ->
                   P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
-        P tus tvs e t (ED.exprD' tus tvs t e).
+        P tus tvs e t (ED.lambda_exprD tus tvs t e).
     Proof.
       intros P tus Pnone Hvar Huvar Hinj Happ Habs tvs e; revert tvs.
       generalize (fun tvs => Pnone tvs e). intro.
@@ -118,7 +118,7 @@ Module Make (ED : ExprDenote).
           (do 3 destruct H0); rewrite H0 in *; clear H0.
           consider (type_cast x t); intros.
           { specialize (fun H => IHe H (t :: tvs) x0).
-            consider (ED.exprD' tus (t :: tvs) x0 e); intros.
+            consider (ED.lambda_exprD tus (t :: tvs) x0 e); intros.
             { eapply Habs in IHe; eauto.
               revert IHe. unfold exprT_Abs.
               destruct r.
@@ -155,11 +155,11 @@ Module Make (ED : ExprDenote).
         auto. }
     Qed.
 
-    Theorem exprD'_ind_with
+    Theorem lambda_exprD_ind_with
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tvs e t,
-                   ED.exprD' tus tvs t e = None ->
+                   ED.lambda_exprD tus tvs t e = None ->
                    P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
@@ -190,14 +190,14 @@ Module Make (ED : ExprDenote).
                   P tus (d :: tvs) e r (Some fval) ->
                   P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
-        P tus tvs e t (ED.exprD' tus tvs t e).
+        P tus tvs e t (ED.lambda_exprD tus tvs t e).
     Proof.
       intros P tus ? ? ? ? ? ? tvs e t.
-      cut (ED.exprD' tus tvs t e = ED.exprD' tus tvs t e /\
-           P tus tvs e t (ED.exprD' tus tvs t e)).
+      cut (ED.lambda_exprD tus tvs t e = ED.lambda_exprD tus tvs t e /\
+           P tus tvs e t (ED.lambda_exprD tus tvs t e)).
       { intuition. }
-      refine (@exprD'_ind (fun tus tvs e t val =>
-                           ED.exprD' tus tvs t e = val /\
+      refine (@lambda_exprD_ind (fun tus tvs e t val =>
+                           ED.lambda_exprD tus tvs t e = val /\
                            P tus tvs e t val) tus _ _ _ _ _ _ tvs e t); eauto.
       { intros; split; eauto.
         autorewrite with exprD_rw.
@@ -240,23 +240,23 @@ Module Make (ED : ExprDenote).
         erewrite IHe; eauto. }
     Qed.
 
-    Theorem exprD'_weaken
+    Theorem lambda_exprD_weaken
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs (e : expr typ func) t val tus' tvs',
-        ED.exprD' tus tvs t e = Some val ->
+        ED.lambda_exprD tus tvs t e = Some val ->
         exists val',
-          ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+          ED.lambda_exprD (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
           forall us vs us' vs',
             val us vs = val' (hlist_app us us') (hlist_app vs vs').
     Proof.
       intros ? ? ? tus tvs e t val tus' tvs'.
       revert e t val.
-      refine (@exprD'_ind
+      refine (@lambda_exprD_ind
                 (fun tus tvs e t val =>
                    forall val'',
                      val = Some val'' ->
                      exists val' : exprT (tus ++ tus') (tvs ++ tvs') (typD t),
-                       ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+                       ED.lambda_exprD (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
                        (forall (us : hlist typD tus) (vs : hlist typD tvs)
                                (us' : hlist typD tus') (vs' : hlist typD tvs'),
                            val'' us vs = val' (hlist_app us us') (hlist_app vs vs')))
@@ -317,12 +317,12 @@ Module Make (ED : ExprDenote).
         erewrite H2. reflexivity. }
     Qed.
 
-    Theorem typeof_expr_exprD'
+    Theorem typeof_expr_lambda_exprD
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t,
         ED.typeof_expr tus tvs e = Some t ->
         exists val,
-          ED.exprD' tus tvs t e = Some val.
+          ED.lambda_exprD tus tvs t e = Some val.
     Proof.
       intros ? ? ? tus tvs e; revert tvs; induction e; simpl; intros;
       autorewrite with exprD_rw; simpl.
@@ -451,20 +451,20 @@ Module Make (ED : ExprDenote).
     { result := _
     ; injection := @typeof_expr_Abs _ _ _ _ _ }.
 
-    Theorem exprD'_single_type
+    Theorem lambda_exprD_single_type
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall tus tvs e t t' val val',
-        ED.exprD' tus tvs t e = Some val ->
-        ED.exprD' tus tvs t' e = Some val' ->
+        ED.lambda_exprD tus tvs t e = Some val ->
+        ED.lambda_exprD tus tvs t' e = Some val' ->
         exists pf : Rty t t',
           Relim (exprT tus tvs) pf val' = val.
     Proof.
       intros tus tvs.
-      refine (@exprD'_ind
+      refine (@lambda_exprD_ind
                           (fun tus tvs e t val'' =>
                              forall t' val val',
                                val'' = Some val ->
-                               ED.exprD' tus tvs t' e = Some val' ->
+                               ED.lambda_exprD tus tvs t' e = Some val' ->
                                exists pf : Rty t t',
                                  Relim (exprT tus tvs) pf val' = val)
                           _ _ _ _ _ _ _ _).
@@ -514,7 +514,7 @@ Module Make (ED : ExprDenote).
           rewrite H0 in *; clear H0.
           destruct (type_cast x d).
           { destruct r0.
-            consider (ED.exprD' tus (x :: tvs0) x0 e); intros.
+            consider (ED.lambda_exprD tus (x :: tvs0) x0 e); intros.
             { eapply H in H0; clear H; eauto.
               destruct H0. destruct x2.
               subst. exists (Rsym x1). unfold exprT_Abs.
@@ -543,12 +543,12 @@ Module Make (ED : ExprDenote).
       forward.
     Qed.
 
-    Theorem exprD'_typeof_expr
+    Theorem lambda_exprD_typeof_expr
     : (*@RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall tus tvs e t,
         ED.typeof_expr tus tvs e = Some t <->
         exists val,
-          ED.exprD' tus tvs t e = Some val.
+          ED.lambda_exprD tus tvs t e = Some val.
     Proof.
       intros tus tvs e; revert tvs.
       induction e; simpl; intros; autorewrite with exprD_rw; simpl.
@@ -603,7 +603,7 @@ Module Make (ED : ExprDenote).
             red in x2. subst. simpl; intros.
             consider (type_cast x0 t); intros.
             { specialize (IHe (t :: tvs) x1).
-              destruct (ED.exprD' tus (t :: tvs) x1 e).
+              destruct (ED.lambda_exprD tus (t :: tvs) x1 e).
               { destruct IHe. rewrite H2; eauto. destruct r. auto. }
               { exfalso. clear - H0. destruct e0. simpl in *; congruence. } }
             { exfalso; clear - H0. destruct e0. simpl in *; congruence. } }
@@ -620,17 +620,17 @@ Module Make (ED : ExprDenote).
           destruct H0. assumption. } }
     Qed.
 
-    Theorem exprD'_type_cast
+    Theorem lambda_exprD_type_cast
     : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t ,
-        ED.exprD' tus tvs t e =
+        ED.lambda_exprD tus tvs t e =
         match ED.typeof_expr (Typ2_Fun:=Typ2_Fun) tus tvs e with
           | None => None
           | Some t' =>
             match @type_cast _ _ t' t with
               | None => None
               | Some cast =>
-                match ED.exprD' tus tvs t' e with
+                match ED.lambda_exprD tus tvs t' e with
                   | None => None
                   | Some x =>
                     Some (fun us gs => ED.Rcast (fun x => x) cast (x us gs))
@@ -642,21 +642,21 @@ Module Make (ED : ExprDenote).
       consider (ED.typeof_expr tus tvs e); intros.
       { consider (type_cast t0 t); intros.
         { symmetry.
-          erewrite ED.exprD'_respects with (pf := Rsym r); eauto.
+          erewrite ED.lambda_exprD_respects with (pf := Rsym r); eauto.
           clear. destruct r.
-          destruct (ED.exprD' tus tvs t0 e); reflexivity. }
-        { consider (ED.exprD' tus tvs t e); auto; intros.
+          destruct (ED.lambda_exprD tus tvs t0 e); reflexivity. }
+        { consider (ED.lambda_exprD tus tvs t e); auto; intros.
           exfalso.
-          rewrite exprD'_typeof_expr in H1.
+          rewrite lambda_exprD_typeof_expr in H1.
           destruct H1.
-          destruct (exprD'_single_type H1 H3).
+          destruct (lambda_exprD_single_type H1 H3).
           destruct x0. rewrite type_cast_refl in H2; eauto.
           congruence. } }
-      { consider (ED.exprD' tus tvs t e); auto.
+      { consider (ED.lambda_exprD tus tvs t e); auto.
         intros. exfalso.
         cut (ED.typeof_expr tus tvs e = Some t).
         congruence.
-        rewrite exprD'_typeof_expr. eauto. }
+        rewrite lambda_exprD_typeof_expr. eauto. }
     Qed.
 
   End with_types.

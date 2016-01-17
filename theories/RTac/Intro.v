@@ -51,7 +51,7 @@ Section parameterized.
     | AsAl t gl' =>
       forall eD e' e'D,
         propD tus tvs e = Some eD ->
-        exprD' tus (tvs ++ t :: nil) e' t = Some e'D ->
+        exprD tus (tvs ++ t :: nil) t e' = Some e'D ->
         (forall us vs x, e'D us (hlist_app vs (Hcons x Hnil)) = x) ->
         exists eD',
           propD tus (tvs ++ t :: nil) (gl' e') = Some eD' /\
@@ -62,7 +62,7 @@ Section parameterized.
     | AsEx t gl' =>
       forall eD e' e'D,
         propD tus tvs e = Some eD ->
-        exprD' (tus ++ t :: nil) tvs e' t = Some e'D ->
+        exprD (tus ++ t :: nil) tvs t e' = Some e'D ->
         (forall us vs x, e'D (hlist_app us (Hcons x Hnil)) vs = x) ->
         exists eD',
           propD (tus ++ t :: nil) tvs (gl' e') = Some eD' /\
@@ -101,16 +101,16 @@ Section parameterized.
         { constructor;
           [ eauto using WellFormed_bimap_empty | constructor ]. }
         simpl. forward.
-        eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
+        eapply exprD_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
         forward_reason.
         assert (exists eD',
-                   exprD' (getUVars ctx ++ t :: nil) (getVars ctx)
-                          (UVar (countUVars ctx)) t = Some eD' /\
+                   exprD (getUVars ctx ++ t :: nil) (getVars ctx)
+                         t (UVar (countUVars ctx)) = Some eD' /\
                    forall us vs x,
                      eD' (hlist_app us (Hcons x Hnil)) vs = x).
         { clear - RTypeOk_typ ExprUVarOk_expr.
           rewrite countUVars_getUVars.
-          destruct (exprD'_exact_uvar (getUVars ctx) nil (getVars ctx) t) as [ ? [ ? ?  ] ].
+          destruct (exprD_exact_uvar (getUVars ctx) nil (getVars ctx) t) as [ ? [ ? ?  ] ].
           eexists; split; eauto. }
         forward_reason.
         specialize (@Hopen _ (UVar (countUVars ctx)) _ eq_refl H4).
@@ -128,16 +128,16 @@ Section parameterized.
       { split.
         { do 2 constructor. }
         simpl. forward.
-        eapply exprD'_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
+        eapply exprD_typ0_weakenU with (tus' := t :: nil) in H2; eauto.
         forward_reason.
         assert (exists eD',
-                   exprD' (getUVars ctx) (getVars ctx ++ t :: nil)
-                          (Var (countVars ctx)) t = Some eD' /\
+                   exprD (getUVars ctx) (getVars ctx ++ t :: nil)
+                         t (Var (countVars ctx)) = Some eD' /\
                    forall us vs x,
                      eD' us (hlist_app vs (Hcons x Hnil)) = x).
         { clear - RTypeOk_typ ExprVarOk_expr.
           rewrite countVars_getVars.
-          destruct (exprD'_exact_var (getUVars ctx) (getVars ctx) nil t) as [ ? [ ? ?  ] ].
+          destruct (exprD_exact_var (getUVars ctx) (getVars ctx) nil t) as [ ? [ ? ?  ] ].
           eexists; split; eauto. }
         forward_reason.
         specialize (@Hopen _ (Var (countVars ctx)) _ eq_refl H4).

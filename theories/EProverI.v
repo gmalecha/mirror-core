@@ -42,7 +42,7 @@ Section proverI.
       (forall sumD subD goalD,
          Valid tus tvs sum = Some sumD ->
          substD tus tvs sub = Some subD ->
-         exprD'_typ0 tus tvs goal = Some goalD ->
+         exprD_typ0 tus tvs goal = Some goalD ->
          exists subD',
            substD tus tvs sub' = Some subD' /\
            forall (us : HList.hlist typD tus)
@@ -54,7 +54,7 @@ Section proverI.
 
   Definition AllProvable tus tvs (es : list expr)
   : option (exprT tus tvs Prop) :=
-    match Traversable.mapT (T:=list) (F:=option) (exprD'_typ0 tus tvs) es with
+    match Traversable.mapT (T:=list) (F:=option) (exprD_typ0 tus tvs) es with
       | None => None
       | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)
     end.

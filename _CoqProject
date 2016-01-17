@@ -34,7 +34,6 @@ theories/Simple.v
 theories/provers/ProverTac.v
 theories/provers/AssumptionProver.v
 theories/provers/DefaultProver.v
-theories/provers/AutoProver.v
 
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
@@ -80,7 +79,6 @@ theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
-theories/Lambda/AutoSetoidRewrite.v
 theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
@@ -175,7 +173,7 @@ examples/Simple/FoldTest.v
 
 examples/Reify/ModularReify.v
 
-examples/Auto/Demo.v
+# examples/Auto/Demo.v
 
 examples/RTac/Demo.v
 

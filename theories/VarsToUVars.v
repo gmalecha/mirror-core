@@ -30,12 +30,11 @@ Section vars_to_uvars.
            (t : typ) (tvs' : list typ)
            (val : hlist typD tus ->
                   hlist typD (tvs ++ tvs') -> typD t),
-      exprD' tus (tvs ++ tvs') e t = Some val ->
+      exprD tus (tvs ++ tvs') t e = Some val ->
       exists
         val' : hlist typD (tus ++ tvs') ->
                hlist typD tvs -> typD t,
-        exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
-               t = Some val' /\
+        exprD (tus ++ tvs') tvs t (vars_to_uvars (length tvs) (length tus) e) = Some val' /\
         (forall (us : hlist typD tus)
                 (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).
@@ -52,7 +51,7 @@ Section vars_to_uvars.
                  us' = hlist_app us vs)
         in Heqe'; eauto.
     { forward_reason.
-      rewrite exprD'_conv with (pfu:=eq_refl) (pfv:=eq_sym (app_nil_r_trans _)) in H0.
+      rewrite exprD_conv with (pfu:=eq_refl) (pfv:=eq_sym (app_nil_r_trans _)) in H0.
       autorewrite_with_eq_rw_in H0.
       forward.
       eexists; split; [ reflexivity | ]. inv_all; subst.
@@ -66,7 +65,7 @@ Section vars_to_uvars.
       forward_reason. eexists; split; eauto.
       intros. subst; eauto. }
     { intros.
-      generalize (@UVar_exprD' typ expr _ _ _ _ (tus ++ tvs') nil (length tus + u) t0).
+      generalize (@UVar_exprD typ expr _ _ _ _ (tus ++ tvs') nil (length tus + u) t0).
       match goal with
         | |- context [ match ?X with _ => _ end ] => destruct X
       end.

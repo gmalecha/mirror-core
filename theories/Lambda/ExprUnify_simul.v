@@ -287,8 +287,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -301,8 +301,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -336,9 +336,9 @@ Section typed.
     WellFormed_subst s ->
     substD tus tvs s = Some sD ->
     subst_lookup u s = Some e ->
-    exprD' tus (tvs' ++ tvs) t (UVar u) = Some eD ->
+    lambda_exprD tus (tvs' ++ tvs) t (UVar u) = Some eD ->
     exists eD',
-      exprD' tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
+      lambda_exprD tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
       forall us vs vs',
         sD us vs ->
         eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
@@ -351,7 +351,7 @@ Section typed.
     forward_reason.
     change_rewrite H3 in H1.
     inv_all; subst.
-    generalize (exprD'_lift tus e nil tvs' tvs x).
+    generalize (lambda_exprD_lift tus e nil tvs' tvs x).
     simpl. change_rewrite H2.
     intro.
     forwardy. eexists; split; eauto.
@@ -581,8 +581,8 @@ Section typed.
          typeof_expr tu (tv' ++ tv) (UVar u) <> None ->
          substD tu tv s = Some sD ->
          exists v1 v2 : exprT tu (tv' ++ tv) (typD t),
-           exprD' tu (tv' ++ tv) t e = Some v1 /\
-           exprD' tu (tv' ++ tv) t (UVar u) = Some v2 /\
+           lambda_exprD tu (tv' ++ tv) t e = Some v1 /\
+           lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
               substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
@@ -611,8 +611,8 @@ Section typed.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
@@ -624,8 +624,8 @@ Section typed.
       forward_reason.
       split; eauto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
       forward_reason.
       destruct H2.
       do 2 eexists.
@@ -683,8 +683,8 @@ Section typed.
          typeof_expr tu (tv' ++ tv) e <> None ->
          substD tu tv s = Some sD ->
          exists v1 v2 : exprT tu (tv' ++ tv) (typD t),
-           exprD' tu (tv' ++ tv) t (UVar u) = Some v1 /\
-           exprD' tu (tv' ++ tv) t e = Some v2 /\
+           lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v1 /\
+           lambda_exprD tu (tv' ++ tv) t e = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
               substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
@@ -717,8 +717,8 @@ Section typed.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
@@ -730,8 +730,8 @@ Section typed.
       forward_reason.
       split; eauto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
       forward_reason.
       destruct H2.
       do 2 eexists.
@@ -746,8 +746,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substR tu tv s s'
@@ -765,8 +765,8 @@ Section typed.
         typeof_expr tu (tv' ++ tv) e2 <> None ->
         substD tu tv s = Some sD ->
         exists v1 v2,
-          exprD' tu (tv' ++ tv) t e1 = Some v1 /\
-          exprD' tu (tv' ++ tv) t e2 = Some v2 /\
+          lambda_exprD tu (tv' ++ tv) t e1 = Some v1 /\
+          lambda_exprD tu (tv' ++ tv) t e2 = Some v2 /\
           exists sD',
              substR tu tv s s'
           /\ substD (expr := expr typ func) tu tv s' = Some sD'
@@ -790,9 +790,9 @@ Section typed.
       { rewrite exprUnify_simul'_eq.
         destruct e2; try solve [ simpl; congruence | eapply handle_uvar_simul with (e := Var v); eauto ].
         forward.
-        eapply ExprFacts.typeof_expr_exprD' in H2; eauto.
+        eapply ExprFacts.typeof_expr_lambda_exprD in H2; eauto.
         destruct H2.
-        eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+        eapply ExprFacts.typeof_expr_lambda_exprD in H0; eauto.
         destruct H0.
         inv_all; subst. destruct H3.
         split; auto.
@@ -847,7 +847,7 @@ Section typed.
             split; auto.
             autorewrite with exprD_rw. simpl.
             intros; forward.
-            eapply H0 in H7; eauto using exprD_typeof_not_None.
+            eapply H0 in H7; eauto using lambda_exprD_typeof_not_None.
             forward_reason.
             forward_exprD.
             inv_all. subst.
@@ -890,8 +890,8 @@ Section typed.
             rewrite typ2_match_iota in * by eauto.
             rewrite eq_Const_eq in *. forward.
             red in r. red in r0. subst. subst.
-            eapply ExprFacts.typeof_expr_exprD' in H6; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H8; eauto.
+            eapply ExprFacts.typeof_expr_lambda_exprD in H6; eauto.
+            eapply ExprFacts.typeof_expr_lambda_exprD in H8; eauto.
             forward_reason.
             repeat match goal with
                      | H : ?X = _ |- context [ ?Y ] =>
@@ -963,8 +963,8 @@ Section typed.
         simpl in H0.
         eapply H0 in H4; try congruence.
         forward_reason.
-        generalize (exprD_typeof_eq _ _ _ _ _ H4 H2).
-        generalize (exprD_typeof_eq _ _ _ _ _ H7 H3).
+        generalize (lambda_exprD_typeof_eq _ _ _ _ _ H4 H2).
+        generalize (lambda_exprD_typeof_eq _ _ _ _ _ H7 H3).
         intros; subst. subst.
         autorewrite with exprD_rw. simpl.
         repeat rewrite typ2_match_iota by eauto.
@@ -1041,7 +1041,7 @@ Section typed.
               eapply handle_set in H2; eauto.
               forward_reason; split; auto.
               intros.
-              specialize (exprD'_lower nil tv' tv (UVar u0) t eq_refl H5).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u0) t eq_refl H5).
               simpl. intros; forward_reason.
               eapply H3 in H6; eauto.
               forward_reason; eexists; split; eauto.
@@ -1056,7 +1056,7 @@ Section typed.
               eapply handle_set in H2; eauto.
               forward_reason; split; auto.
               intros.
-              specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl H4).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u) t eq_refl H4).
               simpl. intros; forward_reason.
               eapply H3 in H6; eauto.
               forward_reason; eexists; split; eauto. split; eauto.
@@ -1088,8 +1088,8 @@ Section typed.
             congruence. } }
         { intro XXX; clear XXX.
           forward.
-          eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-          eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+          eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
+          eapply ExprFacts.typeof_expr_lambda_exprD in H0; eauto.
           inv_all; subst.
           destruct H2.
           consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
@@ -1148,7 +1148,7 @@ Section typed.
               forward_reason; split; auto.
               intros. clear H4 H5.
               forward_reason.
-              specialize (exprD'_lower nil tv' tv (UVar u0) t eq_refl e0).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u0) t eq_refl e0).
               intros; forward_reason.
               simpl in *. eapply H0 in H6; eauto.
               forward_reason.
@@ -1166,7 +1166,7 @@ Section typed.
               forward_reason; split; auto.
               intros. clear H4 H5.
               forward_reason.
-              specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl e).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u) t eq_refl e).
               intros; forward_reason.
               simpl in *. eapply H0 in H6; eauto.
               forward_reason.

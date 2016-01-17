@@ -99,7 +99,7 @@ Module Make (FM : WS with Definition E.t := uvar
                  match nth_error_get_hlist_nth _ tus k with
                    | None => None
                    | Some (existT _ T get) =>
-                     match exprD' tus tvs v T with
+                     match exprD tus tvs T v with
                        | Some val' =>
                          match P with
                            | None => None
@@ -241,7 +241,7 @@ Module Make (FM : WS with Definition E.t := uvar
             (p : FM.key * expr) =>
           match nth_error_get_hlist_nth typD tus (fst p) with
           | Some (existT _ T get) =>
-              match exprD' tus tvs (snd p) T with
+              match exprD tus tvs T (snd p) with
               | Some val' =>
                   match a0 with
                   | Some P1 =>
@@ -306,7 +306,7 @@ Module Make (FM : WS with Definition E.t := uvar
         forwardy. inv_all; subst.
         eapply nth_error_get_hlist_nth_weaken with (ls' := tus') in H0.
         simpl in *.
-        eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H2; eauto with typeclass_instances.
+        eapply exprD_weaken with (tus' := tus') (tvs' := tvs') in H2; eauto with typeclass_instances.
         forward_reason.
         Cases.rewrite_all_goal.
         eapply IHl in H1; eauto with typeclass_instances.
@@ -351,7 +351,7 @@ Module Make (FM : WS with Definition E.t := uvar
                     (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
                   match nth_error_get_hlist_nth typD tus k with
                     | Some (existT _ T get) =>
-                      match exprD' tus tvs v T with
+                      match exprD tus tvs T v with
                         | Some val' =>
                           match P with
                             | Some P0 =>
@@ -381,7 +381,7 @@ Module Make (FM : WS with Definition E.t := uvar
                (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
              match nth_error_get_hlist_nth typD tus k with
                | Some (existT _ T get) =>
-                 match exprD' tus tvs v T with
+                 match exprD tus tvs T v with
                    | Some val' =>
                      match P with
                        | Some P0 =>
@@ -438,7 +438,7 @@ Module Make (FM : WS with Definition E.t := uvar
           raw_substD tus tvs s = Some sD ->
           exists t val get,
             nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) /\
-            exprD' tus tvs e t = Some val /\
+            exprD tus tvs t e = Some val /\
             forall us vs,
               sD us vs ->
               get us = val us vs.
@@ -499,7 +499,7 @@ Module Make (FM : WS with Definition E.t := uvar
           raw_substD tus tvs s = Some sD ->
           exists t val get,
             nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) /\
-            exprD' tus tvs e t = Some val /\
+            exprD tus tvs t e = Some val /\
             forall us vs,
               sD us vs ->
               get us = val us vs.
@@ -648,7 +648,7 @@ Module Make (FM : WS with Definition E.t := uvar
                   let v := instantiate f 0 v in
                   match nth_error_get_hlist_nth typD tus k with
                     | Some (existT _ T get) =>
-                      match exprD' tus tvs v T with
+                      match exprD tus tvs T v with
                         | Some val' =>
                           match P with
                             | Some P0 =>
@@ -724,7 +724,7 @@ Module Make (FM : WS with Definition E.t := uvar
     : forall tus tvs uv e t s sD eD get,
         raw_lookup uv s = None ->
         nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) ->
-        exprD' tus tvs e t = Some eD ->
+        exprD tus tvs t e = Some eD ->
         raw_substD tus tvs s = Some sD ->
         exists sD',
           raw_substD tus tvs (FM.add uv e s) = Some sD' /\
@@ -770,7 +770,7 @@ Module Make (FM : WS with Definition E.t := uvar
              (existT
                 (fun t0 : typ => hlist typD tus -> typD t0) t
                 get) ->
-           exprD' tus tvs e t = Some val ->
+           exprD tus tvs t e = Some val ->
            exists sD' : exprT tus tvs Prop,
              raw_substD tus tvs s' = Some sD' /\
              (forall (us : hlist typD tus) (vs : hlist typD tvs),
@@ -869,7 +869,7 @@ Module Make (FM : WS with Definition E.t := uvar
         raw_substD tus tvs (FM.add k v s) = Some sD ->
         exists sD' t val get,
           raw_substD tus tvs s = Some sD' /\
-          exprD' tus tvs v t = Some val /\
+          exprD tus tvs t v = Some val /\
           nth_error_get_hlist_nth _ tus k = Some (@existT _ _ t get) /\
           forall us vs,
             sD us vs <->
@@ -938,7 +938,7 @@ Module Make (FM : WS with Definition E.t := uvar
         inv_all; subst.
         specialize (H6 _ eq_refl).
         forward_reason. subst.
-        eapply exprD'_strengthenU_single in H5; eauto.
+        eapply exprD_strengthenU_single in H5; eauto.
         forward_reason.
         assert (k < length tus).
         { eapply nth_error_get_hlist_nth_Some in H4. simpl in *.
@@ -976,7 +976,7 @@ Module Make (FM : WS with Definition E.t := uvar
                  (e : expr) (eD : hlist typD tus ->
                                   hlist typD tvs -> typD tu),
                  raw_lookup u s = Some e /\
-                 exprD' tus tvs e tu = Some eD /\
+                 exprD tus tvs tu e = Some eD /\
                  (forall (us : hlist typD tus) (vs : hlist typD tvs),
                     sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs))).
     Proof.
@@ -1003,7 +1003,7 @@ Module Make (FM : WS with Definition E.t := uvar
           replace (length tus - length tus) with 0 in H5.
           forward_reason; inv_all; subst.
           subst.
-          eapply exprD'_strengthenU_single in H4; try eassumption.
+          eapply exprD_strengthenU_single in H4; try eassumption.
           { forward_reason.
             do 2 eexists.
             split; [ eassumption | ].
@@ -1057,7 +1057,7 @@ Module Make (FM : WS with Definition E.t := uvar
                 raw_substD tus tvs s' = Some sD' /\
                 (exists
                     eD : hlist typD tus -> hlist typD tvs -> typD tu,
-                    exprD' tus tvs e tu = Some eD /\
+                    exprD tus tvs tu e = Some eD /\
                     (forall (us : hlist typD tus) (vs : hlist typD tvs),
                        sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs)))).
     Proof.
@@ -1106,7 +1106,7 @@ Module Make (FM : WS with Definition E.t := uvar
            substD tus tvs s = Some sD ->
            nth_error_get_hlist_nth typD tus uv =
            Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
-           exprD' tus tvs e t = Some val ->
+           exprD tus tvs t e = Some val ->
            exists sD' : exprT tus tvs Prop,
              substD tus tvs s' = Some sD' /\
              raw_substR tus tvs s s' /\
@@ -1197,7 +1197,7 @@ Module Make (FM : WS with Definition E.t := uvar
           match nth_error_get_hlist_nth _ tus from with
             | None => None
             | Some (existT _ t getU) =>
-              match exprD' tus tvs e t with
+              match exprD tus tvs t e with
                 | None => None
                 | Some eD =>
                   match list_substD tus tvs (S from) es' with
@@ -1230,7 +1230,7 @@ Module Make (FM : WS with Definition E.t := uvar
               , elem_listD tus tvs ls
           with
             | Some (existT _ t get) , Some P =>
-              match exprD' tus tvs e t with
+              match exprD tus tvs t e with
                 | Some eD => Some (fun us vs => get us = eD us vs /\ P us vs)
                 | _ => None
               end
@@ -1251,7 +1251,7 @@ Module Make (FM : WS with Definition E.t := uvar
         simpl.
         destruct (nth_error_get_hlist_nth typD tus f); try constructor.
         destruct s.
-        destruct (exprD' tus tvs e x).
+        destruct (exprD tus tvs x e).
         { specialize (IHes (S f)).
           destruct IHes; constructor.
           do 5 red. do 5 red in H. intros.
@@ -1276,7 +1276,7 @@ Module Make (FM : WS with Definition E.t := uvar
         destruct IHPermutation. reflexivity.
         destruct (nth_error_get_hlist_nth typD tus n); try constructor.
         destruct s.
-        destruct (exprD' tus tvs e x0); try constructor.
+        destruct (exprD tus tvs x0 e); try constructor.
         do 5 red. do 5 red in H0.
         intros. rewrite H0 by eauto.
         eapply equiv_eq_eq in H1.

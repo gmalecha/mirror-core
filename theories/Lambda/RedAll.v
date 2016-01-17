@@ -37,7 +37,7 @@ Section reducer.
             , nth_error_get_hlist_nth typD tvs n
         with
           | Some vsD , Some (existT _ t get) =>
-            match exprD' tus tvs t l with
+            match lambda_exprD tus tvs t l with
               | None => None
               | Some vD => Some (fun us vs => get vs = vD us vs /\ vsD us vs)
             end
@@ -53,7 +53,7 @@ Section reducer.
          nth_error ls u = Some (Some e) ->
          exists t get (vD : ExprI.exprT tus tvs (typD t)),
            nth_error_get_hlist_nth typD tvs (n + u) = Some (@existT _ _ t get) /\
-           exprD' tus tvs t e = Some vD /\
+           lambda_exprD tus tvs t e = Some vD /\
            forall us vs,
              P us vs -> get vs = vD us vs).
   Proof.
@@ -107,7 +107,7 @@ Section reducer.
              (P : ExprI.exprT tus (t :: tvs) (ExprI.exprT tus' tvs' Prop))
              (P' : ExprI.exprT tus tvs (ExprI.exprT tus' tvs' Prop)),
         @var_termsP tus tvs tus' tvs' p P' ->
-        exprD' tus' tvs' t e = Some eD ->
+        lambda_exprD tus' tvs' t e = Some eD ->
         (forall us (vs : HList.hlist typD (t :: tvs))
                 us' (vs' : HList.hlist typD tvs'),
            P us vs us' vs' ->
@@ -179,12 +179,12 @@ Section reducer.
       @var_termsP tus tvs tus' tvs' var_terms P ->
       forall es t targs fD esD,
       let arrow_type := fold_right (@typ2 _ _ RFun _) t targs in
-      exprD' tus tvs arrow_type e = Some fD ->
+      lambda_exprD tus tvs arrow_type e = Some fD ->
       hlist_build_option
         (fun t => ExprI.exprT tus' tvs' (typD t))
-        (fun t e => exprD' tus' tvs' t e) targs es = Some esD ->
+        (fun t e => lambda_exprD tus' tvs' t e) targs es = Some esD ->
       exists val',
-        exprD' tus' tvs' t (red var_terms e es) = Some val' /\
+        lambda_exprD tus' tvs' t (red var_terms e es) = Some val' /\
         forall us vs us' vs',
           P us vs us' vs' ->
           applys
@@ -199,9 +199,9 @@ Section reducer.
    **)
   Definition partial_reducer_ok (red : partial_reducer) : Prop :=
     forall e es t tus tvs val P,
-      exprD' tus tvs t (apps e es) = Some val ->
+      lambda_exprD tus tvs t (apps e es) = Some val ->
       exists val',
-        exprD' tus tvs t (red e es) = Some val' /\
+        lambda_exprD tus tvs t (red e es) = Some val' /\
         forall us vs,
           P us vs ->
           val us vs = val' us vs.
@@ -235,8 +235,8 @@ Section reducer.
         end
     end.
 
-  Let exprD'_conv :=
-    @ExprI.exprD'_conv typ RT (expr typ sym) (@Expr_expr typ sym RT _ _).
+  Let lambda_exprD_conv :=
+    @ExprI.exprD_conv typ RT (expr typ sym) (@Expr_expr typ sym RT _ _).
 
   Local Lemma get_var_type_ok
   : forall tus tvs tus'  tvs' var_terms P,
@@ -273,7 +273,7 @@ Section reducer.
              by (rewrite app_ass; reflexivity).
         eapply IHvar_termsP; eauto. } }
     { destruct v.
-      { eapply exprD_typeof_Some in H0; eauto.
+      { eapply lambda_exprD_typeof_Some in H0; eauto.
         rewrite ListNth.nth_error_app_R in H2 by omega; eauto.
         cutrewrite (length _tvs + 0 - length _tvs = 0) in H2; [ | omega ].
         simpl in H2. inversion H2; clear H2; subst.
@@ -325,9 +325,9 @@ Section reducer.
       @var_termsP tus tvs tus' tvs' var_terms P ->
       forall _tvs _tvs' v t val,
       let acc := length _tvs' in
-        exprD' tus (_tvs ++ tvs) t (Var (length _tvs + v)) = Some val ->
+        lambda_exprD tus (_tvs ++ tvs) t (Var (length _tvs + v)) = Some val ->
         exists val',
-          exprD' tus' (_tvs' ++ tvs') t (get_var v var_terms acc) = Some val' /\
+          lambda_exprD tus' (_tvs' ++ tvs') t (get_var v var_terms acc) = Some val' /\
           forall us _vs vs us' _vs' vs',
             P us vs us' vs' ->
             val us (hlist_app _vs vs) =
@@ -389,7 +389,7 @@ Section reducer.
         forward_reason.
         rewrite app_length in H7. simpl in H7.
         rewrite Plus.plus_comm in H7. simpl in H7.
-        rewrite exprD'_conv
+        rewrite lambda_exprD_conv
            with (pfu := eq_refl) (pfv := eq_sym (app_ass_trans _ _ _)) in H7.
 
         autorewrite_with_eq_rw_in H7.
@@ -414,7 +414,7 @@ Section reducer.
         symmetry. apply (hlist_eta vs'). } }
     { destruct v.
       { clear IHvar_termsP.
-        generalize (@exprD'_lift typ sym _ _ _ _ _ _ tus' e nil _tvs' tvs' t).
+        generalize (@lambda_exprD_lift typ sym _ _ _ _ _ _ tus' e nil _tvs' tvs' t).
         simpl. rewrite H0. intros; forward.
         assert (t = t0).
         { revert H2.
@@ -535,9 +535,9 @@ Section reducer.
     : forall e var_terms tus tvs tus' tvs' P,
         @var_termsP tus tvs tus' tvs' var_terms P ->
         forall t fD,
-          exprD' tus tvs t e = Some fD ->
+          lambda_exprD tus tvs t e = Some fD ->
           exists val',
-            exprD' tus' tvs' t (idred' var_terms e) = Some val' /\
+            lambda_exprD tus' tvs' t (idred' var_terms e) = Some val' /\
             forall us vs us' vs',
               P us vs us' vs' ->
               fD us vs = val' us' vs'.
@@ -616,15 +616,15 @@ Section reducer.
       eapply idred'_ok in H0; eauto.
       forward_reason.
       assert (exists xD,
-                exprD' tus' tvs' t (apps (idred' var_terms e) es) = Some xD /\
+                lambda_exprD tus' tvs' t (apps (idred' var_terms e) es) = Some xD /\
                 forall us' vs',
                   xD us' vs' =
                   applys
                     (hlist_map (fun t (x : ExprI.exprT tus' tvs' (typD t)) =>
                                   x us' vs') esD) (x us' vs')).
-      { rewrite exprD'_apps by eauto.
+      { rewrite lambda_exprD_apps by eauto.
         unfold apps_sem'.
-        erewrite exprD_typeof_Some by eauto.
+        erewrite lambda_exprD_typeof_Some by eauto.
         rewrite H0. clear H2.
         clear H0. revert H1. revert esD.
         revert x. clear fD. revert es.
@@ -665,9 +665,9 @@ Section reducer.
     forall i e,
       u i = Some e ->
       forall t eD,
-        exprD' nil nil t (Inj i) = Some eD ->
+        lambda_exprD nil nil t (Inj i) = Some eD ->
         exists eD',
-          exprD' nil nil t e = Some eD' /\
+          lambda_exprD nil nil t e = Some eD' /\
           eD Hnil Hnil = eD' Hnil Hnil.
 
   Section build_unfolder.
@@ -695,7 +695,7 @@ Section reducer.
                 let '(s,e) := se in
                 forall t (pf : Some t = typeof_sym s),
                   exists eD',
-                    exprD' nil nil t e = Some eD' /\
+                    lambda_exprD nil nil t e = Some eD' /\
                     symD s = match pf in _ = T return match T with
                                                       | Some t => typD t
                                                       | None => unit
@@ -763,7 +763,7 @@ Section reducer.
         destruct delta_ok. destruct H3. subst.
         clear delta_ok.
         inv_all; subst. clear H0.
-        eapply ExprFacts.exprD'_weaken in H3; eauto.
+        eapply ExprFacts.lambda_exprD_weaken in H3; eauto.
         revert H3. instantiate (1 := tvs). instantiate (1 := tus).
         simpl. intros.
         forward_reason.
@@ -774,7 +774,7 @@ Section reducer.
         f_equal.
         specialize (H2 Hnil Hnil us vs). assumption.
       - intros.
-        rewrite exprD'_apps; eauto.
+        rewrite lambda_exprD_apps; eauto.
         unfold apps_sem'.
         cutrewrite (typeof_expr tus' tvs' (Inj s) =
                     Some (fold_right (typ2 (F:=RFun)) t targs)).
@@ -809,7 +809,7 @@ Section reducer.
             rewrite H. eexists; split; eauto.
             autorewrite_with_eq_rw.
             eauto.
-        + eapply exprD_typeof_Some in H0; eauto.
+        + eapply lambda_exprD_typeof_Some in H0; eauto.
     Qed.
   End delta_list.
 
@@ -821,9 +821,9 @@ Section reducer.
 
     Theorem reduce_ok
     : forall e t tus tvs val P,
-      exprD' tus tvs t e = Some val ->
+      lambda_exprD tus tvs t e = Some val ->
       exists val',
-        exprD' tus tvs t (reduce e) = Some val' /\
+        lambda_exprD tus tvs t (reduce e) = Some val' /\
         forall us vs,
           P us vs ->
           val us vs = val' us vs.

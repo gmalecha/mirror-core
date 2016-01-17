@@ -103,13 +103,13 @@ Section parametric.
   Local Existing Instance RSym_func.
   Local Existing Instance RType_typ.
 
-  Lemma exprD'_App_both_cases : forall tus tvs tx ty f x fD xD,
-      exprD' tus tvs (typ2 tx ty) f = Some fD ->
-      exprD' tus tvs tx x = Some xD ->
-      exprD' tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
+  Lemma lambda_exprD_App_both_cases : forall tus tvs tx ty f x fD xD,
+      lambda_exprD tus tvs (typ2 tx ty) f = Some fD ->
+      lambda_exprD tus tvs tx x = Some xD ->
+      lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
   Proof.
     intros. autorewrite with exprD_rw.
-    erewrite ExprTac.exprD_typeof_Some by eassumption.
+    erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
     rewrite H. rewrite H0.
     reflexivity.
   Qed.
@@ -185,7 +185,7 @@ Section parametric.
     simpl in H0. forward_reason. subst.
     solve_stuff.
     red.
-    unfold Ctx.propD, exprD'_typ0.
+    unfold Ctx.propD, exprD_typ0.
     red_exprD. intros.
     forwardy; inv_all; subst.
     assert (x = typ0 (F:=Prop) /\ x6 = typ0 (F:=Prop) /\ x0 = typ0 (F:=Prop)).
@@ -235,7 +235,7 @@ Section parametric.
       solve_stuff.
       + clear H x1.
         red.
-        unfold Ctx.propD, exprD'_typ0. simpl. intros.
+        unfold Ctx.propD, exprD_typ0. simpl. intros.
         forwardy.
         inv_all. subst.
         unfold symAs in H. simpl in H.
@@ -277,7 +277,7 @@ Section parametric.
       simpl in H3. forward_reason. subst.
       solve_stuff. clear ilo_Prop.
       clear H. destruct x4. simpl.
-      unfold Ctx.propD, exprD'_typ0. simpl.
+      unfold Ctx.propD, exprD_typ0. simpl.
       intros.
       forwardy; inv_all; subst.
       assert (x2 = x0 /\ x = x11 /\ x7 = typ2 x3 x11 /\ x0 = x11).
@@ -295,19 +295,17 @@ Section parametric.
         subst. subst.
         tauto. }
       destruct H2 as [ ? [ ? [ ? ? ] ] ]; subst.
-      eapply exprD'_weakenV with (Expr_expr:=Expr_expr)(tvs':=x3::nil) in H6; eauto.
-      eapply exprD'_weakenV with (Expr_expr:=Expr_expr)(tvs':=x3::nil) in H4; eauto.
+      eapply exprD_weakenV with (Expr_expr:=Expr_expr)(tvs':=x3::nil) in H6; eauto.
+      eapply exprD_weakenV with (Expr_expr:=Expr_expr)(tvs':=x3::nil) in H4; eauto.
       forward_reason.
-      erewrite ExprTac.exprD'_AppL; eauto.
+      erewrite ExprTac.lambda_exprD_AppL; eauto.
       Focus 2.
-      erewrite ExprTac.exprD'_AppR; eauto.
-      2: eapply H4.
+      erewrite ExprTac.lambda_exprD_AppR; eauto.
       red_exprD.
       rewrite <- (@fv_compat _ _ _ _ _ _ _ FVO).
       rewrite H. reflexivity.
       generalize (Red.beta_sound tus (tvs ++ x3 :: nil) (App x1 e') x11).
-      erewrite exprD'_App_both_cases; eauto.
-      2: eapply H2.
+      erewrite lambda_exprD_App_both_cases; eauto.
       intros; forwardy.
       rewrite H7. eexists; split; [ reflexivity | ].
       intros.

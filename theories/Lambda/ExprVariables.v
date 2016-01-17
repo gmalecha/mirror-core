@@ -21,9 +21,9 @@ Section parametric.
   Global Instance ExprUVar_expr : ExprUVar (expr typ func) :=
   { UVar := UVar }.
 
-  Lemma UVar_exprD'
+  Lemma UVar_lambda_exprD
   : forall (tus tvs : tenv typ) (v : ExprI.uvar) (t : typ),
-      match exprD' tus tvs t (UVar v) with
+      match lambda_exprD tus tvs t (UVar v) with
         | Some vD =>
           exists get : OpenT typD tus (typD t),
                        nth_error_get_hlist_nth typD tus v =
@@ -58,15 +58,15 @@ Section parametric.
   Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr.
   Proof.
     constructor.
-    { eapply UVar_exprD'. }
+    { eapply UVar_lambda_exprD. }
     { simpl. eapply EqNat.beq_nat_true_iff. }
   Qed.
 
 
   (** Vars **)
-  Lemma Var_exprD'
+  Lemma Var_lambda_exprD
   : forall (tus tvs : tenv typ) (v : ExprI.uvar) (t : typ),
-      match exprD' tus tvs t (Var v) with
+      match lambda_exprD tus tvs t (Var v) with
         | Some vD =>
           exists get : OpenT typD tvs (typD t),
                        nth_error_get_hlist_nth typD tvs v =
@@ -101,7 +101,7 @@ Section parametric.
   Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr.
   Proof.
     constructor.
-    { eapply Var_exprD'. }
+    { eapply Var_lambda_exprD. }
     { simpl. eapply EqNat.beq_nat_true_iff. }
   Qed.
 

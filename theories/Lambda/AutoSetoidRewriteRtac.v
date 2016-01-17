@@ -291,9 +291,9 @@ Section setoid.
       forall t rD,
       RD RbaseD r t = Some rD ->
       match pctxD cs
-          , exprD' tus (tvs' ++ tvs) t e
+          , lambda_exprD tus (tvs' ++ tvs) t e
           , pctxD cs'
-          , exprD' tus (tvs' ++ tvs) t (ProgressD e e')
+          , lambda_exprD tus (tvs' ++ tvs) t (ProgressD e e')
       with
       | Some _ , Some eD , Some csD' , Some eD' =>
         SubstMorphism cs cs' /\
@@ -337,7 +337,7 @@ Section setoid.
       forall ts t rD,
       RD RbaseD r t = Some rD ->
       match pctxD cs
-          , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) e
+          , lambda_exprD tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) e
           , pctxD cs'
           , RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts)
       with
@@ -449,19 +449,19 @@ Section setoid.
           specialize (H1 _ _ H5).
           forward_reason.
           destruct (pctxD cs) eqn:HpctxDcs; trivial.
-          rewrite exprD'_Abs; eauto with typeclass_instances.
+          rewrite lambda_exprD_Abs; eauto with typeclass_instances.
           rewrite typ2_match_iota; eauto with typeclass_instances.
           unfold Monad.bind, Monad.ret; simpl.
           autorewrite with eq_rw.
           destruct (type_cast x t) eqn:Htcxt; trivial.
           simpl in *.
-          destruct (exprD' (getUVars ctx) (t :: tvs' ++ getVars ctx) x0 e)
+          destruct (lambda_exprD (getUVars ctx) (t :: tvs' ++ getVars ctx) x0 e)
                    eqn:HexprDe; trivial.
           forwardy. forward_reason.
           rewrite H1.
           destruct p.
           { simpl ProgressD in *.
-            rewrite exprD'_Abs; eauto with typeclass_instances.
+            rewrite lambda_exprD_Abs; eauto with typeclass_instances.
             rewrite typ2_match_iota; eauto with typeclass_instances.
             unfold Monad.bind, Monad.ret; simpl.
             autorewrite_with_eq_rw.
@@ -479,7 +479,7 @@ Section setoid.
             red. intros.
             eapply (H (Hcons a vs')). }
           { simpl ProgressD in *.
-            rewrite exprD'_Abs; eauto with typeclass_instances.
+            rewrite lambda_exprD_Abs; eauto with typeclass_instances.
             rewrite typ2_match_iota; eauto with typeclass_instances.
             unfold Monad.bind, Monad.ret; simpl.
             autorewrite_with_eq_rw.
@@ -522,23 +522,23 @@ Section setoid.
     Hypothesis respectfulOk : respectful_spec respectful.
 
     (** TODO(gmalecha): Move **)
-    Lemma exprD'_App
+    Lemma lambda_exprD_App
     : forall tus tvs td tr f x fD xD,
-        exprD' tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
-        exprD' tus tvs td x = Some xD ->
-        exprD' tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
+        lambda_exprD tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
+        lambda_exprD tus tvs td x = Some xD ->
+        lambda_exprD tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
     Proof using Typ2Ok_Fun RSymOk_func RTypeOk_typD.
       intros.
       autorewrite with exprD_rw; simpl.
-      erewrite exprD_typeof_Some by eauto.
+      erewrite lambda_exprD_typeof_Some by eauto.
       rewrite H. rewrite H0. reflexivity.
     Qed.
 
-    Lemma exprD'_Abs_prem
+    Lemma lambda_exprD_Abs_prem
       : forall tus tvs t t' x xD,
-        ExprDsimul.ExprDenote.exprD' tus tvs t (Abs t' x) = Some xD ->
+        ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Abs t' x) = Some xD ->
         exists t'' (pf : typ2 t' t'' = t) bD,
-          ExprDsimul.ExprDenote.exprD' tus (t' :: tvs) t'' x = Some bD /\
+          ExprDsimul.ExprDenote.lambda_exprD tus (t' :: tvs) t'' x = Some bD /\
           xD = match pf with
                | eq_refl => AbsAppI.exprT_Abs bD
                end.
@@ -615,16 +615,16 @@ Section setoid.
             forall r t rD',
               RD RbaseD r t = Some rD' ->
             forall ts fD rD eD,
-              exprD' tus (tvs' ++ tvs) t (apps f (map fst es)) = Some eD ->
-              exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
+              lambda_exprD tus (tvs' ++ tvs) t (apps f (map fst es)) = Some eD ->
+              lambda_exprD tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
               RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts) = Some rD ->
               match pctxD cs
-                  , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f'
+                  , lambda_exprD tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f'
                   , pctxD cs'
               with
               | Some csD , Some fD' , Some csD' =>
                 exists eD',
-                exprD' tus (tvs' ++ tvs) t (ProgressD (apps f' (map fst es)) e') = Some eD' /\
+                lambda_exprD tus (tvs' ++ tvs) t (ProgressD (apps f' (map fst es)) e') = Some eD' /\
                 SubstMorphism cs cs' /\
                 forall us vs,
                   csD' (fun us vs =>
@@ -659,7 +659,7 @@ Section setoid.
         subst. simpl in *.
         destruct prog.
         { simpl.
-          consider (ExprDsimul.ExprDenote.exprD'
+          consider (ExprDsimul.ExprDenote.lambda_exprD
                       (getUVars ctx) (tvs' ++ getVars ctx)
                       t f'); intros; trivial.
           eexists; split; eauto.
@@ -671,7 +671,7 @@ Section setoid.
           inv_all. subst. assumption. }
         { simpl. rewrite H1 in H2. inv_all.
           subst.
-          destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t f'); trivial.
+          destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t f'); trivial.
           eexists; split; eauto.
           split; [ reflexivity | ].
           intros. rewrite H3 in H0. inv_all. subst.
@@ -727,14 +727,14 @@ Section setoid.
           { simpl in *.
             specialize (H0 _ _ H5).
             destruct (pctxD cs) eqn:HpctxDcs; trivial.
-            destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx)
+            destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx)
                              (typ2 t0 (fold_right (typ2 (F:=RFun)) t ts)) f')
-                     eqn:HexprD'f'; trivial.
+                     eqn:Hlambda_exprDf'; trivial.
             specialize (H1 _ _ _ H2 ts).
             red in x4.
-            rewrite exprD'_apps in H3 by eauto with typeclass_instances.
+            rewrite lambda_exprD_apps in H3 by eauto with typeclass_instances.
             unfold apps_sem' in H3.
-            generalize (exprD'_typeof_expr _ (or_introl H4)).
+            generalize (lambda_exprD_typeof_expr _ (or_introl H4)).
             intro Htypeof_f.
             simpl in H3. rewrite Htypeof_f in H3.
             forwardy.
@@ -743,7 +743,7 @@ Section setoid.
             autorewrite_with_eq_rw_in H9. forwardy.
             red in y4. inv_all. subst. clear H9.
             assert (x5 = y1).
-            { eapply exprD_typeof_eq; eauto. }
+            { eapply lambda_exprD_typeof_eq; eauto. }
             destruct (typ2_inj _ _ _ _ x4).
             red in H11; red in H13; subst.
             rewrite H12 in *.
@@ -752,21 +752,21 @@ Section setoid.
             Cases.rewrite_all_goal.
             rewrite H7 in H4; inv_all; subst.
 
-            rewrite (exprD'_apps _ _ _
+            rewrite (lambda_exprD_apps _ _ _
                           (getUVars ctx) (tvs' ++ getVars ctx)
                           (map fst es) (App f a_fst) t).
             unfold apps_sem'. simpl.
             rewrite Htypeof_f.
-            erewrite exprD_typeof_Some by eauto.
+            erewrite lambda_exprD_typeof_Some by eauto.
             unfold type_of_apply.
             rewrite H6.
             rewrite type_cast_refl; eauto with typeclass_instances.
             unfold Relim.
             autorewrite_with_eq_rw.
-            erewrite exprD'_App by eauto.
+            erewrite lambda_exprD_App by eauto.
             rewrite H8.
             intro Hx; specialize (Hx _ _ _ eq_refl eq_refl eq_refl).
-            erewrite exprD'_App in Hx by eauto.
+            erewrite lambda_exprD_App in Hx by eauto.
             forward.
             forward_reason; inv_all; subst.
             destruct e'.
@@ -819,16 +819,16 @@ Section setoid.
             forall r t rD',
               RD RbaseD r t = Some rD' ->
             forall ts fD rD eD,
-              exprD' tus (tvs' ++ tvs) t (apps f (map fst es)) = Some eD ->
-              exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
+              lambda_exprD tus (tvs' ++ tvs) t (apps f (map fst es)) = Some eD ->
+              lambda_exprD tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f = Some fD ->
               RD RbaseD (fold_right Rrespects r rs) (fold_right (typ2 (F:=RFun)) t ts) = Some rD ->
               match pctxD cs
-                  , exprD' tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f'
+                  , lambda_exprD tus (tvs' ++ tvs) (fold_right (typ2 (F:=RFun)) t ts) f'
                   , pctxD cs'
               with
               | Some csD , Some fD' , Some csD' =>
                 exists eD',
-                exprD' tus (tvs' ++ tvs) t (ProgressD (apps f' (map fst es)) e') = Some eD' /\
+                lambda_exprD tus (tvs' ++ tvs) t (ProgressD (apps f' (map fst es)) e') = Some eD' /\
                 SubstMorphism cs cs' /\
                 forall us vs,
                   csD' (fun us vs =>
@@ -963,10 +963,10 @@ Section setoid.
                 specialize (H7 _ _ H8).
                 specialize (fun ts => H4 ts _ _ H8).
                 destruct (pctxD cs) eqn:HpctxDcs; trivial.
-                destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es)))
-                         eqn:HexprD'apps_e_es; trivial.
-                specialize (fun ts fD rD => H5 _ _ _ H8 ts fD rD _ HexprD'apps_e_es).
-                eapply apps_exprD'_fold_type in HexprD'apps_e_es; eauto.
+                destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es)))
+                         eqn:Hlambda_exprDapps_e_es; trivial.
+                specialize (fun ts fD rD => H5 _ _ _ H8 ts fD rD _ Hlambda_exprDapps_e_es).
+                eapply apps_lambda_exprD_fold_type in Hlambda_exprDapps_e_es; eauto.
                 forward_reason.
                 specialize (H4 x4).
                 rewrite H9 in H4.
@@ -1010,10 +1010,10 @@ Section setoid.
                 specialize (H5 _ _ _ H6).
                 specialize (fun tvs' => H4 tvs' _ _ H6).
                 destruct (pctxD cs) eqn:HpctxD_cs; trivial.
-                destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t
-                                 (apps e (map fst es))) eqn:HexprD'_e; trivial.
+                destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t
+                                 (apps e (map fst es))) eqn:Hlambda_exprD_e; trivial.
                 specialize (fun ts fD rD => H5 ts fD rD _ eq_refl).
-                eapply apps_exprD'_fold_type in HexprD'_e; try assumption.
+                eapply apps_lambda_exprD_fold_type in Hlambda_exprD_e; try assumption.
                 forward_reason.
                 specialize (H4 x1).
                 rewrite H7 in H4.
@@ -1043,11 +1043,11 @@ Section setoid.
                 split; auto. intros.
                 specialize (fun ts => H4 ts _ _ H8); specialize (H7 _ _ H8).
                 destruct (pctxD cs) eqn:pctxD_cs; trivial.
-                destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t
-                                 (apps e (map fst es))) eqn:HexprD'apps_e_es; trivial.
+                destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t
+                                 (apps e (map fst es))) eqn:Hlambda_exprDapps_e_es; trivial.
                 specialize (H5 _ _ _ H8).
-                rewrite HexprD'apps_e_es in H5.
-                eapply apps_exprD'_fold_type in HexprD'apps_e_es; try assumption.
+                rewrite Hlambda_exprDapps_e_es in H5.
+                eapply apps_lambda_exprD_fold_type in Hlambda_exprDapps_e_es; try assumption.
                 forward_reason.
                 specialize (H4 x1).
                 generalize (H5 x1); clear H5.
@@ -1071,8 +1071,8 @@ Section setoid.
                 split; auto. intros.
                 specialize (fun ts => H4 ts _ _ H6); specialize (H5 _ _ _ H6).
                 destruct (pctxD cs) eqn:pctxD_cs; trivial.
-                destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))) eqn:HexprD'apps_e_es; trivial.
-                eapply apps_exprD'_fold_type in HexprD'apps_e_es; try assumption.
+                destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))) eqn:Hlambda_exprDapps_e_es; trivial.
+                eapply apps_lambda_exprD_fold_type in Hlambda_exprDapps_e_es; try assumption.
                 forward_reason.
                 specialize (H4 x1).
                 generalize (H5 x1); clear H5.
@@ -1100,8 +1100,8 @@ Section setoid.
               specialize (H5 _ _ _ H3).
               specialize (fun ts => H4 ts _ _ H3).
               destruct (pctxD cs) eqn:HpctxDcs; trivial.
-              destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))) eqn:HexprD'apps_e_es; trivial.
-              destruct (apps_exprD'_fold_type _ _ _ _ _ _ HexprD'apps_e_es).
+              destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))) eqn:Hlambda_exprDapps_e_es; trivial.
+              destruct (apps_lambda_exprD_fold_type _ _ _ _ _ _ Hlambda_exprDapps_e_es).
               forward_reason.
               specialize (H4 x1).
               specialize (fun rD => H5 x1 _ rD _ eq_refl H6).
@@ -1128,10 +1128,10 @@ Section setoid.
               specialize (fun ts => H4 ts _ _ H7).
               specialize (H5 _ _ _ H7).
               destruct (pctxD cs) eqn:HpctxD_cs; trivial.
-              destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t
+              destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t
                                (apps e (map fst es)))
-                       eqn:HexprD'_apps_e_es; trivial.
-              destruct (apps_exprD'_fold_type _ _ _ _ _ _ HexprD'_apps_e_es).
+                       eqn:Hlambda_exprD_apps_e_es; trivial.
+              destruct (apps_lambda_exprD_fold_type _ _ _ _ _ _ Hlambda_exprD_apps_e_es).
               forward_reason.
               specialize (H4 x1).
               rewrite H8 in *.
@@ -1158,7 +1158,7 @@ Section setoid.
           specialize (reflexiveOk _ H0 H2).
           simpl ProgressD in *.
           destruct (pctxD cs') eqn:HpctxDcs'; trivial.
-          destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))); trivial.
+          destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t (apps e (map fst es))); trivial.
           split.
           { reflexivity. }
           { intros. eapply Pure_pctxD; eauto. } }
@@ -1261,12 +1261,12 @@ Section setoid.
       specialize (H4 _ eq_refl).
       revert H4.
       destruct (pctxD s) eqn:HpctxDs; try (clear; tauto).
-      simpl. unfold propD. unfold exprD'_typ0.
+      simpl. unfold propD. unfold exprD_typ0.
       simpl.
-      destruct (exprD' (getUVars ctx) (getVars ctx) (typ0 (F:=Prop)) g);
+      destruct (lambda_exprD (getUVars ctx) (getVars ctx) (typ0 (F:=Prop)) g);
         try solve [ tauto ].
       destruct (pctxD c) eqn:HpctxDc; try solve [ tauto ].
-      destruct (exprD' (getUVars ctx) (getVars ctx) (typ0 (F:=Prop)) new_val);
+      destruct (lambda_exprD (getUVars ctx) (getVars ctx) (typ0 (F:=Prop)) new_val);
         try solve [ tauto ].
       destruct 1; split; try assumption.
       intros.
@@ -1525,34 +1525,34 @@ Section setoid.
         end.
 
     (** TODO: Move **)
-    Lemma exprD'_weakenV
+    Lemma lambda_exprD_weakenV
     : forall (tus tvs : tenv typ) (e : expr typ func) (t : typ)
              (val : exprT tus tvs (typD t)) (tvs' : list typ),
-        exprD' tus tvs t e = Some val ->
+        lambda_exprD tus tvs t e = Some val ->
         exists val' : exprT tus (tvs ++ tvs') (typD t),
-          exprD' tus (tvs ++ tvs') t e = Some val' /\
+          lambda_exprD tus (tvs ++ tvs') t e = Some val' /\
           (forall (us : hlist typD tus) (vs : hlist typD tvs)
                   (vs' : hlist typD tvs'),
               val us vs = val' us (hlist_app vs vs')).
     Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun.
       intros.
-      generalize (@exprD'_weakenV typ _ (expr typ func) _ _ tus tvs tvs' e t val H).
+      generalize (@exprD_weakenV typ _ (expr typ func) _ _ tus tvs tvs' e t val H).
       eauto.
     Qed.
 
     (** TODO: Move **)
-    Lemma exprD'_weakenU
+    Lemma lambda_exprD_weakenU
     : forall (tus tvs : tenv typ) (e : expr typ func) (t : typ)
              (val : exprT tus tvs (typD t)) (tus' : list typ),
-        exprD' tus tvs t e = Some val ->
+        lambda_exprD tus tvs t e = Some val ->
         exists val' : exprT (tus ++ tus') tvs (typD t),
-          exprD' (tus ++ tus') tvs t e = Some val' /\
+          lambda_exprD (tus ++ tus') tvs t e = Some val' /\
           (forall (us : hlist typD tus) (vs : hlist typD tvs)
                   (us' : hlist typD tus'),
               val us vs = val' (hlist_app us us') vs).
     Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun.
       intros.
-      generalize (@exprD'_weakenU typ _ (expr typ func) _ _ tus tus' tvs e t val H).
+      generalize (@exprD_weakenU typ _ (expr typ func) _ _ tus tus' tvs e t val H).
       eauto.
     Qed.
 
@@ -1579,9 +1579,9 @@ Section setoid.
                     (fun (t1 : typ) (x : exprT (getUVars ctx) t (typD t1)) => x us vs) x5
               in
               y3 (hlist_app us us') vs) ->
-          exprD' (getUVars ctx) l t0 e = Some y0 ->
+          lambda_exprD (getUVars ctx) l t0 e = Some y0 ->
           exists e'D : exprT (getUVars ctx) t (typD t0),
-            exprD' (getUVars ctx) t t0
+            lambda_exprD (getUVars ctx) t t0
                    (instantiate (fun u : ExprI.uvar => amap_lookup u x12) 0
                                 (vars_to_uvars 0 (length (getUVars ctx)) e)) =
             Some e'D /\
@@ -1595,7 +1595,7 @@ Section setoid.
       intros ctx t0 x12 x13 l y0 H40 e t y3 x5 Hamap_substD H4 H H13.
       generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ e nil t0 l _ H13).
       destruct 1 as [ ? [ ? ? ] ].
-      eapply ExprI.exprD'_weakenV with (tvs':=t) in H0; eauto with typeclass_instances.
+      eapply ExprI.exprD_weakenV with (tvs':=t) in H0; eauto with typeclass_instances.
       destruct H0 as [ ? [ ? ? ] ].
       destruct (@instantiate_sound typ (expr typ func) _ _ _ (getUVars ctx++l) t
                                    (fun u : ExprI.uvar => amap_lookup u x12)
@@ -1607,7 +1607,7 @@ Section setoid.
         destruct H40. assumption. }
       { eassumption. }
       { destruct H3.
-        eapply exprD'_strengthenU_multi in H3.
+        eapply exprD_strengthenU_multi in H3.
         2: eauto with typeclass_instances.
         { destruct H3 as [ ? [ ? ? ] ].
           eexists; split; try eassumption.
@@ -1666,11 +1666,11 @@ Section setoid.
               RD RbaseD (rel (concl l0)) t = Some rD ->
               match pctxD cs with
               | Some _ =>
-                match exprD' tus tvs t e with
+                match lambda_exprD tus tvs t e with
                 | Some eD =>
                   match pctxD cs' with
                   | Some csD' =>
-                    match exprD' tus tvs t e' with
+                    match lambda_exprD tus tvs t e' with
                     | Some eD' =>
                       SubstMorphism cs cs' /\
                       (forall (us : hlist typD (getAmbientUVars ctx))
@@ -1744,7 +1744,7 @@ Section setoid.
         clear H; rename H6 into H.
         intros.
         destruct (pctxD cs) eqn:HpctxDcs; trivial.
-        destruct (exprD' (getUVars ctx) (getVars ctx) t0 e) eqn:HexprD'e; trivial.
+        destruct (lambda_exprD (getUVars ctx) (getVars ctx) t0 e) eqn:Hlambda_exprDe; trivial.
         simpl in *.
         eapply lemmaD_lemmaD' in Hlem. forward_reason.
         eapply lemmaD'_weakenU with (tus':=getUVars ctx) in H7;
@@ -1767,29 +1767,29 @@ Section setoid.
         { revert H13. revert H6.
           intros. eapply RD_single_type; eauto. }
         subst t. rename y1 into t.
-        generalize (fun tus tvs e t => @ExprI.exprD'_conv typ _ (expr typ func)
+        generalize (fun tus tvs e t => @ExprI.exprD_conv typ _ (expr typ func)
                                           _ tus tus (tvs ++ nil) tvs e t eq_refl
                                           (eq_sym (app_nil_r_trans _))). simpl.
-        intro HexprD'_conv.
-        rewrite HexprD'_conv in H12. autorewrite_with_eq_rw_in H12.
-        rewrite HexprD'_conv in H11. autorewrite_with_eq_rw_in H11.
+        intro Hlambda_exprD_conv.
+        rewrite Hlambda_exprD_conv in H12. autorewrite_with_eq_rw_in H12.
+        rewrite Hlambda_exprD_conv in H11. autorewrite_with_eq_rw_in H11.
         forwardy. inv_all. subst.
 
         generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ _ nil _ _ _ H11).
-        simpl. destruct 1 as [ ? [ HexprD'e_subst ? ] ].
-        eapply exprD'_weakenV with (tvs':=getVars ctx) in HexprD'e_subst; eauto.
-        simpl in HexprD'e_subst. forward_reason.
+        simpl. destruct 1 as [ ? [ Hlambda_exprDe_subst ? ] ].
+        eapply lambda_exprD_weakenV with (tvs':=getVars ctx) in Hlambda_exprDe_subst; eauto.
+        simpl in Hlambda_exprDe_subst. forward_reason.
         intros; subst.
         replace (length (getUVars ctx ++ t :: nil))
            with (S (length (getUVars ctx))) in H15
              by (rewrite app_length; simpl; omega).
-        eapply exprD'_weakenU
-          with (tus':=l0.(vars)) in HexprD'e; eauto.
+        eapply lambda_exprD_weakenU
+          with (tus':=l0.(vars)) in Hlambda_exprDe; eauto.
         destruct (drop_exact_append_exact (vars l0) (getUVars ctx)) as [ ? [ Hx ? ] ].
         rewrite Hx in *; clear Hx.
         destruct (pctxD_substD H1 HpctxDcs) as [ ? [ Hx ? ] ].
         rewrite Hx in *; clear Hx.
-        destruct HexprD'e as [ ? [ Hx ? ] ].
+        destruct Hlambda_exprDe as [ ? [ Hx ? ] ].
         specialize (H5 _ _ _ H15 Hx eq_refl).
         clear Hx.
         forward_reason.
@@ -1854,17 +1854,17 @@ Section setoid.
             split; eauto. }
           { simpl in *.
             forwardy. inv_all. subst.
-            unfold exprD'_typ0 in H.
+            unfold exprD_typ0 in H.
             simpl in H. forwardy.
             generalize (@vars_to_uvars_sound typ (expr typ func) _ _ _ _ _ _ _ _ nil _ _ _ H).
             intro. forward_reason.
-            unfold propD, exprD'_typ0.
+            unfold propD, exprD_typ0.
             simpl in H2.
-            eapply exprD'_weakenV
+            eapply lambda_exprD_weakenV
               with (tvs':=getVars ctx)
                 in H2; eauto.
             forward_reason. simpl in H2.
-            generalize (@exprD'_conv typ _ (expr typ func) _); eauto. simpl.
+            generalize (@exprD_conv typ _ (expr typ func) _); eauto. simpl.
             intro Hx.
             rewrite Hx
                with (pfu:=f_equal _ (eq_sym (app_nil_r_trans _))) (pfv:=eq_refl)
@@ -1925,7 +1925,7 @@ Section setoid.
                  with typeclass_instances.
         destruct H24.
         assert (exists e'D,
-                   exprD' (getUVars ctx) (getVars ctx) t
+                   lambda_exprD (getUVars ctx) (getVars ctx) t
                           (instantiate (fun u : ExprI.uvar => amap_lookup u x12)
                                        0 (vars_to_uvars 0 (length (getUVars ctx)) l0.(concl).(rhs))) = Some e'D /\
                    forall us vs,
@@ -2006,11 +2006,11 @@ Section setoid.
               RD RbaseD (rel (concl l0)) t = Some rD ->
               match pctxD cs with
               | Some _ =>
-                match exprD' tus tvs t e with
+                match lambda_exprD tus tvs t e with
                 | Some eD =>
                   match pctxD cs' with
                   | Some csD' =>
-                    match exprD' tus tvs t e' with
+                    match lambda_exprD tus tvs t e' with
                     | Some eD' =>
                       SubstMorphism cs cs' /\
                       (forall (us : hlist typD (getAmbientUVars ctx))
@@ -2082,9 +2082,9 @@ Section setoid.
 
     Lemma expr_convert_sound
     : forall tus tvs tvs' e t eD,
-        exprD' tus (tvs ++ tvs') t e = Some eD ->
+        lambda_exprD tus (tvs ++ tvs') t e = Some eD ->
         exists eD',
-          exprD' tus (tvs' ++ tvs) t (expr_convert (length tvs) (length tvs') e) = Some eD' /\
+          lambda_exprD tus (tvs' ++ tvs) t (expr_convert (length tvs) (length tvs') e) = Some eD' /\
           forall a b c,
             eD a (hlist_app b c) = eD' a (hlist_app c b).
     Proof using RSymOk_func RTypeOk_typD Typ2Ok_Fun.
@@ -2239,11 +2239,11 @@ Section setoid.
               RD RbaseD r t = Some rD ->
               match pctxD cs with
               | Some _ =>
-                match exprD' tus tvs t e with
+                match lambda_exprD tus tvs t e with
                 | Some eD =>
                   match pctxD cs' with
                   | Some csD' =>
-                    match exprD' tus tvs t e' with
+                    match lambda_exprD tus tvs t e' with
                     | Some eD' =>
                       SubstMorphism cs cs' /\
                       (forall (us : hlist typD (getAmbientUVars ctx))
@@ -2297,7 +2297,7 @@ Section setoid.
             WellFormed_ctx_subst cs ->
             WellFormed_ctx_subst cs' /\
             ((forall e r tus tvs t eD,
-                 exprD' tus tvs t e = Some eD ->
+                 lambda_exprD tus tvs t e = Some eD ->
                  Forall (fun lt =>
                            lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
                            rtacK_sound (snd lt)) (phints e r)) ->
@@ -2305,11 +2305,11 @@ Section setoid.
                  RD RbaseD r t = Some rD ->
                  match pctxD cs with
                  | Some _ =>
-                   match exprD' tus tvs t e with
+                   match lambda_exprD tus tvs t e with
                    | Some eD =>
                      match pctxD cs' with
                      | Some csD' =>
-                       match exprD' tus tvs t e' with
+                       match lambda_exprD tus tvs t e' with
                        | Some eD' =>
                          SubstMorphism cs cs' /\
                          (forall (us : hlist typD (getAmbientUVars ctx))
@@ -2343,7 +2343,7 @@ Section setoid.
                 WellFormed_ctx_subst cs' /\
                 ((forall (tus tvs : tenv typ)
                          (t : typ) (eD : exprT tus tvs (typD t)),
-                     exprD' tus tvs t e = Some eD ->
+                     lambda_exprD tus tvs t e = Some eD ->
                      Forall
                        (fun
                            lt : lemma typ (expr typ func) (rw_concl typ func Rbase) *
@@ -2354,11 +2354,11 @@ Section setoid.
                    RD RbaseD r t = Some rD ->
                    match pctxD cs with
                    | Some _ =>
-                     match exprD' (getUVars ctx) (getVars ctx) t e with
+                     match lambda_exprD (getUVars ctx) (getVars ctx) t e with
                      | Some eD =>
                        match pctxD cs' with
                        | Some csD' =>
-                         match exprD' (getUVars ctx) (getVars ctx) t e' with
+                         match lambda_exprD (getUVars ctx) (getVars ctx) t e' with
                          | Some eD' =>
                            SubstMorphism cs cs' /\
                            (forall (us : hlist typD (getAmbientUVars ctx))
@@ -2745,22 +2745,22 @@ Section setoid.
       destruct (pctxD cs) eqn:HpctxD_cs; trivial.
       destruct (@pctxD_wrap_tvs_ctx_subst tvs' _ _ _ HpctxD_cs) as [ ? [ ? ? ] ].
       rewrite H0 in H3.
-      destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:HexprD'_e; trivial.
-      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:Hlambda_exprD_e; trivial.
+      generalize (@exprD_conv typ _ (expr typ func) _). simpl.
       intro Hconv.
       rewrite Hconv
          with (tus':=getUVars ctx) (tvs':=getVars ctx++tvs')
               (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym (getVars_wrap_tvs tvs' ctx))
            in H3.
       clear Hconv.
-      eapply expr_convert_sound in HexprD'_e.
-      destruct HexprD'_e as [ ? [ Hx ? ] ].
+      eapply expr_convert_sound in Hlambda_exprD_e.
+      destruct Hlambda_exprD_e as [ ? [ Hx ? ] ].
       rewrite Hx in *; clear Hx.
       autorewrite_with_eq_rw_in H3.
       forwardy.
       destruct (pctxD_unwrap_tvs_ctx_subst _ _ _ H3) as [ ? [ HpctxD_x1 ? ] ].
       rewrite HpctxD_x1.
-      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      generalize (@exprD_conv typ _ (expr typ func) _). simpl.
       intro Hconv.
       rewrite Hconv
          with (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym(getVars_wrap_tvs tvs' ctx))
@@ -2825,7 +2825,7 @@ Section setoid.
         (forall r e,
             Forall (fun lt =>
                       (forall tus tvs t eD,
-                          exprD' tus tvs t e = Some eD ->
+                          lambda_exprD tus tvs t e = Some eD ->
                           lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       rtacK_sound (snd lt)) (hints e r)) ->
         setoid_rewrite_spec (using_prewrite_db hints).
@@ -2860,16 +2860,16 @@ Section setoid.
       destruct (pctxD cs) eqn:HpctxD_cs; trivial.
       destruct (@pctxD_wrap_tvs_ctx_subst tvs' _ _ _ HpctxD_cs) as [ ? [ ? ? ] ].
       rewrite H0 in H3.
-      destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:HexprD'_e; trivial.
-      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:Hlambda_exprD_e; trivial.
+      generalize (@exprD_conv typ _ (expr typ func) _). simpl.
       intro Hconv.
       rewrite Hconv
          with (tus':=getUVars ctx) (tvs':=getVars ctx++tvs')
               (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym (getVars_wrap_tvs tvs' ctx))
            in H3.
       clear Hconv.
-      eapply expr_convert_sound in HexprD'_e.
-      destruct HexprD'_e as [ ? [ Hx ? ] ].
+      eapply expr_convert_sound in Hlambda_exprD_e.
+      destruct Hlambda_exprD_e as [ ? [ Hx ? ] ].
       rewrite Hx in *; clear Hx.
       autorewrite_with_eq_rw_in H3.
       match goal with
@@ -2887,7 +2887,7 @@ Section setoid.
       forwardy.
       destruct (pctxD_unwrap_tvs_ctx_subst _ _ _ H3) as [ ? [ HpctxD_x1 ? ] ].
       rewrite HpctxD_x1.
-      generalize (@exprD'_conv typ _ (expr typ func) _). simpl.
+      generalize (@exprD_conv typ _ (expr typ func) _). simpl.
       intro Hconv.
       rewrite Hconv
          with (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym(getVars_wrap_tvs tvs' ctx))
@@ -2948,9 +2948,9 @@ Section setoid.
 
     Hypothesis reducer_sound
     : forall tus tvs t e eD,
-        exprD' tus tvs t e = Some eD ->
+        lambda_exprD tus tvs t e = Some eD ->
         exists eD',
-          exprD' tus tvs t (reducer e) = Some eD' /\
+          lambda_exprD tus tvs t (reducer e) = Some eD' /\
           forall us vs, eD us vs = eD' us vs.
     Hypothesis lr_sound : setoid_rewrite_spec lr.
 
@@ -3001,10 +3001,10 @@ Section setoid.
       forward_reason; split; eauto.
       intros. eapply H1 in H2; clear H1.
       destruct (pctxD cs) eqn:?; auto.
-      destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:?; auto.
+      destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:?; auto.
       destruct (pctxD cs') eqn:?; auto.
       destruct p0; simpl in *.
-      { destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t new_val) eqn:?; try contradiction.
+      { destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t new_val) eqn:?; try contradiction.
         eapply reducer_sound in Heqo2.
         destruct Heqo2 as [ ? [ ? ? ] ].
         rewrite H1. destruct H2; split; auto.
@@ -3012,7 +3012,7 @@ Section setoid.
         gather_facts.
         eapply Pure_pctxD; eauto.
         intros. rewrite <- H3. eauto. }
-      { destruct (exprD' (getUVars ctx) (tvs' ++ getVars ctx) t e); auto. }
+      { destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t e); auto. }
     Qed.
 
   End reduction.
@@ -3029,7 +3029,7 @@ Section setoid.
       match typeof_expr tus tvs p.(term) with
       | Some t =>
         match RD RbaseD p.(relation) t
-            , exprD' tus tvs t p.(term)
+            , lambda_exprD tus tvs t p.(term)
         with
         | Some rD , Some eD =>
           Some (fun us vs => rD (eD us vs) (eD us vs))
@@ -3114,9 +3114,9 @@ Section setoid.
         inv_all. subst.
         simpl in *.
         erewrite split_R_sound by eassumption.
-        destruct (ExprFacts.exprD'_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
+        destruct (ExprFacts.lambda_exprD_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
         simpl in H.
-        generalize (@exprD'_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H4).
+        generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H4).
         unfold Rty. intros.
         revert H5.
         subst y. intros.
@@ -3146,7 +3146,7 @@ Section setoid.
         (forall e r x,
             get e r = Some x ->
             forall tus tvs t eD,
-              exprD' tus tvs e t = Some eD ->
+              lambda_exprD tus tvs t e = Some eD ->
               Lemma.lemmaD Proper_conclD nil nil (lem x)) ->
         rtacK_sound tacK ->
         respectful_spec (apply_prespectful get lem tacK).
@@ -3179,9 +3179,9 @@ Section setoid.
       simpl in Hlem. red in Hlem.
       revert Hlem.
       forward. inv_all. subst.
-      destruct (ExprFacts.exprD'_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
+      destruct (ExprFacts.lambda_exprD_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
       simpl in H.
-      generalize (@exprD'_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H6 H4).
+      generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H6 H4).
       intro. red in H10. revert Hlem. subst.
       simpl in *.
       rewrite Heqp in *.
@@ -3244,7 +3244,7 @@ Section setoid.
                   | None => False
                   | Some t =>
                     match RD RbaseD r t
-                        , exprD' nil nil e t
+                        , lambda_exprD nil nil t e
                     with
                     | Some rD , Some eD =>
                       Proper rD (eD Hnil Hnil)
@@ -3260,7 +3260,7 @@ Section setoid.
           { clear - H.
             red. simpl. unfold lemmaD'. simpl.
             unfold Proper_conclD. simpl.
-            forward. change_rewrite H1. apply H2. }
+            forward. }
           { apply IDTACK_sound. } }
         { eauto. } }
     Qed.

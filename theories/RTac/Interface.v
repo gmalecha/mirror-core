@@ -25,7 +25,7 @@ Section parameterized.
   Definition propD us vs g : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
-    match exprD'_typ0 tus tvs g return Prop with
+    match exprD_typ0 tus tvs g return Prop with
       | None => True
       | Some P => P us vs
     end.
@@ -50,7 +50,7 @@ Section parameterized.
     rewrite (split_env_typeof_env us).
     rewrite (split_env_typeof_env vs).
     intros.
-    destruct (exprD'_typ0 (typeof_env us) (typeof_env vs) g); trivial.
+    destruct (exprD_typ0 (typeof_env us) (typeof_env vs) g); trivial.
     destruct H. constructor. constructor.
     destruct H0.
     eapply H1.
@@ -63,7 +63,7 @@ Section parameterized.
       | Some G => G us vs
       | _ => True
     end ->
-    match exprD'_typ0 tus tvs g return Prop with
+    match exprD_typ0 tus tvs g return Prop with
       | None => True
       | Some P => P us vs
     end.
@@ -84,7 +84,7 @@ Section parameterized.
     rewrite (split_env_typeof_env us).
     rewrite (split_env_typeof_env vs).
     intros.
-    destruct (exprD'_typ0 (typeof_env us) (typeof_env vs) g); trivial.
+    destruct (exprD_typ0 (typeof_env us) (typeof_env vs) g); trivial.
     destruct H. constructor. constructor.
     simpl in *. destruct H1.
     destruct (goalD (typeof_env us) (typeof_env vs) g'); eauto.

@@ -470,8 +470,8 @@ Section setoid.
       match typeof_expr tus tvs c.(lhs) with
       | None => None
       | Some t =>
-        match exprD' tus tvs t c.(lhs)
-            , exprD' tus tvs t c.(rhs)
+        match lambda_exprD tus tvs t c.(lhs)
+            , lambda_exprD tus tvs t c.(rhs)
             , RD c.(rel) t
         with
         | Some lhs , Some rhs , Some rel =>
@@ -493,9 +493,9 @@ Section setoid.
       unfold rw_conclD. simpl. intros.
       forwardy. inv_all. subst.
       erewrite ExprFacts.typeof_expr_weaken by eauto.
-      eapply ExprFacts.exprD'_weaken in H0; eauto.
+      eapply ExprFacts.lambda_exprD_weaken in H0; eauto.
       destruct H0 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
-      eapply ExprFacts.exprD'_weaken in H1; eauto.
+      eapply ExprFacts.lambda_exprD_weaken in H1; eauto.
       destruct H1 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
       rewrite H2. eexists; split; eauto.
       intros. simpl. rewrite <- H0. rewrite <- H1. reflexivity.
@@ -532,7 +532,7 @@ Section setoid.
       unfold flip_rw_concl. simpl.
       unfold rw_conclD in *. simpl in *.
       forwardy.
-      erewrite exprD_typeof_Some; eauto.
+      erewrite lambda_exprD_typeof_Some; eauto.
       Cases.rewrite_all_goal.
       rewrite RD_Rflip'_Rflip.
       simpl.

@@ -30,9 +30,9 @@ Section mext.
   : option (typD m tys t) :=
     let (tus,us) := EnvI.split_env us in
     let (tvs,vs) := EnvI.split_env vs in
-    match @exprD' typ mext
-                  (RType_typ _ _) _ RSym_mext
-                  tus tvs t e
+    match @lambda_exprD typ mext
+                        (RType_typ _ _) _ RSym_mext
+                        tus tvs t e
     with
       | None => None
       | Some val => Some (val us vs)

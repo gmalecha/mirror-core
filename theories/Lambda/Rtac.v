@@ -121,9 +121,9 @@ Section tactics.
     split; auto.
     simpl in *.
     intros.
-    unfold Ctx.propD, exprD'_typ0 in *.
+    unfold Ctx.propD, exprD_typ0 in *.
     forwardy. inv_all; subst.
-    unfold exprD', tus, tvs in *. simpl in *.
+    unfold exprD, tus, tvs in *. simpl in *.
     destruct (@H2 _ _ sD H3 H4 H5); clear H2.
     forward_reason.
     split; eauto.
@@ -155,7 +155,7 @@ Section tactics.
     : reducer_sound (full_reducer_to_reducer inst).
     Proof.
       red; intros.
-      unfold Ctx.propD, exprD'_typ0 in *.
+      unfold Ctx.propD, exprD_typ0 in *.
       forwardy; inv_all; subst.
       assert (vt : var_termsP nil
                               (fun (a : HList.hlist typD (getUVars ctx))
@@ -278,7 +278,7 @@ Section tactics.
       forall (eD : exprT tus tvs Prop),
         Ctx.propD tus tvs e = Some eD ->
         exists gD' : exprT tus tvs (typD (typ2 t (typ0 (F:=Prop)))),
-          exprD' tus tvs gl' (typ2 (F:=RFun) t (typ0 (F:=Prop))) = Some gD' /\
+          exprD tus tvs (typ2 (F:=RFun) t (typ0 (F:=Prop))) gl' = Some gD' /\
           (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
               (exists x : typD t,
                   castD (fun x => x) (typD t -> Prop) (Typ0:=Typ0_Arr _ (Typ0_term _ t) _) (gD' us vs) x) -> eD us vs)
@@ -286,7 +286,7 @@ Section tactics.
       forall (eD : exprT tus tvs Prop),
         Ctx.propD tus tvs e = Some eD ->
         exists gD' : exprT tus tvs (typD (typ2 t (typ0 (F:=Prop)))),
-          exprD' tus tvs gl' (typ2 (F:=RFun) t (typ0 (F:=Prop))) = Some gD' /\
+          exprD tus tvs (typ2 (F:=RFun) t (typ0 (F:=Prop))) gl' = Some gD' /\
           (forall (us : HList.hlist typD tus) (vs : HList.hlist typD tvs),
               (forall x : typD t,
                   castD (fun x => x) (typD t -> Prop) (Typ0:=Typ0_Arr _ (Typ0_term _ t) _) (gD' us vs) x) -> eD us vs)
@@ -308,51 +308,51 @@ Section tactics.
   Local Opaque Red.beta.
 
   (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD'_AppL : forall tus tvs tx ty f x fD,
-      exprD' tus tvs f (typ2 (F:=RFun) tx ty) = Some fD ->
-      exprD' tus tvs (App f x) ty =
-      match exprD' tus tvs x tx with
+  Lemma exprD_AppL : forall tus tvs tx ty f x fD,
+      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
+      lambda_exprD tus tvs ty (App f x) =
+      match exprD tus tvs tx x with
       | None => None
       | Some xD => Some (AbsAppI.exprT_App fD xD)
       end.
   Proof.
     simpl; intros.
-    rewrite exprD'_App.
-    destruct (ExprDsimul.ExprDenote.exprD' tus tvs tx x) eqn:?.
-    { erewrite ExprTac.exprD_typeof_Some by eassumption.
+    rewrite lambda_exprD_App.
+    destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs tx x) eqn:?.
+    { erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
       rewrite H. rewrite Heqo. reflexivity. }
     { destruct (typeof_expr tus tvs x) eqn:?; auto.
-      destruct (ExprDsimul.ExprDenote.exprD' tus tvs (typ2 t ty) f) eqn:?; auto.
+      destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 t ty) f) eqn:?; auto.
       assert (t = tx).
-      { destruct (ExprFacts.exprD'_single_type H Heqo1).
+      { destruct (ExprFacts.lambda_exprD_single_type H Heqo1).
         clear H0. eapply typ2_inj in x0; eauto.
         destruct x0. symmetry. apply H0. }
       { subst. rewrite Heqo. reflexivity. } }
   Qed.
 
   (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD'_AppR : forall tus tvs tx ty f x xD,
-      exprD' tus tvs x tx = Some xD ->
-      exprD' tus tvs (App f x) ty =
-      match exprD' tus tvs f (typ2 tx ty) with
+  Lemma exprD_AppR : forall tus tvs tx ty f x xD,
+      lambda_exprD tus tvs tx x = Some xD ->
+      lambda_exprD tus tvs ty (App f x) =
+      match lambda_exprD tus tvs (typ2 tx ty) f with
       | None => None
       | Some fD => Some (AbsAppI.exprT_App fD xD)
       end.
   Proof.
     simpl; intros.
-    rewrite exprD'_App.
-    erewrite ExprTac.exprD_typeof_Some by eassumption.
+    rewrite lambda_exprD_App.
+    erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
     rewrite H.
     reflexivity.
   Qed.
 
   (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD'_App_both_cases : forall tus tvs tx ty f x fD xD,
-      exprD' tus tvs f (typ2 (F:=RFun) tx ty) = Some fD ->
-      exprD' tus tvs x tx = Some xD ->
-      exprD' tus tvs (App f x) ty = Some (AbsAppI.exprT_App fD xD).
+  Lemma exprD_App_both_cases : forall tus tvs tx ty f x fD xD,
+      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
+      lambda_exprD tus tvs tx x = Some xD ->
+      lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
   Proof.
-    intros. erewrite exprD'_AppR by eassumption.
+    intros. erewrite exprD_AppR by eassumption.
     rewrite H. reflexivity.
   Qed.
 
@@ -367,12 +367,12 @@ Section tactics.
       specialize (H _ H0); clear H0.
       destruct H as [ ? [ ? ? ] ].
       generalize (Red.beta_sound (tus ++ t::nil) tvs (App l e') (typ0 (F:=Prop))).
-      change (ExprDsimul.ExprDenote.exprD' (tus ++ t::nil) tvs (typ0 (F:=Prop)) (App l e'))
-        with (exprD' (tus ++ t::nil) tvs (App l e') (typ0 (F:=Prop))).
-      destruct (@exprD'_weakenU typ _ (expr typ func) Expr_expr _ _ (t::nil) _ l _ x H) as [ ? [ ? ? ] ].
-      erewrite exprD'_App_both_cases; eauto.
+      change (ExprDsimul.ExprDenote.lambda_exprD (tus ++ t::nil) tvs (typ0 (F:=Prop)) (App l e'))
+        with (lambda_exprD (tus ++ t::nil) tvs (typ0 (F:=Prop)) (App l e')).
+      destruct (@exprD_weakenU typ _ (expr typ func) Expr_expr _ _ (t::nil) _ l _ x H) as [ ? [ ? ? ] ].
+      erewrite lambda_exprD_App_both_cases; eauto.
       intros; forwardy.
-      unfold Ctx.propD, exprD'_typ0.
+      unfold Ctx.propD, exprD_typ0.
       change_rewrite H5.
       eexists; split; [ reflexivity | ].
       intros.
@@ -398,12 +398,12 @@ Section tactics.
       simpl in *. intros.
       specialize (H _ H0). destruct H as [ ? [ ? ? ] ].
       generalize (Red.beta_sound tus (tvs ++ t::nil) (App l e') (typ0 (F:=Prop))).
-      change (ExprDsimul.ExprDenote.exprD' tus (tvs ++ t::nil) (typ0 (F:=Prop)) (App l e'))
-      with (exprD' tus (tvs ++ t::nil) (App l e') (typ0 (F:=Prop))).
-      destruct (@exprD'_weakenV typ _ (expr typ func) Expr_expr _ tus tvs (t::nil) _ _ _ H) as [ ? [ ? ? ] ].
-      erewrite exprD'_App_both_cases; eauto.
+      change (ExprDsimul.ExprDenote.lambda_exprD tus (tvs ++ t::nil) (typ0 (F:=Prop)) (App l e'))
+      with (lambda_exprD tus (tvs ++ t::nil) (typ0 (F:=Prop)) (App l e')).
+      destruct (@exprD_weakenV typ _ (expr typ func) Expr_expr _ tus tvs (t::nil) _ _ _ H) as [ ? [ ? ? ] ].
+      erewrite lambda_exprD_App_both_cases; eauto.
       intros; forwardy.
-      unfold Ctx.propD, exprD'_typ0.
+      unfold Ctx.propD, exprD_typ0.
       change_rewrite H6.
       eexists; split; [ reflexivity | ].
       intros.

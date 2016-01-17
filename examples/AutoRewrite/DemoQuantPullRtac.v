@@ -94,8 +94,8 @@ Require Import MirrorCore.Lambda.Expr.
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 
 Ltac reduce_propD g e := eval cbv beta iota zeta delta
-    [ g goalD Ctx.propD exprD'_typ0 exprD' Expr_expr Expr.Expr_expr
-      ExprDsimul.ExprDenote.exprD' func_simul symAs typ0_cast Typ0_Prop
+    [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
       typeof_sym RSym_func type_cast typeof_func RType_typ typ2_match
       Typ2_tyArr typ_eq_dec  typ_rec typ_rect
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
