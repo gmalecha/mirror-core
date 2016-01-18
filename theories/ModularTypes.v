@@ -2,6 +2,7 @@ Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.SigT.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
+Require Import ExtLib.Data.Eq.
 
 Universes Usmall Ularge.
 
@@ -82,15 +83,42 @@ Section parametric.
     | tyApp s ms => applyn (symbolD s) (vector_map mtypD ms)
     end.
 
+  Let getAppN (a : mtyp) : nat :=
+    match a with
+    | @tyApp n _ _ => n
+    | _ => 0
+    end.
+  Let getApp_f_ms (a : mtyp)
+  : option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) :=
+    match a as a return option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) with
+    | @tyApp n a b => Some (a,b)
+    | _ => None
+    end.
+
+  Theorem UIP_nat : forall {a b : nat} (pf pf' : a = b), pf = pf'.
+  Proof using.
+    eapply uip_trans. eapply PeanoNat.Nat.eq_dec.
+  Defined.
+
   Instance Injective_tyApp {n n'} {s : symbol (3+n)} {s' : symbol (3+n')}
            ms ms' : Injective (tyApp s ms = tyApp s' ms') :=
   { result := forall pf : n' = n,
       s = match pf with eq_refl => s' end /\
       ms = match pf with eq_refl => ms' end }.
   Proof.
-    intros. subst.
-    inversion H.
-    inv_all. tauto.
+    intros.
+    refine (match H in _ = (@tyApp n' l r)
+                  return forall pf : n' = n,
+                s = match pf in _ = X return symbol (3 + X) with
+                    | eq_refl => l
+                    end /\ ms = match pf with
+                                | eq_refl => r
+                                end
+            with
+            | eq_refl => fun pf => _
+            end pf).
+    rewrite (UIP_nat pf eq_refl).
+    split; reflexivity.
   Defined.
 
   Fixpoint mtyp_dec (a b : mtyp) : {a = b} + {a <> b}.
@@ -142,14 +170,14 @@ Section parametric.
       | right _ => right _
       end
     | _ , _ => right _
-    end; try solve [ subst; reflexivity
-                   | intro; congruence
-                   | intro H; inversion H; congruence ].
-  intro. subst. apply n0.
-  inv_all. specialize (H eq_refl). simpl in H.
-  tauto.
-  subst. intro. apply n0.
-  clear - H. inv_all. specialize (H eq_refl). tauto.
+    end;
+  try solve [ clear ; intro pf; inversion pf
+            | intro pf ; inversion pf; auto ].
+  { subst; reflexivity. }
+  { clear - n0. intro. inv_all.
+    specialize (H pf). destruct H. auto. }
+  { clear - n0. intro; inv_all.
+    specialize (H pf). destruct H; auto. }
   Defined.
 
   Fixpoint mtyp_cast (a b : mtyp) : option (a = b).
@@ -212,8 +240,6 @@ Section parametric.
   | tyAcc_tyBase2L : forall s b, mtyp_acc a (tyBase2 s a b)
   | tyAcc_tyBase2R : forall s b, mtyp_acc a (tyBase2 s b a)
   | tyAcc_tyApp    : forall n s ms, vector_In a ms -> mtyp_acc a (@tyApp n s ms).
-
-
 
   Theorem wf_mtyp_acc : well_founded mtyp_acc.
   Proof using.

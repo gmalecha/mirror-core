@@ -8,35 +8,6 @@ Require Import McExamples.Hoare.ImpMetaTheory.
 Require Import McExamples.Hoare.LogicTac.
 Require McExamples.Hoare.Tests.
 
-(*
-Local Existing Instance SS.
-Local Existing Instance SU.
-Local Existing Instance RSym_ilfunc.
-Local Existing Instance RS.
-Local Existing Instance RSOk.
-Local Existing Instance Expr_expr.
-Local Existing Instance ExprOk_expr.
-*)
-
-(*
-Fixpoint THENS (ls : list (rtac typ (expr typ func))) : imp_tac :=
-  match ls with
-    | nil => IDTAC
-    | l :: ls => THEN l (runOnGoals (THENS ls))
-  end.
-*)
-(*
-Definition side_solver : imp_tac :=
-  THENS (TRY (THENS (EAPPLY go_lower_lemma ::
-                            INTRO_All ::
-                            BETA_REDUCE :: nil)) ::
-             TRY (EAPPLY embed_ltrue_lemma) ::
-             SIMPLIFY ::
-             STacCancel.stac_cancel ::
-             SIMPLIFY :: tauto_tac :: nil).
-*)
-
-
 Module ImpVerify (I : ImpLang).
   Module Import Syntax := ImpSyntax I.
   Module Import MetaTheory := ImpTheory I.
@@ -153,6 +124,8 @@ Module ImpVerify (I : ImpLang).
   Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
     SeqA_lemma : I.SeqA_rule.
 
+
+
   Definition sym_eval_no_mem (n : nat) (rest : imp_tac) : imp_tac :=
     REC n (fun rec : imp_tac =>
              let rec : imp_tac := simplify_tac ;; rec in
@@ -196,16 +169,33 @@ Module ImpVerify (I : ImpLang).
                Ptrns.ignore) Ptrns.ignore) false e); assumption.
   Qed.
 
-  Lemma entailment_tac_sound : rtac_sound entailment_tac.
+  Instance RtacSound_SIMPLIFY : RtacSound SIMPLIFY.
   Proof.
-    eapply ON_ENTAILMENT_sound.
-    - rtac_derive_soundness_default.
-      all: admit.
-    - eapply IDTAC_sound.
-  Admitted.
+    eapply mkRtacSound.
+    eapply SIMPLIFY_sound.
+    eapply full_reducer_to_reducer_sound.
+    eapply RedAll.red_beta_sound.
+    eapply RedAll.red_id_sound.
+  Qed.
 
-  Lemma entailment_tac_solve_sound : rtac_sound entailment_tac_solve.
-  Proof. apply SOLVE_sound. apply entailment_tac_sound. Qed.
+  Instance RtacSound_INTRO_Hyp : RtacSound INTRO_Hyp.
+  Proof.
+    eapply (RtacSound_INTRO_hyp lops eops).
+    Unshelve.
+    2: reflexivity.
+    eapply ViewSum.FuncViewOk_right.
+    eapply FuncView.FuncViewOk_id.
+  Qed.
+
+  Instance RL_embeD_ltrue : ReifiedLemma embed_ltrue_lemma.
+  Proof.
+    constructor. unfold Lemma.lemmaD. simpl.
+    eapply embed_ltrue.
+  Defined.
+  Instance RL_entails_exL : ReifiedLemma entails_exL_lemma.
+  Proof. constructor; unfold Lemma.lemmaD. simpl.
+         eapply entails_exL.
+  Qed.
 
   Ltac one_of lems :=
     match lems with
@@ -245,51 +235,9 @@ Module ImpVerify (I : ImpLang).
        Assert_tail_rule Skip_tail_rule
     : the_hints.
 
-  Lemma tsym0_case : forall x : tsym 0,
-      x = tyLocals \/ x = tyCmd \/ x = tyProp \/ x = tyHProp \/ x = tySProp \/ x = tyVariable \/ x = tyExpr \/ x = tyValue.
-  Proof using.
-    intro.
-    refine
-      match x as x in tsym n
-            return match n as n return tsym n -> Prop with
-                   | 0 => fun x => _
-                   | S _ => fun _ => True
-                   end x
-      with
-      | tyLocals => _
-      | _ => _
-      end; tauto.
-  Qed.
-
-
-  Theorem lops_ok : ILogicFunc.logic_opsOk lops.
-  Proof.
-    red.
-    destruct g; simpl; auto.
-    { destruct g1; auto.
-      destruct g2; auto.
-      clear.
-      destruct (tsym0_case t);
-        repeat match goal with
-               | H : _ \/ _ |- _ => destruct H
-               end; subst; auto.
-      destruct (tsym0_case t0);
-        repeat match goal with
-               | H : _ \/ _ |- _ => destruct H
-               end; subst; auto.
-      simpl.
-      eapply ILogic.ILogic_Fun. eapply I.ILogic_HProp. }
-    { destruct (tsym0_case t);
-      repeat match goal with
-             | H : _ \/ _ |- _ => destruct H
-             end; subst; eauto with typeclass_instances; simpl.
-      eapply ILogic.ILogic_Prop. }
-  Qed.
-
-  Theorem INTRO_All_sound : RtacSound INTRO_All.
+  Instance INTRO_All_sound : RtacSound INTRO_All.
   Proof.
     unfold INTRO_All, INTRO_all.
-    constructor.
     eapply INTRO_ptrn_sound.
     { unfold intro_ptrn_all.
       repeat first [ simple eapply Ptrns.ptrn_ok_por
@@ -308,6 +256,36 @@ Module ImpVerify (I : ImpLang).
       - reflexivity. }
   Qed.
 
+
+  Instance RL_Assign_tail : ReifiedLemma Assign_tail_lemma.
+  Proof. constructor; red; simpl. eapply Assign_tail_rule. Qed.
+
+  Instance RL_Assign_seq : ReifiedLemma Assign_seq_lemma.
+  Proof. constructor; red; simpl. apply Assign_seq_rule. Qed.
+
+  Instance RL_lower_raw : ReifiedLemma go_lower_raw_lemma.
+  Proof. constructor. unfold Lemma.lemmaD. simpl.
+         eapply go_lower_raw.
+  Qed.
+
+  Instance RL_pull_embed_hyp : ReifiedLemma pull_embed_hyp_lemma.
+  Proof. constructor. unfold Lemma.lemmaD. simpl.
+         eapply pull_embed_hyp.
+  Qed.
+
+  Instance RL_pull_embed_last : ReifiedLemma pull_embed_last_lemma.
+  Proof. constructor. unfold Lemma.lemmaD. simpl.
+         eapply pull_embed_last_hyp.
+  Qed.
+
+  Lemma entailment_tac_sound : rtac_sound entailment_tac.
+  Proof.
+    eapply ON_ENTAILMENT_sound; rtac_derive_soundness_default.
+  Qed.
+
+  Lemma entailment_tac_solve_sound : rtac_sound entailment_tac_solve.
+  Proof. apply SOLVE_sound. apply entailment_tac_sound. Qed.
+
   Ltac rtac_derive_soundness_with :=
     rtac_derive_soundness'
       ltac:(fun rtac rtacK lem =>
@@ -323,21 +301,33 @@ Module ImpVerify (I : ImpLang).
                       end ])
              ltac:(fun _ _ => fail)
                     ltac:(try solve [ red_lemma; eauto with the_hints
-                                    | one_of I.triple_exL ]).
+                                    | one_of I.triple_exL
+                                    | eauto with typeclass_instances ]).
+
+
+  Instance RL_SeqA : ReifiedLemma SeqA_lemma.
+  Proof. constructor; red; simpl. eapply I.SeqA_rule. Qed.
+  Instance RL_triple_exL : ReifiedLemma triple_exL_lemma.
+  Proof. constructor; red; simpl. eapply I.triple_exL. Qed.
+  Instance RL_Skip_seq : ReifiedLemma Skip_seq_lemma.
+  Proof. constructor; red; simpl. eapply Skip_seq_rule. Qed.
+  Instance RL_Assert_seq : ReifiedLemma Assert_seq_lemma.
+  Proof. constructor; red; simpl. eapply Assert_seq_rule. Qed.
+  Instance RL_Skip_tail : ReifiedLemma Skip_tail_lemma.
+  Proof. constructor; red; simpl. eapply Skip_tail_rule. Qed.
+  Instance RL_Assert_tail : ReifiedLemma Assert_tail_lemma.
+  Proof. constructor; red; simpl. eapply Assert_tail_rule. Qed.
 
   Theorem sym_eval_no_mem_sound
-  : forall n t, RtacSound t -> rtac_sound (sym_eval_no_mem n t).
+  : forall n t, RtacSound t -> RtacSound (sym_eval_no_mem n t).
   Proof.
     intros. unfold sym_eval_no_mem.
-(*
     rtac_derive_soundness_with.
   Qed.
-*)
-  Admitted.
 
-  Ltac reduce_propD g e := eval cbv beta iota zeta delta
-    [ g Quant._foralls goalD Ctx.propD exprD'_typ0 exprD' Expr_expr Expr.Expr_expr
-      ExprDsimul.ExprDenote.exprD' symAs typ0_cast
+  Ltac reduce_propD tbl g e := eval cbv beta iota zeta delta
+    [ tbl g Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
       typeof_sym type_cast RType_typ typ2_match
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
@@ -345,7 +335,7 @@ Module ImpVerify (I : ImpLang).
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
       ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
 
-      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec 
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
       typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
       FMapPositive.PositiveMap.empty
       RS ModularTypes.Typ0_sym
@@ -359,6 +349,184 @@ Module ImpVerify (I : ImpLang).
       SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
       ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
       fAssign fTriple fSkip
+e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+      mkExt mkLogic mkImp
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
+      typeof_sym Syntax.RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+
+
+  var uvar typeof_sym type_cast typD typ2_match typ2_cast typ2 tenv
+      symD symAs
+      HList.nth_error_get_hlist_nth ExprDsimul.ExprDenote.lambda_exprD
+      HList.hlist_tl HList.hlist_hd
+      ExprDsimul.ExprDenote.func_simul
+      exprT_UseU exprT_UseV exprT_Inj
+      ExprDsimul.ExprDenote.exprT_GetVAs
+      ExprDsimul.ExprDenote.exprT_GetUAs
+      AbsAppI.exprT_App
+      exprT
+      eq_trans
+      eq_sym
+      Rty
+      Rsym
+      Relim
+      RFun
+      OpenT
+      ExprDsimul.ExprDenote.Rcast_val
+      ExprDsimul.ExprDenote.Rcast
+
+      BinPos.Pos.succ
+      SymEnv.from_list
+      FMapPositive.PositiveMap.empty
+      FMapPositive.PositiveMap.add
+
+
+      (* RS Dependencies *)
+      Vector.vector_tl
+      Vector.vector_hd
+      Vector.vector_map
+      Vector.vector_dec
+      typeof_sym_imp
+      typeof_sym
+      ILogicFunc.typeof_func
+      ModularTypes.type_for_arity
+      type_cast
+      typD
+      ILogicFunc.typ2_cast_quant
+      ILogicFunc.typ2_cast_bin
+      typ2_cast
+      typ2
+      typ0
+      typ0_cast
+      typ
+      tyLProp
+      tsym_tag
+      tsym_neq
+
+      tsym_dec
+      tsymD
+
+      sym_eqb
+      symD
+      sumbool_rect
+      sumbool_rec
+      BinPos.Pos.succ
+      String.string_dec
+      RelDec.rel_dec
+      Applicative.pure
+      projT2
+      projT1
+      Nat.pred
+
+
+      not
+      nat_rect
+      nat_rec
+      nat_eq_eqdec
+      ModularTypes.mtyp_dec
+      ModularTypes.mtyp_cast
+      ModularTypes.mtypD
+
+      lops
+      SymEnv.join_functions
+      EqdepFacts.internal_eq_sym_involutive
+      EqdepFacts.internal_eq_sym_internal
+      EqdepFacts.internal_eq_rew_r_dep
+      Injection.injection
+
+      imp_func_eq
+      SymEnv.func_typeof_sym
+      SymEnv.funcD
+      ILogicFunc.funcD
+      SymEnv.ftype
+      fs
+      SymEnv.from_list
+      FMapPositive.PositiveMap.find
+      SymEnv.fdenote
+      f_equal_nat
+      f_equal
+      BinPos.Pos.eqb
+      PeanoNat.Nat.eqb
+      eq_trans
+      eq_sym
+      eq_rect
+      eq_ind_r
+      eq_ind
+      eq_equivalence
+      PeanoNat.Nat.eq_dec
+      eq_add_S
+      eq_Transitive
+      eq_Symmetric
+      eq_Reflexive
+      eops
+      FMapPositive.PositiveMap.empty
+      ILogic.embed
+      complement
+      bool_rect
+      bool_rec
+      Bool.bool_dec
+      Ascii.ascii_rect
+      Ascii.ascii_rec
+      Ascii.ascii_dec
+      ModularTypes.applyn'
+      ModularTypes.applyn
+      Applicative.ap
+      andb
+      and_rect
+      and_ind
+      FMapPositive.PositiveMap.add
+      Nat.add
+      Typ2_Fun
+      ModularTypes.Typ2_Fun
+      ModularTypes.Typ0_sym
+      Typ0_Prop
+      Rty
+      String.RelDec_string
+      Positive.RelDec_peq
+      ILogicFunc.RelDec_ilfunc
+      RelDec_eq_typ
+      SymEnv.RelDec_eq_func
+      Nat.RelDec_eq
+      RelDec_Rty
+      RType_typ
+      ModularTypes.RType_mtyp
+      SymSum.RSym_sum
+      RSym_imp_func
+      RSym_ilfunc
+      ILogicFunc.RSym_ilfunc
+      SymEnv.RSym_func
+      RS
+      RFun
+      ModularTypes.Injective_tyApp
+      I.ILogicOps_lprop
+      Fun
+      EqdepFacts.Eq_rect_eq_on
+      EqdepFacts.Eq_rect_eq
+      EqdepFacts.Eq_dep_eq_on
+      EqdepFacts.Eq_dep_eq
+      ILogic.EmbedOp_refl
+      ILogic.EmbedOp_Fun
+      Applicative_Fun
     ] in e.
 
 (*
@@ -466,30 +634,14 @@ Ltac the_solver :=
   Definition tonums (ls : list nat) : list string :=
     map (fun n => String (Ascii.ascii_of_nat (65 + n)) EmptyString) ls.
 
-  Lemma and_split
-    : forall G P Q : I.HProp,
-      @ILogic.lentails I.HProp I.ILogicOps_HProp
-                       G P ->
-      @ILogic.lentails I.HProp I.ILogicOps_HProp
-                       G Q ->
-      @ILogic.lentails I.HProp I.ILogicOps_HProp
-                       G
-                       (@ILogic.land I.HProp I.ILogicOps_HProp P Q).
-  Admitted.
   Lemma eq_trans_hyp
-    : forall a b c d: nat,
+  : forall a b c d: nat,
       a = c + 1 ->
       c = d ->
       d + 1 = b ->
       a = b.
   Proof. intros; subst. reflexivity. Qed.
-  Lemma prove_Prop :
-    forall P : Prop,
-      P ->
-      @ILogic.lentails I.HProp I.ILogicOps_HProp
-                       (@ILogic.ltrue I.HProp I.ILogicOps_HProp)
-                       (@ILogic.embed Prop I.HProp I.EmbedOp_Prop_HProp P).
-  Proof. Admitted.
+
 
   Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
     andI_lemma : and_split.
@@ -498,15 +650,111 @@ Ltac the_solver :=
   Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
     prove_Prop_lemma : prove_Prop.
 
+(*
   Fixpoint nat_red (e : expr typ func) : expr typ func :=
     match e with
     | App (App (Inj (inl (inr natPlus))) (Inj (inl (inr (pNat l))))) (Inj (inl (inr (pNat r)))) =>
       Inj (inl (inr (pNat (l + r))))
     | _ => e
     end.
+*)
+
+  Definition ptrn_plus : Ptrns.ptrn imp_func unit :=
+    fun e X yes no =>
+      match e with
+      | natPlus => yes tt
+      | pVar v => no (pVar v)
+      | x => no x
+      end.
+
+  Instance ptrn_ok_ptrn_plus : Ptrns.ptrn_ok ptrn_plus.
+  Proof. red. destruct x; simpl; auto;
+              try solve [ right; compute; reflexivity
+                        | left; eexists; compute; reflexivity ].
+  Qed.
+
+  Definition ptrn_nat : Ptrns.ptrn imp_func nat :=
+    fun e X yes no =>
+      match e with
+      | pNat v => yes v
+      | x => no x
+      end.
+
+  Instance ptrn_ok_ptrn_nat : Ptrns.ptrn_ok ptrn_nat.
+  Proof. red. destruct x; simpl; auto;
+              try solve [ right; compute; reflexivity
+                        | left; eexists; compute; reflexivity ].
+  Qed.
+
+  Definition ptrn_eq {X} (p : Ptrns.ptrn typ X) : Ptrns.ptrn imp_func X :=
+    fun e X yes no =>
+      match e with
+      | pEq t => p t X yes (fun x => no (pEq x))
+      | x => no x
+      end.
+
+  Instance ptrn_ok_ptrn_eq {X} (p : Ptrns.ptrn typ X) : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (ptrn_eq p).
+  Proof. red. destruct x; simpl; auto;
+              try solve [ right; compute; reflexivity
+                        | left; eexists; compute; reflexivity ].
+         destruct (H t); [ left | right ].
+         { destruct H0. exists x. compute. red in H0.
+           intros. rewrite H0. reflexivity. }
+         { compute. intros. rewrite H0. reflexivity. }
+  Qed.
+
+  Instance FuncView_imp_func : FuncView.FuncView func imp_func :=
+  { f_view := fun x => match x with
+                       | inl (inr y) => FuncView.vSome y
+                       | _ => FuncView.vNone
+                       end
+  ; f_insert := fun x => inl (inr x) }.
+
+  Require MirrorCore.Views.Ptrns.
+
+  Definition nat_red : RedAll.partial_reducer typ func :=
+    let p : Ptrns.ptrn (expr typ func) (expr typ func) :=
+        Views.Ptrns.pmap (fun ab : nat * nat => let (a,b) := ab in
+                                                mkImp (pNat (a + b)))
+                         (Ptrns.app (Ptrns.appl (Ptrns.inj (FuncView.ptrn_view _ ptrn_plus))
+                                                (Views.Ptrns.pmap (fun x _ => x) (Ptrns.inj (FuncView.ptrn_view _ ptrn_nat)))) (Ptrns.inj (FuncView.ptrn_view _ ptrn_nat)))
+    in fun f xs =>
+         let e := AppN.apps f xs in
+         Ptrns.run_default p e e.
 
   Require Import ExtLib.Core.RelDec.
+
+  Theorem nat_red_sound : RedAll.partial_reducer_ok nat_red.
+  Proof.
+    red. intros. simpl.
+    unfold nat_red.
+    revert H.
+    eapply Ptrns.run_default_sound.
+    { repeat first [ eapply Ptrns.ptrn_ok_pmap
+                   | eapply Ptrns.ptrn_ok_app
+                   | eapply Ptrns.ptrn_ok_appl
+                   | eapply Ptrns.ptrn_ok_inj
+                   | eapply FuncView.ptrn_view_ok
+                   | eauto with typeclass_instances
+                   ]. }
+    { intros.
+      admit. }
+    { intros. eexists; split; try eassumption.
+      auto. }
+  Admitted.
+
+  Lemma refl_eq_nat : forall a : nat, a = a.
+  Proof. reflexivity. Qed.
+
+  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
+     eq_nat_refl_lemma : refl_eq_nat.
+  Instance RL_eq_nat_refl_lemma : ReifiedLemma eq_nat_refl_lemma :=
+    mkRL eq_nat_refl_lemma refl_eq_nat.
+
   Definition prove_eq_tac : imp_tac :=
+    SIMPL true (RedAll.red_partial nat_red) ;;
+    ON_ALL (EAPPLY eq_nat_refl_lemma).
+(*
     fun _ _ _ _ _ sub e =>
       match e with
       | App (App (Inj (inl (inr (pEq t)))) L) R =>
@@ -516,6 +764,17 @@ Ltac the_solver :=
         else More_ sub (GGoal (App (App (Inj (inl (inr (pEq t)))) l') r'))
       | _ => Fail
       end.
+*)
+
+  Instance RtacSound_prove_eq_tac : RtacSound prove_eq_tac.
+  Proof.
+    unfold prove_eq_tac.
+    rtac_derive_soundness_with.
+    eapply RtacSound_SIMPL.
+    eapply RedAll.red_partial_ok.
+    eapply nat_red_sound.
+  Qed.
+
 
   Fixpoint THENS (ls : list imp_tac) : imp_tac :=
     match ls with
@@ -535,7 +794,7 @@ Ltac the_solver :=
     sym_eval_no_mem 100 IDTAC.
 
   Definition PHASE2 : imp_tac :=
-    sym_eval_no_mem 100 SIMPLIFY.
+    sym_eval_no_mem 100 SIMPLIFY ;; MINIFY.
 
   Definition PHASE3 : imp_tac :=
     sym_eval_no_mem 100
@@ -555,6 +814,47 @@ Ltac the_solver :=
                               TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
                                                  TRY EASSUMPTION :: nil)) ::
                               INSTANTIATE :: TRY prove_eq_tac :: nil))  ;; MINIFY.
+
+  Instance THENS_sound : forall ls,
+      Forall RtacSound ls ->
+      RtacSound (THENS ls).
+  Proof.
+    induction 1.
+    - intros. simpl. rtac_derive_soundness_with.
+    - simpl. rtac_derive_soundness_with.
+  Qed.
+
+  Instance RL_andI : ReifiedLemma andI_lemma.
+  Proof. constructor. red; simpl. eapply and_split. Qed.
+  Instance RL_proveProp : ReifiedLemma prove_Prop_lemma.
+  Proof. constructor; red; simpl. eapply prove_Prop. Qed.
+  Instance RL_eq_trans_hyp : ReifiedLemma eq_trans_hyp_lemma.
+  Proof. constructor; red; simpl. eapply eq_trans_hyp. Qed.
+
+  Theorem PHASE2_sound : RtacSound PHASE2.
+  Proof.
+    unfold PHASE2.
+    rtac_derive_soundness_with.
+    eapply sym_eval_no_mem_sound.
+    2: eauto with typeclass_instances.
+    2: eauto with typeclass_instances.
+    2: eauto with typeclass_instances.
+    rtac_derive_soundness_with.
+  Qed.
+
+
+  Theorem PHASE3_sound : RtacSound PHASE3.
+  Proof.
+    unfold PHASE3.
+    rtac_derive_soundness_with.
+    2: eauto with typeclass_instances.
+    2: eauto with typeclass_instances.
+    2: eauto with typeclass_instances.
+    eapply sym_eval_no_mem_sound.
+    eapply THENS_sound.
+    rtac_derive_soundness_with.
+    eapply RtacSound_INSTANTIATE.
+  Qed.
 
   (*
 Definition PHASE3_tauto : imp_tac :=
@@ -615,17 +915,7 @@ Definition PHASE3_tauto2 : imp_tac :=
              :: SIMPLIFY :: BETA_REDUCE :: tauto_tac leaf :: nil)).
    *)
 
-  Lemma land_apply
-    : forall P Q x,
-      @ILogic.land I.lprop I.ILogicOps_lprop P Q x =
-      @ILogic.land I.HProp I.ILogicOps_HProp (P x) (Q x).
-  Admitted.
-  Lemma get_upd_not
-    : forall x y x0 m,
-      x <> y ->
-      I.locals_get x (I.locals_upd y x0 m) =
-      I.locals_get x m.
-  Admitted.
+
   Create HintDb reduce_stuff.
   Hint Rewrite locals_get_locals_upd eval_iexpr_iPlus
        eval_iexpr_iConst eval_iexpr_iVar land_apply : reduce_stuff.
@@ -636,81 +926,6 @@ Definition PHASE3_tauto2 : imp_tac :=
   Let tyLocals := ModularTypes.tyBase0 tyLocals.
   Let tyHProp := ModularTypes.tyBase0 tyHProp.
   Let tyProp := ModularTypes.tyBase0 tyProp.
-
-  Definition doIt (todo : imp_tac) :=
-    todo nil nil 0 0 (CTop nil nil)
-         (TopSubst
-            (expr typ
-                  (BinNums.positive + imp_func +
-                   ILogicFunc.ilfunc typ)) nil nil)
-         (App
-            (App
-               (Inj
-                  (inr
-                     (ILogicFunc.ilf_entails
-                        (tyArr tyLocals tyHProp))))
-               (App
-                  (Inj
-                     (inr
-                        (ILogicFunc.ilf_exists tyNat
-                                               (tyArr tyLocals tyHProp))))
-                  (Abs tyNat
-                       (Abs tyLocals
-                            (App
-                               (App
-                                  (Inj
-                                     (inr
-                                        (ILogicFunc.ilf_and tyHProp)))
-                                  (App
-                                     (Inj
-                                        (inr
-                                           (ILogicFunc.ilf_embed
-                                              tyProp tyHProp)))
-                                     (App
-                                        (App
-                                           (Inj
-                                              (inl (inr (pEq tyNat))))
-                                           (Var 1))
-                                        (Inj (inl (inr (pNat 0)))))))
-                               (App
-                                  (Inj
-                                     (inr
-                                        (ILogicFunc.ilf_embed
-                                           tyProp tyHProp)))
-                                  (App
-                                     (App
-                                        (Inj
-                                           (inl (inr (pEq tyNat))))
-                                        (App
-                                           (App
-                                              (Inj
-                                                 (inl (inr pLocals_get)))
-                                              (Inj
-                                                 (inl
-                                                    (inr (pVar "A"%string)))))
-                                           (Var 0)))
-                                     (App
-                                        (App
-                                           (Inj (inl (inr natPlus)))
-                                           (Var 1))
-                                        (Inj (inl (inr (pNat 1))))))))))))
-            (Abs tyLocals
-                 (App
-                    (Inj
-                       (inr
-                          (ILogicFunc.ilf_embed tyProp
-                                                tyHProp)))
-                    (App
-                       (App (Inj (inl (inr (pEq tyNat))))
-                            (App
-                               (App
-                                  (Inj
-                                     (inl (inr pLocals_get)))
-                                  (Inj
-                                     (inl
-                                        (inr (pVar "A"%string)))))
-                               (Var 0)))
-                       (Inj (inl (inr (pNat 1)))))))).
 
 (*
   Eval vm_compute in
@@ -747,72 +962,42 @@ Definition PHASE3_tauto2 : imp_tac :=
 
   Require Import MirrorCore.Reify.Reify.
 
-  Ltac run_tactic tac :=
-    match goal with
-    | |- ?goal =>
-      let k tbl g :=
-(*
-          let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
-          let resultV := eval vm_compute in result in
-          match resultV with
-          | Solved _ =>
-            change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
-              cut(result = resultV) ;
-              [ admit
-              | vm_cast_no_check (@eq_refl _ resultV) ]
-          | More_ _ ?g' =>
-            pose (g'V := g') ;
-            let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
-                                | Some G => G HList.Hnil HList.Hnil
-                                | None => True
-                                end) in
-            let post := reduce_propD g'V post in
-            match post with
-            | ?G =>
-              cut G ;
-                [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
-                  cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
-                  [ admit
-                  | vm_cast_no_check (@eq_refl _ resultV) ]
-                | try clear g'V g ]
-            end 
-          | Fail => idtac "failed"
-          end
-*)
-          idtac
-      in
-      reify_expr_bind reify_imp k
-                      [[ (fun x : mk_dvar_map term_table (@SymEnv.F typ RType_typ) => True) ]]
-                      [[ goal ]]
-    end.
-
-
-  Goal let lst := (tonums (seq 1)) in
-       @ILogic.lentails I.SProp I.ILogicOps_SProp (@ILogic.ltrue I.SProp I.ILogicOps_SProp)
-                        (I.triple (assign_linear 0 lst)
-                                  (increment_all lst)
-                                  (assign_linear 1 lst)).
-  Proof.
-    reducer.
-    Notation "P //\\ Q" := (@ILogic.land _ _ P Q) (at level 80).
-    (* Time (run_tactic PHASE1; ltac_finish).
-Time (run_tactic PHASE2; ltac_finish). *)
-    Time run_tactic (PHASE3).
-    Print tonums.
-    pose (exprD' (Expr:=Expr_expr tbl) nil nil e (typ0(F:=Prop))).
-    exfalso. clear - o.
-
-lazy beta iota zeta delta [ e tbl Quant._foralls goalD Ctx.propD exprD'_typ0 exprD' Expr_expr Expr.Expr_expr
-      ExprDsimul.ExprDenote.exprD' symAs typ0_cast
+  Ltac reduce_propD tbl g e := eval cbv beta iota zeta delta
+    [ tbl g Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
       typeof_sym type_cast RType_typ typ2_match
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
       typ0_cast
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
       ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
-      mkExt
 
-      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec 
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
+      typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      RS ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+
+      tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+      mkExt mkLogic mkImp
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
       typeof_sym Syntax.RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
       FMapPositive.PositiveMap.empty
       ModularTypes.Typ0_sym
@@ -825,25 +1010,244 @@ lazy beta iota zeta delta [ e tbl Quant._foralls goalD Ctx.propD exprD'_typ0 exp
       SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
       SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
       ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
-      fAssign fTriple fSkip ] in o.
-unfold Syntax.Expr_expr in o.
+      fAssign fTriple fSkip
 
 
+  var uvar typeof_sym type_cast typD typ2_match typ2_cast typ2 tenv
+      symD symAs
+      HList.nth_error_get_hlist_nth ExprDsimul.ExprDenote.lambda_exprD
+      HList.hlist_tl HList.hlist_hd
+      ExprDsimul.ExprDenote.func_simul
+      exprT_UseU exprT_UseV exprT_Inj
+      ExprDsimul.ExprDenote.exprT_GetVAs
+      ExprDsimul.ExprDenote.exprT_GetUAs
+      AbsAppI.exprT_App
+      exprT
+      eq_trans
+      eq_sym
+      Rty
+      Rsym
+      Relim
+      RFun
+      OpenT
+      ExprDsimul.ExprDenote.Rcast_val
+      ExprDsimul.ExprDenote.Rcast
+
+      BinPos.Pos.succ
+      SymEnv.from_list
+      FMapPositive.PositiveMap.empty
+      FMapPositive.PositiveMap.add
 
 
+      (* RS Dependencies *)
+      Vector.vector_tl
+      Vector.vector_hd
+      Vector.vector_map
+      Vector.vector_dec
+      typeof_sym_imp
+      typeof_sym
+      ILogicFunc.typeof_func
+      ModularTypes.type_for_arity
+      type_cast
+      typD
+      ILogicFunc.typ2_cast_quant
+      ILogicFunc.typ2_cast_bin
+      typ2_cast
+      typ2
+      typ0
+      typ0_cast
+      typ
+      tyLProp
+      tsym_tag
+      tsym_neq
+
+      tsym_dec
+      tsymD
+      sym_eqb
+      symD
+      sumbool_rect
+      sumbool_rec
+      BinPos.Pos.succ
+      String.string_dec
+      RelDec.rel_dec
+      Applicative.pure
+      projT2
+      projT1
+      Nat.pred
+
+
+      not
+      nat_rect
+      nat_rec
+      nat_eq_eqdec
+      ModularTypes.mtyp_dec
+      ModularTypes.mtyp_cast
+      ModularTypes.mtypD
+
+      lops
+      SymEnv.join_functions
+      EqdepFacts.internal_eq_sym_involutive
+      EqdepFacts.internal_eq_sym_internal
+      EqdepFacts.internal_eq_rew_r_dep
+      Injection.injection
+
+      imp_func_eq
+      SymEnv.func_typeof_sym
+      SymEnv.funcD
+      ILogicFunc.funcD
+      SymEnv.ftype
+      fs
+      SymEnv.from_list
+      FMapPositive.PositiveMap.find
+      SymEnv.fdenote
+      f_equal_nat
+      f_equal
+      BinPos.Pos.eqb
+      PeanoNat.Nat.eqb
+      eq_trans
+      eq_sym
+      eq_rect
+      eq_ind_r
+      eq_ind
+      eq_equivalence
+      PeanoNat.Nat.eq_dec
+      eq_add_S
+      eq_Transitive
+      eq_Symmetric
+      eq_Reflexive
+      eops
+      FMapPositive.PositiveMap.empty
+      complement
+      bool_rect
+      bool_rec
+      Bool.bool_dec
+      Ascii.ascii_rect
+      Ascii.ascii_rec
+      Ascii.ascii_dec
+      ModularTypes.applyn'
+      ModularTypes.applyn
+      Applicative.ap
+      andb
+      and_rect
+      and_ind
+      FMapPositive.PositiveMap.add
+      Typ2_Fun
+      ModularTypes.Typ2_Fun
+      ModularTypes.Typ0_sym
+      Typ0_Prop
+      Rty
+      String.RelDec_string
+      Positive.RelDec_peq
+      ILogicFunc.RelDec_ilfunc
+      RelDec_eq_typ
+      SymEnv.RelDec_eq_func
+      Nat.RelDec_eq
+      RelDec_Rty
+      RType_typ
+      ModularTypes.RType_mtyp
+      SymSum.RSym_sum
+      RSym_imp_func
+      RSym_ilfunc
+      ILogicFunc.RSym_ilfunc
+      SymEnv.RSym_func
+      RS
+      RFun
+      ModularTypes.Injective_tyApp
+      Fun
+      ILogic.EmbedOp_refl
+      ILogic.EmbedOp_Fun
+      Applicative_Fun
+      UIP_trans.uip_trans
+      UIP_trans.uip_prop_trans
+      RS
+      RFun
+      ModularTypes.Injective_tyApp
+      Fun
+      Applicative_Fun
+      Traversable.mapT
+      List.Traversable_list Option.Applicative_option
+      List.mapT_list
+      Ctx.propD exprD_typ0 exprD Expr_expr app
+      Quant._impls
+      List.map
+      HList.hlist_app
+      amap_substD FMapSubst.SUBST.raw_substD UVarMap.MAP.fold FMapPositive.PositiveMap.fold FMapPositive.PositiveMap.xfoldi HList.nth_error_get_hlist_nth UVarMap.MAP.from_key FMapPositive.append Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add
+      tsym_dec Quant._exists exprT_Inj
+      UVarMap.MAP.from_key
+      Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add  ModularTypes.mtyp_cast
+    ] in e.
+
+  Ltac run_tactic_env tac tac_sound :=
+    match goal with
+    | |- ?goal =>
+      let k tbl g :=
+          let result := constr:(runRtac typ (expr typ func) nil nil g (tac tbl)) in
+          let resultV := eval vm_compute in result in
+          lazymatch resultV with
+          | Solved _ =>
+            change (@propD _ _ _ Typ0_Prop (Expr_expr tbl) nil nil g) ;
+              cut(result = resultV) ;
+              [ exact (@rtac_Solved_closed_soundness _ _ _ _ _ _ (tac_sound tbl) nil nil g)
+              | vm_cast_no_check (@eq_refl _ resultV) ]
+          | More_ _ ?g' =>
+            pose (g'V := g') ;
+            let post := constr:(match @goalD _ _ _ Typ0_Prop (Expr_expr tbl) nil nil g'V with
+                                | Some G => G HList.Hnil HList.Hnil
+                                | None => True
+                                end) in
+            let post := reduce_propD tbl g'V post in
+            let G := post in
+            cut G ;
+              [ change (@closedD _ _ _ Typ0_Prop (Expr_expr tbl) nil nil g g'V) ;
+                cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
+                [ exact (@rtac_More_closed_soundness _ _ _ _ _ _ (tac_sound tbl) nil nil g g'V)
+                | vm_cast_no_check (@eq_refl _ resultV) ]
+              | try clear g'V tbl g ]
+          | Fail => fail "tactic failed"
+          end
+      in
+      reify_expr_bind reify_imp k
+                      [[ (fun x : mk_dvar_map term_table (@SymEnv.F typ RType_typ) => True) ]]
+                      [[ goal ]]
+    end.
+
+  Notation "P //\\ Q" := (@ILogic.land _ _ P Q) (at level 80).
+
+(*
+  Goal let lst := (tonums (seq 1)) in
+       @ILogic.lentails I.SProp I.ILogicOps_SProp (@ILogic.ltrue I.SProp I.ILogicOps_SProp)
+                        (I.triple (assign_linear 0 lst)
+                                  (increment_all lst)
+                                  (assign_linear 1 lst)).
+  Proof.
+    reducer.
+    (* Time (run_tactic PHASE1; ltac_finish).
+Time (run_tactic PHASE2; ltac_finish). *)
+    Time run_tactic_env PHASE3 PHASE3_sound.
   (* Time run_tactic (PHASE3_tauto). *)
   (* Time run_tactic (PHASE3_tauto2). *)
-Time Qed.
+    intros. rewrite eval_iexpr_iPlus in H.
+    rewrite eval_iexpr_iVar in H.
+    rewrite eval_iexpr_iConst in H.
+    rewrite locals_get_locals_upd in *.
+    rewrite H.
+    tauto.
+  Time Qed.
+*)
 
-
-(* refl + ltac *)
-Goal let lst := (tonums (seq 3)) in
-         @ILogic.lentails I.SProp I.ILogicOps_SProp (@ILogic.ltrue I.SProp I.ILogicOps_SProp)
-     (I.triple (assign_linear 0 lst)
-        (increment_all lst)
-        (assign_linear 1 lst)).
-reducer.
-Time run_tactic (sym_eval_no_mem 100).
-Time (intros; subst;
-repeat eapply and_split; eapply prove_Prop; assumption).
-Time Qed.
+  (* refl + ltac *)
+  Goal let lst := (tonums (seq 1)) in
+       @ILogic.lentails I.SProp I.ILogicOps_SProp (@ILogic.ltrue I.SProp I.ILogicOps_SProp)
+                        (I.triple (assign_linear 0 lst)
+                                  (increment_all lst)
+                                  (assign_linear 1 lst)).
+  Proof.
+    reducer.
+    Time run_tactic_env PHASE2 PHASE2_sound (* (sym_eval_no_mem 100) *).
+    admit.
+(*
+    Time (intros; subst;
+          repeat eapply and_split; eapply prove_Prop; assumption).
+*)
+  Time Admitted.
+End ImpVerify.

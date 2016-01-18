@@ -49,7 +49,6 @@ Section tactics.
   Global Instance RtacSound_EAPPLY_depth depth l (RL : ReifiedLemma l)
   : RtacSound (EAPPLY_depth depth l).
   Proof.
-    constructor.
     eapply EAPPLY_sound; eauto with typeclass_instances.
     intros. eapply exprUnify_sound; eauto with typeclass_instances.
   Qed.
@@ -57,7 +56,6 @@ Section tactics.
   Global Instance RtacSound_APPLY_depth depth l (RL : ReifiedLemma l)
   : RtacSound (APPLY_depth depth l).
   Proof.
-    constructor.
     eapply APPLY_sound; eauto with typeclass_instances.
     intros. eapply exprUnify_sound; eauto with typeclass_instances.
   Qed.
@@ -88,7 +86,6 @@ Section tactics.
   Global Instance RtacSound_EAPPLY_m l (RL : ReifiedLemma l)
   : RtacSound (EAPPLY_m l).
   Proof.
-    constructor.
     eapply THEN_sound.
     - eapply RtacSound_proof. eauto with typeclass_instances.
     - eapply MINIFY_sound; eauto with typeclass_instances.
@@ -97,7 +94,6 @@ Section tactics.
   Global Instance RtacSound_APPLY_m l (RL : ReifiedLemma l)
   : RtacSound (APPLY_m l).
   Proof.
-    constructor.
     eapply THEN_sound.
     - eapply RtacSound_proof. eauto with typeclass_instances.
     - eapply MINIFY_sound; eauto with typeclass_instances.
@@ -112,7 +108,6 @@ Section tactics.
 
   Global Instance RtacSound_EASSUMPTION : RtacSound EASSUMPTION.
   Proof.
-    constructor.
     eapply Assumption.ASSUMPTION_sound.
     generalize 30.
     intros.
@@ -238,7 +233,6 @@ Section tactics.
   : RtacSound (SIMPL inst fr).
   Proof.
     unfold SIMPL.
-    constructor.
     eapply SIMPLIFY_sound.
     eapply full_reducer_to_reducer_sound. assumption.
   Qed.
@@ -306,6 +300,13 @@ Section tactics.
       simple_open_spec tus tvs e ot.
 
   Local Opaque Red.beta.
+
+  Definition INSTANTIATE : rtac typ (expr typ func) := INSTANTIATE.
+
+  Instance RtacSound_INSTANTIATE : RtacSound INSTANTIATE.
+  Proof. eapply mkRtacSound.
+         eapply INSTANTIATE_sound.
+  Qed.
 
   (** TODO(gmalecha): These exist elsewhere. *)
   Lemma exprD_AppL : forall tus tvs tx ty f x fD,

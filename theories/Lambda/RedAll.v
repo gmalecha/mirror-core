@@ -26,57 +26,6 @@ Section reducer.
 
   Context {ED_typ : EqDec _ (@eq typ)}.
 
-(*
-  Fixpoint var_termsD tus tvs n (ls : list (option (expr typ sym)))
-  : option (ExprI.exprT tus tvs Prop) :=
-    match ls with
-      | nil => Some (fun _ _ => True)
-      | None :: ls => var_termsD tus tvs (S n) ls
-      | Some l :: ls =>
-        match var_termsD tus tvs (S n) ls
-            , nth_error_get_hlist_nth typD tvs n
-        with
-          | Some vsD , Some (existT _ t get) =>
-            match lambda_exprD tus tvs t l with
-              | None => None
-              | Some vD => Some (fun us vs => get vs = vD us vs /\ vsD us vs)
-            end
-          | None , _ => None
-          | _ , None => None
-        end
-    end.
-
-  Theorem var_termsD_sem tus tvs
-  : forall ls n P,
-      var_termsD tus tvs n ls = Some P ->
-      (forall u e,
-         nth_error ls u = Some (Some e) ->
-         exists t get (vD : ExprI.exprT tus tvs (typD t)),
-           nth_error_get_hlist_nth typD tvs (n + u) = Some (@existT _ _ t get) /\
-           lambda_exprD tus tvs t e = Some vD /\
-           forall us vs,
-             P us vs -> get vs = vD us vs).
-  Proof.
-    induction ls; simpl; intros; inv_all.
-    - subst. exfalso.
-      destruct u; simpl in *; inversion H0.
-    - destruct u.
-      + simpl in *. inversion H0; clear H0; subst.
-        forward. inv_all; subst.
-        cutrewrite (n + 0 = n); [ | omega ].
-        do 3 eexists; split; eauto; split; eauto.
-        intros. tauto.
-      + simpl in H0.
-        cutrewrite (n + S u = (S n) + u); [ | omega ].
-        destruct a; eauto.
-        forward; inv_all; subst.
-        specialize (IHls _ _ H _ _ H0).
-        forward_reason.
-        do 3 eexists; split; eauto. split; eauto.
-        firstorder.
-  Qed.
-*)
-
   (** I want this to capture the fact that when the entry is [Some], then
    ** the "resulting environment" does not contain the entry.
    ** 1) State a relation between the pre- and post-environments

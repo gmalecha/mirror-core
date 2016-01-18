@@ -395,6 +395,102 @@ Module ImpSyntax (I : ImpLang).
       | _ => lNone
       end.
 
+  Lemma tsym0_case : forall x : tsym 0,
+      x = tyLocals \/ x = tyCmd \/ x = tyProp \/ x = tyHProp \/ x = tySProp
+      \/ x = tyVariable \/ x = tyExpr \/ x = tyValue.
+  Proof using.
+    intro.
+    refine
+      match x as x in tsym n
+            return match n as n return tsym n -> Prop with
+                   | 0 => fun x => _
+                   | S _ => fun _ => True
+                   end x
+      with
+      | tyLocals => _
+      | _ => _
+      end; tauto.
+  Qed.
+
+  Theorem lops_ok : ILogicFunc.logic_opsOk lops.
+  Proof.
+    red.
+    destruct g; simpl; auto.
+    { destruct g1; auto.
+      destruct g2; auto.
+      clear.
+      destruct (tsym0_case t);
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H
+               end; subst; auto.
+      destruct (tsym0_case t0);
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H
+               end; subst; auto.
+      simpl.
+      eapply ILogic.ILogic_Fun. eapply I.ILogic_HProp. }
+    { destruct (tsym0_case t);
+      repeat match goal with
+             | H : _ \/ _ |- _ => destruct H
+             end; subst; eauto with typeclass_instances; simpl.
+      eapply ILogic.ILogic_Prop. }
+  Qed.
+
+  Theorem eops_ok : ILogicFunc.embed_opsOk lops eops.
+  Proof.
+    red.
+    destruct t; simpl; auto.
+    + destruct t1; auto. destruct t2; auto.
+      generalize (tsym0_case t); intro ;
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H; subst; auto
+               end.
+      generalize (tsym0_case t0); intro ;
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H; subst; auto
+               end.
+      intros; destruct (lops t'); trivial.
+    + generalize (tsym0_case t); intro ;
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H; subst; auto
+               end.
+      - destruct t'; simpl; auto.
+        destruct t'1; simpl; auto.
+        * destruct t'2; simpl; auto.
+          generalize (tsym0_case t); intro ;
+          repeat match goal with
+                 | H : _ \/ _ |- _ => destruct H; subst; auto
+                 end.
+          generalize (tsym0_case t0); intro ;
+          repeat match goal with
+                 | H : _ \/ _ |- _ => destruct H; subst; auto
+                 end.
+          eapply ILogic.Embed_Fun.
+        * generalize (tsym0_case t); intro ;
+          repeat match goal with
+                 | H : _ \/ _ |- _ => destruct H; subst; auto
+                 end; simpl.
+          eapply I.Embed_Prop_HProp.
+          eapply I.Embed_Prop_SProp.
+      - destruct t'; simpl; auto.
+        * destruct t'1; simpl; auto.
+          destruct t'2; simpl; auto.
+          generalize (tsym0_case t); intro ;
+          repeat match goal with
+                 | H : _ \/ _ |- _ => destruct H; subst; auto
+                 end.
+          generalize (tsym0_case t0); intro ;
+          repeat match goal with
+                 | H : _ \/ _ |- _ => destruct H; subst; auto
+                 end.
+          eapply ILogic.Embed_Fun.
+        * generalize (tsym0_case t); intro ;
+          repeat match goal with
+                 | H : _ \/ _ |- _ => destruct H; subst; auto
+                 end.
+      - intros. destruct (lops t'); auto.
+  Qed.
+
   Local Instance RSym_ilfunc : SymI.RSym (ilfunc typ) :=
     @ILogicFunc.RSym_ilfunc typ _ _ lops eops _ _.
 
@@ -413,21 +509,6 @@ Module ImpSyntax (I : ImpLang).
 
   Definition ExprOk_expr fs' : ExprI.ExprOk (Expr_expr fs') := ExprOk_expr.
   Existing Instance ExprOk_expr.
-
-(*
-Definition subst : Type :=
-  FMapSubst.SUBST.raw (expr typ func).
-Definition SS : SubstI.Subst subst (expr typ func) :=
-  @FMapSubst.SUBST.Subst_subst _.
-Definition SU : SubstI.SubstUpdate subst (expr typ func) :=
-  @FMapSubst.SUBST.SubstUpdate_subst _ _.
-Definition SO := FMapSubst.SUBST.SubstOk_subst.
-
-Local Existing Instance SS.
-Local Existing Instance SU.
-Local Existing Instance SO.
-*)
-
 
   Instance RelDec_eq_imp_func : RelDec (@eq imp_func) :=
   { rel_dec := fun a b =>
@@ -565,13 +646,17 @@ Definition test_lemma :=
 
   Definition mkLogic (x : ilfunc typ) : expr typ func :=
     ExprCore.Inj (inr x).
-  Definition mkExt (x : BinNums.positive) : expr typ func :=
+  Print func.
+  Definition mkImp (x : imp_func) : expr typ func :=
+    ExprCore.Inj (inl (inr x)).
+  Definition mkExt (x : SymEnv.func) : expr typ func :=
     ExprCore.Inj (inl (inl x)).
 
 
   Reify Declare Syntax reify_imp :=
     Patterns.CFirst (   Patterns.CVar (@ExprCore.Var typ func)
                      :: Patterns.CMap mkLogic patterns_ilogic_func
+                     :: Patterns.CMap mkImp patterns_imp_func
                      :: Patterns.CPatterns patterns_imp
                      :: Patterns.CApp (@ExprCore.App typ func)
                      :: Patterns.CAbs reify_imp_typ (@ExprCore.Abs typ func)
@@ -647,6 +732,12 @@ Definition test_lemma :=
     fun (x : id nat) => pNat x.
   Reify Pattern patterns_imp_func += (!! (@eq) @ ?0) =>
     fun (x : function reify_imp_typ) => pEq x.
+  Reify Pattern patterns_imp_func += (!! I.locals_get) =>
+    pLocals_get.
+  Reify Pattern patterns_imp_func += (!! I.locals_upd) =>
+    pLocals_upd.
+  Reify Pattern patterns_imp_func += (!! I.eval_iexpr) =>
+    pEval_expri.
 
   (** Expressions **)
   Reify Pattern patterns_imp_func += (!! I.iConst) => eConst.
@@ -725,12 +816,27 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
 
   Reify Pattern patterns_imp += (!! S) => (fS).
 
+  Definition assert_at {T} (p : BinNums.positive) (a b : T) : Prop :=
+    a = b.
+
+  Fixpoint check_compat (p : BinNums.positive) (a b : SymEnv.functions _ _) : Prop :=
+    match a , b with
+    | FMapPositive.PositiveMap.Node l v r , FMapPositive.PositiveMap.Node l' v' r' =>
+      match v , v' with
+      | Some x , Some y => assert_at p x y
+      | _ , _ => True
+      end /\ check_compat (BinNums.xO p) l l' /\ check_compat (BinNums.xI p) r r'
+    | _ , _ => True
+    end.
+
+
   Goal True.
+    reify_imp I.locals_upd.
+    reify_imp (3 = 3).
     reify_imp I.Skip.
     reify_imp (ILogic.lentails True True).
     reify_imp ((True -> False) -> True).
     reify_imp (forall G P Q, ILogic.lentails G (I.triple P I.Skip Q)).
-    Set Printing All.
     exact I.
   Defined.
 

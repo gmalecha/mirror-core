@@ -93,7 +93,8 @@ Ltac rtac_derive_soundness' tac tacK lems :=
   | |- rtac_sound _ => rtac
   | |- rtacK_sound _ => rtacK
   | |- Forall rtac_sound _ => Forall_rtac
-  | |- RtacSound _ => constructor ; rtac
+  | |- Forall RtacSound _ => Forall_rtac
+  | |- RtacSound _ => eapply mkRtacSound; rtac
   end.
 
 Ltac rtac_derive_soundness_default :=

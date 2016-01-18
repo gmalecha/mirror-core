@@ -149,4 +149,37 @@ Module ImpTheory (Import I : ImpLang).
     intros. eapply Conseq_rule; try eassumption.
     eapply Assert_rule.
   Qed.
+
+  (** Charge Lemmas **)
+  Lemma and_split
+    : forall G P Q : I.HProp,
+      @ILogic.lentails I.HProp I.ILogicOps_HProp
+                       G P ->
+      @ILogic.lentails I.HProp I.ILogicOps_HProp
+                       G Q ->
+      @ILogic.lentails I.HProp I.ILogicOps_HProp
+                       G
+                       (@ILogic.land I.HProp I.ILogicOps_HProp P Q).
+  Admitted.
+  Lemma prove_Prop :
+    forall P : Prop,
+      P ->
+      @ILogic.lentails I.HProp I.ILogicOps_HProp
+                       (@ILogic.ltrue I.HProp I.ILogicOps_HProp)
+                       (@ILogic.embed Prop I.HProp I.EmbedOp_Prop_HProp P).
+  Proof. Admitted.
+
+  Lemma land_apply
+    : forall P Q x,
+      @ILogic.land I.lprop I.ILogicOps_lprop P Q x =
+      @ILogic.land I.HProp I.ILogicOps_HProp (P x) (Q x).
+  Admitted.
+  Lemma get_upd_not
+    : forall x y x0 m,
+      x <> y ->
+      I.locals_get x (I.locals_upd y x0 m) =
+      I.locals_get x m.
+  Admitted.
+
+
 End ImpTheory.

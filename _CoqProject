@@ -145,7 +145,7 @@ examples/Hoare/LogicTac.v
 examples/Hoare/Imp.v
 examples/Hoare/ImpMetaTheory.v
 examples/Hoare/ImpSyntax.v
-# examples/Hoare/Verify.v
+examples/Hoare/Verify.v
 examples/Hoare/Tests.v
 
 examples/Monad/MonadTypes.v

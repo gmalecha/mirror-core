@@ -352,7 +352,6 @@ Section parametric.
   Proof.
     unfold INTRO_all.
     unfold Expr_expr.
-    constructor.
     eapply INTRO_ptrn_sound; eauto.
     - unfold intro_ptrn_all.
       eapply ptrn_ok_por; solve_ok.
@@ -366,7 +365,6 @@ Section parametric.
   Proof.
     unfold INTRO_hyp.
     unfold Expr_expr.
-    constructor.
     eapply INTRO_ptrn_sound; eauto.
     - unfold intro_ptrn_hyp.
       eapply ptrn_ok_bin_op; solve_ok.
