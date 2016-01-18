@@ -12,24 +12,24 @@ Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.ExprCore.
 
 (** Declare patterns **)
-Reify Declare Patterns patterns_simple_typ := Simple.typ.
-Reify Declare Patterns patterns_simple := (expr Simple.typ func).
+Reify Declare Patterns patterns_simple_typ : Simple.typ.
+Reify Declare Patterns patterns_simple : expr Simple.typ func.
 
 Reify Declare Syntax reify_simple_typ :=
-  (@CFirst _ ((@CPatterns _ patterns_simple_typ) :: nil)).
+  CPatterns patterns_simple_typ.
 
-Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
+Reify Declare Typed Table table_terms : BinNums.positive => Simple.typ.
 
 Let typ := Simple.typ.
 Let other x := @Inj typ func (inr x).
 
 (** Declare syntax **)
 Reify Declare Syntax reify_simple :=
-(@CFirst _ ((@Patterns.CPatterns _ patterns_simple) ::
-            (@Patterns.CApp _ (@ExprCore.App typ func)) ::
-            (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
-            (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
-            (@Patterns.CTypedTable (expr typ func) BinNums.positive reify_simple_typ table_terms other) :: nil)).
+  (CFirst ((Patterns.CPatterns patterns_simple) ::
+           (Patterns.CApp (@ExprCore.App typ func)) ::
+           (Patterns.CAbs reify_simple_typ (@ExprCore.Abs typ func)) ::
+           (Patterns.CVar (@ExprCore.Var typ func)) ::
+           (Patterns.CMap other (Patterns.CTypedTable reify_simple_typ table_terms)) :: nil)).
 
 Reify Pattern patterns_simple_typ += (@RExact _ nat)  => Simple.tyNat.
 Reify Pattern patterns_simple_typ += (@RExact _ bool) => Simple.tyBool.

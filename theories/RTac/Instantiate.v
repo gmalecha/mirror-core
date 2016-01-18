@@ -27,8 +27,8 @@ Section parameterized.
   Theorem INSTANTIATE_sound : rtac_sound INSTANTIATE.
   Proof.
     intros. eapply SIMPLIFY_sound.
-    intros; forward.
-    unfold propD, exprD'_typ0 in *.
+    red. intros; forward.
+    unfold propD, exprD_typ0 in *.
     forward.
     eapply (@instantiate_sound_ho  _ _ _ _ _ _ _ _ _ nil) in H3;
       [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ]; eauto.

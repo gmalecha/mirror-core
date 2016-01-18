@@ -258,14 +258,14 @@ Section setoid.
 
   Lemma app_sound {A B : Type} {tus tvs t e res val}
         {p1 : ptrn (expr typ func) A} {p2 : ptrn (expr typ func) B}
-        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
+        (H : ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some val)
         (HSucceeds : Succeeds e (app p1 p2) res)
         (Hp1 : ptrn_ok p1) (Hp2 : ptrn_ok p2)
         {P : exprT tus tvs (typD t) -> Prop}
         (Hstep : forall l r tr vl vr,
                    Succeeds l p1 (fst res) -> Succeeds r p2 (snd res) ->
-                   ExprDsimul.ExprDenote.exprD' tus tvs (tyArr tr t) l = Some vl ->
-                   ExprDsimul.ExprDenote.exprD' tus tvs tr r = Some vr ->
+                   ExprDsimul.ExprDenote.lambda_exprD tus tvs (tyArr tr t) l = Some vl ->
+                   ExprDsimul.ExprDenote.lambda_exprD tus tvs tr r = Some vr ->
                    P (AbsAppI.exprT_App vl vr)) :
     P val.
   Proof.
@@ -279,7 +279,7 @@ Section setoid.
 
   Lemma inj_sound {A : Type} {tus tvs t e res val}
         {p : ptrn func A}
-        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
+        (H : ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some val)
         (HSucceeds : Succeeds e (inj p) res)
         (Hp1 : ptrn_ok p)
         {P : exprT tus tvs (typD t) -> Prop}
@@ -581,10 +581,10 @@ Section setoid.
   Qed.
 
   Lemma run_tptrn_id_sound tus tvs t p e val (p_ok : ptrn_ok p)
-        (H : ExprDsimul.ExprDenote.exprD' tus tvs t e = Some val)
+        (H : ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some val)
         (HSucceeds : forall e', Succeeds e p e' ->
-                                ExprDsimul.ExprDenote.exprD' tus tvs t e' = Some val) :
-    ExprDsimul.ExprDenote.exprD' tus tvs t
+                                ExprDsimul.ExprDenote.lambda_exprD tus tvs t e' = Some val) :
+    ExprDsimul.ExprDenote.lambda_exprD tus tvs t
                                  (run_ptrn p e e) = Some val.
   Proof.
     unfold run_ptrn.
@@ -634,17 +634,17 @@ Ltac symAsE :=
 
 Ltac exprDI :=
   match goal with
-    | |- context [ExprDsimul.ExprDenote.exprD' ?tus ?tvs ?t (App ?e1 ?e2)] =>
-      apply (@exprD'_AppI _ _ _ _ _ _ _ _ tus tvs t e1 e2);
+    | |- context [ExprDsimul.ExprDenote.lambda_exprD ?tus ?tvs ?t (App ?e1 ?e2)] =>
+      apply (@lambda_exprD_AppI _ _ _ _ _ _ _ _ tus tvs t e1 e2);
         (do 3 eexists); split; [exprDI | split; [exprDI | try reflexivity]]
-    | |- context [ExprDsimul.ExprDenote.exprD' ?tus ?tvs ?t (Inj ?f)] =>
-      apply (@exprD'_InjI _ _ _ _ _ _ _ _ tus tvs t f);
+    | |- context [ExprDsimul.ExprDenote.lambda_exprD ?tus ?tvs ?t (Inj ?f)] =>
+      apply (@lambda_exprD_InjI _ _ _ _ _ _ _ _ tus tvs t f);
         eexists; split; [exprDI | try reflexivity]
     | |- context [symAs (f_insert ?p) ?t] =>
       apply (@symAs_finsertI _ _ _ _ _ _ _ _ t p);
         try (unfold symAs; simpl; rewrite type_cast_refl; [|apply _]; simpl; reflexivity)
-    | |- context [ExprDsimul.ExprDenote.exprD' ?tus ?tvs ?t (Red.beta ?e)] =>
-      apply (@exprD'_beta _ _ _ _ _ _ _ _ tus tvs e t);
+    | |- context [ExprDsimul.ExprDenote.lambda_exprD ?tus ?tvs ?t (Red.beta ?e)] =>
+      apply (@lambda_exprD_beta _ _ _ _ _ _ _ _ tus tvs e t);
         eexists; split; [exprDI | try reflexivity]
     | _ => try eassumption
     | _ => try reflexivity

@@ -123,7 +123,7 @@ Section spec_lemmas.
       destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
       eapply ctx_substD_lookup in H4; eauto.
       forward_reason.
-      eapply exprD'_weakenU with (tus' := l) in H8; eauto.
+      eapply exprD_weakenU with (tus' := l) in H8; eauto.
       destruct H8 as [ ? [ ? ? ] ].
       eapply nth_error_get_hlist_nth_weaken in H4.
       revert H4. instantiate (1 := l).
@@ -504,7 +504,7 @@ Section spec_lemmas.
       eapply nth_error_get_hlist_nth_weaken with (ls' := l) in H7.
       simpl in H7. rewrite H9 in H7.
       forward_reason. inv_all. subst.
-      eapply exprD'_weakenU with (tus' := l) in H11; eauto.
+      eapply exprD_weakenU with (tus' := l) in H11; eauto.
       destruct H11 as [ ? [ ? ? ] ].
       eexists; split; eauto.
       intros. gather_facts. eapply Pure_pctxD; eauto.
@@ -582,7 +582,7 @@ Section spec_lemmas.
       eapply nth_error_get_hlist_nth_weaken with (ls' := l) in H7.
       simpl in H7. rewrite H9 in H7.
       forward_reason. inv_all. subst.
-      eapply exprD'_weakenU with (tus' := l) in H11; eauto.
+      eapply exprD_weakenU with (tus' := l) in H11; eauto.
       destruct H11 as [ ? [ ? ? ] ].
       eexists; split; eauto.
       intros. gather_facts. eapply Pure_pctxD; eauto.

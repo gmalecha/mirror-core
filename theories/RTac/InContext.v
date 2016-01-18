@@ -281,8 +281,8 @@ Section with_instantiation.
           (fun _ => True)
           (fun res : bool =>
              if res then
-               match exprD' (getUVars ctx) (getVars ctx) e1 t
-                   , exprD' (getUVars ctx) (getVars ctx) e2 t
+               match exprD (getUVars ctx) (getVars ctx) t e1
+                   , exprD (getUVars ctx) (getVars ctx) t e2
                with
                | Some e1D , Some e2D =>
                  Some (fun env =>

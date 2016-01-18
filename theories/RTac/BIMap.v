@@ -157,7 +157,7 @@ Section parameterized.
           (get : hlist typD tus -> typD t),
           nth_error_get_hlist_nth typD tus uv =
           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) /\
-          exprD' tus tvs e t = Some val /\
+          exprD tus tvs t e = Some val /\
           (forall (us : hlist typD tus) (vs : hlist typD tvs),
              sD us vs -> get us = val us vs).
   Proof. eapply SUBST.substD_lookup'; eauto. Qed.

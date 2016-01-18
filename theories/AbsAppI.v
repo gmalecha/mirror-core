@@ -22,7 +22,7 @@ Section AppAbs.
 
   Class AbstractionOk (A : Abstraction) :=
   { exprD_Abs : forall (tus : tenv typ) (tvs : tenv typ) e t t',
-      exprD' tus tvs (Abs t e) t' =
+      exprD tus tvs t' (Abs t e) =
       typ2_match (Typ2:=Typ2_fun)
                  (fun T => option (exprT tus tvs T)) t'
                  (fun d r =>
@@ -30,7 +30,7 @@ Section AppAbs.
                          (type_cast d t)
                          (fun cast =>
                             bind (m := option)
-                                 (exprD' tus (t :: tvs) e r)
+                                 (exprD tus (t :: tvs) r e)
                                  (fun val =>
                                     ret (fun us vs x =>
                                            val us (Hcons (F:=typD) (Relim (fun x => x) (Rsym cast) x) vs)))))
@@ -73,9 +73,9 @@ Section AppAbs.
 
   Class ApplicationOk (A : Application) :=
   { exprD_App : forall (tus : tenv typ) (tvs : tenv typ) f x d r F X,
-      exprD' tus tvs f (typ2 d r) = Some F ->
-      exprD' tus tvs x d = Some X ->
-      exprD' tus tvs (App f x) r = Some (exprT_App F X)
+      exprD tus tvs (typ2 d r) f = Some F ->
+      exprD tus tvs d x = Some X ->
+      exprD tus tvs r (App f x) = Some (exprT_App F X)
   ; match_App_iota : forall f e, App_match (App f e) = fun T r _ => r f e
   ; match_App_case : forall e,
          (exists t' e',

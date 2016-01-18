@@ -1,11 +1,6 @@
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Data.Nat.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.syms.SymEnv.
 Require Import McExamples.Monad.MonadExpr.
 
@@ -95,8 +90,8 @@ Section soundness.
   Variable tys : types.
   Variable fs : functions typ (RType_typ m tys).
 
-  Let exprD' :=
-    @exprD' _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
+  Let lambda_exprD :=
+    @lambda_exprD _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
 
   Ltac by_refl :=
     intros;
@@ -106,24 +101,24 @@ Section soundness.
 
   Ltac more_cases :=
     match goal with
-      | |- context [ exprD' _ _ _ _ match ?X with _ => _ end ] =>
+      | |- context [ lambda_exprD _ _ _ _ match ?X with _ => _ end ] =>
         destruct X; try by_refl
     end.
 
   Lemma reduce_m_arr
   : forall tus e tvs,
       (forall tm,
-         match exprD' tus tvs (tyM tm) e with
+         match lambda_exprD tus tvs (tyM tm) e with
            | None => True
-           | Some v => match exprD' tus tvs (tyM tm) (reduce_m tm e) with
+           | Some v => match lambda_exprD tus tvs (tyM tm) (reduce_m tm e) with
                          | None => False
                          | Some v' => forall us vs, v us vs = v' us vs
                        end
          end) /\
       (forall t t',
-         match exprD' tus tvs (tyArr t t') e with
+         match lambda_exprD tus tvs (tyArr t t') e with
            | None => True
-           | Some v => match exprD' tus tvs (tyArr t t') (reduce_arrow t t' e) with
+           | Some v => match lambda_exprD tus tvs (tyArr t t') (reduce_arrow t t' e) with
                          | None => False
                          | Some v' => forall us vs, v us vs = v' us vs
                        end

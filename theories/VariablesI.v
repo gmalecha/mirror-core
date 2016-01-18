@@ -19,29 +19,29 @@ Section with_Expr.
   }.
 
   Class ExprVarOk (EV : ExprVar) : Prop :=
-  { Var_exprD'
+  { Var_exprD
     : forall tus tvs v t,
-        match exprD' tus tvs (Var v) t with
-          | None =>
-            nth_error tvs v = None \/
-            exists t', nth_error tvs v = Some t' /\ ~Rty t t'
-          | Some vD =>
-            exists get,
-            nth_error_get_hlist_nth typD tvs v = Some (@existT _ _ t get) /\
-            forall us vs,
-              get vs = vD us vs
-        end
+      match exprD tus tvs t (Var v) with
+      | None =>
+        nth_error tvs v = None \/
+        exists t', nth_error tvs v = Some t' /\ ~Rty t t'
+      | Some vD =>
+        exists get,
+        nth_error_get_hlist_nth typD tvs v = Some (@existT _ _ t get) /\
+        forall us vs,
+          get vs = vD us vs
+      end
   ; mentionsV_Var : forall v v', mentionsV v (Var v') = true <-> v = v'
   }.
 
-  Lemma exprD'_exact_var {EV} {EVO : ExprVarOk EV} tus tvs tvs' t
+  Lemma exprD_exact_var {EV} {EVO : ExprVarOk EV} tus tvs tvs' t
   : exists eD' : exprT tus (tvs ++ t :: tvs') (typD t),
-      exprD' tus (tvs ++ t :: tvs') (Var (length tvs)) t = Some eD' /\
+      exprD tus (tvs ++ t :: tvs') t (Var (length tvs)) = Some eD' /\
       (forall (us : hlist typD tus) (vs : hlist typD tvs) vs'
         (x : typD t), eD' us (hlist_app vs (Hcons x vs')) = x).
   Proof.
-    generalize (Var_exprD' tus (tvs ++ t :: tvs') (length tvs) t).
-    destruct (exprD' tus (tvs ++ t :: tvs') (Var (length tvs)) t).
+    generalize (Var_exprD tus (tvs ++ t :: tvs') (length tvs) t).
+    destruct (exprD tus (tvs ++ t :: tvs') t (Var (length tvs))).
     { destruct 1 as [ ? [ ? ? ] ]. eexists; split; eauto.
       intros. rewrite <- H0; clear H0. clear - H RTypeOk_typ.
       eapply nth_error_get_hlist_nth_appR in H; eauto.
@@ -64,29 +64,29 @@ Section with_Expr.
   }.
 
   Class ExprUVarOk (EU : ExprUVar) : Prop :=
-  { UVar_exprD'
+  { UVar_exprD
     : forall tus tvs v t,
-        match exprD' tus tvs (UVar v) t with
-          | None =>
-            nth_error tus v = None \/
-            exists t', nth_error tus v = Some t' /\ ~Rty t t'
-          | Some vD =>
-            exists get,
-            nth_error_get_hlist_nth typD tus v = Some (@existT _ _ t get) /\
-            forall us vs,
-              get us = vD us vs
-        end
+      match exprD tus tvs t (UVar v) with
+      | None =>
+        nth_error tus v = None \/
+        exists t', nth_error tus v = Some t' /\ ~Rty t t'
+      | Some vD =>
+        exists get,
+        nth_error_get_hlist_nth typD tus v = Some (@existT _ _ t get) /\
+        forall us vs,
+          get us = vD us vs
+      end
   ; mentionsU_UVar : forall v v', mentionsU v (UVar v') = true <-> v = v'
   }.
 
-  Lemma exprD'_exact_uvar {EU} {EUO : ExprUVarOk EU} tus tus' tvs t
+  Lemma exprD_exact_uvar {EU} {EUO : ExprUVarOk EU} tus tus' tvs t
   : exists eD' : exprT (tus ++ t :: tus') tvs (typD t),
-      exprD' (tus ++ t :: tus') tvs (UVar (length tus)) t = Some eD' /\
+      exprD (tus ++ t :: tus') tvs t (UVar (length tus)) = Some eD' /\
       (forall (us : hlist typD tus) us' (vs : hlist typD tvs)
         (x : typD t), eD' (hlist_app us (Hcons x us')) vs = x).
   Proof.
-    generalize (UVar_exprD' (tus ++ t :: tus') tvs (length tus) t).
-    destruct (exprD' (tus ++ t :: tus') tvs (UVar (length tus)) t).
+    generalize (UVar_exprD (tus ++ t :: tus') tvs (length tus) t).
+    destruct (exprD (tus ++ t :: tus') tvs t (UVar (length tus))).
     { destruct 1 as [ ? [ ? ? ] ]. eexists; split; eauto.
       intros. rewrite <- H0; clear H0. clear - H RTypeOk_typ.
       eapply nth_error_get_hlist_nth_appR in H; eauto.
@@ -110,7 +110,7 @@ Section with_Expr.
       f u = Some e ->
       nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
       exists eD,
-        exprD' tus tvs e t = Some eD /\
+        exprD tus tvs t e = Some eD /\
         P (fun us vs => get us = eD us vs).
 
   Definition sem_preserves_if tus tvs
@@ -124,9 +124,9 @@ Section with_Expr.
     : Prop :=
     forall tus tvs f e tvs' t eD P (EApp : CtxLogic.ExprTApplicative P),
       sem_preserves_if_ho P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exprD tus (tvs' ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        exprD tus (tvs' ++ tvs) t (instantiate f (length tvs') e) = Some eD' /\
         P (fun us vs => forall vs',
                eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
 
@@ -138,12 +138,12 @@ Section with_Expr.
            (t : typ) (tvs' : list typ)
            (val : hlist typD tus ->
                   hlist typD (tvs ++ tvs') -> typD t),
-      exprD' tus (tvs ++ tvs') e t = Some val ->
+      exprD tus (tvs ++ tvs') t e = Some val ->
       exists
         val' : hlist typD (tus ++ tvs') ->
                hlist typD tvs -> typD t,
-        exprD' (tus ++ tvs') tvs (vars_to_uvars (length tvs) (length tus) e)
-               t = Some val' /\
+        let e' := vars_to_uvars (length tvs) (length tus) e in
+        exprD (tus ++ tvs') tvs t e' = Some val' /\
         (forall (us : hlist typD tus)
                 (vs' : hlist typD tvs') (vs : hlist typD tvs),
            val us (hlist_app vs vs') = val' (hlist_app us vs') vs).

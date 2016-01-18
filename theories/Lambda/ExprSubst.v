@@ -120,10 +120,10 @@ Section instantiate_thm.
 
   Theorem expr_subst_sound
   : expr_subst_spec_ho
-      (fun us vs e t => ExprDsimul.ExprDenote.exprD' us vs t e)
+      ExprDsimul.ExprDenote.lambda_exprD
       _mentionsU _mentionsV (@_subst typ func).
   Proof.
-    (** exprD'_ind does not seem powerful enough for this **)
+    (** lambda_exprD_ind does not seem powerful enough for this **)
     red. intros. subst n. generalize dependent _tvs. revert e'. revert t.
     induction e; simpl; intros.
     { clear H_substU.
@@ -136,7 +136,7 @@ Section instantiate_thm.
           eapply nth_error_get_hlist_nth_appR in H3; simpl in H3.
           { forward_reason. subst.
             eapply H_substV in H0. forward_reason.
-            generalize (exprD'_lift tus' e nil _tvs tvs' x); simpl.
+            generalize (lambda_exprD_lift tus' e nil _tvs tvs' x); simpl.
             rewrite H0. intros; forward.
             destruct r.
             eexists; split; eauto.
@@ -229,7 +229,7 @@ Section instantiate_thm.
       end.
       forward_reason.
       autorewrite with exprD_rw. simpl.
-      erewrite ExprDsimul.ExprDenote.exprD'_typeof_expr by eauto.
+      erewrite ExprDsimul.ExprDenote.lambda_exprD_typeof_expr by eauto.
       Cases.rewrite_all_goal.
       eexists; split; eauto.
       revert H2. eapply exprTApR; auto.
@@ -278,7 +278,7 @@ Section instantiate_thm.
         forward. inv_all; subst.
         specialize (H_substU _ _ (eq_sym (EqNat.beq_nat_refl _)) eq_refl).
         forward_reason.
-        generalize (exprD'_lift tus' e nil _tvs tvs' x); simpl.
+        generalize (lambda_exprD_lift tus' e nil _tvs tvs' x); simpl.
         change_rewrite H. intros; forward.
         destruct r.
         eexists; split; eauto.

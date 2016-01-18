@@ -34,17 +34,17 @@ Module Type ExprDenote.
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
 
-    Parameter exprD'
+    Parameter lambda_exprD
     : forall {Typ2_Fun : Typ2 _ RFun}
              {RSym_func : RSym func}
              (tus tvs : tenv typ) (t : typ) (e : expr typ func),
         option (exprT tus tvs (typD t)).
 
-    Axiom exprD'_respects
+    Axiom lambda_exprD_respects
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e (pf : Rty t' t),
-        exprD' tus tvs t e =
-        Rcast (fun T => option (exprT tus tvs T)) pf (exprD' tus tvs t' e).
+        lambda_exprD tus tvs t e =
+        Rcast (fun T => option (exprT tus tvs T)) pf (lambda_exprD tus tvs t' e).
 
     Section typeof_expr.
       Variable tus : tenv typ.
@@ -80,10 +80,10 @@ Module Type ExprDenote.
       end.
     End typeof_expr.
 
-    Axiom exprD'_Var
+    Axiom lambda_exprD_Var
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t v,
-        exprD' tus tvs t (Var v) =
+        lambda_exprD tus tvs t (Var v) =
         match nth_error_get_hlist_nth typD tvs v with
         | Some (existT _ t' get) =>
           match type_cast t' t with
@@ -93,10 +93,10 @@ Module Type ExprDenote.
         | _ => None
         end.
 
-    Axiom exprD'_UVar
+    Axiom lambda_exprD_UVar
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t u,
-        exprD' tus tvs t (UVar u) =
+        lambda_exprD tus tvs t (UVar u) =
         match nth_error_get_hlist_nth typD tus u with
         | Some (existT _ t' get) =>
           match type_cast t' t with
@@ -106,23 +106,23 @@ Module Type ExprDenote.
         | _ => None
         end.
 
-    Axiom exprD'_Inj
+    Axiom lambda_exprD_Inj
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t s,
-        exprD' tus tvs t (Inj s) =
+        lambda_exprD tus tvs t (Inj s) =
         match symAs s t with
         | Some val => Some (fun _ _ => val)
         | None => None
         end.
 
-    Axiom exprD'_App
+    Axiom lambda_exprD_App
     : RTypeOk (typ:=typ) -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t f x,
-        exprD' tus tvs t (App f x) =
+        lambda_exprD tus tvs t (App f x) =
         match typeof_expr tus tvs x with
         | Some t' =>
-          match exprD' tus tvs (typ_arr t' t) f
-              , exprD' tus tvs t' x
+          match lambda_exprD tus tvs (typ_arr t' t) f
+              , lambda_exprD tus tvs t' x
           with
           | Some f , Some x => Some (exprT_App f x)
           | _ , _ => None
@@ -130,15 +130,15 @@ Module Type ExprDenote.
         | None => None
         end.
 
-    Axiom exprD'_Abs
+    Axiom lambda_exprD_Abs
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e,
-        exprD' tus tvs t (Abs t' e) =
+        lambda_exprD tus tvs t (Abs t' e) =
         arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
                      match type_cast d t' with
                      | Some cast =>
-                       match exprD' tus (t' :: tvs) r e with
+                       match lambda_exprD tus (t' :: tvs) r e with
                        | Some val => Some (fun us vs x =>
                                              val us (Hcons (Rcast_val cast x) vs))
                        | None => None
@@ -165,11 +165,11 @@ Module Type ExprFacts (ED : ExprDenote).
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
-    Axiom exprD'_ind
+    Axiom lambda_exprD_ind
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tus tvs e t,
-                   ED.exprD' tus tvs t e = None -> P tus tvs e t None)
+                   ED.lambda_exprD tus tvs t e = None -> P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P tus tvs (Var v) t
@@ -199,7 +199,7 @@ Module Type ExprFacts (ED : ExprDenote).
                   P tus (d :: tvs) e r (Some fval) ->
                   P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
-        P tus tvs e t (ED.exprD' tus tvs t e).
+        P tus tvs e t (ED.lambda_exprD tus tvs t e).
 
     Axiom typeof_expr_weaken
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
@@ -207,26 +207,26 @@ Module Type ExprFacts (ED : ExprDenote).
         ED.typeof_expr tus tvs e = Some t ->
         ED.typeof_expr (tus ++ tus') (tvs ++ tvs') e = Some t.
 
-    Axiom exprD'_weaken
+    Axiom lambda_exprD_weaken
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs (e : expr typ func) t val tus' tvs',
-        ED.exprD' tus tvs t e = Some val ->
+        ED.lambda_exprD tus tvs t e = Some val ->
         exists val',
-          ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+          ED.lambda_exprD (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
           forall us vs us' vs',
             val us vs = val' (hlist_app us us') (hlist_app vs vs').
 
-    Axiom exprD'_type_cast
+    Axiom lambda_exprD_type_cast
     : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t,
-        ED.exprD' tus tvs t e =
+        ED.lambda_exprD tus tvs t e =
         match ED.typeof_expr (Typ2_Fun:=Typ2_Fun) tus tvs e with
           | None => None
           | Some t' =>
             match type_cast t' t with
               | None => None
               | Some cast =>
-                match ED.exprD' tus tvs t' e with
+                match ED.lambda_exprD tus tvs t' e with
                   | None => None
                   | Some x =>
                     Some (fun us gs => ED.Rcast (fun x => x) cast (x us gs))
@@ -234,11 +234,11 @@ Module Type ExprFacts (ED : ExprDenote).
             end
         end.
 
-    Axiom typeof_expr_exprD'
+    Axiom typeof_expr_lambda_exprD
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t,
         ED.typeof_expr tus tvs e = Some t ->
         exists val,
-          ED.exprD' tus tvs t e = Some val.
+          ED.lambda_exprD tus tvs t e = Some val.
   End with_types.
 End ExprFacts.

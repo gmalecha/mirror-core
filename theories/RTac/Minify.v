@@ -145,7 +145,7 @@ Section parameterized.
                       (hlist_tl a) (hlist_tl b) Upost)
     | MD_Some : forall e es t tus tus' P eD,
         @mapD (_tus ++ t :: nil) _tus' _tus_post' _tvs tus tus' es P ->
-        exprD' (_tus' ++ tus' ++ _tus_post') _tvs e t = Some eD ->
+        exprD (_tus' ++ tus' ++ _tus_post') _tvs t e = Some eD ->
         @mapD _tus _tus' _tus_post' _tvs (t :: tus) tus' (Some e :: es)
               (fun U U' V a b Upost =>
                     hlist_hd a = eD (hlist_app U' (hlist_app b Upost)) V
@@ -169,7 +169,7 @@ Section parameterized.
                       (hlist_tl a) (hlist_tl b))
     | MD_nil_Some : forall e es t tus tus' P eD,
         @mapD_nil (_tus ++ t :: nil) _tus' _tvs tus tus' es P ->
-        exprD' (_tus' ++ tus') _tvs e t = Some eD ->
+        exprD (_tus' ++ tus') _tvs t e = Some eD ->
         @mapD_nil _tus _tus' _tvs (t :: tus) tus' (Some e :: es)
               (fun U U' V a b =>
                     hlist_hd a = eD (hlist_app U' b) V
@@ -199,7 +199,7 @@ Section parameterized.
       { intros. specialize (IHmapD Heql).
         subst.
         forward_reason.
-        rewrite exprD'_conv
+        rewrite exprD_conv
           with (pfv:=eq_refl) (pfu:=eq_sym (f_equal _ (app_nil_r_trans _)))
             in H0.
         autorewrite_with_eq_rw_in H0. forwardy; inv_all; subst.
@@ -235,7 +235,7 @@ Section parameterized.
         + simpl. intros.
           forward_reason; split; eauto. }
       { forward_reason.
-        rewrite exprD'_conv
+        rewrite exprD_conv
           with (pfv:=eq_refl) (pfu:=f_equal _ (app_nil_r_trans _))
             in H0.
         autorewrite_with_eq_rw_in H0. forwardy; inv_all; subst.
@@ -272,7 +272,7 @@ Section parameterized.
         + simpl. intros.
           rewrite H1. tauto. }
       { forward_reason.
-        rewrite exprD'_conv
+        rewrite exprD_conv
           with (pfv:=eq_refl) (pfu:=f_equal _ (app_nil_r_trans _))
             in H0.
         autorewrite_with_eq_rw_in H0. forwardy; inv_all; subst.
@@ -288,16 +288,16 @@ Section parameterized.
           intros; subst; tauto. }
     Qed.
 
-    Lemma exprD'_UVar_ok
+    Lemma exprD_UVar_ok
     : forall tus tvs u t get,
         nth_error_get_hlist_nth typD tus u = Some (@existT _ _ t get) ->
         exists eD,
-          exprD' tus tvs (UVar u) t = Some eD /\
+          exprD tus tvs t (UVar u) = Some eD /\
           forall us vs, get us = eD us vs.
     Proof.
       intros.
-      generalize (@UVar_exprD' typ expr _ _ _ _ tus tvs u t).
-      destruct (exprD' tus tvs (UVar u) t).
+      generalize (@UVar_exprD typ expr _ _ _ _ tus tvs u t).
+      destruct (exprD tus tvs t (UVar u)).
       { intros; forward_reason.
         rewrite H in H0. inv_all. subst. eauto. }
       { eapply nth_error_get_hlist_nth_Some in H. simpl in H.
@@ -359,8 +359,8 @@ Section parameterized.
           length _tus >= length _tus' ->
           u >= length _tus ->
           exists eUD : exprT (_tus' ++ tus') tvs (typD t),
-            exprD' (_tus' ++ tus') tvs
-                   (lookup_compress es (length _tus') (u - length _tus)) t =
+            exprD (_tus' ++ tus') tvs t
+                  (lookup_compress es (length _tus') (u - length _tus)) =
             Some eUD /\
             (forall _us _us' us us' vs,
                 R _us _us' vs us us' ->
@@ -369,8 +369,8 @@ Section parameterized.
       clear base_is_nus. clear c cs base.
       induction 1.
       { simpl; intros.
-        generalize (@UVar_exprD' typ expr _ _ _ _ (_tus' ++ nil) _tvs (length _tus' + (u - length _tus)) t).
-        destruct (exprD' (_tus' ++ nil) _tvs (UVar (length _tus' + (u - length _tus))) t).
+        generalize (@UVar_exprD typ expr _ _ _ _ (_tus' ++ nil) _tvs (length _tus' + (u - length _tus)) t).
+        destruct (exprD (_tus' ++ nil) _tvs t (UVar (length _tus' + (u - length _tus)))).
         { intros; forward_reason.
           eexists; split; eauto.
           eapply nth_error_get_hlist_nth_appR in H; [ | omega ].
@@ -404,8 +404,8 @@ Section parameterized.
           assert (u = length _tus) by omega.
           subst. clear H3 H2.
           simpl.
-          generalize (UVar_exprD' (_tus' ++ t :: tus') _tvs (length _tus') t0).
-          destruct (exprD' (_tus' ++ t :: tus') _tvs (UVar (length _tus')) t0).
+          generalize (UVar_exprD (_tus' ++ t :: tus') _tvs (length _tus') t0).
+          destruct (exprD (_tus' ++ t :: tus') _tvs t0 (UVar (length _tus'))).
           { intros; forward_reason.
             clear IHmapD_nil.
             eapply nth_error_get_hlist_nth_appR in H2; [ | omega ].
@@ -440,7 +440,7 @@ Section parameterized.
           destruct s. specialize (IHmapD_nil _ _ eq_refl).
           destruct IHmapD_nil; [ omega | omega | forward_reason ].
           inv_all; subst.
-          rewrite exprD'_conv with (pfu:=app_ass_trans _tus' (t::nil) tus') (pfv:=eq_refl).
+          rewrite exprD_conv with (pfu:=app_ass_trans _tus' (t::nil) tus') (pfv:=eq_refl).
           revert H4. autorewrite_with_eq_rw. simpl.
           unfold tenv.
           generalize (@Data.SigT.eq_sigT_rw _ _ (fun x1 y => hlist (typD (RType:=RType_typ)) x1 -> typD (RType:=RType_typ) y)).
@@ -510,12 +510,12 @@ Section parameterized.
         simpl. intros.
         rewrite H1. reflexivity. }
       { forward_reason.
-        eapply exprD'_weaken with (tus':=_tus_post') (tvs' := nil) in H0;
+        eapply exprD_weaken with (tus':=_tus_post') (tvs' := nil) in H0;
           eauto with typeclass_instances.
         forward_reason.
-        rewrite exprD'_conv
+        rewrite exprD_conv
            with (pfv:=eq_refl) (pfu:=eq_sym (app_ass_trans _ _ _)) in H0.
-        rewrite exprD'_conv
+        rewrite exprD_conv
            with (pfv:=eq_sym (app_nil_r_trans _)) (pfu:=f_equal _ (eq_sym (app_ass_trans _ _ _))) in H0.
         autorewrite_with_eq_rw_in H0.
         forwardy.
@@ -551,7 +551,7 @@ Section parameterized.
         eexists; split.
         - econstructor. eauto.
         - simpl. intros. rewrite H1. reflexivity. }
-      { eapply exprD'_weakenV with (tvs':=_tvs') in H0; eauto.
+      { eapply exprD_weakenV with (tvs':=_tvs') in H0; eauto.
         forward_reason.
         eexists; split.
         - econstructor; eauto.
@@ -579,7 +579,7 @@ Section parameterized.
           match do_instantiate cs base es u with
             | Some eU =>
               exists eUD : exprT (getUVars c ++ tus') (_ ++ tvs) (typD t),
-                exprD' (getUVars c ++ tus') (getVars c ++ tvs) eU t = Some eUD /\
+                exprD (getUVars c ++ tus') (getVars c ++ tvs) t eU = Some eUD /\
                 (forall (us : hlist typD (getUVars c ++ tus))
                         _vs (vs : hlist typD tvs) (us' : hlist typD (getUVars c ++ tus'))
                         (vs' : hlist typD tvs),
@@ -637,7 +637,7 @@ Section parameterized.
           intros; forward_reason.
           destruct (@nth_error_get_hlist_nth_appL _ typD tus _ _ H2).
           rewrite H1 in H7. forward_reason; inv_all; subst; simpl in *.
-          eapply exprD'_weaken with (tus':=tus') (tvs':=tvs) in H5; try eassumption.
+          eapply exprD_weaken with (tus':=tus') (tvs':=tvs) in H5; try eassumption.
           destruct H5 as [ ? [ ? ? ] ].
           rewrite H4 in H8. inv_all; subst.
           eexists; split; eauto.
@@ -667,7 +667,7 @@ Section parameterized.
           intros. rewrite H0. symmetry; eassumption. } }
     Qed.
 
-    Lemma instantiate_do_instantiate_exprD'_sound
+    Lemma instantiate_do_instantiate_exprD_sound
     : forall (tus : list typ) (tvs : tenv typ) (tus' : list typ)
              (e : expr) t
              (R : hlist typD (getUVars c) -> hlist typD (getUVars c) ->
@@ -677,10 +677,10 @@ Section parameterized.
         forall sD,
           ctx_substD (getUVars c) (getVars c) cs = Some sD ->
         forall gD : exprT (getUVars c ++ tus) _ _,
-          exprD' (getUVars c ++ tus) (getVars c ++ tvs) e t = Some gD ->
+          exprD (getUVars c ++ tus) (getVars c ++ tvs) t e = Some gD ->
           exists gD' : exprT (getUVars c ++ tus') (getVars c ++ tvs) _,
-            exprD' (getUVars c ++ tus') (getVars c ++ tvs)
-                  (instantiate (do_instantiate cs base es) 0 e) t =
+            exprD (getUVars c ++ tus') (getVars c ++ tvs) t
+                  (instantiate (do_instantiate cs base es) 0 e) =
             Some gD' /\
             (forall (_us : hlist typD (getUVars c)) _vsx (_vs : hlist typD tvs)
                     (us : hlist typD tus) (us' : hlist typD tus'),
@@ -763,9 +763,9 @@ Section parameterized.
                 (gD' (hlist_app _us us') (hlist_app _vsx _vs) <->
                  gD (hlist_app _us us) (hlist_app _vsx _vs))).
     Proof.
-      unfold propD, exprD'_typ0.
+      unfold propD, exprD_typ0.
       intros; forward; inv_all.
-      eapply instantiate_do_instantiate_exprD'_sound in H1; eauto.
+      eapply instantiate_do_instantiate_exprD_sound in H1; eauto.
       forward_reason.
       rewrite H1. eexists; split; eauto.
       intros. eapply H3 in H4; eauto.
@@ -897,7 +897,7 @@ Section parameterized.
         { clear H; intros.
           eapply IHmapD in H; clear IHmapD.
           forward_reason. subst.
-          rewrite exprD'_conv
+          rewrite exprD_conv
              with (pfu:=f_equal _ (app_ass_trans _ _ _)) (pfv:=eq_refl)
                in H0.
           autorewrite_with_eq_rw_in H0. forwardy.
@@ -1049,9 +1049,9 @@ Section parameterized.
       { apply (@mapD_nil_conv _ _ _ _ _tvs _ ts _ ts' _ mlist_inst _ R' (eq_sym (app_ass_trans _ (t::nil) _)) eq_refl eq_refl eq_refl eq_refl eq_refl) in H1.
         eapply IHmapD_nil in H1; clear IHmapD_nil.
         forward_reason.
-        eapply exprD'_weakenU with (tus':=ts') in H0; [ | eauto ].
+        eapply exprD_weakenU with (tus':=ts') in H0; [ | eauto ].
         forward_reason.
-        rewrite exprD'_conv
+        rewrite exprD_conv
            with (pfu:=eq_sym (app_ass_trans _ _ _)) (pfv:=eq_refl)
              in H0.
         autorewrite_with_eq_rw_in H0.
@@ -1203,11 +1203,10 @@ Section parameterized.
               mlist2 = Some sD')
             (Hf : forall (n : nat) e t eD,
                 nth_error mlist2 n = Some (Some e) ->
-                exprD' (_tus ++ tus ++ tus_) tvs e t = Some eD ->
+                exprD (_tus ++ tus ++ tus_) tvs t e = Some eD ->
                 exists eD',
-                  exprD' (_tus' ++ tus' ++
-                          types_after_instantiate tus_ mlist2)
-                         tvs (f e) t = Some eD' /\
+                  exprD (_tus' ++ tus' ++ types_after_instantiate tus_ mlist2)
+                         tvs t (f e) = Some eD' /\
                   forall _us _us' vs us us' us_ us_',
                     forall HP : P _us _us' vs,
                     forall Hfor : Forgetting mlist2 us_ us_',
@@ -1261,7 +1260,7 @@ Section parameterized.
           specialize (IHtus_ (tus ++ a0 :: nil) tus' (mlist1_inst ++ Some (f e) :: nil)).
           eapply Hf in H1. 2: instantiate (1 :=0); reflexivity.
           destruct H1 as [ eD' [ HeD' HeD'eq ] ].
-          rewrite exprD'_conv
+          rewrite exprD_conv
             with (pfu:=app_ass_trans _ _ _) (pfv:=eq_refl) in HeD'.
           autorewrite_with_eq_rw_in HeD'. forwardy.
           edestruct (@mapD_app_lem _ _ _ _ _ _ _ _ HmapD (a0 :: nil) nil (Some (f e) :: nil)).
@@ -1287,7 +1286,7 @@ Section parameterized.
           { eapply H2. }
           { inv_all. subst. clear - Hf H H3 H4 H6.
             do 4 intro. intro Hnth. intro H0.
-            rewrite exprD'_conv
+            rewrite exprD_conv
               with (pfu:=f_equal _ (eq_sym (app_ass_trans _ _ _))) (pfv:=eq_refl) in H0.
             simpl in H0. autorewrite_with_eq_rw_in H0.
             forwardy.
@@ -1509,11 +1508,11 @@ Section parameterized.
               mlist2 = Some sD')
             (Hf : forall (n : nat) e t eD,
                 nth_error mlist2 n = Some (Some e) ->
-                exprD' (_tus ++ tus ++ tus_) tvs e t = Some eD ->
+                exprD (_tus ++ tus ++ tus_) tvs t e = Some eD ->
                 exists eD',
-                  exprD' (_tus' ++ tus' ++
+                  exprD (_tus' ++ tus' ++
                           types_after_instantiate tus_ mlist2)
-                         tvs (f e) t = Some eD' /\
+                         tvs t (f e) = Some eD' /\
                   forall _us _us' vs us us' us_ us_',
                     P _us _us' vs ->
                     Forgetting _ us_ us_' ->
@@ -1539,68 +1538,6 @@ Section parameterized.
       intros. edestruct H0; eauto.
       forward_reason; eexists; split; eauto.
     Qed.
-
-(*
-    Lemma the_actual_lemma_nil'
-    : forall f (_tus _tus' tvs : tenv typ) (a : amap expr)
-        (WFa : FMapSubst.SUBST.WellFormed a),
-        forall (tus_ tus tus' : tenv typ) mlist1_inst mlist2 mlist2_inst
-          (Hlen : length mlist1_inst = length tus),
-          mlist2 = amap_aslist a (length (_tus ++ tus)) (length tus_) ->
-          mlist2_inst = map (Functor.fmap f) mlist2 ->
-          forall R sD' P
-            (HmapD : @mapD_nil _tus
-                  _tus'
-                  tvs
-                  tus
-                  tus'
-                  mlist1_inst R)
-            (HsubstD : FMapSubst.SUBST.list_substD
-              (_tus ++ tus ++ tus_)
-              tvs
-              (length (_tus ++ tus))
-              mlist2 = Some sD')
-            (Hf : forall (n : nat) e t eD,
-                nth_error mlist2 n = Some (Some e) ->
-                exprD' (_tus ++ tus ++ tus_) tvs e t = Some eD ->
-                exists eD',
-                  exprD' (_tus' ++ tus' ++
-                          types_after_instantiate tus_ mlist2)
-                         tvs (f e) t = Some eD' /\
-                  forall _us _us' vs us us' us_ us_',
-                    P _us _us' vs ->
-                    R _us _us' vs us us' ->
-                    eD (hlist_app _us (hlist_app us us_)) vs =
-                    eD' (hlist_app _us' (hlist_app us' us_')) vs),
-            exists R',
-              @mapD_nil _tus _tus' tvs (tus ++ tus_)
-                        (tus' ++
-                         types_after_instantiate tus_ mlist2)
-                        (mlist1_inst ++ mlist2_inst)  R' /\
-              forall _us _us' vs us us' us_',
-                P _us _us' vs ->
-                R _us _us' vs us us' ->
-                exists us_,
-                  sD' (hlist_app _us (hlist_app us us_)) vs /\
-                  R' _us _us' vs (hlist_app us us_) (hlist_app us' us_').
-    Proof.
-      clear. intros.
-      eapply mapD_nil_mapD_iff in HmapD.
-      forward_reason.
-      eapply mapD_weaken_post with (_tus_post':=types_after_instantiate tus_ mlist2) in H1.
-      forward_reason.
-      simpl in *. subst.
-      eapply the_actual_lemma with (f:=f) (P:=P) in H1; eauto.
-      { forward_reason.
-        eexists; split; eauto.
-        intuition. eapply H0; eauto.
-        eapply H2 in H1. eapply H3 in H1. eassumption. }
-      { intros. eapply Hf in H0; eauto.
-        forward_reason; eexists; split; eauto.
-        intros. eapply H4; eauto.
-        eapply H2. eapply H3. simpl. eassumption. }
-    Qed.
-*)
 
     Lemma do_instantiate_app
       : forall c (cs : ctx_subst c) base es es' u,
@@ -1646,7 +1583,7 @@ Section parameterized.
         eexists; split.
         - econstructor. eauto.
         - simpl. intros. rewrite H1. reflexivity. }
-      { eapply exprD'_weakenV with (tvs':=_tvs') in H0; eauto.
+      { eapply exprD_weakenV with (tvs':=_tvs') in H0; eauto.
         forward_reason.
         eexists; split.
         - econstructor; eauto.
@@ -1872,10 +1809,10 @@ Section parameterized.
               eapply do_instantiate_sound with (es:=es) (tus':=tus') (tvs:=tvs) in H5; eauto.
               { destruct (do_instantiate cs base es u).
                 { forward_reason.
-                  eapply exprD'_weakenU with (tus':=types_after_instantiate ts mlist) in H5;
+                  eapply exprD_weakenU with (tus':=types_after_instantiate ts mlist) in H5;
                     eauto with typeclass_instances.
                   forward_reason.
-                  rewrite exprD'_conv
+                  rewrite exprD_conv
                      with (pfu:=eq_sym (app_ass_trans _ _ _)) (pfv:=eq_refl) in H5.
                   autorewrite_with_eq_rw_in H5. forwardy.
                   inv_all. subst. subst.
@@ -2003,9 +1940,9 @@ Section parameterized.
                       exists
                         eUD : exprT (getUVars c ++ tus' ++ types_after_instantiate ts mlist)
                                     (getVars c ++ tvs) (typD t0),
-                        exprD' (getUVars c ++ tus' ++ types_after_instantiate ts mlist)
-                               (getVars c ++ tvs)
-                               (lookup_compress mlist (length (getUVars c ++ tus')) u) t0 = 
+                        exprD (getUVars c ++ tus' ++ types_after_instantiate ts mlist)
+                               (getVars c ++ tvs) t0
+                               (lookup_compress mlist (length (getUVars c ++ tus')) u) = 
                         Some eUD /\
                         (forall (usa : hlist typD (getUVars c ++ tus))
                                 (usc : hlist typD ts)
@@ -2027,7 +1964,7 @@ Section parameterized.
                   - inversion H0; clear H0; subst.
                     destruct ts; simpl in *; try congruence.
                     inv_all; subst. subst.
-                    destruct (exprD'_exact_uvar l (types_after_instantiate ts mlist) (getVars c ++ tvs) t).
+                    destruct (exprD_exact_uvar l (types_after_instantiate ts mlist) (getVars c ++ tvs) t).
                     forward_reason.
                     eexists; split; eauto.
                     intros.
@@ -2042,7 +1979,7 @@ Section parameterized.
                       forward_reason. eauto. }
                     { specialize (IHu ts t1 mlist (l++t::nil) H H0).
                       forward_reason.
-                      rewrite exprD'_conv with (pfv:=eq_refl)(pfu:=eq_sym (app_ass_trans _ _ _)) in H1.
+                      rewrite exprD_conv with (pfv:=eq_refl)(pfu:=eq_sym (app_ass_trans _ _ _)) in H1.
                       autorewrite_with_eq_rw_in H1. forwardy.
                       inv_all; subst.
                       rewrite app_length in H1. simpl in H1.

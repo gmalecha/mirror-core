@@ -65,10 +65,15 @@ Section typed.
         Relim F (Rtrans pf1 pf2) val =
         Relim F pf1 (Relim F pf2 val)
   ; type_cast_refl : forall x, type_cast x x = Some (Rrefl x)
-  ; type_cast_total : forall x y,
-                        type_cast x y = None -> ~Rty x y
   ; EquivDec_typ :> EquivDec.EqDec typ (@eq typ)
   }.
+
+  Theorem type_cast_total {RTO : RTypeOk}
+  : forall x y, type_cast x y = None -> ~Rty x y.
+  Proof.
+    intros. intro. red in H0. subst.
+    rewrite type_cast_refl in H. inversion H.
+  Qed.
 
   Definition makeRTypeOk
              (wf : well_founded tyAcc)
@@ -82,7 +87,6 @@ Section typed.
     { assumption. }
     { destruct pf. reflexivity. }
     { destruct pf1; destruct pf2; reflexivity. }
-    { assumption. }
     { assumption. }
     { red.
       refine (fun x y => match type_cast x y as Z return type_cast x y = Z -> _ with

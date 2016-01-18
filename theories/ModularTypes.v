@@ -1,5 +1,8 @@
-Require Import ExtLib.Tactics.EqDep.
+Require Import ExtLib.Data.Vector.
+Require Import ExtLib.Data.SigT.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
+Require Import ExtLib.Data.Eq.
 
 Universes Usmall Ularge.
 
@@ -9,6 +12,16 @@ Section parametric.
     | 0 => Type@{Usmall}
     | S n => Type@{Usmall} -> type_for_arity n
     end.
+
+  Fixpoint applyn' {n} (vs : vector Type@{Usmall} n)
+  : type_for_arity n -> Type@{Usmall} :=
+    match vs in vector _ n return type_for_arity n -> Type@{Usmall} with
+    | Vnil _ => fun T => T
+    | Vcons v vs => fun F => applyn' vs (F v)
+    end.
+  Definition applyn {n} (f : type_for_arity n) (vs : vector Type@{Usmall} n)
+  : Type@{Usmall} :=
+    applyn' vs f.
 
   Variable symbol : nat -> Type.
 
@@ -26,173 +39,219 @@ Section parametric.
   Arguments symbol_dec {_} _ _.
   Arguments symbol_eq {_} _ _.
 
-  Inductive typn : nat -> Type :=
-  | tyArr : typn 0 -> typn 0 -> typn 0
-  | tyApp : forall {n}, typn (S n) -> typn 0 -> typn n
-  | tyBase : forall {n}, symbol n -> typn n.
+  Unset Elimination Schemes.
 
-  Fixpoint typnD {n} (t : typn n) : type_for_arity n :=
-    match t in typn n return type_for_arity n with
-    | tyArr a b => typnD a -> typnD b
-    | tyApp a b => (typnD a) (typnD b)
-    | tyBase x => symbolD x
+  Inductive mtyp : Type :=
+  | tyArr : mtyp -> mtyp -> mtyp
+  | tyBase0 : symbol 0 -> mtyp
+  | tyBase1 : symbol 1 -> mtyp -> mtyp
+  | tyBase2 : symbol 2 -> mtyp -> mtyp -> mtyp
+  | tyApp : forall {n}, symbol (3 + n) -> vector mtyp (3 + n) -> mtyp.
+
+  Section mtyp_ind.
+    Variable P : mtyp -> Prop.
+    Hypotheses  (Harr : forall {a b}, P a -> P b -> P (tyArr a b))
+                (Hbase0 : forall s, P (tyBase0 s))
+                (Hbase1 : forall s {a}, P a -> P (tyBase1 s a))
+                (Hbase2 : forall s {a b}, P a -> P b -> P (tyBase2 s a b))
+                (Happ : forall {n} s ms, ForallV P ms -> P (@tyApp n s ms)).
+    Fixpoint mtyp_ind (x : mtyp) : P x :=
+      match x as x return P x with
+      | tyArr a b => Harr _ _ (mtyp_ind a) (mtyp_ind b)
+      | tyBase0 s => Hbase0 s
+      | tyBase1 s a => Hbase1 s _ (mtyp_ind a)
+      | tyBase2 s a b => Hbase2 s _ _ (mtyp_ind a) (mtyp_ind b)
+      | tyApp s ms =>
+        Happ _ s ms ((fix all {n} (ms : vector mtyp n) : ForallV P ms :=
+                        match ms with
+                        | Vnil _ => ForallV_nil _
+                        | Vcons m ms => ForallV_cons _(mtyp_ind m) (all ms)
+                        end) _ ms)
+      end.
+  End mtyp_ind.
+
+  Set Elimination Schemes.
+
+  (** Better to match on vector? *)
+
+  Fixpoint mtypD (t : mtyp) : Type@{Usmall} :=
+    match t return Type@{Usmall} with
+    | tyArr a b => mtypD a -> mtypD b
+    | tyBase0 s => symbolD s
+    | tyBase1 s m => symbolD s (mtypD m)
+    | tyBase2 s m1 m2 => symbolD s (mtypD m1) (mtypD m2)
+    | tyApp s ms => applyn (symbolD s) (vector_map mtypD ms)
     end.
 
-  Fixpoint typn_cast {n : nat} (a : typn n) : forall b : typn n, option (a = b) :=
-    match a as a in typn N return forall b : typn N, option (a = b) with
-    | tyArr l r => fun b : typn 0 =>
-      match b in typn N return option (match N as N return typn N -> Type with
-                                       | 0 => fun b : typn 0 => tyArr l r = b
-                                       | S x => fun _ => Empty_set
-                                       end b) with
-      | tyArr l' r' =>
-        match typn_cast l l'
-              , typn_cast r r'
-        with
-        | Some pf , Some pf' => Some match pf , pf' with
-                                     | eq_refl , eq_refl => eq_refl
-                                     end
-        | _ , _ => None
-        end
-      | @tyApp _ x y => None
-      | tyBase z => None
-      end
-    | @tyApp n l r => fun b : typn n =>
-      match b in typn N
-            return forall l : typn (S N),
-          (forall b, option (l = b)) -> option (tyApp l r = b)
-      with
-      | @tyApp n' l' r' => fun _ rec =>
-        match rec l' , typn_cast r r' with
-        | Some pf , Some pf' => Some match pf , pf' with
-                                     | eq_refl , eq_refl => eq_refl
-                                     end
-        | _ , _ => None
-        end
-      | _ => fun _ _ => None
-      end l (fun x => typn_cast l x)
-    | @tyBase n s => fun b : typn n =>
-      match b as b in typn N
-            return forall s : symbol N, option (@tyBase N s = b)
-      with
-      | @tyBase n' s' => fun s =>
-                           match symbol_eq s s' with
-                           | Some pf => Some match pf with
-                                             | eq_refl => eq_refl
-                                             end
-                           | None => None
-                           end
-      | _ => fun _ => None
-      end s
+  Let getAppN (a : mtyp) : nat :=
+    match a with
+    | @tyApp n _ _ => n
+    | _ => 0
+    end.
+  Let getApp_f_ms (a : mtyp)
+  : option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) :=
+    match a as a return option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) with
+    | @tyApp n a b => Some (a,b)
+    | _ => None
     end.
 
-  Definition typ_tag {n} (t : typn n) : nat :=
-    match t with
-    | tyArr _ _ => 0
-    | tyApp _ _ => 1
-    | tyBase _ => 2
-    end.
-  Lemma tag_inj : forall n (a b : typn n),
-      a = b ->
-      typ_tag a = typ_tag b.
-  Proof using. intros; subst; reflexivity. Qed.
+  Theorem UIP_nat : forall {a b : nat} (pf pf' : a = b), pf = pf'.
+  Proof using.
+    eapply uip_trans. eapply PeanoNat.Nat.eq_dec.
+  Defined.
 
-  Fixpoint typn_dec {n : nat} (a : typn n)
-  : forall b : typn n, {a = b} + {not (a = b)}.
+  Instance Injective_tyApp {n n'} {s : symbol (3+n)} {s' : symbol (3+n')}
+           ms ms' : Injective (tyApp s ms = tyApp s' ms') :=
+  { result := forall pf : n' = n,
+      s = match pf with eq_refl => s' end /\
+      ms = match pf with eq_refl => ms' end }.
+  Proof.
+    intros.
+    refine (match H in _ = (@tyApp n' l r)
+                  return forall pf : n' = n,
+                s = match pf in _ = X return symbol (3 + X) with
+                    | eq_refl => l
+                    end /\ ms = match pf with
+                                | eq_refl => r
+                                end
+            with
+            | eq_refl => fun pf => _
+            end pf).
+    rewrite (UIP_nat pf eq_refl).
+    split; reflexivity.
+  Defined.
+
+  Fixpoint mtyp_dec (a b : mtyp) : {a = b} + {a <> b}.
   refine
-    match a as a in typn N return forall b : typn N, {a = b} + {not (a = b)} with
-    | tyArr l r => fun b : typn 0 =>
-      match b in typn N
-            return 0 = N -> {match N as N return typn N -> Prop with
-                             | 0 => fun b : typn 0 => tyArr l r = b
-                             | S x => fun _ => False
-                             end b} + {match N as N return typn N -> Prop with
-                                       | 0 => fun b : typn 0 => not (tyArr l r = b)
-                                       | S x => fun _ => False
-                                       end b} with
-      | tyArr l' r' => fun _ =>
-                         match @typn_dec 0 l l'
-                             , @typn_dec 0 r r'
-                         with
-                         | left pf , left pf' => left _
-                         | _ , _ => right _
-                         end
-      | @tyApp _ x y => fun _ => right _
-      | @tyBase a z => fun _ => right _
-      end eq_refl
-    | @tyApp n l r => fun b : typn n =>
-      match b in typn N
-            return forall l : typn (S N),
-          (forall b, {l = b} + {not (l = b)}) ->
-          {tyApp l r = b} + {not (tyApp l r = b)}
+    match a as a , b as b return {a = b} + {a <> b} with
+    | tyArr l r , tyArr l' r' =>
+      match mtyp_dec l l'
+          , mtyp_dec r r'
       with
-      | @tyApp n' l' r' => fun _ rec =>
-        match rec l' , typn_dec _ r r' with
-        | left pf , left pf' => left _ match pf , pf' with
-                                       | eq_refl , eq_refl => eq_refl
-                                       end
+      | left pf , left pf' => left match pf , pf' with
+                                   | eq_refl , eq_refl => eq_refl
+                                   end
+      | _ , _ => right _
+      end
+    | tyBase0 s , tyBase0 s' =>
+      match symbol_dec s s' with
+      | left pf => left match pf with eq_refl => eq_refl end
+      | _ => right _
+      end
+    | tyBase1 s m , tyBase1 s' m' =>
+      match symbol_dec s s'
+          , mtyp_dec m m'
+      with
+      | left pf , left pf' => left match pf , pf' with
+                                   | eq_refl , eq_refl => eq_refl
+                                   end
+      | _ , _ => right _
+      end
+    | tyBase2 s m m2 , tyBase2 s' m' m2' =>
+      match symbol_dec s s'
+          , mtyp_dec m m'
+          , mtyp_dec m2 m2'
+      with
+      | left pf , left pf' , left pf'' =>
+        left match pf , pf' , pf'' with
+             | eq_refl , eq_refl , eq_refl => eq_refl
+             end
+      | _ , _ , _ => right _
+      end
+    | @tyApp n s ms , @tyApp n' s' ms' =>
+      match PeanoNat.Nat.eq_dec n' n with
+      | left pf =>
+        match symbol_dec s match pf with eq_refl => s' end
+            , vector_dec mtyp_dec ms match pf with eq_refl => ms' end
+        with
+        | left pf , left pf' => left _
         | _ , _ => right _
         end
-      | _ => fun _ _ => right _
-      end l (fun x => typn_dec _ l x)
-    | @tyBase n s => fun b : typn n =>
-      match b as b in typn N
-            return forall s : symbol N,
-          {@tyBase N s = b} + {not (@tyBase N s = b)}
+      | right _ => right _
+      end
+    | _ , _ => right _
+    end;
+  try solve [ clear ; intro pf; inversion pf
+            | intro pf ; inversion pf; auto ].
+  { subst; reflexivity. }
+  { clear - n0. intro. inv_all.
+    specialize (H pf). destruct H. auto. }
+  { clear - n0. intro; inv_all.
+    specialize (H pf). destruct H; auto. }
+  Defined.
+
+  Fixpoint mtyp_cast (a b : mtyp) : option (a = b).
+  refine
+    match a as a , b as b return option (a = b) with
+    | tyArr l r , tyArr l' r' =>
+      match mtyp_cast l l'
+          , mtyp_cast r r'
       with
-      | @tyBase n' s' => fun s =>
-                           match symbol_dec s s' with
-                           | left pf => left match pf with
-                                             | eq_refl => eq_refl
-                                             end
-                           | right _ => right _
-                           end
-      | _ => fun _ => right _
-      end s
-    end; try solve [ congruence
-                   | subst; injection 1; auto
-                   | subst; intro; eapply tag_inj in H; simpl in *; congruence
-                   ].
-  { red. intros. apply n1.
-    injection H.
-    intros. eapply EqDep.inj_pair2 in H1. auto. }
-  { red; intros.
-    apply n1. injection H. intros.
-    eapply EqDep.inj_pair2 in H0. auto. }
+      | Some pf , Some pf' => Some match pf , pf' with
+                                   | eq_refl , eq_refl => eq_refl
+                                   end
+      | _ , _ => None
+      end
+    | tyBase0 s , tyBase0 s' =>
+      match symbol_dec s s' with
+      | left pf => Some match pf with eq_refl => eq_refl end
+      | _ => None
+      end
+    | tyBase1 s m , tyBase1 s' m' =>
+      match symbol_dec s s'
+          , mtyp_cast m m'
+      with
+      | left pf , Some pf' => Some match pf , pf' with
+                                   | eq_refl , eq_refl => eq_refl
+                                   end
+      | _ , _ => None
+      end
+    | tyBase2 s m m2 , tyBase2 s' m' m2' =>
+      match symbol_dec s s'
+          , mtyp_cast m m'
+          , mtyp_cast m2 m2'
+      with
+      | left pf , Some pf' , Some pf'' =>
+        Some match pf , pf' , pf'' with
+             | eq_refl , eq_refl , eq_refl => eq_refl
+             end
+      | _ , _ , _ => None
+      end
+    | @tyApp n s ms , @tyApp n' s' ms' =>
+      match PeanoNat.Nat.eq_dec n' n with
+      | left pf =>
+        match symbol_dec s match pf with eq_refl => s' end
+            , vector_dec mtyp_dec ms match pf with eq_refl => ms' end
+        with
+        | left pf , left pf' => Some _
+        | _ , _ => None
+        end
+      | right _ => None
+      end
+    | _ , _ => None
+    end.
+  subst. reflexivity.
   Defined.
 
-  Inductive typn_acc (a : typn 0) : forall {n}, typn n -> Prop :=
-  | tyAcc_tyArrL : forall b, typn_acc a (tyArr a b)
-  | tyAcc_tyArrR : forall b, typn_acc a (tyArr b a)
-  | tyAcc_tyAppL : forall n b, @typn_acc a (S n) b -> typn_acc a (tyApp b a)
-  | tyAcc_tyAppR : forall n b, @typn_acc a n (tyApp b a).
+  Inductive mtyp_acc (a : mtyp) : mtyp -> Prop :=
+  | tyAcc_tyArrL   : forall b, mtyp_acc a (tyArr a b)
+  | tyAcc_tyArrR   : forall b, mtyp_acc a (tyArr b a)
+  | tyAcc_tyBase1  : forall s, mtyp_acc a (tyBase1 s a)
+  | tyAcc_tyBase2L : forall s b, mtyp_acc a (tyBase2 s a b)
+  | tyAcc_tyBase2R : forall s b, mtyp_acc a (tyBase2 s b a)
+  | tyAcc_tyApp    : forall n s ms, vector_In a ms -> mtyp_acc a (@tyApp n s ms).
 
-  Theorem wf_typn_acc : forall n (a : typn n), match n with
-                                   | 0 => Acc (fun a b => typn_acc a b)
-                                   | S n => fun _ => True
-                                   end a.
+  Theorem wf_mtyp_acc : well_founded mtyp_acc.
   Proof using.
-    induction a.
-    - constructor. inversion 1; subst; eauto.
-    - destruct n. constructor. inversion 1; subst; eauto.
-      trivial.
-    - destruct n; auto.
-      constructor. inversion 1.
+    red.
+    induction a; constructor; inversion 1; subst; auto.
+    - inv_all. subst. eapply ForallV_vector_In; eauto.
   Defined.
 
-  Definition typ0_acc := fun a b : typn 0 => typn_acc a b.
-
-  Theorem wf_typ0_acc : well_founded typ0_acc.
-  Proof using.
-    red. eapply wf_typn_acc.
-  Defined.
-
-  Definition typ := typn 0.
-
-  Instance RType_typ0 : RType typ :=
-  { typD := @typnD 0
-  ; type_cast := @typn_cast 0
-  ; tyAcc := typ0_acc }.
+  Instance RType_mtyp : RType mtyp :=
+  { typD := mtypD
+  ; type_cast := mtyp_cast
+  ; tyAcc := mtyp_acc }.
 
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.
@@ -200,64 +259,66 @@ Section parametric.
     destruct (symbol_dec x y); (left + right); assumption.
   Defined.
 
-  Local Instance EqDec_typn : forall n, EqDec (typn n) (@eq (typn n)).
+  Local Instance EqDec_mtyp : EqDec mtyp (@eq mtyp).
   Proof.
     red. intros.
-    eapply typn_dec.
+    eapply mtyp_dec.
   Defined.
 
-  Theorem typn_cast_refl : forall n a,
-      @typn_cast n a a = Some eq_refl.
+  Lemma dec_refl
+  : forall T (dec : forall a b : T, {a = b} + {a <> b}) (a : T),
+      dec a a = left eq_refl.
+  Proof using.
+    intros. destruct (dec a a).
+    - uip_all. reflexivity.
+    - exfalso; tauto.
+      Unshelve. assumption.
+  Qed.
+
+  Lemma symbol_dec_refl
+  : forall n (a : symbol n), symbol_dec a a = left eq_refl.
+  Proof using.
+    intro. apply dec_refl.
+  Qed.
+
+  Theorem mtyp_cast_refl : forall a,
+      mtyp_cast a a = Some eq_refl.
   Proof.
     induction a; simpl.
     - rewrite IHa1. rewrite IHa2. reflexivity.
-    - rewrite IHa1. rewrite IHa2. reflexivity.
-    - rewrite symbol_eq_total.
-      destruct (symbol_dec s s); try congruence.
-      rewrite (EqDep.UIP_refl e). reflexivity.
+    - rewrite symbol_dec_refl. reflexivity.
+    - rewrite symbol_dec_refl. rewrite IHa. reflexivity.
+    - rewrite symbol_dec_refl. rewrite IHa1; rewrite IHa2; reflexivity.
+    - repeat rewrite dec_refl. reflexivity.
   Qed.
 
-  Theorem typn_cast_nrefl : forall x y : typ, typn_cast x y = None -> ~ x = y.
-  Proof.
-    unfold typ. intros. intro. subst.
-    rewrite typn_cast_refl in H. congruence.
-  Qed.
-
-  Instance RTypeOk_typ0 : RTypeOk.
+  Instance RTypeOk_mtyp : RTypeOk.
   Proof.
     constructor.
     - reflexivity.
-    - eapply wf_typ0_acc.
+    - eapply wf_mtyp_acc.
     - destruct pf; reflexivity.
     - destruct pf1; destruct pf2; reflexivity.
-    - apply typn_cast_refl.
-    - eapply typn_cast_nrefl.
+    - apply mtyp_cast_refl.
     - eauto with typeclass_instances.
   Qed.
 
   Instance Typ0_sym (s : symbol 0) : Typ0 _ (symbolD s) :=
-  { typ0 := tyBase s
+  { typ0 := tyBase0 s
   ; typ0_cast := eq_refl
-  ; typ0_match := fun T (t : typn 0) tr =>
-                    match t as t' in typn n
-                          return T (match n as n return typn n -> Type with
-                                    | 0 => @typD typ (RType_typ0)
-                                    | S n => fun _ => typD t
-                                    end t') ->
-                                 T (match n as n return typn n -> Type with
-                                    | 0 => @typD typ (RType_typ0)
-                                    | S n => fun _ => typD t
-                                    end t')
-                    with
-                    | @tyBase 0 s' =>
-                      match symbol_dec s s' with
-                      | left pf => fun _ => match pf with
-                                            | eq_refl => tr
-                                            end
-                      | right _ => fun fa => fa
-                      end
-                    | _ => fun fa => fa
-                    end }.
+  ; typ0_match := fun T (t : mtyp) tr =>
+    match t as t'
+          return T (mtypD t') -> T (mtypD t')
+    with
+    | tyBase0 s' =>
+      match symbol_dec s s' with
+      | left pf => fun _ => match pf with
+                            | eq_refl => tr
+                            end
+      | right _ => fun fa => fa
+      end
+    | _ => fun fa => fa
+    end }.
   Instance Typ0Ok_sym (s : symbol 0) : Typ0Ok (Typ0_sym s).
   Proof using.
     constructor.
@@ -265,116 +326,25 @@ Section parametric.
       destruct (symbol_dec s s) eqn:?; try reflexivity.
       - uip_all. reflexivity.
       - exfalso; clear - n. congruence. }
-    { intro. refine
-        match x as x in typn n
-              return match n as n return typn n -> Prop with
-                     | 0 => fun x =>
-                              (exists pf : Rty x (typ0 (F:=symbolD s)),
-                                  forall (T : Type -> Type) (tr : T (symbolD s)) (fa : T (typD x)),
-                                    typ0_match T x tr fa =
-                                    Relim T pf
-                                          match eq_sym (typ0_cast (F:=symbolD s)) in (_ = t) return (T t) with
-                                          | eq_refl => tr
-                                          end) \/
-                              (forall (T : Type -> Type) (tr : T (symbolD s)) (fa : T (typD x)),
-                                  typ0_match T x tr fa = fa)
-                     | _ => fun _ => True
-                     end x
-        with
-        | tyBase _ => _
-        | _ => _
-        end; try solve [ right; eauto ].
-      { destruct n; auto. }
-      { destruct n; auto. simpl.
-        destruct (symbol_dec s s0); try solve [ right; eauto ].
-        subst. left. exists eq_refl. reflexivity. } }
+    { intro.
+      destruct x; try solve [ right ; eauto ].
+      simpl. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+      left. subst. exists eq_refl. reflexivity. }
     { destruct pf. reflexivity. }
   Qed.
 
   Instance Typ1_sym (s : symbol 1) : Typ1 _ (symbolD s) :=
-  { typ1 := fun x => tyApp (tyBase s) x
+  { typ1 := tyBase1 s
   ; typ1_cast := fun _ => eq_refl
-  ; typ1_match := fun T (t : typn 0) tr =>
-      match t as t' in typn n
-            return T (match n as n return typn n -> Type with
-                      | 0 => @typD typ (RType_typ0)
-                      | S n => fun _ => typD t
-                      end t') ->
-                   T (match n as n return typn n -> Type with
-                      | 0 => @typD typ (RType_typ0)
-                      | S n => fun _ => typD t
-                      end t')
-      with
-      | @tyApp n _t' x =>
-        match n as n
-              return forall t' : typn (S n),
-            T (match n as n1 return (typn n1 -> Type) with
-               | 0 => @typD typ RType_typ0
-               | S n1 =>
-                 fun _ : typn (S n1) =>
-                   @typD (typn 0) RType_typ0 t
-               end (@tyApp n t' x)) ->
-            T (match n as n1 return (typn n1 -> Type) with
-               | 0 => @typD typ RType_typ0
-               | S n1 =>
-                 fun _ : typn (S n1) =>
-                   @typD (typn 0) RType_typ0 t
-               end (@tyApp n t' x))
-        with
-        | 0 => fun t' =>
-                 match t' as t' in typn n'
-                       return T (match n' as n' return typn n' -> Type with
-                                 | 0 => fun _ => unit
-                                 | S n' =>
-                                   match n' as n' return typn (S n') -> Type with
-                                   | 0 => fun t' : typn 1 =>
-                                            (@typD typ RType_typ0 (@tyApp 0 t' x))
-                                   | S _ => fun _ => unit
-                                   end
-                                 end t') ->
-                              T (match n' as n' return typn n' -> Type with
-                                 | 0 => fun _ => unit
-                                 | S n' =>
-                                   match n' as n' return typn (S n') -> Type with
-                                   | 0 => fun t' : typn 1 =>
-                                            (@typD typ RType_typ0 (@tyApp 0 t' x))
-                                   | S _ => fun _ => unit
-                                   end
-                                 end t')
-                 with
-                 | @tyBase n' s' =>
-                   match n' as n'
-                         return forall s' : symbol n',
-                                T (match n' as n'0 return (typn n'0 -> Type) with
-                                   | 0 => fun _ : typn 0 => unit
-                                   | S n'0 =>
-                                     match n'0 as n'1 return (typn (S n'1) -> Type) with
-                                     | 0 => fun t'0 : typn 1 => @typD typ RType_typ0 (@tyApp 0 t'0 x)
-                                     | S n0 => fun _ : typn (S (S n0)) => unit
-                                     end
-                                   end (@tyBase n' s')) ->
-                                T (match n' as n'0 return (typn n'0 -> Type) with
-                                   | 0 => fun _ : typn 0 => unit
-                                   | S n'0 =>
-                                     match n'0 as n'1 return (typn (S n'1) -> Type) with
-                                     | 0 => fun t'0 : typn 1 => @typD typ RType_typ0 (@tyApp 0 t'0 x)
-                                     | S n0 => fun _ : typn (S (S n0)) => unit
-                                     end
-                                   end (@tyBase n' s'))
-                   with
-                   | 1 => fun s' =>
-                            match symbol_dec s s' with
-                            | left pf => match pf with
-                                         | eq_refl => fun _ => tr x
-                                         end
-                            | right _ => fun fa => fa
-                            end
-                   | _ => fun _ fa => fa
-                   end s'
-                 | _ => fun fa => fa
-                 end
-        | _ => fun _ fa => fa
-        end _t'
+  ; typ1_match := fun T (t : mtyp) tr =>
+      match t as t return T (mtypD t) -> T (mtypD t) with
+      | tyBase1 s' m =>
+        match symbol_dec s s' with
+        | left pf => fun _ => match pf with
+                              | eq_refl => tr m
+                              end
+        | _ => fun fa => fa
+        end
       | _ => fun fa => fa
       end }.
 
@@ -382,78 +352,49 @@ Section parametric.
   Proof using.
     constructor.
     { simpl. intros.
-      destruct (symbol_dec s s).
-      - uip_all. reflexivity.
-      - exfalso. clear - n. auto. }
-    { intros. constructor 4. }
+      rewrite dec_refl. reflexivity. }
+    { intros. constructor. }
     { compute. inversion 1. reflexivity. }
-    { intros.
-      refine
-        match x as x in typn n
-              return match n as n return typn n -> Prop with
-                     | 0 => fun x =>
-                              (exists (d : typ) (pf : Rty x (typ1 d)),
-                                  forall (T : Type -> Type) (tr : forall a : typ, T (symbolD s (typD a)))
-                                         (fa : T (typD x)),
-                                    typ1_match T x tr fa =
-                                    Relim T pf
-                                          match eq_sym (typ1_cast d) in (_ = t) return (T t) with
-                                          | eq_refl => tr d
-                                          end) \/
-                              (forall (T : Type -> Type) (tr : forall a : typ, T (symbolD s (typD a)))
-                                      (fa : T (typD x)), typ1_match T x tr fa = fa)
-                     | _ => fun _ => True
-                     end x
-        with
-        | tyApp _ _ => _
-        | _ => _
-        end; try solve [ right; reflexivity
-                       | destruct n ; auto ].
-      destruct n; auto.
-      refine
-        match t as t in typn n
-              return match n as n return typn n -> Prop with
-                     | 0 => fun _ => True
-                     | 1 => fun t =>
-                              (exists (d : typ) (pf : Rty (tyApp t t0) (typ1 d)),
-                                  forall (T : Type -> Type) (tr : forall a : typ, T (symbolD s (typD a)))
-                                         (fa : T (typD (tyApp t t0))),
-                                    typ1_match T (tyApp t t0) tr fa =
-                                    Relim T pf
-                                          match eq_sym (typ1_cast d) in (_ = t1) return (T t1) with
-                                          | eq_refl => tr d
-                                          end) \/
-                              (forall (T : Type -> Type) (tr : forall a : typ, T (symbolD s (typD a)))
-                                      (fa : T (typD (tyApp t t0))), typ1_match T (tyApp t t0) tr fa = fa)
-                     | S (S _) => fun _ => True
-                     end t
-        with
-        | tyBase _ => _
-        | _ => _
-        end; try solve [ auto | do 2 (destruct n; auto) ].
-      destruct n; auto.
-      destruct n; auto.
-      simpl.
-      destruct (symbol_dec s s0); auto.
-      left.
-      exists t0. subst. exists eq_refl. reflexivity. }
+    { destruct x; try solve [ right ; eauto ].
+      simpl. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+      subst. left. eexists. exists eq_refl. reflexivity. }
+    { destruct pf. reflexivity. }
+  Qed.
+
+  Instance Typ2_sym (s : symbol 2) : Typ2 _ (symbolD s) :=
+  { typ2 := tyBase2 s
+  ; typ2_cast := fun _ _ => eq_refl
+  ; typ2_match := fun T (t : mtyp) tr =>
+      match t as t return T (mtypD t) -> T (mtypD t) with
+      | tyBase2 s' m m' =>
+        match symbol_dec s s' with
+        | left pf => fun _ => match pf with
+                              | eq_refl => tr m m'
+                              end
+        | _ => fun fa => fa
+        end
+      | _ => fun fa => fa
+      end }.
+
+  Instance Typ2Ok_sym (s : symbol 2) : Typ2Ok (Typ2_sym s).
+  Proof using.
+    constructor.
+    { simpl. intros.
+      rewrite dec_refl. reflexivity. }
+    { constructor. }
+    { constructor. }
+    { compute. inversion 1. tauto. }
+    { destruct x; try solve [ right ; eauto ].
+      simpl. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+      subst. left. do 2 eexists. exists eq_refl. reflexivity. }
     { destruct pf. reflexivity. }
   Qed.
 
   Instance Typ2_Fun : Typ2 _ RFun :=
   { typ2 := tyArr
   ; typ2_cast := fun _ _ => eq_refl
-  ; typ2_match := fun T (x : typn 0) tr =>
-    match x as x in typn n
-          return T (match n as n return typn n -> Type with
-                    | 0 => fun x => typD x
-                    | _ => fun _ => unit
-                    end x) ->
-                 T (match n as n return typn n -> Type with
-                    | 0 => fun x => typD x
-                    | _ => fun _ => unit
-                    end x)
-    with
+  ; typ2_match := fun T (x : mtyp) tr =>
+    match x as x return T (mtypD x) -> T (mtypD x) with
     | tyArr l r => fun _ => tr l r
     | _ => fun fa => fa
     end }.
@@ -465,28 +406,23 @@ Section parametric.
     { constructor. }
     { constructor. }
     { inversion 1. split; reflexivity. }
-    { intro.
-      refine
-        match x as x in typn 0
-              return (exists (d r : typ) (pf : Rty x (typ2 d r)),
-                         forall (T : Type -> Type)
-                                (tr : forall a b : typ, T (RFun (typD a) (typD b)))
-                                (fa : T (typD x)),
-                           typ2_match T x tr fa =
-                           Relim T pf
-                                 match eq_sym (typ2_cast d r) in (_ = t) return (T t) with
-                                 | eq_refl => tr d r
-                                 end) \/
-                     (forall (T : Type -> Type)
-                             (tr : forall a b : typ, T (RFun (typD a) (typD b)))
-                             (fa : T (typD x)), typ2_match T x tr fa = fa)
-        with
-        | tyArr l r => _
-        | _ => _
-        end; try solve [ destruct n; try exact @id; right; auto ].
-      left. simpl.
-      do 2 eexists. exists eq_refl. reflexivity. }
+    { destruct x; try solve [ right ; eauto ].
+      simpl. left; do 2 eexists; exists eq_refl; reflexivity. }
     { destruct pf. reflexivity. }
   Qed.
 
 End parametric.
+
+Arguments tyBase0 {_} _.
+Arguments tyBase1 {_} _ _.
+Arguments tyBase2 {_} _ _ _.
+Arguments tyApp {_ _} _ _.
+
+Arguments Typ0_sym {_ _ _} _.
+Arguments Typ1_sym {_ _ _} _.
+Arguments Typ2_sym {_ _ _} _.
+Arguments Typ2_Fun {_ _ _}.
+Arguments Typ0Ok_sym {_ _ _} _.
+Arguments Typ1Ok_sym {_ _ _} _.
+Arguments Typ2Ok_sym {_ _ _} _.
+Arguments Typ2Ok_Fun {_ _ _}.

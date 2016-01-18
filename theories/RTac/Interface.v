@@ -14,18 +14,20 @@ Section parameterized.
   Variable tac : rtac typ expr.
 
   Class RtacSound : Prop :=
-  { RtacSound_proof : rtac_sound tac }.
+    RtacSound_proof :> rtac_sound tac.
 
-  Hypothesis tac_sound : rtac_sound tac.
+  Theorem mkRtacSound : rtac_sound tac -> RtacSound.
+  Proof. exact (fun x => x). Qed.
+
+  Hypothesis tac_sound : RtacSound.
 
   Definition runRtac (tus tvs : tenv typ) (goal : expr) (tac : rtac typ expr) :=
     tac tus tvs (length tus) (length tvs) _ (TopSubst _ tus tvs) goal.
 
-
   Definition propD us vs g : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
-    match exprD'_typ0 tus tvs g return Prop with
+    match exprD_typ0 tus tvs g return Prop with
       | None => True
       | Some P => P us vs
     end.
@@ -50,7 +52,7 @@ Section parameterized.
     rewrite (split_env_typeof_env us).
     rewrite (split_env_typeof_env vs).
     intros.
-    destruct (exprD'_typ0 (typeof_env us) (typeof_env vs) g); trivial.
+    destruct (exprD_typ0 (typeof_env us) (typeof_env vs) g); trivial.
     destruct H. constructor. constructor.
     destruct H0.
     eapply H1.
@@ -63,7 +65,7 @@ Section parameterized.
       | Some G => G us vs
       | _ => True
     end ->
-    match exprD'_typ0 tus tvs g return Prop with
+    match exprD_typ0 tus tvs g return Prop with
       | None => True
       | Some P => P us vs
     end.
@@ -84,7 +86,7 @@ Section parameterized.
     rewrite (split_env_typeof_env us).
     rewrite (split_env_typeof_env vs).
     intros.
-    destruct (exprD'_typ0 (typeof_env us) (typeof_env vs) g); trivial.
+    destruct (exprD_typ0 (typeof_env us) (typeof_env vs) g); trivial.
     destruct H. constructor. constructor.
     simpl in *. destruct H1.
     destruct (goalD (typeof_env us) (typeof_env vs) g'); eauto.
@@ -96,10 +98,10 @@ Section parameterized.
   Lemma rtac_sound_let
   : forall (t1 : rtac typ expr)
            (t2 : _ -> rtac typ expr),
-      rtac_sound t1 ->
+      RtacSound t1 ->
       (forall x, RtacSound x -> rtac_sound (t2 x)) ->
-      rtac_sound (let x := t1 in t2 x).
-  Proof using. intros. eapply H0. constructor. eauto. Qed.
+      RtacSound (let x := t1 in t2 x).
+  Proof using. intros. eapply H0. eauto. Qed.
 
   Lemma rtac_sound_letK
   : forall (t1 : rtacK typ expr) (t2 : _ -> rtac typ expr),
@@ -114,7 +116,7 @@ Section parameterized.
       rtac_sound t1 ->
       (forall x, RtacSound x -> rtacK_sound (t2 x)) ->
       rtacK_sound (let x := t1 in t2 x).
-  Proof using. intros. eapply H0. constructor. eauto. Qed.
+  Proof using. intros. eapply H0. eauto. Qed.
 
   Lemma rtacK_sound_letK
   : forall (t1 : rtacK typ expr) (t2 : _ -> rtacK typ expr),

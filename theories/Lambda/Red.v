@@ -29,16 +29,16 @@ Section substitute.
   Fixpoint substitute_one (v : var) (w : expr typ sym) (e : expr typ sym)
   : expr typ sym :=
     match e with
-      | Var v' =>
-        match nat_compare v v' with
-          | Eq => w
-          | Lt => Var (v' - 1)
-          | Gt => Var v'
-        end
-      | UVar u => UVar u
-      | Inj i => Inj i
-      | App l' r' => App (substitute_one v w l') (substitute_one v w r')
-      | Abs t e => Abs t (substitute_one (S v) (lift 0 1 w) e)
+    | Var v' =>
+      match nat_compare v v' with
+      | Eq => w
+      | Lt => Var (v' - 1)
+      | Gt => Var v'
+      end
+    | UVar u => UVar u
+    | Inj i => Inj i
+    | App l' r' => App (substitute_one v w l') (substitute_one v w r')
+    | Abs t e => Abs t (substitute_one (S v) (lift 0 1 w) e)
     end.
 
   Theorem substitute_one_typed
@@ -76,11 +76,11 @@ Section substitute.
   : forall tus e tvs w e',
       substitute_one (length tvs) w e = e' ->
       forall tvs' (t t' : typ),
-        match exprD' tus (tvs ++ tvs') t w
-            , exprD' tus (tvs ++ t :: tvs') t' e
+        match lambda_exprD tus (tvs ++ tvs') t w
+            , lambda_exprD tus (tvs ++ t :: tvs') t' e
         with
           | Some wval , Some eval =>
-            match exprD' tus (tvs ++ tvs') t' e' with
+            match lambda_exprD tus (tvs ++ tvs') t' e' with
               | None => False
               | Some val' =>
                 forall (us : hlist _ tus) (gs : hlist typD tvs) (gs' : hlist typD tvs'),
@@ -193,7 +193,7 @@ Section substitute.
         unfold AbsAppI.exprT_App.
         autorewrite_with_eq_rw.
         rewrite IHe1. rewrite IHe2. reflexivity. }
-      { eapply exprD'_typeof_expr.
+      { eapply lambda_exprD_typeof_expr.
         left. eauto. } }
     { autorewrite with exprD_rw. simpl.
       destruct (typ2_match_case t').
@@ -204,7 +204,7 @@ Section substitute.
         forward. inv_all; subst.
         specialize (IHe (t :: tvs) (lift 0 1 w) _ eq_refl tvs' t0 x0).
         revert IHe. simpl.
-        generalize (exprD'_lift tus w nil (t :: nil) (tvs ++ tvs') t0).
+        generalize (lambda_exprD_lift tus w nil (t :: nil) (tvs ++ tvs') t0).
         simpl. Cases.rewrite_all_goal.
         intros. forward.
         eapply functional_extensionality. intros.
@@ -248,10 +248,10 @@ Section beta.
 
   Theorem beta_sound
   : forall tus tvs e t,
-      match exprD' tus tvs t e with
+      match lambda_exprD tus tvs t e with
         | None => True
         | Some val =>
-          match exprD' tus tvs t (beta e) with
+          match lambda_exprD tus tvs t (beta e) with
             | None => False
             | Some val' =>
               forall us vs, val us vs = val' us vs
@@ -261,16 +261,16 @@ Section beta.
     intros tus tvs e t.
     match goal with
       | |- ?G =>
-        cut (exprD' tus tvs t e = exprD' tus tvs t e /\ G);
+        cut (lambda_exprD tus tvs t e = lambda_exprD tus tvs t e /\ G);
           [ intuition | ]
     end.
     revert tvs e t.
-    refine (@ExprFacts.exprD'_ind _ _ _ _ _ _ _ _
+    refine (@ExprFacts.lambda_exprD_ind _ _ _ _ _ _ _ _
                                       (fun tus tvs e t val =>
-                                         exprD' tus tvs t e = val /\
+                                         lambda_exprD tus tvs t e = val /\
                                       match val with
                                         | Some val =>
-                                          match exprD' tus tvs t (beta e) with
+                                          match lambda_exprD tus tvs t (beta e) with
                                             | Some val' =>
                                               forall (us : hlist typD tus) (vs : hlist typD tvs),
                                                 val us vs = val' us vs
@@ -313,7 +313,7 @@ Section beta.
         reflexivity. } }
     { intros. forward_reason.
       forward. simpl.
-      cutrewrite (exprD' tus tvs (typ2 d r) (Abs d e) = Some (AbsAppI.exprT_Abs fval)); auto.
+      cutrewrite (lambda_exprD tus tvs (typ2 d r) (Abs d e) = Some (AbsAppI.exprT_Abs fval)); auto.
       autorewrite with exprD_rw.
       rewrite typ2_match_iota; auto.
       rewrite type_cast_refl; auto. simpl.

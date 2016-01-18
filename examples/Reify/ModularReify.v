@@ -1,7 +1,7 @@
 Require Import MirrorCore.Reify.Reify.
 
-Reify Declare Patterns patterns_nat := nat.
-Reify Declare Patterns patterns_bool := bool.
+Reify Declare Patterns patterns_nat : nat.
+Reify Declare Patterns patterns_bool : bool.
 
 Inductive nat_or_bool :=
 | Nat : nat -> nat_or_bool
@@ -26,10 +26,6 @@ Reify Declare Syntax reify_nat_or_bool :=
   (Patterns.CFirst (   (Patterns.CMap Nat (Patterns.CPatterns patterns_nat))
                     :: (Patterns.CMap Bool (Patterns.CPatterns patterns_bool))
                     :: nil)).
-
-
-
-
 
 Ltac reify trm :=
   let k e :=

@@ -18,6 +18,20 @@ Set Strict Implicit.
 Definition var := nat.
 Definition uvar := nat.
 
+(** TODO: Move to ExtLib.Data.List. **)
+Lemma list_rev_ind
+  : forall T (P : list T -> Prop),
+    P nil ->
+    (forall l ls, P ls -> P (ls ++ l :: nil)) ->
+    forall ls, P ls.
+Proof.
+  clear. intros. rewrite <- rev_involutive.
+  induction (rev ls).
+  apply H.
+  simpl. auto.
+Qed.
+
+
 Section Expr.
   Variable typ : Type.
   Variable RType_typ : RType typ.
@@ -150,9 +164,8 @@ Section Expr.
    ** - Note that this interface does not support GADTs
    **)
   Class Expr : Type :=
-  { exprD' : forall (us vs : tenv typ),
-               expr -> forall (t : typ),
-                         option (exprT us vs (typD t))
+  { exprD : forall (us vs : tenv typ) (t : typ),
+               expr -> option (exprT us vs (typD t))
   ; Expr_acc : relation expr
   ; wf_Expr_acc : well_founded Expr_acc
   ; mentionsAny : (uvar -> bool) -> (var -> bool) -> expr -> bool
@@ -162,23 +175,14 @@ Section Expr.
     : (uvar -> option expr) -> (var -> option expr) -> nat -> expr -> expr
   }.
 
-  Definition exprD {E : Expr} (uvar_env var_env : env) (e : expr) (t : typ)
-  : option (typD t) :=
-    let (tus,us) := split_env uvar_env in
-    let (tvs,vs) := split_env var_env in
-    match exprD' tus tvs e t with
-      | None => None
-      | Some f => Some (f us vs)
-    end.
-
-  Theorem exprD'_conv (E : Expr)
+  Theorem exprD_conv (E : Expr)
   : forall tus tus' tvs tvs' e t
       (pfu : tus' = tus) (pfv : tvs' = tvs),
-      exprD' tus tvs e t = match pfu in _ = tus'
+      exprD tus tvs t e = match pfu in _ = tus'
                                , pfv in _ = tvs'
                                  return option (exprT tus' tvs' (typD t))
                            with
-                             | eq_refl , eq_refl => exprD' tus' tvs' e t
+                             | eq_refl , eq_refl => exprD tus' tvs' t e
                            end.
   Proof.
     destruct pfu. destruct pfv. reflexivity.
@@ -194,9 +198,8 @@ Section Expr.
   }.
 
   Definition expr_subst_spec_ho
-             (exprD' : forall (us vs : tenv typ),
-               expr -> forall (t : typ),
-                         option (exprT us vs (typD t)))
+             (exprD : forall (us vs : tenv typ) (t : typ),
+               expr -> option (exprT us vs (typD t)))
              (mentionsU : uvar -> expr -> bool)
              (mentionsV : var -> expr -> bool)
              (expr_subst : (uvar -> option expr) -> (var -> option expr) -> nat -> expr -> expr)
@@ -212,7 +215,7 @@ Section Expr.
                  match substU u with
                    | Some eU =>
                      exists eUD,
-                     exprD' tus' tvs' eU t = Some eUD /\
+                     exprD tus' tvs' t eU = Some eUD /\
                      P (fun us vs us' vs' => get us = eUD us' vs')
                    | None => exists get',
                              nth_error_get_hlist_nth typD tus' u = Some (@existT _ _ t get')
@@ -224,7 +227,7 @@ Section Expr.
                  match substV u with
                    | Some eV =>
                      exists eVD,
-                     exprD' tus' tvs' eV t = Some eVD /\
+                     exprD tus' tvs' t eV = Some eVD /\
                      P (fun us vs us' vs' => get vs = eVD us' vs')
                    | None => exists get',
                              nth_error_get_hlist_nth typD tvs' u = Some (@existT _ _ t get')
@@ -232,9 +235,9 @@ Section Expr.
                  end),
       forall t eD,
         length _tvs = n ->
-        exprD' tus (_tvs ++ tvs) e t = Some eD ->
+        exprD tus (_tvs ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' tus' (_tvs ++ tvs') e' t = Some eD' /\
+          exprD tus' (_tvs ++ tvs') t e' = Some eD' /\
           P (fun us vs us' vs' => forall _vs,
                  eD us (HList.hlist_app _vs vs) = eD' us' (HList.hlist_app _vs vs')).
 
@@ -271,28 +274,28 @@ Section Expr.
                               mentionsV (v-n) e' = true)))).
 
   Class ExprOk (E : Expr) : Prop :=
-  { exprD'_weaken
+  { exprD_weaken
     : forall tus tvs e t val,
-        exprD' tus tvs e t = Some val ->
+        exprD tus tvs e t = Some val ->
         forall tus' tvs',
         exists val',
-             exprD' (tus ++ tus') (tvs ++ tvs') e t = Some val'
+             exprD (tus ++ tus') (tvs ++ tvs') e t = Some val'
           /\ forall us vs us' vs',
                val us vs = val' (hlist_app us us') (hlist_app vs vs')
-  ; exprD'_strengthenU_single
+  ; exprD_strengthenU_single
     : forall tus tvs e t t' val,
       mentionsU (length tus) e = false ->
-      exprD' (tus ++ t :: nil) tvs e t' = Some val ->
+      exprD (tus ++ t :: nil) tvs t' e = Some val ->
       exists val',
-        exprD' tus tvs e t' = Some val' /\
+        exprD tus tvs t' e = Some val' /\
         forall us vs u,
           val (hlist_app us (Hcons u Hnil)) vs = val' us vs
-  ; exprD'_strengthenV_single
+  ; exprD_strengthenV_single
     : forall tus tvs e t t' val,
       mentionsV (length tvs) e = false ->
-      exprD' tus (tvs ++ t :: nil) e t' = Some val ->
+      exprD tus (tvs ++ t :: nil) t' e = Some val ->
       exists val',
-        exprD' tus tvs e t' = Some val' /\
+        exprD tus tvs t' e = Some val' /\
         forall us vs u,
           val us (hlist_app vs (Hcons u Hnil)) = val' us vs
   ; Proper_mentionsAny
@@ -330,7 +333,7 @@ Section Expr.
                  match substU u with
                    | Some eU =>
                      exists eUD,
-                     exprD' tus' tvs' eU t = Some eUD /\
+                     exprD tus' tvs' t eU = Some eUD /\
                      P (fun us vs us' vs' => get us = eUD us' vs')
                    | None => exists get',
                              nth_error_get_hlist_nth typD tus' u = Some (@existT _ _ t get')
@@ -342,7 +345,7 @@ Section Expr.
                  match substV u with
                    | Some eV =>
                      exists eVD,
-                     exprD' tus' tvs' eV t = Some eVD /\
+                     exprD tus' tvs' t eV = Some eVD /\
                      P (fun us vs us' vs' => get vs = eVD us' vs')
                    | None => exists get',
                              nth_error_get_hlist_nth typD tvs' u = Some (@existT _ _ t get')
@@ -350,9 +353,9 @@ Section Expr.
                  end),
       forall t eD,
         length _tvs = n ->
-        exprD' tus (_tvs ++ tvs) e t = Some eD ->
+        exprD tus (_tvs ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' tus' (_tvs ++ tvs') e' t = Some eD' /\
+          exprD tus' (_tvs ++ tvs') t e' = Some eD' /\
           P (fun us vs us' vs' => forall _vs,
                  eD us (HList.hlist_app _vs vs) = eD' us' (HList.hlist_app _vs vs'))
   ; expr_subst_noop : forall substU substV n e,
@@ -398,18 +401,18 @@ Section Expr.
     intros. revert H1. eapply mentionsAny_weaken_strong; eauto.
   Qed.
 
-  Lemma exprD'_weakenU
+  Lemma exprD_weakenU
   : forall tus tus' tvs e t val,
-      exprD' tus tvs e t = Some val ->
+      exprD tus tvs t e = Some val ->
       exists val',
-        exprD' (tus ++ tus') tvs e t = Some val'
+        exprD (tus ++ tus') tvs t e = Some val'
         /\ forall us vs us',
              val us vs = val' (hlist_app us us') vs.
   Proof.
     intros.
-    eapply (@exprD'_weaken Expr_expr) with (tus' := tus') (tvs' := nil) in H; eauto.
+    eapply (@exprD_weaken Expr_expr) with (tus' := tus') (tvs' := nil) in H; eauto.
     destruct H as [ ? [ ? ? ] ].
-    erewrite exprD'_conv with (tus' := tus ++ tus') (tvs' := tvs ++ nil).
+    erewrite exprD_conv with (tus' := tus ++ tus') (tvs' := tvs ++ nil).
     instantiate (1 := app_nil_r_trans _).
     instantiate (1 := eq_refl).
     simpl.
@@ -431,18 +434,18 @@ Section Expr.
       reflexivity. }
   Qed.
 
-  Lemma exprD'_weakenV
+  Lemma exprD_weakenV
   : forall tus tvs tvs' e t val,
-      exprD' tus tvs e t = Some val ->
+      exprD tus tvs t e = Some val ->
       exists val',
-        exprD' tus (tvs ++ tvs') e t = Some val'
+        exprD tus (tvs ++ tvs') t e = Some val'
         /\ forall us vs vs',
              val us vs = val' us (hlist_app vs vs').
   Proof.
     intros.
-    eapply (@exprD'_weaken Expr_expr) with (tus' := nil) (tvs' := tvs') in H; eauto.
+    eapply (@exprD_weaken Expr_expr) with (tus' := nil) (tvs' := tvs') in H; eauto.
     destruct H as [ ? [ ? ? ] ].
-    erewrite exprD'_conv with (tus' := tus ++ nil) (tvs' := tvs ++ tvs').
+    erewrite exprD_conv with (tus' := tus ++ nil) (tvs' := tvs ++ tvs').
     instantiate (1 := @eq_refl _ _).
     instantiate (1 := app_nil_r_trans _).
     simpl.
@@ -464,49 +467,20 @@ Section Expr.
       reflexivity. }
   Qed.
 
-  Theorem exprD_weaken
-  : forall us us' vs vs' e t val,
-      exprD us vs e t = Some val ->
-      exprD (us ++ us') (vs ++ vs') e t = Some val.
-  Proof.
-    unfold exprD. intros.
-    repeat rewrite split_env_app.
-    destruct (split_env us); destruct (split_env us');
-    destruct (split_env vs); destruct (split_env vs').
-    consider (exprD' x x1 e t); intros; try congruence.
-    inversion H0; clear H0; subst.
-    eapply exprD'_weaken in H; eauto with typeclass_instances.
-    destruct H. destruct H.
-    rewrite H. rewrite <- H0. reflexivity.
-  Qed.
-
-  (** TODO: Move to ExtLib.Data.List. **)
-  Lemma list_rev_ind
-  : forall T (P : list T -> Prop),
-      P nil ->
-      (forall l ls, P ls -> P (ls ++ l :: nil)) ->
-      forall ls, P ls.
-  Proof.
-    clear. intros. rewrite <- rev_involutive.
-    induction (rev ls).
-    apply H.
-    simpl. auto.
-  Qed.
-
-  Theorem exprD'_strengthenV_multi
+  Theorem exprD_strengthenV_multi
   : forall tus tvs e  t' tvs' val,
       (forall v, v < length tvs' ->
                  mentionsV (length tvs + v) e = false) ->
-      exprD' tus (tvs ++ tvs') e t' = Some val ->
+      exprD tus (tvs ++ tvs') t' e = Some val ->
       exists val',
-        exprD' tus tvs e t' = Some val' /\
+        exprD tus tvs t' e = Some val' /\
         forall us vs vs',
           val us (hlist_app vs vs') = val' us vs.
   Proof.
     intros tus tvs e t'.
     refine (@list_rev_ind _ _ _ _).
     { simpl. intros.
-      rewrite exprD'_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
+      rewrite exprD_conv with (pfv := app_nil_r_trans tvs) (pfu := eq_refl).
       rewrite H0.
       rewrite (Option.eq_option_eq (app_nil_r_trans tvs)). (** This was solved by autorewrite *)
       eexists; split; eauto.
@@ -515,11 +489,11 @@ Section Expr.
       autorewrite_eq_rw.
       reflexivity. }
     { intros.
-      rewrite exprD'_conv with (pfv := app_ass_trans tvs ls (l :: nil))
+      rewrite exprD_conv with (pfv := app_ass_trans tvs ls (l :: nil))
                                (pfu := eq_refl) in H1.
       autorewrite_with_eq_rw_in H1.
       forward.
-      eapply exprD'_strengthenV_single in H1.
+      eapply exprD_strengthenV_single in H1.
       + forward_reason.
         eapply H in H1.
         - forward_reason.
@@ -551,29 +525,29 @@ Section Expr.
         eapply NPeano.Nat.lt_add_pos_r. repeat constructor. }
   Qed.
 
-  Theorem exprD'_strengthenU_multi
+  Theorem exprD_strengthenU_multi
   : forall tus tvs e  t' tus' val,
       (forall u, u < length tus' ->
                  mentionsU (length tus + u) e = false) ->
-      exprD' (tus ++ tus') tvs e t' = Some val ->
+      exprD (tus ++ tus') tvs t' e = Some val ->
       exists val',
-        exprD' tus tvs e t' = Some val' /\
+        exprD tus tvs t' e = Some val' /\
         forall us vs us',
           val (hlist_app us us') vs = val' us vs.
   Proof.
     intros tus tvs e t'.
     refine (@list_rev_ind _ _ _ _).
     { simpl. intros.
-      rewrite exprD'_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
+      rewrite exprD_conv with (pfu := app_nil_r_trans tus) (pfv := eq_refl).
       rewrite H0. autorewrite_with_eq_rw.
       eexists; split; eauto.
       intros. rewrite (hlist_eta us').
       rewrite hlist_app_nil_r. reflexivity. }
     { intros.
-      rewrite exprD'_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
+      rewrite exprD_conv with (pfu := app_ass_trans tus ls (l :: nil)) (pfv := eq_refl) in H1.
       autorewrite_with_eq_rw_in H1.
       forward.
-      eapply exprD'_strengthenU_single in H1.
+      eapply exprD_strengthenU_single in H1.
       + forward_reason.
         eapply H in H1.
         - forward_reason.
@@ -616,7 +590,7 @@ Section Expr.
                  match substU u with
                    | Some eU =>
                      exists eUD,
-                     exprD' tus' tvs' eU t = Some eUD /\
+                     exprD tus' tvs' t eU = Some eUD /\
                      forall us vs us' vs',
                        R us vs us' vs' -> get us = eUD us' vs'
                    | None =>
@@ -630,7 +604,7 @@ Section Expr.
                  match substV u with
                    | Some eV =>
                      exists eVD,
-                     exprD' tus' tvs' eV t = Some eVD /\
+                     exprD tus' tvs' t eV = Some eVD /\
                      forall us vs us' vs', R us vs us' vs' -> get vs = eVD us' vs'
                    | None => exists get',
                              nth_error_get_hlist_nth typD tvs' u = Some (@existT _ _ t get')
@@ -638,9 +612,9 @@ Section Expr.
                  end),
       forall t eD,
         length _tvs = n ->
-        exprD' tus (_tvs ++ tvs) e t = Some eD ->
+        exprD tus (_tvs ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' tus' (_tvs ++ tvs') e' t = Some eD' /\
+          exprD tus' (_tvs ++ tvs') t e' = Some eD' /\
           forall us vs us' vs' _vs, R us vs us' vs' ->
                  eD us (HList.hlist_app _vs vs) = eD' us' (HList.hlist_app _vs vs').
   Proof.
@@ -677,10 +651,36 @@ Section Expr.
         rewrite H2 in H; try congruence; eauto.
   Qed.
 
+
+  (** Simple definitions that work for environments *)
+  Definition env_exprD {E : Expr} (uvar_env var_env : env) (t : typ) (e : expr)
+  : option (typD t) :=
+    let (tus,us) := split_env uvar_env in
+    let (tvs,vs) := split_env var_env in
+    match exprD tus tvs t e with
+      | None => None
+      | Some f => Some (f us vs)
+    end.
+
+  Theorem env_exprD_weaken
+  : forall us us' vs vs' e t val,
+      env_exprD us vs t e = Some val ->
+      env_exprD (us ++ us') (vs ++ vs') t e = Some val.
+  Proof.
+    unfold env_exprD. intros.
+    repeat rewrite split_env_app.
+    destruct (split_env us); destruct (split_env us');
+    destruct (split_env vs); destruct (split_env vs').
+    consider (exprD x x1 t e); intros; try congruence.
+    inversion H0; clear H0; subst.
+    eapply exprD_weaken in H; eauto with typeclass_instances.
+    destruct H. destruct H.
+    rewrite H. rewrite <- H0. reflexivity.
+  Qed.
+
 End Expr.
 
 Arguments Expr _ {_} _.
-Arguments exprD' {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprT {_ RType} _ _ _ : rename.
 Arguments exprT_Inj {_ _} _ _ {_} _ _ _ : rename.
@@ -688,6 +688,7 @@ Arguments exprT_UseU {_ _} tus tvs n : rename.
 Arguments exprT_UseV {_ _} tus tvs n : rename.
 Arguments RexprT {typ RType} tus tvs {_} _ _ _ : rename.
 Arguments mentionsAny {typ RType expr Expr} _ _ _ : rename.
+Arguments env_exprD {_ _ _ Expr} _ _ _ _ : rename.
 
 Export MirrorCore.TypesI.
 Export MirrorCore.EnvI.

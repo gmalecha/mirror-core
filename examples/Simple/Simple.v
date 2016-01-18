@@ -96,7 +96,7 @@ Proof.
   { destruct pf. reflexivity. }
 Qed.
 
-Instance Typ0_tyProp : Typ0 _ Prop :=
+Instance Typ0_Prop : Typ0 _ Prop :=
 {| typ0 := tyProp
  ; typ0_cast := eq_refl
  ; typ0_match := fun T t =>

@@ -43,7 +43,7 @@ Section with_Expr.
               match substU u with
                 | Some eU =>
                   exists eUD,
-                  exprD' tus' tvs' eU t = Some eUD /\
+                  exprD tus' tvs' t eU = Some eUD /\
                   P (fun us vs us' vs' => get us = eUD us' vs')
                 | None => exists get',
                   nth_error_get_hlist_nth typD tus' u = Some (@existT _ _ t get')
@@ -54,7 +54,7 @@ Section with_Expr.
               match substV u with
                 | Some eV =>
                   exists eVD,
-                  exprD' tus' tvs' eV t = Some eVD /\
+                  exprD tus' tvs' t eV = Some eVD /\
                   P (fun us vs us' vs' => get vs = eVD us' vs')
                 | None => exists get',
                   nth_error_get_hlist_nth typD tvs' u = Some (@existT _ _ t get')
@@ -62,9 +62,9 @@ Section with_Expr.
               end),
           forall t eD,
             length _tvs = n ->
-            exprD' tus (_tvs ++ tvs) e t = Some eD ->
+            exprD tus (_tvs ++ tvs) t e = Some eD ->
             exists eD',
-              exprD' tus' (_tvs ++ tvs') e' t = Some eD' /\
+              exprD tus' (_tvs ++ tvs') t e' = Some eD' /\
               P (fun us vs us' vs' => forall _vs,
                      eD us (HList.hlist_app _vs vs) = eD' us' (HList.hlist_app _vs vs'))
   ; mentionsU_subst :
@@ -102,7 +102,7 @@ Section with_Expr.
       f u = Some e ->
       nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
       exists eD,
-        exprD' tus tvs e t = Some eD /\
+        exprD tus tvs t e = Some eD /\
         P (fun us vs => get us = eD us vs).
 
   Definition sem_preserves_if tus tvs
@@ -116,9 +116,9 @@ Section with_Expr.
     : Prop :=
     forall tus tvs f e tvs' t eD P (EApp : CtxLogic.ExprTApplicative P),
       sem_preserves_if_ho P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exprD tus (tvs' ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        exprD tus (tvs' ++ tvs) t (instantiate f (length tvs') e) = Some eD' /\
         P (fun us vs => forall vs',
                eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
 
@@ -127,9 +127,9 @@ Section with_Expr.
   : Prop :=
     forall tus tvs f e tvs' t eD P,
       @sem_preserves_if tus tvs P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exprD tus (tvs' ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        exprD tus (tvs' ++ tvs) t (instantiate f (length tvs') e) = Some eD' /\
         forall us vs vs',
           P us vs ->
           eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).

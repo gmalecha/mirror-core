@@ -23,7 +23,7 @@ Section semantic.
     end.
 
   Definition Provable tus tvs (e : expr) : option (exprT tus tvs Prop) :=
-    match exprD' tus tvs e tvProp with
+    match exprD tus tvs tvProp e with
     | None => None
     | Some p => Some match @typ0_cast _ _ _ _ in _ = t
                            return exprT tus tvs t
@@ -42,7 +42,7 @@ Section semantic.
   Proof.
     unfold Provable.
     intros; forward; inv_all; subst.
-    eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H; eauto.
+    eapply exprD_weaken with (tus' := tus') (tvs' := tvs') in H; eauto.
     forward_reason.
     rewrite H. eexists; split; eauto.
     intros.

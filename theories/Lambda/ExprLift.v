@@ -80,12 +80,12 @@ Section types.
       destruct H. reflexivity. }
   Qed.
 
-  Theorem exprD'_lower
+  Theorem lambda_exprD_lower
   : forall tus tvs tvs' tvs'' e t val e',
       lower (length tvs) (length tvs') e = Some e' ->
-      exprD' tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
+      lambda_exprD tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
       exists val',
-        exprD' tus (tvs ++ tvs'') t e' = Some val' /\
+        lambda_exprD tus (tvs ++ tvs'') t e' = Some val' /\
         forall us vs vs' vs'',
           val us (hlist_app vs (hlist_app vs' vs'')) =
           val' us (hlist_app vs vs'').
@@ -186,12 +186,12 @@ Section types.
       rewrite IHe. reflexivity. }
   Qed.
 
-  Theorem exprD'_lift
+  Theorem lambda_exprD_lift
   : forall tus e tvs tvs' tvs'' t,
-      match exprD' tus (tvs ++ tvs'') t e with
+      match lambda_exprD tus (tvs ++ tvs'') t e with
         | None => True
         | Some val =>
-          match exprD' tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
+          match lambda_exprD tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
             | None => False
             | Some val' =>
               forall us vs vs' vs'',

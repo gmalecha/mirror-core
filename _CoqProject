@@ -34,7 +34,6 @@ theories/Simple.v
 theories/provers/ProverTac.v
 theories/provers/AssumptionProver.v
 theories/provers/DefaultProver.v
-theories/provers/AutoProver.v
 
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
@@ -80,7 +79,6 @@ theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
-# theories/Lambda/AutoSetoidRewrite.v
 theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
@@ -88,6 +86,7 @@ theories/Lambda/Rtac.v
 
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
+theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
 theories/Views/ListView.v
 theories/Views/NatView.v
@@ -96,7 +95,6 @@ theories/Views/BoolView.v
 theories/Views/ProdView.v
 theories/Views/ApplicativeView.v
 theories/Views/EqView.v
-
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
@@ -134,6 +132,22 @@ theories/RTac/InContext.v
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
+examples/Cancel/Monoid.v
+examples/Cancel/MonoidDemo.v
+examples/Cancel/MonoidSyntaxSimple.v
+examples/Cancel/MonoidSyntaxNoDec.v
+examples/Cancel/MonoidSyntaxWithConst.v
+examples/Cancel/MonoidSyntaxModular.v
+
+examples/Hoare/ILogic.v
+examples/Hoare/ILogicFunc.v
+examples/Hoare/LogicTac.v
+examples/Hoare/Imp.v
+examples/Hoare/ImpMetaTheory.v
+examples/Hoare/ImpSyntax.v
+examples/Hoare/Verify.v
+examples/Hoare/Tests.v
+
 examples/Monad/MonadTypes.v
 examples/Monad/MonadSym.v
 examples/Monad/MonadExpr.v
@@ -141,19 +155,15 @@ examples/Monad/Tests.v
 examples/Monad/MonadReify.v
 examples/Monad/MonadReduce.v
 
-examples/Imp/Imp.v
-examples/Imp/Wp.v
+examples/Wp/Imp.v
+examples/Wp/Wp.v
 
 examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
 
-examples/Cancel/Monoid.v
-examples/Cancel/MonoidDemo.v
-examples/Cancel/MonoidDemoNoDec.v
-examples/Cancel/MonoidDemoWithConst.v
-# examples/Cancel/MonoidSyntax.v
+
 # examples/Cancel/MonoidLemmasSyntax.v
 # examples/Cancel/LtacDemo.v
 # examples/Cancel/CancelTac.v
@@ -163,8 +173,10 @@ examples/Cancel/MonoidDemoWithConst.v
 
 examples/Reify/ModularReify.v
 
-examples/Auto/Demo.v
+# examples/Auto/Demo.v
 
 examples/RTac/Demo.v
 
+examples/AutoRewrite/QuantPullRtac.v
 examples/AutoRewrite/DemoQuantPullRtac.v
+examples/AutoRewrite/DemoQuantPullLtac.v

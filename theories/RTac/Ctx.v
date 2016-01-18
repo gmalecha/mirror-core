@@ -758,7 +758,7 @@ Section parameterized.
                (get : hlist typD tus -> typD t),
           nth_error_get_hlist_nth typD tus uv =
           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) /\
-          exprD' tus tvs e t = Some val /\
+          exprD tus tvs t e = Some val /\
           (C (fun us vs =>
                 sD us vs -> get us = val us vs)).
   Proof using RTypeOk_typ ExprOk_expr.
@@ -775,7 +775,7 @@ Section parameterized.
         { intros. eapply CtxLogic.exprTPure. eauto. }
         { intros P Q H. eapply CtxLogic.exprTAp. eauto. } }
       forward_reason.
-      eapply exprD'_weakenV with (tvs' := t :: nil) in H2; eauto.
+      eapply exprD_weakenV with (tvs' := t :: nil) in H2; eauto.
       forward_reason.
       do 3 eexists; split; eauto. split; eauto.
       intros. revert H4.
@@ -802,7 +802,7 @@ Section parameterized.
         exists x0.
         eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H3.
         simpl in *. forward_reason.
-        eapply exprD'_weakenU with (tus' := ts) in H6; eauto.
+        eapply exprD_weakenU with (tus' := ts) in H6; eauto.
         forward_reason.
         do 2 eexists; split; eauto; split; eauto.
         revert H7.
@@ -824,7 +824,7 @@ Section parameterized.
                (get : hlist typD tus -> typD t),
           nth_error_get_hlist_nth typD tus uv =
           Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) /\
-          exprD' tus tvs e t = Some val /\
+          exprD tus tvs t e = Some val /\
           (forall us vs,
              sD us vs -> get us = val us vs).
   Proof using RTypeOk_typ ExprOk_expr.
@@ -972,7 +972,7 @@ Section parameterized.
       | @ExsSubst _ _ cs s => ExsSubst (ctx_subst_append s1 cs) s
     end.
 
-  Definition propD := @exprD'_typ0 _ _ _ _ Prop _.
+  Definition propD := @exprD_typ0 _ _ _ _ Prop _.
 
   Fixpoint pctxD (ctx : Ctx) (s : ctx_subst ctx) {struct s}
   : option (   exprT (getUVars ctx) (getVars ctx) Prop
@@ -1901,10 +1901,10 @@ Section parameterized.
          ctx_substD tus tvs s = Some sD ->
          nth_error_get_hlist_nth typD tus uv =
          Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
-         exprD' tus tvs e t = Some val ->
+         exprD tus tvs t e = Some val ->
          exists (sD' : exprT tus tvs Prop) eD',
            ctx_substD tus tvs s' = Some sD' /\
-           exprD' tus tvs e' t = Some eD' /\
+           exprD tus tvs t e' = Some eD' /\
            SubstMorphism s s' /\
            (forall us vs,
               sD' us vs -> val us vs = eD' us vs) /\
@@ -1950,13 +1950,13 @@ Section parameterized.
       destruct (drop_exact_sound _ H5). revert H9. subst.
       intros.
       assert (exists val',
-                exprD' tus x e t0 = Some val' /\
+                exprD tus x t0 e = Some val' /\
                 forall us vs vs',
                   val us (hlist_app vs vs') = val' us vs).
       { eapply ctx_substD_envs in H8. inv_all; subst.
         cut (mentionsV (length (getVars c)) e = false).
         { intro.
-          eapply exprD'_strengthenV_single in H7; eauto.
+          eapply exprD_strengthenV_single in H7; eauto.
           forward_reason; eexists; split; eauto.
           intros.
           rewrite (hlist_eta vs').
@@ -1972,7 +1972,7 @@ Section parameterized.
       eapply H4 in H8; eauto.
       forward_reason.
       simpl. rewrite H5. rewrite H8.
-      eapply exprD'_weakenV with (tvs' := t :: nil) in H12; eauto.
+      eapply exprD_weakenV with (tvs' := t :: nil) in H12; eauto.
       forward_reason.
       do 2 eexists; split; eauto.
       split; eauto.
@@ -2352,14 +2352,14 @@ Section parameterized.
         eapply drop_exact_sound in H12; destruct H12.
         revert H9. subst.
         assert (exists val',
-                exprD' x tvs e t = Some val' /\
+                exprD x tvs t e = Some val' /\
                 forall us us' vs,
                   val (hlist_app us us') vs = val' us vs).
         { eapply ctx_substD_envs in H14; inv_all; subst.
           cut (forall u : nat,
                  u < length ts -> mentionsU (length (getUVars c) + u) e = false).
           { intro.
-            eapply exprD'_strengthenU_multi in H9; eauto.
+            eapply exprD_strengthenU_multi in H9; eauto.
             forward_reason; eexists; split; eauto. }
           intros.
           erewrite mentionsAny_mentionsU; [ | eauto ].
@@ -2379,7 +2379,7 @@ Section parameterized.
         forward_reason.
         change_rewrite H8.
         clear H3 H4 H6.
-        eapply exprD'_weakenU with (tus' := ts) in H10; eauto.
+        eapply exprD_weakenU with (tus' := ts) in H10; eauto.
         forward_reason.
 
         generalize H13; intro SAVED.
@@ -2459,7 +2459,7 @@ Section parameterized.
          ctx_substD tus tvs s = Some sD ->
          nth_error_get_hlist_nth typD tus uv =
          Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
-         exprD' tus tvs e t = Some val ->
+         exprD tus tvs t e = Some val ->
          exists sD' : exprT tus tvs Prop,
            ctx_substD tus tvs s' = Some sD' /\
            SubstMorphism s s' /\
@@ -2617,7 +2617,7 @@ Section parameterized.
       { red. intros.
         eapply ctx_substD_lookup in H5; eauto.
         forward_reason. simpl.
-        eapply exprD'_weakenU with (tus' := ts) in H7; eauto.
+        eapply exprD_weakenU with (tus' := ts) in H7; eauto.
         forward_reason.
         simpl in *.
         eapply nth_error_get_hlist_nth_weaken with (ls' := ts) in H5.
@@ -2868,7 +2868,7 @@ Section parameterized.
     generalize (getUVars (Ctx_append ctx ctx')).
     intros; subst.
     unfold propD in *.
-    eapply exprD'_typ0_weaken with (tus' := getExtensionUVars ctx')
+    eapply exprD_typ0_weaken with (tus' := getExtensionUVars ctx')
                                    (tvs' := getExtensionVars ctx') in H0.
     destruct H0 as [ ? [ ? ? ] ].
     eexists; split; eauto.

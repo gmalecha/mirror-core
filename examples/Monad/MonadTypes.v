@@ -1,9 +1,7 @@
 Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.Option.
-Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
@@ -191,7 +189,6 @@ Section types.
   { destruct pf1; destruct pf2; reflexivity. }
   { induction x; simpl; intros; auto; Cases.rewrite_all_goal; auto.
     rewrite positive_eq_odec_refl. reflexivity. }
-  { eapply type_cast_dec. }
   { red. unfold equiv, complement.
     change (forall x y : typ, {x = y} + {x <> y}).
     decide equality. decide equality. }

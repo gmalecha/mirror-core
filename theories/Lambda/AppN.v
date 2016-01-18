@@ -183,7 +183,7 @@ Section app_full_proofs.
     eassumption. constructor. eapply tyAcc_typ2R; eauto.
   Qed.
 
-  Section exprD'_app.
+  Section lambda_exprD_app.
     Variables tus tvs : tenv typ.
 
     Local Existing Instance Applicative_exprT.
@@ -202,7 +202,7 @@ Section app_full_proofs.
         | l :: ls =>
           typ2_match (F := RFun) (fun T => exprT tus tvs T -> _) tf
                      (fun d r f =>
-                        match exprD' tus tvs d l with
+                        match lambda_exprD tus tvs d l with
                           | None => None
                           | Some x =>
                             apply_sem' r (Applicative.ap f x) ls t
@@ -218,7 +218,7 @@ Section app_full_proofs.
       match typeof_expr tus tvs e with
         | None => None
         | Some tf =>
-          match exprD' tus tvs tf e with
+          match lambda_exprD tus tvs tf e with
             | Some f => apply_sem' _ f l t
             | None => None
           end
@@ -226,20 +226,20 @@ Section app_full_proofs.
 
     Lemma apps_sem'_nil
     : forall e t,
-        apps_sem' e nil t = exprD' tus tvs t e.
+        apps_sem' e nil t = lambda_exprD tus tvs t e.
     Proof.
       intros. unfold apps_sem'.
       consider (typeof_expr tus tvs e); intros.
       { symmetry.
-        rewrite ExprFacts.exprD'_type_cast; eauto.
+        rewrite ExprFacts.lambda_exprD_type_cast; eauto.
         rewrite H. simpl.
         destruct (type_cast t0 t).
         { forward. destruct r. reflexivity. }
         { forward. } }
-      { consider (exprD' tus tvs t e); auto; intros.
+      { consider (lambda_exprD tus tvs t e); auto; intros.
         exfalso.
-        assert (exists v, exprD' tus tvs t e = Some v); eauto.
-        eapply ExprFacts.exprD'_typeof_expr in H1. congruence. }
+        assert (exists v, lambda_exprD tus tvs t e = Some v); eauto.
+        eapply ExprFacts.lambda_exprD_typeof_expr in H1. congruence. }
     Qed.
 
     Lemma match_option_eta : forall T (a : option T),
@@ -251,14 +251,14 @@ Section app_full_proofs.
       destruct a; reflexivity.
     Qed.
 
-    Lemma exprD'_apps : forall es e t,
-      exprD' tus tvs t (apps e es) = apps_sem' e es t.
+    Lemma lambda_exprD_apps : forall es e t,
+      lambda_exprD tus tvs t (apps e es) = apps_sem' e es t.
     Proof.
       induction es; simpl; intros.
       { unfold apps_sem', apply_sem'.
-        rewrite ExprFacts.exprD'_type_cast; eauto.
+        rewrite ExprFacts.lambda_exprD_type_cast; eauto.
         forward.
-        destruct (type_cast t0 t); destruct (exprD' tus tvs t0 e); auto.
+        destruct (type_cast t0 t); destruct (lambda_exprD tus tvs t0 e); auto.
         destruct r; reflexivity. }
       { rewrite IHes.
         unfold apps_sem'.
@@ -266,7 +266,7 @@ Section app_full_proofs.
         consider (typeof_expr tus tvs a); intros.
         { arrow_case t0; forward.
           { rewrite Relim_const in *.
-            consider (exprD' tus tvs t0 e); intros.
+            consider (lambda_exprD tus tvs t0 e); intros.
             { Cases.rewrite_all_goal.
               consider (type_cast x t1); intros.
               { unfold Relim.
@@ -283,7 +283,7 @@ Section app_full_proofs.
                   destruct X
                 end; autorewrite with eq_rw; reflexivity. }
               { autorewrite_with_eq_rw.
-                rewrite ExprFacts.exprD'_type_cast; eauto.
+                rewrite ExprFacts.lambda_exprD_type_cast; eauto.
                 Cases.rewrite_all_goal.
                 rewrite type_cast_sym_None; eauto.
                 clear. destruct (typ2_cast x x0).
@@ -297,7 +297,7 @@ Section app_full_proofs.
           { rewrite H1. auto. } }
         { arrow_case t0; forward.
           generalize (typ2_cast x x0); intros.
-          rewrite ExprFacts.exprD'_type_cast; eauto.
+          rewrite ExprFacts.lambda_exprD_type_cast; eauto.
           Cases.rewrite_all_goal.
           clear. destruct x1. destruct e1. reflexivity. } }
     Qed.
@@ -315,19 +315,19 @@ Section app_full_proofs.
                               @apply_fold t _ xs (AbsAppI.exprT_App f x)
       end.
 
-    Lemma apps_exprD'_fold_type
+    Lemma apps_lambda_exprD_fold_type
     : forall es e t eD,
-        exprD' tus tvs t (apps e es) = Some eD ->
+        lambda_exprD tus tvs t (apps e es) = Some eD ->
         exists ts fD esD,
-          exprD' tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some fD /\
+          lambda_exprD tus tvs (fold_right (typ2 (F:=RFun)) t ts) e = Some fD /\
           hlist_build_option
             (fun t => ExprI.exprT tus tvs (typD t))
-            (fun t e => exprD' tus tvs t e) ts es = Some esD /\
+            (fun t e => lambda_exprD tus tvs t e) ts es = Some esD /\
           forall us vs,
             eD us vs = @apply_fold _ _ esD fD us vs.
     Proof using Typ2Ok_Fun RTypeOk RSymOk_sym.
       intros.
-      rewrite exprD'_apps in H; eauto.
+      rewrite lambda_exprD_apps in H; eauto.
       unfold apps_sem' in H. forward. clear H.
       revert H0; revert H1; revert eD; revert t; revert e0; revert e.
       revert t0.
@@ -344,11 +344,11 @@ Section app_full_proofs.
           { forward_reason.
             assert (x0 = fold_right (typ2 (F:=RFun)) t x1).
             { autorewrite with exprD_rw in H2; simpl in H2.
-              rewrite (exprD_typeof_Some _ _ _ _ _ H) in H2.
+              rewrite (lambda_exprD_typeof_Some _ _ _ _ _ H) in H2.
               rewrite H in H2.
               forward; inv_all; subst.
-              eapply exprD_typeof_Some in H2; eauto.
-              eapply exprD_typeof_Some in H0; eauto.
+              eapply lambda_exprD_typeof_Some in H2; eauto.
+              eapply lambda_exprD_typeof_Some in H0; eauto.
               rewrite H0 in H2.
               inv_all. assumption. }
             { subst.
@@ -358,86 +358,18 @@ Section app_full_proofs.
               { simpl.
                 rewrite H3. rewrite H. reflexivity. }
               { simpl. intros.
-                erewrite exprD'_App in H2; eauto.
-                erewrite exprD_typeof_Some in H2 by eassumption.
+                erewrite lambda_exprD_App in H2; eauto.
+                erewrite lambda_exprD_typeof_Some in H2 by eassumption.
                 rewrite H0 in H2. rewrite H in H2.
                 inv_all; subst. eauto. } } }
-          { erewrite exprD'_App; eauto.
-            erewrite exprD_typeof_Some by eassumption.
+          { erewrite lambda_exprD_App; eauto.
+            erewrite lambda_exprD_typeof_Some by eassumption.
             rewrite H0; clear H0. rewrite H; clear H.
             unfold AbsAppI.exprT_App. autorewrite_with_eq_rw.
             reflexivity. } }
         { inversion H1. } }
     Qed.
 
-  End exprD'_app.
+  End lambda_exprD_app.
 
-(* DEAD CODE!
-  (** TODO: Does this actually get used? *)
-  Section exprD_app.
-    Variables us vs : env.
-
-    Fixpoint apply {T} (x : T) (ls : list {t : typ & T -> typD t}) t {struct ls} :
-      typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
-      typD t :=
-      match ls as ls
-            return typD (fold_right (@typ2 _ _ RFun _) t (map (@projT1 _ _) ls)) ->
-                   typD t
-      with
-        | nil => fun x => x
-        | l :: ls => fun f =>
-          apply x ls _ (match typ2_cast (projT1 l) _ in _ = t return t with
-                          | eq_refl => f
-                        end (projT2 l x))
-      end.
-
-    Definition apply_sem (tf : typ) (e : typD tf)
-             (ls : list (expr typ sym)) (t : typ)
-    : option (typD t) :=
-      let (tus,us) := split_env us in
-      let (tvs,vs) := split_env vs in
-      match @apply_sem' tus tvs tf (fun _ _ => e) ls t with
-        | None => None
-        | Some f => Some (f us vs)
-      end.
-
-    Let Expr_expr : Expr _ (expr typ sym) := @Expr_expr _ _ _ _ _.
-    Local Existing Instance Expr_expr.
-
-    Definition apps_sem
-               (e : expr typ sym) (l : list (expr typ sym)) (t : typ)
-    : option (typD t) :=
-      let (tus,us) := split_env us in
-      let (tvs,vs) := split_env vs in
-      match @apps_sem' tus tvs e l t with
-        | None => None
-        | Some f => Some (f us vs)
-      end.
-
-    Lemma apps_sem_nil : forall e t,
-                           apps_sem e nil t = exprD us vs e t.
-    Proof.
-      intros. unfold apps_sem.
-      unfold exprD.
-      repeat match goal with
-               | |- (let (_,_) := ?X in _) = (let (_,_) := ?Y in _) =>
-                 change Y with X; destruct X
-             end.
-      rewrite apps_sem'_nil. simpl. reflexivity.
-    Qed.
-
-    Lemma exprD_apps : forall es e t,
-      exprD us vs (apps e es) t = apps_sem e es t.
-    Proof.
-      unfold apps_sem, exprD.
-      intros.
-      repeat match goal with
-               | |- (let (_,_) := ?X in _) = (let (_,_) := ?Y in _) =>
-                 change Y with X; destruct X
-             end.
-      simpl. rewrite exprD'_apps. reflexivity.
-    Qed.
-
-  End exprD_app.
-*)
 End app_full_proofs.

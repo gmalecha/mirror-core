@@ -20,34 +20,34 @@ Section some_lemmas.
   Variable RSym_sym : RSym sym.
   Variable RSymOk_sym : RSymOk RSym_sym.
 
-  Lemma exprD_typeof_not_None
+  Lemma lambda_exprD_typeof_not_None
   : forall tus tvs (e : expr typ sym) (t : typ) val,
-      exprD' tus tvs t e = Some val ->
+      lambda_exprD tus tvs t e = Some val ->
       typeof_expr tus tvs e <> None.
   Proof.
     intros.
-    generalize (exprD'_typeof_expr _ (or_introl H)).
+    generalize (lambda_exprD_typeof_expr _ (or_introl H)).
     congruence.
   Qed.
 
-  Lemma exprD_typeof_Some
+  Lemma lambda_exprD_typeof_Some
   : forall tus tvs e t val,
-      exprD' tus tvs t e = Some val ->
+      lambda_exprD tus tvs t e = Some val ->
       typeof_expr tus tvs e = Some t.
   Proof.
     intros.
-    generalize (exprD'_typeof_expr _ (or_introl H)).
+    generalize (lambda_exprD_typeof_expr _ (or_introl H)).
     congruence.
   Qed.
 
-  Lemma exprD_typeof_eq
+  Lemma lambda_exprD_typeof_eq
   : forall tus tvs e t t' val,
-      exprD' tus tvs t e = Some val ->
+      lambda_exprD tus tvs t e = Some val ->
       typeof_expr tus tvs e = Some t' ->
       t = t'.
   Proof.
     intros.
-    generalize (exprD'_typeof_expr _ (or_introl H)).
+    generalize (lambda_exprD_typeof_expr _ (or_introl H)).
     congruence.
   Qed.
 
@@ -67,34 +67,33 @@ Section some_lemmas.
       eapply typ1_inj; eauto ).
   Defined.
 
-  Lemma exprD'_AppI tus tvs (t : typ) (e1 e2 : expr typ sym)
+  Lemma lambda_exprD_AppI tus tvs (t : typ) (e1 e2 : expr typ sym)
         (P : option (exprT tus tvs (typD t)) -> Prop)
-        (H : exists u v1 v2, exprD' tus tvs (typ2 u t) e1 = Some v1 /\
-                             exprD' tus tvs u e2 = Some v2 /\
+        (H : exists u v1 v2, lambda_exprD tus tvs (typ2 u t) e1 = Some v1 /\
+                             lambda_exprD tus tvs u e2 = Some v2 /\
                              P (Some (exprT_App v1 v2))) :
-    
-    P (exprD' tus tvs t (App e1 e2)).
+    P (lambda_exprD tus tvs t (App e1 e2)).
   Proof.
     autorewrite with exprD_rw; simpl.
     destruct H as [u [v1 [v2 [H1 [H2 HP]]]]].
-    pose proof (exprD_typeof_Some _ _ H1).
-    pose proof (exprD_typeof_Some _ _ H2).
+    pose proof (lambda_exprD_typeof_Some _ _ H1).
+    pose proof (lambda_exprD_typeof_Some _ _ H2).
     repeat (forward; inv_all; subst).
   Qed.
-  
-  Lemma exprD'_InjI tus tvs (t : typ) (f : sym)
-        (P : option (exprT tus tvs (typD t)) -> Prop) 
+
+  Lemma lambda_exprD_InjI tus tvs (t : typ) (f : sym)
+        (P : option (exprT tus tvs (typD t)) -> Prop)
         (H : exists v, symAs f t = Some v /\ P (Some (fun _ _ => v))) :
-    P (exprD' tus tvs t (Inj f)).
+    P (lambda_exprD tus tvs t (Inj f)).
   Proof.
     autorewrite with exprD_rw; simpl.
     destruct (symAs f t); simpl; destruct H as [v [H1 H2]]; try intuition congruence.
     inv_all; subst. apply H2.
   Qed.
 
-  Lemma exprD'_beta tus tvs e t P 
-        (H : exists v, exprD' tus tvs t e = Some v /\ P (Some v)) :
-    P (exprD' tus tvs t (beta e)).
+  Lemma lambda_exprD_beta tus tvs e t P
+        (H : exists v, lambda_exprD tus tvs t e = Some v /\ P (Some v)) :
+    P (lambda_exprD tus tvs t (beta e)).
   Proof.
     destruct H as [v [H1 H2]].
     pose proof (beta_sound tus tvs e t).
@@ -103,12 +102,12 @@ Section some_lemmas.
     do 2 (apply functional_extensionality; intro).
     apply H3. subst. apply H2.
   Qed.
-        
-  Global Instance Injective_exprD'_App tus tvs (e1 e2 : expr typ sym) (t : typ) 
+
+  Global Instance Injective_lambda_exprD_App tus tvs (e1 e2 : expr typ sym) (t : typ)
          (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (App e1 e2) = Some v) := {
-      result := exists u v1 v2, ExprDsimul.ExprDenote.exprD' tus tvs (typ2 u t) e1 = Some v1 /\
-                                ExprDsimul.ExprDenote.exprD' tus tvs u e2 = Some v2 /\
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v) := {
+      result := exists u v1 v2, ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 u t) e1 = Some v1 /\
+                                ExprDsimul.ExprDenote.lambda_exprD tus tvs u e2 = Some v2 /\
                                 v = exprT_App v1 v2;
       injection := fun H => _
     }.
@@ -118,8 +117,8 @@ Section some_lemmas.
     do 3 eexists; repeat split; eassumption.
   Defined.
 
-  Global Instance Injective_exprD'_Inj tus tvs (f : sym) (t : typ) (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.exprD' tus tvs t (Inj f) = Some v) := {
+  Global Instance Injective_lambda_exprD_Inj tus tvs (f : sym) (t : typ) (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v) := {
       result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
       injection := fun H => _
     }.
@@ -129,8 +128,57 @@ Section some_lemmas.
     eexists; repeat split.
   Defined.
 
-  
+  Lemma lambda_exprD_AppL : forall tus tvs tx ty f x fD,
+      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
+      lambda_exprD tus tvs ty (App f x) =
+      match lambda_exprD tus tvs tx x with
+      | None => None
+      | Some xD => Some (AbsAppI.exprT_App fD xD)
+      end.
+  Proof.
+    simpl; intros.
+    rewrite lambda_exprD_App.
+    destruct (lambda_exprD tus tvs tx x) eqn:?.
+    { erewrite lambda_exprD_typeof_Some by eassumption.
+      rewrite H. rewrite Heqo. reflexivity. }
+    { destruct (typeof_expr tus tvs x) eqn:?; auto.
+      destruct (lambda_exprD tus tvs (typ2 t ty) f) eqn:?; auto.
+      assert (t = tx).
+      { destruct (ExprFacts.lambda_exprD_single_type H Heqo1).
+        clear H0. eapply typ2_inj in x0; eauto.
+        destruct x0. symmetry. apply H0. }
+      { subst. rewrite Heqo. reflexivity. } }
+  Qed.
+
+  Lemma lambda_exprD_AppR : forall tus tvs tx ty f x xD,
+      lambda_exprD tus tvs tx x = Some xD ->
+      lambda_exprD tus tvs ty (App f x) =
+      match lambda_exprD tus tvs (typ2 tx ty) f with
+      | None => None
+      | Some fD => Some (AbsAppI.exprT_App fD xD)
+      end.
+  Proof.
+    simpl; intros.
+    rewrite lambda_exprD_App.
+    erewrite lambda_exprD_typeof_Some by eassumption.
+    rewrite H.
+    reflexivity.
+  Qed.
+
+  Lemma lambda_exprD_App_both_cases : forall tus tvs tx ty f x fD xD,
+      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
+      lambda_exprD tus tvs tx x = Some xD ->
+      lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
+  Proof.
+    intros. erewrite lambda_exprD_AppR by eassumption.
+    rewrite H. reflexivity.
+  Qed.
+
 End some_lemmas.
+
+Hint Rewrite lambda_exprD_App_both_cases using eassumption : exprD_rw.
+Hint Rewrite lambda_exprD_AppL using eassumption : exprD_rw.
+Hint Rewrite lambda_exprD_AppR using eassumption : exprD_rw.
 
 Ltac red_exprD :=
   autorewrite with exprD_rw; simpl. (** TODO: this should be restricted **)
@@ -138,16 +186,16 @@ Ltac red_exprD :=
 Ltac forward_exprD :=
   repeat match goal with
            | H : _ = _ , H' : _ = _ |- _ =>
-             let x := constr:(@exprD_typeof_eq _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H') in
+             let x := constr:(@lambda_exprD_typeof_eq _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H') in
              match type of x with
                | ?X = ?X => fail 1
                | _ => specialize x ; intro ; try inv_all ; try subst
              end
-           | H : exprD' _ _ ?T ?X = _ , H' : exprD' _ _ ?T' ?X = _ |- _ =>
+           | H : lambda_exprD _ _ ?T ?X = _ , H' : lambda_exprD _ _ ?T' ?X = _ |- _ =>
              match T with
                | T' => fail 1
                | _ =>
-                 generalize (@exprD'_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H');
+                 generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H');
                    let X := fresh in intro X; red in X;
                    try inv_all; try subst
              end

@@ -22,7 +22,6 @@ Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.provers.ProverTac.
 Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.provers.DefaultProver.
-Require Import MirrorCore.provers.AutoProver.
 Require Import MirrorCore.Subst.UVarMap.
 Require Import MirrorCore.Subst.FMapSubst.
 
@@ -65,9 +64,6 @@ Require Import MirrorCore.Lambda.ExprSubst.
 Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.ExprVariables.
-(*
-Require Import MirrorCore.Lambda.AutoSetoidRewrite.
-*)
 Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
 
 Require Import MirrorCore.Lambda.RewriteRelations.

@@ -77,14 +77,14 @@ Section expr.
       erewrite IHx; eauto. }
   Qed.
 
-  Theorem exprD'_strengthenU_single
+  Theorem lambda_exprD_strengthenU_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ)
            (val : exprT (tus ++ t :: nil) tvs (typD t')),
       _mentionsU (length tus) e = false ->
-      ExprDsimul.ExprDenote.exprD' (tus ++ t :: nil) tvs t' e = Some val ->
+      ExprDsimul.ExprDenote.lambda_exprD (tus ++ t :: nil) tvs t' e = Some val ->
       exists val' : exprT tus tvs (typD t'),
-        ExprDsimul.ExprDenote.exprD' tus tvs t' e = Some val' /\
+        ExprDsimul.ExprDenote.lambda_exprD tus tvs t' e = Some val' /\
         (forall (us : HList.hlist typD tus)
                 (vs : HList.hlist typD tvs) (u : typD t),
            val (HList.hlist_app us (HList.Hcons u HList.Hnil)) vs = val' us vs).
@@ -165,17 +165,17 @@ Section expr.
       erewrite IHe; eauto. }
   Qed.
 
-  Theorem exprD'_strengthenV_single
+  Theorem lambda_exprD_strengthenV_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ)
            (val : HList.hlist typD tus ->
                   HList.hlist typD (tvs ++ t :: nil) -> typD t'),
       _mentionsV (length tvs) e = false ->
-      ExprDsimul.ExprDenote.exprD' tus (tvs ++ t :: nil) t' e = Some val ->
+      ExprDsimul.ExprDenote.lambda_exprD tus (tvs ++ t :: nil) t' e = Some val ->
       exists
         val' : HList.hlist typD tus ->
                HList.hlist typD tvs -> typD t',
-        ExprDsimul.ExprDenote.exprD' tus tvs t' e = Some val' /\
+        ExprDsimul.ExprDenote.lambda_exprD tus tvs t' e = Some val' /\
         (forall (us : HList.hlist typD tus)
                 (vs : HList.hlist typD tvs) (u : typD t),
            val us (HList.hlist_app vs (HList.Hcons u HList.Hnil)) = val' us vs).
@@ -236,7 +236,7 @@ Section expr.
   Qed.
 
   Instance Expr_expr : Expr _ (expr typ func) :=
-  { exprD' := fun tus tvs e t => ExprDsimul.ExprDenote.exprD' tus tvs t e
+  { exprD := ExprDsimul.ExprDenote.lambda_exprD
   ; wf_Expr_acc := @wf_expr_acc typ func
   ; expr_subst := @_subst _ _
   ; mentionsAny := ExprCore.mentionsAny
@@ -245,12 +245,12 @@ Section expr.
   }.
 
   Instance ExprOk_expr : ExprOk Expr_expr :=
-  { exprD'_weaken := _
+  { exprD_weaken := _
   }.
-  { intros. eapply (@ExprFacts.exprD'_weaken _ _ _ _ _ _ _ _ _ _ _).
+  { intros. eapply (@ExprFacts.lambda_exprD_weaken _ _ _ _ _ _ _ _ _ _ _).
     eapply H. }
-  { eapply exprD'_strengthenU_single. }
-  { eapply exprD'_strengthenV_single. }
+  { eapply lambda_exprD_strengthenU_single. }
+  { eapply lambda_exprD_strengthenV_single. }
   { eapply ExprCore.Proper_mentionsAny. }
   { intros. eapply mentionsAny_weaken; eauto. }
   { intros. eapply mentionsAny_factor. }

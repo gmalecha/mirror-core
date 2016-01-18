@@ -5,23 +5,23 @@ Require Import McExamples.Simple.Simple.
 Require Coq.Numbers.BinNums.
 
 (** Declare patterns **)
-Reify Declare Patterns patterns_simple_typ := typ.
-Reify Declare Patterns patterns_simple := (expr typ func).
+Reify Declare Patterns patterns_simple_typ : typ.
+Reify Declare Patterns patterns_simple : (expr typ func).
 
 Reify Declare Syntax reify_simple_typ :=
-  (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_simple_typ :: nil)).
+  (Patterns.CFirst (Patterns.CPatterns patterns_simple_typ :: nil)).
 
 Axiom otherFunc : BinNums.positive -> expr typ func.
 
-Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
+Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
 (** Declare syntax **)
 Reify Declare Syntax reify_simple :=
-  (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_simple) ::
-                       (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
-                       (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
-                       (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
-                       (@Patterns.CTypedTable (expr typ func) _ _ table_terms otherFunc) :: nil)).
+  (@Patterns.CFirst _ ((Patterns.CPatterns patterns_simple) ::
+                       (Patterns.CApp (@ExprCore.App typ func)) ::
+                       (Patterns.CAbs reify_simple_typ (@ExprCore.Abs typ func)) ::
+                       (Patterns.CVar (@ExprCore.Var typ func)) ::
+                       (Patterns.CMap otherFunc (Patterns.CTypedTable reify_simple_typ table_terms)) :: nil)).
 
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
@@ -34,7 +34,7 @@ Reify Pattern patterns_simple_typ += (!! bool) => tyBool.
 Reify Pattern patterns_simple_typ += (!! Prop) => tyProp.
 Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
 
-Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
+Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : @id nat) => @Inj typ func (N n)).
 Reify Pattern patterns_simple += (!! plus) => (Inj (typ:=typ) Plus).
 Reify Pattern patterns_simple += (!! NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
 Reify Pattern patterns_simple += (!! @eq @ ?0) =>

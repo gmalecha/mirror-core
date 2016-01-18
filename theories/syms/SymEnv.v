@@ -33,6 +33,28 @@ Section RSym.
   }.
 
   Definition functions := PositiveMap.t function.
+
+  Fixpoint join_functions (a b : functions) : functions :=
+    match a with
+    | PositiveMap.Leaf _ => b
+    | PositiveMap.Node l x r =>
+      PositiveMap.Node (join_functions l match b with
+                             | PositiveMap.Leaf _ => b
+                             | PositiveMap.Node l _ _ => l
+                             end)
+           match x with
+           | Some x => Some x
+           | None => match b with
+                     | PositiveMap.Leaf _ => None
+                     | PositiveMap.Node _ x _ => x
+                     end
+           end
+           (join_functions r match b with
+                             | PositiveMap.Leaf _ => b
+                             | PositiveMap.Node _ _ r => r
+                             end)
+    end.
+
   Variable fs : functions.
 
   Definition func_typeof_sym (i : func) : option typ :=
@@ -87,3 +109,4 @@ End RSym.
 Arguments functions _ _ : clear implicits.
 Arguments function _ _ : clear implicits.
 Arguments F {_ _} _ _ : clear implicits.
+Arguments join_functions {_ _} _ _ : clear implicits.

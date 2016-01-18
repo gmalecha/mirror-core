@@ -33,8 +33,8 @@ Section with_Expr.
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) e1 t = Some v1 ->
-        exprD' tu (tv' ++ tv) e2 t = Some v2 ->
+        exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substR tu tv s s'

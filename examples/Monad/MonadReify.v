@@ -12,29 +12,29 @@ Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
 
 (** Declare patterns **)
-Reify Declare Patterns patterns_monad_typ := typ.
-Reify Declare Patterns patterns_monad := (expr typ mext).
+Reify Declare Patterns patterns_monad_typ : typ.
+Reify Declare Patterns patterns_monad : expr typ mext.
 
 Reify Declare Table table_types : BinNums.positive.
 
 Reify Declare Syntax reify_monad_typ :=
-  (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_monad_typ ::
-                      (@Patterns.CTable typ _ table_types tyType) :: nil)).
+  Patterns.CFirst ((Patterns.CPatterns patterns_monad_typ ::
+                   (Patterns.CMap tyType (Patterns.CTable table_types)) :: nil)).
 
 Definition otherFunc (p : BinNums.positive) : expr typ mext :=
   Inj (inl p).
 Definition mFunc (p : _) : expr typ mext :=
   Inj (inr p).
 
-Reify Declare Typed Table table_terms : BinNums.positive => reify_monad_typ.
+Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
 (** Declare syntax **)
 Reify Declare Syntax reify_monad :=
-  (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ mext) patterns_monad) ::
-                       (@Patterns.CApp (expr typ mext) (@ExprCore.App typ mext)) ::
-                       (@Patterns.CAbs (expr typ mext) reify_monad_typ (@ExprCore.Abs typ mext)) ::
-                       (@Patterns.CVar (expr typ mext) (@ExprCore.Var typ mext)) ::
-                       (@Patterns.CTypedTable (expr typ mext) _ _ table_terms otherFunc) :: nil)).
+  Patterns.CFirst ((Patterns.CPatterns patterns_monad) ::
+                   (Patterns.CApp (@ExprCore.App typ mext)) ::
+                   (Patterns.CAbs reify_monad_typ (@ExprCore.Abs typ mext)) ::
+                   (Patterns.CVar (@ExprCore.Var typ mext)) ::
+                   (Patterns.CMap otherFunc (Patterns.CTypedTable reify_monad_typ table_terms)) :: nil).
 
 Reify Pattern patterns_monad_typ += (@RExact _ Prop) => tyProp.
 Reify Pattern patterns_monad_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_monad_typ) => tyArr a b).
@@ -59,7 +59,7 @@ Ltac reify_left m :=
                             (@eq_refl _ _)) ;
           let H := fresh in
           intro H ;
-          cbv beta iota zeta delta [ ts fs us exprD EnvI.split_env exprD' func_simul AbsAppI.exprT_App eq_sym TypesI.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymSum.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc RType_typ SymI.symD MonadSym.mfuncD TypesI.typ2_match symAs SymEnv.RSym_func SymEnv.func_typeof_sym exprT_GetVAs exprT_GetUAs SymEnv.ftype TypesI.type_cast Rcast type_cast TypesI.Relim TypesI.Rsym OptionMonad.Monad_option HList.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl ] in H ;
+          cbv beta iota zeta delta [ ts fs us exprD EnvI.split_env lambda_exprD func_simul AbsAppI.exprT_App eq_sym TypesI.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymSum.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc RType_typ SymI.symD MonadSym.mfuncD TypesI.typ2_match symAs SymEnv.RSym_func SymEnv.func_typeof_sym exprT_GetVAs exprT_GetUAs SymEnv.ftype TypesI.type_cast Rcast type_cast TypesI.Relim TypesI.Rsym OptionMonad.Monad_option HList.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl ] in H ;
           simpl in H ;
           clear ts fs us
       in
@@ -80,7 +80,7 @@ Ltac reduce_monads m :=
           cut (@MonadReduce.Premise_reduce_eq m Monad_m ts fs us nil t result'V) ;
           [ refine (@reduce_eq m Monad_m ts fs el er us nil t result'V
                                (@eq_refl _ result'V <: result = result'V))
-          | cbv beta iota zeta delta [ ts fs us result'V exprD EnvI.split_env exprD' func_simul AbsAppI.exprT_App eq_sym TypesI.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymSum.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc RType_typ SymI.symD MonadSym.mfuncD TypesI.typ2_match symAs SymEnv.RSym_func SymEnv.func_typeof_sym exprT_GetVAs exprT_GetUAs SymEnv.ftype TypesI.type_cast Rcast type_cast TypesI.Relim TypesI.Rsym OptionMonad.Monad_option HList.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl MonadReduce.Premise_reduce_eq fst snd ] ;
+          | cbv beta iota zeta delta [ ts fs us result'V exprD EnvI.split_env lambda_exprD func_simul AbsAppI.exprT_App eq_sym TypesI.typ2_cast Typ2_tyArr SymEnv.funcD FMapPositive.PositiveMap.find SymEnv.fdenote  SymI.typeof_sym RSym_mext SymSum.RSym_sum MonadSym.RSym_mfunc MonadSym.typeof_mfunc RType_typ SymI.symD MonadSym.mfuncD TypesI.typ2_match symAs SymEnv.RSym_func SymEnv.func_typeof_sym exprT_GetVAs exprT_GetUAs SymEnv.ftype TypesI.type_cast Rcast type_cast TypesI.Relim TypesI.Rsym OptionMonad.Monad_option HList.nth_error_get_hlist_nth Functor.fmap positive_eq_odec f_equal Option.Functor_option TypesI.typ2 Relim getType typD Rcast_val HList.hlist_hd HList.hlist_tl MonadReduce.Premise_reduce_eq fst snd ] ;
           simpl ;
           clear ts fs us result'V ]
       in

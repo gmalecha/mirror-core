@@ -1,15 +1,12 @@
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.POption.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.syms.SymOneOf.
 Require Import MirrorCore.Views.FuncView.
-
-Set Printing Universes.
-
-Require Import MirrorCore.UnifyI.
 
 Section FuncViewSumN.
   Context {A func : Type}.
@@ -31,8 +28,6 @@ Section FuncViewSumN.
   Variable typ : Type.
   Variable RType_typ : RType typ.
 
-  Require Import MirrorCore.Util.Compat.
-
   Global Instance FuncViewOkPMap
          (p : positive) (m : OneOfType.pmap)
          (syms : forall p : positive,
@@ -41,8 +36,15 @@ Section FuncViewSumN.
                   | OneOfType._None => Empty_set
                   end)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
-         (RSa : RSym A)
-  : FuncViewOk (FuncViewPMap p m pf) (RSymOneOf _ _) RSa.
+  : FuncViewOk (FuncViewPMap p m pf) (RSymOneOf m syms)
+               (match eq_sym pf in _ = Z
+                      return RSym match Z with
+                                  | OneOfType._Some T => T
+                                  | OneOfType._None => Empty_set
+                                  end
+                with
+                | eq_refl => syms p
+                end).
   Proof.
     constructor.
     { unfold f_view, f_insert; simpl.
@@ -54,7 +56,19 @@ Section FuncViewSumN.
       { intros.
         subst.
         rewrite OneOfType.Outof_Into. reflexivity. } }
-    { admit. }
-  Admitted.
+    { simpl. intros.
+      unfold OneOfType.Into.
+      unfold RSymOneOf.
+      unfold symAs. simpl.
+      autorewrite_with_eq_rw.
+      unfold symD_OneOf, typeof_sym_OneOf. simpl.
+      unfold internal_eq_rew_dep, eq_rect_r, eq_rect.
+      generalize (@symD typ RType_typ).
+      generalize (@typeof_sym typ RType_typ).
+      generalize (@type_cast typ RType_typ t).
+      generalize (syms p).
+      destruct pf. intros.
+      reflexivity. }
+  Qed.
 
 End FuncViewSumN.

@@ -27,7 +27,7 @@ Section instantiate.
       f u = Some e ->
       nth_error_get_hlist_nth _ tus u = Some (@existT _ _ t get) ->
       exists eD,
-        exprD' tus tvs e t = Some eD /\
+        exprD tus tvs t e = Some eD /\
         P (fun us vs => get us = eD us vs).
 
   Definition sem_preserves_if tus tvs
@@ -41,9 +41,9 @@ Section instantiate.
     : Prop :=
     forall tus tvs f e tvs' t eD P (EApp : CtxLogic.ExprTApplicative P),
       sem_preserves_if_ho P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exprD tus (tvs' ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        exprD tus (tvs' ++ tvs) t (instantiate f (length tvs') e) = Some eD' /\
         P (fun us vs => forall vs',
                eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs)).
 
@@ -52,9 +52,9 @@ Section instantiate.
   : Prop :=
     forall tus tvs f e tvs' t eD P,
       @sem_preserves_if tus tvs P f ->
-      exprD' tus (tvs' ++ tvs) e t = Some eD ->
+      exprD tus (tvs' ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus (tvs' ++ tvs) (instantiate f (length tvs') e) t = Some eD' /\
+        exprD tus (tvs' ++ tvs) t (instantiate f (length tvs') e) = Some eD' /\
         forall us vs vs',
           P us vs ->
           eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).

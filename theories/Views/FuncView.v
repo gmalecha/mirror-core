@@ -184,3 +184,17 @@ Section FuncView.
   End ptrns.
 
 End FuncView.
+
+
+Definition FuncView_id {T : Type} : FuncView T T :=
+{| f_insert := fun x => x
+ ; f_view := @pSome _ |}.
+
+Theorem FuncViewOk_id {T typ} (RT : RType typ) (RS : RSym T)
+: @FuncViewOk T T (@FuncView_id T) typ _ _ _.
+Proof.
+  constructor.
+  { split. inversion 1. reflexivity.
+    intros; subst; reflexivity. }
+  { simpl. reflexivity. }
+Defined.

@@ -125,31 +125,31 @@ Section substitute.
         specialize (H1 (UVar u) y). auto. } }
   Qed.
 
-  Theorem exprD'_subst'
+  Theorem lambda_exprD_subst'
   : forall lookupU lookupV tus tvs tus' tvs' P
       (HNU : forall u, Natural (lookupU u)) (HNV : forall v, Natural (lookupV v))
       (HlookupV : forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD vs ->
              vD vs = vD' us' vs')
       (HlookupU : forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD us ->
              vD us = vD' us' vs'),
       forall e tvex (t : typ) eD,
-        exprD' tus (tvex ++ tvs) t e = Some eD ->
+        lambda_exprD tus (tvex ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
+          lambda_exprD tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
           forall us vs us' vs' vex,
             P us vs us' vs' ->
             eD us (hlist_app vex vs) = eD' us' (hlist_app vex vs').
@@ -169,7 +169,7 @@ Section substitute.
           destruct y.
           intro XXX; specialize (XXX _ _ eq_refl eq_refl).
           forward_reason.
-          generalize (exprD'_lift tus' x nil tvex tvs' x0).
+          generalize (lambda_exprD_lift tus' x nil tvex tvs' x0).
           simpl. rewrite H3. intros; forwardy.
           eexists; split; [ eassumption | ].
           intros.
@@ -188,7 +188,7 @@ Section substitute.
           intro.
           intro XXX; specialize (XXX _ _ eq_refl eq_refl).
           forward_reason.
-          generalize (exprD'_lift tus' (Var (v - length tvex)) nil tvex tvs' x).
+          generalize (lambda_exprD_lift tus' (Var (v - length tvex)) nil tvex tvs' x).
           simpl. rewrite H5. intros; forwardy.
           cutrewrite (v - length tvex + length tvex = v) in H7; [ | omega ].
           eexists; split; [ eassumption | ].
@@ -229,8 +229,8 @@ Section substitute.
         erewrite H2; eauto. erewrite H3; eauto. }
       { intros.
         assert (exists vD,
-                  exprD' tus tvs t0 e = Some vD)
-          by (eapply ExprFacts.typeof_expr_exprD'; eauto).
+                  lambda_exprD tus tvs t0 e = Some vD)
+          by (eapply ExprFacts.typeof_expr_lambda_exprD; eauto).
         destruct H6.
         consider (nth_error_get_hlist_nth typD tvs v); intros.
         { destruct s.
@@ -239,14 +239,14 @@ Section substitute.
             clear - H4 x3. simpl in *. congruence. }
           subst.
           eapply HlookupV with (v := v) in H6; eauto.
-          forward_reason. eapply ExprFacts.exprD'_typeof_expr.
+          forward_reason. eapply ExprFacts.lambda_exprD_typeof_expr.
           eauto. }
         { clear - H4 H7; exfalso.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } }
       { intros.
         assert (exists vD,
-                  exprD' tus tvs t0 e = Some vD)
-          by (eapply ExprFacts.exprD'_typeof_expr; eauto).
+                  lambda_exprD tus tvs t0 e = Some vD)
+          by (eapply ExprFacts.lambda_exprD_typeof_expr; eauto).
         destruct H6.
         consider (nth_error_get_hlist_nth typD tus u); intros.
         { destruct s.
@@ -255,7 +255,7 @@ Section substitute.
             clear - H4 x3. simpl in *. congruence. }
           subst.
           eapply HlookupU with (v := u) in H6; eauto.
-          forward_reason. eapply ExprFacts.exprD'_typeof_expr.
+          forward_reason. eapply ExprFacts.lambda_exprD_typeof_expr.
           eauto. }
         { clear - H4 H7; exfalso.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } } }
@@ -292,7 +292,7 @@ Section substitute.
         rewrite H3 in H1.
         specialize (H3 _ (lift 0 (length tvex)) (UVar u)).
         rewrite H3.
-        generalize (exprD'_lift tus' x1 nil tvex tvs' x); simpl.
+        generalize (lambda_exprD_lift tus' x1 nil tvex tvs' x); simpl.
         rewrite H1. intros.
         forwardy.
         eexists; split; [ eassumption | ].
@@ -306,37 +306,37 @@ Section substitute.
         eapply H2; eauto. } }
   Qed.
 
-  Theorem exprD'_subst
+  Theorem lambda_exprD_subst
   : forall tus tvs tus' tvs' lookupU lookupV P (e : expr typ func) (t : typ),
       (forall u, Natural (lookupU u)) -> (forall v, Natural (lookupV v)) ->
       (forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD vs ->
              vD vs = vD' us' vs') ->
       (forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD us ->
              vD us = vD' us' vs') ->
       forall tvx eD,
-        exprD' tus (tvx ++ tvs) t e = Some eD ->
+        lambda_exprD tus (tvx ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
+        lambda_exprD tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
         forall us vs us' vs' vx,
           P us vs us' vs' ->
           eD us (hlist_app vx vs) = eD' us' (hlist_app vx vs').
   Proof.
     intros.
-    eapply (@exprD'_subst' lookupU lookupV tus tvs tus' tvs' P)
+    eapply (@lambda_exprD_subst' lookupU lookupV tus tvs tus' tvs' P)
       with (tvex := tvx) in H1; eauto.
   Qed.
 
