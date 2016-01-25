@@ -714,7 +714,7 @@ Section setoid.
           { exfalso.
             simpl in *.
             red in x4. subst.
-
+            clear - RTypeOk_typD Typ2Ok_Fun RbaseD_single_type H10 H2.
             eapply RD_tyAcc in H10; eauto.
             clear - RTypeOk_typD Typ2Ok_Fun RbaseD_single_type H10 H2.
             destruct H10.
@@ -2545,7 +2545,7 @@ Section setoid.
                with
                | eq_refl => vs
                end.
-    Proof using.
+    Proof using RTypeOk_typD RSymOk_func Typ2Ok_Fun.
       intros. rewrite <- unwrap_tvs_ctx_subst_unwrap_tvs_ctx_subst'.
       generalize dependent cD. revert cs. revert ctx.
       induction tvs.

@@ -23,6 +23,8 @@ Require Import FunctionalExtensionality.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Set Printing Universes.
+Set Printing All.
 (** NOTE: This entire prover could be over an arbitrary logic if we change
  **       lemma to be over an arbitrary ILogic
  **)
