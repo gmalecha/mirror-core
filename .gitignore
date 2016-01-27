@@ -7,7 +7,7 @@ Makefile.paths
 *~
 .dir-locals.el
 deps.*
-#*
+\#*
 .#*
 mirror-core.tgz
 coq-ext-lib
@@ -20,3 +20,7 @@ coq-ext-lib
 *.a
 *.o
 *.d
+.*.aux
+.merlin
+*.vio
+universes.txt

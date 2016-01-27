@@ -1,3 +1,4 @@
+Require Import Coq.Lists.List.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
@@ -8,22 +9,27 @@ Set Strict Implicit.
 
 Section Env.
   Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Context {RType_typ : RType typD}.
+  Context {RType_typ : RType typ}.
 
   (** Environments **)
   Definition tenv : Type := list typ.
-  Definition env : Type := list (sigT (typD nil)).
+  Definition env : Type := list (sigT (@typD _ _)).
 
   Definition typeof_env (e : env) : tenv :=
     map (@projT1 _ _) e.
 
-  Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD nil ty) :=
+  Fixpoint valof_env (e : env) : hlist typD (typeof_env e) :=
+    match e as e return hlist typD (typeof_env e) with
+    | nil => Hnil
+    | t :: ts => Hcons (projT2 t) (valof_env ts)
+    end.
+
+  Definition lookupAs (e : env) (n : nat) (ty : typ) : option (typD ty) :=
     match nth_error e n with
       | None => None
-      | Some (existT t v) =>
-        match type_cast nil t ty with
-          | Some f => Some (f (fun x => x) v)
+      | Some (existT _ t v) =>
+        match type_cast ty t with
+          | Some pf => Some (Relim (fun x => x) pf v)
           | None => None
         end
     end.
@@ -37,13 +43,13 @@ Section Env.
     erewrite nth_error_weaken by eassumption. auto.
   Qed.
 
-  Fixpoint join_env (gs : list typ) (hgs : hlist (typD nil) gs) : env :=
+  Fixpoint join_env (gs : list typ) (hgs : hlist (@typD _ _) gs) : env :=
     match hgs with
       | Hnil => nil
-      | Hcons a b c d => existT _ _ c :: join_env d
+      | Hcons c d => existT _ _ c :: join_env d
     end.
 
-  Fixpoint split_env (gs : env) : sigT (hlist (typD nil)) :=
+  Fixpoint split_env (gs : env) : sigT (hlist (@typD _ _)) :=
     match gs with
       | nil => existT _ nil Hnil
       | g :: gs =>
@@ -77,12 +83,21 @@ Section Env.
     exact split_env_projT1.
   Qed.
 
+  Lemma join_env_app
+  : forall a b (ax : hlist _ a) (bx : hlist _ b),
+      join_env ax ++ join_env bx = join_env (hlist_app ax bx).
+  Proof.
+    clear.
+    induction ax; simpl; intros; auto.
+    f_equal. auto.
+  Qed.
+
   Theorem split_env_nth_error : forall (ve : env) v tv,
     nth_error ve v = Some tv <->
     match nth_error (projT1 (split_env ve)) v as t
           return match t with
-                   | Some v => typD nil v
-                   | None => unit
+                   | Some v => typD v
+                   | None => unit:Type
                  end -> Prop
     with
       | None => fun _ => False
@@ -173,148 +188,15 @@ Section Env.
       inversion H; clear H; subst. eauto. }
   Qed.
 
+  Theorem split_env_eta : forall vs,
+      split_env vs = existT _ (typeof_env vs) (valof_env vs).
+  Proof.
+    induction vs; simpl; auto.
+    rewrite IHvs. simpl. reflexivity.
+  Qed.
+
 End Env.
 
-
-Section nth_error_get_hlist_nth.
-  Context (iT : Type) (F : iT -> Type).
-
-  Fixpoint nth_error_get_hlist_nth (ls : list iT) (n : nat) {struct ls} :
-    option {t : iT & hlist F ls -> F t} :=
-    match
-      ls as ls0
-      return option {t : iT & hlist F ls0 -> F t}
-    with
-      | nil => None
-      | l :: ls0 =>
-        match
-          n as n0
-          return option {t : iT & hlist F (l :: ls0) -> F t}
-        with
-          | 0 =>
-            Some (@existT _ (fun t => hlist F (l :: ls0) -> F t)
-                          l (@hlist_hd _ _ _ _))
-          | S n0 =>
-            match nth_error_get_hlist_nth ls0 n0 with
-              | Some (existT x f) =>
-                Some (@existT _ (fun t => hlist F _ -> F t)
-                              x (fun h : hlist F (l :: ls0) => f (hlist_tl h)))
-              | None => None
-            end
-        end
-    end.
-
-  Theorem nth_error_get_hlist_nth_Some
-  : forall ls n s,
-      nth_error_get_hlist_nth ls n = Some s ->
-      exists pf : nth_error ls n = Some (projT1 s),
-        forall h, projT2 s h = match pf in _ = t
-                                     return match t with
-                                              | Some t => F t
-                                              | None => unit
-                                            end
-                               with
-                                 | eq_refl => hlist_nth h n
-                               end.
-  Proof.
-    induction ls; simpl; intros; try congruence.
-    { destruct n.
-      { inv_all; subst; simpl.
-        exists (eq_refl).
-        intros. rewrite (hlist_eta h). reflexivity. }
-      { forward. inv_all; subst.
-        destruct (IHls _ _ H0); clear IHls.
-        simpl in *. exists x0.
-        intros.
-        rewrite (hlist_eta h). simpl. auto. } }
-  Qed.
-
-  Theorem nth_error_get_hlist_nth_None
-  : forall ls n,
-      nth_error_get_hlist_nth ls n = None <->
-      nth_error ls n = None.
-  Proof.
-    induction ls; simpl; intros; try congruence.
-    { destruct n; intuition. }
-    { destruct n; simpl; try solve [ intuition congruence ].
-      { unfold value. intuition congruence. }
-      { specialize (IHls n).
-        forward. } }
-  Qed.
-
-  Lemma nth_error_get_hlist_nth_weaken
-  : forall ls ls' n x,
-      nth_error_get_hlist_nth ls n = Some x ->
-      exists z,
-        nth_error_get_hlist_nth (ls ++ ls') n =
-        Some (@existT iT (fun t => hlist F (ls ++ ls') -> F t) (projT1 x) z)
-        /\ forall h h', projT2 x h = z (hlist_app h h').
-  Proof.
-    intros ls ls'. revert ls.
-    induction ls; simpl; intros; try congruence.
-    { destruct n; inv_all; subst.
-      { simpl. eexists; split; eauto.
-        intros. rewrite (hlist_eta h). reflexivity. }
-      { forward. inv_all; subst. simpl.
-        apply IHls in H0. forward_reason.
-        rewrite H. eexists; split; eauto.
-        intros. rewrite (hlist_eta h). simpl in *.
-        auto. } }
-  Qed.
-
-  Lemma nth_error_get_hlist_nth_appL
-  : forall tvs' tvs n,
-      n < length tvs ->
-      exists x,
-        nth_error_get_hlist_nth (tvs ++ tvs') n = Some x /\
-        exists y,
-          nth_error_get_hlist_nth tvs n = Some (@existT _ _ (projT1 x) y) /\
-          forall vs vs',
-            (projT2 x) (hlist_app vs vs') = y vs.
-  Proof.
-    clear. induction tvs; simpl; intros.
-    { exfalso; inversion H. }
-    { destruct n.
-      { clear H IHtvs.
-        eexists; split; eauto. eexists; split; eauto.
-        simpl. intros. rewrite (hlist_eta vs). reflexivity. }
-      { apply Lt.lt_S_n in H.
-        { specialize (IHtvs _ H).
-          forward_reason.
-          rewrite H0. rewrite H1.
-          forward. subst. simpl in *.
-          eexists; split; eauto.
-          eexists; split; eauto. simpl.
-          intros. rewrite (hlist_eta vs). simpl. auto. } } }
-  Qed.
-
-  Lemma nth_error_get_hlist_nth_appR
-  : forall tvs' tvs n x,
-      n >= length tvs ->
-      nth_error_get_hlist_nth (tvs ++ tvs') n = Some x ->
-      exists y,
-        nth_error_get_hlist_nth tvs' (n - length tvs) = Some (@existT _ _ (projT1 x) y) /\
-        forall vs vs',
-          (projT2 x) (hlist_app vs vs') = y vs'.
-  Proof.
-    clear. induction tvs; simpl; intros.
-    { cutrewrite (n - 0 = n); [ | omega ].
-      rewrite H0. destruct x. simpl.
-      eexists; split; eauto. intros.
-      rewrite (hlist_eta vs). reflexivity. }
-    { destruct n.
-      { inversion H. }
-      { assert (n >= length tvs) by omega. clear H.
-        { forward. inv_all; subst. simpl in *.
-          specialize (IHtvs _ _ H1 H0).
-          simpl in *.
-          forward_reason.
-          rewrite H.
-          eexists; split; eauto.
-          intros. rewrite (hlist_eta vs). simpl. auto. } } }
-  Qed.
-
-
-End nth_error_get_hlist_nth.
-
-Arguments join_env {_ _ _} _.
+Arguments env {typ _} : rename.
+Arguments join_env {typ _ _} _ : rename.
+Arguments split_env {typ _} _ : rename.

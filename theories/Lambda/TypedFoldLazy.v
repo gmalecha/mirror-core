@@ -1,30 +1,27 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed_fold.
+  Variable typ : Type.
   Variable func : Type.
 
-  Variable RType_typ : RType.
+  Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ Fun.
-  Variable RSym_func : RSym typD func.
+  Variable RSym_func : RSym func.
 
   Section folderL.
     Definition Lazy (T : Type) := unit -> option T.
-
-    Variable ts : list Type.
 
     Variable T : Type.
 
     Variable do_var : var -> typ -> Lazy T.
     Variable do_uvar : var -> typ -> Lazy T.
-    Variable do_inj : func -> typ -> Lazy T.
+    Variable do_opaque : expr typ func -> typ -> Lazy T.
     Variable do_app : list typ -> list typ -> typ -> typ -> Lazy T -> Lazy T -> Lazy T.
     Variable do_abs : list typ -> list typ -> typ -> typ -> Lazy T -> Lazy T.
 
@@ -34,11 +31,11 @@ Section typed_fold.
       match e with
         | Var v => success (fun z => do_var v t z)
         | UVar u => success (fun z => do_uvar u t z)
-        | Inj f => success (fun z => do_inj f t z)
+        | Inj f => success (fun z => do_opaque e t z)
         | Abs t' e =>
           typ2_match (F := Fun)
                      (fun _ => R)
-                     ts t
+                     t
                      (fun d r =>
                         success (fun z => do_abs tus tvs d r
                                                  (fun z =>
@@ -72,7 +69,7 @@ Section typed_fold.
         | Inj f =>
           match typeof_sym f with
             | None => failure
-            | Some t => success t (fun z => do_inj f t z)
+            | Some t => success t (fun z => do_opaque e t z)
           end
         | Abs d e =>
           typed_mfold_infer_cpsL tus (d :: tvs) e
@@ -83,7 +80,7 @@ Section typed_fold.
           typed_mfold_infer_cpsL tus tvs f (fun dr fv =>
            typ2_match (F := Fun)
                       (fun _ => R)
-                      ts dr
+                      dr
                       (fun d r =>
                          success r (fun z =>
                                       do_abs tus tvs d r

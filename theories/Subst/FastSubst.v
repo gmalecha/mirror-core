@@ -6,8 +6,10 @@ Require Import Coq.PArith.BinPos.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.EnvI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SubstI2.
+Require Import MirrorCore.SubstI.
+Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Util.Iteration.
 
 Set Implicit Arguments.
@@ -27,15 +29,31 @@ Proof.
   { split; inversion 1; intros; subst; constructor; auto.
     apply IHls. auto. apply IHls. auto. }
 Qed.
+Lemma Forall_cons_iff : forall T (P : T -> Prop) l ls,
+                          Forall P (l :: ls) <-> P l /\ Forall P ls.
+Proof.
+  clear.
+  intuition;
+    inversion H; auto.
+Qed.
+Lemma Forall_app : forall T (P : T -> Prop) ls ls',
+                     Forall P (ls ++ ls') <-> Forall P ls /\ Forall P ls'.
+Proof.
+  induction ls; simpl in *; intros.
+  { intuition. }
+  { do 2 rewrite Forall_cons_iff. rewrite IHls. intuition. }
+Qed.
 
 
 Section parametric.
 
   Let uvar := nat.
   Variables typ expr : Type.
-  Variable typD : list Type -> typ -> Type.
-  Variable Expr_expr : @Expr typ typD expr.
-  Variable ExprOk_expr : ExprOk Expr_expr.
+  Context {RType_typ : RType typ}.
+  Context {Expr_expr : @Expr _ _ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
+  Context {ExprUVar_expr : ExprUVar expr}.
+  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
 
   Definition pmap := t.
   Definition pset := pmap unit.
@@ -53,9 +71,11 @@ Section parametric.
                                  end) (pset_union ra rb)
     end.
 
+(*
   Variable mentionsU : expr -> uvar -> Prop.
-  Variable get_mentions_instantiate : (uvar -> option expr) -> expr -> pset * expr.
   Variable instantiate : (uvar -> option expr) -> expr -> expr.
+*)
+  Variable get_mentions_instantiate : (uvar -> option expr) -> expr -> pset * expr.
 
   Inductive ExprData : Type :=
   | Mapped (e : expr) (p : pset) (** [e] mentions only things in [p] **)
@@ -69,19 +89,19 @@ Section parametric.
 
   Definition mentionsOnly (e : expr) (s : pset) : Prop :=
     forall u,
-      mentionsU e u ->
+      mentionsU u e = true ->
       find (to_key u) s = Some tt.
 
   Definition mentionedBy (k : positive) (ps : pset) (fs : fast_subst) : Prop :=
     forall k' e m,
       find k' fs = Some (Mapped e m) ->
-      mentionsU e (from_key k) ->
+      mentionsU (from_key k) e = true ->
       find k' ps = Some tt.
 
   Definition mentionsNone u (fs : fast_subst) : Prop :=
     forall p' : positive,
       match find p' fs with
-        | Some (Mapped e _) => ~mentionsU e u
+        | Some (Mapped e _) => mentionsU u e = false
         | _ => True
       end.
 
@@ -174,7 +194,7 @@ Section parametric.
                    (fun m => remove up (pset_union mentions m))
                    (instantiate (fun x => if x ?[ eq ] u then
                                             Some e_inst
-                                          else None))
+                                          else None) 0)
                    mb
                    (add_mentionedBy up mentions fs))).
 
@@ -494,14 +514,14 @@ Section parametric.
       the_update_function' up i mu mb mm o = Some (Mapped e' d') ->
       match o with
         | Some (Mapped e d) =>
-          mb = true /\ mm = false /\ i e = e' /\ mu d = d'
+          (mm = false /\ mb = false) \/
+          (mb = true /\ mm = false /\ i e = e' /\ mu d = d')
         | _ => False
       end.
   Proof.
     clear. unfold the_update_function'; intros.
     destruct mb; destruct mm; destruct o; forward; try congruence.
-    inv_all; subst.
-  Admitted.
+  Qed.
 
 (*
   Axiom DEAD : ExprData.
@@ -550,7 +570,7 @@ Section parametric.
             (the_update_function' up
                                  (instantiate (fun x => if x ?[ eq ] u then
                                                           Some e_inst
-                                                        else None))
+                                                        else None) 0)
                                  (fun m => remove up (pset_union mentions m)))
             mb mentions fs
       in
@@ -584,174 +604,153 @@ Section parametric.
   Definition fast_subst_pull (base : uvar) := fast_subst_pull' (to_key base).
 
   Instance Subst_fast_subst : Subst fast_subst expr :=
-  { lookup := fast_subst_lookup
-  ; domain := fun x => filter_map (fun x =>
-                                     match snd x with
-                                       | Mapped _ _ => Some (from_key (fst x))
-                                       | _ => None
-                                     end) (elements x)
+  { subst_lookup := fast_subst_lookup
+  ; subst_domain :=
+      fun x => filter_map (fun x =>
+                             match snd x with
+                               | Mapped _ _ => Some (from_key (fst x))
+                               | _ => None
+                             end) (elements x)
   }.
 
-  Definition WellTyped_fast_subst (tus tvs : EnvI.tenv typ) (s : fast_subst) : Prop :=
-    forall u e, lookup u s = Some e ->
-                match List.nth_error tus u with
-                  | None => False
-                  | Some t => Safe_expr tus tvs e t
-                end.
-
-  Definition substD_fast_subst (us vs : EnvI.env typD) (s : fast_subst)
-  : Prop :=
-    Forall (fun P => P)
-           (fold (fun p e acc =>
-                    match e with
-                      | Mapped e _ =>
-                        match List.nth_error us (from_key p) with
-                          | None => False :: acc
-                          | Some (existT ty val) =>
-                            match exprD us vs e ty with
-                              | Some val' => (val' = val) :: acc
-                              | None => False :: acc
-                            end
+  Definition substD_fast_subst_list (tus tvs : EnvI.tenv typ) (s : fast_subst)
+  : option (list (exprT tus tvs Prop)) :=
+    fold (fun p e acc =>
+            match e with
+              | UnMapped _ => acc
+              | Mapped e _ =>
+                match acc with
+                  | None => None
+                  | Some acc =>
+                    match nth_error_get_hlist_nth _ tus (from_key p) with
+                      | None => None
+                      | Some (existT ty get) =>
+                        match exprD' tus tvs e ty with
+                          | Some val' =>
+                            Some ((fun us vs => get us = val' us vs) :: acc)
+                          | None => None
                         end
-                      | UnMapped _ => acc
-                    end) s nil).
+                    end
+                end
+            end) s (Some nil).
 
-  Definition substD_fast_subst' (us vs : EnvI.env typD) (s : fast_subst) : Prop :=
-    Forall (fun p_e =>
-           let '(p,e) := p_e in
-           match e with
-             | Mapped e _ =>
-               match List.nth_error us (from_key p) with
-                 | None => False
-                 | Some (existT ty val) =>
-                   match exprD us vs e ty with
-                     | Some val' => (val' = val)
-                     | None => False
-                   end
-               end
-             | UnMapped _ => True
-           end) (elements s).
+  Definition substD_fast_subst (tus tvs : EnvI.tenv typ) (s : fast_subst)
+  : option (exprT tus tvs Prop) :=
+    match substD_fast_subst_list tus tvs s with
+      | None => None
+      | Some ls => Some (fun us vs => Forall (fun P => P us vs) ls)
+    end.
 
-  Lemma Forall_cons_iff : forall T (P : T -> Prop) l ls,
-                            Forall P (l :: ls) <-> P l /\ Forall P ls.
+  Require Import ExtLib.Structures.Traversable.
+  Require Import ExtLib.Data.Option.
+  Require Import ExtLib.Data.List.
+
+
+  Definition substD_fast_subst' (tus tvs : EnvI.tenv typ) (s : fast_subst)
+  : option (exprT tus tvs Prop) :=
+    match
+      mapT (F := option) (T := list) (fun t => match snd t with
+                                                 | None => None
+                                                 | Some t => Some t
+                                               end)
+           (elements (mapi (fun p e =>
+                              match e with
+                                | UnMapped _ => Some (fun _ _ => True)
+                                | Mapped e _ =>
+                                  match nth_error_get_hlist_nth _ tus (from_key p) with
+                                    | None => None
+                                    | Some (existT ty get) =>
+                                      match exprD' tus tvs e ty with
+                                        | Some val' =>
+                                          Some (fun us vs => get us = val' us vs)
+                                        | None => None
+                                      end
+                                  end
+                              end) s))
+    with
+      | None => None
+      | Some ls => Some (fun us vs => Forall (fun P => P us vs) ls)
+    end.
+
+  Lemma xelements_xmapi
+  : forall T U (f : positive -> T -> U) x p,
+      xelements (xmapi f x p) p =
+      map (fun kv => (fst kv,
+                      f (fst kv) (snd kv))) (xelements x p).
   Proof.
-    clear.
-    intuition;
-      inversion H; auto.
+    induction x; simpl; intros.
+    { reflexivity. }
+    { destruct o; simpl; rewrite IHx1; rewrite IHx2.
+      { rewrite map_app. reflexivity. }
+      { rewrite map_app. reflexivity. } }
   Qed.
-  Lemma Forall_app : forall T (P : T -> Prop) ls ls',
-                       Forall P (ls ++ ls') <-> Forall P ls /\ Forall P ls'.
+
+  Lemma elements_mapi
+  : forall T U (f : positive -> T -> U) x,
+      elements (mapi f x) =
+      map (fun kv => (fst kv,
+                      f (fst kv) (snd kv))) (elements x).
   Proof.
-    induction ls; simpl in *; intros.
-    { intuition. }
-    { do 2 rewrite Forall_cons_iff. rewrite IHls. intuition. }
+    unfold elements, mapi. intros. apply xelements_xmapi.
   Qed.
 
   Theorem substD_fast_subst_substD_fast_subst'
-  : forall us vs s,
-      substD_fast_subst us vs s <->
-      substD_fast_subst' us vs s.
+  : forall tus tvs s,
+      match substD_fast_subst tus tvs s , substD_fast_subst' tus tvs s with
+        | Some P , Some Q => forall us vs, P us vs <-> Q us vs
+        | None , None => True
+        | _ , _ => False
+      end.
   Proof.
-    unfold substD_fast_subst, substD_fast_subst'; intros.
-    rewrite fold_1.
-    assert (forall l,
-                      (Forall (fun x : Prop => x)
-                              (fold_left
-                                 (fun (a : list Prop) (p : key * ExprData) =>
-                                    match snd p with
-                                      | Mapped e _ =>
-                                        match nth_error us (from_key (fst p)) with
-                                          | Some (existT ty val) =>
-                                            match exprD us vs e ty with
-                                              | Some val' => (val' = val) :: a
-                                              | None => False :: a
-                                            end
-                                          | None => False :: a
-                                        end
-                                      | UnMapped _ => a
-                                    end) (elements s) l)
-                      <->
-                      Forall (fun x : Prop => x)
-                             (l ++ List.map
-                                (fun p_e : positive * ExprData =>
-                                   match p_e with
-                                     | (p, Mapped e0 _) =>
-                                       match nth_error us (from_key p) with
-                                         | Some (existT ty val) =>
-                                             match exprD us vs e0 ty with
-                                               | Some val' => val' = val
-                                               | None => False
-                                             end
-                                         | None => False
-                                       end
-                                     | (p, UnMapped _) => True
-                                   end) (elements s)))
-           ).
-    { induction (elements s).
-      { simpl. intros. rewrite app_nil_r. intuition. }
-      { intros. destruct a. destruct e.
-        { simpl in *.
-          destruct (nth_error us (from_key p)).
-          { destruct s0. destruct (exprD us vs e x).
-            { rewrite IHl.
-              repeat rewrite Forall_app. repeat rewrite Forall_cons_iff.
-              tauto. }
-            { rewrite IHl.
-              repeat rewrite Forall_app. repeat rewrite Forall_cons_iff.
-              tauto. } }
-          { rewrite IHl.
-            repeat rewrite Forall_app. repeat rewrite Forall_cons_iff.
-            tauto. } }
-        { simpl. rewrite IHl.
-          repeat rewrite Forall_app. repeat rewrite Forall_cons_iff.
-          tauto. } } }
-    { specialize (H nil).
-      simpl in *.
-      rewrite H. rewrite Forall_map. reflexivity. }
-  Qed.
-
-  Lemma WellTyped_lookup_fast_subst
-  : forall (u v : EnvI.tenv typ) (s : fast_subst) (uv : nat) (e : expr),
-      WellFormed_fast_subst s ->
-      WellTyped_fast_subst u v s ->
-      lookup uv s = Some e ->
-      exists t0 : typ, List.nth_error u uv = Some t0 /\ Safe_expr u v e t0.
-  Proof.
-    unfold WellTyped_fast_subst; simpl; intros.
-    apply H0 in H1.
-    forward. eauto.
-  Qed.
-
-
-  Lemma substD_lookup_fast_subst
-  : forall (u v : EnvI.env typD) (s : fast_subst) (uv : nat) (e : expr),
-      WellFormed_fast_subst s ->
-      lookup uv s = Some e ->
-      substD_fast_subst u v s ->
-      exists val : sigT (typD nil),
-        List.nth_error u uv = Some val /\
-        exprD u v e (projT1 val) = Some (projT2 val).
-  Proof.
-    simpl. intros. clear H.
-    unfold fast_subst_lookup in *; simpl in *.
-    forward. inv_all; subst.
-    rewrite substD_fast_subst_substD_fast_subst' in H1.
-    unfold substD_fast_subst' in H1.
-    generalize (elements_correct s (to_key uv) H0).
     intros.
-    eapply Forall_forall in H1; eauto.
-    simpl in *.
-    forward. subst.
-    rewrite to_key_from_key in *. eauto.
+    unfold substD_fast_subst, substD_fast_subst_list, substD_fast_subst'.
+    rewrite elements_mapi.
+(*
+    rewrite mapT_map.
+    rewrite fold_1.
+    simpl.
+    induction (elements s).
+    { simpl. intuition. }
+    { admit. (** TODO: this is not true, due to a weak inductive hyp **) }
+*)
+  Admitted.
+
+(*
+  Lemma substD_fast_subst_sem
+  : forall tus tvs s sD,
+      substD_fast_subst tus tvs s = Some sD <->
+      (forall u e,
+         lookup_fast_subst u s = Some e ->
+         exists t val,
+           nth_error tus u = Some t /\
+           exprD' tus tvs e t = Some val /\
+           forall us vs,
+*)
+
+  Theorem substD_weaken
+  : forall (tus tvs : tenv typ) (tus' tvs' : list typ)
+           (s : fast_subst)
+           (sD : exprT tus tvs Prop),
+      substD_fast_subst tus tvs s = Some sD ->
+      exists
+        sD' : exprT (tus ++ tus') (tvs ++ tvs') Prop,
+        substD_fast_subst (tus ++ tus') (tvs ++ tvs') s = Some sD' /\
+        (forall (us : HList.hlist typD tus)
+                (us' : HList.hlist typD tus') (vs : HList.hlist typD tvs)
+                (vs' : HList.hlist typD tvs'),
+           sD us vs <-> sD' (HList.hlist_app us us') (HList.hlist_app vs vs')).
+  Proof.
+    admit.
   Qed.
 
   Lemma WellFormed_domain_fast_subst
   : forall (s : fast_subst) (ls : list nat),
       WellFormed_fast_subst s ->
-      domain s = ls -> forall n : nat, List.In n ls <-> lookup n s <> None.
+      subst_domain s = ls ->
+      forall n : nat, List.In n ls <-> subst_lookup n s <> None.
   Proof.
     intros; subst.
-    unfold domain, fast_subst_lookup. simpl.
+    unfold subst_domain, fast_subst_lookup. simpl.
     unfold fast_subst_lookup.
     rewrite in_filter_map_iff.
     split; intros.
@@ -769,30 +768,98 @@ Section parametric.
       rewrite to_key_from_key. auto. }
   Qed.
 
-  Lemma substD_welltyped
-  : forall (u v : EnvI.env typD) (s : fast_subst),
-      WellFormed_fast_subst s ->
-      substD_fast_subst u v s ->
-      WellTyped_fast_subst (EnvI.typeof_env u) (EnvI.typeof_env v) s.
+  Lemma mapT_In_bwd
+  : forall T U (f : T -> option U) (l : list T) (l' : list U) x',
+      mapT f l = Some l' ->
+      In x' l' ->
+      exists x,
+        f x = Some x' /\ In x l.
   Proof.
-    intros.
-    red. intros.
-    eapply substD_lookup_fast_subst in H0; eauto.
-    destruct H0 as [ ? [ ? ? ] ].
-    unfold EnvI.typeof_env.
-    rewrite ListNth.nth_error_map. rewrite H0.
-    eapply Safe_expr_exprD; eauto.
-    unfold exprD in H2. forward.
-    do 2 rewrite <- EnvI.split_env_projT1.
-    Cases.rewrite_all_goal. simpl. eauto.
+    clear. induction l; simpl; intros.
+    { inv_all. subst. inversion H0. }
+    { forward. inv_all; subst.
+      destruct H0; subst.
+      { eexists; split; eauto. }
+      { eapply IHl in H1; eauto.
+        forward_reason. eauto. } }
+  Qed.
+  Lemma mapT_In_fwd
+  : forall T U (f : T -> option U) (l : list T) (l' : list U) x,
+      mapT f l = Some l' ->
+      In x l ->
+      match f x with
+        | None => False
+        | Some x' => In x' l'
+      end.
+  Proof.
+    clear. induction l; simpl; intros.
+    { inversion H0. }
+    { forward. inv_all; subst.
+      destruct H0; subst.
+      { rewrite H. left. reflexivity. }
+      { eapply IHl in H1; eauto.
+        forward. right; assumption. } }
   Qed.
 
-  Instance SubstOk_fast_subst : SubstOk _ Subst_fast_subst :=
+  Theorem substD_lookup_fast_subst
+  : forall (s : fast_subst) (uv : nat) (e : expr),
+   WellFormed_fast_subst s ->
+   subst_lookup uv s = Some e ->
+   forall (tus tvs : tenv typ)
+     (sD : HList.hlist typD tus -> HList.hlist typD tvs -> Prop),
+   substD_fast_subst tus tvs s = Some sD ->
+   exists
+     (t0 : typ) (val : exprT tus tvs (typD t0))
+   (pf : Some t0 = nth_error tus uv),
+     exprD' tus tvs e t0 = Some val /\
+     (forall (us : HList.hlist typD tus)
+        (vs : HList.hlist typD tvs),
+      sD us vs ->
+      HList.hlist_nth us uv =
+      match
+        pf in (_ = t1)
+        return match t1 with
+               | Some x => typD x
+               | None => unit
+               end
+      with
+      | eq_refl => val us vs
+      end).
+  Proof.
+    intros.
+    generalize (substD_fast_subst_substD_fast_subst' tus tvs s).
+    rewrite H1. forward. clear H1.
+    simpl in *. unfold fast_subst_lookup in H0.
+    forward. inv_all; subst.
+    unfold substD_fast_subst' in H2.
+    forward. inv_all; subst.
+    rewrite elements_mapi in *.
+    rewrite ListMapT.mapT_map in *. Opaque mapT. simpl in *. Transparent mapT.
+    eapply elements_correct in H1.
+    eapply mapT_In_fwd in H0; eauto.
+    simpl in *.
+    forward. inv_all; subst. subst.
+    eapply nth_error_get_hlist_nth_Some in H5.
+    destruct H5. simpl in *.
+    exists x. eexists.
+    exists (eq_sym match to_key_from_key uv in _ = t
+                         return nth_error tus t = Some x
+                   with
+                     | eq_refl => x0
+                   end).
+    split; eauto. intros.
+    eapply H3 in H4.
+    eapply Forall_forall in H4; eauto.
+    simpl in *. rewrite <- H4. rewrite H0.
+    clear.
+    destruct x0; simpl.
+    destruct (to_key_from_key uv). reflexivity.
+  Qed.
+
+  Instance SubstOk_fast_subst : SubstOk Subst_fast_subst :=
   { WellFormed_subst := WellFormed_fast_subst
-  ; WellTyped_subst := WellTyped_fast_subst
   ; substD := substD_fast_subst
-  ; substD_WellTyped := substD_welltyped
-  ; WellTyped_lookup := WellTyped_lookup_fast_subst
+  ; substD_weaken := substD_weaken
   ; substD_lookup := substD_lookup_fast_subst
   ; WellFormed_domain := WellFormed_domain_fast_subst
   }.
@@ -829,14 +896,6 @@ Section parametric.
          exprD us vs e t' = Some val) ->
       exprD us vs (instantiate f e) t = exprD us vs e t.
 
-  Hypothesis instantiate_typed
-  : forall f tus tvs e t,
-      (forall u t',
-         f u = Some e ->
-         nth_error tus u = Some t' /\
-         Safe_expr tus tvs e t') ->
-      Safe_expr tus tvs (instantiate f e) t <-> Safe_expr tus tvs e t.
-
   Lemma to_key_injective : forall a b, to_key a = to_key b -> a = b.
   Proof.
     clear. unfold to_key.
@@ -851,310 +910,235 @@ Section parametric.
     apply to_key_injective.
   Defined.
 
-(*
-  Lemma set_helper_mentionedBy'_ok
-  : forall (s s' : fast_subst) (e : expr) (uv : nat),
-      WellFormed_fast_subst s ->
-      lookup uv s = None ->
-      forall mb : pset,
-        mentionedBy (to_key uv) mb s ->
-        set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
-        WellFormed_fast_subst s' /\
-        (forall (tus tvs : EnvI.tenv typ) (t0 : typ),
-           WellTyped_fast_subst tus tvs s ->
-           Safe_expr tus tvs e t0 ->
-           nth_error tus uv = Some t0 ->
-           WellTyped_fast_subst tus tvs s' /\
-           (forall us vs : EnvI.env typD,
-              substD_fast_subst us vs s' ->
-              substD_fast_subst us vs s /\
-              (forall tv : sigT (typD nil),
-                 nth_error us uv = Some tv ->
-                 exprD us vs e (projT1 tv) = Some (projT2 tv)))).
+  Fixpoint fast_subst_pull'' (cur : positive) (rest : nat) (fs : fast_subst) {struct rest}
+  : option fast_subst :=
+    match rest with
+      | 0 => Some fs
+      | S n =>
+        match PositiveMap.find cur fs with
+          | None
+          | Some (UnMapped _) => None
+          | Some (Mapped _ _) =>
+            fast_subst_pull' (Pos.pred cur) rest (PositiveMap.remove cur fs)
+        end
+    end.
+
+  Theorem fast_subst_pull'_app
+  : forall len len' base fs,
+      match fast_subst_pull' base len fs with
+        | None => None
+        | Some fs =>
+          fast_subst_pull' (match len with
+                              | 0 => base
+                              | S n => base + Pos.of_nat len
+                            end) len' fs
+      end =
+      fast_subst_pull' base (len + len') fs.
   Proof.
-    unfold set_helper_mentionedBy'. intros.
-    forward. inv_all; subst. split.
-    { admit. (** this is the hard one? **) }
-    { intros. split.
-      { (** WellTyped **)
-        unfold WellTyped_fast_subst in *. intros.
-        unfold lookup in *. simpl in *.
-        unfold fast_subst_lookup in *.
-        rewrite Facts.add_o in H7.
-        consider (E.eq_dec (to_key uv) (to_key u)).
-        { intros. inv_all. subst.
-          rewrite H6. admit. }
-        { rewrite update_both_spec; eauto.
-          forward. inv_all; subst.
-          specialize (H4 u). admit. (*
-          consider (find (to_key u) s).
-          { intros.
-            inv_all; subst. destruct e2.
-            { destruct p0. specialize (H6 _ eq_refl).
-              forward.
-              unfold the_update_function in *. *) } }
-      { (** substD **)
-        intros. split.
-        { eapply substD_fast_subst_substD_fast_subst'.
-          eapply substD_fast_subst_substD_fast_subst' in H7.
-          unfold substD_fast_subst' in *.
-          repeat rewrite Forall_map in *.
-          Lemma Forall_elements
-          : forall T (P : positive * T -> Prop) m,
-              Forall P (elements m) <->
-              (forall k,
-                 match find k m with
-                   | None => True
-                   | Some v => P (k,v)
-                 end).
+    clear. induction len.
+    { simpl. auto. }
+    { simpl.
+      intros. forward. subst.
+      rewrite <- IHlen. forward.
+      f_equal. destruct len.
+      { simpl. apply Pos.add_1_r. }
+      { rewrite Pos.add_succ_r.
+        rewrite Pos.add_succ_l. reflexivity. } }
+  Qed.
+
+  Definition plus_nat (p : positive) (n : nat) : positive :=
+    match n with
+      | 0 => p
+      | S _ => (p + (Pos.of_nat n))%positive
+    end.
+
+  Lemma plus_nat_S
+  : forall p n, plus_nat p (S n) = Pos.succ (plus_nat p n).
+  Proof.
+    clear. destruct n; simpl; intros.
+    { apply Pos.add_1_r. }
+    { rewrite Pos.add_succ_r. reflexivity. }
+  Qed.
+
+  Lemma plus_nat_succ
+  : forall p n, plus_nat (Pos.succ p) n = Pos.succ (plus_nat p n).
+  Proof.
+    clear. intros.
+    unfold plus_nat.
+    rewrite Pos.add_succ_l.
+    destruct n; reflexivity.
+  Qed.
+
+  Lemma fast_subst_pull'_sem
+  : forall len base fs fs',
+      fast_subst_pull' base len fs = Some fs' ->
+      (forall n,
+         n < len ->
+         (exists e, lookup (from_key (plus_nat base n)) fs = Some e)) /\
+      (forall n,
+         (n < base)%positive ->
+         lookup (from_key n) fs' = lookup (from_key n) fs).
+  Proof.
+    clear.
+    induction len; intros; simpl.
+    { split.
+      { inversion 1. }
+      { intros. simpl in *. inv_all; subst. reflexivity. } }
+    { simpl in *. forward. subst. unfold fast_subst_lookup in *.
+      split; intros.
+      { rewrite from_key_to_key.
+        destruct n.
+        { simpl in *. rewrite H0. eauto. }
+        { eapply IHlen in H1. destruct H1.
+          assert (n < len) by omega.
+          eapply H1 in H3.
+          rewrite from_key_to_key in H3.
+          rewrite plus_nat_S. rewrite plus_nat_succ in *.
+          rewrite Facts.remove_neq_o in H3. auto.
+          clear.
+          Lemma plus_nat_geq : forall p n, (plus_nat p n >= p)%positive.
           Proof.
-            clear. intros. rewrite Forall_forall.
-            split; intros.
-            { forward. eapply H.
-              eapply elements_correct. auto. }
-            { destruct x. specialize (H p).
-              apply elements_complete in H0.
-              rewrite H0 in *. assumption. }
+            clear.
+            destruct n; simpl.
+            Global Instance Refl_Pos_geq : Reflexive Pos.ge.
+            Proof.
+              clear. red. induction x; simpl; auto.
+              compute. inversion 1.
+            Qed.
+            reflexivity.
+            eapply Pnat.Pos2Nat.inj_ge.
+            rewrite Pnat.Pos2Nat.inj_add. omega.
           Qed.
-          rewrite Forall_elements in H7.
-          apply Forall_elements.
-          intro k. specialize (H7 k).
-          rewrite Facts.add_o in H7.
-          forward. subst.
-          consider (E.eq_dec (to_key uv) k); intros.
-          { forward. subst.
-            rewrite to_key_from_key in H8.
-            clear - H10 H0.
-            unfold lookup in *. simpl in *. unfold fast_subst_lookup in H0.
-            rewrite H10 in H0. congruence. }
-          { rewrite update_both_spec in H7; eauto.
-            { rewrite H10 in *. simpl in *.
-              admit. } } }
-        { admit. } } }
+          generalize (plus_nat_geq base n).
+          Lemma pos_succ_gt : forall p, (p < Pos.succ p)%positive.
+          Proof.
+            clear. intros.
+            eapply Pnat.Pos2Nat.inj_lt.
+            rewrite Pnat.Pos2Nat.inj_succ.
+            omega.
+          Qed.
+          intros.
+          intro. rewrite H0 in H at 2.
+          clear H0.
+          eapply Pnat.Pos2Nat.inj_ge in H.
+          rewrite Pnat.Pos2Nat.inj_succ in *. omega. } }
+      { eapply IHlen in H1. destruct H1.
+        assert ((n < Pos.succ base)%positive).
+        { etransitivity. eassumption. eapply pos_succ_gt. }
+        specialize (H2 n H3).
+        rewrite from_key_to_key in *.
+        rewrite Facts.remove_neq_o in H2. auto.
+        clear - H.
+        intro. subst. eapply Pnat.Pos2Nat.inj_lt in H. omega. } }
   Qed.
 
-  Lemma All_set_fast_subst
-  : forall (uv : nat) (e : expr) (s s' : fast_subst),
-      @WellFormed_subst _ _ _ _ _ _ SubstOk_fast_subst s ->
-      lookup uv s = None ->
-      set uv e s = Some s' ->
-      WellFormed_subst s' /\
-      forall tus tvs t,
-        WellTyped_subst tus tvs s ->
-        Safe_expr tus tvs e t ->
-        nth_error tus uv = Some t ->
-        WellTyped_subst tus tvs s' /\
-        forall us vs,
-          substD us vs s' ->
-          substD us vs s /\
-          (forall tv : sigT (typD nil),
-             nth_error us uv = Some tv -> exprD us vs e (projT1 tv) = Some (projT2 tv)).
+  Lemma fast_subst_pull'_sem'
+  : forall len base fs fs',
+      fast_subst_pull' base len fs = Some fs' ->
+      (forall n,
+         n < len ->
+         (exists e,
+            PositiveMap.find (plus_nat base n) fs = Some e /\
+            PositiveMap.find (plus_nat base n) fs' = None)) /\
+      (forall n,
+         (n < base)%positive ->
+         PositiveMap.find n fs' = PositiveMap.find n fs).
   Proof.
-    simpl. unfold fast_subst_set; simpl; intros.
-    forward. inv_all.
-    match goal with
-      | |- ?G =>
-        assert (forall mb, mentionedBy (to_key uv) mb s ->
-                           set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
-                           G)
-    end.
-    { eapply set_helper_mentionedBy'_ok; eauto. }
-    { red in H. specialize (H (to_key uv)).
-      destruct (find (to_key uv) s); eauto.
-      { destruct e0; try congruence; eauto. } }
+    clear.
+    induction len; intros; simpl.
+    { split.
+      { inversion 1. }
+      { intros. simpl in *. inv_all; subst. reflexivity. } }
+    { simpl in *. forward. subst. unfold fast_subst_lookup in *.
+      eapply IHlen in H1; clear IHlen. destruct H1.
+      split; intros.
+      { destruct n.
+        { simpl in *. rewrite H0.
+          eexists; split; eauto.
+          specialize (H1 base).
+          rewrite H1. rewrite Facts.remove_eq_o; auto.
+          eapply pos_succ_gt. }
+        { assert (n < len) by omega.
+          apply H in H3.
+          rewrite plus_nat_S. rewrite plus_nat_succ in *.
+          rewrite Facts.remove_neq_o in H3. auto.
+          clear.
+          intro.
+          generalize (plus_nat_geq base n).
+          intro. eapply Pnat.Pos2Nat.inj_ge in H0.
+          rewrite H in H0 at 2.
+          repeat rewrite Pnat.Pos2Nat.inj_succ in *. omega. } }
+      { assert ((n < Pos.succ base)%positive).
+        { eapply Pnat.Pos2Nat.inj_lt in H2.
+          eapply Pnat.Pos2Nat.inj_lt.
+          rewrite Pnat.Pos2Nat.inj_succ. omega. }
+        specialize (H1 n H3).
+        rewrite Facts.remove_neq_o in H1. auto.
+        clear - H2.
+        eapply Pnat.Pos2Nat.inj_lt in H2.
+        intro. subst. omega. } }
   Qed.
-*)
 
-(*
-  Lemma All_set_fast_subst
-  : forall (uv : nat) (e : expr) (s s' : fast_subst),
-      set uv e s = Some s' ->
-      @WellFormed_subst _ _ _ _ _ _ SubstOk_fast_subst s ->
-      lookup uv s = None ->
-      WellFormed_subst s' /\
-      forall tus tvs t,
-        WellTyped_subst tus tvs s ->
-        Safe_expr tus tvs e t ->
-        nth_error tus uv = Some t ->
-        WellTyped_subst tus tvs s' /\
-        forall us vs,
-          Forall (fun x => x) (substD us vs s') ->
-          Forall (fun x => x) (substD us vs s) /\
-          (forall tv : sigT (typD nil),
-             nth_error us uv = Some tv -> exprD us vs e (projT1 tv) = Some (projT2 tv)).
-  Proof.
-    simpl. unfold fast_subst_set; simpl; intros.
-    forward. inv_all.
-    match goal with
-      | |- ?G =>
-        assert (forall mb, mentionedBy (to_key uv) mb s ->
-                           set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
-                           G)
-    end.
-    { eapply set_helper_mentionedBy'_ok; eauto. }
-    { red in H. specialize (H (to_key uv)).
-      destruct (find (to_key uv) s); eauto.
-      { destruct e0; try congruence; eauto. } }
-  Qed.
-*)
-
-  Lemma set'_combined
-  : forall uv e s s',
-      WellFormed_fast_subst s ->
-      forall mb : pset,
-        mentionedBy (to_key uv) mb s ->
-        set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
-        WellFormed_fast_subst s' /\
-        (forall (u v : EnvI.tenv typ) (t0 : typ),
-           WellTyped_fast_subst u v s ->
-           nth_error u uv = Some t0 ->
-           Safe_expr u v e t0 -> WellTyped_fast_subst u v s') /\
-        (forall (u v : EnvI.env typD) (tv : sigT (typD nil)),
-           WellTyped_fast_subst (EnvI.typeof_env u) (EnvI.typeof_env v) s ->
-           substD_fast_subst u v s' ->
-           nth_error u uv = Some tv ->
-           fast_subst_lookup uv s = None ->
-           substD_fast_subst u v s /\
-           exprD u v e (projT1 tv) = Some (projT2 tv)).
-  Proof.
-(*
-    intros.
-    unfold set_helper_mentionedBy' in *.
-    split.
-    { forward. inv_all; subst.
-      unfold WellFormed_fast_subst; simpl; intros.
-      rewrite Facts.add_o.
-      consider (E.eq_dec (to_key uv) p0).
-      { eapply get_mentions_instantiateOk in H1.
-        destruct H1. subst.
-        split.
-        { red; intros.
-          eapply H3 in H1.
-          rewrite mem_find in *.
-          forward. destruct u0; auto. }
-        { red. intros.
-          rewrite Facts.add_o.
-          consider (E.eq_dec (to_key uv) p'); intros; forward.
-          { rewrite to_key_from_key.
-            intro. eapply H3 in H1.
-            clear - H2 H1. rewrite mem_find in H1. forward. }
-          { rewrite to_key_from_key. subst. intro.
-            admit. } } }
-      {
-        Print the_update_function'.
-        Lemma update_both_the_update_function_find
-        : forall s mb p f g kuv z,
-            find z (update_both' (the_update_function' kuv f g) mb p s) =
-            match find z s with
-              | None    => if mem z mb then Some (UnMapped (add kuv tt (empty unit))) else None
-              | Some (Mapped e m) =>
-                Some (Mapped (f e) (g m))
-              | Some (UnMapped m) =>
-                if mem z mb then
-                  Some (UnMapped (add kuv tt mb))
-                else
-                  Some (UnMapped m)
-            end.
-        Proof.
-        Admitted.
-        rewrite update_both_the_update_function_find.
-        specialize (H p0).
-        consider (find p0 s); intros; forward.
-        { destruct e1.
-          { split.
-            { unfold mentionsOnly.
-              intros.
-              eapply mentionsU_instantiate_complete in H4.
-              2: admit.
-              destruct H4.
-              { forward.
-                eapply get_mentions_instantiateOk in H1. destruct H1.
-                subst. admit. }
-              { exfalso. admit. }
-
-          }
-
-            rewrite update_both_spec' in H4 by reflexivity.
-            
-            consider (find p' s); intros.
-            { inv_all; subst.
-              generalize dependent p'.
-              unfold the_update_function in H5.
-              consider (mem p' mb); intros.
-              { consider (mem p' p); intros.
-                { clear H7.
-                  generalize dependent mb. generalize dependent p.
-                  Print mentionedBy.
-                
-              
-            
-  Qed.
-*)
-  Admitted.
-
-  Lemma set_combined
-  : forall (uv : nat) (e : expr) (s s' : fast_subst),
-      set uv e s = Some s' ->
+  Lemma substD_pull_fast_subst
+  : forall (s s' : fast_subst) (u n : nat),
+      pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
-      (forall u v t0,
-         WellTyped_subst u v s ->
-         nth_error u uv = Some t0 ->
-         Safe_expr u v e t0 -> WellTyped_subst u v s') /\
-      (forall (u v : EnvI.env typD) (tv : sigT (typD nil)),
-         WellTyped_subst (EnvI.typeof_env u) (EnvI.typeof_env v) s ->
-         substD u v s' ->
-         nth_error u uv = Some tv ->
-         lookup uv s = None ->
-         substD u v s /\
-         exprD u v e (projT1 tv) = Some (projT2 tv)).
+      (forall (tus tus' : list typ) (tvs : tenv typ)
+              (sD : HList.hlist typD (tus ++ tus') ->
+                    HList.hlist typD tvs -> Prop),
+         u = length tus ->
+         n = length tus' ->
+         substD (tus ++ tus') tvs s = Some sD ->
+         exists
+           sD' : HList.hlist typD tus -> HList.hlist typD tvs -> Prop,
+           substD tus tvs s' = Some sD' /\
+           (exists (eus' : list expr)
+                   (us' : HList.hlist
+                            (fun t : typ =>
+                               HList.hlist typD tus ->
+                               HList.hlist typD tvs -> typD nil t)
+                            tus'),
+               hlist_build
+                 (fun t0 : typ =>
+                    HList.hlist typD tus ->
+                    HList.hlist typD tvs -> typD nil t0)
+                 (fun (t0 : typ) (e : expr) => exprD' tus tvs e t0) tus' eus' =
+               Some us' /\
+               (forall (us : HList.hlist typD tus)
+                       (vs : HList.hlist typD tvs),
+                  let us'0 :=
+                      HList.hlist_map
+                        (fun (t : typ)
+                             (x : HList.hlist typD tus ->
+                                  HList.hlist typD tvs -> typD nil t) =>
+                           x us vs) us' in
+                  sD' us vs -> sD (HList.hlist_app us us'0) vs))).
   Proof.
-(*
-    simpl. unfold fast_subst_set; simpl; intros.
-    match goal with
-      | |- ?G =>
-        assert (forall mb, mentionedBy (to_key uv) mb s ->
-                           set_helper_mentionedBy' uv (to_key uv) e mb s = Some s' ->
-                           G)
-    end.
-    { revert H0. 
-      
-
-    { consider (find (to_key uv) s); intros; forward.
-      { subst.
-        specialize (H1 p).
-        red in H0. specialize (H0 (to_key uv)). rewrite H2 in *.
-        forward_reason. intuition. }
-      { specialize (H1 (empty unit)).
-        specialize (H0 (to_key uv)).
-        rewrite H in *.
-        forward_reason. intuition. } }
+    clear.
+    unfold pull. simpl.
+    unfold fast_subst_pull.
+    intros.
+    eapply fast_subst_pull'_sem' in H; destruct H.
+    split.
+    { unfold WellFormed_fast_subst in *.
+      intros. specialize (H0 p).
+      admit. }
+    { intros. subst.
+      admit. }
   Qed.
-*)
-  Admitted.
 
   Instance SubstUpdateOk_fast_subst : SubstUpdateOk SubstUpdate_fast_subst _.
   Proof.
     constructor.
-    { red; simpl. red. unfold fast_subst_empty. simpl.
-      intros. rewrite gempty. red. intros.
+    { simpl. unfold WellFormed_fast_subst, fast_subst_empty.
+      intros; rewrite gempty.
+      red. intros.
       rewrite gempty in H. congruence. }
-    { compute. constructor. }
-    { red. simpl. red. simpl.
-      unfold fast_subst_lookup.
-      intros. destruct (to_key u0); compute in H; try congruence. }
-    { intros.
-      specialize (@set_combined _ _ _ _ H0); intuition. }
-    { intros.
-      specialize (@set_combined _ _ _ _ H3); intuition.
-      eapply H5; eauto. }
-    { intros. admit. (*
-      destruct (@set_combined _ _ _ _ H4 H) as [ ? [ ? ? ] ].
-      specialize (H7 u v tv).
-      forward_reason. intuition. *) }
+    { compute. eexists; split; eauto.
+      simpl. constructor. }
     { admit. }
-    { admit. }
-    { admit. }
+    { eapply substD_pull_fast_subst. }
   Qed.
 
 End parametric.

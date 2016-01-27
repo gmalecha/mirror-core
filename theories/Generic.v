@@ -26,10 +26,56 @@ Section quant.
       | S n => fun args x => qapply_v (vector_tl args) (x (vector_hd args))
     end.
 
-  Fixpoint parametric (n : nat) (acc : list T) (k : list T -> Type) : Type :=
+  Fixpoint parametric (n : nat) (k : list T -> Type) : Type :=
     match n with
-      | 0 => k acc
-      | S n => forall T : T, parametric n (T :: acc) k
+      | 0 => k nil
+      | S n => forall T : T, parametric n (fun acc => k (T :: acc))
+    end.
+
+  Fixpoint papply (n : nat) (k : list T -> Type) (ls : list T)
+  : parametric n k -> option (k ls) :=
+    match n as n return parametric n k -> option (k ls) with
+      | 0 =>
+        match ls as ls return parametric 0 k -> option (k ls) with
+          | nil => Some
+          | _ :: _ => fun _ => None
+        end
+      | S n' =>
+        match ls as ls return parametric (S n') k -> option (k ls) with
+          | nil => fun _ => None
+          | t :: ts => fun x => papply n' (fun acc => k (t :: acc)) ts (x t)
+        end
     end.
 
 End quant.
+
+Section paraquant.
+  Variable T : Type.
+  Variable K : T -> Type.
+  Fixpoint paraquant (n : nat) : quant T n -> Type :=
+    match n as n return quant T n -> Type with
+      | 0 => fun x => K x
+      | S n => fun x => forall y, paraquant n (x y)
+    end.
+
+  Fixpoint paraquant_apply (n : nat) (ls : list T) {struct n}
+  : forall q (f : paraquant n q), match qapply _ ls q with
+                                    | None => unit:Type
+                                    | Some x => K x
+                                  end :=
+    match n as n
+        , ls as ls
+          return forall q : quant T n,
+                   paraquant n q ->
+                   match qapply n ls q with
+                     | Some x => K x
+                     | None => unit
+                   end
+    with
+      | 0 , nil => fun _ x => x
+      | S _ , nil => fun _ _ => tt
+      | 0 , _ :: _ => fun _ _ => tt
+      | S n , l :: ls => fun q P => paraquant_apply n ls _ (P l)
+    end.
+
+End paraquant.

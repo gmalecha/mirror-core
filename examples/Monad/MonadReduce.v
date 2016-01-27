@@ -1,103 +1,204 @@
-Require Import List Bool.
-Require Import ExtLib.Structures.Monads.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Vector.
-Require Import ExtLib.Data.Monads.FuelMonad.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.ExprI.
+Require Import ExtLib.Structures.Monad.
+Require Import ExtLib.Tactics.
+Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.syms.SymEnv.
+Require Import McExamples.Monad.MonadExpr.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Section Demo.
+Local Notation "'BIND' [ a ,  b ]" := (ExprCore.Inj (inr (MonadSym.mBind a b))) (at level 20).
+Local Notation "'RETURN' [ a ]" := (ExprCore.Inj (inr (MonadSym.mReturn a))) (at level 20).
+Local Notation "a @ b" := (ExprCore.App a b) (at level 18, left associativity).
 
+Definition smart_app (a b : mexpr) : mexpr :=
+  a @ b.
+
+Definition smart_bind (a b : typ) (c d : mexpr) : mexpr :=
+  match d with
+    | RETURN [ _ ] => c
+    | _ => match c with
+             | ExprCore.Abs _ (RETURN [ _ ] @ c) =>
+               smart_app d c
+             | _ => BIND [ a , b ] @ c @ d
+           end
+  end.
+
+Lemma bind_smart_bind
+: forall a b c d,
+    BIND [ a , b ] @ c @ d = smart_bind a b c d.
+(** TODO: This is not true, it is only an equivalence! **)
+Admitted.
+
+(**
+The rules are the following
+1) (fun x => f x) = f
+2) bind (ret x) f = f x
+3) bind x ret = x
+4) bind (bind a b) c = bind a (fun x => bind (b x) c)
+**)
+
+Fixpoint reduce_arrow (d r : typ) (e : mexpr) {struct e} : mexpr :=
+  match e with
+    | ExprCore.Abs t (ExprCore.App x (ExprCore.Var 0)) =>
+      match lower 0 1 x with
+        | None => e
+        | Some e => e
+      end
+    | ExprCore.Abs t e' =>
+      match r with
+        | tyM m => ExprCore.Abs t (reduce_m m e')
+        | _ => e
+      end
+    | _ => e
+  end
+with reduce_m (t : typ) (e : mexpr) {struct e} : mexpr :=
+  match e with
+    | BIND [ _ , _ ] @ e @ RETURN [ _ ] => reduce_m t e
+    | BIND [ t' , _ ] @ (RETURN [ _ ] @ e) @ e' =>
+      let e' := reduce_arrow t' (tyM t) e' in
+      let e := match t' with
+                 | tyM z => reduce_m z e
+                 | tyArr a b => reduce_arrow a b e
+                 | _ => e
+               end in
+      smart_app e' e
+    | BIND [ t' , _ ] @ (BIND [ t'' , _ ] @ a @ b) @ c =>
+      let a := reduce_m t'' a in
+      let b := reduce_arrow t'' (tyM t') b in
+      let c := reduce_arrow t' (tyM t) c in
+      smart_bind t' t a (ExprCore.Abs t'' (smart_bind t' t (smart_app b (ExprCore.Var 0)) c))
+    | _ => e
+  end.
+
+Definition reduce t (e : mexpr) : mexpr :=
+  match t with
+    | tyM z => reduce_m z e
+    | tyArr a b => reduce_arrow a b e
+    | _ => e
+  end.
+
+(*
+Eval compute in reduce (tyM demo.tNat) demo.t1.
+Eval compute in reduce (tyM demo.tNat) demo.t2.
+Eval compute in reduce (tyM demo.tNat) demo.t3.
+*)
+
+Section soundness.
   Variable m : Type -> Type.
-  Context {Monad_m : Monad m}.
+  Variable Monad_m : Monad m.
+  Variable tys : types.
+  Variable fs : functions typ (RType_typ m tys).
 
-  Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Variable expr : Type.
-  Context {RType_typ : RType typD}.
-  Context {RTypeOk_typ : RTypeOk RType_typ}.
-  Context {Expr_expr : Expr typD expr}.
-  Context {typ_arr : TypInstance2 typD Fun}.
-  Context {typ_m : TypInstance1 typD m}.
-  Let tvArr := @typ2 _ typD _ typ_arr.
-  Let tvM := @typ1 _ typD _ typ_m.
+  Let lambda_exprD :=
+    @lambda_exprD _ _ (RType_typ m tys) (Typ2_tyArr m tys) (@RSym_mext m Monad_m tys fs).
 
-  Variable bind_app : @SymAppN typ _ expr _ 2 ((fun x => tvM (vector_hd x)) :: (fun x => tvArr (vector_hd x) (tvM (vector_hd (vector_tl x)))):: nil) (fun _ => tvM).
-  Variable ret_app : @SymAppN typ _ expr _ 1 (vector_hd :: nil) tvM.
-  Variable app_i : forall d r, @AppInstance typ typD expr _ (tvArr d r) d r.
-  Variable lam : @Lambda typ typD expr _.
-
-  Let Bind (t1 t2 : typ) (b1 b2 : expr) : expr :=
-    sappn bind_app (Vcons t1 (Vcons t2 (Vnil _)))
-                   (Vcons b1 (Vcons b2 (Vnil _))).
-  Let Ret (t1 : typ) (b1 : expr) : expr :=
-    sappn ret_app (Vcons t1 (Vnil _))
-                  (Vcons b1 (Vnil _)).
-
-  Definition monad_match (R : Type) (caseRet : typ -> expr -> R)
-                                    (caseBind : typ -> typ -> expr -> expr -> R)
-                                    (caseElse : unit -> R) (e : expr) : R :=
-    match sappn_check bind_app e with
-      | Some (existT (vs,es) _) =>
-        caseBind (vector_hd vs) (vector_hd (vector_tl vs))
-                 (vector_hd es) (vector_hd (vector_tl es))
-      | None => match sappn_check ret_app e with
-                  | Some (existT (vs,es) _) =>
-                    caseRet (vector_hd vs) (vector_hd es)
-                  | None => caseElse tt
-                end
+  Ltac by_refl :=
+    intros;
+    match goal with
+      | |- match ?X with _ => _ end => destruct X; solve [ auto ]
     end.
 
-
-  Import MonadNotation.
-  Local Open Scope monad_scope.
-
-  (** Recursion is a problem! **)
-  Definition monad_run' : expr -> GFix expr.
-  refine (
-      mfix (fun recur e =>
-              let do_lam e :=
-                  match lambda_check lam e with
-                    | None => ret (inl e)
-                    | Some (existT (t,e) _) =>
-                      e' <- recur e ;;
-                      ret (inr (t,e'))
-                  end
-              in
-      @monad_match (GFix expr)
-        (fun _ _ => ret e)
-        (fun t1 t2 b1 b2 =>
-           b1' <- recur b1 ;;
-           match sappn_check ret_app b1' with
-             | None =>
-               b2' <- do_lam b2 ;;
-               match b2' with
-                 | inl b2' => ret (Bind t1 t2 b1' b2)
-                 | inr (t,b2') => ret (Bind t1 t2 b1' (lambda lam t b2'))
-               end
-             | Some (existT (t, v) _) =>
-               let t := vector_hd t in
-               let v := vector_hd v in
-               b2' <- do_lam b2 ;;
-               match b2' with
-                 | inl b2' =>
-                   ret (@app1 _ typD expr _ _ _ _ (app_i t (tvM t2)) b2' v)
-                 | inr (_, b2') =>
-                   let b2' := subst0 lam b2' v in
-                   recur b2'
-               end
-           end)
-        (fun _ => ret e)
-        e)).
-  Defined.
-
-  Definition monad_run (e : expr) : expr :=
-    match runGFix (monad_run' e) 100 with
-      | Term e => e
-      | Diverge => e
+  Ltac more_cases :=
+    match goal with
+      | |- context [ lambda_exprD _ _ _ _ match ?X with _ => _ end ] =>
+        destruct X; try by_refl
     end.
 
-End Demo.
+  Lemma reduce_m_arr
+  : forall tus e tvs,
+      (forall tm,
+         match lambda_exprD tus tvs (tyM tm) e with
+           | None => True
+           | Some v => match lambda_exprD tus tvs (tyM tm) (reduce_m tm e) with
+                         | None => False
+                         | Some v' => forall us vs, v us vs = v' us vs
+                       end
+         end) /\
+      (forall t t',
+         match lambda_exprD tus tvs (tyArr t t') e with
+           | None => True
+           | Some v => match lambda_exprD tus tvs (tyArr t t') (reduce_arrow t t' e) with
+                         | None => False
+                         | Some v' => forall us vs, v us vs = v' us vs
+                       end
+         end).
+  Proof.
+    Opaque reduce_m.
+    induction e using ExprCore.expr_strong_ind;
+    simpl; intros; try solve [ split; by_refl ].
+    { Transparent reduce_m.
+      split; intros; simpl;
+      match goal with
+        | |- match ?X with _ => _ end =>
+          destruct X; auto
+      end.
+      Opaque reduce_m. }
+    { Transparent reduce_m.
+      split; intros; simpl;
+      match goal with
+        | |- match ?X with _ => _ end =>
+          destruct X; auto
+      end.
+      Opaque reduce_m. }
+    { Transparent reduce_m.
+      split; intros; simpl;
+      match goal with
+        | |- match ?X with _ => _ end =>
+          destruct X; auto
+      end.
+      Opaque reduce_m. }
+    { admit. }
+    { split; auto.
+      admit. }
+  Admitted.
+
+  Theorem reduceOk (me : mexpr)
+  : forall us vs t me',
+      reduce t me = me' ->
+      match @exprD m _ tys fs us vs t me with
+        | Some val => match @exprD m _ tys fs us vs t me' with
+                        | Some val' => val = val'
+                        | None => False
+                      end
+        | None => True
+      end.
+  Admitted.
+
+  Definition Conclusion_reduce_eq us vs t a b : Prop :=
+    match @exprD m _ tys fs us vs t a
+        , @exprD m _ tys fs us vs t b
+    with
+      | Some val , Some val' => val = val'
+      | _ , _ => True
+    end.
+
+  Definition Premise_reduce_eq us vs t ab : Prop :=
+    match @exprD m _ tys fs us vs t (fst ab)
+          , @exprD m _ tys fs us vs t (snd ab)
+    with
+      | Some val , Some val' => val = val'
+      | _ , _ => False
+    end.
+
+  Theorem reduce_eq (a b : mexpr)
+  : forall us vs t a'_b',
+      (reduce t a, reduce t b) = a'_b' ->
+      Premise_reduce_eq us vs t a'_b' ->
+      Conclusion_reduce_eq us vs t a b.
+  Proof.
+    red. unfold Premise_reduce_eq.
+    intros. forward. subst. simpl in *.
+    remember (reduce t b). symmetry in Heqm0.
+    remember (reduce t a). symmetry in Heqm1.
+    eapply reduceOk with (us := us) (vs := vs) in Heqm0.
+    eapply reduceOk with (us := us) (vs := vs) in Heqm1.
+    revert Heqm0 Heqm1.
+    repeat match goal with
+             | H : ?X = _ |- context [ ?Y ] =>
+               change Y with X ; rewrite H
+           end.
+    intros; subst; reflexivity.
+  Qed.
+
+End soundness.

@@ -47,8 +47,8 @@ Section sealed.
   }.
 
   Variable typ : Type.
-  Variable typD : list Type -> typ -> Type.
-  Context {Expr_expr : Expr typD expr}.
+  Variable RType_typ : RType typ.
+  Context {Expr_expr : Expr _ expr}.
   Context {mentionsU : uvar -> expr -> bool}.
   Context {SubstOk_lsubst : @SubstOk _ _ _ _ Expr_expr Subst_lsubst}.
 

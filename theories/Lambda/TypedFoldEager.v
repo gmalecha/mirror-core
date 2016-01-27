@@ -1,26 +1,18 @@
-Require Import Coq.Lists.List.
-Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Applicative.
-Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Nat.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.TypesI2.
+Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed_fold.
+  Variable typ : Type.
   Variable func : Type.
-  Variable RType_typ : RType.
-  Variable RSym_func : RSym typD func.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable RType_typ : RType typ.
+  Variable RSym_func : RSym func.
+  Variable Typ2_Fun : Typ2 _ RFun.
 
   Section folder.
-    Variable ts : list Type.
-
     Variable T : Type.
 
     Variable do_var : var -> typ -> T.
@@ -38,9 +30,9 @@ Section typed_fold.
         | UVar u => Some (do_uvar u t)
         | Inj f => Some (do_inj f t)
         | Abs t' e =>
-          typ2_match (F := Fun)
+          typ2_match (F := RFun)
                      (fun _ => option T)
-                     ts t
+                     t
                      (fun d r =>
                         match typed_mfold tus (d :: tvs) r e with
                           | Some rr =>
@@ -86,9 +78,9 @@ Section typed_fold.
         | App f x =>
           match typed_mfold_infer tus tvs f with
             | Some (dr,fv) =>
-              typ2_match (F := Fun)
+              typ2_match (F := RFun)
                          (fun _ => option (typ * T))
-                         ts dr
+                         dr
                          (fun d r =>
                             match typed_mfold tus (d :: tvs) r x with
                               | Some rr => Some (r, do_abs tus tvs d r rr)
@@ -108,9 +100,9 @@ Section typed_fold.
         | UVar u => success (do_uvar u t)
         | Inj f => success (do_inj f t)
         | Abs t' e =>
-          typ2_match (F := Fun)
+          typ2_match (F := RFun)
                      (fun _ => R)
-                     ts t
+                     t
                      (fun d r =>
                         typed_mfold_cps tus (d :: tvs) r e
                                         (fun rr => success (do_abs tus tvs d r rr))
@@ -149,9 +141,9 @@ Section typed_fold.
                                 failure
         | App f x =>
           typed_mfold_infer_cps tus tvs f (fun dr fv =>
-               typ2_match (F := Fun)
+               typ2_match (F := RFun)
                           (fun _ => R)
-                          ts dr
+                          dr
                           (fun d r =>
                              typed_mfold_cps tus (d :: tvs) r x
                                              (fun rr => success r (do_abs tus tvs d r rr))
