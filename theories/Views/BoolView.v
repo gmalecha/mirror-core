@@ -118,6 +118,6 @@ Section PtrnBool.
   when calling '@mkBool typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnBool {T : Type} (p : ptrn bool T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnBool p)).
+    inj (ptrn_view FV (fptrnBool p)).
 
 End PtrnBool.

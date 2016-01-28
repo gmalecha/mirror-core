@@ -21,6 +21,8 @@ Inductive ap_func (typ : Type) :=
 | pPure (_ : typ)
 | pAp (_ _ : typ).
 
+Arguments ap_func _ : clear implicits.
+
 Section ApplicativeFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
@@ -199,9 +201,8 @@ Section MakeApplicative.
 Definition applicative_cases {T : Type}
            (do_pure : typ  -> expr typ func -> T)
            (do_ap : typ -> typ -> expr typ func -> expr typ func -> T)
-           (do_default : T) : Ptrns.tptrn (expr typ func) T :=
-  pdefault (applicative_ptrn_cases do_pure do_ap)
-           do_default.
+  : Ptrns.ptrn (expr typ func) T :=
+  applicative_ptrn_cases do_pure do_ap.
 
 End MakeApplicative.
 
@@ -213,7 +214,8 @@ Section PtrnString.
   when calling '@mkAp typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnPure {T A : Type}
-             (p : ptrn typ T)  (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A):=
+             (p : ptrn typ T)  (a : ptrn (expr typ func) A)
+  : ptrn (expr typ func) (T * A):=
     app (inj (ptrn_view _ (fptrnPure p))) a.
 
   Definition ptrnAp {A B T : Type}

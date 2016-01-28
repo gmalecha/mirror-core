@@ -68,9 +68,9 @@ Section MakeString.
 
   Definition fString s := f_insert (pString s).
 
-  Definition mkString (s : string) := Inj (typ := typ) (fString s).
+  Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
-  Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
+  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
     fun f U good bad =>
       match f with
       | pString s => p s U good (fun x => bad f)

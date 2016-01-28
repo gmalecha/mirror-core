@@ -1,3 +1,4 @@
+Require Import ExtLib.Data.POption.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.FuncView.
@@ -15,7 +16,7 @@ Section sum.
   {| f_insert := fun x => inl (f_insert x)
    ; f_view := fun x => match x with
                         | inl x => f_view x
-                        | _ => vNone
+                        | _ => pNone
                         end |}.
 
   Theorem FuncViewOk_left (FV : FuncView U T) (FVo : FuncViewOk _ _ _)
@@ -33,7 +34,7 @@ Section sum.
   {| f_insert := fun x => inr (f_insert x)
    ; f_view := fun x => match x with
                         | inr x => f_view x
-                        | _ => vNone
+                        | _ => pNone
                         end |}.
 
   Theorem FuncViewOk_right (FV : FuncView U T) (FVo : FuncViewOk _ _ _)

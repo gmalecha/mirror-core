@@ -125,7 +125,10 @@ Section parametric.
                   | simple eapply Succeeds_get in H; subst; solve_stuff
                   | simple eapply Succeeds_inj in H; [ forward_reason; subst; solve_stuff | clear H; solve_ok ]
                   | (eapply Succeeds_ptrn_view in H;
-                     [ | solve [ eauto with typeclass_instances ] | clear H ]); [ forward_reason; subst; solve_stuff | ] ]
+                     [ | | solve [ eauto with typeclass_instances ] | clear H ]) ;
+                    [ forward_reason; subst; solve_stuff
+                    | eauto with typeclass_instances
+                    | solve_ok ] ]
           end
         end.
 
@@ -218,6 +221,7 @@ Section parametric.
             (typ2 (typ0 (F:=Prop)) (typ2 (typ0 (F:=Prop)) (typ0 (F:=Prop))))).
     do 8 intro; subst. simpl.
     clear. tauto.
+    eauto.
   Qed.
 
   Theorem intro_ptrn_all_sound : open_ptrn_sound intro_ptrn_all.
@@ -228,7 +232,6 @@ Section parametric.
     destruct H.
     - solve_stuff.
       eapply (@s_elim _ _ _ _ _ (@SucceedsE_fptrn_lforall _ _ _ _ _ _ _ _)) in H1.
-      2: solve_ok.
       simpl in H1.
       forward_reason. subst.
       eapply SimpleOpen_to_OpenAs_sound; eauto.

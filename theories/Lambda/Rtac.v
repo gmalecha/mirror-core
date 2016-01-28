@@ -239,8 +239,7 @@ Section tactics.
 
   Definition INTRO_ptrn (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
   : rtac typ (expr typ func) :=
-    INTRO (fun e =>
-             run_tptrn (pdefault (pmap Some p) None) e).
+    INTRO (run_ptrn (pmap Some p) None).
 
   Inductive SimpleOpen : Type :=
   | sAsEx (t : typ) (l : expr typ func)
@@ -434,24 +433,18 @@ Section tactics.
     apply INTRO_sound.
     red. intros.
     revert H1.
-    unfold run_tptrn.
-    eapply pdefault_sound.
+    eapply run_ptrn_sound.
     - eapply ptrn_ok_pmap. eassumption.
     - red. red. red. intros.
-      subst. do 2 red in H2.
-      eapply Data.Prop.impl_iff.
-      + erewrite H2. reflexivity.
-        reflexivity.
-      + reflexivity.
+      subst. tauto.
     - intros.
       eapply Succeeds_pmap in H1; eauto.
       destruct H1 as [ ? [ ? ? ] ]; subst.
-      unfold ptret in H2.
       inv_all; subst.
       red in H0.
       specialize (H0 tus tvs _ _ H1).
       eauto.
-    - unfold ptret. inversion 1.
+    - inversion 1.
   Qed.
 
 End tactics.

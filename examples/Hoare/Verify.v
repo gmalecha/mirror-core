@@ -17,15 +17,15 @@ Module ImpVerify (I : ImpLang).
 
   Definition ON_ENTAILMENT (yes no : imp_tac) : imp_tac :=
     let check :=
-        Ptrns.run_default (X:=expr typ func) (T:=bool)
-                          (Ptrns.appr
-                             (Ptrns.appr
-                                (Ptrns.inj
-                                   (FuncView.ptrn_view FuncView_ilfunc
-                                                       (ILogicFunc.fptrn_lentails
-                                                          (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
-                                Ptrns.ignore) Ptrns.ignore)
-                          false in
+        Ptrns.run_ptrn
+          (Ptrns.appr
+             (Ptrns.appr
+                (Ptrns.inj
+                   (FuncView.ptrn_view FuncView_ilfunc
+                                       (ILogicFunc.fptrn_lentails
+                                          (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
+                Ptrns.ignore) Ptrns.ignore)
+          false in
     AT_GOAL (fun _ _ gl => if check gl then yes else no).
   Arguments ON_ENTAILMENT _%rtac _%rtac _ _ _ _ _ _ _.
 
@@ -159,7 +159,7 @@ Module ImpVerify (I : ImpLang).
   Proof.
     intros. eapply AT_GOAL_sound.
     intros.
-    destruct (Ptrns.run_default
+    destruct (Ptrns.run_ptrn
          (Ptrns.appr
             (Ptrns.appr
                (Ptrns.inj
@@ -289,11 +289,11 @@ Module ImpVerify (I : ImpLang).
   Ltac rtac_derive_soundness_with :=
     rtac_derive_soundness'
       ltac:(fun rtac rtacK lem =>
-              first [ eapply EAPPLY_THEN_sound ; [ lem | rtac ]
-                    | eapply EAPPLY_THEN_1_sound ; [ lem | rtac | rtacK ]
-                    | eapply simplify_tac_sound
+              first [ eapply simplify_tac_sound
                     | eapply entailment_tac_sound
                     | eapply entailment_tac_solve_sound
+                    | eapply EAPPLY_THEN_sound ; [ lem | rtac ]
+                    | eapply EAPPLY_THEN_1_sound ; [ lem | rtac | rtacK ]
                     | eapply INTRO_All_sound
                     | match goal with
                       | |- rtac_sound match ?X with _ => _ end =>
@@ -705,8 +705,8 @@ Ltac the_solver :=
 
   Instance FuncView_imp_func : FuncView.FuncView func imp_func :=
   { f_view := fun x => match x with
-                       | inl (inr y) => FuncView.vSome y
-                       | _ => FuncView.vNone
+                       | inl (inr y) => POption.pSome y
+                       | _ => POption.pNone
                        end
   ; f_insert := fun x => inl (inr x) }.
 
@@ -720,7 +720,7 @@ Ltac the_solver :=
                                                 (Views.Ptrns.pmap (fun x _ => x) (Ptrns.inj (FuncView.ptrn_view _ ptrn_nat)))) (Ptrns.inj (FuncView.ptrn_view _ ptrn_nat)))
     in fun f xs =>
          let e := AppN.apps f xs in
-         Ptrns.run_default p e e.
+         Ptrns.run_ptrn p e e.
 
   Require Import ExtLib.Core.RelDec.
 
@@ -729,7 +729,7 @@ Ltac the_solver :=
     red. intros. simpl.
     unfold nat_red.
     revert H.
-    eapply Ptrns.run_default_sound.
+    eapply Ptrns.run_ptrn_sound.
     { repeat first [ eapply Ptrns.ptrn_ok_pmap
                    | eapply Ptrns.ptrn_ok_app
                    | eapply Ptrns.ptrn_ok_appl
@@ -737,6 +737,7 @@ Ltac the_solver :=
                    | eapply FuncView.ptrn_view_ok
                    | eauto with typeclass_instances
                    ]. }
+    { red. red. red. intros; subst. reflexivity. }
     { intros.
       admit. }
     { intros. eexists; split; try eassumption.

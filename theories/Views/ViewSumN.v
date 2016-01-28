@@ -1,4 +1,5 @@
 Require Import ExtLib.Data.Positive.
+Require Import ExtLib.Data.POption.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
@@ -9,6 +10,7 @@ Require Import MirrorCore.Views.FuncView.
 
 Section FuncViewSumN.
   Context {A func : Type}.
+  About OneOfType.
 
   Global Instance FuncViewPMap (p : positive) (m : OneOfType.pmap)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
@@ -18,8 +20,8 @@ Section FuncViewSumN.
       let view := @OneOfType.OutOf m _ _ (eq_sym pf) in
       fun x =>
         match view x with
-        | None => vNone
-        | Some x => vSome x
+        | None => pNone
+        | Some x => pSome x
         end
   }.
 

@@ -247,24 +247,24 @@ Section PtrnNat.
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnNat {T : Type} (p : ptrn nat T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnNat p)).
+    inj (ptrn_view FV (fptrnNat p)).
 
   Definition ptrnPlus {A B T : Type}
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
     pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view _ fptrnPlus)) a) b).
+         (app (app (inj (ptrn_view FV fptrnPlus)) a) b).
 
   Definition ptrnMinus {A B T : Type}
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
     pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view _ fptrnMinus)) a) b).
+         (app (app (inj (ptrn_view FV fptrnMinus)) a) b).
 
   Definition ptrnMult {A B T : Type}
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
     pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view _ fptrnMult)) a) b).
+         (app (app (inj (ptrn_view FV fptrnMult)) a) b).
 
 End PtrnNat.
