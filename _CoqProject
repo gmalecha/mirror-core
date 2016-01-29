@@ -31,10 +31,6 @@ theories/Lemma.v
 theories/LemmaApply.v
 theories/Simple.v
 
-theories/provers/ProverTac.v
-theories/provers/AssumptionProver.v
-theories/provers/DefaultProver.v
-
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
@@ -83,6 +79,7 @@ theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
+theories/Lambda/Reify.v
 
 theories/Views/Ptrns.v
 theories/Views/FuncView.v
@@ -126,6 +123,7 @@ theories/RTac/Minify.v
 theories/RTac/AtGoal.v
 theories/RTac/Reduce.v
 theories/RTac/Interface.v
+theories/RTac/Auto.v
 theories/RTac/RTac.v
 theories/RTac/InContext.v
 
@@ -162,14 +160,6 @@ examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
-
-
-# examples/Cancel/MonoidLemmasSyntax.v
-# examples/Cancel/LtacDemo.v
-# examples/Cancel/CancelTac.v
-# examples/Cancel/RtacDemo.v
-# examples/Cancel/CancelTacNoMatch.v
-# examples/Cancel/RtacDemoNoMatch.v
 
 examples/Reify/ModularReify.v
 

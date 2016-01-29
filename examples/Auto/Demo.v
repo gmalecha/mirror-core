@@ -7,9 +7,8 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
 Require MirrorCore.Lambda.ExprUnify_simul.
 Require Import MirrorCore.syms.SymEnv.
-Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.Subst.FMapSubst.
-Require Import MirrorCore.provers.AutoProver.
+Require Import MirrorCore.RTac.Auto.
 Require Import McExamples.Simple.Simple.
 Require Import McExamples.Simple.SimpleReify.
 
@@ -93,8 +92,8 @@ Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
 
 
 Definition evenHints : Hints typ (expr typ func) :=
-{| Apply := lem_SS :: lem_0 :: lem_plus :: lem_minus :: nil
- ; Extern := from_Prover (@assumptionProver _ (expr typ func) _)
+{| Lemmas := lem_SS :: lem_0 :: lem_plus :: lem_minus :: nil
+ ; Extern := AsuASSUMPTION :: nil
  |}.
 
 Instance ExprOk_expr : ExprI.ExprOk Expr_expr :=

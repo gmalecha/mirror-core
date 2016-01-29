@@ -177,7 +177,7 @@ Module MonoidCancel (M : Monoid).
           let resultV := eval vm_compute in result in
           match resultV with
           | Solved _ =>
-            change (@Interface.propD _ _ _ Typ0_tyProp (the_Expr tbl) nil nil e) ;
+            change (@env_propD _ _ _ Typ0_tyProp (the_Expr tbl) nil nil e) ;
               cut (result = resultV) ;
               [ set (pf := @Interface.rtac_Solved_closed_soundness
                              _ _ _ _ _ _ (the_tactic_sound tbl)

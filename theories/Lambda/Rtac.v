@@ -101,38 +101,16 @@ Section tactics.
 
   (* Assumption Tactics *)
   Definition EASSUMPTION : rtac typ (expr typ func) :=
-    @EASSUMPTION typ (expr typ func) _ _
-       (fun subst S_subst SU ctx e1 e2 s =>
-          @exprUnify subst typ func _ _ _ S_subst SU 30
-                     (getUVars ctx) (getVars ctx) 0 e1 e2 (typ0 (F:=Prop)) s).
+    @EASSUMPTION typ (expr typ func) _ _ _
+       (fun subst S_subst SU => @exprUnify subst typ func _ _ _ S_subst SU 30).
 
   Global Instance RtacSound_EASSUMPTION : RtacSound EASSUMPTION.
   Proof.
-    eapply Assumption.ASSUMPTION_sound.
+    eapply Assumption.ASSUMPTION_sound; eauto.
     generalize 30.
     intros.
-    destruct (@exprUnify_sound (ctx_subst ctx) typ func _ _ _ _ _ _ _ _ _ _ n
-               _ _ _ _ _ _ _ nil H H0).
-    split; auto.
-    simpl in *.
-    intros.
-    unfold Ctx.propD, exprD_typ0 in *.
-    forwardy. inv_all; subst.
-    unfold exprD, tus, tvs in *. simpl in *.
-    destruct (@H2 _ _ sD H3 H4 H5); clear H2.
-    forward_reason.
-    split; eauto.
-    eexists; split; eauto.
-    intros.
-    specialize (H7 _ _ H8).
-    destruct H7.
-    split; auto.
-    specialize (H9 HList.Hnil); simpl in H9.
-    clear - H9.
-    generalize (typ0_cast (F:=Prop)).
-    generalize dependent (typD (typ0 (F:=Prop))).
-    intros; subst. assumption.
-  Defined.
+    eapply exprUnify_sound; eauto.
+  Qed.
 
   Section fr_to_r.
     Variable fr : full_reducer typ func.
@@ -356,7 +334,6 @@ Section tactics.
     rewrite H. reflexivity.
   Qed.
 
-
   Theorem SimpleOpen_to_OpenAs_sound : forall tus tvs e ot,
       simple_open_spec tus tvs e ot ->
       open_spec tus tvs e (SimpleOpen_to_OpenAs ot).
@@ -448,3 +425,5 @@ Section tactics.
   Qed.
 
 End tactics.
+
+Arguments SimpleOpen _ _ : clear implicits.
