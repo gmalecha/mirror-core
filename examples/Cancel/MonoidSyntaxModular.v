@@ -4,7 +4,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require MirrorCore.syms.SymEnv.
 Require MirrorCore.syms.SymSum.
-Require Import MirrorCore.ModularTypes.
+Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Simple.

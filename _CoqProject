@@ -34,7 +34,7 @@ theories/Simple.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
-theories/ModularTypes.v
+theories/MTypes/ModularTypes.v
 theories/MTypes/GenericTypes.v
 
 theories/Util/Approx.v
