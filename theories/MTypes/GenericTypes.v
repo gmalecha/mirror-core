@@ -6,6 +6,7 @@ Require Import MirrorCore.ModularTypes.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Universe Polymorphism.
+Set Primitive Projections.
 
 (** TODO(gmalecha): This should go somewhere else **)
 Definition nat_get_eq (n m : nat) (pf : unit -> n = m) : n = m :=
@@ -26,6 +27,9 @@ Section pnth_error.
 End pnth_error.
 
 
+(** TODO(gmalecha): This should become a functor to avoid the extra
+ ** parameter everywhere
+ **)
 Section dlist.
   Variable (F : nat -> Type).
 
@@ -103,6 +107,7 @@ Section dlist.
 End dlist.
 
 Section symD.
+  (** TODO(gmalecha): The contents should use positives rather than nats *)
   Variable env : dlist (fun n => plist (type_for_arity n)) 0.
 
   Record sym (n : nat) : Type :=
