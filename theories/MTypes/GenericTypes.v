@@ -110,24 +110,38 @@ Section symD.
   (** TODO(gmalecha): The contents should use positives rather than nats *)
   Variable env : dlist (fun n => plist (type_for_arity n)) 0.
 
-  Record sym (n : nat) : Type :=
+  Record sym (n : nat) : Type := mkSym
   { idx : nat
-  ; _ : match get_env n env with
-        | pNone => False
-        | pSome x => match pnth_error x idx with
-                     | pNone => False
-                     | pSome _ => True
-                     end
-        end }.
+  ; sym_valid : match get_env n env return Prop with
+                | pNone => False
+                | pSome x => match pnth_error x idx return Prop with
+                             | pNone => False
+                             | pSome _ => True
+                             end
+                end }.
 
-  Fixpoint symD {n : nat} (s : sym n) : type_for_arity n.
-    destruct s.
-    destruct (get_env n env).
-    destruct (pnth_error p idx0).
-    apply t.
-    exfalso. assumption.
-    exfalso. assumption.
-  Defined.
+  Definition symD {n : nat} (s : sym n) : type_for_arity n :=
+    match get_env n env as X
+          return forall idx, match X with
+                             | pNone => False
+                             | pSome x => match pnth_error x idx with
+                                          | pNone => False
+                                          | pSome _ => True
+                                          end
+                             end -> type_for_arity n
+    with
+    | pNone => fun _ (pf : False) => match pf with end
+    | pSome lst => fun idx =>
+                     match pnth_error lst idx as X
+                           return match X with
+                                  | pNone => False
+                                  | pSome _ => True
+                                  end -> type_for_arity n
+                     with
+                     | pNone => fun (pf : False) => match pf with end
+                     | pSome res => fun (_ : True) => res
+                     end
+    end s.(idx) s.(sym_valid).
 End symD.
 
 Definition types : Type := plist (sigT type_for_arity).
