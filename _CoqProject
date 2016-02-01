@@ -124,7 +124,6 @@ theories/RTac/Reduce.v
 theories/RTac/Interface.v
 theories/RTac/Auto.v
 theories/RTac/RTac.v
-theories/RTac/InContext.v
 
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
