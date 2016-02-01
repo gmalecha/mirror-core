@@ -11,7 +11,7 @@ If you find a bug, please report it on github: [[https://github.com/gmalecha/mir
 Quick Start
 -----------
 
-This version of MirrorCore builds on Coq 8.5 (currently in beta).
+This version of MirrorCore builds on Coq 8.5.
 
 (In the following commands 'mirror-core' refers to the root directory
 of mirror-core)
