@@ -23,8 +23,6 @@ theories/ExprSem.v
 theories/ExprDAs.v
 theories/SymI.v
 theories/SubstI.v
-theories/ProverI.v
-theories/EProverI.v
 theories/Instantiate.v
 theories/VarsToUVars.v
 theories/Lemma.v
@@ -153,9 +151,6 @@ examples/Monad/MonadExpr.v
 examples/Monad/Tests.v
 examples/Monad/MonadReify.v
 examples/Monad/MonadReduce.v
-
-examples/Wp/Imp.v
-examples/Wp/Wp.v
 
 examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
