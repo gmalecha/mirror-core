@@ -164,8 +164,6 @@ examples/Simple/FoldTest.v
 
 examples/Reify/ModularReify.v
 
-# examples/Auto/Demo.v
-
 examples/RTac/Demo.v
 
 examples/AutoRewrite/QuantPullRtac.v
