@@ -663,7 +663,6 @@ Ltac the_solver :=
     fun e X yes no =>
       match e with
       | natPlus => yes tt
-      | pVar v => no (pVar v)
       | x => no x
       end.
 
@@ -671,6 +670,16 @@ Ltac the_solver :=
   Proof. red. destruct x; simpl; auto;
               try solve [ right; compute; reflexivity
                         | left; eexists; compute; reflexivity ].
+  Qed.
+
+  Lemma Succeeds_ptrn_plus e res :
+    Ptrns.Succeeds e ptrn_plus res ->
+    e = natPlus /\ res = tt.
+  Proof.
+    destruct res; split; auto.
+    revert H.
+    destruct e; compute;
+      try solve [ refine (fun x => x _ (fun _ => natPlus) (fun x => x)) ].
   Qed.
 
   Definition ptrn_nat : Ptrns.ptrn imp_func nat :=
@@ -686,29 +695,62 @@ Ltac the_solver :=
                         | left; eexists; compute; reflexivity ].
   Qed.
 
-  Definition ptrn_eq {X} (p : Ptrns.ptrn typ X) : Ptrns.ptrn imp_func X :=
+  Lemma Succeeds_ptrn_nat e res :
+    Ptrns.Succeeds e ptrn_nat res ->
+    e = pNat res.
+  Proof.
+    destruct e; compute; try solve [ refine (fun x => x _ _ (fun x => x)) ].
+  Qed.
+
+
+  Definition ptrn_eq {X : Type} (p : Ptrns.ptrn typ X) : Ptrns.ptrn imp_func X :=
     fun e X yes no =>
       match e with
       | pEq t => p t X yes (fun x => no (pEq x))
       | x => no x
       end.
 
-  Instance ptrn_ok_ptrn_eq {X} (p : Ptrns.ptrn typ X) : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (ptrn_eq p).
-  Proof. red. destruct x; simpl; auto;
-              try solve [ right; compute; reflexivity
-                        | left; eexists; compute; reflexivity ].
-         destruct (H t); [ left | right ].
-         { destruct H0. exists x. compute. red in H0.
-           intros. rewrite H0. reflexivity. }
-         { compute. intros. rewrite H0. reflexivity. }
+  Instance ptrn_ok_ptrn_eq {X : Type} (p : Ptrns.ptrn typ X)
+    : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (ptrn_eq p).
+  Proof.
+    red. destruct x; simpl; auto;
+           try solve [ right; compute; reflexivity
+                     | left; eexists; compute; reflexivity ].
+    destruct (H t); [ left | right ].
+    { destruct H0. exists x. compute. red in H0.
+      intros. rewrite H0. reflexivity. }
+    { compute. intros. rewrite H0. reflexivity. }
+  Qed.
+
+  Lemma Succeeds_ptrn_eq {T : Type} e (res : T) p :
+    Ptrns.ptrn_ok p ->
+    Ptrns.Succeeds e (ptrn_eq p) res ->
+    exists t, e = pEq t /\
+      Ptrns.Succeeds t p res.
+  Proof.
+    intros.
+    destruct e; compute in H0;
+      try solve [ specialize (H0 _ (fun _ => true) (fun _ => false));
+                  inversion H0 ].
+    destruct (H t).
+    { destruct H1. exists t. split; auto.
+      red in H1.
+      setoid_rewrite H1 in H0.
+      red. intros. rewrite H1. eauto. }
+    { red in H1. setoid_rewrite H1 in H0.
+      specialize (H0 _ (fun _ => true) (fun _ => false));
+        inversion H0. }
   Qed.
 
   Instance FuncView_imp_func : FuncView.FuncView func imp_func :=
-  { f_view := fun x => match x with
-                       | inl (inr y) => POption.pSome y
-                       | _ => POption.pNone
-                       end
-  ; f_insert := fun x => inl (inr x) }.
+    ViewSum.FuncView_left (ViewSum.FuncView_right FuncView.FuncView_id).
+
+  Instance FuncViewOk_imp_func : @FuncView.FuncViewOk func imp_func _ _ _ _ _.
+  Proof.
+    eapply ViewSum.FuncViewOk_left.
+    eapply ViewSum.FuncViewOk_right.
+    eapply FuncView.FuncViewOk_id.
+  Qed.
 
   Require MirrorCore.Views.Ptrns.
 
@@ -722,7 +764,17 @@ Ltac the_solver :=
          let e := AppN.apps f xs in
          Ptrns.run_ptrn p e e.
 
+  Require Import ExtLib.Tactics.
   Require Import ExtLib.Core.RelDec.
+
+  Ltac solve_ok :=
+    repeat first [ eapply Ptrns.ptrn_ok_pmap
+                 | eapply Ptrns.ptrn_ok_app
+                 | eapply Ptrns.ptrn_ok_appl
+                 | eapply Ptrns.ptrn_ok_inj
+                 | eapply FuncView.ptrn_view_ok
+                 | eauto with typeclass_instances
+                 ].
 
   Theorem nat_red_sound : RedAll.partial_reducer_ok nat_red.
   Proof.
@@ -730,19 +782,37 @@ Ltac the_solver :=
     unfold nat_red.
     revert H.
     eapply Ptrns.run_ptrn_sound.
-    { repeat first [ eapply Ptrns.ptrn_ok_pmap
-                   | eapply Ptrns.ptrn_ok_app
-                   | eapply Ptrns.ptrn_ok_appl
-                   | eapply Ptrns.ptrn_ok_inj
-                   | eapply FuncView.ptrn_view_ok
-                   | eauto with typeclass_instances
-                   ]. }
+    { solve_ok. }
     { red. red. red. intros; subst. reflexivity. }
     { intros.
-      admit. }
+      repeat match goal with
+             | H : Ptrns.Succeeds _ _ _ |- _ =>
+               first [ simple eapply Ptrns.Succeeds_pmap in H ; [ | solve [ solve_ok ] ]
+                     | simple eapply Ptrns.Succeeds_app in H ; [ | solve [ solve_ok ] | solve [ solve_ok ] ]
+                     | eapply Ptrns.Succeeds_appl in H ; [ | solve [ solve_ok ] | solve [ solve_ok ] ]
+                     | eapply Ptrns.Succeeds_inj in H ; [ | solve [ solve_ok ] ]
+                     | eapply FuncView.Succeeds_ptrn_view in H ;
+                       [
+                       | eauto with typeclass_instances
+                       | eauto with typeclass_instances
+                       | solve [ solve_ok ] ]
+                     | eapply Succeeds_ptrn_nat in H
+                     | eapply Succeeds_ptrn_plus in H
+                     ] ; forward_reason
+             end; subst.
+      generalize dependent (AppN.apps e es); intros; subst.
+      destruct x; simpl in *.
+      assert (t = ModularTypes.tyBase0 tyValue).
+      { autorewrite with exprD_rw in H0.
+        cbn in H0.
+        destruct (ModularTypes.mtyp_cast tsym (@tsym_dec) t
+                     (ModularTypes.tyBase0 tyValue)). auto. inversion H0. }
+      subst. cbn in H0.
+      inv_all. subst.
+      cbn. eexists; split; eauto. }
     { intros. eexists; split; try eassumption.
       auto. }
-  Admitted.
+  Qed.
 
   Lemma refl_eq_nat : forall a : nat, a = a.
   Proof. reflexivity. Qed.
