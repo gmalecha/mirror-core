@@ -144,13 +144,6 @@ examples/Hoare/ImpSyntax.v
 examples/Hoare/Verify.v
 examples/Hoare/Tests.v
 
-examples/Monad/MonadTypes.v
-examples/Monad/MonadSym.v
-examples/Monad/MonadExpr.v
-examples/Monad/Tests.v
-examples/Monad/MonadReify.v
-examples/Monad/MonadReduce.v
-
 examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
