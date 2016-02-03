@@ -25,6 +25,20 @@ Section parametric.
 
   Variable symbol : nat -> Type.
 
+  Class TSym : Type :=
+  { symbolD : forall {n}, symbol n -> type_for_arity n
+(*  ; symbol_eq : forall {n} (a b : symbol n), option (a = b) *)
+  ; symbol_dec : forall {n} (a b : symbol n), {a = b} + {a <> b}
+(*
+  ; symbol_eq_total : forall n a b,
+      @symbol_eq n a b = match @symbol_dec n a b with
+                         | left x => Some x
+                         | right _ => None
+                         end
+*)
+  }.
+
+(*
   Variable symbolD : forall {n}, symbol n -> type_for_arity n.
 
   Variable symbol_eq : forall {n} (a b : symbol n), option (a = b).
@@ -38,6 +52,8 @@ Section parametric.
   Arguments symbolD {_} _.
   Arguments symbol_dec {_} _ _.
   Arguments symbol_eq {_} _ _.
+*)
+  Variable ts : TSym.
 
   Unset Elimination Schemes.
 
@@ -418,11 +434,11 @@ Arguments tyBase1 {_} _ _.
 Arguments tyBase2 {_} _ _ _.
 Arguments tyApp {_ _} _ _.
 
-Arguments Typ0_sym {_ _ _} _.
-Arguments Typ1_sym {_ _ _} _.
-Arguments Typ2_sym {_ _ _} _.
-Arguments Typ2_Fun {_ _ _}.
-Arguments Typ0Ok_sym {_ _ _} _.
-Arguments Typ1Ok_sym {_ _ _} _.
-Arguments Typ2Ok_sym {_ _ _} _.
-Arguments Typ2Ok_Fun {_ _ _}.
+Arguments Typ0_sym {_ _} _.
+Arguments Typ1_sym {_ _} _.
+Arguments Typ2_sym {_ _} _.
+Arguments Typ2_Fun {_ _}.
+Arguments Typ0Ok_sym {_ _} _.
+Arguments Typ1Ok_sym {_ _} _.
+Arguments Typ2Ok_sym {_ _} _.
+Arguments Typ2Ok_Fun {_ _}.

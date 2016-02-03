@@ -105,10 +105,14 @@ Module ImpSyntax (I : ImpLang).
                      clear; compute; congruence ].
   Defined.
 
+  Instance TSym_tsym : TSym tsym :=
+  { symbolD := @tsymD
+  ; symbol_dec := @tsym_dec }.
+
   Definition typ := mtyp tsym.
 
-  Global Instance RType_typ : RType typ := RType_mtyp _ tsymD (@tsym_dec).
-  Global Instance RTypeOk_typ : RTypeOk := RTypeOk_mtyp _ _ _.
+  Global Instance RType_typ : RType typ := RType_mtyp tsym _.
+  Global Instance RTypeOk_typ : RTypeOk := RTypeOk_mtyp _ _.
 
   Global Instance Typ2_Fun : @Typ2 typ _ Fun := Typ2_Fun.
   Global Instance Typ2Ok_Fun : Typ2Ok Typ2_Fun := Typ2Ok_Fun.

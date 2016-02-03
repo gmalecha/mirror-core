@@ -805,7 +805,7 @@ Ltac the_solver :=
       assert (t = ModularTypes.tyBase0 tyValue).
       { autorewrite with exprD_rw in H0.
         cbn in H0.
-        destruct (ModularTypes.mtyp_cast tsym (@tsym_dec) t
+        destruct (ModularTypes.mtyp_cast tsym _ t
                      (ModularTypes.tyBase0 tyValue)). auto. inversion H0. }
       subst. cbn in H0.
       inv_all. subst.
