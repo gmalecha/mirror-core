@@ -3,6 +3,7 @@ Require Import ExtLib.Data.POption.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.syms.SymProd.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -198,3 +199,101 @@ Proof.
     intros; subst; reflexivity. }
   { simpl. reflexivity. }
 Defined.
+
+Definition FuncView_trans {A B C : Type} (FVab : FuncView A B) (FVbc : FuncView B C) :
+  FuncView A C := {|
+    f_insert := fun a => f_insert (f_insert a);
+    f_view := 
+    fun a =>
+      match f_view a with 
+      | pSome b => f_view b
+      | pNone => pNone
+      end
+  |}.
+
+Theorem FuncView_transOk {A B C typ : Type} 
+        {RType_typ : RType typ}
+        {RSA : RSym A} {RSB : RSym B} {RSC : RSym C}
+        (FVab : FuncView A B) (FVbc : FuncView B C) 
+        (FVabOk : @FuncViewOk _ _ FVab typ _ _ _) 
+        (FVbcOk : @FuncViewOk _ _ FVbc typ _ _ _) :
+  @FuncViewOk _ _ (@FuncView_trans A B C FVab FVbc) typ _ _ _.
+Proof.
+  constructor.
+  { split; intros.
+    { destruct FVabOk as [? _]; destruct FVbcOk as [? _]; simpl in *.
+      remember (f_view f) as o; destruct o; [|congruence].
+      apply fv_ok0.
+      firstorder congruence. }
+    { destruct FVabOk as [? _]; destruct FVbcOk as [? _]; simpl in *.
+      apply fv_ok0 in H. rewrite H.
+      firstorder congruence. } }
+  { intros.
+    destruct FVabOk as [_ ?]; destruct FVbcOk as [_ ?]; simpl in *.
+    firstorder congruence. }
+Qed.
+    
+Section FuncViewProd.
+  Context {A B C D typ : Type}.
+  Context {RType_typ : RType typ}.
+  Context {RSA : RSym A} {RSB : RSym B} {RSC : RSym C} {RSD : RSym D}.
+  Context {FVab : FuncView A B}.
+  Context {FVcd : FuncView C D}.
+  Context {FVabOk : @FuncViewOk _ _ FVab typ _ _ _}.
+  Context {FVcdOk : @FuncViewOk _ _ FVcd typ _ _ _}.
+
+  Context {Typ2Prod : Typ2 _ prod}.
+
+  Global Instance FuncView_prod : FuncView (A * C) (B * D) := {
+    f_insert := fun p => (f_insert (fst p), f_insert (snd p));
+    f_view := 
+      fun p =>
+        match f_view (fst p), f_view (snd p) with
+        | pSome a, pSome b => pSome (a, b)
+        | _, _ => pNone
+        end
+  }.
+(*
+  Theorem FuncView_prodOk :
+  @FuncViewOk _ _ FuncView_prod typ RType_typ _ _.
+Proof.
+  constructor.
+  { intros; destruct f, a; simpl in *; split; intros.
+    { destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
+      remember (f_view a0) as o1; remember (f_view c) as o2.
+      destruct o1, o2; try congruence. inversion H; subst.
+      f_equal; [apply fv_ok0; rewrite Heqo1 | apply fv_ok1; rewrite Heqo2]; reflexivity. }
+    { inversion H; subst.
+      destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
+      specialize (fv_ok0 (f_insert b) b).
+      destruct fv_ok0 as [_ ?]. specialize (H0 eq_refl). rewrite H0.
+      specialize (fv_ok1 (f_insert d) d).
+      destruct fv_ok1 as [_ ?]. specialize (H1 eq_refl). rewrite H1.
+      reflexivity. } }
+  { intros; destruct a.
+    destruct FVabOk as [_ ?]; destruct FVcdOk as [_ ?]; simpl in *.
+    clear -fv_compat0 fv_compat1.
+    specialize (fv_compat0 b t); specialize (fv_compat1 d t).
+    generalize dependent (f_insert b).
+    generalize dependent (f_insert d).
+    intros.
+    unfold symAs in *; simpl in *.
+    revert fv_compat1. revert fv_compat0.
+    simpl.
+    unfold typeof_prod; simpl.
+    generalize dependent (symD a).
+    generalize dependent (symD b).
+    generalize dependent (symD c).
+    generalize dependent (symD d).
+    generalize dependent (typeof_sym a).
+    generalize dependent (typeof_sym b).
+    generalize dependent (typeof_sym c).
+    generalize dependent (typeof_sym d).
+    intros. destruct o, o0, o1, o2; simpl; try reflexivity.
+
+    admit.
+Admitted.
+
+*)
+
+End FuncViewProd.

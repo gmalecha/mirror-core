@@ -233,6 +233,14 @@ Module OneOfType.
     intros; subst. reflexivity.
   Qed.
 
+  Fixpoint list_to_pmap_aux (lst : list Type) (p : positive) : pmap :=
+    match lst with
+    | nil => OneOfType.Empty
+    | cons x xs => OneOfType.pmap_insert p (list_to_pmap_aux xs (p + 1)) x
+  end.
+
+  Definition list_to_pmap (lst : list Type) := list_to_pmap_aux lst 1.
+
 End OneOfType.
 
 Import OneOfType.
