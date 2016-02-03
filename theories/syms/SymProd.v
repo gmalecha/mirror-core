@@ -14,7 +14,7 @@ Section symbols_prod.
 
   Let tyProd := @typ2 _ _ _ _.
 
-  Definition typeof_prod (p : A * B) := 
+  Definition typeof_prod (p : A * B) :=
       match typeof_sym (fst p), typeof_sym (snd p) with
       | Some t, Some u => Some (tyProd t u)
       | _, _ => None
@@ -23,14 +23,14 @@ Section symbols_prod.
   Definition prodD (p : A * B) : match typeof_prod p with
                                  | Some t => typD t
                                  | None => unit : Type
-                                 end. 
+                                 end.
   Proof.
     refine (
         let (a, b) as q return match typeof_prod q with
                                | Some t => typD t
                                | None => unit : Type
                                end := p in
-          (match typeof_sym a as x return 
+          (match typeof_sym a as x return
                 match x with
                 | Some t => typD t
                 | None => unit
@@ -52,7 +52,7 @@ Section symbols_prod.
                 | Some t => typD t
                 | None => unit
                 end with
-          | Some t => 
+          | Some t =>
             fun c d =>
             match typeof_sym b as x return
                   match x with
@@ -78,7 +78,7 @@ Section symbols_prod.
 
   Global Instance RSymProd : RSym (A * B) := {
     typeof_sym := typeof_prod;
-    symD := prodD;                           
+    symD := prodD;
     sym_eqb p q :=
       match sym_eqb (fst p) (fst q), sym_eqb (snd p) (snd q) with
       | Some b1, Some b2 => Some (andb b1 b2)

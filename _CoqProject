@@ -33,7 +33,7 @@ theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
 theories/MTypes/ModularTypes.v
-theories/MTypes/GenericTypesv.
+theories/MTypes/GenericTypes.v
 theories/MTypes/TSyms.v
 
 theories/Util/Approx.v

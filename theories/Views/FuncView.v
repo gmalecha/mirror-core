@@ -203,19 +203,19 @@ Defined.
 Definition FuncView_trans {A B C : Type} (FVab : FuncView A B) (FVbc : FuncView B C) :
   FuncView A C := {|
     f_insert := fun a => f_insert (f_insert a);
-    f_view := 
+    f_view :=
     fun a =>
-      match f_view a with 
+      match f_view a with
       | pSome b => f_view b
       | pNone => pNone
       end
   |}.
 
-Theorem FuncView_transOk {A B C typ : Type} 
+Theorem FuncView_transOk {A B C typ : Type}
         {RType_typ : RType typ}
         {RSA : RSym A} {RSB : RSym B} {RSC : RSym C}
-        (FVab : FuncView A B) (FVbc : FuncView B C) 
-        (FVabOk : @FuncViewOk _ _ FVab typ _ _ _) 
+        (FVab : FuncView A B) (FVbc : FuncView B C)
+        (FVabOk : @FuncViewOk _ _ FVab typ _ _ _)
         (FVbcOk : @FuncViewOk _ _ FVbc typ _ _ _) :
   @FuncViewOk _ _ (@FuncView_trans A B C FVab FVbc) typ _ _ _.
 Proof.
@@ -232,10 +232,11 @@ Proof.
     destruct FVabOk as [_ ?]; destruct FVbcOk as [_ ?]; simpl in *.
     firstorder congruence. }
 Qed.
-    
+
 Section FuncViewProd.
   Context {A B C D typ : Type}.
   Context {RType_typ : RType typ}.
+  Context {RTypeOk_typ : RTypeOk}.
   Context {RSA : RSym A} {RSB : RSym B} {RSC : RSym C} {RSD : RSym D}.
   Context {FVab : FuncView A B}.
   Context {FVcd : FuncView C D}.
@@ -246,54 +247,48 @@ Section FuncViewProd.
 
   Global Instance FuncView_prod : FuncView (A * C) (B * D) := {
     f_insert := fun p => (f_insert (fst p), f_insert (snd p));
-    f_view := 
+    f_view :=
       fun p =>
         match f_view (fst p), f_view (snd p) with
         | pSome a, pSome b => pSome (a, b)
         | _, _ => pNone
         end
   }.
-(*
-  Theorem FuncView_prodOk :
-  @FuncViewOk _ _ FuncView_prod typ RType_typ _ _.
-Proof.
-  constructor.
-  { intros; destruct f, a; simpl in *; split; intros.
-    { destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
-      remember (f_view a0) as o1; remember (f_view c) as o2.
-      destruct o1, o2; try congruence. inversion H; subst.
-      f_equal; [apply fv_ok0; rewrite Heqo1 | apply fv_ok1; rewrite Heqo2]; reflexivity. }
-    { inversion H; subst.
-      destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
-      specialize (fv_ok0 (f_insert b) b).
-      destruct fv_ok0 as [_ ?]. specialize (H0 eq_refl). rewrite H0.
-      specialize (fv_ok1 (f_insert d) d).
-      destruct fv_ok1 as [_ ?]. specialize (H1 eq_refl). rewrite H1.
-      reflexivity. } }
-  { intros; destruct a.
-    destruct FVabOk as [_ ?]; destruct FVcdOk as [_ ?]; simpl in *.
-    clear -fv_compat0 fv_compat1.
-    specialize (fv_compat0 b t); specialize (fv_compat1 d t).
-    generalize dependent (f_insert b).
-    generalize dependent (f_insert d).
-    intros.
-    unfold symAs in *; simpl in *.
-    revert fv_compat1. revert fv_compat0.
-    simpl.
-    unfold typeof_prod; simpl.
-    generalize dependent (symD a).
-    generalize dependent (symD b).
-    generalize dependent (symD c).
-    generalize dependent (symD d).
-    generalize dependent (typeof_sym a).
-    generalize dependent (typeof_sym b).
-    generalize dependent (typeof_sym c).
-    generalize dependent (typeof_sym d).
-    intros. destruct o, o0, o1, o2; simpl; try reflexivity.
 
-    admit.
-Admitted.
-
-*)
+  Theorem FuncView_prodOk
+  : @FuncViewOk _ _ FuncView_prod typ RType_typ _ _.
+  Proof.
+    constructor.
+    { intros; destruct f, a; simpl in *; split; intros.
+      { destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
+        remember (f_view a0) as o1; remember (f_view c) as o2.
+        destruct o1, o2; try congruence. inversion H; subst.
+        f_equal; [apply fv_ok0; rewrite Heqo1 | apply fv_ok1; rewrite Heqo2]; reflexivity. }
+      { inversion H; subst.
+        destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
+        specialize (fv_ok0 (f_insert b) b).
+        destruct fv_ok0 as [_ ?]. specialize (H0 eq_refl). rewrite H0.
+        specialize (fv_ok1 (f_insert d) d).
+        destruct fv_ok1 as [_ ?]. specialize (H1 eq_refl). rewrite H1.
+        reflexivity. } }
+    { intros; destruct a.
+      destruct FVabOk as [_ ?]; destruct FVcdOk as [_ ?]; simpl in *.
+      unfold RSymProd, symAs, typeof_prod in *. simpl in *.
+      specialize (fv_compat0 b); specialize (fv_compat1 d).
+      generalize dependent (symD (f_insert b)).
+      generalize dependent (symD (f_insert d)).
+      rewrite fv_compat_typ; eauto with typeclass_instances.
+      rewrite fv_compat_typ; eauto with typeclass_instances.
+      generalize dependent (symD b).
+      generalize dependent (symD d).
+      destruct (typeof_sym b); destruct (typeof_sym d); intros; auto.
+      { intros.
+        specialize (fv_compat1 t1).
+        specialize (fv_compat0 t0).
+        destruct (type_cast t (typ2 t0 t1)); auto.
+        rewrite type_cast_refl in *; eauto.
+        compute in fv_compat1, fv_compat0.
+        inv_all. subst. reflexivity. } }
+  Qed.
 
 End FuncViewProd.
