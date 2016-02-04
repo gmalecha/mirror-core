@@ -1,5 +1,6 @@
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
 
 Set Implicit Arguments.
@@ -30,5 +31,18 @@ Section FuncView_prod_type.
   Context {FV : FuncView typ (prod_typ 2 * typ * typ)}.
 
   Definition tyProd t u := f_insert (tProd, t, u).
+
+  Definition ptrn_tyProd {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (prod_typ 2 * typ * typ) T :=
+    fun f U good bad => p (snd (fst f), snd f) U good (fun x => bad f).
+
+  Global Instance ptrn_tyProd_ok {T : Type} {p : ptrn (typ * typ) T} {Hok : ptrn_ok p}
+  : ptrn_ok (ptrn_tyProd p).
+  Proof.
+    red; intros.
+    destruct x as [[q t] u]; simpl; [destruct (Hok (t, u))].
+    { left. destruct H; exists x. revert H. compute; intros.
+      rewrite H. reflexivity. }
+    { right; unfold Fails in *; intros; simpl; unfold ptrn_tyProd; rewrite H; reflexivity. }
+  Qed.
 
 End FuncView_prod_type.

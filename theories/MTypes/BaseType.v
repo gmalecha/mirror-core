@@ -1,5 +1,6 @@
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
 
 Require Import Coq.Strings.String.
@@ -61,5 +62,77 @@ Section FuncView_base_type.
   Definition tyBool := f_insert tBool.
   Definition tyString := f_insert tString.
   Definition tyProp := f_insert tProp.
+
+  Definition ptrn_tyNat : ptrn (base_typ 0) (base_typ 0) :=
+    fun f U good bad =>
+      match f with
+        | tNat => good f
+        | _ => bad f
+      end.
+
+  Definition ptrn_tyBool : ptrn (base_typ 0) (base_typ 0) :=
+    fun f U good bad =>
+      match f with
+        | tBool => good f
+        | _ => bad f
+      end.
+
+  Definition ptrn_tyString : ptrn (base_typ 0) (base_typ 0) :=
+    fun f U good bad =>
+      match f with
+        | tString => good f
+        | _ => bad f
+      end.
+
+  Definition ptrn_tyProp : ptrn (base_typ 0) (base_typ 0) :=
+    fun f U good bad =>
+      match f with
+        | tProp => good f
+        | _ => bad f
+      end.
+
+  Global Instance ptrn_tyNat_ok  : ptrn_ok ptrn_tyNat.
+  Proof.
+    red; intros.
+    unfold ptrn_tyNat.
+    destruct x; simpl.
+    { left. exists tNat. unfold Succeeds. reflexivity. }
+    { right; unfold Fails; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+  Qed.
+
+  Global Instance ptrn_tyBool_ok  : ptrn_ok ptrn_tyBool.
+  Proof.
+    red; intros.
+    unfold ptrn_tyBool.
+    destruct x; simpl.
+    { right; unfold Fails; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+    { left. exists tBool. unfold Succeeds. reflexivity. }
+    { right; unfold Fails; reflexivity. }
+  Qed.
+
+  Global Instance ptrn_tyString_ok  : ptrn_ok ptrn_tyString.
+  Proof.
+    red; intros.
+    unfold ptrn_tyString.
+    destruct x; simpl.
+    { right; unfold Fails; reflexivity. }
+    { left. exists tString. unfold Succeeds. reflexivity. }
+    { right; unfold Fails; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+  Qed.
+
+  Global Instance ptrn_tyProp_ok  : ptrn_ok ptrn_tyProp.
+  Proof.
+    red; intros.
+    unfold ptrn_tyProp.
+    destruct x; simpl.
+    { right; unfold Fails; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+    { right; unfold Fails; reflexivity. }
+    { left. exists tProp. unfold Succeeds. reflexivity. }
+  Qed.
 
 End FuncView_base_type.

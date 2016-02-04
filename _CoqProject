@@ -8,12 +8,12 @@
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 
+theories/ExprI.v
 theories/CtxLogic.v
-theories/OpenT.v
-theories/Generic.v
 theories/TypesI.v
 theories/EnvI.v
-theories/ExprI.v
+theories/OpenT.v
+theories/Generic.v
 theories/SubstituteI.v
 theories/VariablesI.v
 theories/AbsAppI.v
