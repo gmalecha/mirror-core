@@ -1,5 +1,6 @@
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
 
 Set Implicit Arguments.
@@ -30,6 +31,19 @@ Section FuncView_list_type.
   Context {FV : FuncView typ (list_typ 1 * typ)}.
 
   Definition tyList t := f_insert (tList, t).
+
+  Definition ptrn_tyList {T : Type} (p : Ptrns.ptrn typ T) : ptrn (list_typ 1 * typ) T :=
+    fun f U good bad => p (snd f) U good (fun x => bad f).
+
+  Global Instance ptrn_tyList_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p}
+  : ptrn_ok (ptrn_tyList p).
+  Proof.
+    red; intros.
+    destruct x; simpl; [destruct (Hok t)].
+    { left. destruct H; exists x. revert H. compute; intros.
+      rewrite H. reflexivity. }
+    { right; unfold Fails in *; intros; simpl; unfold ptrn_tyList; rewrite H; reflexivity. }
+  Qed.
 
 End FuncView_list_type.
 
