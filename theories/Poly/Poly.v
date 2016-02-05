@@ -54,9 +54,10 @@ End member_functions.
 
 (*
 (kinds)        k := k -> k | *
-(large types)  l := forall x : k , l | [s]
-(small types)  s := s -> s | s s | x | [b]
-(expr)         e := \ x : s. e | e e | x | e s | [b]
+(large types)  T := forall x : k , T | T -> T | [t]
+(small types)  t := t t | x
+(large exprs)  E := \ x : t. E | E E | E t | [e]
+(small exprs)  e := x
 *)
 
 Set Printing Universes.
@@ -163,8 +164,6 @@ Inductive lexpr (ks : list kind) (ts : list (type ks kStar)) : ltype ks -> Set :
 | eApp : forall t u, lexpr ks ts (tArr t u) -> lexpr ks ts t -> lexpr ks ts u
 | eAppT : forall k t, lexpr ks ts (@tPi _ k t) -> forall t' : type ks k, lexpr ks ts (ltSubst nil _ _ t t')
 | eSm  : forall t, expr ks ts t -> lexpr ks ts (tSm t).
-
-Print hlist.
 
 (*
 Section tenv.
