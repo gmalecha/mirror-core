@@ -67,10 +67,10 @@ Inductive ltype (lF : lkind -> Type) (F : kind -> Type) : lkind -> Type :=
 | tsmVar  : forall k, F k -> ltype lF F (lkLift k)
 | tVar  : forall k, lF k -> ltype lF F k
 | tArr : ltype lF F lkStar -> ltype lF F lkStar -> ltype lF F lkStar
-| tPi : forall k, (F k -> ltype lF F lkStar) -> ltype lF F lkStar
+| tPi : forall k, (type F k -> ltype lF F lkStar) -> ltype lF F lkStar
 
 (* small type abstraction/application *)
-| tAbs : forall k1 k2, (type F k1 -> ltype lF F k2) -> ltype lF F (lkArr k1 k2)
+| tAbs : forall k1 k2, (F k1 -> ltype lF F k2) -> ltype lF F (lkArr k1 k2)
 | tApp : forall k1 k2, ltype lF F (lkArr k1 k2) -> type F k1 -> ltype lF F k2
 
 (* large type abstraction/application *)
@@ -87,16 +87,17 @@ Arguments tApp {_ _ _ _} _ _.
 Arguments tAbsl {_ _ _ _} _.
 Arguments tAppl {_ _ _ _} _ _.
 
-Example idType : (forall lF F , ltype lF F lkStar).
-refine (
-  fun lF F =>
-    tPi (fun (t : F kStar) =>
-           let t := tsmVar t in
-           _))
+Fixpoint liftT {lF F k} (t : type F k) : ltype lF F (lkLift k) :=
+  match t in type _ k return ltype lF F (lkLift k) with
+      smVar x => tsmVar x
+    | smArr t1 t2 => tArr (liftT t1) (liftT t2)
+    | smAbs f => tAbs (fun x => liftT (f x))
+    | smApp f x => tApp (liftT f) x
+  end
 .
-simpl in t.
-exact (tArr t t).
-Defined.
+
+Example idType {lF F} : ltype lF F lkStar :=
+tPi (fun t => liftT (smArr t t)).
 
 Fixpoint typeD {k} (t : type kindD k) : kindD k :=
   match t with
@@ -120,7 +121,7 @@ Fixpoint ltypeD {k} (t : ltype lkindD kindD k) : lkindD k :=
     | tVar x => x
     | tPi f => forall a, ltypeD (f a)
     | tArr t1 t2 => ltypeD t1 -> ltypeD t2                                           
-    | tAbs f => fun x => ltypeD (f (smVar x))
+    | tAbs f => fun x => ltypeD (f x)
     | tApp f x => ltypeD f (typeD x)
     | tAbsl f => fun x => ltypeD (f x)
     | tAppl f x => ltypeD f (ltypeD x)
@@ -128,56 +129,46 @@ Fixpoint ltypeD {k} (t : ltype lkindD kindD k) : lkindD k :=
 
 (** * Expressions **)
 
-(* Expressions with small types *)
-Inductive expr (F : kind -> Type) (Fe : type F kStar -> Type) : type F kStar -> Type :=
-| eVar  : forall t, Fe t -> expr F Fe t
-| eAbs  : forall (t1 t2 : type F kStar), (Fe t1 -> expr F Fe t2) -> expr F Fe (smArr t1 t2)
-| eApp  : forall (t1 t2 : type F kStar), expr F Fe (smArr t1 t2) -> expr F Fe t1 -> expr F Fe t2
-.
-
-Arguments eVar  {_ _ _} _.
-Arguments eAbs  {_ _ _ _} _.
-Arguments eApp  {_ _ _ _} _ _.
-
-(* Expressions with large types *)
-Inductive lexpr
+(* Expressions have large types *)
+Inductive expr
           (lF : lkind -> Type)
           (F : kind -> Type)
-          (lFe : ltype lF F lkStar -> Type) 
-          (Fe : type F kStar -> Type) :
+          (Fe : ltype lF F lkStar -> Type) :
   ltype lF F lkStar -> Type :=
-| small  : forall t, expr F Fe (smVar t) -> lexpr lF F lFe Fe (tsmVar t)
-| leVar  : forall t, lFe t -> lexpr lF F lFe Fe t
-| leAbs  : forall (t1 t2 : ltype lF F lkStar), (lFe t1 -> lexpr lF F lFe Fe t2) -> lexpr lF F lFe Fe (tArr t1 t2)
-| leApp  : forall (t1 t2 : ltype lF F lkStar), lexpr lF F lFe Fe (tArr t1 t2) -> lexpr lF F lFe Fe t1 -> lexpr lF F lFe Fe t2
-| leTAbs : forall k (tf : F k -> ltype lF F lkStar), (forall t, lexpr lF F lFe Fe (tf t)) -> lexpr lF F lFe Fe (tPi tf)
-| leTApp : forall k (tf : F k -> ltype lF F lkStar), lexpr lF F lFe Fe (tPi tf) -> forall t, lexpr lF F lFe Fe (tf t)
+| eVar  : forall t, Fe t -> expr lF F Fe t
+| eAbs  : forall (t1 t2 : ltype lF F lkStar), (Fe t1 -> expr lF F Fe t2) -> expr lF F Fe (tArr t1 t2)
+| eApp  : forall (t1 t2 : ltype lF F lkStar), expr lF F Fe (tArr t1 t2) -> expr lF F Fe t1 -> expr lF F Fe t2
+| eTAbs : forall k (tf : type F k -> ltype lF F lkStar), (forall t, expr lF F Fe (tf t)) -> expr lF F Fe (tPi tf)
+| eTApp : forall k (tf : type F k -> ltype lF F lkStar), expr lF F Fe (tPi tf) -> forall t, expr lF F Fe (tf t)
 .
 
-Arguments small {_ _ _ _ _} _.
-Arguments leVar  {_ _ _ _ _} _.
-Arguments leAbs  {_ _ _ _ _ _} _.
-Arguments leApp  {_ _ _ _ _ _} _ _.
-Arguments leTAbs {_ _ _ _ _ _} _.
-Arguments leTApp {_ _ _ _ _ _} _ _.
+Arguments eVar  {_ _ _ _} _.
+Arguments eAbs  {_ _ _ _ _} _.
+Arguments eApp  {_ _ _ _ _} _ _.
+Arguments eTAbs {_ _ _ _ _} _.
+Arguments eTApp {_ _ _ _ _} _ _.
 
-Fixpoint exprD {t : type kindD kStar} (e : expr kindD typeD t) : typeD t :=
-  match e with
-      eVar x => x 
+Fixpoint exprD {t : ltype lkindD kindD lkStar} (e : expr lkindD kindD ltypeD t) : ltypeD t :=
+  match e in expr _ _ _ t return ltypeD t with
+    | eVar x => x 
     | eAbs f => fun x => exprD (f x)
     | eApp f x => exprD f (exprD x)
-  end.
-
-Fixpoint lexprD {t : ltype lkindD kindD lkStar} (e : lexpr lkindD kindD ltypeD typeD t) : ltypeD t :=
-  match e in lexpr _ _ _ _ t return ltypeD t with
-    | small x => exprD x
-    | leVar x => x 
-    | leAbs f => fun x => lexprD (f x)
-    | leApp f x => lexprD f (lexprD x)
-    | leTAbs f => fun x => lexprD (f x)
-    | leTApp f x => lexprD f x
+    | eTAbs f => fun x => exprD (f x)
+    | eTApp f x => exprD f x
   end
   .
+
+Example polyId {lF F Fe} : expr lF F Fe idType :=
+  eTAbs (fun t : type F kStar => eAbs (fun x : Fe (liftT t) => eVar x))
+.
+
+Example inst1 {lF F Fe} (t : type F kStar) : expr lF F Fe (liftT (smArr t t)) :=
+  eAbs (fun x => eApp (eTApp polyId t) (eVar x))
+.
+
+Example inst2 {lF F Fe} (t : type F kStar) : expr lF F Fe (liftT (smArr t t)) :=
+  eApp (eTApp polyId (smArr t t)) (eAbs (fun x => eVar x))
+.
 
 (* Local Variables: *)
 (* coq-prog-name: "/Users/matt/.opam/system/bin/coqtop" *)
