@@ -8,37 +8,37 @@
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 
-theories/CtxLogic.v
-theories/OpenT.v
-theories/Generic.v
-theories/TypesI.v
-theories/EnvI.v
-theories/ExprI.v
-theories/SubstituteI.v
-theories/VariablesI.v
-theories/AbsAppI.v
-theories/UnifyI.v
-theories/ExprProp.v
-theories/ExprSem.v
-theories/ExprDAs.v
-theories/SymI.v
-theories/SubstI.v
-theories/ProverI.v
-theories/EProverI.v
-theories/Instantiate.v
-theories/VarsToUVars.v
-theories/Lemma.v
-theories/LemmaApply.v
-theories/Simple.v
+# theories/CtxLogic.v
+# theories/OpenT.v
+# theories/Generic.v
+# theories/TypesI.v
+# theories/EnvI.v
+# theories/ExprI.v
+# theories/SubstituteI.v
+# theories/VariablesI.v
+# theories/AbsAppI.v
+# theories/UnifyI.v
+# theories/ExprProp.v
+# theories/ExprSem.v
+# theories/ExprDAs.v
+# theories/SymI.v
+# theories/SubstI.v
+# theories/ProverI.v
+# theories/EProverI.v
+# theories/Instantiate.v
+# theories/VarsToUVars.v
+# theories/Lemma.v
+# theories/LemmaApply.v
+# theories/Simple.v
 
-theories/provers/ProverTac.v
-theories/provers/AssumptionProver.v
-theories/provers/DefaultProver.v
+# theories/provers/ProverTac.v
+# theories/provers/AssumptionProver.v
+# theories/provers/DefaultProver.v
 
-theories/Subst/UVarMap.v
-theories/Subst/FMapSubst.v
+# theories/Subst/UVarMap.v
+# theories/Subst/FMapSubst.v
 
-theories/ModularTypes.v
+# theories/ModularTypes.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v
@@ -49,119 +49,122 @@ theories/Util/Nat.v
 theories/Util/HListBuild.v
 theories/Util/Compat.v
 
-theories/syms/SymEnv.v
-theories/syms/SymPolyEnv.v
-theories/syms/SymSum.v
-theories/syms/SymOneOf.v
+# theories/syms/SymEnv.v
+# theories/syms/SymPolyEnv.v
+# theories/syms/SymSum.v
+# theories/syms/SymOneOf.v
 
-theories/Lambda/ExprCore.v
-theories/Lambda/ExprDI.v
-theories/Lambda/ExprDsimul.v
-theories/Lambda/ExprD.v
-theories/Lambda/ExprDFacts.v
-theories/Lambda/ExprTac.v
-theories/Lambda/Expr.v
-theories/Lambda/ExprLift.v
-theories/Lambda/Red.v
-theories/Lambda/RedAll.v
-theories/Lambda/TypedFoldEager.v
-theories/Lambda/TypedFoldLazy.v
-theories/Lambda/TypedFoldApp.v
-theories/Lambda/FoldApp.v
-theories/Lambda/StrongFoldApp.v
-theories/Lambda/WtExpr.v
-theories/Lambda/Lemma.v
-theories/Lambda/ExprUnify_common.v
-theories/Lambda/ExprUnify_simple.v
-theories/Lambda/ExprUnify_simul.v
-theories/Lambda/ExprUnify.v
-theories/Lambda/ExprSubst.v
-theories/Lambda/ExprSubstitute.v
-theories/Lambda/AppN.v
-theories/Lambda/ExprVariables.v
-theories/Lambda/AutoSetoidRewriteRtac.v
-theories/Lambda/RewriteRelations.v
-theories/Lambda/Ptrns.v
-theories/Lambda/Rtac.v
+# theories/Lambda/ExprCore.v
+# theories/Lambda/ExprDI.v
+# theories/Lambda/ExprDsimul.v
+# theories/Lambda/ExprD.v
+# theories/Lambda/ExprDFacts.v
+# theories/Lambda/ExprTac.v
+# theories/Lambda/Expr.v
+# theories/Lambda/ExprLift.v
+# theories/Lambda/Red.v
+# theories/Lambda/RedAll.v
+# theories/Lambda/TypedFoldEager.v
+# theories/Lambda/TypedFoldLazy.v
+# theories/Lambda/TypedFoldApp.v
+# theories/Lambda/FoldApp.v
+# theories/Lambda/StrongFoldApp.v
+# theories/Lambda/WtExpr.v
+# theories/Lambda/Lemma.v
+# theories/Lambda/ExprUnify_common.v
+# theories/Lambda/ExprUnify_simple.v
+# theories/Lambda/ExprUnify_simul.v
+# theories/Lambda/ExprUnify.v
+# theories/Lambda/ExprSubst.v
+# theories/Lambda/ExprSubstitute.v
+# theories/Lambda/AppN.v
+# theories/Lambda/ExprVariables.v
+# theories/Lambda/AutoSetoidRewriteRtac.v
+# theories/Lambda/RewriteRelations.v
+# theories/Lambda/Ptrns.v
+# theories/Lambda/Rtac.v
 
-theories/Views/Ptrns.v
-theories/Views/FuncView.v
-theories/Views/ViewSum.v
-theories/Views/ViewSumN.v
-theories/Views/ListView.v
-theories/Views/NatView.v
-theories/Views/StringView.v
-theories/Views/BoolView.v
-theories/Views/ProdView.v
-theories/Views/ApplicativeView.v
-theories/Views/EqView.v
+theories/Poly/PolyPHOAS.v
+theories/Poly/PolyP_unify.v
 
-theories/RTac/BIMap.v
-theories/RTac/Ctx.v
-theories/RTac/Core.v
-theories/RTac/CoreK.v
-theories/RTac/IsSolved.v
-theories/RTac/SpecLemmas.v
-theories/RTac/RunOnGoals.v
-theories/RTac/RunOnGoals_list.v
-theories/RTac/Then.v
-theories/RTac/Try.v
-theories/RTac/Repeat.v
-theories/RTac/Rec.v
-theories/RTac/Idtac.v
-theories/RTac/First.v
-theories/RTac/Fail.v
-theories/RTac/Solve.v
-theories/RTac/SolveK.v
-theories/RTac/ThenK.v
-theories/RTac/IdtacK.v
-theories/RTac/runTacK.v
-theories/RTac/Assumption.v
-theories/RTac/Intro.v
-theories/RTac/Apply.v
-theories/RTac/EApply.v
-theories/RTac/Simplify.v
-theories/RTac/Instantiate.v
-theories/RTac/Minify.v
-theories/RTac/AtGoal.v
-theories/RTac/Reduce.v
-theories/RTac/Interface.v
-theories/RTac/RTac.v
-theories/RTac/InContext.v
+# theories/Views/Ptrns.v
+# theories/Views/FuncView.v
+# theories/Views/ViewSum.v
+# theories/Views/ViewSumN.v
+# theories/Views/ListView.v
+# theories/Views/NatView.v
+# theories/Views/StringView.v
+# theories/Views/BoolView.v
+# theories/Views/ProdView.v
+# theories/Views/ApplicativeView.v
+# theories/Views/EqView.v
+
+# theories/RTac/BIMap.v
+# theories/RTac/Ctx.v
+# theories/RTac/Core.v
+# theories/RTac/CoreK.v
+# theories/RTac/IsSolved.v
+# theories/RTac/SpecLemmas.v
+# theories/RTac/RunOnGoals.v
+# theories/RTac/RunOnGoals_list.v
+# theories/RTac/Then.v
+# theories/RTac/Try.v
+# theories/RTac/Repeat.v
+# theories/RTac/Rec.v
+# theories/RTac/Idtac.v
+# theories/RTac/First.v
+# theories/RTac/Fail.v
+# theories/RTac/Solve.v
+# theories/RTac/SolveK.v
+# theories/RTac/ThenK.v
+# theories/RTac/IdtacK.v
+# theories/RTac/runTacK.v
+# theories/RTac/Assumption.v
+# theories/RTac/Intro.v
+# theories/RTac/Apply.v
+# theories/RTac/EApply.v
+# theories/RTac/Simplify.v
+# theories/RTac/Instantiate.v
+# theories/RTac/Minify.v
+# theories/RTac/AtGoal.v
+# theories/RTac/Reduce.v
+# theories/RTac/Interface.v
+# theories/RTac/RTac.v
+# theories/RTac/InContext.v
 
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
-examples/Cancel/Monoid.v
-examples/Cancel/MonoidDemo.v
-examples/Cancel/MonoidSyntaxSimple.v
-examples/Cancel/MonoidSyntaxNoDec.v
-examples/Cancel/MonoidSyntaxWithConst.v
-examples/Cancel/MonoidSyntaxModular.v
+# examples/Cancel/Monoid.v
+# examples/Cancel/MonoidDemo.v
+# examples/Cancel/MonoidSyntaxSimple.v
+# examples/Cancel/MonoidSyntaxNoDec.v
+# examples/Cancel/MonoidSyntaxWithConst.v
+# examples/Cancel/MonoidSyntaxModular.v
 
-examples/Hoare/ILogic.v
-examples/Hoare/ILogicFunc.v
-examples/Hoare/LogicTac.v
-examples/Hoare/Imp.v
-examples/Hoare/ImpMetaTheory.v
-examples/Hoare/ImpSyntax.v
-examples/Hoare/Verify.v
-examples/Hoare/Tests.v
+# examples/Hoare/ILogic.v
+# examples/Hoare/ILogicFunc.v
+# examples/Hoare/LogicTac.v
+# examples/Hoare/Imp.v
+# examples/Hoare/ImpMetaTheory.v
+# examples/Hoare/ImpSyntax.v
+# examples/Hoare/Verify.v
+# examples/Hoare/Tests.v
 
-examples/Monad/MonadTypes.v
-examples/Monad/MonadSym.v
-examples/Monad/MonadExpr.v
-examples/Monad/Tests.v
-examples/Monad/MonadReify.v
-examples/Monad/MonadReduce.v
+# examples/Monad/MonadTypes.v
+# examples/Monad/MonadSym.v
+# examples/Monad/MonadExpr.v
+# examples/Monad/Tests.v
+# examples/Monad/MonadReify.v
+# examples/Monad/MonadReduce.v
 
-examples/Wp/Imp.v
-examples/Wp/Wp.v
+# examples/Wp/Imp.v
+# examples/Wp/Wp.v
 
-examples/Simple/Simple.v
-examples/Simple/SimpleReify.v
-examples/Simple/SimpleExt.v
-examples/Simple/FoldTest.v
+# examples/Simple/Simple.v
+# examples/Simple/SimpleReify.v
+# examples/Simple/SimpleExt.v
+# examples/Simple/FoldTest.v
 
 
 # examples/Cancel/MonoidLemmasSyntax.v
@@ -171,12 +174,12 @@ examples/Simple/FoldTest.v
 # examples/Cancel/CancelTacNoMatch.v
 # examples/Cancel/RtacDemoNoMatch.v
 
-examples/Reify/ModularReify.v
+# examples/Reify/ModularReify.v
 
 # examples/Auto/Demo.v
 
-examples/RTac/Demo.v
+# examples/RTac/Demo.v
 
-examples/AutoRewrite/QuantPullRtac.v
-examples/AutoRewrite/DemoQuantPullRtac.v
-examples/AutoRewrite/DemoQuantPullLtac.v
+# examples/AutoRewrite/QuantPullRtac.v
+# examples/AutoRewrite/DemoQuantPullRtac.v
+# examples/AutoRewrite/DemoQuantPullLtac.v
