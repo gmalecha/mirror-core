@@ -218,54 +218,6 @@ Module ImpSyntax (I : ImpLang).
     destruct H; congruence.
   Qed.
 
-(*   Definition FuncView_id {T : Type} : FuncView T T := *)
-(*   {| f_insert := fun x => x *)
-(*    ; f_view := @vSome _ |}. *)
-
-(*   Theorem FuncViewOk_id {T typ} (RT : RType typ) (RS : RSym T) *)
-(*   : @FuncViewOk T T (@FuncView_id T) typ _ _ _. *)
-(*   Proof. *)
-(*     constructor. *)
-(*     { split. inversion 1. reflexivity. *)
-(*       intros; subst; reflexivity. } *)
-(*     { simpl. reflexivity. } *)
-(*   Defined. *)
-(*   Definition FuncView_left {T U V : Type} (FV_TU : FuncView U T) *)
-(*   : FuncView (U + V) T := *)
-(*   {| f_insert := fun x => inl (f_insert x) *)
-(*    ; f_view := fun x => match x with *)
-(*                         | inl x => f_view x *)
-(*                         | _ => vNone *)
-(*                         end |}. *)
-(*   Theorem FuncViewOk_left {T U V typ : Type} (RT : RType typ) (RSt : RSym T) (RSu : RSym U) (RSv : RSym V) (FV : FuncView U T) (FVo : FuncViewOk _ _ _) *)
-(*   : @FuncViewOk _ _ (@FuncView_left T U V FV) _ _ (RSym_sum RSu RSv) _. *)
-(*   Proof. *)
-(*     constructor. *)
-(*     { simpl. destruct f; simpl. *)
-(*       { intros. rewrite fv_ok. split; congruence. } *)
-(*       { split; inversion 1. } } *)
-(*     { simpl. intros. rewrite fv_compat. reflexivity. } *)
-(*   Qed. *)
-(*   Definition FuncView_right {T U V : Type} (FV_TU : FuncView U T) *)
-(*   : FuncView (V + U) T := *)
-(*   {| f_insert := fun x => inr (f_insert x) *)
-(*    ; f_view := fun x => match x with *)
-(*                         | inr x => f_view x *)
-(*                         | _ => vNone *)
-(*                         end |}. *)
-(*   Theorem FuncViewOk_right {T U V typ : Type} (RT : RType typ) (RSt : RSym T) (RSu : RSym U) (RSv : RSym V) (FV : FuncView U T) (FVo : FuncViewOk _ _ _) *)
-(*   : @FuncViewOk _ _ (@FuncView_right T U V FV) _ _ (RSym_sum RSv RSu) _. *)
-(*   Proof. *)
-(*     constructor. *)
-(*     { simpl. destruct f; simpl. *)
-(*       { split; inversion 1. } *)
-(*       { intros. rewrite fv_ok. split; congruence. } } *)
-(*     { simpl. intros. rewrite fv_compat. reflexivity. } *)
-(*   Qed. *)
-
-  Instance FuncView_ilfunc : FuncView func (ilfunc typ) :=
-    FuncView_right FuncView_id.
-
   Definition tyLProp := tyArr !tyLocals !tyHProp.
 
   Local Notation "a >> b" := (tyArr a b) (at level 31,right associativity).
@@ -507,8 +459,8 @@ Module ImpSyntax (I : ImpLang).
   eapply RSymOk_sum; eauto with typeclass_instances.
   Defined.
 
-  Definition Expr_expr (fs' : functions typ RType_typ) : ExprI.Expr _ (expr typ func) :=
-    @Expr_expr typ func _ _ (RS fs').
+  Definition Expr_expr (fs' : functions typ RType_typ)
+  : ExprI.Expr _ (expr typ func) := @Expr_expr typ func _ _ (RS fs').
   Local Existing Instance Expr_expr.
 
   Definition ExprOk_expr fs' : ExprI.ExprOk (Expr_expr fs') := ExprOk_expr.
@@ -844,5 +796,434 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
     exact I.
   Defined.
 
+  Require Import MirrorCore.RTac.RTac.
+
+  (** TODO(gmalecha): Specifying this like this is not ideal.
+   ** Essentially this list is constructed from a
+   ** [Print Transparent Dependencies] of a few terms and it would be
+   ** good if we could implement it just like that.
+   **)
+  Ltac reduce_propD tbl g e := eval cbn beta iota zeta delta
+    [ tbl g Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
+      typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      RS ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+
+      tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+      mkExt mkLogic mkImp
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
+      typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+
+
+  var uvar typeof_sym type_cast typD typ2_match typ2_cast typ2 tenv
+      symD symAs
+      HList.nth_error_get_hlist_nth ExprDsimul.ExprDenote.lambda_exprD
+      HList.hlist_tl HList.hlist_hd
+      ExprDsimul.ExprDenote.func_simul
+      exprT_UseU exprT_UseV exprT_Inj
+      ExprDsimul.ExprDenote.exprT_GetVAs
+      ExprDsimul.ExprDenote.exprT_GetUAs
+      AbsAppI.exprT_App
+      exprT
+      eq_trans
+      eq_sym
+      Rty
+      Rsym
+      Relim
+      RFun
+      OpenT
+      ExprDsimul.ExprDenote.Rcast_val
+      ExprDsimul.ExprDenote.Rcast
+
+      BinPos.Pos.succ
+      SymEnv.from_list
+      FMapPositive.PositiveMap.empty
+      FMapPositive.PositiveMap.add
+
+
+      (* RS Dependencies *)
+      Vector.vector_tl
+      Vector.vector_hd
+      Vector.vector_map
+      Vector.vector_dec
+      typeof_sym_imp
+      typeof_sym
+      ILogicFunc.typeof_func
+      ModularTypes.type_for_arity
+      type_cast
+      typD
+      ILogicFunc.typ2_cast_quant
+      ILogicFunc.typ2_cast_bin
+      typ2_cast
+      typ2
+      typ0
+      typ0_cast
+      typ
+      tyLProp
+      tsym_tag
+      tsym_neq
+
+      tsym_dec
+      tsymD
+      sym_eqb
+      symD
+      sumbool_rect
+      sumbool_rec
+      BinPos.Pos.succ
+      String.string_dec
+      RelDec.rel_dec
+      Applicative.pure
+      projT2
+      projT1
+      Nat.pred
+
+
+      not
+      nat_rect
+      nat_rec
+      nat_eq_eqdec
+      ModularTypes.mtyp_dec
+      ModularTypes.mtyp_cast
+      ModularTypes.mtypD
+
+      lops
+      SymEnv.join_functions
+      EqdepFacts.internal_eq_sym_involutive
+      EqdepFacts.internal_eq_sym_internal
+      EqdepFacts.internal_eq_rew_r_dep
+      Injection.injection
+
+      imp_func_eq
+      SymEnv.func_typeof_sym
+      SymEnv.funcD
+      ILogicFunc.funcD
+      SymEnv.ftype
+      fs
+      SymEnv.from_list
+      FMapPositive.PositiveMap.find
+      SymEnv.fdenote
+      f_equal_nat
+      f_equal
+      BinPos.Pos.eqb
+      PeanoNat.Nat.eqb
+      eq_trans
+      eq_sym
+      eq_rect
+      eq_ind_r
+      eq_ind
+      eq_equivalence
+      PeanoNat.Nat.eq_dec
+      eq_add_S
+      eq_Transitive
+      eq_Symmetric
+      eq_Reflexive
+      eops
+      FMapPositive.PositiveMap.empty
+      complement
+      bool_rect
+      bool_rec
+      Bool.bool_dec
+      Ascii.ascii_rect
+      Ascii.ascii_rec
+      Ascii.ascii_dec
+      ModularTypes.applyn'
+      ModularTypes.applyn
+      Applicative.ap
+      andb
+      and_rect
+      and_ind
+      FMapPositive.PositiveMap.add
+      Typ2_Fun
+      ModularTypes.Typ2_Fun
+      ModularTypes.Typ0_sym
+      Typ0_Prop
+      Rty
+      String.RelDec_string
+      Positive.RelDec_peq
+      ILogicFunc.RelDec_ilfunc
+      RelDec_eq_typ
+      SymEnv.RelDec_eq_func
+      Nat.RelDec_eq
+      RelDec_Rty
+      RType_typ
+      ModularTypes.RType_mtyp
+      SymSum.RSym_sum
+      RSym_imp_func
+      RSym_ilfunc
+      ILogicFunc.RSym_ilfunc
+      SymEnv.RSym_func
+      RS
+      RFun
+      ModularTypes.Injective_tyApp
+      Fun
+      ILogic.EmbedOp_refl
+      ILogic.EmbedOp_Fun
+      Applicative_Fun
+      UIP_trans.uip_trans
+      UIP_trans.uip_prop_trans
+      RS
+      RFun
+      ModularTypes.Injective_tyApp
+      Fun
+      Applicative_Fun
+      Traversable.mapT
+      List.Traversable_list Option.Applicative_option
+      List.mapT_list
+      Ctx.propD exprD_typ0 exprD Expr_expr app
+      Quant._impls
+      List.map
+      HList.hlist_app
+      amap_substD FMapSubst.SUBST.raw_substD UVarMap.MAP.fold FMapPositive.PositiveMap.fold FMapPositive.PositiveMap.xfoldi HList.nth_error_get_hlist_nth UVarMap.MAP.from_key FMapPositive.append Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add
+      tsym_dec Quant._exists exprT_Inj
+      UVarMap.MAP.from_key
+      Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add  ModularTypes.mtyp_cast
+      ModularTypes.symbol_dec ModularTypes.symbolD TSym_tsym
+    ] in e.
+
+(*
+  Ltac reduce_propD tbl g e := eval cbv beta iota zeta delta
+    [ tbl g Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
+      typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      RS ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
+      typeof_sym type_cast RType_typ typ2_match
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ0_cast
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 typ2 symD
+      ExprDsimul.ExprDenote.func_simul Typ0_Prop Typ2_Fun typeof_sym
+      mkExt mkLogic mkImp
+
+      PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
+      typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
+      FMapPositive.PositiveMap.empty
+      ModularTypes.Typ0_sym
+      ModularTypes.Injective_tyApp
+      ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
+      sumbool_rect sumbool_rec String.string_dec
+      SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
+      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      FMapPositive.PositiveMap.find BinPos.Pos.succ
+      SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
+      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      fAssign fTriple fSkip
+
+
+  var uvar typeof_sym type_cast typD typ2_match typ2_cast typ2 tenv
+      symD symAs
+      HList.nth_error_get_hlist_nth ExprDsimul.ExprDenote.lambda_exprD
+      HList.hlist_tl HList.hlist_hd
+      ExprDsimul.ExprDenote.func_simul
+      exprT_UseU exprT_UseV exprT_Inj
+      ExprDsimul.ExprDenote.exprT_GetVAs
+      ExprDsimul.ExprDenote.exprT_GetUAs
+      AbsAppI.exprT_App
+      exprT
+      eq_trans
+      eq_sym
+      Rty
+      Rsym
+      Relim
+      RFun
+      OpenT
+      ExprDsimul.ExprDenote.Rcast_val
+      ExprDsimul.ExprDenote.Rcast
+
+      BinPos.Pos.succ
+      SymEnv.from_list
+      FMapPositive.PositiveMap.empty
+      FMapPositive.PositiveMap.add
+
+
+      (* RS Dependencies *)
+      Vector.vector_tl
+      Vector.vector_hd
+      Vector.vector_map
+      Vector.vector_dec
+      typeof_sym_imp
+      typeof_sym
+      ILogicFunc.typeof_func
+      ModularTypes.type_for_arity
+      type_cast
+      typD
+      ILogicFunc.typ2_cast_quant
+      ILogicFunc.typ2_cast_bin
+      typ2_cast
+      typ2
+      typ0
+      typ0_cast
+      typ
+      tyLProp
+      tsym_tag
+      tsym_neq
+
+      tsym_dec
+      tsymD
+
+      sym_eqb
+      symD
+      sumbool_rect
+      sumbool_rec
+      BinPos.Pos.succ
+      String.string_dec
+      RelDec.rel_dec
+      Applicative.pure
+      projT2
+      projT1
+      Nat.pred
+
+
+      not
+      nat_rect
+      nat_rec
+      nat_eq_eqdec
+      ModularTypes.mtyp_dec
+      ModularTypes.mtyp_cast
+      ModularTypes.mtypD
+
+      lops
+      SymEnv.join_functions
+      EqdepFacts.internal_eq_sym_involutive
+      EqdepFacts.internal_eq_sym_internal
+      EqdepFacts.internal_eq_rew_r_dep
+      Injection.injection
+
+      imp_func_eq
+      SymEnv.func_typeof_sym
+      SymEnv.funcD
+      ILogicFunc.funcD
+      SymEnv.ftype
+      fs
+      SymEnv.from_list
+      FMapPositive.PositiveMap.find
+      SymEnv.fdenote
+      f_equal_nat
+      f_equal
+      BinPos.Pos.eqb
+      PeanoNat.Nat.eqb
+      eq_trans
+      eq_sym
+      eq_rect
+      eq_ind_r
+      eq_ind
+      eq_equivalence
+      PeanoNat.Nat.eq_dec
+      eq_add_S
+      eq_Transitive
+      eq_Symmetric
+      eq_Reflexive
+      eops
+      FMapPositive.PositiveMap.empty
+      ILogic.embed
+      complement
+      bool_rect
+      bool_rec
+      Bool.bool_dec
+      Ascii.ascii_rect
+      Ascii.ascii_rec
+      Ascii.ascii_dec
+      ModularTypes.applyn'
+      ModularTypes.applyn
+      Applicative.ap
+      andb
+      and_rect
+      and_ind
+      FMapPositive.PositiveMap.add
+      Nat.add
+      Typ2_Fun
+      ModularTypes.Typ2_Fun
+      ModularTypes.Typ0_sym
+      Typ0_Prop
+      Rty
+      String.RelDec_string
+      Positive.RelDec_peq
+      ILogicFunc.RelDec_ilfunc
+      RelDec_eq_typ
+      SymEnv.RelDec_eq_func
+      Nat.RelDec_eq
+      RelDec_Rty
+      RType_typ
+      ModularTypes.RType_mtyp
+      SymSum.RSym_sum
+      RSym_imp_func
+      RSym_ilfunc
+      ILogicFunc.RSym_ilfunc
+      SymEnv.RSym_func
+      RS
+      RFun
+      ModularTypes.Injective_tyApp
+      I.ILogicOps_lprop
+      Fun
+      EqdepFacts.Eq_rect_eq_on
+      EqdepFacts.Eq_rect_eq
+      EqdepFacts.Eq_dep_eq_on
+      EqdepFacts.Eq_dep_eq
+      ILogic.EmbedOp_refl
+      ILogic.EmbedOp_Fun
+      Applicative_Fun
+      ModularTypes.symbol_dec ModularTypes.symbolD TSym_tsym
+    ] in e.
+*)
 
 End ImpSyntax.
