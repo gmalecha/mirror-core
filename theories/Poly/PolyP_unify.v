@@ -84,9 +84,9 @@ Let Fu : list kind -> kind -> Type := fun _ _ => nat.
 Let F : kind -> Type := fun _ => nat.
 
 Definition TSubst : Type :=
-  forall ks k, Fu ks k -> option (hlist (type Fu F) ks -> type Fu F k).
+  forall ks k, Fu ks k -> option (forall F, hlist (type Fu F) ks -> type Fu F k).
 
-Definition TSubst_add {ks k} (u : Fu ks k) (val : hlist (type Fu F) ks -> type Fu F k) (s : TSubst) : TSubst :=
+Definition TSubst_add {ks k} (u : Fu ks k) (val : forall F, hlist (type Fu F) ks -> type Fu F k) (s : TSubst) : TSubst :=
   fun a b x =>
     match PeanoNat.Nat.eq_dec u x with
     | left _ =>
@@ -95,7 +95,7 @@ Definition TSubst_add {ks k} (u : Fu ks k) (val : hlist (type Fu F) ks -> type F
       with
       | left pf , left pf' =>
         Some match pf in _ = X , pf' in _ = Y
-                   return hlist (type Fu F) X -> type Fu F Y
+                   return forall F, hlist (type Fu F) X -> type Fu F Y
              with
              | eq_refl , eq_refl => val
              end
@@ -111,9 +111,9 @@ Definition F_eq_odec (k : kind) (a b : F k) : option (a = b) :=
   end.
 
 Fixpoint find_in_list {ks k} (x : type Fu F k) (ls : hlist (type Fu F) ks)
-: option (hlist (type Fu F) ks -> type Fu F k) :=
+: option (forall F, hlist (type Fu F) ks -> type Fu F k) :=
   match ls in hlist _ ks
-        return option (hlist (type Fu F) ks -> type Fu F k)
+        return option (forall F, hlist (type Fu F) ks -> type Fu F k)
   with
   | Hnil => None
   | @Hcons _ _ k' _ l ls =>
@@ -123,44 +123,44 @@ Fixpoint find_in_list {ks k} (x : type Fu F k) (ls : hlist (type Fu F) ks)
                                      | eq_refl => l
                                      end
       with
-      | Some _ => Some (fun xs => match pf with
-                                  | eq_refl => hlist_hd xs
-                                  end)
+      | Some _ => Some (fun F xs => match pf with
+                                    | eq_refl => hlist_hd xs
+                                    end)
       | None =>
         match find_in_list x ls with
         | None => None
-        | Some v => Some (fun x => v (hlist_tl x))
+        | Some v => Some (fun F x => v F (hlist_tl x))
         end
       end
     | right _ =>
       match find_in_list x ls with
       | None => None
-      | Some v => Some (fun x => v (hlist_tl x))
+      | Some v => Some (fun F x => v F (hlist_tl x))
       end
     end
   end.
 
 Fixpoint pattern_type {ks k} (a : type Fu F k) (xs : hlist (type Fu F) ks)
-: option (hlist (type Fu F) ks -> type Fu F k).
+: option (forall F, hlist (type Fu F) ks -> type Fu F k).
 refine
   match find_in_list a xs with
   | Some x => Some x
   | None =>
     match a in type _ _ k
-          return option (hlist (type Fu F) ks -> type Fu F k)
+          return option (forall F, hlist (type Fu F) ks -> type Fu F k)
     with
     | smUVar _ _ => None (* Bad *)
     | smArr l r =>
       match pattern_type _ _ l xs , pattern_type _ _ r xs with
-      | Some l' , Some r' => Some (fun a => smArr (l' a) (r' a))
+      | Some l' , Some r' => Some (fun F a => smArr (l' F a) (r' F a))
       | _ , _ => None
       end
     | smApp l r =>
       match pattern_type _ _ l xs , pattern_type _ _ r xs with
-      | Some l' , Some r' => Some (fun a => smApp (l' a) (r' a))
+      | Some l' , Some r' => Some (fun F a => smApp (l' F a) (r' F a))
       | _ , _ => None
       end
-    | smAbs t => None (** TODO **)
+    | smAbs t => None (** NOTE(gmalecha): Is this impossible? **)
     | smVar v => None
     end
   end.
@@ -236,14 +236,14 @@ Fixpoint unify_type {k} (f : nat) (a b : type Fu F k) (s : TSubst) {struct a}
         end
       | _ =>
         match s _ _ u , s _ _ u' with
-        | Some e , Some e' => unify' _ f (e xs) match pf with
-                                                | eq_refl => e' xs'
+        | Some e , Some e' => unify' _ f (e _ xs) match pf with
+                                                | eq_refl => e' _ xs'
                                                 end s
         | Some e , None => pattern_add u' xs' match eq_sym pf with
-                                              | eq_refl => e xs
+                                              | eq_refl => e _ xs
                                               end s
         | None , Some e' => pattern_add u xs match pf with
-                                             | eq_refl => e' xs'
+                                             | eq_refl => e' _ xs'
                                              end s
         | None , None =>
           match pattern_add u xs match pf with
@@ -262,7 +262,7 @@ Fixpoint unify_type {k} (f : nat) (a b : type Fu F k) (s : TSubst) {struct a}
         pattern_add u xs match pf with
                          | eq_refl => other
                          end s
-      | Some e' => unify' _ f (e' xs) match pf with
+      | Some e' => unify' _ f (e' _ xs) match pf with
                                       | eq_refl => other
                                       end s
       end
@@ -274,7 +274,7 @@ Fixpoint unify_type {k} (f : nat) (a b : type Fu F k) (s : TSubst) {struct a}
                          end s
       | Some e' => unify' _ f match eq_sym pf with
                               | eq_refl => other
-                              end (e' xs) s
+                              end (e' _ xs) s
       end
     | _ , _ => fun _ => None
     end eq_refl).
