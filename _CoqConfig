@@ -1,4 +1,3 @@
--Q coq-ext-lib/theories ExtLib
 -Q theories MirrorCore
 -Q examples McExamples
 
@@ -53,6 +52,7 @@ theories/syms/SymPolyEnv.v
 theories/syms/SymSum.v
 theories/syms/SymProd.v
 theories/syms/SymOneOf.v
+theories/syms/SymSimple.v
 
 theories/Lambda/ExprCore.v
 theories/Lambda/ExprDI.v
@@ -135,11 +135,12 @@ theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
 examples/Cancel/Monoid.v
-examples/Cancel/MonoidDemo.v
 examples/Cancel/MonoidSyntaxSimple.v
 examples/Cancel/MonoidSyntaxNoDec.v
 examples/Cancel/MonoidSyntaxWithConst.v
 examples/Cancel/MonoidSyntaxModular.v
+examples/Cancel/LtacDemo.v
+examples/Cancel/RtacDemo.v
 
 examples/Hoare/ILogic.v
 examples/Hoare/ILogicFunc.v

@@ -1,6 +1,10 @@
 Require Import McExamples.Cancel.RtacDemo.
 
-Goal Lang.goal NNN.
-  Lang.prep.
-  Time rtac_canceler.
+Declare Module M : Monoid.Monoid.
+
+Module Automation := RtacDemo.MonoidCancel M.
+
+Goal Automation.Demo.goal NNN.
+  Automation.Demo.prep.
+  Time Automation.rtac_canceler.
 Time Qed.

@@ -11,35 +11,9 @@ Section parameterized.
   Context {expr : Type}.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr typ expr}.
+  Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
-
-  (** TODO: This is not complete *)
-  Fixpoint reduce (g : Goal typ expr) : Goal typ expr :=
-    match g with
-    | GConj_ l r =>
-      GConj (reduce l) (reduce r)
-    | _ => g
-    end.
-
-  Definition reduce_result {c} (r : Result c) : @Result typ expr c :=
-    match r with
-    | More_ c g => More c (reduce g)
-    | _ => r
-    end.
-
-  Theorem reduce_sound : forall tus tvs g, EqGoal tus tvs (reduce g) g.
-  Proof.
-    induction g; simpl; try reflexivity.
-    eapply GConj_GConj_; eauto.
-  Qed.
-
-  Theorem reduce_result_sound : forall c g, EqResult (c:=c) (reduce_result g) g.
-  Proof.
-    destruct g; simpl; try reflexivity.
-    apply More_More_.
-    eapply reduce_sound.
-  Qed.
 
   (** TODO(gmalecha): This is not complete! *)
   Fixpoint is_solved_goal (g : Goal typ expr) : bool :=

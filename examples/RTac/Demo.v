@@ -96,7 +96,7 @@ Proof.
     subst. simpl.
     unfold propD, exprD_typ0. simpl.
     intros. destruct x. simpl in *.
-    erewrite exprD_AppL in H.
+    erewrite ExprTac.lambda_exprD_AppL in H; eauto with typeclass_instances.
     Focus 2.
     instantiate (2 := tyArr t tyProp).
     rewrite lambda_exprD_Inj; eauto with typeclass_instances.
@@ -106,7 +106,6 @@ Proof.
     rewrite (UIP_refl e0). reflexivity.
     clear - n; congruence.
     forward; inv_all; subst.
-    change_rewrite H.
     eexists; split; [ reflexivity | ].
     compute in H1. subst.
     intros. compute in H0. eauto. }

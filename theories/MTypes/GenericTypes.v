@@ -8,25 +8,6 @@ Set Strict Implicit.
 Set Universe Polymorphism.
 Set Primitive Projections.
 
-(** TODO(gmalecha): This should go somewhere else **)
-Definition nat_get_eq (n m : nat) (pf : unit -> n = m) : n = m :=
-  match PeanoNat.Nat.eq_dec n m with
-  | left pf => pf
-  | right bad => match bad (pf tt) with end
-  end.
-
-(** TODO(gmalecha): This should go in ExtLib.Data.PList **)
-Section pnth_error.
-  Context {T : Type}.
-  Fixpoint pnth_error (ls : plist T) (n : nat) : poption T :=
-    match n , ls with
-    | 0 , pcons l _ => pSome l
-    | S n , pcons _ ls => pnth_error ls n
-    | _ , _ => pNone
-    end.
-End pnth_error.
-
-
 (** TODO(gmalecha): This should become a functor to avoid the extra
  ** parameter everywhere
  **)
@@ -114,7 +95,7 @@ Section symD.
   { idx : nat
   ; sym_valid : match get_env n env return Prop with
                 | pNone => False
-                | pSome x => match pnth_error x idx return Prop with
+                | pSome x => match PList.nth_error x idx return Prop with
                              | pNone => False
                              | pSome _ => True
                              end
@@ -124,7 +105,7 @@ Section symD.
     match get_env n env as X
           return forall idx, match X with
                              | pNone => False
-                             | pSome x => match pnth_error x idx with
+                             | pSome x => match nth_error x idx with
                                           | pNone => False
                                           | pSome _ => True
                                           end
@@ -132,7 +113,7 @@ Section symD.
     with
     | pNone => fun _ (pf : False) => match pf with end
     | pSome lst => fun idx =>
-                     match pnth_error lst idx as X
+                     match nth_error lst idx as X
                            return match X with
                                   | pNone => False
                                   | pSome _ => True
@@ -154,7 +135,7 @@ Fixpoint build_env (t : types) : dlist (fun n => plist (type_for_arity n)) 0.
     * intros. apply pnil.
     * instantiate (1:= projT1 s).
       exact (pcons (projT2 s)).
-    * apply (build_env t). 
+    * apply (build_env t).
 Defined.
 
 (** * Demo **)
