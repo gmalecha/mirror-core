@@ -19,6 +19,21 @@ Bugs
 
 If you find a bug, please report it on github: [[https://github.com/gmalecha/mirror-core/issues]]
 
+Install with OPAM
+-----------------
+Add the Coq repository:
+
+    opam repo add coq-released https://coq.inria.fr/opam/released
+
+and run:
+
+    opam install coq-mirror-core
+
+To get the beta versions of Coq, activate the repository:
+
+    opam repo add coq-core-dev https://coq.inria.fr/opam/core-dev
+
+
 Quick Start
 -----------
 
