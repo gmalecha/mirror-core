@@ -69,7 +69,6 @@ theories/Lambda/TypedFoldLazy.v
 theories/Lambda/TypedFoldApp.v
 theories/Lambda/FoldApp.v
 theories/Lambda/StrongFoldApp.v
-theories/Lambda/WtExpr.v
 theories/Lambda/Lemma.v
 theories/Lambda/ExprUnify_common.v
 theories/Lambda/ExprUnify_simple.v
