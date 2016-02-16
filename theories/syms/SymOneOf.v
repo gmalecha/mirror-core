@@ -206,6 +206,18 @@ Module OneOfType.
       intros. subst. reflexivity. }
   Qed.
 
+  Theorem asNth_eq
+    : forall ts p oe v,
+      @asNth ts p oe = Some v ->
+      oe = {| index := p ; value := v |}.
+  Proof.
+    unfold asNth.
+    destruct oe; simpl.
+    revert value0. revert index0. revert ts.
+    induction p; destruct index0; simpl; intros; 
+    try congruence; eapply IHp in H; inv_all; subst; reflexivity.
+  Defined.
+
   Theorem Into_OutOf : forall ts T p pf v e,
       @OutOf ts T p pf e = Some v ->
       @Into ts T p pf v = e.
