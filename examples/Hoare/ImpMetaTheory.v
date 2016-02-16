@@ -121,6 +121,10 @@ Module ImpTheory (Import I : ImpLang).
                        (@ILogic.ltrue I.HProp I.ILogicOps_HProp)
                        (@ILogic.embed Prop I.HProp I.EmbedOp_Prop_HProp P).
 
+  Axiom prove_Prop_SProp : forall P : Prop,
+      P ->
+      ILogic.lentails (L:=I.SProp) ILogic.ltrue (ILogic.embed P).
+
   Axiom land_apply
     : forall P Q x,
       @ILogic.land I.lprop I.ILogicOps_lprop P Q x =

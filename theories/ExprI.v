@@ -5,6 +5,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Tactics.
+Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Eq.
 Require Import MirrorCore.Util.Compat.
@@ -17,20 +18,6 @@ Set Strict Implicit.
 
 Definition var := nat.
 Definition uvar := nat.
-
-(** TODO: Move to ExtLib.Data.List. **)
-Lemma list_rev_ind
-  : forall T (P : list T -> Prop),
-    P nil ->
-    (forall l ls, P ls -> P (ls ++ l :: nil)) ->
-    forall ls, P ls.
-Proof.
-  clear. intros. rewrite <- rev_involutive.
-  induction (rev ls).
-  apply H.
-  simpl. auto.
-Qed.
-
 
 Section Expr.
   Variable typ : Type.
@@ -51,7 +38,8 @@ Section Expr.
 
   Definition Functor_exprT tus tvs : Functor (exprT tus tvs) :=
     Eval cbv beta iota zeta delta [ fmap Functor_OpenT ] in
-  {| fmap := fun _ _ f x => fmap (F:=OpenT typD tus) (fmap (F:=OpenT typD tvs) f) x
+  {| fmap := fun _ _ f x =>
+               fmap (F:=OpenT typD tus) (fmap (F:=OpenT typD tvs) f) x
   |}.
   Existing Instance Functor_exprT.
 

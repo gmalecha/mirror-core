@@ -16,14 +16,6 @@ Require Import MirrorCore.Util.Compat.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** TODO: Move to Data.Prop **)
-Lemma exists_iff : forall (T : Type) (P Q : T -> Prop),
-                     (forall x, P x <-> Q x) ->
-                     ((exists x, P x) <-> (exists x, Q x)).
-Proof.
-  clear. intros. setoid_rewrite H. reflexivity.
-Qed.
-
 Section parameterized.
   Variable typ : Type.
   Variable expr : Type.
@@ -34,7 +26,6 @@ Section parameterized.
   Context {ExprOk_expr : ExprOk _}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
-  (** TODO: This isn't a very good implementation **)
   Fixpoint instantiateGoal (f : nat -> option expr) (g : Goal typ expr)
   : Goal typ expr :=
     match g with

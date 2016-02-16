@@ -30,10 +30,6 @@ Section subst.
   Context {RTypeOk_type : RTypeOk}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk _}.
-(*
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
-*)
 
   Class Subst :=
   { subst_lookup : uvar -> T -> option expr
@@ -94,41 +90,9 @@ Section subst.
                (sD us vs /\ get us = val us vs))
   }.
 
-(**
-  Class SubstInstantiatable :=
-  { subst_instantiate : (uvar -> option expr) -> T -> T }.
-
-  (** the range of [f] does not include anything in the domain of s **)
-  Definition disjoint_from (f : uvar -> option expr) (ls : list uvar) : Prop :=
-    (forall u, In u ls -> f u = None) /\
-    (forall u e, f u = Some e ->
-                 forall u', In u' ls -> mentionsU u' e = false).
-
-  Class SubstInstantiatableOk (S : Subst) (SO : SubstOk S) (SI : SubstInstantiatable) :=
-  { instantiate_sound
-    : forall f s s',
-        subst_instantiate f s = s' ->
-        WellFormed_subst s ->
-        forall tus tvs P (EApp : ExprTApplicative P) sD,
-          sem_preserves_if_ho P f ->
-          substD tus tvs s = Some sD ->
-          exists s'D,
-            substD tus tvs s' = Some s'D /\
-            P (fun us vs => sD us vs <-> s'D us vs)
-  ; WellFormed_instantiate
-    : forall f s s',
-        subst_instantiate f s = s' ->
-        WellFormed_subst s ->
-        disjoint_from f (subst_domain s) ->
-        WellFormed_subst s'
-  }.
-**)
-
   Class SubstOpen : Type :=
   { subst_drop : uvar -> T -> option T
   ; subst_weakenU : nat -> T -> T
-(*  ; subst_split : uvar -> nat -> T -> option (T * T) *)
-(*  ; strengthenV : nat -> nat -> T -> option T *)
   }.
 
   Fixpoint models (tus tvs : tenv typ) (tus' : tenv typ) (es : list (option expr))

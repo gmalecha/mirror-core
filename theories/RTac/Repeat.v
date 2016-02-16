@@ -23,7 +23,7 @@ Section parameterized.
 
   (** TODO: Write this with a positive **)
   Section repeater.
-    (** TODO: To be efficient, this must be written in CPS
+    (** TODO: To be efficient, this should be written in CPS
      **)
     Variable tac : rtac typ expr.
 
@@ -70,38 +70,3 @@ Section parameterized.
 End parameterized.
 
 Arguments REPEAT {_ _ _ _} _%nat _%rtac _ _ _ _ _ _ _.
-
-(*
-  Section repeater.
-    (** TODO: To be efficient, this must be written in CPS
-     **)
-    Variable tac : rtac typ expr subst.
-
-    Fixpoint REPEAT' (n : positive)
-             (onDone : Result typ expr subst -> Result typ expr subst)
-             (onContinue : Ctx typ expr -> subst -> Goal typ expr -> Result typ expr subst)
-             {struct n}
-    : Ctx typ expr -> subst -> expr -> Result typ expr subst :=
-      fun ctx sub gl =>
-        match n with
-          | xH => tac ctx sub gl
-          | xI n =>
-            match tac ctx sub gl with
-              | Fail => onDone (More sub (GGoal gl))
-              | More sub' gl' =>
-                runRTac (REPEAT' n onDone
-                                 (fun ctx' sub' gl' =>
-                                    runRTac (REPEAT' n onDone onContinue)
-                                            ctx' sub' gl'))
-                        ctx sub' gl'
-              | Solved s => onDone (Solved s)
-            end
-          | xO n =>
-            REPEAT' n onDone
-                    (fun ctx' sub' gl' =>
-                       runRTac (REPEAT' n onDone onContinue)
-                               ctx' sub' gl')
-           ctx sub gl
-        end.
-  End repeater.
-*)

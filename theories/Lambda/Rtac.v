@@ -285,54 +285,51 @@ Section tactics.
          eapply INSTANTIATE_sound.
   Qed.
 
-  (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD_AppL : forall tus tvs tx ty f x fD,
-      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
-      lambda_exprD tus tvs ty (App f x) =
-      match exprD tus tvs tx x with
-      | None => None
-      | Some xD => Some (AbsAppI.exprT_App fD xD)
-      end.
-  Proof.
-    simpl; intros.
-    rewrite lambda_exprD_App.
-    destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs tx x) eqn:?.
-    { erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
-      rewrite H. rewrite Heqo. reflexivity. }
-    { destruct (typeof_expr tus tvs x) eqn:?; auto.
-      destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 t ty) f) eqn:?; auto.
-      assert (t = tx).
-      { destruct (ExprFacts.lambda_exprD_single_type H Heqo1).
-        clear H0. eapply typ2_inj in x0; eauto.
-        destruct x0. symmetry. apply H0. }
-      { subst. rewrite Heqo. reflexivity. } }
-  Qed.
+  (* Lemma exprD_AppL : forall tus tvs tx ty f x fD, *)
+  (*     lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD -> *)
+  (*     lambda_exprD tus tvs ty (App f x) = *)
+  (*     match exprD tus tvs tx x with *)
+  (*     | None => None *)
+  (*     | Some xD => Some (AbsAppI.exprT_App fD xD) *)
+  (*     end. *)
+  (* Proof. *)
+  (*   simpl; intros. *)
+  (*   rewrite lambda_exprD_App. *)
+  (*   destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs tx x) eqn:?. *)
+  (*   { erewrite ExprTac.lambda_exprD_typeof_Some by eassumption. *)
+  (*     rewrite H. rewrite Heqo. reflexivity. } *)
+  (*   { destruct (typeof_expr tus tvs x) eqn:?; auto. *)
+  (*     destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 t ty) f) eqn:?; auto. *)
+  (*     assert (t = tx). *)
+  (*     { destruct (ExprFacts.lambda_exprD_single_type H Heqo1). *)
+  (*       clear H0. eapply typ2_inj in x0; eauto. *)
+  (*       destruct x0. symmetry. apply H0. } *)
+  (*     { subst. rewrite Heqo. reflexivity. } } *)
+  (* Qed. *)
 
-  (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD_AppR : forall tus tvs tx ty f x xD,
-      lambda_exprD tus tvs tx x = Some xD ->
-      lambda_exprD tus tvs ty (App f x) =
-      match lambda_exprD tus tvs (typ2 tx ty) f with
-      | None => None
-      | Some fD => Some (AbsAppI.exprT_App fD xD)
-      end.
-  Proof.
-    simpl; intros.
-    rewrite lambda_exprD_App.
-    erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
-    rewrite H.
-    reflexivity.
-  Qed.
+  (* Lemma exprD_AppR : forall tus tvs tx ty f x xD, *)
+  (*     lambda_exprD tus tvs tx x = Some xD -> *)
+  (*     lambda_exprD tus tvs ty (App f x) = *)
+  (*     match lambda_exprD tus tvs (typ2 tx ty) f with *)
+  (*     | None => None *)
+  (*     | Some fD => Some (AbsAppI.exprT_App fD xD) *)
+  (*     end. *)
+  (* Proof. *)
+  (*   simpl; intros. *)
+  (*   rewrite lambda_exprD_App. *)
+  (*   erewrite ExprTac.lambda_exprD_typeof_Some by eassumption. *)
+  (*   rewrite H. *)
+  (*   reflexivity. *)
+  (* Qed. *)
 
-  (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD_App_both_cases : forall tus tvs tx ty f x fD xD,
-      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
-      lambda_exprD tus tvs tx x = Some xD ->
-      lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
-  Proof.
-    intros. erewrite exprD_AppR by eassumption.
-    rewrite H. reflexivity.
-  Qed.
+  (* Lemma exprD_App_both_cases : forall tus tvs tx ty f x fD xD, *)
+  (*     lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD -> *)
+  (*     lambda_exprD tus tvs tx x = Some xD -> *)
+  (*     lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD). *)
+  (* Proof. *)
+  (*   intros. erewrite exprD_AppR by eassumption. *)
+  (*   rewrite H. reflexivity. *)
+  (* Qed. *)
 
   Theorem SimpleOpen_to_OpenAs_sound : forall tus tvs e ot,
       simple_open_spec tus tvs e ot ->

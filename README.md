@@ -1,12 +1,38 @@
 mirror-core
 ===========
 
-A framework for general, extensible, reflective decision procedures.
+MirrorCore is a library for extensible reflective automation. It includes two
+main components.
+
+- Lambda -- a simply typed lambda calculus to use as the reflective core
+  language
+- RTac -- a reflective tactic language modeled on Ltac.
+
+The system is described at a mathematical level in two works:
+
+- [Extensible Proof Engineering in Intensional Type Theory](https://gmalecha.github.io/publications/extensible-proof-engineering-in-intensional-type-theory.html) by Gregory Malecha (PhD Dissertation)
+- [Extensible and Efficient Automation through Reflective Tactics]() by Gregory Malecha & Jesper Bengtson (ESOP'16)
+
 
 Bugs
 ----
 
 If you find a bug, please report it on github: [[https://github.com/gmalecha/mirror-core/issues]]
+
+Install with OPAM
+-----------------
+Add the Coq repository:
+
+    opam repo add coq-released https://coq.inria.fr/opam/released
+
+and run:
+
+    opam install coq-mirror-core
+
+To get the beta versions of Coq, activate the repository:
+
+    opam repo add coq-core-dev https://coq.inria.fr/opam/core-dev
+
 
 Quick Start
 -----------
