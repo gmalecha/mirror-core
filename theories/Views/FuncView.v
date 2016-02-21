@@ -136,12 +136,6 @@ Section FuncView.
     rewrite <- fv_compat; assumption.
   Qed.
 
-  Global Instance SucceedsE_FuncView_ptrn_view {T : Type} x res
-         (p : ptrn A T) (pok : ptrn_ok p)
-  : SucceedsE x (ptrn_view FV p) res :=
-  { s_result := exists f : A, _ /\ Succeeds f p res
-  ; s_elim := Succeeds_ptrn_view (PVO:=FVO) pok }.
-
 End FuncView.
 
 Theorem FuncViewOk_id {T typ} (RT : RType typ) (RS : RSym T)

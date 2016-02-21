@@ -78,16 +78,12 @@ Section PartialView.
         specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
     Qed.
 
-  (*do num expr
-    Global Instance ptrn_view_SucceedsE
-           {x : func} {res : T} {p : ptrn A T}
-           {Sym_A : RSym A}
-           {pok : ptrn_ok p}
+    Global Instance SucceedsE_ptrn_view x res
+           (p : ptrn A T) (pok : ptrn_ok p)
     : SucceedsE x (ptrn_view p) res :=
-    { s_result := exists f : A, f_insert f = x /\ Succeeds f p res
-    ; s_elim := @Succeeds_ptrn_view p x res _
-    }.
-*)
+    { s_result := exists f : A, _ /\ Succeeds f p res
+    ; s_elim := Succeeds_ptrn_view pok }.
+
   End ptrns.
 
 End PartialView.
