@@ -130,7 +130,7 @@ End ProdFuncInst.
 
 Section MakeProd.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {HF : FuncView func (prod_func typ)}.
+  Context {HF : PartialView func (prod_func typ)}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
@@ -287,7 +287,7 @@ End MakeProd.
 
 Section Tactics.
   Context {typ func : Type}.
-  Context {FV : FuncView func (prod_func typ)}.
+  Context {FV : PartialView func (prod_func typ)}.
   Context {RType_typ : RType typ} {RSym_func : RSym func}.
   Context {RTypeOk_typ : @RTypeOk _ RType_typ}.
   Context {RSymOk_func : RSymOk RSym_func}.

@@ -90,7 +90,7 @@ End NatFuncInst.
 
 Section MakeNat.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func natFunc}.
+  Context {FV : PartialView func natFunc}.
 
   Definition fNat n := f_insert (pNat n).
   Definition fPlus := f_insert pPlus.
@@ -241,7 +241,7 @@ End MakeNat.
 
 Section PtrnNat.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func natFunc}.
+  Context {FV : PartialView func natFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)

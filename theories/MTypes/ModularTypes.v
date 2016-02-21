@@ -5,7 +5,7 @@ Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Eq.
 
 Require Import MirrorCore.TypesI.
-Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Views.TypeView.
 
 Universes Usmall Ularge.
 
@@ -430,10 +430,10 @@ Section parametric.
     { destruct pf. reflexivity. }
   Qed.
 
-  Global Instance FuncView_sym0 :
-    FuncView mtyp (symbol 0) := {
-    f_insert := tyBase0;
-    f_view := 
+  Global Instance TypeView_sym0
+  : PartialView mtyp (symbol 0) :=
+  { f_insert := tyBase0;
+    f_view :=
      fun x =>
        match x with
        | tyBase0 s => pSome s
@@ -441,10 +441,10 @@ Section parametric.
        end
   }.
 
-  Global Instance FuncView_sym1 :
-    FuncView mtyp (symbol 1 * mtyp) := {
-    f_insert := fun p => tyBase1 (fst p) (snd p);
-    f_view := 
+  Global Instance TypeView_sym1
+  : PartialView mtyp (symbol 1 * mtyp) :=
+  { f_insert := fun p => tyBase1 (fst p) (snd p);
+    f_view :=
      fun x =>
        match x with
        | tyBase1 s t => pSome (s, t)
@@ -452,10 +452,10 @@ Section parametric.
        end
   }.
 
-  Global Instance FuncView_sym2 :
-    FuncView mtyp ((symbol 2) * mtyp * mtyp) := {
-    f_insert := fun p => tyBase2 (fst (fst p)) (snd (fst p)) (snd p);
-    f_view := 
+  Global Instance TypeView_sym2
+  : PartialView mtyp ((symbol 2) * mtyp * mtyp) :=
+  { f_insert := fun p => tyBase2 (fst (fst p)) (snd (fst p)) (snd p);
+    f_view :=
      fun x =>
        match x with
        | tyBase2 s t u => pSome (s, t, u)
@@ -479,7 +479,6 @@ Arguments Typ1Ok_sym {_ _} _.
 Arguments Typ2Ok_sym {_ _} _.
 Arguments Typ2Ok_Fun {_ _}.
 
-Arguments FuncView_sym0 {_}.
-Arguments FuncView_sym1 {_}.
-Arguments FuncView_sym2 {_}.
-
+Arguments TypeView_sym0 {_}.
+Arguments TypeView_sym1 {_}.
+Arguments TypeView_sym2 {_}.

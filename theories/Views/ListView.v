@@ -76,13 +76,14 @@ Section ListFuncInst.
 End ListFuncInst.
 
 Section MakeList.
-  Context {typ func : Type} {FV : FuncView func (list_func typ)}.
+  Context {typ func : Type} {FV : PartialView func (list_func typ)}.
 
   Definition fNil t := f_insert (pNil t).
   Definition fCons t := f_insert (pCons t).
 
   Definition mkNil t : expr typ func := Inj (fNil t).
-  Definition mkCons (t : typ) (x xs : expr typ func) := App (App (Inj (fCons t)) x) xs.
+  Definition mkCons (t : typ) (x xs : expr typ func) :=
+    App (App (Inj (fCons t)) x) xs.
 
   Definition fptrnNil {T : Type} (p : Ptrns.ptrn typ T)
   : ptrn (list_func typ) T :=
@@ -172,7 +173,7 @@ End MakeList.
 
 Section PtrnList.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func (list_func typ)}.
+  Context {FV : PartialView func (list_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkNil typ func' in JavaFunc (with typ and func instantiated) *)

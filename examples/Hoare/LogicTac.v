@@ -25,7 +25,7 @@ Section parametric.
   Context {RSym_func : RSym func}.
   Context {RSymOk_func : RSymOk RSym_func}.
 
-  Context {FV : FuncView func (ilfunc typ)}.
+  Context {FV : PartialView func (ilfunc typ)}.
   Variable ilo : @logic_ops  _ _.
   Variable eo : @embed_ops  _ _.
   Context {iloOk : logic_opsOk ilo}.
@@ -72,7 +72,8 @@ Section parametric.
                  | simple apply fptrn_lentails_ok ]; eauto.
   Qed.
 
-  Definition intro_ptrn_all : ptrn (expr typ func) (OpenAs typ (expr typ func)) :=
+  Definition intro_ptrn_all : ptrn (expr typ func) (OpenAs typ (expr typ func)) 
+  :=
     por
       (appl (inj (ptrn_view _ (fptrn_lforall get (fun t => pmap (fun _ => t) ignore))))
             (pmap (fun body t => SimpleOpen_to_OpenAs (sAsAl t body)) get))
@@ -84,7 +85,8 @@ Section parametric.
                                              App (App (Inj (f_insert (ilf_entails l))) G)
                                                  (Red.beta (App body arg)))) get))).
 
-  Definition intro_ptrn_hyp : ptrn (expr typ func) (OpenAs typ (expr typ func)) :=
+  Definition intro_ptrn_hyp : ptrn (expr typ func) (OpenAs typ (expr typ func)) 
+  :=
     bin_op (fun _ P Q => AsHy P Q)
            (ptrn_view _ (fptrn_limpl ignore)) get get.
 
@@ -160,12 +162,15 @@ Section parametric.
   Proof.
     unfold ptrn_entails. intros.
     solve_stuff; try solve_ok; eauto using fptrn_lentails_ok.
+    eapply Succeeds_ptrn_view in H5; eauto with typeclass_instances.
+    2: eapply fptrn_lentails_ok.
+    Unshelve.
+    4: eapply FVO. 2: eauto.
+    forward_reason.
     eapply (@s_elim _ _ _ _ _ (@SucceedsE_fptrn_lentails _ _ _ _ _)) in H5.
     simpl in H5. forward_reason.
     subst.
-    do 6 eexists. split; [ reflexivity | ].
-    split; [ reflexivity | ].
-    eauto.
+    do 6 eexists. eauto.
   Qed.
 
   Let Expr_expr := @Expr_expr _ _ RType_typ _ RSym_func.
@@ -221,7 +226,8 @@ Section parametric.
             (typ2 (typ0 (F:=Prop)) (typ2 (typ0 (F:=Prop)) (typ0 (F:=Prop))))).
     do 8 intro; subst. simpl.
     clear. tauto.
-    eauto.
+    Unshelve.
+    2: eauto.
   Qed.
 
   Theorem intro_ptrn_all_sound : open_ptrn_sound intro_ptrn_all.

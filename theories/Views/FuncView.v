@@ -1,6 +1,7 @@
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.POption.
 Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Views.View.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.syms.SymProd.
@@ -8,40 +9,45 @@ Require Import MirrorCore.syms.SymProd.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
+Set Universe Polymorphism.
 
 Section FuncView.
-  Polymorphic Universes s t.
-  Polymorphic Variables func A : Type@{s}.
+  Universes s t.
+  Variables func A : Type@{s}.
+  Variable FV : PartialView func A.
+  Variable typ : Type@{t}.
+  Variable RType_typ : RType typ.
+  Variable Sym_func : RSym func.
+  Variable Sym_A : RSym A.
 
-  Polymorphic Class FuncView : Type@{s} :=
-  { f_insert : A -> func
-  ; f_view : func -> poption A
-  }.
+(*  Definition FuncView := PartialView func A. *)
 
-  Polymorphic Variable FV : FuncView.
+  Definition func_equiv (f : func) (a : A) : Prop :=
+    forall t, symAs a t = symAs f t.
 
-  Polymorphic Variable typ : Type@{t}.
-  Polymorphic Variable RType_typ : RType typ.
-  Polymorphic Variable Sym_func : RSym func.
-  Polymorphic Variable Sym_A : RSym A.
+  Definition FuncViewOk : Type :=
+    PartialViewOk FV func_equiv.
 
-  Polymorphic Class FuncViewOk : Type :=
-  { fv_ok : forall f a, f_view f = pSome a <-> f_insert a = f
-  ; fv_compat : forall (a : A) t,
-      symAs a t = symAs (f_insert a) t
-  }.
+  Variable FVO : FuncViewOk.
 
-  Polymorphic Lemma fv_okL {FVO : FuncViewOk} f a (H : f_view f = pSome a) :
+  Theorem fv_ok : forall f a, f_view f = pSome a <-> f_insert a = f.
+  Proof. exact (@pv_ok _ _ _ _ FVO). Qed.
+
+  Theorem fv_compat : forall (a : A) t,
+      symAs a t = symAs (f_insert a) t.
+  Proof. exact (@pv_compat _ _ _ _ FVO). Qed.
+
+  Lemma fv_okL f a (H : f_view f = pSome a) :
     f_insert a = f.
-  Proof using.
+  Proof using FVO.
     apply fv_ok; assumption.
   Qed.
 
-  Polymorphic Variable RTypeOk_typ : RTypeOk.
+  Variable RTypeOk_typ : RTypeOk.
 
-  Polymorphic Theorem fv_compat_typ (FVO : FuncViewOk)
+  Theorem fv_compat_typ
   : forall a, typeof_sym (f_insert a) = typeof_sym a.
-  Proof using RTypeOk_typ.
+  Proof using RTypeOk_typ FVO.
     intros.
     generalize (fv_compat a).
     unfold symAs. intros.
@@ -66,23 +72,24 @@ Section FuncView.
       eauto. }
   Defined.
 
-  Polymorphic Theorem fv_compat_val (FVO : FuncViewOk)
+  Theorem fv_compat_val
   : forall (a : A),
-        symD a = match fv_compat_typ _ a in _ = T return match T with
-                                                         | Some t => typD t
-                                                         | None => unit:Type
-                                                         end
+        symD a = match fv_compat_typ a in _ = T
+                       return match T with
+                              | Some t => typD t
+                              | None => unit:Type
+                              end
                  with
                  | eq_refl => symD (f_insert a)
                  end.
-  Proof using.
+  Proof using FVO.
     intros.
     assert (typeof_sym a = None \/ exists t, typeof_sym a = Some t).
     { clear. destruct (typeof_sym a); eauto. }
     destruct H.
     { generalize (symD a).
       generalize (symD (f_insert a)).
-      generalize (fv_compat_typ FVO a).
+      generalize (fv_compat_typ a).
       rewrite H.
       intro. rewrite e.
       clear. destruct y; destruct y; reflexivity. }
@@ -91,7 +98,7 @@ Section FuncView.
       unfold symAs.
       generalize dependent (symD a).
       generalize dependent (symD (f_insert a)).
-      generalize (fv_compat_typ FVO a).
+      generalize (fv_compat_typ a).
       destruct e.
       rewrite H.
       setoid_rewrite type_cast_refl; eauto.
@@ -99,10 +106,10 @@ Section FuncView.
       inv_all. assumption. }
   Qed.
 
-  Polymorphic Lemma fv_typeof_sym {FVO : FuncViewOk} f p t v
+  Lemma fv_typeof_sym f p t v
     (Hview : f_view f = pSome p) (Hfunc : symAs f t = Some v) :
     typeof_sym p = Some t.
-  Proof using.
+  Proof using FVO.
     destruct (fv_ok f p) as [H _].
     specialize (H Hview); subst.
     rewrite <- fv_compat in Hfunc.
@@ -112,9 +119,7 @@ Section FuncView.
     forward.
   Defined.
 
-  Polymorphic Variable FVO : FuncViewOk.
-
-  Global Polymorphic Instance Injective_exprD'_f_insert (a : A) (t : typ) (v : typD t)
+  Global Instance Injective_exprD'_f_insert (a : A) (t : typ) (v : typD t)
   : Injective (symAs (f_insert a) t = Some v) :=
   { result := symAs a t = Some v
   ; injection := fun H => _
@@ -123,7 +128,7 @@ Section FuncView.
     rewrite fv_compat; assumption.
   Defined.
 
-  Polymorphic Lemma symAs_finsertI (t : typ) (f : A)
+  Lemma symAs_finsertI (t : typ) (f : A)
         (P : option (typD t) -> Prop)
         (H : P (symAs f t)) :
     P (symAs (f_insert f) t).
@@ -131,164 +136,27 @@ Section FuncView.
     rewrite <- fv_compat; assumption.
   Qed.
 
-  Section ptrns.
-  Polymorphic Universe X L.
-  Context {T : Type@{X}}.
-
-  Polymorphic Definition ptrn_view (p : ptrn@{X X L} A T)
-  : ptrn@{s X L} func T :=
-    fun e _T good bad =>
-      match f_view e with
-      | pNone => bad e
-      | pSome f => p f _T good (fun _ => bad e)
-      end.
-
-  Global Polymorphic Instance ptrn_view_ok (p : ptrn A T)
-  : ptrn_ok p -> ptrn_ok (ptrn_view p).
-  Proof.
-    unfold ptrn_view, ptrn_ok, Succeeds, Fails.
-    intros.
-    destruct (f_view x).
-    { specialize (H a).
-      destruct H.
-      { left. destruct H. exists x0.
-        setoid_rewrite H. reflexivity. }
-      { right. setoid_rewrite H. reflexivity. } }
-    { eauto. }
-  Qed.
-
-  Polymorphic Theorem Succeeds_ptrn_view (p : ptrn A T) x res (H : ptrn_ok p)
-  : Succeeds x (ptrn_view p) res ->
-    exists f, f_insert f = x /\ Succeeds f p res.
-  Proof using RTypeOk_typ Sym_func Sym_A FVO.
-    unfold Succeeds, ptrn_view. intros.
-    destruct (f_view x) eqn:Heq.
-    { eapply fv_ok in Heq.
-      eexists; split; eauto.
-      destruct (H a).
-      { destruct H1. red in H1. setoid_rewrite H1 in H0.
-        setoid_rewrite H1. eauto. }
-      { red in H1. setoid_rewrite H1 in H0.
-        specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. } }
-    { exfalso.
-      specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
-  Qed.
-
-  Global Polymorphic Instance ptrn_view_SucceedsE
-         {x : func} {res : T} {p : ptrn A T}
-         {Sym_A : RSym A}
-         {pok : ptrn_ok p}
-  : SucceedsE x (ptrn_view p) res :=
-  { s_result := exists f : A, f_insert f = x /\ Succeeds f p res
-  ; s_elim := @Succeeds_ptrn_view p x res _
-  }.
-  End ptrns.
+  Global Instance SucceedsE_FuncView_ptrn_view {T : Type} x res
+         (p : ptrn A T) (pok : ptrn_ok p)
+  : SucceedsE x (ptrn_view FV p) res :=
+  { s_result := exists f : A, _ /\ Succeeds f p res
+  ; s_elim := Succeeds_ptrn_view (PVO:=FVO) pok }.
 
 End FuncView.
 
-
-Definition FuncView_id {T : Type} : FuncView T T :=
-{| f_insert := fun x => x
- ; f_view := @pSome _ |}.
-
 Theorem FuncViewOk_id {T typ} (RT : RType typ) (RS : RSym T)
-: @FuncViewOk T T (@FuncView_id T) typ _ _ _.
+: @FuncViewOk T T (@PartialView_id T) typ _ _ _.
 Proof.
   constructor.
   { split. inversion 1. reflexivity.
     intros; subst; reflexivity. }
-  { simpl. reflexivity. }
+  { simpl. unfold func_equiv. reflexivity. }
 Defined.
 
-Definition FuncView_trans {A B C : Type} (FVab : FuncView A B) (FVbc : FuncView B C) :
-  FuncView A C := {|
-    f_insert := fun a => f_insert (f_insert a);
-    f_view :=
-    fun a =>
-      match f_view a with
-      | pSome b => f_view b
-      | pNone => pNone
-      end
-  |}.
+(*
+Global Instance PartialView_FuncView {A B} : FuncView A B -> PartialView A B :=
+  fun x => x.
+*)
 
-Theorem FuncView_transOk {A B C typ : Type}
-        {RType_typ : RType typ}
-        {RSA : RSym A} {RSB : RSym B} {RSC : RSym C}
-        (FVab : FuncView A B) (FVbc : FuncView B C)
-        (FVabOk : @FuncViewOk _ _ FVab typ _ _ _)
-        (FVbcOk : @FuncViewOk _ _ FVbc typ _ _ _) :
-  @FuncViewOk _ _ (@FuncView_trans A B C FVab FVbc) typ _ _ _.
-Proof.
-  constructor.
-  { split; intros.
-    { destruct FVabOk as [? _]; destruct FVbcOk as [? _]; simpl in *.
-      remember (f_view f) as o; destruct o; [|congruence].
-      apply fv_ok0.
-      firstorder congruence. }
-    { destruct FVabOk as [? _]; destruct FVbcOk as [? _]; simpl in *.
-      apply fv_ok0 in H. rewrite H.
-      firstorder congruence. } }
-  { intros.
-    destruct FVabOk as [_ ?]; destruct FVbcOk as [_ ?]; simpl in *.
-    firstorder congruence. }
-Qed.
-
-Section FuncViewProd.
-  Context {A B C D typ : Type}.
-  Context {RType_typ : RType typ}.
-  Context {RTypeOk_typ : RTypeOk}.
-  Context {RSA : RSym A} {RSB : RSym B} {RSC : RSym C} {RSD : RSym D}.
-  Context {FVab : FuncView A B}.
-  Context {FVcd : FuncView C D}.
-  Context {FVabOk : @FuncViewOk _ _ FVab typ _ _ _}.
-  Context {FVcdOk : @FuncViewOk _ _ FVcd typ _ _ _}.
-
-  Context {Typ2Prod : Typ2 _ prod}.
-
-  Global Instance FuncView_prod : FuncView (A * C) (B * D) := {
-    f_insert := fun p => (f_insert (fst p), f_insert (snd p));
-    f_view :=
-      fun p =>
-        match f_view (fst p), f_view (snd p) with
-        | pSome a, pSome b => pSome (a, b)
-        | _, _ => pNone
-        end
-  }.
-
-  Theorem FuncView_prodOk
-  : @FuncViewOk _ _ FuncView_prod typ RType_typ _ _.
-  Proof.
-    constructor.
-    { intros; destruct f, a; simpl in *; split; intros.
-      { destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
-        remember (f_view a0) as o1; remember (f_view c) as o2.
-        destruct o1, o2; try congruence. inversion H; subst.
-        f_equal; [apply fv_ok0; rewrite Heqo1 | apply fv_ok1; rewrite Heqo2]; reflexivity. }
-      { inversion H; subst.
-        destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
-        specialize (fv_ok0 (f_insert b) b).
-        destruct fv_ok0 as [_ ?]. specialize (H0 eq_refl). rewrite H0.
-        specialize (fv_ok1 (f_insert d) d).
-        destruct fv_ok1 as [_ ?]. specialize (H1 eq_refl). rewrite H1.
-        reflexivity. } }
-    { intros; destruct a.
-      destruct FVabOk as [_ ?]; destruct FVcdOk as [_ ?]; simpl in *.
-      unfold RSymProd, symAs, typeof_prod in *. simpl in *.
-      specialize (fv_compat0 b); specialize (fv_compat1 d).
-      generalize dependent (symD (f_insert b)).
-      generalize dependent (symD (f_insert d)).
-      rewrite fv_compat_typ; eauto with typeclass_instances.
-      rewrite fv_compat_typ; eauto with typeclass_instances.
-      generalize dependent (symD b).
-      generalize dependent (symD d).
-      destruct (typeof_sym b); destruct (typeof_sym d); intros; auto.
-      { intros.
-        specialize (fv_compat1 t1).
-        specialize (fv_compat0 t0).
-        destruct (type_cast t (typ2 t0 t1)); auto.
-        rewrite type_cast_refl in *; eauto.
-        compute in fv_compat1, fv_compat0.
-        inv_all. subst. reflexivity. } }
-  Qed.
-
-End FuncViewProd.
+Existing Class FuncViewOk.
+Export MirrorCore.Views.View.
