@@ -5,8 +5,8 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
-src/reify_Lambda_shell.ml4
-src/reify_Lambda_plugin.mllib
+# src/reify_Lambda_shell.ml4
+# src/reify_Lambda_plugin.mllib
 
 # theories/CtxLogic.v
 # theories/OpenT.v
@@ -87,6 +87,8 @@ theories/Util/Compat.v
 theories/Poly/PolyPHOAS.v
 theories/Poly/PolyP_unify.v
 
+theories/LambdaWt/TypedExpr.v
+
 # theories/Views/Ptrns.v
 # theories/Views/FuncView.v
 # theories/Views/ViewSum.v
@@ -132,8 +134,8 @@ theories/Poly/PolyP_unify.v
 # theories/RTac/RTac.v
 # theories/RTac/InContext.v
 
-theories/Reify/Patterns.v
-theories/Reify/Reify.v
+# theories/Reify/Patterns.v
+# theories/Reify/Reify.v
 
 # examples/Cancel/Monoid.v
 # examples/Cancel/MonoidDemo.v
