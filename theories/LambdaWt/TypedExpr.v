@@ -172,49 +172,286 @@ Section simple_dep_types.
     End with_t.
   End member_eq_dec.
 
+  Arguments wtInj {_ _ _} _.
+  Arguments wtVar {_ _ _} _.
+
+  Definition codom (t : type) : type :=
+    match t with
+    | TArr _ c => c
+    | _ => t
+    end.
+
+  Definition dom (t : type) : type :=
+    match t with
+    | TArr d _ => d
+    | _ => t
+    end.
+
+  Section hlist_eq_dec.
+    Context {T : Type} {F : T -> Type}.
+    Variable F_dec : forall t (a b : F t), {a = b} + {a <> b}.
+    Fixpoint hlist_eq_dec {ls} (a : hlist F ls)
+    : forall b : hlist F ls, {a = b} + {a <> b}.
+    refine
+      match a as a in hlist _ ls
+            return forall b : hlist F ls, {a = b} + {a <> b}
+      with
+      | Hnil => fun x => left _
+      | Hcons x xs => fun b =>
+                        match F_dec x (hlist_hd b)
+                            , hlist_eq_dec _ xs (hlist_tl b)
+                        with
+                        | left pf , left pf' => left _
+                        | _ , _ => right _
+                        end
+      end.
+    { symmetry. apply (hlist_eta x). }
+    { rewrite hlist_eta. congruence. }
+    { clear - n. intro; subst. simpl in *. auto. }
+    { clear - n. intro; subst. simpl in *. auto. }
+    Defined.
+  End hlist_eq_dec.
+
+(*
+  Fixpoint member_check_eq {tus} {ts ts' : list type} {t : type}
+           (m1 : member (ts,t) tus)
+  : forall m2 : member (ts',t) tus, {exists pf : ts' = ts,
+                                        m1 = match pf with
+                                             | eq_refl => m2
+                                             end} +
+                                    {ts' <> ts \/
+                                     exists pf : ts' = ts,
+                                       not (eq m1 match pf with
+                                                  | eq_refl => m2
+                                                  end)} :=
+      match m1 in member _ tus
+            return forall m2 : member (ts',t) tus,
+                     {exists pf : ts' = ts,
+                         m1 = match pf with
+                              | eq_refl => m2
+                              end} +
+                     {ts' <> ts \/
+                      exists pf : ts' = ts,
+                        not (eq m1 match pf with
+                                   | eq_refl => m2
+                                   end)}
+      with
+      | MZ _ _ => fun m2 =>
+        match m2 in member _ (x :: xs)
+              return (ts,t) = x -> option (ts = ts')
+        with
+        | MZ _ _ => fun pf => Some (f_equal fst pf)
+        | MN _ _ => fun _ => None
+        end eq_refl
+      | MN _ m1' => fun m2 =>
+        match m2 in member _ (x :: xs)
+              return _
+        with
+        | MZ _ _ => fun _ => None
+        | MN _ m2' => fun rec => rec m2'
+        end (fun m2' => @member_check_eq _ _ _ _ m1' m2')
+      end.
+*)
+
+  Fixpoint member_check_eq {tus} {ts ts' : list type} {t : type}
+           (m1 : member (ts,t) tus)
+  : member (ts',t) tus -> option (ts = ts') :=
+      match m1 in member _ tus
+            return member (ts',t) tus -> option (ts = ts')
+      with
+      | MZ _ _ => fun m2 =>
+        match m2 in member _ (x :: xs)
+              return (ts,t) = x -> option (ts = ts')
+        with
+        | MZ _ _ => fun pf => Some (f_equal fst pf)
+        | MN _ _ => fun _ => None
+        end eq_refl
+      | MN _ m1' => fun m2 =>
+        match m2 in member _ (x :: xs)
+              return _
+        with
+        | MZ _ _ => fun _ => None
+        | MN _ m2' => fun rec => rec m2'
+        end (fun m2' => @member_check_eq _ _ _ _ m1' m2')
+      end.
+
+  (** TODO(gmalecha): Move to ExtLib **)
+  Definition pair_eq_dec {T U} (T_dec : forall a b : T, {a = b} + {a <> b})
+             (U_dec : forall a b : U, {a = b} + {a <> b})
+    : forall a b : T * U, {a = b} + {a <> b}.
+    refine
+      (fun a b =>
+         match a as a , b as b with
+         | (l,r) , (l',r') => match T_dec l l' , U_dec r r' with
+                              | left pf , left pf' => left _
+                              | _ , _ => right _
+                              end
+         end); subst; auto. congruence. congruence.
+  Defined.
+
+  Lemma wtVar_inj : forall tus tvs t v v',
+      @wtVar tus tvs t v = wtVar v' ->
+      v = v'.
+  Proof.
+    do 4 intro.
+    inversion 1.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply type_eq_dec.
+  Defined.
+  Lemma wtInj_inj : forall tus tvs t v v',
+      @wtInj tus tvs t v = wtInj v' ->
+      v = v'.
+  Proof.
+    do 4 intro.
+    inversion 1.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply type_eq_dec.
+  Defined.
+  Lemma wtAbs_inj : forall tus tvs d c e e',
+      @wtAbs tus tvs d c e = wtAbs e' ->
+      e = e'.
+  Proof.
+    intros. inversion H.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    all: eapply type_eq_dec.
+  Defined.
+  Lemma wtApp_inj : forall tus tvs d c f f' x x',
+      @wtApp tus tvs d c f x = wtApp f' x' ->
+      f = f' /\ x = x'.
+  Proof.
+    intros; inversion H.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H2; auto.
+    all: eapply type_eq_dec.
+  Defined.
+  Lemma wtUVar_inj : forall tus tvs ts t u u' xs xs',
+      @wtUVar tus tvs ts t u xs = wtUVar u' xs' ->
+      u = u' /\ xs = xs'.
+  Proof.
+    intros; inversion H.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H2; auto.
+    all: try apply list_eq_dec; eapply type_eq_dec.
+  Defined.
+
   Fixpoint wtexpr_eq_dec {tus tvs t} (a : wtexpr tus tvs t)
   : forall b, {a = b} + {a <> b}.
-(*
   refine
     match a as a in wtexpr _ _ t
           return forall b, {a = b} + {a <> b}
     with
-    | wtVar _ v => fun b =>
+    | wtVar v => fun b =>
       match b in wtexpr _ _ t'
             return forall x : member t' tvs,
-          { wtVar _ x = b } + { wtVar _ x <> b }
+          { wtVar x = b } + { wtVar x <> b }
       with
-      | wtVar _ v' => fun v =>
+      | wtVar v' => fun v =>
         match member_eq_dec (T_dec:=type_eq_dec) v v' with
         | left pf => left _
         | right pf => right _
         end
       | _ => fun _ => right _
       end v
-    | wtApp f x => fun b =>
+    | wtInj s => fun b =>
       match b in wtexpr _ _ t'
-            return forall f x, (forall f', {f = f'} + {f <> f'}) ->
-                               (forall x', {x = x'} + {x <> x'}) ->
-                               { wtApp f x = b } + { wtApp f x <> b }
+            return forall s : Esymbol t', { wtInj s = b } + { wtInj s <> b }
       with
-      | wtApp f' x' => fun f x rec_f rec_x =>
-
-        match rec_f f' , rec_x x' with
-        | left pf , left pf' => left _
-        | _ , _ => right _
+      | wtInj s' => fun s => match Esymbol_eq_dec s s' with
+                             | left pf => left (f_equal _ pf)
+                             | right _ => right _
+                             end
+      | _ => fun _ => right _
+      end s
+    | @wtApp _ _ d c f x => fun b =>
+      match b in wtexpr _ _ t'
+            return forall (f : wtexpr _ _ (TArr d t'))
+                          (x : wtexpr _ _ d),
+          (forall f', {f = f'} + {f <> f'}) ->
+          (forall x', {x = x'} + {x <> x'}) ->
+          { wtApp f x = b } + { wtApp f x <> b }
+      with
+      | @wtApp _ _ d' c' f' x' => fun f x rec_f rec_x =>
+        match type_eq_dec d' d with
+        | left pf =>
+          match rec_f match pf with
+                      | eq_refl => f'
+                      end
+              , rec_x match pf with
+                      | eq_refl => x'
+                      end with
+          | left pf , left pf' => left _
+          | _ , _ => right _
+          end
+        | right _ => right _
         end
       | _ => fun _ _ _ _ => right _
       end f x
           (fun a => wtexpr_eq_dec _ _ _ f a)
           (fun a => wtexpr_eq_dec _ _ _ x a)
-    | _ => _
-    end.
-*)
-  Admitted.
+    | @wtAbs _ _ d c e => fun b =>
+      match b as b in wtexpr _ _ t
+            return forall e : wtexpr _ _ (codom t),
+          (forall e', {e = e'} + {e <> e'}) ->
+          {match t as t return wtexpr _ (dom t :: _) (codom t) -> wtexpr _ _ t -> Prop with
+           | TArr _ _ => fun e b => wtAbs e = b
+           | _ => fun _ _ => False
+           end e b} + {match t as t return wtexpr _ (dom t :: _) (codom t) -> wtexpr _ _ t -> Prop with
+                       | TArr _ _ => fun e b => (wtAbs e <> b)%type
+                       | _ => fun _ _ => True
+                       end e b}
+      with
+      | wtAbs e' => fun _ rec => match rec e' with
+                                 | left pf => left _
+                                 | right _ => right _
+                                 end
+      | _ => fun _ _ => right _
+      end e (fun x => wtexpr_eq_dec _ _ _ e x)
+    | @wtUVar _ _ ts t u xs => fun b =>
+      match b as b in wtexpr _ _ t
+            return forall (u : member (_,t) tus)
+                          (xs : hlist (wtexpr tus tvs) _),
+                      (forall xs', {xs = xs'} + {xs <> xs'}) ->
+                      {wtUVar u xs = b} + {wtUVar u xs <> b}
+      with
+      | @wtUVar _ _ ts' t' u' xs' => fun u xs rec =>
+        match list_eq_dec type_eq_dec ts' ts with
+        | left pf =>
+          match member_eq_dec u match pf with
+                                | eq_refl => u'
+                                end
+              , rec match pf with
+                    | eq_refl => xs'
+                    end
+          with
+          | left _ , left _ => left _
+          | _ , _ => right _
+          end
+        | right _ => right _
+        end
+      | _ => fun _ _ _ => right _
+      end u xs (fun xs' => hlist_eq_dec (wtexpr_eq_dec _ _) xs xs')
+    end; try solve [ clear; intro H; inversion H | subst; reflexivity | congruence ].
+  - intro. eapply wtVar_inj in H. auto.
+  - intro. eapply wtInj_inj in H. auto.
+  - intro. subst. eapply wtApp_inj in H. tauto.
+  - intro; subst. eapply wtApp_inj in H. tauto.
+  - intro. inversion H. clear - n H1. congruence.
+  - destruct t0; auto; clear. intro H; inversion H.
+  - destruct t0; auto; clear. intro H; inversion H.
+  - destruct t1; auto; clear. intro H; inversion H.
+  - intro. eapply wtAbs_inj in H. tauto.
+  - destruct t0; auto. clear; intro H; inversion H.
+  - eapply pair_eq_dec. eapply list_eq_dec. eapply type_eq_dec. eapply type_eq_dec.
+  - subst. intro. apply wtUVar_inj in H. tauto.
+  - subst. intro. apply wtUVar_inj in H; tauto.
+  - intro. inversion H. congruence.
+  Defined.
 
-  Arguments wtInj {_ _ _} _.
-  Arguments wtVar {_ _ _} _.
 
+  (** Lifting **)
   Fixpoint wtexpr_lift {tus tvs t} tvs' tvs'' (a : wtexpr tus (tvs'' ++ tvs) t)
   : wtexpr tus (tvs'' ++ tvs' ++ tvs) t :=
     match a in wtexpr _ _ t return wtexpr _ _ t with
@@ -282,6 +519,7 @@ Section simple_dep_types.
       end
     end.
 
+  (** Substitution **)
   Fixpoint subst {tus} {tvs tvs'} {t}
            (xs : hlist (wtexpr tus tvs) tvs')
            (e : wtexpr tus tvs' t)
@@ -299,6 +537,7 @@ Section simple_dep_types.
     | wtUVar u ys => wtUVar u (hlist_map (fun t => subst xs) ys)
     end.
 
+  (** Instantiation **)
   Fixpoint inst {tus tus'} {tvs} {t}
            (xs : hlist (fun tst => forall tvs,
                             hlist (wtexpr tus tvs) (fst tst) ->
@@ -340,7 +579,7 @@ Section simple_dep_types.
       Context {tus : list Tuvar} {tvs : list type}.
       Variable unify : forall {t}, wtexpr tus tvs t -> wtexpr tus tvs t ->
                                    Subst tus -> option (Subst tus).
-                   
+
       Fixpoint unify_list {ts} (e1 e2 : hlist (wtexpr tus tvs) ts)
                (s : Subst tus) {struct e1}
         : option (Subst tus) :=
@@ -356,34 +595,11 @@ Section simple_dep_types.
         end e2.
     End unify_list.
 
-  Fixpoint member_check_eq {tus} {ts ts' : list type} {t : type}
-           (m1 : member (ts,t) tus)
-  : member (ts',t) tus -> option (ts = ts') :=
-      match m1 in member _ tus
-            return member (ts',t) tus -> option (ts = ts')
-      with
-      | MZ _ _ => fun m2 =>
-        match m2 in member _ (x :: xs)
-              return (ts,t) = x -> option (ts = ts')
-        with
-        | MZ _ _ => fun pf => Some (f_equal fst pf)
-        | MN _ _ => fun _ => None
-        end eq_refl
-      | MN _ m1' => fun m2 =>
-        match m2 in member _ (x :: xs)
-              return _
-        with
-        | MZ _ _ => fun _ => None
-        | MN _ m2' => fun rec => rec m2'
-        end (fun m2' => @member_check_eq _ _ _ _ m1' m2')
-      end.
-
     Variable unifyRec : forall {tus tvs t} (e1 e2 : wtexpr tus tvs t)
                                (s : Subst tus), option (Subst tus).
 
 
 
-  (** TODO(gmalecha): Incomplete **)
   Fixpoint unify {tus tvs t} (e1 e2 : wtexpr tus tvs t) (s : Subst tus)
            {struct e1}
   : option (Subst tus).
