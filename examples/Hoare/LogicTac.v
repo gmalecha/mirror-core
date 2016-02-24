@@ -43,15 +43,7 @@ Section parametric.
     appl (appl (inj t) (pmap (fun t x => (x,t)) l))
          (pmap (fun v tx => let '(t,x) := tx in f t x v) r).
 
-  Theorem ptrn_ok_bin_op {T U V W} f t l r :
-    ptrn_ok t -> ptrn_ok l -> ptrn_ok r -> ptrn_ok (@bin_op T U V W f t l r).
-  Proof.
-    intros. unfold bin_op.
-    repeat first [ eassumption
-                 | eapply ptrn_ok_appl
-                 | eapply ptrn_ok_inj
-                 | eapply ptrn_ok_pmap ].
-  Qed.
+  Instance ptrn_ok_bin_op : ltac:(PtrnOk @bin_op) := _.
 
   Definition ptrn_entails {T U V}
              (t : ptrn typ V)
@@ -60,19 +52,9 @@ Section parametric.
   : ptrn (expr typ func) U :=
     appl (appl (inj (ptrn_view _ (fptrn_lentails t))) a) b.
 
-  Instance ptrn_entails_ok {T U V}
-  : forall t a b, ptrn_ok t -> ptrn_ok a -> ptrn_ok b ->
-                  ptrn_ok (@ptrn_entails T U V t a b).
-  Proof.
-    intros.
-    unfold ptrn_entails.
-    repeat first [ simple eapply ptrn_ok_appl
-                 | simple eapply ptrn_ok_inj
-                 | simple eapply ptrn_view_ok
-                 | simple apply fptrn_lentails_ok ]; eauto.
-  Qed.
+  Instance ptrn_entails_ok : ltac:(PtrnOk @ptrn_entails) := _.
 
-  Definition intro_ptrn_all : ptrn (expr typ func) (OpenAs typ (expr typ func)) 
+  Definition intro_ptrn_all : ptrn (expr typ func) (OpenAs typ (expr typ func))
   :=
     por
       (appl (inj (ptrn_view _ (fptrn_lforall get (fun t => pmap (fun _ => t) ignore))))
@@ -85,54 +67,14 @@ Section parametric.
                                              App (App (Inj (f_insert (ilf_entails l))) G)
                                                  (Red.beta (App body arg)))) get))).
 
-  Definition intro_ptrn_hyp : ptrn (expr typ func) (OpenAs typ (expr typ func)) 
+  Definition intro_ptrn_hyp : ptrn (expr typ func) (OpenAs typ (expr typ func))
   :=
     bin_op (fun _ P Q => AsHy P Q)
            (ptrn_view _ (fptrn_limpl ignore)) get get.
 
-  Ltac solve_ok :=
-    repeat first [ simple eapply ptrn_ok_appl
-                 | simple eapply ptrn_ok_inj
-                 | simple eapply ptrn_ok_pmap
-                 | simple eapply ptrn_ok_ignore
-                 | simple eapply ptrn_ok_get
-                 | simple eapply ptrn_view_ok
-                 | simple eapply fptrn_lforall_ok; intros
-                 | simple eapply fptrn_limpl_ok; intros
-                 | simple eapply ptrn_entails_ok ].
-
   Local Existing Instance RSym_ilfunc.
   Local Existing Instance RSym_func.
   Local Existing Instance RType_typ.
-
-  Lemma lambda_exprD_App_both_cases : forall tus tvs tx ty f x fD xD,
-      lambda_exprD tus tvs (typ2 tx ty) f = Some fD ->
-      lambda_exprD tus tvs tx x = Some xD ->
-      lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
-  Proof.
-    intros. autorewrite with exprD_rw.
-    erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
-    rewrite H. rewrite H0.
-    reflexivity.
-  Qed.
-
-  Ltac solve_stuff :=
-    try lazymatch goal with
-        | |- ptrn_ok _ => solve_ok
-        | |- _ =>
-          match goal with
-          | H : Succeeds _ _ _ |- _ =>
-            first [ simple eapply Succeeds_appl in H; [ forward_reason; subst; solve_stuff | clear H; solve_ok | clear H; solve_ok ]
-                  | simple eapply Succeeds_pmap in H; [ forward_reason; subst; solve_stuff | clear H; solve_ok ]
-                  | simple eapply Succeeds_get in H; subst; solve_stuff
-                  | simple eapply Succeeds_inj in H; [ forward_reason; subst; solve_stuff | clear H; solve_ok ]
-                  | (eapply Succeeds_ptrn_view in H;
-                     [ | | solve [ eauto with typeclass_instances ] | clear H ]) ;
-                    [ forward_reason; subst; solve_stuff
-                    | eauto with typeclass_instances
-                    | solve_ok ] ]
-          end
-        end.
 
   Theorem Succeeds_bin_op {T U V W} f t l r e res
   : ptrn_ok t -> ptrn_ok l -> ptrn_ok r ->
@@ -144,9 +86,7 @@ Section parametric.
       Succeeds el l rl /\
       Succeeds er r rr.
   Proof.
-    unfold bin_op.
-    intros.
-    solve_stuff; solve_ok; auto.
+    unfold bin_op. intros. ptrn_elim; subst.
     do 6 eexists. repeat (split; [ reflexivity | ]); auto.
   Qed.
 
@@ -160,17 +100,8 @@ Section parametric.
       Succeeds ta a ar /\
       Succeeds tb b br.
   Proof.
-    unfold ptrn_entails. intros.
-    solve_stuff; try solve_ok; eauto using fptrn_lentails_ok.
-    eapply Succeeds_ptrn_view in H5; eauto with typeclass_instances.
-    2: eapply fptrn_lentails_ok.
-    Unshelve.
-    4: eapply FVO. 2: eauto.
-    forward_reason.
-    eapply (@s_elim _ _ _ _ _ (@SucceedsE_fptrn_lentails _ _ _ _ _)) in H5.
-    simpl in H5. forward_reason.
-    subst.
-    do 6 eexists. eauto.
+    unfold ptrn_entails. intros. ptrn_elim; subst.
+    do 6 eexists; split; eauto.
   Qed.
 
   Let Expr_expr := @Expr_expr _ _ RType_typ _ RSym_func.
@@ -181,34 +112,32 @@ Section parametric.
 
   Local Opaque Red.beta.
 
+
+  Hint Opaque pmap appl appr inj ptrn_view get ignore : typeclass_instances.
+
+
   Theorem intro_ptrn_hyp_sound : open_ptrn_sound intro_ptrn_hyp.
   Proof.
     red; intros.
     unfold intro_ptrn_hyp in H.
-    eapply Succeeds_bin_op in H; solve_ok.
+    eapply Succeeds_bin_op in H; eauto with typeclass_instances.
     forward_reason. subst.
-    eapply Succeeds_ptrn_view in H1; solve_ok; try eassumption.
-    forward_reason. subst.
-    eapply (@s_elim _ _ _ _ _ (@SucceedsE_fptrn_limpl _ _ _ _ _)) in H0.
-    simpl in H0. forward_reason. subst.
-    solve_stuff.
+    ptrn_elim; subst.
     red.
-    unfold Ctx.propD, exprD_typ0.
+    unfold propD, exprD_typ0.
     red_exprD. intros.
     forwardy; inv_all; subst.
-    assert (x = typ0 (F:=Prop) /\ x6 = typ0 (F:=Prop) /\ x0 = typ0 (F:=Prop)).
+    assert (x = typ0 (F:=Prop) /\ x2 = typ0 (F:=Prop) /\ x6 = typ0 (F:=Prop)).
     { unfold symAs in H; simpl in H.
-      destruct (ilo x); try congruence.
-      destruct (type_cast (typ2 x6 (typ2 x0 (typ0 (F:=Prop)))) (typ2 x (typ2 x x))); try congruence.
-      clear H.
-      apply typ2_inj in r; eauto; destruct r.
-      apply typ2_inj in H1; eauto; destruct H1.
+      destruct (ilo x6); try congruence.
+      forwardy. clear H0 H.
+      apply typ2_inj in y; eauto; destruct y.
+      apply typ2_inj in H0; eauto; destruct H0.
       unfold Rty in *. subst. clear. tauto. }
-    destruct H1 as [ ? [ ? ? ] ].
-    subst.
-    rewrite H2. rewrite H3.
+    destruct H0 as [ ? [ ? ? ] ]; subst.
+    rewrite H2. rewrite H1.
     do 2 eexists; split; [ reflexivity | split; [ reflexivity | ] ].
-    clear H2 H3 H0.
+    clear H2 H1.
     unfold symAs in H; simpl in H.
     rewrite ilo_Prop in H.
     rewrite type_cast_refl in H; eauto.
@@ -226,86 +155,69 @@ Section parametric.
             (typ2 (typ0 (F:=Prop)) (typ2 (typ0 (F:=Prop)) (typ0 (F:=Prop))))).
     do 8 intro; subst. simpl.
     clear. tauto.
-    Unshelve.
-    2: eauto.
   Qed.
 
   Theorem intro_ptrn_all_sound : open_ptrn_sound intro_ptrn_all.
   Proof.
     red. intros.
     unfold intro_ptrn_all in H.
-    eapply Succeeds_por in H; solve_ok.
+    eapply Succeeds_por in H; eauto 100 with typeclass_instances.
     destruct H.
-    - solve_stuff.
-      eapply (@s_elim _ _ _ _ _ (@SucceedsE_fptrn_lforall _ _ _ _ _ _ _ _)) in H1.
-      simpl in H1.
-      forward_reason. subst.
+    - ptrn_elim; subst.
       eapply SimpleOpen_to_OpenAs_sound; eauto.
-      solve_stuff.
-      + clear H x1.
-        red.
-        unfold Ctx.propD, exprD_typ0. simpl. intros.
-        forwardy.
-        inv_all. subst.
-        unfold symAs in H. simpl in H.
-        destruct (ilo x2) eqn:?; try congruence.
-        forwardy. inv_all. subst.
-        generalize y. intro. clear H.
-        eapply typ2_inj in y; [ | eassumption ].
-        unfold Rty in y. destruct y; subst.
-        eexists; split; [ eassumption | ].
-        assert (i = match
+      simpl. unfold propD, exprD_typ0. simpl. intros.
+      forwardy.
+      solve_denotation.
+      unfold symAs in H. simpl in H.
+      destruct (ilo x6) eqn:?; try congruence.
+      forwardy; inv_all; subst.
+      clear H. generalize y.
+      eapply typ2_inj in y; [ | eassumption ].
+      unfold Rty in y; destruct y; subst.
+      eexists; split; [ eassumption | ].
+      assert (i = match
                   eq_sym (typ0_cast (F:=Prop)) in (_ = X)
                   return (ILogic.ILogicOps X)
                 with
                 | eq_refl => ILogic.ILogicOps_Prop
                 end).
-        { clear - ilo_Prop Heql.
-          revert Heql. change_rewrite ilo_Prop.
-          inversion 1. reflexivity. }
-        subst. clear - RTypeOk_typ.
-        unfold castD. simpl.
-        unfold typ2_cast_quant, AbsAppI.exprT_App.
-        generalize dependent (typ0_cast (F:=Prop)).
-        generalize dependent (typ2_cast x4 (typ0 (F:=Prop))).
-        generalize dependent (typ2_cast (typ2 x4 (typ0 (F:=Prop))) (typ0 (F:=Prop))).
-        rewrite (UIP_refl y0); clear y0; simpl.
-        revert x1.
-        generalize ((typD (typ2 x4 (typ0 (F:=Prop))))).
-        generalize (typD (typ2 (typ2 x4 (typ0 (F:=Prop))) (typ0 (F:=Prop)))).
-        generalize (typD (typ0 (F:=Prop))).
-        intros; subst; simpl in *.
-        assumption.
-    - eapply Succeeds_ptrn_entails in H;
-        try solve_ok; eauto using fptrn_lentails_ok, fptrn_lforall_ok.
-      forward_reason; subst.
-      solve_stuff;
-        try solve_ok; eauto using fptrn_lentails_ok, fptrn_lforall_ok.
-      eapply (@s_elim _ _ _ _ _ (SucceedsE_fptrn_lforall _ _ _ _ _)) in H3;
-        try solve_ok; eauto using fptrn_lentails_ok, fptrn_lforall_ok.
-      simpl in H3. forward_reason. subst.
-      solve_stuff. clear ilo_Prop.
-      clear H. destruct x4. simpl.
-      unfold Ctx.propD, exprD_typ0. simpl.
+      { clear - ilo_Prop Heql.
+        revert Heql. change_rewrite ilo_Prop.
+        inversion 1. reflexivity. }
+      subst. clear - RTypeOk_typ.
+      unfold castD. simpl.
+      unfold typ2_cast_quant, AbsAppI.exprT_App.
+      generalize dependent (typ0_cast (F:=Prop)).
+      generalize dependent (typ2_cast x7 (typ0 (F:=Prop))).
+      generalize dependent (typ2_cast (typ2 x7 (typ0 (F:=Prop))) (typ0 (F:=Prop))).
+      rewrite (UIP_refl y); clear y; simpl.
+      revert x1.
+      generalize ((typD (typ2 x7 (typ0 (F:=Prop))))).
+      generalize (typD (typ2 (typ2 x7 (typ0 (F:=Prop))) (typ0 (F:=Prop)))).
+      generalize (typD (typ0 (F:=Prop))).
+      intros; subst; simpl in *.
+      assumption.
+    - ptrn_elim; subst.
+      simpl.
+      unfold propD, exprD_typ0. simpl.
       intros.
       forwardy; inv_all; subst.
-      assert (x2 = x0 /\ x = x11 /\ x7 = typ2 x3 x11 /\ x0 = x11).
+      assert (x2 = typ2 x19 x18 /\ x = x18 /\ x7 = x4 /\ x = x4).
       { clear - H H3 RTypeOk_typ Typ2Ok_RFun.
         unfold symAs in *.
         simpl in *.
-        destruct (ilo x2); try congruence.
-        destruct (ilo x0); try congruence.
+        destruct (ilo x18); try congruence.
+        destruct (ilo x4); try congruence.
         forwardy. clear H2 H1 H H0.
         apply typ2_inj in y; eauto.
         eapply typ2_inj in y0; eauto.
         destruct y; destruct y0.
         eapply typ2_inj in H2; eauto.
         unfold Rty in *. destruct H2.
-        subst. subst.
         tauto. }
-      destruct H2 as [ ? [ ? [ ? ? ] ] ]; subst.
-      eapply exprD_weakenV with (Expr_expr:=Expr_expr)(tvs':=x3::nil) in H6; eauto.
-      eapply exprD_weakenV with (Expr_expr:=Expr_expr)(tvs':=x3::nil) in H4; eauto.
+      destruct H2 as [ ? [ ? [ ? ? ] ] ]; subst. subst.
+      eapply exprD_weakenV with (Expr_expr:=Expr_expr)(tvs':=x19::nil) in H6; eauto.
+      eapply exprD_weakenV with (Expr_expr:=Expr_expr)(tvs':=x19::nil) in H4; eauto.
       forward_reason.
       erewrite ExprTac.lambda_exprD_AppL; eauto.
       Focus 2.
@@ -313,14 +225,14 @@ Section parametric.
       red_exprD.
       rewrite <- (@fv_compat _ _ _ _ _ _ _ FVO).
       rewrite H. reflexivity.
-      generalize (Red.beta_sound tus (tvs ++ x3 :: nil) (App x1 e') x11).
+      generalize (Red.beta_sound tus (tvs ++ x19 :: nil) (App x21 e') x4).
       erewrite lambda_exprD_App_both_cases; eauto.
       intros; forwardy.
       rewrite H7. eexists; split; [ reflexivity | ].
       intros.
       unfold symAs in H, H3. simpl in H, H3.
-      destruct (ilo x11) eqn:Hilo; try congruence.
-      specialize (iloOk x11).
+      destruct (ilo x4) eqn:Hilo; try congruence.
+      specialize (iloOk x4).
       rewrite Hilo in iloOk.
       rewrite type_cast_refl in *; eauto.
       inv_all; subst.
@@ -333,23 +245,22 @@ Section parametric.
       clear H7 H2 H4 H0.
       unfold typ2_cast_quant.
       generalize (typ0_cast (F:=Prop)).
-      generalize (typ2_cast (typ2 x3 x11) x11).
-      generalize (typ2_cast x3 x11).
-      generalize (typ2_cast x11 (typ0 (F:=Prop))).
-      generalize (typ2_cast x11 (typ2 x11 (typ0 (F:=Prop)))).
-      generalize dependent (typD (typ2 x11 (typ2 x11 (typ0 (F:=Prop))))).
-      generalize dependent (typD (typ2 x11 (typ0 (F:=Prop)))).
-      generalize dependent (typD (typ2 (typ2 x3 x11) x11)).
-      generalize dependent (typD (typ2 x3 x11)).
-      generalize dependent (typD (typ0 (F:=Prop))).
+      generalize (typ2_cast x4 (typ2 x4 (typ0 (F:=Prop)))).
+      generalize (typ2_cast x4 (typ0 (F:=Prop))).
+      generalize (typ2_cast x19 x4).
+      generalize (typ2_cast (typ2 x19 x4) x4).
+      clear ilo_Prop.
+      repeat match goal with
+             | |- context [ @eq Type ?X _ ] => generalize dependent X
+             end.
       do 12 intro; subst; simpl.
       intros.
       eapply ILogic.lforallR.
       intros.
-      rewrite (H2 (HList.Hcons x2 HList.Hnil)); clear H2.
-      rewrite (H0 (HList.Hcons x2 HList.Hnil)); clear H0.
-      specialize (H (HList.hlist_app vs (HList.Hcons x2 HList.Hnil))).
-      specialize (H9 x2).
+      rewrite (H2 (HList.Hcons x1 HList.Hnil)); clear H2.
+      rewrite (H0 (HList.Hcons x1 HList.Hnil)); clear H0.
+      specialize (H (HList.hlist_app vs (HList.Hcons x1 HList.Hnil))).
+      specialize (H9 x1).
       rewrite H1 in *.
       rewrite H. assumption.
   Qed.
@@ -359,11 +270,8 @@ Section parametric.
 
   Instance RtacSound_INTRO_all : RtacSound INTRO_all.
   Proof.
-    unfold INTRO_all.
-    unfold Expr_expr.
     eapply INTRO_ptrn_sound; eauto.
-    - unfold intro_ptrn_all.
-      eapply ptrn_ok_por; solve_ok.
+    - eauto 100 with typeclass_instances.
     - eapply intro_ptrn_all_sound.
   Qed.
 
@@ -375,8 +283,7 @@ Section parametric.
     unfold INTRO_hyp.
     unfold Expr_expr.
     eapply INTRO_ptrn_sound; eauto.
-    - unfold intro_ptrn_hyp.
-      eapply ptrn_ok_bin_op; solve_ok.
+    - eauto with typeclass_instances.
     - eapply intro_ptrn_hyp_sound.
   Qed.
 

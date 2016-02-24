@@ -155,3 +155,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Hint Opaque EASSUMPTION : typeclass_instances.

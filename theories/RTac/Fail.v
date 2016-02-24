@@ -27,3 +27,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Hint Opaque FAIL : typeclass_instances.

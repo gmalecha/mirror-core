@@ -36,4 +36,6 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque AT_GOAL : typeclass_instances.
+
 Arguments AT_GOAL {typ expr} _%rtac _ _ _ _ _ _ _.

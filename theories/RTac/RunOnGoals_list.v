@@ -343,5 +343,7 @@ Section runOnGoals_list_proof.
   := runOnGoals_list_sound.
 End runOnGoals_list_proof.
 
+Hint Opaque ON_EACH runOnGoals_list : typeclass_instances.
+
 Arguments ON_EACH {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.
 Arguments runOnGoals_list {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.

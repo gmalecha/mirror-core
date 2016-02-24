@@ -10,6 +10,14 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 Set Universe Polymorphism.
 
+(** * Partial Views **)
+(** This file defines PartialViews which allows you to 'view' one type
+ ** as another type.
+ ** TODO:
+ ** The related concept in Haskell is a Prism. It would be great to
+ ** leverage that work, but I'm not certain how to reason about it.
+ **)
+
 Section PartialView.
   Universes s t.
   Variables func A : Type@{s}.

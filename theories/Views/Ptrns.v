@@ -10,9 +10,44 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Universe Polymorphism.
 
-Section setoid.
-  Set Printing Universes.
+(** * Patterns **)
+(** This file defines patterns which are essentially pattern matches on
+ ** values that can operate at higher levels of abstraction. For example,
+ ** you can run a pattern on an abstract type. The type of patterns is
+ **   ptrn X T
+ ** which pattern matches [X] producing a [T] if the matching succeds.
+ **
+ ** For the most part, you should use combinators to build patterns, but
+ ** sometimes you need to implement them yourself. In that case, you need
+ ** to prove two reasoning principles:
+ ** 1) Your pattern is ok/parametric. This is captured by the type
+ **         ptrn_ok p
+ **    The tactic 'PtrnOk p' will generate the appropriate theorem type for
+ **    your pattern. In general, you need to prove this in a somewhat manual
+ **    process but type-class resolution will often discharge [ptrn_ok p]
+ **    obligations when [p] is built from ok patterns.
+ **
+ ** 2) You also want to prove what you learn from knowing that your pattern
+ **    succeeds. This is also encoded in a type class.
+ **       SucceedsE e p v
+ **    states that if pattern [p] succeeds when run on [e] and returns [v],
+ **    then some property (expressed by s_result) is guaranteed.
+ **)
 
+(** TODO(gmalecha): Move to ExtLib **)
+Section Anyof.
+  Context {T : Type}.
+  Variable (P : T -> Prop).
+
+  Fixpoint Anyof (ls : list T) : Prop :=
+    match ls with
+    | List.nil => False
+    | List.cons l ls => P l \/ Anyof ls
+    end.
+End Anyof.
+
+
+Section setoid.
   Polymorphic Universe R.
   Polymorphic Universe U.
   Polymorphic Universe L.
@@ -231,78 +266,7 @@ Section setoid.
     right. compute. reflexivity.
   Qed.
 
-
 (*
-  Polymorphic Definition MtR : relation Mt :=
-    (fun a b => forall x, ((eq ==> eq) ==> eq) (a x) (b x))%signature.
-
-  Polymorphic Definition tptrnR {U} : relation (tptrn U) :=
-    (eq ==> MtR)%signature.
-
-  Polymorphic Definition Mt (t : Type) : Type :=
-    forall T : Type, (t -> T) -> T.
-
-  Polymorphic Definition tptrn (t : Type) : Type :=
-    X -> Mt t.
-
-  Polymorphic Definition ptret {t : Type@{U}} (v : t) : tptrn t :=
-    fun e _ good => good v.
-
-  Polymorphic Definition pdefault {T : Type@{U}} (p : ptrn T) (d : T) : tptrn T :=
-    fun e _T good => p e _T good (fun _ => good d).
-
-  Polymorphic Definition run_tptrn {T} (p : tptrn T) (x : X) : T :=
-    p x T (fun x => x).
-
-  Theorem pdefault_sound
-  : forall T (P : X -> _ -> Prop) (p : ptrn T) (d : T) x
-           (Hpokp : ptrn_ok p),
-      (Proper (eq ==> MtR ==> iff) P) ->
-      (forall r, Succeeds x p r -> P x (ptret r x)) ->
-      P x (ptret d x) ->
-      P x (pdefault p d x).
-  Proof.
-    intros.
-    destruct (Hpokp x).
-    { destruct H2.
-      eapply H; [ reflexivity | | eapply H0 ]; eauto.
-      compute. intros.
-      red in H2. erewrite <- H3; try reflexivity.
-      eapply H2. }
-    { eapply H; [ reflexivity | | eapply H1 ].
-      compute; intros.
-      erewrite <- H3; try reflexivity.
-      eapply H2. }
-  Qed.
-
-  Polymorphic Definition pdefault_id (p : ptrn X) : tptrn X :=
-    fun e => pdefault p e e.
-
-
-  Polymorphic Definition run_default {T} (p : ptrn T) (def : T) (x : X) : T :=
-    Eval compute in run_tptrn (pdefault p def) x.
-
-  Theorem run_default_sound
-  : forall {T} (P : X -> T -> Prop) (p : ptrn T) (d : T) x,
-      ptrn_ok p ->
-      (forall res,
-          Succeeds x p res ->
-          P x res) ->
-      P x d ->
-      P x (run_default p d x).
-  Proof using.
-    intros.
-    change (@run_default T) with (fun p d => @run_tptrn T (pdefault p d)).
-    unfold run_tptrn.
-    unfold pdefault.
-    destruct (H x).
-    { destruct H2. red in H2.
-      rewrite H2. auto. }
-    { red in H2. rewrite H2. auto. }
-  Qed.
-
-*)
-
   Instance Injective_Succeeds_por {T} p1 p2 x res
   : ptrn_ok p1 -> ptrn_ok p2 -> Injective (Succeeds x (por p1 p2) res) :=
   { result := _
@@ -317,73 +281,42 @@ Section setoid.
   : Injective (Succeeds x get res) :=
   { result := _
   ; injection := @Succeeds_get _ _ }.
-
-(*
-  Ltac drive_Succeeds :=
-    let tc := eauto 100 with typeclass_instances in
-    repeat match goal with
-           | H : Succeeds _ (por _ _) _ |- _ =>
-             eapply Succeeds_por in H ; [ destruct H | clear H ; tc | clear H ; tc ]
-           | H : Succeeds _ (pmap _ _) _ |- _ =>
-             eapply Succeeds_pmap in H ; [ destruct H as [ ? [ ? ? ] ] ; subst | clear H ; tc ]
-           | H : Succeeds _ (inj _) _ |- _ =>
-             eapply Succeeds_inj in H ; [ destruct H as [ ? [ ? ? ] ] ; subst | clear H ; tc ]
-           | H : Succeeds _ (app _ _) ?X |- _ =>
-             eapply Succeeds_app in H ;
-               [ destruct H as [ ? [ ? [ ? [ ? ? ] ] ] ] ; subst ;
-                 try (is_var X; destruct X; simpl in * )
-               | clear H ; tc
-               | clear H ; tc ]
-           | H : Succeeds _ get _ |- _ =>
-             eapply Succeeds_get in H ; subst
-           end.
 *)
 
-Global Polymorphic Class SucceedsE {T : Type} (f : X) (p : ptrn T) (v : T) := {
-  s_result : Prop;
-  s_elim : Succeeds f p v -> s_result
-}.
+  Global Polymorphic Class SucceedsE {T : Type} (f : X) (p : ptrn T) (v : T) :=
+  { s_result : Prop
+  ; s_elim : Succeeds f p v -> s_result
+  }.
 
-Global Polymorphic Instance pmap_SucceedsE {T U : Type} {x : X} {f : T -> U} {p : ptrn T} {res : U}
-         {pok : ptrn_ok p} :
-  SucceedsE x (pmap f p) res := {
-  s_result := exists y, Succeeds x p y /\ res = f y;
-  s_elim := Succeeds_pmap pok
-}.
+  Global Polymorphic Instance pmap_SucceedsE {T U : Type} {x : X}
+         {f : T -> U} {p : ptrn T} {res : U}
+         {pok : ptrn_ok p}
+  : SucceedsE x (pmap f p) res :=
+  { s_result := exists y, Succeeds x p y /\ res = f y
+  ; s_elim := Succeeds_pmap pok
+  }.
 
-Global Polymorphic Instance por_SucceedsE {T : Type} {x : X}  {p q : ptrn T} {res : T}
-         {pok_p : ptrn_ok p} {pok_q : ptrn_ok q} :
-  SucceedsE x (por p q) res := {
-  s_result := Succeeds x p res \/ Succeeds x q res;
-  s_elim := Succeeds_por pok_p pok_q
-}.
+  Global Polymorphic Instance por_SucceedsE {T : Type} {x : X}  {p q : ptrn T}
+         {res : T} {pok_p : ptrn_ok p} {pok_q : ptrn_ok q}
+  : SucceedsE x (por p q) res :=
+  { s_result := Succeeds x p res \/ Succeeds x q res
+  ; s_elim := Succeeds_por pok_p pok_q
+  }.
 
-Global Polymorphic Instance get_SucceedsE {x res : X} :
-  SucceedsE x get res := {
-  s_result := x = res;
-  s_elim := @Succeeds_get x res
-}.
+  Global Polymorphic Instance get_SucceedsE {x res : X}
+  : SucceedsE x get res :=
+  { s_result := x = res
+  ; s_elim := @Succeeds_get x res
+  }.
 
-Global Polymorphic Instance ignore_SucceedsE {x : X} (res : unit) :
-  SucceedsE x ignore res := {
-  s_result := res = tt;
-  s_elim :=
-    fun _ => match res as x return (x = tt) with
+  Global Polymorphic Instance ignore_SucceedsE {x : X} (res : unit)
+  : SucceedsE x ignore res :=
+  { s_result := res = tt
+  ; s_elim :=
+      fun _ => match res as x return (x = tt) with
                | tt => eq_refl
-             end
-}.
-
-
-  Section Anyof.
-    Context {T : Type}.
-    Variable (P : T -> Prop).
-
-    Fixpoint Anyof (ls : list T) : Prop :=
-      match ls with
-      | List.nil => False
-      | List.cons l ls => P l \/ Anyof ls
-      end.
-  End Anyof.
+               end
+  }.
 
   Inductive _Forall (A : Type) (P : A -> Prop) : list A -> Prop :=
     _Forall_nil : _Forall P nil
@@ -419,16 +352,38 @@ Global Polymorphic Instance ignore_SucceedsE {x : X} (res : unit) :
 End setoid.
 
 
+Hint Opaque por pfail get ignore pmap pors : typeclass_instances.
+
 Polymorphic Definition Mrebuild@{R L U} {X Y T : Type@{U}} (f : X -> Y) (m : M@{R U L} X T)
 : M@{R U L} Y T :=
   fun _T good bad => m _T good (fun x => bad (f x)).
+
+Local Ltac make_type p :=
+  lazymatch type of p with
+  | ptrn ?F ?T -> ?rest =>
+    refine (forall x : ptrn F T,
+               @ptrn_ok F T x ->
+               let mt := p x in
+               ltac:(make_type mt))
+  | forall x : ?T, _ =>
+    refine (forall x : T,
+               let mt := p x in
+               ltac:(make_type mt))
+  | ptrn _ _ => refine (ptrn_ok p)
+  end.
+
+(** * Tactic for Building the type of ptrn_ok proofs **)
+Ltac PtrnOk p :=
+  let x := constr:(ltac:(make_type p)) in
+  let x' := eval cbv zeta in x in
+  refine x'.
 
 Ltac ptrn_elim :=
   repeat
    match goal with
    | H:Succeeds ?f ?p ?v
      |- _ =>
-         let z := constr:(_:SucceedsE f p v) in
+         let z := constr:(ltac:(eauto 100 with typeclass_instances) : SucceedsE f p v) in
          apply (@s_elim _ _ _ _ _ z) in H; do 2 red in H; destruct_ands H
    end.
 
@@ -445,3 +400,129 @@ Ltac ptrn_contradict :=
 Arguments get {_} _ _ _ _.
 Arguments ignore {_} _ _ _ _.
 Arguments Succeeds {X T} _ _ _ : rename.
+
+
+(** TODO: There should be a general proof for this *)
+Ltac solve_ok :=
+  let do_it H :=
+      let x := fresh in
+      intro x; destruct x; simpl; try solve [ right; compute; reflexivity ] ;
+      match goal with
+      | H' : _ |- _ =>
+        lazymatch H' with
+        | H => fail 2
+        | _ =>
+          let H'' := fresh in
+          let x'' := fresh in
+          destruct (H H') as [ [ x'' H'' ] | H'' ] ;
+          [ left ; exists x'' ; try solve [ compute ; intros; eapply H'' ]
+          | right ; try solve [ compute; intros; eapply H'' ] ]
+        end
+      end
+  in
+  intros;
+  match goal with
+  | H : ptrn_ok ?X |- ptrn_ok (_ ?X) => do_it H
+  | |- ptrn_ok _ =>
+    let x := fresh in
+    intro x; destruct x; simpl; auto;
+    try solve [ right; compute; reflexivity
+              | left; eexists; compute; reflexivity ]
+  end.
+
+Definition Mtwo {T U V W X} (f : T -> U -> X)
+           (p1 : ptrn T V) (p2 : V -> ptrn U W)
+           (x1 : T) (x2 : U) : M X W :=
+  fun _T good bad =>
+    p1 x1 _T (fun v => p2 v x2 _T good (fun u => bad (f x1 u)))
+       (fun t => bad (f t x2)).
+Definition Myes {X T} (m : M X T) res : Prop :=
+  forall T good bad, m T good bad = good res.
+Definition Mno {X T} (m : M X T) x : Prop :=
+  forall T good bad, m T good bad = bad x.
+Definition Mok {X T} (m : M X T) (x : X) : Prop :=
+  (exists y, Myes m y) \/ Mno m x.
+Lemma Mtwo_ok {T U V W X} f p1 p2 x1 x2
+  : ptrn_ok p1 ->
+    (forall v, ptrn_ok (p2 v)) ->
+    Mok (@Mtwo T U V W X f p1 p2 x1 x2) (f x1 x2).
+Proof.
+  intros.
+  destruct (H x1) as [ [ ? ? ] | ].
+  - destruct (H0 x x2) as [ [ ? ? ] | ].
+    + left. exists x0.
+      unfold Mtwo, Succeeds in *.
+      red; intros.
+      rewrite H1. apply H2.
+    + right. red in H1. red in H2.
+      red. compute; intros.
+      rewrite H1. apply H2.
+  - right. red in H1.
+    compute; intros. apply H1.
+Qed.
+
+Lemma Mrebuild_Succeeds : forall {X Y} (p' : ptrn X Y) {T} p f v x,
+    (forall T0 (good : T -> T0) (bad : X -> T0),
+        Mrebuild (X:=Y) f (p x) good bad = good v) ->
+    (forall T0 good bad, p x T0 good (fun x : Y => p' (f x) T0 bad (fun _ : X => good v)) = p x T0 good bad) ->
+    Succeeds x p v.
+Proof.
+  red. intros.
+  unfold Mrebuild in *.
+  specialize (H T0 good (fun x => @p' x T0 bad (fun _ => good v))).
+  simpl in H.
+  rewrite H0 in H. assumption.
+Qed.
+
+Lemma Mtwo_Succeeds : forall {X Y Z} (p2' : ptrn Z Y) {T T'}
+                             (p1 : ptrn X T) (p2 : T -> ptrn Y T') (f : X -> Y -> Z) v arg logic,
+    ptrn_ok p1 ->
+    (forall T0 (good : _ -> T0) bad,
+        Mtwo (X:=Z) f p1 p2 arg logic good bad = good v) ->
+    (forall T0 (good : _ -> T0) bad x logic, p2 x logic T0 good
+                                                (fun u : Y => p2' (f arg u) T0 bad (fun _ : Z => good v)) = p2 x logic T0 good bad) ->
+    exists val,
+      Succeeds arg p1 val /\ Succeeds logic (p2 val) v.
+Proof.
+  intros. unfold Mtwo in *.
+  destruct (H arg); clear H.
+  - destruct H2. exists x.
+    split; auto.
+    red in H. setoid_rewrite H in H0.
+    red. intros. specialize (H0 T0 good).
+    specialize (H0 (fun z => p2' z T0 bad (fun _ => good v))).
+    simpl in H0.
+    rewrite H1 in H0. assumption.
+  - clear H1.
+    unfold Fails in H2.
+    setoid_rewrite H2 in H0.
+    specialize (H0 bool (fun _ => true) (fun _ => false)). inversion H0.
+Qed.
+
+(** TODO(gmalecha): ExtLib? **)
+Lemma unit_irr : forall a b : unit, a = b.
+Proof. destruct a; destruct b; reflexivity. Qed.
+
+
+Ltac solve_Succeeds :=
+  match goal with
+  | |- Succeeds ?e (?p' _ _ _ _) ?v -> _ =>
+    destruct e;
+    let H := fresh in
+    try solve [ intro H ; specialize (H bool (fun _ => true) (fun _ => false)); inversion H
+              | do 2 eexists; split; eauto;
+                red in H; simpl in H ;
+                eapply Mtwo_Succeeds with (p2':=p' _ _ ignore (fun _ => get)) in H; eauto ]
+  | |- Succeeds ?e (?p' _ _) ?v -> _ =>
+    destruct e;
+    let H := fresh in
+    try solve [ intro H ; specialize (H bool (fun _ => true) (fun _ => false)); inversion H
+              | intros; eexists; split; auto;
+                red in H; simpl in H ;
+                eapply (@Mrebuild_Succeeds _ _ (p' _ get)) in H; [ auto | reflexivity ] ]
+  | |- Succeeds ?e ?p' ?v -> _ =>
+    destruct e;
+    let H := fresh in
+    try solve [ intro H ; specialize (H bool (fun _ => true) (fun _ => false)); inversion H
+              | split; auto using unit_irr ]
+  end.
