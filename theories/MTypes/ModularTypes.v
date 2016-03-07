@@ -1,3 +1,4 @@
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.SigT.
 Require Import ExtLib.Data.POption.
@@ -250,6 +251,14 @@ Section parametric.
     | _ , _ => None
     end.
   subst. reflexivity.
+  Defined.
+
+  Instance RelDec_eq_mtyp : RelDec (@eq mtyp) :=
+  { rel_dec := fun a b => if mtyp_dec a b then true else false }.
+  Instance RelDec_Correct_eq_mtyp : RelDec_Correct RelDec_eq_mtyp.
+  Proof. constructor. unfold rel_dec. simpl.
+         intros. destruct (mtyp_dec x y); try tauto.
+         split; intros; congruence.
   Defined.
 
   Inductive mtyp_acc (a : mtyp) : mtyp -> Prop :=
