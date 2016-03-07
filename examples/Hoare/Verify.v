@@ -65,24 +65,25 @@ Module ImpVerify (I : ImpLang).
     Let ExprOk_expr := ExprOk_expr fs'.
     Local Existing Instance ExprOk_expr.
 
-    Instance FuncView_imp_func : FuncView.FuncView func imp_func :=
-      ViewSum.FuncView_left (ViewSum.FuncView_right FuncView.FuncView_id).
+    Global Instance FuncView_imp_func : PartialView func imp_func :=
+      ViewSum.PartialView_left (ViewSum.PartialView_right View.PartialView_id).
 
-    Instance FuncViewOk_imp_func : @FuncView.FuncViewOk func imp_func _ _ _ _ _.
+    Global Instance FuncViewOk_imp_func :
+      @FuncView.FuncViewOk func imp_func _ _ _ _ _.
     Proof.
-      eapply ViewSum.FuncViewOk_left.
-      eapply ViewSum.FuncViewOk_right.
+      eapply ViewSum.PartialViewOk_left.
+      eapply ViewSum.PartialViewOk_right.
       eapply FuncView.FuncViewOk_id.
     Qed.
 
-    Instance FuncView_ilfunc : FuncView.FuncView func (ILogicFunc.ilfunc typ) :=
-      ViewSum.FuncView_right FuncView.FuncView_id.
+    Global Instance FuncView_ilfunc : PartialView func (ILogicFunc.ilfunc typ) :=
+      ViewSum.PartialView_right View.PartialView_id.
 
-    Instance FuncViewOk_ilfunc
+    Global Instance FuncViewOk_ilfunc
     : FuncView.FuncViewOk FuncView_ilfunc _
                           (@ILogicFunc.RSym_ilfunc typ _ _ lops eops _ _).
     Proof.
-      eapply ViewSum.FuncViewOk_right.
+      eapply ViewSum.PartialViewOk_right.
       eapply FuncView.FuncViewOk_id.
     Qed.
 
@@ -93,9 +94,9 @@ Module ImpVerify (I : ImpLang).
             (Ptrns.appr
                (Ptrns.appr
                   (Ptrns.inj
-                     (FuncView.ptrn_view FuncView_ilfunc
-                                         (ILogicFunc.fptrn_lentails
-                                            (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
+                     (ptrn_view FuncView_ilfunc
+                                (ILogicFunc.fptrn_lentails
+                                   (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
                   Ptrns.ignore) Ptrns.ignore)
             false in
       AT_GOAL (fun _ _ gl => if check gl then yes else no).
@@ -162,8 +163,6 @@ Module ImpVerify (I : ImpLang).
     Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
       SeqA_lemma : I.SeqA_rule.
 
-
-
     Definition sym_eval_no_mem (n : nat) (rest : imp_tac) : imp_tac :=
       REC n (fun rec : imp_tac =>
                let rec : imp_tac := simplify_tac ;; rec in
@@ -178,6 +177,7 @@ Module ImpVerify (I : ImpLang).
                           | EAPPLY_THEN Assert_tail_lemma rest ]))
           IDTAC.
 
+    (** TODO(gmalecha): This looks like it belongs elsewhere **)
     Lemma runTacK_sound : forall t, rtacK_sound t -> rtac_sound (runTacK t).
     Proof.
       unfold rtacK_sound, rtac_sound, runTacK, rtac_spec, rtacK_spec. intros.
@@ -202,13 +202,13 @@ Module ImpVerify (I : ImpLang).
                   (Ptrns.appr
                      (Ptrns.appr
                         (Ptrns.inj
-                           (FuncView.ptrn_view FuncView_ilfunc
-                                               (ILogicFunc.fptrn_lentails
-                                                  (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
+                           (ptrn_view FuncView_ilfunc
+                                      (ILogicFunc.fptrn_lentails
+                                         (Ptrns.pmap (fun _ _ _ : unit => true) Ptrns.ignore))))
                         Ptrns.ignore) Ptrns.ignore) false e); assumption.
     Qed.
 
-    Instance RtacSound_SIMPLIFY : RtacSound SIMPLIFY.
+    Global Instance RtacSound_SIMPLIFY : RtacSound SIMPLIFY.
     Proof.
       eapply mkRtacSound.
       eapply SIMPLIFY_sound.
@@ -217,10 +217,11 @@ Module ImpVerify (I : ImpLang).
       eapply RedAll.red_id_sound.
     Qed.
 
-    Instance RtacSound_INTRO_Hyp : RtacSound INTRO_Hyp.
+    Global Instance RtacSound_INTRO_Hyp : RtacSound INTRO_Hyp.
     Proof.
       eapply (RtacSound_INTRO_hyp lops eops).
       Unshelve.
+      eauto with typeclass_instances.
       reflexivity.
     Qed.
 
@@ -260,23 +261,13 @@ Module ImpVerify (I : ImpLang).
       unfold INTRO_All, INTRO_all.
       eapply INTRO_ptrn_sound.
       { unfold intro_ptrn_all.
-        repeat first [ simple eapply Ptrns.ptrn_ok_por
-                     | simple eapply Ptrns.ptrn_ok_pmap
-                     | simple eapply Ptrns.ptrn_ok_ignore
-                     | simple eapply Ptrns.ptrn_ok_get
-                     | simple eapply Ptrns.ptrn_ok_appl
-                     | simple eapply Ptrns.ptrn_ok_inj
-                     | simple eapply FuncView.ptrn_view_ok
-                     | simple eapply ILogicFunc.fptrn_lforall_ok ; intros
-                     | simple eapply ptrn_entails_ok ]. }
+        eauto 100 with typeclass_instances. }
       { eapply intro_ptrn_all_sound with (ilo := lops) (eo := eops).
         - eapply lops_ok.
-        - eapply ViewSum.FuncViewOk_right.
+        - eapply ViewSum.PartialViewOk_right.
           eapply FuncView.FuncViewOk_id.
         - reflexivity. }
     Qed.
-
-
 
     Instance RL_Assign_tail : ReifiedLemma Assign_tail_lemma.
     Proof. prove_RL Assign_tail_rule. Qed.
@@ -326,14 +317,17 @@ Module ImpVerify (I : ImpLang).
     Instance RL_Assert_tail : ReifiedLemma Assert_tail_lemma.
     Proof. prove_RL Assert_tail_rule. Qed.
 
-    Theorem sym_eval_no_mem_sound
+    Hint Opaque simplify_tac INTRO_All EAPPLY_THEN EAPPLY_THEN_1 : typeclass_instances.
+
+    Instance sym_eval_no_mem_sound
       : forall n t, RtacSound t -> RtacSound (sym_eval_no_mem n t).
     Proof.
       intros. unfold sym_eval_no_mem.
       rtac_derive_soundness_with.
     Qed.
 
-    (** TODO(gmalecha): This starts the arithmetic reasoning solver
+    (** NOTE: This starts the arithmetic reasoning solver
+     ** TODO(gmalecha): This should be refactored
      **)
     Lemma eq_trans_hyp
       : forall a b c d: nat,
@@ -344,11 +338,11 @@ Module ImpVerify (I : ImpLang).
     Proof. intros; subst. reflexivity. Qed.
 
     Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    andI_lemma : and_split.
+      andI_lemma : and_split.
     Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    eq_trans_hyp_lemma : eq_trans_hyp.
+      eq_trans_hyp_lemma : eq_trans_hyp.
     Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    prove_Prop_lemma : prove_Prop.
+      prove_Prop_lemma : prove_Prop.
 
     Definition ptrn_plus : Ptrns.ptrn imp_func unit :=
       fun e X yes no =>
@@ -357,21 +351,17 @@ Module ImpVerify (I : ImpLang).
         | x => no x
         end.
 
-    Instance ptrn_ok_ptrn_plus : Ptrns.ptrn_ok ptrn_plus.
-    Proof. red. destruct x; simpl; auto;
-                  try solve [ right; compute; reflexivity
-                            | left; eexists; compute; reflexivity ].
-    Qed.
+    Global Instance ptrn_ok_ptrn_plus : ltac:(Ptrns.PtrnOk ptrn_plus).
+    Proof. Ptrns.solve_ok. Qed.
 
     Lemma Succeeds_ptrn_plus e res :
       Ptrns.Succeeds e ptrn_plus res ->
       e = natPlus /\ res = tt.
-    Proof.
-      destruct res; split; auto.
-      revert H.
-      destruct e; compute;
-        try solve [ refine (fun x => x _ (fun _ => natPlus) (fun x => x)) ].
-    Qed.
+    Proof. Ptrns.solve_Succeeds. Qed.
+
+    Global Instance SucceedsE_ptrn_plus e res
+    : Ptrns.SucceedsE e ptrn_plus res :=
+    { s_elim := Succeeds_ptrn_plus e res }.
 
     Definition ptrn_nat : Ptrns.ptrn imp_func nat :=
       fun e X yes no =>
@@ -380,11 +370,8 @@ Module ImpVerify (I : ImpLang).
         | x => no x
         end.
 
-    Instance ptrn_ok_ptrn_nat : Ptrns.ptrn_ok ptrn_nat.
-    Proof. red. destruct x; simpl; auto;
-                  try solve [ right; compute; reflexivity
-                            | left; eexists; compute; reflexivity ].
-    Qed.
+    Instance ptrn_ok_ptrn_nat : ltac:(Ptrns.PtrnOk ptrn_nat).
+    Proof. Ptrns.solve_ok. Qed.
 
     Lemma Succeeds_ptrn_nat e res :
       Ptrns.Succeeds e ptrn_nat res ->
@@ -393,6 +380,9 @@ Module ImpVerify (I : ImpLang).
       destruct e; compute; try solve [ refine (fun x => x _ _ (fun x => x)) ].
     Qed.
 
+    Global Instance SucceedsE_ptrn_nat e res
+    : Ptrns.SucceedsE e ptrn_nat res :=
+    { s_elim := Succeeds_ptrn_nat e res }.
 
     Definition ptrn_eq {X : Type} (p : Ptrns.ptrn typ X)
     : Ptrns.ptrn imp_func X :=
@@ -402,285 +392,181 @@ Module ImpVerify (I : ImpLang).
         | x => no x
         end.
 
-    Instance ptrn_ok_ptrn_eq {X : Type} (p : Ptrns.ptrn typ X)
-    : Ptrns.ptrn_ok p -> Ptrns.ptrn_ok (ptrn_eq p).
-    Proof.
-      red. destruct x; simpl; auto;
-             try solve [ right; compute; reflexivity
-                       | left; eexists; compute; reflexivity ].
-      destruct (H t); [ left | right ].
-      { destruct H0. exists x. compute. red in H0.
-        intros. rewrite H0. reflexivity. }
-      { compute. intros. rewrite H0. reflexivity. }
-    Qed.
+    Global Instance ptrn_ok_ptrn_eq : ltac:(Ptrns.PtrnOk @ptrn_eq).
+    Proof. Ptrns.solve_ok. Qed.
 
     Lemma Succeeds_ptrn_eq {T : Type} e (res : T) p :
       Ptrns.ptrn_ok p ->
       Ptrns.Succeeds e (ptrn_eq p) res ->
       exists t, e = pEq t /\
                 Ptrns.Succeeds t p res.
+    Proof. intro; Ptrns.solve_Succeeds. Qed.
+
+
+    Require MirrorCore.Views.Ptrns.
+
+    Definition nat_red : RedAll.partial_reducer typ func :=
+      let p : Ptrns.ptrn (expr typ func) (expr typ func) :=
+          Views.Ptrns.pmap (fun ab : nat * nat =>
+                              let (a,b) := ab in
+                              mkImp (pNat (a + b)))
+            (Ptrns.app (Ptrns.appl (Ptrns.inj (ptrn_view _ ptrn_plus))
+                                   (Views.Ptrns.pmap (fun x _ => x) (Ptrns.inj (ptrn_view _ ptrn_nat)))) (Ptrns.inj (ptrn_view _ ptrn_nat)))
+      in fun f xs =>
+           let e := AppN.apps f xs in
+           Ptrns.run_ptrn p e e.
+
+    Ltac solve_ok :=
+      repeat first [ eapply Ptrns.ptrn_ok_pmap
+                   | eapply Ptrns.ptrn_ok_app
+                   | eapply Ptrns.ptrn_ok_appl
+                   | eapply Ptrns.ptrn_ok_inj
+                   | eapply View.ptrn_view_ok
+                   | eauto with typeclass_instances
+                   ].
+
+    Typeclasses Transparent FuncView.FuncViewOk.
+    Definition TypeView_FuncView : forall F A pv ty (rty : RType ty) s1 s2,
+        @FuncView.FuncViewOk F A pv ty rty s1 s2 ->
+        View.PartialViewOk pv (FuncView.func_equiv _ _) :=
+      fun _ _ _ _ _ _ _ x => x.
+
+    Hint Extern 1 (@View.PartialViewOk _ _ _ _) =>
+    eapply TypeView_FuncView; eauto 1 with typeclass_instances
+                                           : typeclass_instances.
+
+
+    Theorem nat_red_sound : RedAll.partial_reducer_ok nat_red.
     Proof.
-      intros.
-      destruct e; compute in H0;
-        try solve [ specialize (H0 _ (fun _ => true) (fun _ => false));
-                    inversion H0 ].
-      destruct (H t).
-      { destruct H1. exists t. split; auto.
-        red in H1.
-        setoid_rewrite H1 in H0.
-        red. intros. rewrite H1. eauto. }
-      { red in H1. setoid_rewrite H1 in H0.
-        specialize (H0 _ (fun _ => true) (fun _ => false));
-          inversion H0. }
+      red. intros. simpl.
+      unfold nat_red.
+      revert H.
+      eapply Ptrns.run_ptrn_sound.
+      { eauto 100 with typeclass_instances. }
+      { red. red. red. intros; subst. reflexivity. }
+      { intros.
+        Ptrns.ptrn_elim. subst. subst.
+        generalize dependent (AppN.apps e es); intros; subst.
+        destruct x; simpl in *.
+        assert (t = ModularTypes.tyBase0 tyValue).
+        { autorewrite with exprD_rw in H0.
+          cbn in H0.
+          destruct (ModularTypes.mtyp_cast tsym _ t
+                     (ModularTypes.tyBase0 tyValue)). auto. inversion H0. }
+        subst. cbn in H0.
+        inv_all. subst.
+        cbn. eexists; split; eauto. }
+      { intros. eexists; split; try eassumption.
+        auto. }
     Qed.
 
+    Lemma refl_eq_nat : forall a : nat, a = a.
+    Proof. reflexivity. Qed.
 
-  Require MirrorCore.Views.Ptrns.
+    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
+    eq_nat_refl_lemma : refl_eq_nat.
+    Instance RL_eq_nat_refl_lemma : ReifiedLemma eq_nat_refl_lemma :=
+      mkRL eq_nat_refl_lemma refl_eq_nat.
 
-  Definition nat_red : RedAll.partial_reducer typ func :=
-    let p : Ptrns.ptrn (expr typ func) (expr typ func) :=
-        Views.Ptrns.pmap (fun ab : nat * nat => let (a,b) := ab in
-                                                mkImp (pNat (a + b)))
-                         (Ptrns.app (Ptrns.appl (Ptrns.inj (FuncView.ptrn_view _ ptrn_plus))
-                                                (Views.Ptrns.pmap (fun x _ => x) (Ptrns.inj (FuncView.ptrn_view _ ptrn_nat)))) (Ptrns.inj (FuncView.ptrn_view _ ptrn_nat)))
-    in fun f xs =>
-         let e := AppN.apps f xs in
-         Ptrns.run_ptrn p e e.
+    Definition prove_eq_tac : imp_tac :=
+      SIMPL true (RedAll.red_partial nat_red) ;;
+            ON_ALL (EAPPLY eq_nat_refl_lemma).
 
-
-  Ltac solve_ok :=
-    repeat first [ eapply Ptrns.ptrn_ok_pmap
-                 | eapply Ptrns.ptrn_ok_app
-                 | eapply Ptrns.ptrn_ok_appl
-                 | eapply Ptrns.ptrn_ok_inj
-                 | eapply FuncView.ptrn_view_ok
-                 | eauto with typeclass_instances
-                 ].
-
-  Theorem nat_red_sound : RedAll.partial_reducer_ok nat_red.
-  Proof.
-    red. intros. simpl.
-    unfold nat_red.
-    revert H.
-    eapply Ptrns.run_ptrn_sound.
-    { solve_ok. }
-    { red. red. red. intros; subst. reflexivity. }
-    { intros.
-      repeat match goal with
-             | H : Ptrns.Succeeds _ _ _ |- _ =>
-               first [ simple eapply Ptrns.Succeeds_pmap in H ; [ | solve [ solve_ok ] ]
-                     | simple eapply Ptrns.Succeeds_app in H ; [ | solve [ solve_ok ] | solve [ solve_ok ] ]
-                     | eapply Ptrns.Succeeds_appl in H ; [ | solve [ solve_ok ] | solve [ solve_ok ] ]
-                     | eapply Ptrns.Succeeds_inj in H ; [ | solve [ solve_ok ] ]
-                     | eapply FuncView.Succeeds_ptrn_view in H ;
-                       [
-                       | eauto with typeclass_instances
-                       | eauto with typeclass_instances
-                       | solve [ solve_ok ] ]
-                     | eapply Succeeds_ptrn_nat in H
-                     | eapply Succeeds_ptrn_plus in H
-                     ] ; forward_reason
-             end; subst.
-      generalize dependent (AppN.apps e es); intros; subst.
-      destruct x; simpl in *.
-      assert (t = ModularTypes.tyBase0 tyValue).
-      { autorewrite with exprD_rw in H0.
-        cbn in H0.
-        destruct (ModularTypes.mtyp_cast tsym _ t
-                     (ModularTypes.tyBase0 tyValue)). auto. inversion H0. }
-      subst. cbn in H0.
-      inv_all. subst.
-      cbn. eexists; split; eauto. }
-    { intros. eexists; split; try eassumption.
-      auto. }
-  Qed.
-
-  Lemma refl_eq_nat : forall a : nat, a = a.
-  Proof. reflexivity. Qed.
-
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-     eq_nat_refl_lemma : refl_eq_nat.
-  Instance RL_eq_nat_refl_lemma : ReifiedLemma eq_nat_refl_lemma :=
-    mkRL eq_nat_refl_lemma refl_eq_nat.
-
-  Definition prove_eq_tac : imp_tac :=
-    SIMPL true (RedAll.red_partial nat_red) ;;
-    ON_ALL (EAPPLY eq_nat_refl_lemma).
-
-  Instance RtacSound_prove_eq_tac : RtacSound prove_eq_tac.
-  Proof.
-    unfold prove_eq_tac.
-    rtac_derive_soundness_with.
-    eapply RtacSound_SIMPL.
-    eapply RedAll.red_partial_ok.
-    eapply nat_red_sound.
-  Qed.
-  (** TODO(gmalecha): This ends the arithmetic reasoning solver **)
+    Instance RtacSound_prove_eq_tac : RtacSound prove_eq_tac.
+    Proof.
+      unfold prove_eq_tac.
+      rtac_derive_soundness_with.
+      eapply RtacSound_SIMPL.
+      eapply RedAll.red_partial_ok.
+      eapply nat_red_sound.
+    Qed.
+    (** TODO(gmalecha): This ends the arithmetic reasoning solver **)
 
 
-  Fixpoint THENS (ls : list imp_tac) : imp_tac :=
-    match ls with
-    | nil => IDTAC
-    | l :: ls => THEN l (runOnGoals (THENS ls))
-    end.
+    Fixpoint THENS (ls : list imp_tac) : imp_tac :=
+      match ls with
+      | nil => IDTAC
+      | l :: ls => THEN l (runOnGoals (THENS ls))
+      end.
 
-  Definition the_final_tactic : imp_tac :=
-    THEN (THENS (sym_eval_no_mem 100 (TRY entailment_tac) ::
-                 REPEAT 1000 (EAPPLY andI_lemma) ::
-                 TRY (EAPPLY prove_Prop_lemma) ::
-                 TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                             TRY EASSUMPTION :: nil)) ::
-                 INSTANTIATE :: TRY prove_eq_tac :: nil)) (MINIFY).
+    Definition the_final_tactic : imp_tac :=
+      THEN (THENS (sym_eval_no_mem 100 (TRY entailment_tac) ::
+                   REPEAT 1000 (EAPPLY andI_lemma) ::
+                   TRY (EAPPLY prove_Prop_lemma) ::
+                   TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
+                               TRY EASSUMPTION :: nil)) ::
+                   INSTANTIATE :: TRY prove_eq_tac :: nil)) MINIFY.
 
-  Definition PHASE1 : imp_tac :=
-    sym_eval_no_mem 100 IDTAC.
+    Definition PHASE1 : imp_tac :=
+      sym_eval_no_mem 100 IDTAC.
 
-  Definition PHASE2 : imp_tac :=
-    sym_eval_no_mem 100 SIMPLIFY ;; MINIFY.
+    Definition PHASE2 : imp_tac :=
+      sym_eval_no_mem 100 SIMPLIFY ;; MINIFY.
 
-  Definition PHASE3 : imp_tac :=
-    sym_eval_no_mem 100
-      (THENS (TRY (EAPPLY embed_ltrue_lemma) ::
-                  TRY (THENS (EAPPLY entails_exL_lemma ::
-                              INTRO_All ::
-                              BETA_REDUCE :: nil)) ::
-                  TRY (THENS (EAPPLY go_lower_raw_lemma ::
-                              BETA_REDUCE :: INTRO_All ::
-                              BETA_REDUCE :: nil)) ::
-                  SIMPLIFY :: SIMPLIFY ::
-                  REPEAT 200
-                  (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil)) ::
-                  TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil)) ::
-                  REPEAT 1000 (EAPPLY andI_lemma) ::
-                  TRY (EAPPLY prove_Prop_lemma) ::
-                  TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                              TRY EASSUMPTION :: nil)) ::
-                  INSTANTIATE :: TRY prove_eq_tac :: nil))  ;; MINIFY.
+    Definition PHASE3 : imp_tac :=
+      sym_eval_no_mem 100
+        (THENS (TRY (EAPPLY embed_ltrue_lemma) ::
+                TRY (THENS (EAPPLY entails_exL_lemma ::
+                            INTRO_All ::
+                            BETA_REDUCE :: nil)) ::
+                TRY (THENS (EAPPLY go_lower_raw_lemma ::
+                            BETA_REDUCE :: INTRO_All ::
+                            BETA_REDUCE :: nil)) ::
+                SIMPLIFY :: SIMPLIFY ::
+                REPEAT 200
+                (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil)) ::
+                TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil)) ::
+                REPEAT 1000 (EAPPLY andI_lemma) ::
+                TRY (EAPPLY prove_Prop_lemma) ::
+                TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
+                            TRY EASSUMPTION :: nil)) ::
+                INSTANTIATE :: TRY prove_eq_tac :: nil))  ;; MINIFY.
 
-  Instance THENS_sound : forall ls,
-      Forall RtacSound ls ->
-      RtacSound (THENS ls).
-  Proof.
-    induction 1.
-    - intros. simpl. rtac_derive_soundness_with.
-    - simpl. rtac_derive_soundness_with.
-  Qed.
+    Instance THENS_sound : forall ls,
+        Forall RtacSound ls ->
+        RtacSound (THENS ls).
+    Proof.
+      induction 1.
+      - intros. simpl. rtac_derive_soundness_with.
+      - simpl. rtac_derive_soundness_with.
+    Qed.
 
-  Instance RL_andI : ReifiedLemma andI_lemma.
-  Proof. prove_RL and_split. Qed.
-  Instance RL_proveProp : ReifiedLemma prove_Prop_lemma.
-  Proof. prove_RL prove_Prop. Qed.
-  Instance RL_eq_trans_hyp : ReifiedLemma eq_trans_hyp_lemma.
-  Proof. prove_RL eq_trans_hyp. Qed.
+    Instance RL_andI : ReifiedLemma andI_lemma.
+    Proof. prove_RL and_split. Qed.
+    Instance RL_proveProp : ReifiedLemma prove_Prop_lemma.
+    Proof. prove_RL prove_Prop. Qed.
+    Instance RL_eq_trans_hyp : ReifiedLemma eq_trans_hyp_lemma.
+    Proof. prove_RL eq_trans_hyp. Qed.
 
-  Theorem PHASE2_sound : RtacSound PHASE2.
-  Proof.
-    unfold PHASE2.
-    rtac_derive_soundness_with.
-    eapply sym_eval_no_mem_sound.
-    2: eauto with typeclass_instances.
-    2: eauto with typeclass_instances.
-    2: eauto with typeclass_instances.
-    rtac_derive_soundness_with.
-  Qed.
+    Typeclasses Opaque THENS sym_eval_no_mem.
 
+    Theorem PHASE2_sound : RtacSound PHASE2.
+    Proof.
+      unfold PHASE2.
+      rtac_derive_soundness_with; eauto with typeclass_instances.
+    Qed.
 
-  Theorem PHASE3_sound : RtacSound PHASE3.
-  Proof.
-    unfold PHASE3.
-    rtac_derive_soundness_with.
-    2: eauto with typeclass_instances.
-    2: eauto with typeclass_instances.
-    2: eauto with typeclass_instances.
-    eapply sym_eval_no_mem_sound.
-    eapply THENS_sound.
-    rtac_derive_soundness_with.
-    eapply RtacSound_INSTANTIATE.
-  Qed.
+    Instance RtacSound_BETA_REDUCE : RtacSound BETA_REDUCE.
+    Proof. unfold BETA_REDUCE. eapply RtacSound_SIMPL.
+           eapply RedAll.red_beta_sound.
+           eapply RedAll.red_id_sound.
+    Qed.
 
-  (*
-Definition PHASE3_tauto : imp_tac :=
-  let leaf :=
-      (THENS (   SIMPLIFY
+    Typeclasses Opaque INTRO_Hyp SIMPLIFY INSTANTIATE BETA_REDUCE
+                sym_eval_no_mem.
 
-              :: EAPPLY go_lower_raw_lemma
-              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-              :: REPEAT 200
-                   (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil))
-              :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
-              :: TRY (EAPPLY prove_Prop_lemma)
-              :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                             TRY EASSUMPTION :: nil))
-              :: INSTANTIATE
-              :: TRY prove_eq_tac
-              :: nil))
-  in
-  sym_eval_no_mem 100
-     (THENS (   SIMPLIFY
-             :: EAPPLY embed_ltrue_lemma
-             :: EAPPLY entails_exL_lemma
-             :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-             :: tauto_tac leaf :: nil)).
-   *)
+    Typeclasses Opaque rtacK_sound rtac_sound.
 
-  (*
-Fixpoint parse_ands (e : expr typ func) : list (expr typ func) :=
-  match e with
-    | App (App (Inj (inr (ILogicFunc.ilf_and (ModularTypestyBase0 tyProp)))) P) Q =>
-      parse_ands P ++ parse_ands Q
-    | _ => e :: nil
-  end.
-Definition intro_hyps : imp_tac :=
-  fun _ _ _ _ _ sub g =>
-    match g with
-      | App (App (Inj (inr (ILogicFunc.ilf_entails tyProp))) P) Q =>
-        let hyps := parse_ands P in
-        let goals := parse_ands Q in
-        More sub (List.fold_right GHyp (GConj_list (List.map GGoal goals)) hyps)
-      | _ => More_ sub (GGoal g)
-    end.
-
-Definition PHASE3_tauto2 : imp_tac :=
-  let leaf :=
-      (THENS ( intro_hyps ::
-               EAPPLY eq_trans_hyp_lemma ::
-               TRY EASSUMPTION :: INSTANTIATE ::
-               TRY prove_eq_tac
-              :: nil))
-  in
-  sym_eval_only 100
-     (THENS (   SIMPLIFY
-             :: EAPPLY embed_ltrue_lemma
-             :: EAPPLY entails_exL_lemma
-             :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-             :: EAPPLY go_lower_raw_lemma :: INTRO_All :: BETA_REDUCE
-             :: SIMPLIFY :: BETA_REDUCE :: tauto_tac leaf :: nil)).
-   *)
-
-  Let tyNat := ModularTypes.tyBase0 tyValue.
-  Let tyArr := @ModularTypes.tyArr tsym.
-  Let tyLocals := ModularTypes.tyBase0 tyLocals.
-  Let tyHProp := ModularTypes.tyBase0 tyHProp.
-  Let tyProp := ModularTypes.tyBase0 tyProp.
-
-(*
-  Eval vm_compute in
-      doIt (THENS (   SIMPLIFY
-                   :: EAPPLY entails_exL_lemma :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-                   :: EAPPLY go_lower_raw_lemma
-                   :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
-                   :: REPEAT 200
-                   (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil))
-                   :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
-                   :: TRY (EAPPLY prove_Prop_lemma)
-                   :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
-                                         TRY EASSUMPTION :: nil))
-                   :: INSTANTIATE
-                   :: TRY prove_eq_tac
-                   :: nil)).
-*)
-
-
+    Theorem PHASE3_sound : RtacSound PHASE3.
+    Proof.
+      unfold PHASE3.
+      eapply THEN_sound.
+      simple eapply sym_eval_no_mem_sound.
+      rtac_derive_soundness_with.
+      eapply THENS_sound;
+        rtac_derive_soundness_with; eauto with typeclass_instances.
+      rtac_derive_soundness_with; eauto with typeclass_instances.
+    Qed.
 
   End with_fs.
 
@@ -836,3 +722,62 @@ Time (run_tactic PHASE2; ltac_finish). *)
     Time ltac_finish.
   Time Qed.
 End ImpVerify.
+
+  (*
+Definition PHASE3_tauto : imp_tac :=
+  let leaf :=
+      (THENS (   SIMPLIFY
+
+              :: EAPPLY go_lower_raw_lemma
+              :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+              :: REPEAT 200
+                   (THENS (APPLY pull_embed_hyp_lemma :: INTRO_Hyp :: nil))
+              :: TRY (THENS (EAPPLY pull_embed_last_lemma :: INTRO_Hyp :: nil))
+              :: TRY (EAPPLY prove_Prop_lemma)
+              :: TRY (THENS (EAPPLY eq_trans_hyp_lemma ::
+                             TRY EASSUMPTION :: nil))
+              :: INSTANTIATE
+              :: TRY prove_eq_tac
+              :: nil))
+  in
+  sym_eval_no_mem 100
+     (THENS (   SIMPLIFY
+             :: EAPPLY embed_ltrue_lemma
+             :: EAPPLY entails_exL_lemma
+             :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+             :: tauto_tac leaf :: nil)).
+   *)
+
+  (*
+Fixpoint parse_ands (e : expr typ func) : list (expr typ func) :=
+  match e with
+    | App (App (Inj (inr (ILogicFunc.ilf_and (ModularTypestyBase0 tyProp)))) P) Q =>
+      parse_ands P ++ parse_ands Q
+    | _ => e :: nil
+  end.
+Definition intro_hyps : imp_tac :=
+  fun _ _ _ _ _ sub g =>
+    match g with
+      | App (App (Inj (inr (ILogicFunc.ilf_entails tyProp))) P) Q =>
+        let hyps := parse_ands P in
+        let goals := parse_ands Q in
+        More sub (List.fold_right GHyp (GConj_list (List.map GGoal goals)) hyps)
+      | _ => More_ sub (GGoal g)
+    end.
+
+Definition PHASE3_tauto2 : imp_tac :=
+  let leaf :=
+      (THENS ( intro_hyps ::
+               EAPPLY eq_trans_hyp_lemma ::
+               TRY EASSUMPTION :: INSTANTIATE ::
+               TRY prove_eq_tac
+              :: nil))
+  in
+  sym_eval_only 100
+     (THENS (   SIMPLIFY
+             :: EAPPLY embed_ltrue_lemma
+             :: EAPPLY entails_exL_lemma
+             :: BETA_REDUCE :: INTRO_All :: BETA_REDUCE
+             :: EAPPLY go_lower_raw_lemma :: INTRO_All :: BETA_REDUCE
+             :: SIMPLIFY :: BETA_REDUCE :: tauto_tac leaf :: nil)).
+   *)

@@ -2198,4 +2198,7 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque MINIFY : typeclass_instances.
+Typeclasses Opaque MINIFY.
+
 Arguments MINIFY {typ expr _ _ _} _ _ _ _ {_} _ _.

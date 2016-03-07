@@ -92,7 +92,7 @@ End ApplicativeFuncInst.
 
 Section MakeApplicative.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func (ap_func typ)}.
+  Context {FV : PartialView func (ap_func typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
@@ -112,15 +112,15 @@ Section MakeApplicative.
   Definition fptrnPure {T : Type} (p : Ptrns.ptrn typ T) : ptrn (ap_func typ) T :=
     fun f U good bad =>
       match f with
-        | pPure t => p t U good (fun _ => bad (pPure t))
-        | pAp t u => bad (pAp t u)
+      | pPure t => p t U good (fun _ => bad (pPure t))
+      | pAp t u => bad (pAp t u)
       end.
 
   Definition fptrnAp {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (ap_func typ) T :=
     fun f U good bad =>
       match f with
-        | pPure t => bad (pPure t)
-        | pAp t u => p (t, u) U good (fun _ => bad (pAp t u))
+      | pPure t => bad (pPure t)
+      | pAp t u => p (t, u) U good (fun _ => bad (pAp t u))
       end.
 
   Global Instance fptrnPure_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
@@ -184,10 +184,10 @@ Section MakeApplicative.
 
   Global Instance fptrnAp_SucceedsE {T : Type} {f : ap_func typ}
          {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-    SucceedsE f (fptrnAp p) res := {
-      s_result := exists t u, Succeeds (t, u) p res /\ f = pAp t u;
-      s_elim := @Succeeds_fptrnAp T f p res pok
-    }.
+    SucceedsE f (fptrnAp p) res :=
+  { s_result := exists t u, Succeeds (t, u) p res /\ f = pAp t u
+  ; s_elim := @Succeeds_fptrnAp T f p res pok
+  }.
 
   Definition applicative_ptrn_cases {T : Type}
              (do_pure : typ  -> expr typ func -> T)
@@ -208,7 +208,7 @@ End MakeApplicative.
 
 Section PtrnString.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func (ap_func typ)}.
+  Context {FV : PartialView func (ap_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkAp typ func' in JavaFunc (with typ and func instantiated) *)
@@ -223,6 +223,5 @@ Section PtrnString.
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnAp p))) a) b.
-
 
 End PtrnString.

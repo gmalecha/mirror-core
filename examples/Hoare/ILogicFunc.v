@@ -12,8 +12,6 @@ Require Import MirrorCore.TypesI.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Set Printing Universes.
-
 Section typed.
   Variable typ : Type.
   Variable RType_typ : RType typ.
@@ -327,10 +325,9 @@ Section typed.
           end
         end
     in
+    intros;
     match goal with
     | H : ptrn_ok ?X |- ptrn_ok (_ ?X) => do_it H
-    | |- ptrn_ok ?X -> ptrn_ok (_ ?X) =>
-      let H := fresh in intro H ; do_it H
     end.
 
   (** TODO: This should move into MirrorCore.Views.Ptrn *)
@@ -439,11 +436,11 @@ Section typed.
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
 
-  Instance fptrn_lentails_ok {T} (p : ptrn typ T)
+  Global Instance fptrn_lentails_ok {T} (p : ptrn typ T)
   : ptrn_ok p -> ptrn_ok (fptrn_lentails p).
   Proof. ptrn_ok_1. Qed.
 
-  Instance SucceedsE_fptrn_lentails {T} e k (v : T) : SucceedsE e (fptrn_lentails k) v :=
+  Global Instance SucceedsE_fptrn_lentails {T} e k (v : T) : SucceedsE e (fptrn_lentails k) v :=
   { s_result := exists t, e = ilf_entails t /\ Succeeds t k v }.
   Proof. abstract solve_Succeeds1. Defined.
 
@@ -461,11 +458,11 @@ Section typed.
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
 
-  Instance fptrn_ltrue_ok {T} (p : ptrn typ T)
+  Global Instance fptrn_ltrue_ok {T} (p : ptrn typ T)
   : ptrn_ok p -> ptrn_ok (fptrn_ltrue p).
   Proof. ptrn_ok_1. Qed.
 
-  Instance SucceedsE_fptrn_ltrue {T} e k (v : T) : SucceedsE e (fptrn_ltrue k) v :=
+  Global Instance SucceedsE_fptrn_ltrue {T} e k (v : T) : SucceedsE e (fptrn_ltrue k) v :=
   { s_result := exists t, e = ilf_true t /\ Succeeds t k v }.
   Proof. abstract solve_Succeeds1. Defined.
 
@@ -483,11 +480,11 @@ Section typed.
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
 
-  Instance fptrn_lfalse_ok {T} (p : ptrn typ T)
+  Global Instance fptrn_lfalse_ok {T} (p : ptrn typ T)
   : ptrn_ok p -> ptrn_ok (fptrn_lfalse p).
   Proof. ptrn_ok_1. Qed.
 
-  Instance SucceedsE_fptrn_lfalse {T} e k (v : T) : SucceedsE e (fptrn_lfalse k) v :=
+  Global Instance SucceedsE_fptrn_lfalse {T} e k (v : T) : SucceedsE e (fptrn_lfalse k) v :=
   { s_result := exists t, e = ilf_false t /\ Succeeds t k v }.
   Proof. abstract solve_Succeeds1. Defined.
 
@@ -505,11 +502,11 @@ Section typed.
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
 
-  Instance fptrn_land_ok {T} (p : ptrn typ T)
+  Global Instance fptrn_land_ok {T} (p : ptrn typ T)
   : ptrn_ok p -> ptrn_ok (fptrn_land p).
   Proof. ptrn_ok_1. Qed.
 
-  Instance SucceedsE_fptrn_land {T} e k (v : T) : SucceedsE e (fptrn_land k) v :=
+  Global Instance SucceedsE_fptrn_land {T} e k (v : T) : SucceedsE e (fptrn_land k) v :=
   { s_result := exists t, e = ilf_and t /\ Succeeds t k v }.
   Proof. abstract solve_Succeeds1. Defined.
 
@@ -526,12 +523,9 @@ Section typed.
       | ilf_entails t => Mfail (ilf_entails t)
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
+  Global Instance fptrn_limpl_ok : ltac:(PtrnOk @fptrn_limpl) := ltac:(ptrn_ok_1).
 
-  Instance fptrn_limpl_ok {T} (p : ptrn typ T)
-  : ptrn_ok p -> ptrn_ok (fptrn_limpl p).
-  Proof. ptrn_ok_1. Qed.
-
-  Instance SucceedsE_fptrn_limpl {T} e k (v : T) : SucceedsE e (fptrn_limpl k) v :=
+  Global Instance SucceedsE_fptrn_limpl {T} e k (v : T) : SucceedsE e (fptrn_limpl k) v :=
   { s_result := exists t, e = ilf_impl t /\ Succeeds t k v }.
   Proof. abstract solve_Succeeds1. Defined.
 
@@ -550,14 +544,14 @@ Section typed.
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
 
-  Instance fptrn_lforall_ok {T U} (p : ptrn typ T) (p' : T -> ptrn typ U)
+  Global Instance fptrn_lforall_ok {T U} (p : ptrn typ T) (p' : T -> ptrn typ U)
   : ptrn_ok p -> (forall x, ptrn_ok (p' x)) -> ptrn_ok (fptrn_lforall p p').
   Proof.
     intros. red. destruct x; try solve [ right ; compute; reflexivity ].
     eapply Mtwo_ok; assumption.
   Qed.
 
-  Instance SucceedsE_fptrn_lforall {T U} (p : ptrn typ T) (p' : T -> ptrn typ U) e v
+  Global Instance SucceedsE_fptrn_lforall {T U} (p : ptrn typ T) (p' : T -> ptrn typ U) e v
   : ptrn_ok p -> SucceedsE e (fptrn_lforall p p') v :=
   { s_result := exists t l : typ, e = ilf_forall t l /\
                                   exists val,
@@ -580,14 +574,14 @@ Section typed.
       | ilf_embed u t => Mfail (ilf_embed u t)
       end.
 
-  Instance ptrn_lexists_ok {T U} (p : ptrn typ T) (p' : T -> ptrn typ U)
+  Global Instance ptrn_lexists_ok {T U} (p : ptrn typ T) (p' : T -> ptrn typ U)
   : ptrn_ok p -> (forall x, ptrn_ok (p' x)) -> ptrn_ok (fptrn_lexists p p').
   Proof.
     intros. red. destruct x; try solve [ right ; compute; reflexivity ].
     eapply Mtwo_ok; assumption.
   Qed.
 
-  Instance SucceedsE_fptrn_lexists {T U} (p : ptrn typ T) (p' : T -> ptrn typ U) e v
+  Global Instance SucceedsE_fptrn_lexists {T U} (p : ptrn typ T) (p' : T -> ptrn typ U) e v
   : ptrn_ok p -> SucceedsE e (fptrn_lexists p p') v :=
   { s_result := exists t l : typ, e = ilf_exists t l /\
                                   exists val,

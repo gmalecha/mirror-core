@@ -8,6 +8,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Printing Universes.
 
+(** TODO(gmalecha): This should use the maps in FMapPositive from ExtLib.
+ **)
 Module OneOfType.
 
   (** This universe will be created each time the functor is instantiated *)

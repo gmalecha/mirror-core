@@ -280,7 +280,7 @@ Section tactics.
 
   Definition INSTANTIATE : rtac typ (expr typ func) := INSTANTIATE.
 
-  Instance RtacSound_INSTANTIATE : RtacSound INSTANTIATE.
+  Global Instance RtacSound_INSTANTIATE : RtacSound INSTANTIATE.
   Proof. eapply mkRtacSound.
          eapply INSTANTIATE_sound.
   Qed.
@@ -422,5 +422,8 @@ Section tactics.
   Qed.
 
 End tactics.
+
+Hint Opaque  EAPPLY EAPPLY_m APPLY APPLY_m APPLY_depth EAPPLY_depth EASSUMPTION INTRO SIMPL : typeclass_instances.
+Typeclasses Opaque EAPPLY EAPPLY_m APPLY APPLY_m APPLY_depth EAPPLY_depth EASSUMPTION INTRO SIMPL.
 
 Arguments SimpleOpen _ _ : clear implicits.

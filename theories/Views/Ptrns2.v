@@ -2,10 +2,6 @@ Require Import Coq.Classes.Morphisms.
 Require Import Coq.Classes.RelationClasses.
 Require Import Coq.Setoids.Setoid.
 Require Import Coq.Relations.Relations.
-(*?Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Recur.GenRec.
-Require Import ExtLib.Tactics.
-*)
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -16,23 +12,6 @@ Polymorphic Class Arrow@{U} (A : Type@{U} -> Type@{U} -> Type@{U}) : Type :=
 ; acompose : forall {T U V : Type@{U}}, A T U -> A U V -> A T V
 ; afirst   : forall {T U V : Type@{U}}, A T U -> A (T * V)%type (U * V)%type
 }.
-
-(*
-Polymorphic Class ArrowLaws A (AR : Arrow A) : Type :=
-{ (*arr_id : forall {T : Type}, arr (@id T) = (@id (A T T)) *)
-(* ; *)
-arr_compose : forall {T U V} (f : T -> U) (g : U -> V),
-    arr (fun x => g (f x)) = acompose (arr f) (arr g)
-(*; first_arr : forall {T U V} (f : (T * U) -> (V * U)), afirst (arr f) = arr (fun x => (fst (f x), snd x)) *)
-; first_compose : forall {T U V X} (f : A T U) (g : A U V),
-    afirst (acompose f g) = acompose (afirst (V:=X) f) (afirst g)
-(* *)
-(* ; first_compoe_arr : acompose (afirst f) (arr fst) = acompose (arr fst) f *)
-(* ; first_compose_star : acompose (afirst f) (arr (id *** g)) = acompose (arr (id *** g)) (first f) *)
-(* ; first_first : acompose (afirst (afirst f)) (arr assoc) = acompose (arr assoc) (afirst f) *)
-(* *)
-}.
-*)
 
 Section setoid.
   Polymorphic Universe R.
@@ -328,9 +307,10 @@ Ltac prove_ptrn_ok :=
   end.
 
 Lemma not_succeeds : forall T U x y z (P : Prop),
-    (exists res : T -> U,  res y = z /\
-                           forall X (good : T -> (T -> U) -> X) (bad : U -> X),
-                             bad x = good y res) ->
+    (exists res : T -> U,
+        res y = z /\
+        forall X (good : T -> (T -> U) -> X) (bad : U -> X),
+          bad x = good y res) ->
     P.
 Proof.
   intros. destruct H. destruct H.
@@ -382,7 +362,8 @@ Proof. prove_Succeeds. Qed.
 Definition length_2_list {A} : ptrn (list A) (A * A)%type :=
   Eval compute in
     pmap (fun a => (fst a, fst (snd a)))
-         (acompose pcons (prod_ptrn (@get _) pcons)).
+         (acompose pcons (prod_ptrn (@get _) (acompose pcons (prod_ptrn (@get _) pnil)))).
+
 
 
 (**

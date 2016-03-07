@@ -598,6 +598,8 @@ Section setoid.
 
 End setoid.
 
+Hint Opaque app appr appl inj abs var uvar : typeclass_instances.
+
 Ltac destruct_prod :=
   repeat match goal with
          | p : ?A * ?B |- _ => destruct p

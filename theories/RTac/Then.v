@@ -47,6 +47,8 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque THEN : typeclass_instances.
+
 Arguments THEN {typ expr} _%rtac _%rtacK _ _ _ _ {_} _ _ : rename.
 
 Notation "X  ;; Y" := (@THEN _ _ X%rtac Y%rtacK) (at level 70, right associativity) : rtac_scope.

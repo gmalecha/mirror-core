@@ -15,7 +15,7 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive eq_func (typ : Type) :=
-  | pEq : typ -> eq_func typ.
+| pEq : typ -> eq_func typ.
 
 Section EqFuncInst.
   Context {typ : Type} {RType_typ : RType typ}.
@@ -30,12 +30,12 @@ Section EqFuncInst.
 
   Definition typeof_eq_func f :=
     match f with
-      | pEq t => Some (tyArr t (tyArr t tyProp))
+    | pEq t => Some (tyArr t (tyArr t tyProp))
     end.
 
   Definition eq_func_eq (a b : eq_func typ) : option bool :=
     match a , b with
-      | pEq t1, pEq t2 => Some (t1 ?[ eq ] t2)
+    | pEq t1, pEq t2 => Some (t1 ?[ eq ] t2)
     end.
 
   Global Instance RelDec_eq_func : RelDec (@eq (eq_func typ)) :=
@@ -72,7 +72,7 @@ Section EqFuncInst.
 End EqFuncInst.
 
 Section MakeEq.
-  Context {typ func : Type} {FV : FuncView func (eq_func typ)}.
+  Context {typ func : Type} {FV : PartialView func (eq_func typ)}.
 
   Definition fEq t := f_insert (pEq t).
 
@@ -121,7 +121,7 @@ End MakeEq.
 
 Section PtrnEq.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func (eq_func typ)}.
+  Context {FV : PartialView func (eq_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkEq typ func' in JavaFunc (with typ and func instantiated) *)
