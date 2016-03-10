@@ -636,9 +636,9 @@ Section simple_dep_types.
                      end
       | @wtAbs _ _ d c e =>
         match pattern_expr e
-                           (hlist_map (fun t v => wtexpr_lift (d::nil) nil v) xs)
+                           (Hcons (wtVar (MZ _ _)) (hlist_map (fun t v => wtexpr_lift (d::nil) nil v) xs))
         with
-        | Some e' => Some (wtAbs (wtexpr_lift (d::nil) nil e'))
+        | Some e' => Some (wtAbs e')
         | None => None
         end
       | wtUVar _ _ => None
