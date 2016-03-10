@@ -23,7 +23,7 @@ Section simple_dep_types.
 
   Variable Tsymbol_eq_dec : forall a b : Tsymbol, {a = b} + {a <> b}.
 
-  (** TODO: If we move to a stronger notion of types, e.g. with reduction,
+  (** TODO: If we move to a weaker notion of types, e.g. with reduction,
    ** we're going to need a weaker equivalence relation
    **)
   Fixpoint type_eq_dec (t t' : type) : {t = t'} + {t <> t'}.
@@ -49,6 +49,7 @@ Section simple_dep_types.
   Definition Tuvar : Type := list type * type.
 
   (** A guaranteed well-typed expr **)
+  Unset Elimination Schemes.
   Inductive wtexpr (tus : list Tuvar) (tvs : list type) : type -> Type :=
   | wtVar : forall t, member t tvs -> wtexpr tus tvs t
   | wtInj : forall t, Esymbol t -> wtexpr tus tvs t
@@ -57,6 +58,133 @@ Section simple_dep_types.
   | wtAbs : forall d r, wtexpr tus (d :: tvs) r -> wtexpr tus tvs (TArr d r)
   | wtUVar : forall ts t, member (ts, t) tus ->
                           hlist (wtexpr tus tvs) ts -> wtexpr tus tvs t.
+  Set Elimination Schemes.
+
+  Arguments wtInj {_ _ _} _.
+  Arguments wtVar {_ _ _} _.
+
+ Section hlist_Forall.
+   Context {T : Type} {F G : T -> Type}.
+   Variable P : forall t, F t -> Prop.
+   Inductive hlist_Forall : forall ts, hlist F ts -> Prop :=
+   | hlist_Forall_nil : @hlist_Forall nil Hnil
+   | hlist_Forall_cons : forall t ts x xs,
+       @P t x ->
+       @hlist_Forall ts xs ->
+       @hlist_Forall (t :: ts) (Hcons x xs).
+
+   Variable R : forall t, F t -> G t -> Prop.
+   Inductive hlist_Forall2 : forall ts, hlist F ts -> hlist G ts -> Prop :=
+   | hlist_Forall2_nil : @hlist_Forall2 nil Hnil Hnil
+   | hlist_Forall2_cons : forall t ts x xs y ys,
+       @R t x y ->
+       @hlist_Forall2 ts xs ys ->
+       @hlist_Forall2 (t :: ts) (Hcons x xs) (Hcons y ys).
+ End hlist_Forall.
+ Arguments hlist_Forall_nil {_ _ _}.
+ Arguments hlist_Forall_cons {_ _ _ _ _ _ _} _ _.
+
+  Section ind.
+    Variable tus : list Tuvar.
+    Variable P : forall tvs t, wtexpr tus tvs t -> Prop.
+    Hypothesis Hvar : forall tvs t m, @P tvs t (wtVar m).
+    Hypothesis Hinj : forall tvs t m, @P tvs t (wtInj m).
+    Hypothesis Happ : forall tvs d c f x,
+        @P tvs (TArr d c) f -> @P tvs d x -> @P tvs c (wtApp f x).
+    Hypothesis Habs : forall tvs d c f,
+        @P (d :: tvs) c f -> @P tvs (TArr d c) (wtAbs f).
+    Hypothesis Huvar : forall tvs ts t (u : member (ts,t) tus) xs,
+        hlist_Forall (@P tvs) xs ->
+        @P tvs t (wtUVar u xs).
+    Fixpoint wtexpr_ind {tvs t} (e : wtexpr tus tvs t)
+    : P e :=
+      match e as e in wtexpr _ _ t return P e with
+      | wtVar v => Hvar v
+      | wtInj f => Hinj _ f
+      | wtApp f x => Happ (wtexpr_ind f) (wtexpr_ind x)
+      | wtAbs f => Habs (wtexpr_ind f)
+      | wtUVar u xs =>
+        Huvar u ((fix rec {ls} (xs : hlist _ ls) {struct xs}
+                  : hlist_Forall (@P tvs) xs :=
+                    match xs as xs return hlist_Forall (@P tvs) xs with
+                    | Hnil => hlist_Forall_nil
+                    | Hcons x xs => hlist_Forall_cons (wtexpr_ind x) (rec xs)
+                    end) _ xs)
+      end.
+  End ind.
+
+  Section Forall2.
+    Context {T U : Type}.
+    Variable P : T -> U -> Prop.
+    Inductive Forall2 : list T -> list U -> Prop :=
+    | Forall2nil : Forall2 nil nil
+    | Forall2cons : forall x xs y ys, P x y -> Forall2 xs ys ->
+                                      Forall2 (x :: xs) (y :: ys).
+  End Forall2.
+
+  Section equiv.
+    Context {tus : list Tuvar}.
+    Variables R : forall tvs t, wtexpr tus tvs t -> wtexpr tus tvs t -> Prop.
+    Unset Elimination Schemes.
+    Inductive wtexpr_equiv (tvs : list type)
+    : forall t, wtexpr tus tvs t -> wtexpr tus tvs t -> Prop :=
+    | eqVar : forall t m, @wtexpr_equiv tvs t (wtVar m) (wtVar m)
+    | eqInj : forall t f, @wtexpr_equiv tvs t (wtInj f) (wtInj f)
+    | eqApp : forall d c f x g y,
+        @wtexpr_equiv tvs (TArr d c) f g ->
+        @wtexpr_equiv tvs d x y ->
+        @wtexpr_equiv tvs c (wtApp f x) (wtApp g y)
+    | eqAbs : forall d c f g,
+        @wtexpr_equiv (d :: tvs) c f g ->
+        @wtexpr_equiv tvs (TArr d c) (wtAbs f) (wtAbs g)
+    | eqUVar : forall ts t (u : member (ts,t) tus) xs ys,
+        hlist_Forall2 (@wtexpr_equiv tvs) xs ys ->
+        @wtexpr_equiv tvs t (wtUVar u xs) (wtUVar u ys)
+    | eqConv : forall t a b,
+        @R tvs t a b ->
+        @wtexpr_equiv tvs t a b
+    | eqTrans : forall t a b c,
+        @wtexpr_equiv tvs t a b ->
+        @wtexpr_equiv tvs t b c ->
+        @wtexpr_equiv tvs t a c.
+    Set Elimination Schemes.
+
+    Lemma wtexpr_equiv_refl : forall tvs t a,
+        @wtexpr_equiv tvs t a a.
+    Proof.
+      induction a; constructor; eauto.
+      clear - H.
+      induction H; constructor; eauto.
+    Qed.
+
+    Lemma wtexpr_equiv_symm :
+      (forall tvs t a b, @R tvs t a b -> R b a) ->
+      forall tvs t a b,
+        @wtexpr_equiv tvs t a b ->
+        @wtexpr_equiv tvs t b a.
+    Proof using Tsymbol Esymbol R.
+      (** TODO: Needs a stronger induction hypothesis that exposes
+       ** recursive information for hlist_Forall2
+       **)
+(*
+      induction 2; try solve [ constructor; eauto ].
+      - constructor.
+        clear - H0.
+        induction H0; constructor.
+        + eapply H.
+      - eapply eqTrans; eauto.
+*)
+    Admitted.
+
+    Lemma wtexpr_equiv_trans : forall tvs t a b c,
+        @wtexpr_equiv tvs t a b ->
+        @wtexpr_equiv tvs t b c ->
+        @wtexpr_equiv tvs t a c.
+    Proof.
+      eapply eqTrans.
+    Qed.
+
+  End equiv.
 
   Definition exprT (tus : list Tuvar) (tvs : list type) (t : type) : Type :=
     hlist (fun tst => let '(ts,t) := tst in  hlist typeD ts -> typeD t) tus ->
@@ -84,8 +212,8 @@ Section simple_dep_types.
            (e : wtexpr tus tvs t)
   : exprT tus tvs t :=
     match e in wtexpr _ _ t return exprT tus tvs t with
-    | wtVar _ x => Var_exprT x
-    | wtInj _ _ s => Pure_exprT (EsymbolD s)
+    | wtVar x => Var_exprT x
+    | wtInj s => Pure_exprT (EsymbolD s)
     | wtApp f x => Ap_exprT (wtexprD f) (wtexprD x)
     | wtAbs e => Abs_exprT (wtexprD e)
     | wtUVar x es => UVar_exprT x (hlist_map (@wtexprD _ _) es)
@@ -172,8 +300,6 @@ Section simple_dep_types.
     End with_t.
   End member_eq_dec.
 
-  Arguments wtInj {_ _ _} _.
-  Arguments wtVar {_ _ _} _.
 
   Definition codom (t : type) : type :=
     match t with
@@ -519,7 +645,7 @@ Section simple_dep_types.
       end
     end.
 
-  (** Substitution **)
+  (** Full Subst **)
   Fixpoint subst {tus} {tvs tvs'} {t}
            (xs : hlist (wtexpr tus tvs) tvs')
            (e : wtexpr tus tvs' t)
@@ -553,38 +679,109 @@ Section simple_dep_types.
     | wtUVar u ys => hlist_get u xs _ ys
     end.
 
+(*
   (** Unification **)
   Section unify.
-    Variable Subst : list Tuvar -> Type.
-    Variable Subst_lookup : forall {tus},
-        Subst tus -> forall {ts t}, member (ts,t) tus ->
+    Variable Inst : list Tuvar -> Type.
+    Variable Inst_lookup : forall {tus},
+        Inst tus -> forall {ts t}, member (ts,t) tus ->
                                     option (wtexpr tus ts t).
-    Variable Subst_set : forall {tus ts t},
-        member (ts,t) tus -> wtexpr tus ts t -> Subst tus -> Subst tus.
+    Variable Inst_set : forall {tus ts t},
+        member (ts,t) tus -> wtexpr tus ts t -> Inst tus -> Inst tus.
+
+    Inductive Unifiable {tus} (s : Inst tus) (tvs : list type) (t : type)
+    : wtexpr tus tvs t -> wtexpr tus tvs t -> Prop :=
+    | Unif_UVar : forall ts (u : member (ts,t) tus) xs e,
+        Inst_lookup s u = Some e ->
+        @Unifiable tus s tvs t (wtUVar u xs) (subst xs e).
+
+    Definition Unifiable_eq {tus} s tvs t a b : Prop :=
+      @Unifiable tus s tvs t a b \/ @Unifiable tus s tvs t b a.
+
+    (** This is probably not an ideal definition **)
+    Definition Inst_evolves {tus} (i1 i2 : Inst tus) : Prop :=
+      forall tvs t (e1 e2 : wtexpr tus tvs t),
+        wtexpr_equiv (Unifiable_eq i1) e1 e2 ->
+        wtexpr_equiv (Unifiable_eq i2) e1 e2.
 
     Definition check_set {tus tvs} {ts t}
-               (unify : wtexpr tus tvs t -> Subst tus -> option (Subst tus))
+               (unify : wtexpr tus tvs t -> Inst tus -> option (Inst tus))
                (u : member (ts, t) tus) (xs : hlist (wtexpr tus tvs) ts)
-               (e : wtexpr tus tvs t) (s : Subst tus)
-    : option (Subst tus) :=
-      match Subst_lookup s u with
+               (e : wtexpr tus tvs t) (s : Inst tus)
+    : option (Inst tus) :=
+      match Inst_lookup s u with
       | None => match pattern_expr e xs with
                 | None => None
-                | Some e' => Some (Subst_set u e' s)
+                | Some e' => Some (Inst_set u e' s)
                 end
       | Some e' => unify (subst xs e') s
       end.
 
+    Definition unify_spec {tus} (i i' : Inst tus) {tvs t}
+               (e1 e2 : wtexpr tus tvs t)
+    : Prop :=
+      Inst_evolves i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
+
+    Lemma find_in_hlist_ok : forall tus R tvs ts t e xs e',
+        @find_in_hlist tus tvs ts t xs e = Some e' ->
+        wtexpr_equiv R e (subst xs e').
+    Proof.
+      induction xs; simpl; intros; try congruence.
+      destruct (type_eq_dec l t); try congruence.
+      subst.
+      destruct (wtexpr_eq_dec e f).
+      - inv_all; subst.
+        simpl. eapply wtexpr_equiv_refl.
+      - destruct (find_in_hlist xs e); try congruence.
+        inv_all. subst.
+        specialize (IHxs _ eq_refl).
+        admit.
+    Admitted.
+
+    Lemma pattern_expr_ok : forall tus R tvs t e ts xs e',
+        @pattern_expr tus tvs t e ts xs = Some e' ->
+        wtexpr_equiv R e (subst xs e').
+    Proof.
+      admit.
+    Admitted.
+
+    Lemma check_set_ok : forall tus tvs ts t unify u xs e s s',
+        @check_set tus tvs ts t unify u xs e s = Some s' ->
+        (forall e' s s',
+            unify e' s = Some s' ->
+            unify_spec s s' e' e) ->
+        unify_spec s s' (wtUVar u xs) e.
+    Proof.
+      unfold check_set; intros.
+      consider (Inst_lookup s u).
+      { intros. eapply H0 in H1.
+        red. destruct H1; split; auto.
+        assert (wtexpr_equiv (Unifiable_eq s) (wtUVar u xs) (subst xs w)).
+        { econstructor. econstructor. econstructor. eassumption. }
+        eapply H1 in H3.
+        eapply eqTrans; eassumption. }
+      { intro X; clear X.
+        consider (pattern_expr e xs); intros; try congruence.
+        inv_all. subst.
+        eapply pattern_expr_ok with (R := Unifiable_eq (Inst_set u w s)) in H.
+        split.
+        { admit. }
+        { eapply eqTrans.
+          2: eapply wtexpr_equiv_symm; [| eassumption ].
+          constructor. constructor. admit.
+          destruct 1; [ right | left]; eassumption. } }
+    Admitted.
+
     Section unify_list.
       Context {tus : list Tuvar} {tvs : list type}.
       Variable unify : forall {t}, wtexpr tus tvs t -> wtexpr tus tvs t ->
-                                   Subst tus -> option (Subst tus).
+                                   Inst tus -> option (Inst tus).
 
       Fixpoint unify_list {ts} (e1 e2 : hlist (wtexpr tus tvs) ts)
-               (s : Subst tus) {struct e1}
-        : option (Subst tus) :=
+               (s : Inst tus) {struct e1}
+        : option (Inst tus) :=
         match e1 in hlist _ ts
-              return hlist (wtexpr tus tvs) ts -> option (Subst tus)
+              return hlist (wtexpr tus tvs) ts -> option (Inst tus)
         with
         | Hnil => fun _ => Some s
         | Hcons e1 es1 => fun e2 =>
@@ -596,16 +793,16 @@ Section simple_dep_types.
     End unify_list.
 
     Variable unifyRec : forall {tus tvs t} (e1 e2 : wtexpr tus tvs t)
-                               (s : Subst tus), option (Subst tus).
+                               (s : Inst tus), option (Inst tus).
 
 
 
-  Fixpoint unify {tus tvs t} (e1 e2 : wtexpr tus tvs t) (s : Subst tus)
-           {struct e1}
-  : option (Subst tus).
-  refine
+    Fixpoint unify {tus tvs t} (e1 e2 : wtexpr tus tvs t) (s : Inst tus)
+             {struct e1}
+      : option (Inst tus).
+    refine
     (match e1 in wtexpr _ _ t
-           return wtexpr tus tvs t -> option (Subst tus)
+           return wtexpr tus tvs t -> option (Inst tus)
      with
      | wtVar x => fun e2 =>
                       match e2 in wtexpr _ _ t
@@ -623,7 +820,7 @@ Section simple_dep_types.
                       end x
      | wtInj f => fun e2 =>
        match e2 in wtexpr _ _ t
-             return Esymbol t -> option (Subst tus)
+             return Esymbol t -> option (Inst tus)
        with
        | wtInj f' => fun f => if Esymbol_eq_dec f f' then Some s else None
        | wtUVar u xs => fun f => check_set (unifyRec (wtInj f))
@@ -634,9 +831,9 @@ Section simple_dep_types.
        match e2 in wtexpr _ _ t
              return (forall tu, member (tu,t) tus ->
                                 hlist (wtexpr tus tvs) tu ->
-                                Subst tus -> option (Subst tus)) ->
-             (wtexpr tus tvs (TArr d t) -> Subst tus -> option (Subst tus)) ->
-                    option (Subst tus)
+                                Inst tus -> option (Inst tus)) ->
+             (wtexpr tus tvs (TArr d t) -> Inst tus -> option (Inst tus)) ->
+                    option (Inst tus)
        with
        | @wtApp _ _ d' c' f' x' =>
          match type_eq_dec d' d with
@@ -660,15 +857,15 @@ Section simple_dep_types.
        match e2 in wtexpr _ _ t'
              return (forall tu, member (tu,t') tus ->
                                 hlist (wtexpr tus tvs) tu ->
-                                Subst tus -> option (Subst tus)) ->
+                                Inst tus -> option (Inst tus)) ->
                     (wtexpr tus (match t' with
                                  | TArr a _ => a
                                  | _ => t'
                                  end :: tvs) match t' with
                                              | TArr _ b => b
                                              | _ => t'
-                                             end -> Subst tus -> option (Subst tus)) ->
-                    option (Subst tus)
+                                             end -> Inst tus -> option (Inst tus)) ->
+                    option (Inst tus)
        with
        | @wtAbs _ _ d' r' e' =>
          match type_eq_dec d' d with
@@ -686,7 +883,7 @@ Section simple_dep_types.
        match b in wtexpr _ _ t
              return member (ts,t) tus ->
                     hlist (wtexpr tus tvs) ts ->
-                    option (Subst tus)
+                    option (Inst tus)
        with
        | wtUVar u' xs' => fun u xs =>
          match member_check_eq u' u with
@@ -705,8 +902,73 @@ Section simple_dep_types.
        | x => fun u xs => check_set (unifyRec x) u xs x s
        end u xs
      end e2).
-  Defined.
+    Defined.
+
+    Hypothesis unifyRec_ok : forall tus tvs t a b s s',
+        @unifyRec tus tvs t a b s = Some s' ->
+        unify_spec s s' a b.
+    Theorem unify_ok : forall tus tvs t a b s s',
+        @unify tus tvs t a b s = Some s' ->
+        unify_spec s s' a b.
+    Proof.
+      (** By induction on [a]. Need to factor out some pieces to reduce
+       ** the proof burden
+       **)
+    Admitted.
 
   End unify.
+*)
 
 End simple_dep_types.
+
+
+(* Reduction Oriented Substitutions...
+  (** Substitution **)
+  Inductive Subst (tus : list Tuvar) : list type -> list type -> Type :=
+  | Send : Subst tus nil nil
+  | Sterm : forall {t ts ts'},
+      wtexpr tus ts' t ->
+      Subst tus ts ts' ->
+      Subst tus (t :: ts) ts'
+  | Sskip : forall {t ts ts'},
+      Subst tus ts ts' ->
+      Subst tus (t :: ts) (t :: ts').
+
+  Section subst.
+    Context {tus : list Tuvar}.
+
+    Fixpoint Subst_get {ls ls' t} (s : Subst tus ls ls')
+             (v : member t ls) : wtexpr tus ls' t.
+    refine (
+      match v in member _ ls
+            return Subst tus ls ls' -> wtexpr tus ls' t
+      with
+      | MZ _ _ =>
+        fun s => match s in Subst _ (t :: l) ls'
+                       return wtexpr tus ls' t
+                 with
+                 | Sterm t _ => t
+                 | Sskip _ => wtVar (MZ _ _)
+                 end
+      | MN _ _ => _
+      end s).
+    refine (fun s => match s in Subst _ (t' :: l) ls'
+                           return wtexpr tus ls' t
+                     with
+                     | Sterm t _ => _
+                     | Sskip _ => _
+                     end).
+
+  Fixpoint subst {tvs tvs' : list type} (s : Subst tus tvs tvs') {t}
+           (e : wtexpr tus tvs t) {struct e}
+  : wtexpr tus tvs' t.
+  refine
+    match e in wtexpr _ _ t return wtexpr tus tvs' t with
+    | wtVar v => _
+    | wtInj s => wtInj s
+    | wtUVar u xs => wtUVar u (hlist_map (@subst tvs tvs' s) xs)
+    | wtApp f x => wtApp (@subst tvs tvs' s _ f) (@subst tvs tvs' s _ x)
+    | wtAbs f => wtAbs (@subst (_ :: tvs) (_ :: tvs') (Sskip s) _ f)
+    end.
+Print wtexpr.
+*)

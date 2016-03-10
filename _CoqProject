@@ -69,7 +69,6 @@ theories/Util/Compat.v
 # theories/Lambda/TypedFoldApp.v
 # theories/Lambda/FoldApp.v
 # theories/Lambda/StrongFoldApp.v
-# theories/Lambda/WtExpr.v
 # theories/Lambda/Lemma.v
 # theories/Lambda/ExprUnify_common.v
 # theories/Lambda/ExprUnify_simple.v
@@ -88,6 +87,7 @@ theories/Poly/PolyPHOAS.v
 theories/Poly/PolyP_unify.v
 
 theories/LambdaWt/TypedExpr.v
+theories/LambdaWt/Unify.v
 
 # theories/Views/Ptrns.v
 # theories/Views/FuncView.v
