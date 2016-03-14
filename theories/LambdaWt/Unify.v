@@ -67,7 +67,7 @@ Section unify.
 
   Definition unify_spec {tus} (i i' : Inst tus) {tvs t}
              (e1 e2 : wtexpr tus tvs t)
-    : Prop :=
+  : Prop :=
     Inst_evolves i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
 
   Lemma hlist_get_member_lift'
@@ -230,7 +230,7 @@ Section unify.
       destruct (pattern_expr Tsymbol_eq_dec Esymbol_eq_dec e2 xs); try congruence.
       specialize (IHe2 _ eq_refl).
       inv_all. subst.
-      simpl. intro. 
+      simpl. intro.
       eapply eqApp; eauto. }
     { intros.
       generalize (find_in_hlist_ok R (wtAbs e) xs).
@@ -416,25 +416,205 @@ Section unify.
      end e2).
   Defined.
 
-(*
-  Section unify_ind.
-    Variable tus : list Tuvar.
-    Variable P : forall (tvs : list type) (t : type),
-        wtexpr tus tvs t -> wtexpr tus tvs t -> Inst tus -> Inst tus -> Prop.
-    Hypothesis : forall tvs t v v',
-        P tvs t (wtVar v) (wtVar v') 
-    Lemma unify_ind
-    : 
-*)
-  Hypothesis unifyRec_ok : forall tus tvs t a b s s',
-      @unifyRec tus tvs t a b s = Some s' ->
-      unify_spec s s' a b.
-  Theorem unify_ok : forall tus tvs t a b s s',
-      @unify tus tvs t a b s = Some s' ->
-      unify_spec s s' a b.
+  Instance Reflexive_Inst_evolves tus : Reflexive (@Inst_evolves tus).
+  Proof. compute. auto. Qed.
+  Instance Transitive_Inst_evolves tus : Transitive (@Inst_evolves tus).
+  Proof. compute. auto. Qed.
+
+  Instance Symmetric_wtexpr_equiv tus R tvs t
+  : (forall tvs t, Symmetric (R tvs t)) ->
+    Symmetric (@wtexpr_equiv Tsymbol Esymbol tus R tvs t).
+  Proof. Admitted.
+
+  Instance Symmetric_Unifiable_eq tus tvs t (i : Inst tus)
+  : Symmetric (Unifiable_eq i (tvs:=tvs) (t:=t)).
   Proof.
-  (** By induction on [a]. Need to factor out some pieces to reduce
-   ** the proof burden
-   **)
-  Admitted.
+    red. destruct 1; (left + right); solve [ eauto ].
+  Qed.
+
+  Section unify_ok.
+    Variable tus : list Tuvar.
+
+    Lemma Happ : forall tvs d c f g x y i i' i'',
+        @unify_spec tus i i' tvs (TArr d c) f g ->
+        unify_spec i' i'' x y ->
+        unify_spec i i'' (wtApp f x) (wtApp g y).
+    Proof.
+      destruct 1; destruct 1.
+      split.
+      { etransitivity; eauto. }
+      { constructor; eauto. }
+    Qed.
+
+    Lemma member_check_eq_ok
+    : forall tus ts ts' t m m' pf,
+        @member_check_eq Tsymbol tus ts ts' t m m' = Some pf ->
+        m = match eq_sym pf in _ = X return member (X,_) _ with
+            | eq_refl => m'
+            end.
+    Proof using Tsymbol_eq_dec.
+      clear - Tsymbol_eq_dec.
+      induction m; simpl; intros.
+      { destruct (member_case m').
+        { destruct H0. subst.
+          simpl.
+          rewrite (UIP_refl x) in *; simpl in *.
+          reflexivity. }
+        { destruct H0; subst. inversion H. } }
+      { destruct (member_case m'); destruct H0; subst.
+        { inversion H. }
+        { simpl in *.
+          eapply IHm in H.
+          simpl in *. subst. reflexivity. } }
+      Unshelve.
+      eapply pair_eq_dec.
+      eapply list_eq_dec.
+      eapply type_eq_dec; eapply Tsymbol_eq_dec.
+      eapply type_eq_dec; eapply Tsymbol_eq_dec.
+    Qed.
+
+    Hypothesis unifyRec_ok : forall tvs t e e' i i',
+        @unifyRec tus tvs t e e' i = Some i' ->
+        unify_spec i i' e e'.
+
+    Lemma wtexpr_TArr_case'
+      : forall tus tvs d c t (e : wtexpr tus tvs t) (pf : t = TArr d c),
+        (exists i, match pf with
+                   | eq_refl => e
+                   end = wtInj i)
+        \/ (exists v, match pf with
+                      | eq_refl => e
+                      end = wtVar v)
+        \/ (exists z f (x : wtexpr tus tvs z),
+               match pf with
+               | eq_refl => e
+               end = wtApp f x)
+        \/ (exists e', match pf with
+                       | eq_refl => e
+                       end = match eq_sym pf with
+                             | eq_refl => wtAbs e'
+                             end)
+        \/ (exists ts (u : member (ts,_) tus) xs,
+               match pf with
+               | eq_refl => e
+               end = wtUVar u xs).
+    Proof using Tsymbol_eq_dec.
+      clear - Tsymbol_eq_dec.
+      destruct e; simpl; intros; subst; eauto.
+      { right. right. left. do 3 eexists; eauto. }
+      { right. right. right. left.
+        generalize pf.
+        inversion pf. subst. intros.
+        rewrite (UIP_refl pf0). simpl. eauto. }
+      { repeat right. do 3 eexists; eauto. }
+      Unshelve.
+      eapply type_eq_dec. eapply Tsymbol_eq_dec.
+    Qed.
+
+
+    Lemma unify_ok
+    : forall tvs t e e' i i',
+        @unify tus tvs t e e' i = Some i' ->
+        unify_spec i i' e e'.
+    Proof.
+      induction e.
+      { destruct e'; simpl; intros; try congruence.
+        { destruct (member_eq_dec m m0); try congruence.
+          inversion H. subst. inv_all.
+          split. reflexivity.
+          eapply eqVar. }
+        { eapply check_set_ok in H.
+          { red in H. destruct H.
+            split; eauto.
+            symmetry. tauto. }
+          { intros. eapply unifyRec_ok in H0.
+            destruct H0.
+            split; eauto.
+            symmetry. tauto. } } }
+      { destruct e'; simpl; intros; try congruence.
+        { destruct (Esymbol_eq_dec m e); try congruence; inv_all. subst.
+          split. reflexivity. eapply eqInj. }
+        { eapply check_set_ok in H.
+          { destruct H; split; eauto.
+            symmetry; tauto. }
+          { intros. eapply unifyRec_ok in H0; eauto.
+            destruct H0; split; eauto.
+            symmetry; eauto. } } }
+      { destruct e'; simpl; intros; try congruence.
+        { destruct (type_eq_dec Tsymbol_eq_dec d0 d); try congruence; subst.
+          specialize (IHe1 e'1 i).
+          destruct (unify e1 e'1 i); try congruence.
+          eapply IHe2 in H.
+          specialize (IHe1 _ eq_refl).
+          eapply Happ; eauto. }
+        { eapply check_set_ok in H.
+          { destruct H.
+            split; eauto.
+            symmetry; tauto. }
+          { intros. eapply unifyRec_ok in H0; eauto.
+            destruct H0; split; eauto.
+            symmetry; eauto. } } }
+      { simpl.
+        intro e'.
+        generalize (wtexpr_TArr_case' e' eq_refl); simpl.
+        destruct 1 as [ ? | [ ? | [ ? | [ ? | ? ] ] ] ]; forward_reason;
+          subst; intros; try congruence.
+        { destruct (type_eq_dec Tsymbol_eq_dec d d); try congruence.
+          rewrite (UIP_refl e0) in H.
+          eapply IHe in H.
+          clear - H.
+          destruct H; split; eauto.
+          econstructor. eauto. }
+        { eapply check_set_ok in H.
+          destruct H; split; eauto.
+          symmetry. eauto.
+          intros. eapply unifyRec_ok in H0; eauto.
+          destruct H0; split; eauto.
+          symmetry; eauto. } }
+      { destruct e'; simpl; intros;
+        try (eapply check_set_ok in H0;
+             [ destruct H0;
+               try solve [ split; eauto ]
+             | do 3 intro; let Z := fresh in intro Z;
+               eapply unifyRec_ok in Z; destruct Z; split;
+               solve [ eauto | symmetry; eauto ] ]).
+        generalize (member_check_eq_ok m u).
+        destruct (member_check_eq m u); subst.
+        { clear - H H0.
+          intros. specialize (H1 _ eq_refl). subst. simpl in *.
+          red.
+          cut (Inst_evolves i i' /\
+               hlist_Forall2 (wtexpr_equiv (Unifiable_eq i') (tvs:=tvs)) xs h).
+          { destruct 1; split; eauto using eqUVar. }
+          clear u.
+          revert H0. generalize dependent i. revert i'.
+          induction H.
+          { simpl; intros. inversion H0; clear H0; subst.
+            split; [ reflexivity | ].
+            rewrite (hlist_eta h). constructor. }
+          { simpl; intros.
+            specialize (H (hlist_hd h) i).
+            match goal with
+            | H : forall x, ?X = _ -> _ , _ : match ?Y with _ => _ end = _
+              |- _ =>
+              change X with Y in H; destruct Y
+            end; try congruence.
+            eapply IHhlist_Forall in H1.
+            specialize (H _ eq_refl).
+            destruct H. destruct H1.
+            split.
+            { etransitivity; eauto. }
+            { rewrite (hlist_eta h).
+              constructor; eauto. } } }
+        { eapply check_set_ok in H0.
+          { destruct H0; split; eauto. }
+          { intros. eapply check_set_ok in H1.
+            destruct H1; split; eauto. symmetry; eauto.
+            intros. eapply unifyRec_ok in H2. destruct H2; split; eauto.
+            symmetry; eauto. } } }
+      Unshelve.
+      eapply type_eq_dec. eapply Tsymbol_eq_dec.
+    Qed.
+  End unify_ok.
+
 End unify.
