@@ -268,6 +268,8 @@ Section RSym_OneOf.
   ; symD := fun f => match f return unit with end
   ; sym_eqb := fun f _ => match f return option bool with end
   }.
+  Instance RSymOk_Empty_set : RSymOk RSym_Empty_set.
+  Proof. constructor. destruct a. Defined.
 
   Definition typeof_sym_OneOf {m : pmap}
     (H : forall p, RSym match pmap_lookup' m p return TypeR with
@@ -427,11 +429,16 @@ Section RSym_OneOf.
 
   Set Printing Implicit.
 
+  Definition RSym_All m : Type :=
+    forall p, RSym match pmap_lookup' m p return TypeR with
+                   | _Some T => T
+                   | _None => Empty_set
+                   end.
+  Definition RSym_AllOk m (e : RSym_All m) : Type :=
+    forall p, RSymOk (e p).
+
   Instance RSymOk_OneOf (m : pmap)
-           (H1 : forall p, RSym match pmap_lookup' m p return TypeR with
-                                | _Some T => T
-                                | _None => Empty_set
-                                end)
+           (H1 : RSym_All m)
            (H2 : forall p, RSymOk (H1 p))
   : RSymOk (RSymOneOf m H1) :=
   { sym_eqbOk f1 f2 :=
@@ -466,6 +473,60 @@ Section RSym_OneOf.
       rewrite H3. clear - RTypeOk_typ.
       rewrite (UIP_refl x). reflexivity. } }
   { trivial. }
+  Defined.
+
+  Definition RSym_All_Empty : RSym_All Empty.
+  Proof.
+    red. intros. rewrite pmap_lookup'_Empty.
+    eapply RSym_Empty_set.
+  Defined.
+
+  Definition RSym_All_Branch_None l r
+  : RSym_All l -> RSym_All r -> RSym_All (Branch _None l r).
+  Proof.
+    unfold RSym_All. intros.
+    destruct p; simpl; eauto.
+    eapply RSym_Empty_set.
+  Defined.
+
+  Definition RSym_All_Branch_Some s l r
+  : RSym s -> RSym_All l -> RSym_All r -> RSym_All (Branch (_Some s) l r).
+  Proof.
+    unfold RSym_All. intros.
+    destruct p; simpl; eauto.
+  Defined.
+
+  Definition RSym_AllOk_Empty : RSym_AllOk RSym_All_Empty.
+  Proof.
+    red. intros. unfold RSym_All_Empty.
+    generalize (pmap_lookup'_Empty p).
+    generalize dependent (pmap_lookup' Empty p).
+    intros; subst.
+    unfold eq_rect_r, eq_rect. simpl.
+    eapply RSymOk_Empty_set.
+  Defined.
+
+  Definition RSymOk_All_Branch_None : forall l r Dl Dr,
+      RSym_AllOk Dl ->
+      RSym_AllOk Dr ->
+      RSym_AllOk (@RSym_All_Branch_None l r Dl Dr).
+  Proof.
+    red. destruct p; simpl.
+    { eapply X0. }
+    { eapply X. }
+    { eapply RSymOk_Empty_set. }
+  Defined.
+
+  Definition RSymOk_All_Branch_Some : forall s l r Ds Dl Dr,
+      RSymOk Ds ->
+      RSym_AllOk Dl ->
+      RSym_AllOk Dr ->
+      RSym_AllOk (@RSym_All_Branch_Some s l r Ds Dl Dr).
+  Proof.
+    red. destruct p; simpl.
+    { eapply X0. }
+    { eapply X. }
+    { assumption. }
   Defined.
 
 End RSym_OneOf.

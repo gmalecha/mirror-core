@@ -158,7 +158,7 @@ Section PartialViewProd.
   Polymorphic Context {FVabOk : @PartialViewOk _ _ FVab Rab}.
   Polymorphic Context {FVcdOk : @PartialViewOk _ _ FVcd Rcd}.
 
-  Global Polymorphic Instance FuncView_prod : PartialView (A * C) (B * D) :=
+  Global Polymorphic Instance PartialView_prod : PartialView (A * C) (B * D) :=
   { f_insert := fun p => (f_insert (fst p), f_insert (snd p));
     f_view :=
       fun p =>
@@ -174,7 +174,7 @@ Section PartialViewProd.
                  Rcd (snd x) (snd y) -> Rpair x y.
 
   Polymorphic Theorem PartialView_prodOk
-  : @PartialViewOk _ _ FuncView_prod Rpair.
+  : @PartialViewOk _ _ PartialView_prod Rpair.
   Proof.
     constructor.
     { intros; destruct f, a; simpl in *; split; intros.
