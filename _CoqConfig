@@ -1,6 +1,5 @@
 -Q theories MirrorCore
 -Q examples McExamples
--Q coq-ext-lib/theories ExtLib
 
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils

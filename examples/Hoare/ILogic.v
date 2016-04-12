@@ -192,7 +192,7 @@ End functional_ilogic.
 
 Section refl_embed.
   Polymorphic Universe L.
-  Context {T : Type@{L}}.
+  Polymorphic Context {T : Type@{L}}.
   Global Polymorphic Instance EmbedOp_refl : EmbedOp@{L L} T T :=
   { embed P := P }.
 

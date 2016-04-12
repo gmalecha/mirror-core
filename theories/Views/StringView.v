@@ -63,20 +63,21 @@ Section StringFuncInst.
 End StringFuncInst.
 
 Section MakeString.
-  Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : PartialView func stringFunc}.
+  Polymorphic Context {typ func : Type} {RType_typ : RType typ}.
+  Polymorphic Context {FV : PartialView func stringFunc}.
 
-  Definition fString s := f_insert (pString s).
+  Polymorphic Definition fString s := f_insert (pString s).
 
-  Definition mkString (s : string) := Inj (typ:=typ) (fString s).
+  Polymorphic Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
-  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
+  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T)
+  : ptrn stringFunc T :=
     fun f U good bad =>
       match f with
       | pString s => p s U good (fun x => bad f)
       end.
 
-  Global Instance fptrnString_ok {T : Type} {p : ptrn string T} {Hok : ptrn_ok p} :
+  Global Polymorphic Instance fptrnString_ok {T : Type} {p : ptrn string T} {Hok : ptrn_ok p} :
     ptrn_ok (fptrnString p).
   Proof.
     red; intros; try (right; unfold Fails; reflexivity).
@@ -90,7 +91,7 @@ Section MakeString.
     inj (ptrn_view _ (fptrnString p)).
 *)
 
-  Lemma Succeeds_fptrnString {T : Type} (f : stringFunc) (p : ptrn string T) (res : T)
+  Polymorphic Lemma Succeeds_fptrnString {T : Type} (f : stringFunc) (p : ptrn string T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnString p) res) :
     exists s, Succeeds s p res /\ f = pString s.
   Proof.
@@ -105,7 +106,7 @@ Section MakeString.
     exists s; split; [assumption | reflexivity].
   Qed.
 
-  Global Instance fptrnString_SucceedsE {T : Type} {f : stringFunc}
+  Global Polymorphic Instance fptrnString_SucceedsE {T : Type} {f : stringFunc}
          {p : ptrn string T} {res : T} {pok : ptrn_ok p}
   : SucceedsE f (fptrnString p) res :=
   { s_result := exists s, Succeeds s p res /\ f = pString s;

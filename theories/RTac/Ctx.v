@@ -20,6 +20,19 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** TODO: This should be moved to ExtLib **)
+Polymorphic Lemma match_match_eq_sym
+: forall T (a b : T) (pf : a = b) (F : _ -> Type) X,
+    match pf in _ = Z return F Z with
+    | eq_refl =>
+      match eq_sym pf in _ = Z return F Z with
+      | eq_refl => X
+      end
+    end = X.
+Proof using.
+  intros; subst. reflexivity.
+Defined.
+
 Ltac equivs :=
   repeat match goal with
            | H : equiv_hlist _ _ _ |- _ => apply equiv_eq_eq in H
@@ -2722,10 +2735,11 @@ Section parameterized.
     with
       | CTop _ _ => fun x => Hnil
       | CExs c2 _ => hlist_getExtensionVars c2
-      | CAll c2 _ => fun us => hlist_app (hlist_getExtensionVars c2 (fst (hlist_split _ _ us))) (snd (hlist_split _ _ us))
+      | CAll c2 _ => fun us =>
+        hlist_app (hlist_getExtensionVars c2 (fst (hlist_split _ _ us)))
+                  (snd (hlist_split _ _ us))
       | CHyp c2 _ => hlist_getExtensionVars c2
     end.
-
 
   Lemma pctxD_get_hyp
   : forall (ctx ctx' : Ctx) e
@@ -2773,14 +2787,7 @@ Section parameterized.
       intro H. rewrite <- H. rewrite H at 2.
       rewrite hlist_app_assoc.
       simpl.
-      generalize dependent (app_ass_trans (getVars ctx) (getExtensionVars ctx') (t :: nil)).
-      generalize dependent (hlist_app
-                     (snd
-                        (hlist_split (getVars ctx) (getExtensionVars ctx') vs))
-                     (Hcons x0 Hnil)).
-      clear. simpl in *.
-      generalize dependent ((getVars ctx ++ getExtensionVars ctx') ++ t :: nil).
-      intros; subst. simpl.
+      rewrite match_match_eq_sym.
       rewrite hlist_split_hlist_app. reflexivity. }
     { intros e s; rewrite (ctx_subst_eta s).
       simpl; intros; forward; inv_all; subst; eauto.

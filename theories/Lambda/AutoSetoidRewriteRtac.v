@@ -2556,9 +2556,26 @@ Section setoid.
         intros.
         rewrite forall_hlist_nil.
         rewrite hlist_app_nil_r.
-        generalize (app_nil_r_trans (getVars ctx)).
-        clear. generalize dependent (getVars ctx ++ nil).
-        intros; subst. reflexivity. }
+        revert vs0.
+        refine
+          (match app_nil_r_trans (getVars ctx)  as Q in _ = t
+                 return forall vs0 : hlist typD _,
+               P us0
+                 match
+                   eq_sym Q in (_ = t) return (hlist typD t)
+                 with
+                 | eq_refl => vs0
+                 end <->
+               match
+                 eq_sym (eq_sym Q) in (_ = V)
+                 return (exprT (getUVars ctx) V Prop)
+               with
+               | eq_refl => P
+               end us0 vs0
+           with
+           | eq_refl => _
+           end).
+        reflexivity. }
       { simpl; intros.
         specialize (@IHtvs _ _ _ H).
         forward_reason.
@@ -2592,7 +2609,53 @@ Section setoid.
             replace V with V' ; [ replace U with U' | ]
           end.
           { eapply pctxD_iff; eauto; clear.
-            generalize (app_ass_trans (getVars ctx) (a :: nil) tvs).
+            revert P.
+            refine
+              match app_ass_trans (getVars ctx) (a :: nil) tvs
+                    as PF in _ = Z
+                    return
+                    forall (P : exprT _ Z Prop)
+                           (us : hlist typD (getUVars (wrap_tvs tvs (CAll ctx a))))
+                           (vs : hlist typD (getVars (wrap_tvs tvs (CAll ctx a)))),
+                      match
+                        eq_sym (getVars_wrap_tvs tvs (CAll ctx a)) in (_ = V)
+                        return (exprT (getUVars (wrap_tvs tvs (CAll ctx a))) V Prop)
+                      with
+                      | eq_refl =>
+                        match
+                          eq_sym (getUVars_wrap_tvs tvs (CAll ctx a)) in (_ = U)
+                          return (exprT U ((getVars ctx ++ a :: nil) ++ tvs) Prop)
+                        with
+                        | eq_refl =>
+                          match
+                            eq_sym PF in (_ = X)
+                            return (exprT (getUVars ctx) X Prop)
+                          with
+                          | eq_refl => P
+                          end
+                        end
+                      end us vs <->
+                      match
+                        eq_sym
+                          (eq_ind_r (fun t : tenv typ => t = Z)
+                                    (eq_ind_r (fun l : list typ => l = Z) eq_refl
+                                              PF)
+                                    (getVars_wrap_tvs tvs (CAll ctx a))) in (_ = V)
+                        return (exprT (getUVars (wrap_tvs tvs (CAll ctx a))) V Prop)
+                      with
+                      | eq_refl =>
+                        match
+                          eq_sym
+                            (eq_ind_r (fun t : tenv typ => t = getUVars ctx) eq_refl
+                                      (getUVars_wrap_tvs tvs (CAll ctx a))) in
+                          (_ = U) return (exprT U Z Prop)
+                        with
+                        | eq_refl => P
+                        end
+                      end us vs
+              with
+              | eq_refl => _
+              end.
             generalize (getVars_wrap_tvs tvs (CAll ctx a)).
             generalize (getUVars_wrap_tvs tvs (CAll ctx a)).
             simpl.
@@ -2641,9 +2704,7 @@ Section setoid.
         intros; eapply pctxD_iff; eauto.
         intros. rewrite forall_hlist_nil.
         rewrite hlist_app_nil_r. clear.
-        generalize (app_nil_r_trans (getVars ctx)).
-        generalize dependent (getVars ctx ++ nil). intros; subst.
-        reflexivity. }
+        autorewrite_with_eq_rw. reflexivity. }
       { simpl. intros.
         specialize (IHtvs (CAll ctx a) (AllSubst cs)).
         simpl in IHtvs. rewrite H in IHtvs.
@@ -2672,7 +2733,6 @@ Section setoid.
           end.
           { eapply pctxD_iff; eauto.
             intros.
-            generalize (app_ass_trans (getVars ctx) (a :: nil) tvs).
             generalize (getVars_wrap_tvs tvs (CAll ctx a)).
             generalize (getUVars_wrap_tvs tvs (CAll ctx a)).
             simpl. clear.
@@ -2682,7 +2742,37 @@ Section setoid.
                  first [ generalize dependent X | generalize dependent Y ] ; intros; subst
                | H : @eq (list typ) ?X ?Y |- _ =>
                  first [ generalize dependent X | generalize dependent Y ] ; intros; subst
-               end. reflexivity. }
+               end. simpl.
+            unfold eq_ind_r, eq_ind, eq_rect. simpl.
+            autorewrite_with_eq_rw.
+            revert vs0. revert P.
+            refine
+              match app_ass_trans (getVars ctx) (a :: nil) tvs
+                    as PF in _ = X
+                    return
+                    forall P (vs0 : hlist typD ((getVars ctx ++ a :: nil) ++ tvs)),
+                      P us0
+                        match
+                          PF in (_ = x)
+                          return (hlist typD x)
+                        with
+                        | eq_refl => vs0
+                        end <->
+                      P us0
+                        match
+                          match
+                            eq_sym PF in (_ = y)
+                            return (y = X)
+                          with
+                          | eq_refl => eq_refl
+                          end in (_ = x) return (hlist typD x)
+                        with
+                        | eq_refl => vs0
+                        end
+              with
+              | eq_refl => _
+              end.
+            reflexivity. }
           { clear.
             generalize (getAmbientUVars_wrap_tvs tvs (CAll ctx a)).
             simpl in *. destruct e. reflexivity. }

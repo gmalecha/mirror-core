@@ -325,7 +325,7 @@ struct
     ; rule_template : template
     ; mutable rule_cache :
       (((int,int,reify_env) Term_match.pattern) *
-       (reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)) Ephemeron.key
+       (reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)) CEphemeron.key
     }
 
     type 'a ptrn_tree =
@@ -724,7 +724,7 @@ struct
         let template = parse_template bindings template in
 	extend name rptrn { rule_pattern = rptrn
                           ; rule_template = template
-                          ; rule_cache = Ephemeron.create (compile_rule rptrn template)
+                          ; rule_cache = CEphemeron.create (compile_rule rptrn template)
                           }
       with
 	Term_match.Match_failure -> raise (Failure "match failed, please report")
@@ -746,10 +746,10 @@ struct
         Pp.mt ()
 
     let get_rule rule =
-      try Ephemeron.get rule.rule_cache
-      with Ephemeron.InvalidKey ->
+      try CEphemeron.get rule.rule_cache
+      with CEphemeron.InvalidKey ->
         let cache = compile_rule rule.rule_pattern rule.rule_template in
-        let _ = rule.rule_cache <- Ephemeron.create cache in
+        let _ = rule.rule_cache <- CEphemeron.create cache in
         cache
 
     let run_ptrn_tree (tr : rule list ptrn_tree) trm gl =
@@ -824,7 +824,7 @@ struct
     ; result_type : Term.constr
     }
 
-    let reify_table : syntax_data Ephemeron.key Cmap.t ref =
+    let reify_table : syntax_data CEphemeron.key Cmap.t ref =
       ref Cmap.empty
 
     let find =
@@ -1062,20 +1062,6 @@ struct
         with
         | Term_match.Match_failure when Term.isConst cmd ->
           Call cmd
-          (* begin *)
-          (*   try *)
-          (*     let entry = Cmap.find cmd !reify_table in *)
-          (*     Call cmd *)
-          (*   with *)
-          (*   | Not_found -> *)
-          (*     let reduced = Reductionops.whd_betadeltaiota env evm cmd in *)
-          (*     let parsed = parse_command ~normalized:true reduced in *)
-          (*     debug "from here" ; *)
-          (*     let entry = { result_type = get_Command_type env evm cmd *)
-          (*                 ; reify = compile_command parsed } in *)
-          (*     reify_table := Cmap.add cmd (Ephemeron.create entry) !reify_table ; *)
-          (*     Call cmd *)
-          (* end *)
         | Term_match.Match_failure when not normalized ->
           let reduced = Reductionops.whd_betadeltaiota env evm cmd in
           parse_command ~normalized:true reduced
@@ -1083,24 +1069,6 @@ struct
           Pp.(msg_error (str "Failed to parse command from " ++ Printer.pr_constr cmd)) ;
           raise (Failure "")
       in parse_command
-(*
-    let add_syntax (name : Term.constr) (typ : Term.constr) (e : Environ.env) evm (cmds : Term.constr)
-    : syntax_data =
-      debug_pp Pp.(str "adding syntax for " ++ Printer.pr_constr name) ; 
-     try
-      let program = parse_command e evm cmds in
-      let meta_reifier = make_syntax_data typ program in
-      let _ =
-	if Cmap.mem name !reify_table then
-	  Pp.(msg_warning (   (str "Redeclaring syntax '")
-			   ++ (Printer.pr_constr name)
-			   ++ (str "'")))
-	else ()
-      in
-      reify_table := Cmap.add name meta_reifier !reify_table ;
-      meta_reifier
-      with _ -> Printf.eprintf "foo\n" ; flush stderr ; assert false
-*)
 
     let compile_name (name : Term.constr) =
       let (evm,env) = Lemmas.get_current_context () in
@@ -1113,15 +1081,15 @@ struct
     let get_entry (name : Term.constr) =
       try
         let key = Cmap.find name !reify_table in
-        try Ephemeron.get key
-        with Ephemeron.InvalidKey ->
+        try CEphemeron.get key
+        with CEphemeron.InvalidKey ->
           let data = compile_name name in
-          reify_table := Cmap.add name (Ephemeron.create data) !reify_table ;
+          reify_table := Cmap.add name (CEphemeron.create data) !reify_table ;
           data
       with
         Not_found when Term.isConst name ->
         let data = compile_name name in
-        reify_table := Cmap.add name (Ephemeron.create data) !reify_table ;
+        reify_table := Cmap.add name (CEphemeron.create data) !reify_table ;
         data
       | Not_found ->
         debug "Not_found, not name" ; assert false
@@ -1150,7 +1118,7 @@ struct
       let data = { result_type = typ
                  ; reify = _meta_reifier } in
       let obj = decl_constant name evm cmd in
-      reify_table := Cmap.add obj (Ephemeron.create data) !reify_table
+      reify_table := Cmap.add obj (CEphemeron.create data) !reify_table
   end
 
   let initial_env (env : Environ.env) (evar_map : Evd.evar_map) (tbls : map_type list) =
