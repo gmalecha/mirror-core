@@ -437,6 +437,16 @@ Section parametric.
        end
   }.
 
+  Definition typ0D := @symbolD _ 0.
+
+  Global Definition TypeViewOk_sym0
+  : @TypeViewOk _ _ mtypD typ0D TypeView_sym0.
+  Proof.
+    constructor; simpl.
+    { destruct f; split; try congruence. }
+    { reflexivity. }
+  Qed.
+
   Global Instance TypeView_sym1
   : PartialView mtyp (symbol 1 * mtyp) :=
   { f_insert := fun p => tyBase1 (fst p) (snd p);
@@ -448,6 +458,18 @@ Section parametric.
        end
   }.
 
+  Definition typ1D := (fun ab => @symbolD _ 1 (fst ab) (mtypD (snd ab))).
+
+  Global Definition TypeViewOk_sym1
+  : @TypeViewOk _ _ mtypD typ1D TypeView_sym1.
+  Proof.
+    constructor; simpl.
+    { destruct f; split; try congruence.
+      { inversion 1. subst. reflexivity. }
+      { inversion 1. subst. destruct a; reflexivity. } }
+    { reflexivity. }
+  Qed.
+
   Global Instance TypeView_sym2
   : PartialView mtyp ((symbol 2) * mtyp * mtyp) :=
   { f_insert := fun p => tyBase2 (fst (fst p)) (snd (fst p)) (snd p);
@@ -458,6 +480,18 @@ Section parametric.
        | _ => pNone
        end
   }.
+
+  Definition typ2D := (fun ab => @symbolD _ 2 (fst (fst ab)) (mtypD (snd (fst ab))) (mtypD (snd ab))).
+
+  Global Definition TypeViewOk_sym2
+  : @TypeViewOk _ _ mtypD typ2D TypeView_sym2.
+  Proof.
+    constructor; simpl.
+    { destruct f; split; try congruence.
+      { inversion 1. subst. reflexivity. }
+      { inversion 1. subst. destruct a; simpl. destruct p. reflexivity. } }
+    { reflexivity. }
+  Qed.
 
 End parametric.
 
