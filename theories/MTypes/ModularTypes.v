@@ -4,7 +4,6 @@ Require Import ExtLib.Data.SigT.
 Require Import ExtLib.Data.POption.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Core.RelDec.
 
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.TypeView.
@@ -43,21 +42,6 @@ Section parametric.
 *)
   }.
 
-(*
-  Variable symbolD : forall {n}, symbol n -> type_for_arity n.
-
-  Variable symbol_eq : forall {n} (a b : symbol n), option (a = b).
-  Variable symbol_dec : forall {n} (a b : symbol n), {a = b} + {a <> b}.
-  Variable symbol_eq_total : forall n a b,
-      @symbol_eq n a b = match @symbol_dec n a b with
-                         | left x => Some x
-                         | right _ => None
-                         end.
-
-  Arguments symbolD {_} _.
-  Arguments symbol_dec {_} _ _.
-  Arguments symbol_eq {_} _ _.
-*)
   Variable ts : TSym.
 
   Unset Elimination Schemes.
@@ -111,7 +95,9 @@ Section parametric.
     end.
   Let getApp_f_ms (a : mtyp)
   : option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) :=
-    match a as a return option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) with
+    match a as a
+          return option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a))
+    with
     | @tyApp n a b => Some (a,b)
     | _ => None
     end.
@@ -281,16 +267,6 @@ Section parametric.
   { typD := mtypD
   ; type_cast := mtyp_cast
   ; tyAcc := mtyp_acc }.
-
-  Instance RelDec_mtyp : RelDec (@eq mtyp) := {
-    rel_dec a b := if (mtyp_dec a b) then true else false
-  }.
-
-  Instance RelDec_Correct_mtyp : RelDec_Correct RelDec_mtyp.
-  Proof.
-    split; intros; unfold rel_dec; simpl.
-    destruct (mtyp_dec x y); [subst|]; intuition congruence.
-  Qed.
 
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.
@@ -502,3 +478,68 @@ Arguments Typ2Ok_Fun {_ _}.
 Arguments TypeView_sym0 {_}.
 Arguments TypeView_sym1 {_}.
 Arguments TypeView_sym2 {_}.
+
+Arguments symbolD {_ _ _} _.
+Arguments symbol_dec {_ _ _} _ _.
+
+Section TSym_sum.
+  About TSym.
+  Variable F G : nat -> Type.
+  Context {TSym_F : TSym F} {TSym_G : TSym G}.
+
+  Inductive Fsum (x : nat) : Type :=
+  | Finl : F x -> Fsum x
+  | Finr : G x -> Fsum x.
+
+  Definition FsumD {n : nat} (fs : Fsum n) : type_for_arity n :=
+    match fs with
+    | Finl _ x => symbolD x
+    | Finr _ x => symbolD x
+    end.
+
+  Theorem Finl_inj : forall n x y, Finl n x = Finl n y -> x = y.
+  Proof.
+    injection 1. tauto.
+  Defined.
+
+  Theorem Finr_inj : forall n x y, Finr n x = Finr n y -> x = y.
+  Proof.
+    injection 1. tauto.
+  Defined.
+
+  Theorem Finl_Finr : forall n x y, Finl n x <> Finr n y.
+  Proof.
+    red. intros. inversion H.
+  Defined.
+
+  Definition Fsum_dec {n} (a : Fsum n) : forall b, {a = b} + {a <> b}.
+  Proof.
+    refine
+    match a with
+    | Finl _ x => fun b =>
+      match b with
+      | Finl _ y => match symbol_dec x y with
+                    | left pf => left (f_equal _ pf)
+                    | right _ => right _
+                    end
+      | _ => right _
+      end
+    | Finr _ x => fun b =>
+      match b with
+      | Finr _ y => match symbol_dec x y with
+                    | left pf => left (f_equal _ pf)
+                    | right _ => right _
+                    end
+      | _ => right _
+      end
+    end.
+    intro. apply n0. apply Finl_inj. assumption.
+    apply Finl_Finr.
+    red. intro. symmetry in H. eapply Finl_Finr. eassumption.
+    intro. apply n0. apply Finr_inj. assumption.
+  Defined.
+
+  Global Instance TSym_sum : TSym Fsum :=
+  { symbolD := @FsumD
+  ; symbol_dec := @Fsum_dec }.
+End TSym_sum.
