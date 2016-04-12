@@ -10,7 +10,9 @@ Require Import Coq.Strings.String.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Inductive base_typ : nat -> Type :=
+Universes T.
+
+Inductive base_typ : nat -> (Type@{T}) :=
 | tNat : base_typ 0
 | tString : base_typ 0
 | tBool : base_typ 0
