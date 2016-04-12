@@ -52,7 +52,6 @@ Section FuncView_list_type.
   Qed.
 
 End FuncView_list_type.
-<<<<<<< HEAD
 
 Section RelDec_list_type.
 
@@ -80,5 +79,3 @@ Section RelDec_list_type.
   Qed.
   
 End RelDec_list_type.
-=======
->>>>>>> db1914a4d8e74b2d9be721b5d33619e790b8a9a1
