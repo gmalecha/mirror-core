@@ -1,5 +1,6 @@
 Require PluginUtils.PluginUtils.
-Require MirrorCore.Reify.Patterns.
+Require Import MirrorCore.Reify.Patterns.
+Require MirrorCore.Lemma.
 
 Declare ML Module "reify_Lambda_plugin".
 

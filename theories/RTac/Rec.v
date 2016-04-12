@@ -10,7 +10,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
@@ -111,6 +111,6 @@ Section parameterized.
 
 End parameterized.
 
-Arguments REC {_ _} n f last _ _ _ _ _ _ _ : rename.
-Arguments REC_N {_ _} n f last _ _ _ _ _ _ _ : rename.
-Arguments RECK {_ _} n f last _ _ _ _ _ _ _ : rename.
+Arguments REC {_ _} n%nat f%rtac last%rtac _ _ _ _ _ _ _ : rename.
+Arguments REC_N {_ _} n%positive_scope f%rtac last%rtac _ _ _ _ _ _ _ : rename.
+Arguments RECK {_ _} n%nat f%rtacK last%rtac _ _ _ _ _ _ _ : rename.

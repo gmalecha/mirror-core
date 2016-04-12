@@ -1,16 +1,15 @@
 Require Import Coq.Sorting.Permutation.
 Require Coq.FSets.FMapFacts.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Bool.
-Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Instantiate.
 
 Set Implicit Arguments.
@@ -18,8 +17,6 @@ Set Strict Implicit.
 
 (** Finite Maps **)
 Require Import FMapInterface.
-
-Let uvar : Type := nat.
 
 Module Make (FM : WS with Definition E.t := uvar
                      with Definition E.eq := @eq uvar).
@@ -32,7 +29,7 @@ Module Make (FM : WS with Definition E.t := uvar
     Context {RType_typ : RType typ}.
     Context {RTypeOk_typ : RTypeOk}.
     Variable expr : Type.
-    Context {Expr_expr : Expr _ expr}.
+    Context {Expr_expr : Expr typ expr}.
     Context {ExprOk_expr : ExprOk Expr_expr}.
 
     Definition raw : Type := FM.t expr.
@@ -101,8 +98,8 @@ Module Make (FM : WS with Definition E.t := uvar
       FM.fold (fun k v P =>
                  match nth_error_get_hlist_nth _ tus k with
                    | None => None
-                   | Some (existT T get) =>
-                     match exprD' tus tvs v T with
+                   | Some (existT _ T get) =>
+                     match exprD tus tvs T v with
                        | Some val' =>
                          match P with
                            | None => None
@@ -138,7 +135,7 @@ Module Make (FM : WS with Definition E.t := uvar
          mentionsU u e' = true).
     Proof.
       intros. unfold raw_subst.
-      generalize (@mentionsU_instantiate typ expr _ _ _ _); eauto.
+      generalize (@mentionsU_instantiate typ expr _ _ _); eauto.
       unfold mentionsU_instantiate_spec. intros.
       rewrite H.
       unfold raw_lookup.
@@ -243,8 +240,8 @@ Module Make (FM : WS with Definition E.t := uvar
                     (hlist typD tus -> hlist typD tvs -> Prop))
             (p : FM.key * expr) =>
           match nth_error_get_hlist_nth typD tus (fst p) with
-          | Some (existT T get) =>
-              match exprD' tus tvs (snd p) T with
+          | Some (existT _ T get) =>
+              match exprD tus tvs T (snd p) with
               | Some val' =>
                   match a0 with
                   | Some P1 =>
@@ -309,7 +306,7 @@ Module Make (FM : WS with Definition E.t := uvar
         forwardy. inv_all; subst.
         eapply nth_error_get_hlist_nth_weaken with (ls' := tus') in H0.
         simpl in *.
-        eapply exprD'_weaken with (tus' := tus') (tvs' := tvs') in H2; eauto with typeclass_instances.
+        eapply exprD_weaken with (tus' := tus') (tvs' := tvs') in H2; eauto with typeclass_instances.
         forward_reason.
         Cases.rewrite_all_goal.
         eapply IHl in H1; eauto with typeclass_instances.
@@ -353,8 +350,8 @@ Module Make (FM : WS with Definition E.t := uvar
                (fun (k : FM.key) (v : expr)
                     (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
                   match nth_error_get_hlist_nth typD tus k with
-                    | Some (existT T get) =>
-                      match exprD' tus tvs v T with
+                    | Some (existT _ T get) =>
+                      match exprD tus tvs T v with
                         | Some val' =>
                           match P with
                             | Some P0 =>
@@ -383,8 +380,8 @@ Module Make (FM : WS with Definition E.t := uvar
           (fun (k : FM.key) (v : expr)
                (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
              match nth_error_get_hlist_nth typD tus k with
-               | Some (existT T get) =>
-                 match exprD' tus tvs v T with
+               | Some (existT _ T get) =>
+                 match exprD tus tvs T v with
                    | Some val' =>
                      match P with
                        | Some P0 =>
@@ -441,7 +438,7 @@ Module Make (FM : WS with Definition E.t := uvar
           raw_substD tus tvs s = Some sD ->
           exists t val get,
             nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) /\
-            exprD' tus tvs e t = Some val /\
+            exprD tus tvs t e = Some val /\
             forall us vs,
               sD us vs ->
               get us = val us vs.
@@ -502,7 +499,7 @@ Module Make (FM : WS with Definition E.t := uvar
           raw_substD tus tvs s = Some sD ->
           exists t val get,
             nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) /\
-            exprD' tus tvs e t = Some val /\
+            exprD tus tvs t e = Some val /\
             forall us vs,
               sD us vs ->
               get us = val us vs.
@@ -554,12 +551,12 @@ Module Make (FM : WS with Definition E.t := uvar
       red. eexists. eauto. eauto.
     Qed.
 
-    Instance SubstOk_subst : SubstOk Subst_subst :=
-    {| WellFormed_subst := WellFormed
-     ; substD := raw_substD
-     ; substD_lookup := substD_lookup
-     ; WellFormed_domain := WellFormed_domain
-     ; lookup_normalized := normalized_fmapsubst
+    Instance SubstOk_subst : SubstOk raw typ expr :=
+    {| SubstI.WellFormed_subst := WellFormed
+     ; SubstI.substD := raw_substD
+     ; SubstI.substD_lookup := substD_lookup
+     ; SubstI.WellFormed_domain := WellFormed_domain
+     ; SubstI.lookup_normalized := normalized_fmapsubst
      |}.
 
     Definition raw_empty : raw := FM.empty expr.
@@ -650,8 +647,8 @@ Module Make (FM : WS with Definition E.t := uvar
                     (P : option (hlist typD tus -> hlist typD tvs -> Prop)) =>
                   let v := instantiate f 0 v in
                   match nth_error_get_hlist_nth typD tus k with
-                    | Some (existT T get) =>
-                      match exprD' tus tvs v T with
+                    | Some (existT _ T get) =>
+                      match exprD tus tvs T v with
                         | Some val' =>
                           match P with
                             | Some P0 =>
@@ -727,7 +724,7 @@ Module Make (FM : WS with Definition E.t := uvar
     : forall tus tvs uv e t s sD eD get,
         raw_lookup uv s = None ->
         nth_error_get_hlist_nth _ tus uv = Some (@existT _ _ t get) ->
-        exprD' tus tvs e t = Some eD ->
+        exprD tus tvs t e = Some eD ->
         raw_substD tus tvs s = Some sD ->
         exists sD',
           raw_substD tus tvs (FM.add uv e s) = Some sD' /\
@@ -773,7 +770,7 @@ Module Make (FM : WS with Definition E.t := uvar
              (existT
                 (fun t0 : typ => hlist typD tus -> typD t0) t
                 get) ->
-           exprD' tus tvs e t = Some val ->
+           exprD tus tvs t e = Some val ->
            exists sD' : exprT tus tvs Prop,
              raw_substD tus tvs s' = Some sD' /\
              (forall (us : hlist typD tus) (vs : hlist typD tvs),
@@ -844,18 +841,6 @@ Module Make (FM : WS with Definition E.t := uvar
         f_equal. assumption. }
     Qed.
 
-    (** TODO(gmalecha): This should go in ExtLib **)
-    Theorem hlist_app_hlist_map
-    : forall T (F G : T -> Type) (f : forall x, F x -> G x) ls ls'
-             (a : hlist F ls) (b : hlist F ls'),
-        hlist_map f (hlist_app a b) =
-        hlist_app (hlist_map f a) (hlist_map f b).
-    Proof.
-      clear.
-      induction a. simpl; auto.
-      simpl. intros. f_equal. auto.
-    Qed.
-
     Lemma raw_substD_Equal
     : forall tus tvs s s' sD,
         raw_substD tus tvs s = Some sD ->
@@ -884,7 +869,7 @@ Module Make (FM : WS with Definition E.t := uvar
         raw_substD tus tvs (FM.add k v s) = Some sD ->
         exists sD' t val get,
           raw_substD tus tvs s = Some sD' /\
-          exprD' tus tvs v t = Some val /\
+          exprD tus tvs t v = Some val /\
           nth_error_get_hlist_nth _ tus k = Some (@existT _ _ t get) /\
           forall us vs,
             sD us vs <->
@@ -953,7 +938,7 @@ Module Make (FM : WS with Definition E.t := uvar
         inv_all; subst.
         specialize (H6 _ eq_refl).
         forward_reason. subst.
-        eapply exprD'_strengthenU_single in H5; eauto.
+        eapply exprD_strengthenU_single in H5; eauto.
         forward_reason.
         assert (k < length tus).
         { eapply nth_error_get_hlist_nth_Some in H4. simpl in *.
@@ -991,7 +976,7 @@ Module Make (FM : WS with Definition E.t := uvar
                  (e : expr) (eD : hlist typD tus ->
                                   hlist typD tvs -> typD tu),
                  raw_lookup u s = Some e /\
-                 exprD' tus tvs e tu = Some eD /\
+                 exprD tus tvs tu e = Some eD /\
                  (forall (us : hlist typD tus) (vs : hlist typD tvs),
                     sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs))).
     Proof.
@@ -1018,7 +1003,7 @@ Module Make (FM : WS with Definition E.t := uvar
           replace (length tus - length tus) with 0 in H5.
           forward_reason; inv_all; subst.
           subst.
-          eapply exprD'_strengthenU_single in H4; try eassumption.
+          eapply exprD_strengthenU_single in H4; try eassumption.
           { forward_reason.
             do 2 eexists.
             split; [ eassumption | ].
@@ -1072,7 +1057,7 @@ Module Make (FM : WS with Definition E.t := uvar
                 raw_substD tus tvs s' = Some sD' /\
                 (exists
                     eD : hlist typD tus -> hlist typD tvs -> typD tu,
-                    exprD' tus tvs e tu = Some eD /\
+                    exprD tus tvs tu e = Some eD /\
                     (forall (us : hlist typD tus) (vs : hlist typD tvs),
                        sD' us vs <-> sD (hlist_app us (Hcons (eD us vs) Hnil)) vs)))).
     Proof.
@@ -1107,75 +1092,6 @@ Module Make (FM : WS with Definition E.t := uvar
           eexists; split; eauto. } }
     Qed.
 
-(*
-    Theorem strengthenV_sound
-    : forall (s : raw) (n c : nat),
-        raw_strengthenV n c s = true ->
-        WellFormed_subst s ->
-        forall (tus : tenv typ) (tvs tvs' : list typ)
-               (sD : hlist typD tus ->
-                     hlist typD (tvs ++ tvs') -> Prop),
-          substD tus (tvs ++ tvs') s = Some sD ->
-          n = length tvs ->
-          c = length tvs' ->
-          exists
-            sD' : hlist typD tus -> hlist typD tvs -> Prop,
-            substD tus tvs s = Some sD' /\
-            (forall (us : hlist typD tus)
-                    (vs : hlist typD tvs)
-                    (vs' : hlist typD tvs'),
-               sD us (hlist_app vs vs') <-> sD' us vs).
-  Abort.
-
-    Theorem strengthenU_sound
-    : forall (s : raw) (n c : nat),
-        raw_strengthenU n c s = true ->
-        WellFormed_subst s ->
-        forall (tus : list typ) (tvs : tenv typ)
-               (tus' : list typ)
-               (sD : hlist typD (tus ++ tus') ->
-                     hlist typD tvs -> Prop),
-          substD (tus ++ tus') tvs s = Some sD ->
-          n = length tus ->
-          c = length tus' ->
-          exists
-            sD' : hlist typD tus -> hlist typD tvs -> Prop,
-            substD tus tvs s = Some sD' /\
-            (forall (us : hlist typD tus)
-                    (vs : hlist typD tvs)
-                    (us' : hlist typD tus'),
-               sD (hlist_app us us') vs <-> sD' us vs).
-    Abort.
-
-    Theorem forget_sound
-    : forall s u s' oe,
-        forget u s = (s', oe) ->
-        WellFormed_subst s ->
-        WellFormed_subst s' /\
-        forall tus tvs sD,
-          substD tus tvs s = Some sD ->
-          exists sD',
-            substD tus tvs s' = Some sD' /\
-            match oe with
-              | None =>
-                forall us vs,
-                  sD us vs <-> sD' us vs
-              | Some e =>
-                mentionsU u e = false /\
-                match nth_error_get_hlist_nth typD tus u with
-                  | Some (existT t get) =>
-                    match exprD' tus tvs e t with
-                      | None => False
-                      | Some eD =>
-                        forall us vs,
-                          sD us vs <-> (get us = eD us vs /\ sD' us vs)
-                    end
-                  | None => False
-                end
-            end.
-     Abort.
-*)
-
     Definition raw_substR (tus tvs : tenv typ) (a b : raw) : Prop :=
       Roption (RexprT tus tvs impl) (substD tus tvs b) (substD tus tvs a).
 
@@ -1190,7 +1106,7 @@ Module Make (FM : WS with Definition E.t := uvar
            substD tus tvs s = Some sD ->
            nth_error_get_hlist_nth typD tus uv =
            Some (existT (fun t0 : typ => hlist typD tus -> typD t0) t get) ->
-           exprD' tus tvs e t = Some val ->
+           exprD tus tvs t e = Some val ->
            exists sD' : exprT tus tvs Prop,
              substD tus tvs s' = Some sD' /\
              raw_substR tus tvs s s' /\
@@ -1229,11 +1145,11 @@ Module Make (FM : WS with Definition E.t := uvar
       eassumption.
     Qed.
 
-    Instance SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _ :=
-    {| substR := raw_substR
-     ; set_sound := set_sound
-     ; Transitive_substR := Transitive_substR
-     ; Reflexive_substR := Reflexive_substR
+    Instance SubstUpdateOk_subst : SubstUpdateOk raw typ expr :=
+    {| SubstI.substR := raw_substR
+     ; SubstI.set_sound := set_sound
+     ; SubstI.Transitive_substR := Transitive_substR
+     ; SubstI.Reflexive_substR := Reflexive_substR
      |}.
 
     Instance SubstOpen_subst : SubstOpen raw :=
@@ -1260,7 +1176,8 @@ Module Make (FM : WS with Definition E.t := uvar
                       end).
         { rewrite <- H. clear.
           destruct (app_nil_r_trans tvs). reflexivity. }
-        { intros. autorewrite with eq_rw.
+        { intros.
+          autorewrite_with_eq_rw.
           reflexivity. } }
       { intros. autorewrite with eq_rw.
         rewrite <- hlist_app_nil_r. eapply H0. }
@@ -1279,8 +1196,8 @@ Module Make (FM : WS with Definition E.t := uvar
         | Some e :: es' =>
           match nth_error_get_hlist_nth _ tus from with
             | None => None
-            | Some (existT t getU) =>
-              match exprD' tus tvs e t with
+            | Some (existT _ t getU) =>
+              match exprD tus tvs t e with
                 | None => None
                 | Some eD =>
                   match list_substD tus tvs (S from) es' with
@@ -1312,8 +1229,8 @@ Module Make (FM : WS with Definition E.t := uvar
           match nth_error_get_hlist_nth typD tus u
               , elem_listD tus tvs ls
           with
-            | Some (existT t get) , Some P =>
-              match exprD' tus tvs e t with
+            | Some (existT _ t get) , Some P =>
+              match exprD tus tvs t e with
                 | Some eD => Some (fun us vs => get us = eD us vs /\ P us vs)
                 | _ => None
               end
@@ -1334,7 +1251,7 @@ Module Make (FM : WS with Definition E.t := uvar
         simpl.
         destruct (nth_error_get_hlist_nth typD tus f); try constructor.
         destruct s.
-        destruct (exprD' tus tvs e x).
+        destruct (exprD tus tvs x e).
         { specialize (IHes (S f)).
           destruct IHes; constructor.
           do 5 red. do 5 red in H. intros.
@@ -1359,7 +1276,7 @@ Module Make (FM : WS with Definition E.t := uvar
         destruct IHPermutation. reflexivity.
         destruct (nth_error_get_hlist_nth typD tus n); try constructor.
         destruct s.
-        destruct (exprD' tus tvs e x0); try constructor.
+        destruct (exprD tus tvs x0 e); try constructor.
         do 5 red. do 5 red in H0.
         intros. rewrite H0 by eauto.
         eapply equiv_eq_eq in H1.

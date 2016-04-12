@@ -2,10 +2,9 @@ Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Tactics.
+Require Import ExtLib.Tactics.Consider.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -56,6 +55,17 @@ Section env.
     destruct x; auto.
   Qed.
 
+  Theorem expr_strong_ind_no_case
+  : forall (P : expr -> Prop),
+      (forall e, (forall e', (leftTrans expr_acc) e' e -> P e') -> P e) ->
+      forall e, P e.
+  Proof.
+    intros P H.
+    eapply Fix.
+    exact (wf_leftTrans wf_expr_acc).
+    eauto.
+  Qed.
+
   Section sdec.
     Variable RelDec_eq_typ : RelDec (@eq typ).
     Variable func_eq : func -> func -> bool.
@@ -93,7 +103,6 @@ Section env.
       { eapply EqNat.beq_nat_true in H. congruence. }
     Qed.
   End sdec.
-
 
   Variable RelDec_eq_typ : RelDec (@eq typ).
   Variable RelDec_eq_func : RelDec (@eq func).
@@ -186,6 +195,7 @@ Section env.
                   (fun v : var => fv v || fv' v) e =
       mentionsAny fu fv e || mentionsAny fu' fv' e.
   Proof.
+    Require Import ExtLib.Tactics.
     induction e; simpl; auto; intros; Cases.rewrite_all_goal.
     { forward. simpl. rewrite orb_true_r. reflexivity. }
     { rewrite <- IHe. eapply Proper_mentionsAny; eauto.
@@ -279,6 +289,7 @@ Section env.
             - right. eauto. } }
     { rewrite IHe.
       eapply or_iff_compat_l.
+      Require Import ExtLib.Data.Prop.
       clear. split; intros; forward_reason.
       - forward. subst. eauto.
       - exists (S x). eauto. }
@@ -325,3 +336,8 @@ Arguments Abs {typ func} _ _.
 Arguments mentionsAny {typ func} uP vP _.
 Arguments _mentionsU {typ func} _ _.
 Arguments _mentionsV {typ func} _ _.
+
+Hint Constructors TransitiveClosure.leftTrans : acc_db.
+Hint Constructors TransitiveClosure.rightTrans : acc_db.
+Hint Constructors expr_acc : acc_db.
+

@@ -6,7 +6,6 @@ Require Import Coq.PArith.BinPos Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
@@ -52,12 +51,12 @@ Section typed.
 
   Definition symD_sym (f : func)
   : match func_typeof_sym f with
-      | None => unit
+      | None => unit:Type
       | Some t => typD t
     end :=
     match f as f
           return match func_typeof_sym f with
-                   | None => unit
+                   | None => unit:Type
                    | Some t => typD t
                  end
     with

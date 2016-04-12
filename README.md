@@ -6,12 +6,15 @@ A framework for general, extensible, reflective decision procedures.
 Bugs
 ----
 
-If you find a bug, please report it.
+If you find a bug, please report it on github: [[https://github.com/gmalecha/mirror-core/issues]]
 
 Quick Start
 -----------
 
-(In the following commands 'mirror-core' refers to the root directory of mirror-core)
+This version of MirrorCore builds on Coq 8.5 (currently in beta).
+
+(In the following commands 'mirror-core' refers to the root directory
+of mirror-core)
 
 (If you need to set up dependencies, please see the next section first)
 
@@ -31,14 +34,6 @@ mirror-core/examples/ $ make -jN
 
 in the examples directory.
 
-If you use emacs & proof-general, then you may find it convenient to run
-
-```
-mirror-core/ $ make .dir-locals.el
-```
-
-which will set up the -R and -I options to pass to coqtop from proof general (this is directory local only and relies on absolute paths, so if you move the installation, you will need to run this again).
-
 Dependencies
 ------------
 
@@ -47,17 +42,21 @@ MirrorCore depends on two external libraries.
 - coq-ext-lib (https://github.com/coq-ext-lib/coq-ext-lib)
 - coq-plugin-utils (https://github.com/gmalecha/coq-plugin-utils) (to build the plugins)
 
-coq-pluging-utils needs to be installed, you should follow the directions in the README.md in that repository.
+coq-pluging-utils needs to be installed, you should follow the
+directions in the README.md in that repository.
 
 coq-ext-lib does not need to be installed.
 
-If you do install it, simply touch coq-ext-lib in the mirror-core folder to prevent pulling a fresh copy.
+If you do install it, simply touch coq-ext-lib in the mirror-core
+folder to prevent pulling a fresh copy.
 
 ```
 mirror-core/ $ touch coq-ext-lib
 ```
 
-If you already have a copy of coq-ext-lib on your system but it is not installed, you can create a symbolic link to it in the mirror-core directory.
+If you already have a copy of coq-ext-lib on your system but it is not
+installed, you can create a symbolic link to it in the mirror-core
+directory.
 
 ```
 ln -s <path/to/coq-ext-lib> coq-ext-lib
@@ -70,13 +69,5 @@ mirror-core/ $ make init
 ```
 
 which will pull a fresh copy of coq-ext-lib and build it.
-
-If you opted not to install coq-ext-lib you need to create a Makefile.paths file that tells Coq where to find  the coq-ext-lib theories. The following command will achieve this.
-
-```
-mirror-core/ $ echo 'ARGS := -R ../coq-ext-lib/theories ExtLib $(ARGS)' > Makefile.paths
-```
-
-You should replace ../coq-ext-lib with the appropriate path but if the path is relative, make sure that it is relative to the theories directory (thus the leading ../ in the example above).
 
 In order to build the reification plugin, you must use OCaml 4.01 or later.

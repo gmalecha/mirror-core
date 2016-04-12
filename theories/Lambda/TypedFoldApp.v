@@ -1,4 +1,3 @@
-Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -11,7 +10,7 @@ Section typed_fold.
   Variable func : Type.
 
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Variable RSym_func : RSym func.
 
   Section folderL.
@@ -34,7 +33,7 @@ Section typed_fold.
       match ls with
         | nil => success ft nil
         | l :: ls =>
-          typ2_match (F := Fun)
+          typ2_match (F := RFun)
                      (fun _ => R)
                      ft
                      (fun d r =>
@@ -59,7 +58,7 @@ Section typed_fold.
                                                  (fun _ => None)) :: ls)
 *)
              (fun ft f val args =>
-                typ2_match (F := Fun) (fun _ => R) ft
+                typ2_match (F := RFun) (fun _ => R) ft
                            (fun d r =>
                               success r f val
                                       ((d,x,fun z =>
@@ -109,7 +108,7 @@ Section typed_fold.
         | UVar u => success (fun z => do_uvar u t z)
         | Inj f => success (fun z => do_inj f t z)
         | Abs t' e =>
-          typ2_match (F := Fun)
+          typ2_match (F := RFun)
                      (fun _ => R)
                      t
                      (fun d r =>
@@ -122,7 +121,7 @@ Section typed_fold.
         | App f x =>
           gather_app tus tvs f
                      (fun ft f val vals =>
-                        typ2_match (F := Fun) (fun _ => R) ft
+                        typ2_match (F := RFun) (fun _ => R) ft
                            (fun d r =>
                               let vals :=
                                   vals ++ (d,x,fun z =>
@@ -163,7 +162,7 @@ Section typed_fold.
         | App f x =>
           gather_app tus tvs f
                      (fun ft f val vals =>
-                        typ2_match (F := Fun) (fun _ => R) ft
+                        typ2_match (F := RFun) (fun _ => R) ft
                            (fun d r =>
                               let vals :=
                                   vals ++ (d,x,fun z =>

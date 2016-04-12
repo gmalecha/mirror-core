@@ -1,12 +1,9 @@
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
-Require Import MirrorCore.Lambda.ExprLift.
-Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
@@ -20,14 +17,13 @@ Section typed.
   Context {RTypeOk_typ : RTypeOk}.
   Context {RSym_func : RSym func}.
   Context {RSymOk_func : RSymOk RSym_func}.
-  Local Existing Instance Expr_expr. (* : Expr _ (expr typ func) := Expr_expr. *)
-  Context {Typ2_arr : Typ2 _ Fun}.
+  Local Existing Instance Expr_expr.
+  Context {Typ2_arr : Typ2 _ RFun}.
   Context {Typ2Ok_arr : Typ2Ok Typ2_arr}.
   Context {Subst_subst : Subst subst (expr typ func)}.
   Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
-  Context {SubstUpdateOk_subst
-  : @SubstUpdateOk _ _ _ _ (Expr_expr _ _ _ _) _ SubstUpdate_subst _}.
+  Context {SubstOk_subst : SubstOk subst typ (expr typ func)}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ (expr typ func)}.
 
   Lemma handle_set
   : forall (e0 : expr typ func) (u : uvar) (s s' : subst)
@@ -42,8 +38,8 @@ Section typed.
             (v2 : hlist typD tu ->
                     hlist typD (tv' ++ tv) -> typD t)
             (sD : hlist typD tu -> hlist typD tv -> Prop),
-            exprD' tu tv t e0 = Some v1 ->
-            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
+            lambda_exprD tu tv t e0 = Some v1 ->
+            lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -86,8 +82,8 @@ Section typed.
                v2 : hlist typD tu ->
                     hlist typD (tv' ++ tv) -> typD t)
             (sD : hlist typD tu -> hlist typD tv -> Prop),
-            exprD' tu (tv' ++ tv) t e = Some v1 ->
-            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
+            lambda_exprD tu (tv' ++ tv) t e = Some v1 ->
+            lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -107,7 +103,7 @@ Section typed.
     autorewrite with exprD_rw in *; simpl in *.
     forwardy.
     destruct y. inv_all; subst.
-    eapply  (@exprD'_lower typ func _ _ RSym_func _ _ _ tu nil tv' tv) in H2; eauto.
+    eapply  (@lambda_exprD_lower typ func _ _ RSym_func _ _ _ tu nil tv' tv) in H2; eauto.
     forward_reason.
     specialize (H1 _ _ _ _ _ _ H5 H4 H2).
     forward_reason.
@@ -125,8 +121,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substR tu tv s s'
@@ -161,8 +157,8 @@ Section typed.
             (v1 v2 : hlist typD tu ->
                      hlist typD (tv' ++ tv) -> typD t)
             (sD : hlist typD tu -> hlist typD tv -> Prop),
-            exprD' tu (tv' ++ tv) t e = Some v1 ->
-            exprD' tu (tv' ++ tv) t (UVar u) = Some v2 ->
+            lambda_exprD tu (tv' ++ tv) t e = Some v1 ->
+            lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v2 ->
             substD tu tv s = Some sD ->
             exists
               sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -180,7 +176,7 @@ Section typed.
       forward_reason.
       split; eauto; intros.
       assert (exists v2',
-                exprD' tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
+                lambda_exprD tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
                 /\ forall us vs vs',
                      sD us vs ->
                      v2 us (hlist_app vs' vs) = v2' us (hlist_app vs' vs)).
@@ -191,7 +187,7 @@ Section typed.
         forward. inv_all; subst.
         eapply nth_error_get_hlist_nth_Some in H5.
         simpl in *. forward_reason.
-        generalize (@exprD'_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x2).
+        generalize (@lambda_exprD_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x2).
         simpl. change_rewrite H7.
         intros; forwardy. destruct r.
         eexists; split; [ eassumption | ].
@@ -232,8 +228,8 @@ Section typed.
               (v1 v2 : hlist typD tu ->
                        hlist typD (tv' ++ tv) -> typD t)
               (sD : hlist typD tu -> hlist typD tv -> Prop),
-              exprD' tu (tv' ++ tv) t (UVar u) = Some v1 ->
-              exprD' tu (tv' ++ tv) t e = Some v2 ->
+              lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v1 ->
+              lambda_exprD tu (tv' ++ tv) t e = Some v2 ->
               substD tu tv s = Some sD ->
               exists
                 sD' : hlist typD tu -> hlist typD tv -> Prop,
@@ -252,7 +248,7 @@ Section typed.
       forward_reason.
       split; eauto; intros.
       assert (exists v2',
-                exprD' tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
+                lambda_exprD tu (tv' ++ tv) t (lift 0 (length tv') e0) = Some v2'
                 /\ forall us vs vs',
                      sD us vs ->
                      v1 us (hlist_app vs' vs) = v2' us (hlist_app vs' vs)).
@@ -263,7 +259,7 @@ Section typed.
         forwardy. inv_all; subst.
         change_rewrite H0 in H4.
         inv_all; subst.
-        generalize (@exprD'_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x).
+        generalize (@lambda_exprD_lift typ func _ _ _ _ _ _ tu e0 nil tv' tv x).
         simpl. change_rewrite H7.
         intros; forwardy.
         destruct y.
@@ -292,9 +288,9 @@ Section typed.
       subst_lookup u s = Some e ->
       WellFormed_subst s ->
       substD tu tv s = Some sD ->
-      exprD' tu (tv' ++ tv) t (UVar u) = Some v1 ->
+      lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v1 ->
       exists v1',
-        exprD' tu (tv' ++ tv) t (lift 0 (length tv') e) = Some v1' /\
+        lambda_exprD tu (tv' ++ tv) t (lift 0 (length tv') e) = Some v1' /\
         forall us vs vs',
           sD us vs ->
           v1 us (hlist_app vs' vs) = v1' us (hlist_app vs' vs).
@@ -302,7 +298,7 @@ Section typed.
     intros.
     eapply substD_lookup in H; eauto.
     simpl in *. forward_reason.
-    generalize (@exprD'_lift typ func RType_typ Typ2_arr _ _ _ _
+    generalize (@lambda_exprD_lift typ func RType_typ Typ2_arr _ _ _ _
                              tu e nil tv' tv x).
     simpl. change_rewrite H3.
     intros; forwardy.
@@ -321,3 +317,4 @@ Section typed.
 End typed.
 
 Export MirrorCore.Lambda.ExprVariables.
+Export MirrorCore.UnifyI.

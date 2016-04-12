@@ -20,3 +20,6 @@ coq-ext-lib
 *.a
 *.o
 *.d
+.*.aux
+.merlin
+*.vio

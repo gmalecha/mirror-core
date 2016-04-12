@@ -1,5 +1,4 @@
 Require Import ExtLib.Structures.Traversable.
-Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.

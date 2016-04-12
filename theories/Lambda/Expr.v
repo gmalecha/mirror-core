@@ -1,25 +1,29 @@
+Require Import Coq.Logic.FunctionalExtensionality.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Export MirrorCore.Lambda.ExprCore.
 Require Export MirrorCore.Lambda.ExprD.
 Require Export MirrorCore.Lambda.ExprLift.
 Require Export MirrorCore.Lambda.ExprSubst.
+Require Import MirrorCore.Util.Compat.
 
 Section expr.
   Variable typ : Type.
   Variable func : Type.
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
   Context {RTypeOk_typD : RTypeOk}.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
-
 
   Lemma Proper_mentionsAny
   : Proper ((@eq uvar ==> @eq bool) ==>
@@ -73,14 +77,14 @@ Section expr.
       erewrite IHx; eauto. }
   Qed.
 
-  Theorem exprD'_strengthenU_single
+  Theorem lambda_exprD_strengthenU_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ)
            (val : exprT (tus ++ t :: nil) tvs (typD t')),
       _mentionsU (length tus) e = false ->
-      ExprDsimul.ExprDenote.exprD' (tus ++ t :: nil) tvs t' e = Some val ->
+      ExprDsimul.ExprDenote.lambda_exprD (tus ++ t :: nil) tvs t' e = Some val ->
       exists val' : exprT tus tvs (typD t'),
-        ExprDsimul.ExprDenote.exprD' tus tvs t' e = Some val' /\
+        ExprDsimul.ExprDenote.lambda_exprD tus tvs t' e = Some val' /\
         (forall (us : HList.hlist typD tus)
                 (vs : HList.hlist typD tvs) (u : typD t),
            val (HList.hlist_app us (HList.Hcons u HList.Hnil)) vs = val' us vs).
@@ -100,24 +104,23 @@ Section expr.
       rewrite H4; clear H4.
       eexists; split; eauto.
       intros.
-      unfold exprT_App.
-      autorewrite with eq_rw.
+      unfold AbsAppI.exprT_App.
+      autorewrite_with_eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
-        autorewrite with eq_rw in *.
+        progress autorewrite_with_eq_rw_in H0.
+        progress autorewrite_with_eq_rw.
         forward.
-        eapply IHe in H3; eauto.
+        eapply IHe in H4; eauto.
         forward_reason.
-        rewrite H3.
+        rewrite H4.
         eexists; split; eauto.
         intros.
         inv_all; subst.
         autorewrite with eq_rw.
-        Require Import ExtLib.Data.Eq.
-        Require Import FunctionalExtensionality.
         eapply match_eq_match_eq.
         eapply match_eq_match_eq with (F := fun x => x).
         eapply functional_extensionality.
@@ -153,7 +156,8 @@ Section expr.
       generalize (ListNth.nth_error_length_lt _ _ H0).
       rewrite app_length. simpl. intros.
       rewrite ListNth.nth_error_app_L in H0; auto.
-      omega. }
+      clear - H H1. generalize dependent (length tvs). clear. unfold var in *.
+      intros. omega. }
     { forward.
       erewrite IHe1; eauto.
       erewrite IHe2; eauto. }
@@ -161,17 +165,17 @@ Section expr.
       erewrite IHe; eauto. }
   Qed.
 
-  Theorem exprD'_strengthenV_single
+  Theorem lambda_exprD_strengthenV_single
   : forall (tus : list typ) (tvs : tenv typ) (e : expr typ func)
            (t t' : typ)
            (val : HList.hlist typD tus ->
                   HList.hlist typD (tvs ++ t :: nil) -> typD t'),
       _mentionsV (length tvs) e = false ->
-      ExprDsimul.ExprDenote.exprD' tus (tvs ++ t :: nil) t' e = Some val ->
+      ExprDsimul.ExprDenote.lambda_exprD tus (tvs ++ t :: nil) t' e = Some val ->
       exists
         val' : HList.hlist typD tus ->
                HList.hlist typD tvs -> typD t',
-        ExprDsimul.ExprDenote.exprD' tus tvs t' e = Some val' /\
+        ExprDsimul.ExprDenote.lambda_exprD tus tvs t' e = Some val' /\
         (forall (us : HList.hlist typD tus)
                 (vs : HList.hlist typD tvs) (u : typD t),
            val us (HList.hlist_app vs (HList.Hcons u HList.Hnil)) = val' us vs).
@@ -191,7 +195,8 @@ Section expr.
         destruct H1. clear H0.
         eapply ListNth.nth_error_length_lt in x0.
         eapply RelDec.neg_rel_dec_correct in H.
-        intros. rewrite app_length in *. simpl in *. omega. } }
+        intros. rewrite app_length in *. simpl in *.
+        unfold var in *. omega. } }
     { forward. eexists; split; eauto.
       simpl. intros. inv_all; subst. reflexivity. }
     { forward. inv_all; subst.
@@ -203,18 +208,19 @@ Section expr.
       rewrite H5; clear H5.
       eexists; split; eauto.
       intros.
-      unfold exprT_App.
-      autorewrite with eq_rw.
+      unfold AbsAppI.exprT_App.
+      autorewrite_with_eq_rw.
       rewrite H6; rewrite H7; reflexivity. }
     { destruct (typ2_match_case t').
       { forward_reason.
         rewrite H1 in *; clear H1.
         unfold Relim in *.
-        autorewrite with eq_rw in *.
+        progress autorewrite_with_eq_rw_in H0.
+        progress autorewrite_with_eq_rw.
         forward.
-        eapply (IHe (t :: tvs)) in H3; eauto.
+        eapply (IHe (t :: tvs)) in H4; eauto.
         forward_reason.
-        rewrite H3.
+        rewrite H4.
         eexists; split; eauto.
         intros.
         inv_all; subst.
@@ -223,15 +229,14 @@ Section expr.
         eapply match_eq_match_eq with (F := fun x => x).
         eapply functional_extensionality.
         intros.
-        eapply (H5 us (HList.Hcons (Rcast_val r x3) vs)). }
+        eapply (H6 us (HList.Hcons (Rcast_val r x3) vs)). }
       { rewrite H1 in *. congruence. } }
     { forward. eexists; split; eauto.
       simpl. intros. inv_all; subst. reflexivity. }
   Qed.
 
-
   Instance Expr_expr : Expr _ (expr typ func) :=
-  { exprD' := fun tus tvs e t => ExprDsimul.ExprDenote.exprD' tus tvs t e
+  { exprD := ExprDsimul.ExprDenote.lambda_exprD
   ; wf_Expr_acc := @wf_expr_acc typ func
   ; expr_subst := @_subst _ _
   ; mentionsAny := ExprCore.mentionsAny
@@ -240,12 +245,12 @@ Section expr.
   }.
 
   Instance ExprOk_expr : ExprOk Expr_expr :=
-  { exprD'_weaken := _
+  { exprD_weaken := _
   }.
-  { intros. eapply (@ExprFacts.exprD'_weaken _ _ _ _ _ _ _ _ _ _ _).
+  { intros. eapply (@ExprFacts.lambda_exprD_weaken _ _ _ _ _ _ _ _ _ _ _).
     eapply H. }
-  { eapply exprD'_strengthenU_single. }
-  { eapply exprD'_strengthenV_single. }
+  { eapply lambda_exprD_strengthenU_single. }
+  { eapply lambda_exprD_strengthenV_single. }
   { eapply ExprCore.Proper_mentionsAny. }
   { intros. eapply mentionsAny_weaken; eauto. }
   { intros. eapply mentionsAny_factor. }
@@ -259,3 +264,6 @@ Section expr.
   { eapply Proper_subst. }
   Qed.
 End expr.
+
+Arguments Expr_expr {typ _ _ _ _}.
+Arguments ExprOk_expr {_ _ _ _ _ _ _ _}.

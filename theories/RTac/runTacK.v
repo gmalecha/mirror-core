@@ -5,7 +5,7 @@ Section runTacK.
   Context {typ expr : Type}.
   Variable RType_typ : RType typ.
   Variable Typ0_Prop : Typ0 RType_typ Prop.
-  Variable Expr_expr : Expr RType_typ expr.
+  Variable Expr_expr : Expr typ expr.
   Variable ExprUVar_expr : ExprUVar expr.
 
   Definition runTacK (tac : rtacK typ expr) : rtac typ expr :=

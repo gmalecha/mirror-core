@@ -1,13 +1,14 @@
 (** This file contains generic functions for manipulating,
  ** (i.e. substituting and finding) unification variables
  **)
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprDFacts.
 Require Import MirrorCore.Lambda.ExprD.
@@ -15,7 +16,7 @@ Require Import MirrorCore.Lambda.ExprD.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Section substitute.
   Variable typ : Type.
@@ -48,7 +49,7 @@ Section substitute.
     subst' lookupU lookupV under e.
 
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
@@ -124,31 +125,31 @@ Section substitute.
         specialize (H1 (UVar u) y). auto. } }
   Qed.
 
-  Theorem exprD'_subst'
+  Theorem lambda_exprD_subst'
   : forall lookupU lookupV tus tvs tus' tvs' P
       (HNU : forall u, Natural (lookupU u)) (HNV : forall v, Natural (lookupV v))
       (HlookupV : forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD vs ->
              vD vs = vD' us' vs')
       (HlookupU : forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD us ->
              vD us = vD' us' vs'),
       forall e tvex (t : typ) eD,
-        exprD' tus (tvex ++ tvs) t e = Some eD ->
+        lambda_exprD tus (tvex ++ tvs) t e = Some eD ->
         exists eD',
-          exprD' tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
+          lambda_exprD tus' (tvex ++ tvs') t (subst' lookupU lookupV (length tvex) e) = Some eD' /\
           forall us vs us' vs' vex,
             P us vs us' vs' ->
             eD us (hlist_app vex vs) = eD' us' (hlist_app vex vs').
@@ -168,7 +169,7 @@ Section substitute.
           destruct y.
           intro XXX; specialize (XXX _ _ eq_refl eq_refl).
           forward_reason.
-          generalize (exprD'_lift tus' x nil tvex tvs' x0).
+          generalize (lambda_exprD_lift tus' x nil tvex tvs' x0).
           simpl. rewrite H3. intros; forwardy.
           eexists; split; [ eassumption | ].
           intros.
@@ -187,7 +188,7 @@ Section substitute.
           intro.
           intro XXX; specialize (XXX _ _ eq_refl eq_refl).
           forward_reason.
-          generalize (exprD'_lift tus' (Var (v - length tvex)) nil tvex tvs' x).
+          generalize (lambda_exprD_lift tus' (Var (v - length tvex)) nil tvex tvs' x).
           simpl. rewrite H5. intros; forwardy.
           cutrewrite (v - length tvex + length tvex = v) in H7; [ | omega ].
           eexists; split; [ eassumption | ].
@@ -198,19 +199,17 @@ Section substitute.
       { intros.
         autorewrite with exprD_rw in *; simpl in *.
         forwardy.
-        generalize H0.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs') in H0.
-        intro H3.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs) in H3.
-        forward_reason.
-        rewrite H0. destruct x0; simpl in *.
-        red in y. subst.
-        rewrite H3 in H.
-        rewrite H6 in H4.
-        inv_all; subst.
-        destruct x1; simpl in *.
-        rewrite H1. eexists; split; [ reflexivity | ].
-        intros. simpl. rewrite H7. rewrite H5. reflexivity. } }
+        generalize (@nth_error_get_hlist_nth_appL _ typD tvs' _ _ H0).
+        generalize (@nth_error_get_hlist_nth_appL _ typD tvs _ _ H0).
+        clear H0.
+        intros; forward_reason; inv_all; subst.
+        revert H4 H0. Cases.rewrite_all_goal.
+        destruct x0; destruct x1; simpl in *.
+        intros; inv_all; subst.
+        Cases.rewrite_all_goal.
+        eexists; split; [ reflexivity | ].
+        simpl. intros.
+        Cases.rewrite_all_goal. reflexivity. } }
     { autorewrite with exprD_rw in *; simpl in *.
       forwardy.
       rewrite H. eexists; split; [ reflexivity | ].
@@ -226,12 +225,12 @@ Section substitute.
       { rewrite H1; clear H1.
         rewrite H0; clear H0.
         eexists; split; [ reflexivity | ].
-        unfold exprT_App; intros; autorewrite with eq_rw.
+        unfold AbsAppI.exprT_App; intros; autorewrite_with_eq_rw.
         erewrite H2; eauto. erewrite H3; eauto. }
       { intros.
         assert (exists vD,
-                  exprD' tus tvs t0 e = Some vD)
-          by (eapply ExprFacts.typeof_expr_exprD'; eauto).
+                  lambda_exprD tus tvs t0 e = Some vD)
+          by (eapply ExprFacts.typeof_expr_lambda_exprD; eauto).
         destruct H6.
         consider (nth_error_get_hlist_nth typD tvs v); intros.
         { destruct s.
@@ -240,14 +239,14 @@ Section substitute.
             clear - H4 x3. simpl in *. congruence. }
           subst.
           eapply HlookupV with (v := v) in H6; eauto.
-          forward_reason. eapply ExprFacts.exprD'_typeof_expr.
+          forward_reason. eapply ExprFacts.lambda_exprD_typeof_expr.
           eauto. }
         { clear - H4 H7; exfalso.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } }
       { intros.
         assert (exists vD,
-                  exprD' tus tvs t0 e = Some vD)
-          by (eapply ExprFacts.exprD'_typeof_expr; eauto).
+                  lambda_exprD tus tvs t0 e = Some vD)
+          by (eapply ExprFacts.lambda_exprD_typeof_expr; eauto).
         destruct H6.
         consider (nth_error_get_hlist_nth typD tus u); intros.
         { destruct s.
@@ -256,7 +255,7 @@ Section substitute.
             clear - H4 x3. simpl in *. congruence. }
           subst.
           eapply HlookupU with (v := u) in H6; eauto.
-          forward_reason. eapply ExprFacts.exprD'_typeof_expr.
+          forward_reason. eapply ExprFacts.lambda_exprD_typeof_expr.
           eauto. }
         { clear - H4 H7; exfalso.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } } }
@@ -293,7 +292,7 @@ Section substitute.
         rewrite H3 in H1.
         specialize (H3 _ (lift 0 (length tvex)) (UVar u)).
         rewrite H3.
-        generalize (exprD'_lift tus' x1 nil tvex tvs' x); simpl.
+        generalize (lambda_exprD_lift tus' x1 nil tvex tvs' x); simpl.
         rewrite H1. intros.
         forwardy.
         eexists; split; [ eassumption | ].
@@ -307,37 +306,37 @@ Section substitute.
         eapply H2; eauto. } }
   Qed.
 
-  Theorem exprD'_subst
+  Theorem lambda_exprD_subst
   : forall tus tvs tus' tvs' lookupU lookupV P (e : expr typ func) (t : typ),
       (forall u, Natural (lookupU u)) -> (forall v, Natural (lookupV v)) ->
       (forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupV v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD vs ->
              vD vs = vD' us' vs') ->
       (forall t e v vD vD_orig,
          nth_error_get_hlist_nth _ tus v = Some (@existT _ _ t vD) ->
-         exprD' tus tvs t e = Some vD_orig ->
+         lambda_exprD tus tvs t e = Some vD_orig ->
          exists vD',
-           exprD' tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
+           lambda_exprD tus' tvs' t (lookupU v _ (fun x => x) e) = Some vD' /\
            forall us vs us' vs',
              P us vs us' vs' ->
              vD_orig us vs = vD us ->
              vD us = vD' us' vs') ->
       forall tvx eD,
-        exprD' tus (tvx ++ tvs) t e = Some eD ->
+        lambda_exprD tus (tvx ++ tvs) t e = Some eD ->
       exists eD',
-        exprD' tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
+        lambda_exprD tus' (tvx ++ tvs') t (subst lookupU lookupV (length tvx) e) = Some eD' /\
         forall us vs us' vs' vx,
           P us vs us' vs' ->
           eD us (hlist_app vx vs) = eD' us' (hlist_app vx vs').
   Proof.
     intros.
-    eapply (@exprD'_subst' lookupU lookupV tus tvs tus' tvs' P)
+    eapply (@lambda_exprD_subst' lookupU lookupV tus tvs tus' tvs' P)
       with (tvex := tvx) in H1; eauto.
   Qed.
 
@@ -424,225 +423,5 @@ Section substitute.
   Proof. intuition. Qed.
   Lemma False_or : forall A, (False \/ A) <-> A.
   Proof. intuition. Qed.
-
-  Theorem mentions_subst
-  : forall lookupU lookupV,
-      (forall u, Natural (lookupU u)) -> (forall v, Natural (lookupV v)) ->
-      forall e uv n,
-      let lookup uv :=
-          match uv with
-            | inl u => lookupU u
-            | inr v => lookupV v
-          end
-      in
-      mentions (lift_uv uv n) (subst lookupU lookupV n e) = true <->
-      (   (mentions (lift_uv uv n) e = true /\
-           forall e',
-             mentions uv e' = true ->
-             mentions uv (lookup uv _ (fun x => x) e') = true)
-       \/ (exists u' e',
-             (forall e'',
-                lookup u' _ (fun x => x) e'' = e') /\
-             mentions (lift_uv u' n) e = true /\
-             mentions uv e' = true)).
-  Proof.
-(*
-    induction e; simpl; intros.
-    { intros. destruct uv; simpl.
-      { rewrite false_eq_true_False.
-        setoid_rewrite False_and.
-        rewrite False_or.
-        split.
-        { generalize (lt_rem_sound n v). 
-          destruct (lt_rem v n); intros.
-          { forward_reason; subst.
-            destruct (H0 (v - n)) as [ [ ] | ].
-            { rewrite H3 in H2.
-              rewrite mentionsU_lift in H2.
-              exists (inr (v - n)); eexists; split; eauto. split; auto.
-              simpl. eapply EqNat.beq_nat_true_iff.
-              omega. }
-            { rewrite H3 in *. simpl in *. congruence. } }
-          { simpl in *. congruence. } }
-        { intros; forward_reason.
-          destruct x; simpl in *; try congruence.
-          eapply EqNat.beq_nat_true_iff in H2.
-          subst.
-          generalize (lt_rem_sound n (n1 + n)).
-          destruct (lt_rem (n1 + n) n); intros.
-          { forward_reason. subst.
-            replace (n1 + n - n) with n1 by omega.
-            destruct (H0 n1) as [ [] | ].
-            { rewrite H4 in *.
-              setoid_rewrite H4 in H1.
-              specialize (H1 (Var 0)).
-              subst. rewrite mentionsU_lift. assumption. }
-            { setoid_rewrite H4 in H1.
-              exfalso.
-              destruct x0; try solve [ specialize (H1 (Var 0)); congruence
-                                     | specialize (H1 (UVar 0)); congruence ]. } }
-          { exfalso; omega. } } }
-      { split; intros.
-        { generalize (lt_rem_sound n v).
-          destruct (lt_rem v n).
-          { intros; forward_reason; subst.
-            match goal with
-              | |- (?X = true /\ _) \/ _ =>
-                consider X; intros
-            end.
-            { left. split; auto. intros.
-              subst.
-              replace (n0 + n - n) with n0 in H1 by omega.
-              destruct (H0 n0) as [ [] | ]; rewrite H3 in *; auto.
-              change (n0 + n) with (0 + n0 + n) in H1.
-              rewrite mentionsV_lift in H1. assumption. }
-            { right.
-              destruct (H0 (v - n)) as [ [] | ].
-              { rewrite H4 in H1.
-                change (n0 + n) with (0 + n0 + n) in H1.
-                rewrite mentionsV_lift in H1.
-                exists (inr (v - n)); exists x; simpl.
-                replace (v - n + n) with v.
-                setoid_rewrite H4. split; auto. split; auto.
-                eapply rel_dec_correct. reflexivity.
-                clear - H2. rewrite NPeano.Nat.sub_add; auto. }
-              { rewrite H4 in H1.
-                simpl in H1.
-                exfalso. rewrite rel_dec_correct in H1.
-                auto. } } }
-          { intros. exfalso.
-            simpl in H1. rewrite rel_dec_correct in H1.
-            subst. omega. } }
-        { destruct H1; forward_reason.
-          { rewrite rel_dec_correct in H1. subst.
-            generalize (lt_rem_sound n (n0 + n)).
-            destruct (lt_rem (n0 + n) n).
-            { intros; forward_reason.
-              assert (n0 = n1) by omega. clear H3. subst.
-              destruct (H0 n1) as [ [] | ].
-              { rewrite H3.
-                setoid_rewrite H3 in H2.
-                change (n1 + n) with (0 + n1 + n).
-                rewrite mentionsV_lift. eapply H2.
-                instantiate (1 := Var n1).
-                simpl. rewrite rel_dec_correct. reflexivity. }
-              { rewrite H3. simpl.
-                rewrite rel_dec_correct. reflexivity. } }
-            { intros. exfalso; omega. } }
-          { generalize (lt_rem_sound n v).
-            destruct (lt_rem v n).
-            { intros; forward_reason.
-              subst. destruct x; simpl in *; try congruence.
-              rewrite rel_dec_correct in H2. subst.
-              replace (n1 + n - n) with n1 by omega.
-              destruct (H0 n1) as [ [] | ]; rewrite H2.
-              { setoid_rewrite H2 in H1.
-                change (n0 + n) with (0 + n0 + n).
-                rewrite mentionsV_lift. specialize (H1 (Var 0)). subst.
-                assumption. }
-              { setoid_rewrite H2 in H1.
-                destruct x0; try solve [ specialize (H1 (Var 0)); congruence
-                                       | specialize (H1 (UVar 0)); congruence ]. } }
-            { simpl; intro. exfalso.
-              destruct x; simpl in *; try congruence.
-              rewrite rel_dec_correct in H2. omega. } } } } }
-    { clear. setoid_rewrite mentions_Inj.
-      intuition; forward_reason; eauto. }
-    { repeat setoid_rewrite mentions_App.
-      repeat setoid_rewrite Bool.orb_true_iff.
-      rewrite IHe1; clear IHe1.
-      rewrite IHe2; clear IHe2.
-      rewrite or_rearrange.
-      eapply or_iff.
-      intuition.
-      do 2 setoid_rewrite exists_or.
-      do 2 (apply exists_iff; intros).
-      rewrite or_factor.
-      apply and_iff_compat_l.
-      intuition. }
-    { setoid_rewrite mentions_Abs.
-      destruct uv.
-      { generalize (IHe (inl n0)); clear IHe.
-        simpl; intro XXX; rewrite XXX; clear XXX.
-        split; destruct 1; auto.
-        { forward_reason. right.
-          exists x. exists x0.
-          destruct x; simpl in *; eauto.
-          { rewrite <- plus_n_Sm in H2. auto. } }
-        { right. forward_reason.
-          exists x; exists x0.
-          destruct x; simpl in *; eauto.
-          { rewrite <- plus_n_Sm. auto. } } }
-      { generalize (IHe (inr n0) (S n)).
-        simpl. rewrite <- plus_n_Sm.
-        intro XXX; rewrite XXX; clear XXX.
-        split; destruct 1; forward_reason; eauto.
-        { right.
-          exists x; exists x0.
-          split; auto. split; auto.
-          clear - H2. destruct x; simpl in *; auto.
-          rewrite plus_n_Sm. assumption. }
-        { right.
-          exists x; exists x0.
-          split; auto. split; auto.
-          clear - H2; destruct x; simpl in *; eauto.
-          rewrite <- plus_n_Sm; assumption. } } }
-    { split; intro.
-      { destruct uv; simpl in *.
-        { consider (EqNat.beq_nat n0 u); intros; subst.
-          { left. split; auto. intros.
-            revert H1.
-            destruct (H u); forward_reason.
-            { do 2 rewrite H1.
-              rewrite mentionsU_lift. auto. }
-            { do 2 rewrite H1. auto. } }
-          { right. destruct (H u); forward_reason.
-            { rewrite H3 in *.
-              exists (inl u); simpl.
-              setoid_rewrite H3.
-              rewrite mentionsU_lift in H1.
-              eexists; split; eauto.
-              rewrite <- EqNat.beq_nat_refl. auto. }
-            { rewrite H3 in *.
-              exfalso. simpl in *.
-              apply EqNat.beq_nat_true in H1. auto. } } }
-        { right.
-          destruct (H u) as [ [ ] | ].
-          { rewrite H2 in *.
-            change (n0 + n) with (0 + n0 + n) in H1.
-            rewrite mentionsV_lift in H1.
-            simpl in *.
-            eexists (inl u); exists x; simpl.
-            split; [ | split; [ rewrite <- EqNat.beq_nat_refl; auto | eassumption ] ].
-            intro. rewrite H2. reflexivity. }
-          { rewrite H2 in H1.
-            exfalso. simpl in H1. congruence. } } }
-      { destruct H1; forward_reason.
-        { destruct uv; simpl in *; try congruence.
-          apply EqNat.beq_nat_true in H1. subst.
-          destruct (H u) as [ [ ] | ].
-          { rewrite H1. setoid_rewrite H1 in H2.
-            rewrite mentionsU_lift. eapply H2.
-            instantiate (1 := UVar u). simpl.
-            rewrite <- EqNat.beq_nat_refl. auto. }
-          { rewrite H1. simpl.
-            rewrite <- EqNat.beq_nat_refl. auto. } }
-        { destruct x; simpl in *; try congruence.
-          apply EqNat.beq_nat_true in H2. subst.
-          destruct (H u) as [ [ ] | ].
-          { rewrite H2.
-            setoid_rewrite H2 in H1.
-            specialize (H1 x0). subst.
-            destruct uv; simpl.
-            { rewrite mentionsU_lift. auto. }
-            { simpl in *.
-              change (n0 + n) with (0 + n0 + n).
-              rewrite mentionsV_lift. assumption. } }
-          { setoid_rewrite H2 in H1.
-            clear - H1. exfalso.
-            destruct x0; try solve [ specialize (H1 (Var 0)); congruence
-                                   | specialize (H1 (UVar 0)); congruence ]. } } } }
-*)
-  Abort.
 
 End substitute.

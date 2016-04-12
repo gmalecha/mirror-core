@@ -11,6 +11,7 @@ Require Import MirrorCore.provers.AssumptionProver.
 Require Import MirrorCore.Subst.FMapSubst.
 Require Import MirrorCore.provers.AutoProver.
 Require Import McExamples.Simple.Simple.
+Require Import McExamples.Simple.SimpleReify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -51,6 +52,21 @@ Definition fs : @functions typ _ :=
 
 Let func := SymEnv.func.
 
+Reify Declare Patterns patterns_even : (expr typ func).
+Reify Declare Syntax reify_even :=
+  (Patterns.CFirst ((Patterns.CPatterns patterns_even) ::
+                    (Patterns.CApp (@ExprCore.App typ func)) ::
+                    (Patterns.CAbs reify_simple_typ (@ExprCore.Abs typ func)) ::
+                    (Patterns.CVar (@ExprCore.Var typ func)) :: nil)).
+
+
+
+Reify Pattern patterns_even += (@RExact _ Even) => (Inj (typ:=typ) 1%positive).
+Reify Pattern patterns_even += (@RExact _ O) => (Inj (typ:=typ) 2%positive).
+Reify Pattern patterns_even += (@RExact _ S) => (Inj (typ:=typ) 3%positive).
+Reify Pattern patterns_even += (@RExact _ plus) => (Inj (typ:=typ) 4%positive).
+Reify Pattern patterns_even += (@RExact _ minus) => (Inj (typ:=typ) 5%positive).
+
 Fixpoint makeNat (n : nat) : expr typ func :=
   match n with
     | O => Inj (2)
@@ -63,32 +79,17 @@ Local Existing Instance RSym_func.
 Let Expr_expr : @ExprI.Expr typ _ (expr typ func) := @Expr_expr _ _ _ _ _.
 Local Existing Instance Expr_expr.
 
-Definition lem_0 : lemma typ (expr typ func) (expr typ func) :=
-  Eval simpl makeNat in
-    {| vars := nil ; premises := nil ; concl := App (Inj 1%positive) (makeNat 0) |}.
+Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
+      lem_0 : Even_0.
 
-Definition lem_SS : lemma typ (expr typ func) (expr typ func) :=
-  {| vars := tyNat :: nil
-     ; premises := App (Inj 1%positive) (Var 0) :: nil
-     ; concl := App (Inj 1%positive)
-                    (App (Inj 3%positive) (App (Inj 3%positive) (Var 0)))
-  |}.
+Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
+      lem_SS : Even_SS.
 
-Definition lem_plus : lemma typ (expr typ func) (expr typ func) :=
-  {| vars := tyNat :: tyNat :: nil
-   ; premises := App (Inj 1%positive) (Var 0) ::
-                 App (Inj 1%positive) (Var 1) :: nil
-   ; concl := App (Inj 1%positive)
-                  (App (App (Inj 4%positive) (Var 0)) (Var 1))
-  |}.
+Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
+      lem_plus : Even_plus.
 
-Definition lem_minus : lemma typ (expr typ func) (expr typ func) :=
-  {| vars := tyNat :: tyNat :: nil
-   ; premises := App (Inj 1%positive) (Var 0) ::
-                 App (Inj 1%positive) (Var 1) :: nil
-   ; concl := App (Inj 1%positive)
-                  (App (App (Inj 5%positive) (Var 0)) (Var 1))
-  |}.
+Reify BuildLemma < SimpleReify.reify_simple_typ reify_even reify_even >
+      lem_minus : Even_minus.
 
 
 Definition evenHints : Hints typ (expr typ func) :=
@@ -103,7 +104,7 @@ Theorem evenHintsOk : @HintsOk _ _ RType_typ _ _ evenHints.
 Proof.
   constructor.
   { unfold evenHints; simpl.
-    repeat (apply Forall_cons || apply Forall_nil).
+    repeat first [ apply Forall_cons | apply Forall_nil ].
     exact Even_SS.
     exact Even_0.
     exact Even_plus.
@@ -114,17 +115,16 @@ Proof.
 Defined.
 
 
-
 Let subst := FMapSubst.SUBST.raw (expr typ func).
-Local Instance Subst_subst : SubstI.Subst subst (expr typ func) := FMapSubst.SUBST.Subst_subst _.
+Local Instance Subst_subst : SubstI.Subst subst (expr typ func) :=
+  FMapSubst.SUBST.Subst_subst _.
 Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func) :=
   @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
 
-Local Instance SubstOk_fmap_subst : @SubstI.SubstOk _ _ _ _ _ Subst_subst :=
-  @FMapSubst.SUBST.SubstOk_subst _ _ _ _ _.
-Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk _ _.
+Local Instance SubstOk_fmap_subst : SubstI.SubstOk subst typ (expr typ func) :=
+  @FMapSubst.SUBST.SubstOk_subst _ _ _ _.
+Local Instance SubstUpdateOk_fmap_subst : SubstI.SubstUpdateOk subst typ (expr typ func).
 eapply (@FMapSubst.SUBST.SubstUpdateOk_subst _ _ _ _ _).
-eauto with typeclass_instances.
 Qed.
 
 Definition the_auto hints :=
@@ -133,6 +133,11 @@ Definition the_auto hints :=
                 (fun tus tvs under el er (t : typ) (sub : subst) =>
                    @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under el er t sub).
 
+Existing Instance SUBST.SubstOpen_subst.
+Existing Instance SUBST.SubstOpenOk_subst.
+Arguments ExprUnify_simul.exprUnify_sound {_ _ _ _ _ _ _ _ _ _ _ _ _} _%nat _ _ _ _ _ _ _ _ _ _.
+
+(* TODO(gmalecha): Why is there not a lemma that says this already? *)
 Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
 : forall facts (us vs : EnvI.env) goal s',
     @the_auto hints fuel facts
@@ -153,41 +158,44 @@ Theorem Apply_auto_prove (fuel : nat) hints (Hok : HintsOk hints)
 Proof.
   intros.
   generalize (@auto_prove_sound
-                typ (expr typ func) _ _ _ _ _ _ _ _
-                (SUBST.SubstOpen_subst _) hints
-                (fun tus tvs under el er (t : typ) (sub : subst) =>
-                   @ExprUnify_simul.exprUnify _ _ _ _ _ _ _ _ 10 tus tvs under el er t sub) fuel facts _ _ goal _ _ Hok H
-             (@SUBST.WellFormed_empty _ _ _ _ _)); clear H.
-  unfold ExprI.exprD.
-  consider (split_env us).
-  consider (split_env vs).
-  intros. destruct H2.
-  destruct (SUBST.substD_empty x0 x) as [ ? [ ? ? ] ].
+                typ (expr typ func) _ _ _ _ _ _ _ _ Subst_subst _ _ _ _ _ hints Hok
+                (ExprUnify_simul.exprUnify 10)
+                (ExprUnify_simul.exprUnify_sound _) fuel).
+  intro XXX; eapply XXX in H; clear XXX.
+  Arguments SUBST.WellFormed_empty {_ _ _ _} _ _ _ _ _ _.
+  destruct (H SUBST.WellFormed_empty); clear H.
+  unfold ExprI.exprD. simpl.
+  do 2 rewrite split_env_eta in *.
+  edestruct (SUBST.substD_empty (expr:=expr typ func)) as [ ? [ ? ? ] ].
+  erewrite H in H2.
+  unfold ExprDAs.exprD'_typ0 in *. simpl in *.
   forward.
-  assert (x = typeof_env vs).
-  { rewrite <- split_env_typeof_env.
-    rewrite H. reflexivity. }
-  assert (x0 = typeof_env us).
-  { rewrite <- split_env_typeof_env.
-    rewrite H0. reflexivity. }
-  revert H7. revert H9. subst.
-  intros.
-  specialize (fun Z => H3 _ _ Z H1 H4).
-  unfold ExprDAs.exprD'_typ0 in *.
-  change_rewrite H8 in H3.
-  specialize (H3 _ eq_refl).
-  destruct H3 as [ ? [ ? ? ] ].
-  change_rewrite H3 in H6. inv_all; subst.
-  destruct H7.
-  specialize (H10 _ _ H4 H6). tauto.
+  specialize (H5 _ _ _ H0 eq_refl eq_refl); clear H0.
+  destruct H5 as [ ? [ ? ? ] ].
+  inv_all; subst.
+  destruct H6; eapply H5; eauto.
 Qed.
 
-Definition fuel := 1002.
+Definition fuel := 103.
+
+Definition seven : expr typ func -> expr typ func :=
+  App (Inj 1%positive).
+Definition splus (l r : expr typ func) : expr typ func := App (App (Inj 4%positive) l) r.
 
 Ltac run_auto := idtac;
+  let rec reify X :=
+      match X with
+      | ?A + ?B =>
+        let A := reify A in
+        let B := reify B in
+        uconstr:(splus A B)
+      | _ => uconstr:(makeNat X)
+      end
+  in
   match goal with
     | |- Even ?X =>
-      let G := constr:(App (Inj 1%positive) (makeNat X)) in
+      let rX := reify X in
+      let G := constr:(App (Inj 1%positive) rX) in
       pose (g := G) ;
       let result :=
           constr:(the_auto evenHints fuel nil nil nil g (@SUBST.raw_empty (expr typ func)))
@@ -212,6 +220,12 @@ Ltac run_auto := idtac;
             | compute; split; constructor ]
       end
   end.
+
+
+Goal Even 4.
+Proof.
+  Time run_auto.
+Qed.
 
 Goal Even 200.
 Proof.
@@ -248,10 +262,6 @@ Goal Even ((200 + 200) + 200).
 Proof.
   Time eauto 400 using Even_0, Even_SS, Even_plus.
 Qed.
-
-Definition seven : expr typ func -> expr typ func := 
-  App (Inj 1%positive).
-Definition splus (l r : expr typ func) : expr typ func := App (App (Inj 4%positive) l) r.
 
 Goal Even (0 + 0).
 Proof.

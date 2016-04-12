@@ -5,52 +5,59 @@ Require Import McExamples.Simple.Simple.
 Require Coq.Numbers.BinNums.
 
 (** Declare patterns **)
-Reify Declare Patterns patterns_simple_typ := typ.
-Reify Declare Patterns patterns_simple := (expr typ func).
+Reify Declare Patterns patterns_simple_typ : typ.
+Reify Declare Patterns patterns_simple : (expr typ func).
 
 Reify Declare Syntax reify_simple_typ :=
-  { (@Patterns.CFirst _ (@Patterns.CPatterns _ patterns_simple_typ :: nil)) }.
+  (Patterns.CFirst (Patterns.CPatterns patterns_simple_typ :: nil)).
 
 Axiom otherFunc : BinNums.positive -> expr typ func.
 
-Reify Declare Typed Table table_terms : BinNums.positive => reify_simple_typ.
+Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
 (** Declare syntax **)
 Reify Declare Syntax reify_simple :=
-  { (@Patterns.CFirst _ ((@Patterns.CPatterns (expr typ func) patterns_simple) ::
-                         (@Patterns.CApp (expr typ func) (@ExprCore.App typ func)) ::
-                         (@Patterns.CAbs (expr typ func) reify_simple_typ (@ExprCore.Abs typ func)) ::
-                         (@Patterns.CVar (expr typ func) (@ExprCore.Var typ func)) ::
-                         (@Patterns.CTypedTable (expr typ func) _ _ table_terms otherFunc) :: nil))
-  }.
+  (@Patterns.CFirst _ ((Patterns.CPatterns patterns_simple) ::
+                       (Patterns.CApp (@ExprCore.App typ func)) ::
+                       (Patterns.CAbs reify_simple_typ (@ExprCore.Abs typ func)) ::
+                       (Patterns.CVar (@ExprCore.Var typ func)) ::
+                       (Patterns.CMap otherFunc (Patterns.CTypedTable reify_simple_typ table_terms)) :: nil)).
 
-Reify Pattern patterns_simple_typ += (@RExact _ nat)  => tyNat.
-Reify Pattern patterns_simple_typ += (@RExact _ bool) => tyBool.
-Reify Pattern patterns_simple_typ += (@RExact _ Prop) => tyProp.
+Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+Reify Pattern patterns_simple_typ += (!! nat)  => tyNat.
+Reify Pattern patterns_simple_typ += (!! bool) => tyBool.
+Reify Pattern patterns_simple_typ += (!! Prop) => tyProp.
 Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
 
-Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : id nat) => @Inj typ func (N n)).
-Reify Pattern patterns_simple += (@RExact _ plus) => (Inj (typ:=typ) Plus).
-Reify Pattern patterns_simple += (@RExact _ NPeano.ltb) => (Inj (typ:=typ) Lt).
-Reify Pattern patterns_simple += (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) =>
+Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : @id nat) => @Inj typ func (N n)).
+Reify Pattern patterns_simple += (!! plus) => (Inj (typ:=typ) Plus).
+Reify Pattern patterns_simple += (!! NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
+Reify Pattern patterns_simple += (!! @eq @ ?0) =>
 (fun (t : function reify_simple_typ) => Inj (typ:=typ) (Eq t)).
-Reify Pattern patterns_simple += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (All t)) (Abs t b))).
-Reify Pattern patterns_simple += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple) => App (App (@Inj typ func Impl) a) b).
+Reify Pattern patterns_simple += (RPi (?0) (?1)) => (fun (t : function reify_simple_typ) (b : function reify_simple) => (App (Inj (All t)) (Abs t b))).
+Reify Pattern patterns_simple += (!! @ex @ ?0) => (fun (t : function reify_simple_typ) => Inj (typ:=typ) (Ex t)).
+Reify Pattern patterns_simple += (!! and) => (Inj (typ:=typ) And).
+Reify Pattern patterns_simple += (!! or) => (Inj (typ:=typ) Or).
 
 Ltac reify_typ trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple_typ k [ True ] [ trm ].
+  reify_expr reify_simple_typ k [[ True ]] [[ trm ]].
 
 Ltac reify trm :=
   let k e :=
       refine e
   in
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 Ltac reify_simple trm k :=
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 
 Definition test_typ : typ.
@@ -69,7 +76,7 @@ Defined.
 Print test_1.
 
 Definition test_2 : expr typ func.
-  reify ((NPeano.ltb 0 1) = (NPeano.ltb 0 0)).
+  reify ((NPeano.Nat.ltb 0 1) = (NPeano.Nat.ltb 0 0)).
 Defined.
 Print test_2.
 
@@ -107,7 +114,7 @@ Defined.
 Print test_fail.
 
 Definition foo : nat := 6.
-Reify Seed Typed Table table_terms += 1 => [ Simple.tyNat , foo ].
+Reify Seed Typed Table table_terms += 1 => [[ Simple.tyNat , foo ]].
 
 Definition test_table : expr typ func.
   reify (foo).

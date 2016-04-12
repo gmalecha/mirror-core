@@ -96,7 +96,7 @@ Proof.
   { destruct pf. reflexivity. }
 Qed.
 
-Instance Typ0_tyProp : Typ0 _ Prop :=
+Instance Typ0_Prop : Typ0 _ Prop :=
 {| typ0 := tyProp
  ; typ0_cast := eq_refl
  ; typ0_match := fun T t =>
@@ -133,7 +133,7 @@ Definition funcD (f : func)
                         | Some t => typD t
                       end
   with
-    | Lt => NPeano.ltb
+    | Lt => NPeano.Nat.ltb
     | Plus => plus
     | N n => n
     | Eq t => @eq _
@@ -144,7 +144,7 @@ Definition funcD (f : func)
     | Ex t => fun P => exists x : typD t, P x
   end.
 
-Instance RelDec_func_eq : RelDec (@eq func) :=
+Instance RelDec_eq_func : RelDec (@eq func) :=
 { rel_dec := fun (a b : func) =>
                match a , b with
                  | Plus , Plus => true
@@ -160,8 +160,23 @@ Instance RelDec_func_eq : RelDec (@eq func) :=
                end
 }.
 
+Instance RelDecCorrect_eq_func : RelDec_Correct RelDec_eq_func.
+Proof.
+  constructor.
+  destruct x; destruct y; simpl;
+  try solve [ tauto
+            | split; congruence
+            | rewrite rel_dec_correct; split; congruence
+            ].
+Qed.
+
 Instance RSym_func : RSym func :=
 { typeof_sym := typeof_func
 ; symD := funcD
 ; sym_eqb := fun a b => Some (a ?[ eq ] b)
 }.
+
+Instance RSymOk_func : RSymOk RSym_func.
+{ constructor.
+  intros. simpl. consider (a ?[ eq ] b); auto. }
+Qed.

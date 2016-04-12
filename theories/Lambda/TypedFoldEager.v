@@ -1,4 +1,3 @@
-Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -11,7 +10,7 @@ Section typed_fold.
   Variable func : Type.
   Variable RType_typ : RType typ.
   Variable RSym_func : RSym func.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
 
   Section folder.
     Variable T : Type.
@@ -31,7 +30,7 @@ Section typed_fold.
         | UVar u => Some (do_uvar u t)
         | Inj f => Some (do_inj f t)
         | Abs t' e =>
-          typ2_match (F := Fun)
+          typ2_match (F := RFun)
                      (fun _ => option T)
                      t
                      (fun d r =>
@@ -79,7 +78,7 @@ Section typed_fold.
         | App f x =>
           match typed_mfold_infer tus tvs f with
             | Some (dr,fv) =>
-              typ2_match (F := Fun)
+              typ2_match (F := RFun)
                          (fun _ => option (typ * T))
                          dr
                          (fun d r =>
@@ -101,7 +100,7 @@ Section typed_fold.
         | UVar u => success (do_uvar u t)
         | Inj f => success (do_inj f t)
         | Abs t' e =>
-          typ2_match (F := Fun)
+          typ2_match (F := RFun)
                      (fun _ => R)
                      t
                      (fun d r =>
@@ -142,7 +141,7 @@ Section typed_fold.
                                 failure
         | App f x =>
           typed_mfold_infer_cps tus tvs f (fun dr fv =>
-               typ2_match (F := Fun)
+               typ2_match (F := RFun)
                           (fun _ => R)
                           dr
                           (fun d r =>

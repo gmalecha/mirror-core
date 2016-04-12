@@ -23,21 +23,17 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk _}.
-
-  Class ReifiedLemma (L : Lemma.lemma typ expr expr) : Prop :=
-  { ReifiedLemma_proof
-    : @Lemma.lemmaD typ expr _ _ expr (@exprD'_typ0 _ _ _ _ Prop _)
-                    _ nil nil L }.
 
   Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
     unifier typ expr subst.
 
   Variable exprUnify_sound
-  : forall subst S (SO : SubstOk S) SU (SUO : SubstUpdateOk _ SO),
+  : forall subst (S : Subst subst expr) (SO : SubstOk subst typ expr) SU
+           (SUO : SubstUpdateOk subst typ expr),
       unify_sound (@exprUnify subst S SU).
 
   Variable lem : Lemma.lemma typ expr expr.
@@ -55,15 +51,18 @@ Section parameterized.
                          (freshUVars lem.(vars) sub)
                          tus tvs lem goal
       with
-        | None => Fail
-        | Some sub' =>
-          let premises :=
-              map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
-          in
-          reduceResult (* instantiate UVar *)
-                     ctx (CExs (CTop tus tvs) lem.(vars))
-                     (GConj_list premises) sub'
+      | None => Fail
+      | Some sub' =>
+        let premises :=
+            map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
+        in
+        reduceResult (* instantiate UVar *)
+          ctx (CExs (CTop tus tvs) lem.(vars))
+          (GConj_list premises) sub'
       end.
+
+  Class ReifiedLemma (L : lemma typ expr expr) : Prop := mkRL
+  { ReifiedLemma_proof : lemmaD (@exprD_typ0 _ _ _ _ Prop _) nil nil L }.
 
   Hypothesis lemD : ReifiedLemma lem.
 
@@ -102,19 +101,19 @@ Section parameterized.
   Lemma WellFormed_Goal_GConj_list tus tvs l :
     Forall (WellFormed_Goal (typ:=typ) tus tvs) l ->
     WellFormed_Goal tus tvs (GConj_list l).
-  Proof. clear.
-         induction 1; simpl.
-         - constructor.
-         - destruct l; auto.
-           constructor; auto.
+  Proof using.
+    induction 1; simpl.
+    - constructor.
+    - destruct l; auto.
+      constructor; auto.
   Qed.
 
   Lemma mapT_list_map
   : forall {T U V} (g : T -> U) (f : U -> option V) ls,
       List.mapT_list (fun x => f (g x)) ls =
       List.mapT_list f (map g ls).
-  Proof.
-    clear. induction ls; simpl; intros; auto.
+  Proof using.
+    induction ls; simpl; intros; auto.
     destruct (f (g a)); auto.
     rewrite IHls. reflexivity.
   Qed.
@@ -133,7 +132,7 @@ Section parameterized.
     unfold rtac_spec_modular.
     Opaque GoalImplies. simpl.
     eapply Transitive_GoalImplies;
-    [ eauto | | eapply GoalImplies_GExs_do_solved ]; eauto.
+    [ eauto | eapply GoalImplies_GExs_do_solved ]; eauto.
     Transparent GoalImplies. simpl.
     intros.
     eapply eapplicable_sound'
@@ -157,7 +156,7 @@ Section parameterized.
       simpl in *. forward.
       destruct (drop_exact_append_exact (vars lem) (getUVars ctx)) as [ ? [ ? ? ] ].
       destruct (pctxD_substD H1 H) as [ ? [ ? ? ] ].
-      eapply exprD'_typ0_weakenU with (tus' := lem.(vars)) in H5.
+      eapply exprD_typ0_weakenU with (tus' := lem.(vars)) in H5.
       destruct H5 as [ ? [ ? ? ] ].
       forward_reason.
       repeat match goal with
@@ -204,3 +203,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments EAPPLY {typ expr _ _ _ _} unify lem _ _ _ _ _ _ _ : rename.

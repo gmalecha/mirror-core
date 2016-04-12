@@ -1,14 +1,10 @@
-Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -17,8 +13,9 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprLift.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -32,12 +29,12 @@ Section typed.
   Context {RSym_func : RSym func}.
   Context {RSymOk_func : RSymOk RSym_func}.
   Local Existing Instance Expr_expr.
-  Context {Typ2_arr : Typ2 _ Fun}.
+  Context {Typ2_arr : Typ2 _ RFun}.
   Context {Typ2Ok_arr : Typ2Ok Typ2_arr}.
   Context {Subst_subst : Subst subst (expr typ func)}.
   Context {SubstUpdate_subst : SubstUpdate subst (expr typ func)}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
-  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _}.
+  Context {SubstOk_subst : SubstOk subst typ (expr typ func)}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ (expr typ func)}.
 
   Local Instance RelDec_Rty : RelDec Rty :=
   { rel_dec := fun a b => match type_cast a b with
@@ -290,8 +287,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -304,8 +301,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substD (expr := expr typ func) tu tv s' = Some sD'
@@ -339,13 +336,13 @@ Section typed.
     WellFormed_subst s ->
     substD tus tvs s = Some sD ->
     subst_lookup u s = Some e ->
-    exprD' tus (tvs' ++ tvs) t (UVar u) = Some eD ->
+    lambda_exprD tus (tvs' ++ tvs) t (UVar u) = Some eD ->
     exists eD',
-      exprD' tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
+      lambda_exprD tus (tvs' ++ tvs) t (lift 0 (length tvs') e) = Some eD' /\
       forall us vs vs',
         sD us vs ->
         eD us (hlist_app vs' vs) = eD' us (hlist_app vs' vs).
-  Proof.
+  Proof using RSymOk_func Typ2Ok_arr RTypeOk SubstOk_subst.
     intros.
     autorewrite with exprD_rw in H2. simpl in H2.
     forward. inv_all; subst.
@@ -354,7 +351,7 @@ Section typed.
     forward_reason.
     change_rewrite H3 in H1.
     inv_all; subst.
-    generalize (exprD'_lift tus e nil tvs' tvs x).
+    generalize (lambda_exprD_lift tus e nil tvs' tvs x).
     simpl. change_rewrite H2.
     intro.
     forwardy. eexists; split; eauto.
@@ -515,7 +512,7 @@ Section typed.
             None
         | _ , _ => None
       end%bool.
-  Proof.
+  Proof using.
     destruct e1; try reflexivity.
   Defined.
 
@@ -523,13 +520,13 @@ Section typed.
   : forall tus tvs t u f f' x x' A B,
       f A B = f' A B ->
       x A B = x' A B ->
-      @exprT_App typ _ _ tus tvs t u f x A B =
-      @exprT_App typ _ _ tus tvs t u f' x' A B.
-  Proof.
-    unfold exprT_App.
-    clear. intros.
+      @AbsAppI.exprT_App typ _ _ tus tvs t u f x A B =
+      @AbsAppI.exprT_App typ _ _ tus tvs t u f' x' A B.
+  Proof using.
+    unfold AbsAppI.exprT_App.
     intros.
-    autorewrite with eq_rw.
+    intros.
+    autorewrite_with_eq_rw.
     rewrite H. rewrite H0. reflexivity.
   Qed.
 
@@ -584,8 +581,8 @@ Section typed.
          typeof_expr tu (tv' ++ tv) (UVar u) <> None ->
          substD tu tv s = Some sD ->
          exists v1 v2 : exprT tu (tv' ++ tv) (typD t),
-           exprD' tu (tv' ++ tv) t e = Some v1 /\
-           exprD' tu (tv' ++ tv) t (UVar u) = Some v2 /\
+           lambda_exprD tu (tv' ++ tv) t e = Some v1 /\
+           lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
               substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
@@ -594,7 +591,7 @@ Section typed.
                  sD us vs /\
                  (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs))))).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros.
     do 3 match goal with
            | H : match _ with
@@ -606,23 +603,29 @@ Section typed.
          end.
     generalize (fun e => handle_uvar unifyOk tu tv e u s).
     consider (subst_lookup u s); intros.
-    { forwardy. inv_all. subst.
+    { forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
-      forwardy. inv_all; subst.
+      forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all; subst.
       change_rewrite H4 in H5.
       forward_reason.
       split; eauto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
       forward_reason.
       destruct H2.
       do 2 eexists.
@@ -680,8 +683,8 @@ Section typed.
          typeof_expr tu (tv' ++ tv) e <> None ->
          substD tu tv s = Some sD ->
          exists v1 v2 : exprT tu (tv' ++ tv) (typD t),
-           exprD' tu (tv' ++ tv) t (UVar u) = Some v1 /\
-           exprD' tu (tv' ++ tv) t e = Some v2 /\
+           lambda_exprD tu (tv' ++ tv) t (UVar u) = Some v1 /\
+           lambda_exprD tu (tv' ++ tv) t e = Some v2 /\
            (exists sD' : hlist typD tu -> hlist typD tv -> Prop,
               substR tu tv s s' /\
               substD tu tv s' = Some sD' /\
@@ -690,35 +693,45 @@ Section typed.
                  sD us vs /\
                  (forall vs' : hlist typD tv',
                     v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs))))).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros.
     do 3 match goal with
            | H : match _ with
-                   | Some _ => match ?X with _ => _ end
-                   | None => match _ with Some _ => match ?Y with _ => _ end | None => _ end
+                 | Some _ => match ?X with _ => _ end
+                 | None => match _ with
+                           | Some _ =>
+                             match ?Y with _ => _ end
+                           | None => _
+                           end
                  end = _
              |- _ =>
              change Y with X in H ; consider X; intros; forward
          end.
     generalize (fun e => handle_uvar' unifyOk tu tv e u s).
     consider (subst_lookup u s); intros.
-    { forwardy. inv_all. subst.
+    { forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all. subst.
       destruct H2.
       eapply H5 in H4; eauto; clear H5.
       forward_reason; split; auto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
       forward_reason.
       do 2 eexists; split; eauto. }
     { specialize (H5 e s' t1 tv').
-      forwardy. inv_all; subst.
+      forwardy.
+      generalize dependent (UVar (typ:=typ) (func:=func) u).
+      intros.
+      inv_all; subst.
       change_rewrite H4 in H5.
       forward_reason.
       split; eauto.
       intros.
-      eapply ExprFacts.typeof_expr_exprD' in H1; eauto.
-      eapply ExprFacts.typeof_expr_exprD' in H; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H1; eauto.
+      eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
       forward_reason.
       destruct H2.
       do 2 eexists.
@@ -733,8 +746,8 @@ Section typed.
       WellFormed_subst (expr := expr typ func) s ->
       WellFormed_subst (expr := expr typ func) s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) t e1 = Some v1 ->
-        exprD' tu (tv' ++ tv) t e2 = Some v2 ->
+        lambda_exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        lambda_exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substR tu tv s s'
@@ -752,8 +765,8 @@ Section typed.
         typeof_expr tu (tv' ++ tv) e2 <> None ->
         substD tu tv s = Some sD ->
         exists v1 v2,
-          exprD' tu (tv' ++ tv) t e1 = Some v1 /\
-          exprD' tu (tv' ++ tv) t e2 = Some v2 /\
+          lambda_exprD tu (tv' ++ tv) t e1 = Some v1 /\
+          lambda_exprD tu (tv' ++ tv) t e2 = Some v2 /\
           exists sD',
              substR tu tv s s'
           /\ substD (expr := expr typ func) tu tv s' = Some sD'
@@ -762,7 +775,7 @@ Section typed.
                sD us vs /\
                forall vs',
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs)).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros unify unifyOk tu tv.
     induction e1.
     { (** Var **)
@@ -776,11 +789,14 @@ Section typed.
         inv_all; subst. eexists; split; [ reflexivity | ]; eauto. }
       { rewrite exprUnify_simul'_eq.
         destruct e2; try solve [ simpl; congruence | eapply handle_uvar_simul with (e := Var v); eauto ].
-        forward. inv_all; subst. destruct H3.
+        forward.
+        eapply ExprFacts.typeof_expr_lambda_exprD in H2; eauto.
+        destruct H2.
+        eapply ExprFacts.typeof_expr_lambda_exprD in H0; eauto.
+        destruct H0.
+        inv_all; subst. destruct H3.
         split; auto.
         intros.
-        eapply ExprFacts.typeof_expr_exprD' in H2; eauto.
-        destruct H2.
         do 2 eexists; split; eauto.
         split; eauto. eexists; split; [ reflexivity | eauto ]. } }
     { (** Inj **)
@@ -795,18 +811,18 @@ Section typed.
             | H : ?X = _ , H' : ?Y = _ |- _ =>
               change Y with X in H' ; rewrite H in H'
           end.
-          inv_all; subst. intuition. } }
+          inv_all; subst. subst. intuition. } }
       { unfold exprUnify_simul'.
         destruct e2; intros; try solve [ congruence | eapply handle_uvar_simul with (e := Inj f); eauto ].
         { generalize (sym_eqbOk f f0).
           forward; inv_all; subst.
           autorewrite with exprD_rw.
           split; auto; intros.
-          remember (funcAs f0 t) as oF.
+          remember (symAs f0 t) as oF.
           destruct oF.
           { simpl. do 2 eexists; split; eauto.
             split; eauto. eexists; split; [ reflexivity | eauto ]. }
-          { exfalso. unfold funcAs in HeqoF.
+          { exfalso. unfold symAs in HeqoF.
             revert HeqoF.
             match goal with
               | |- context [ @symD ?A ?B ?C ?D ?E ] =>
@@ -831,22 +847,20 @@ Section typed.
             split; auto.
             autorewrite with exprD_rw. simpl.
             intros; forward.
-            eapply H0 in H7; eauto using exprD_typeof_not_None.
+            eapply H0 in H7; eauto using lambda_exprD_typeof_not_None.
             forward_reason.
             forward_exprD.
+            inv_all. subst.
+            rewrite H14 in *. rewrite H7 in *. inv_all; subst.
             specialize (H4 _ _ _ H12 H9 H16).
             forward_reason.
             eexists; split; eauto.
             { etransitivity; eauto. }
             split; eauto.
             intros.
-            eapply H13 in H19; clear H13.
-            destruct H19. eapply H17 in H13; clear H17.
+            eapply H10 in H11; clear H10.
+            destruct H11. eapply H17 in H10; clear H17.
             forward_reason; split; auto.
-            repeat match goal with
-                     | H : ?X = _ , H' : ?Y = _ |- _ =>
-                       change X with Y in H ; rewrite H in H'; inv_all; subst
-                   end.
             intros. eapply Open_App_equal; eauto. }
           { rewrite H3 in H2. congruence. } } }
       { (* rewrite exprUnify_simul'_eq. *)
@@ -876,8 +890,8 @@ Section typed.
             rewrite typ2_match_iota in * by eauto.
             rewrite eq_Const_eq in *. forward.
             red in r. red in r0. subst. subst.
-            eapply ExprFacts.typeof_expr_exprD' in H6; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H8; eauto.
+            eapply ExprFacts.typeof_expr_lambda_exprD in H6; eauto.
+            eapply ExprFacts.typeof_expr_lambda_exprD in H8; eauto.
             forward_reason.
             repeat match goal with
                      | H : ?X = _ |- context [ ?Y ] =>
@@ -949,8 +963,8 @@ Section typed.
         simpl in H0.
         eapply H0 in H4; try congruence.
         forward_reason.
-        generalize (exprD_typeof_eq _ _ _ _ _ H4 H2).
-        generalize (exprD_typeof_eq _ _ _ _ _ H7 H3).
+        generalize (lambda_exprD_typeof_eq _ _ _ _ _ H4 H2).
+        generalize (lambda_exprD_typeof_eq _ _ _ _ _ H7 H3).
         intros; subst. subst.
         autorewrite with exprD_rw. simpl.
         repeat rewrite typ2_match_iota by eauto.
@@ -1027,7 +1041,7 @@ Section typed.
               eapply handle_set in H2; eauto.
               forward_reason; split; auto.
               intros.
-              specialize (exprD'_lower nil tv' tv (UVar u0) t eq_refl H5).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u0) t eq_refl H5).
               simpl. intros; forward_reason.
               eapply H3 in H6; eauto.
               forward_reason; eexists; split; eauto.
@@ -1042,7 +1056,7 @@ Section typed.
               eapply handle_set in H2; eauto.
               forward_reason; split; auto.
               intros.
-              specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl H4).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u) t eq_refl H4).
               simpl. intros; forward_reason.
               eapply H3 in H6; eauto.
               forward_reason; eexists; split; eauto. split; eauto.
@@ -1073,14 +1087,15 @@ Section typed.
             eapply nth_error_get_hlist_nth_None in H4.
             congruence. } }
         { intro XXX; clear XXX.
-          forward. inv_all; subst.
+          forward.
+          eapply ExprFacts.typeof_expr_lambda_exprD in H; eauto.
+          eapply ExprFacts.typeof_expr_lambda_exprD in H0; eauto.
+          inv_all; subst.
           destruct H2.
           consider (subst_lookup u s); consider (subst_lookup u0 s); intros.
           { eapply unifyOk in H4.
             forward_reason. split; auto.
             intros. clear H6 H7.
-            eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
             forward_reason.
             eapply lookup_lift in H2; eauto.
             eapply lookup_lift in H3; eauto.
@@ -1089,7 +1104,7 @@ Section typed.
             do 2 eexists; split; eauto. split; eauto.
             forward_reason.
             eexists; split; eauto. split; eauto.
-            intros. 
+            intros.
             eapply H10 in H11; clear H10.
             forward_reason; split; auto.
             intros.
@@ -1097,86 +1112,78 @@ Section typed.
             rewrite H6; eauto. }
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
-            clear H6 H7.
-            eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+            clear H4 H5.
             forward_reason.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H3; eauto. forward_reason.
-            autorewrite with exprD_rw in H; simpl in H.
-            change_rewrite H3 in H.
+            autorewrite with exprD_rw in e0; simpl in e0.
+            change_rewrite H3 in e0.
             forwardy. inv_all; subst; destruct y.
-            specialize (H5 _ _ _ _ _ _ _ H6 H0 H8).
+            specialize (H0 _ _ _ _ _ _ _ H4 e1 H6).
             forward_reason.
             eexists; split; eauto. split; eauto.
-            intros. eapply H10 in H11; forward_reason; split; eauto.
+            intros. eapply H9 in H10; forward_reason; split; eauto.
             intros.
-            etransitivity; [ eapply H7; eauto | eapply H12 ]. }
+            etransitivity; [ eapply H5; eauto | eauto ]. }
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
-            clear H6 H7.
-            eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-            eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+            clear H4 H5.
             forward_reason.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H2; eauto. forward_reason.
             simpl in H2.
-            autorewrite with exprD_rw in H0; simpl in H0.
-            change_rewrite H2 in H0.
+            autorewrite with exprD_rw in e1; simpl in e1.
+            change_rewrite H2 in e1.
             forwardy; inv_all; subst. destruct y.
-            specialize (H5 _ _ _ _ _ _ _ H6 H H8).
+            specialize (H0 _ _ _ _ _ _ _ H4 e0 H6).
             forward_reason.
             eexists; split; eauto. split; eauto.
-            intros. eapply H10 in H11.
+            intros. eapply H9 in H10.
             forward_reason; split; eauto.
             intros. symmetry.
-            etransitivity; [ eapply H7; eauto | eapply H12 ]. }
+            etransitivity; [ eapply H5; eauto | eauto ]. }
           { consider (subst_set u (UVar u0) s); intros.
             { inv_all; subst.
               eapply handle_set in H4; eauto.
               forward_reason; split; auto.
-              intros. clear H6 H7.
-              eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-              eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+              intros. clear H4 H5.
               forward_reason.
-              specialize (exprD'_lower nil tv' tv (UVar u0) t eq_refl H0).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u0) t eq_refl e0).
               intros; forward_reason.
-              simpl in *. eapply H5 in H8; eauto.
+              simpl in *. eapply H0 in H6; eauto.
               forward_reason.
               do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
               eexists; split; [ eassumption | ].
               split; eauto.
               intros.
-              eapply H10 in H11; forward_reason; split; auto.
+              eapply H8 in H9; forward_reason; split; auto.
               intros.
-              specialize (H7 us Hnil vs' vs); simpl in H7.
-              rewrite <- H12. auto. }
+              specialize (H5 us Hnil vs' vs); simpl in H5.
+              rewrite <- H10. auto. }
             { clear H4. rename H5 into H4.
               inv_all; subst.
               eapply handle_set in H4; eauto.
               forward_reason; split; auto.
-              intros. clear H6 H7.
-              eapply ExprFacts.typeof_expr_exprD' in H; eauto.
-              eapply ExprFacts.typeof_expr_exprD' in H0; eauto.
+              intros. clear H4 H5.
               forward_reason.
-              specialize (exprD'_lower nil tv' tv (UVar u) t eq_refl H).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u) t eq_refl e).
               intros; forward_reason.
-              simpl in *. eapply H5 in H8; eauto.
+              simpl in *. eapply H0 in H6; eauto.
               forward_reason.
               do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
               eexists; split; [ eassumption | ]. split; eauto.
               intros.
-              eapply H10 in H11; forward_reason; split; auto.
+              eapply H8 in H9; forward_reason; split; auto.
               intros.
-              specialize (H7 us Hnil vs' vs); simpl in H7.
-              rewrite <- H12. auto. } } } } }
+              specialize (H5 us Hnil vs' vs); simpl in H5.
+              rewrite <- H10. auto. } } } } }
   Qed.
 
   Theorem exprUnify'_sound
   : forall unify,
       unify_sound_ind unify ->
       unify_sound_ind (exprUnify' unify).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     intros.
     red. intros.
     eapply exprUnify'_sound_mutual in H.
@@ -1185,7 +1192,7 @@ Section typed.
   Qed.
 
   Theorem exprUnify_sound : forall fuel, unify_sound (exprUnify fuel).
-  Proof.
+  Proof using RTypeOk RSymOk_func Typ2Ok_arr.
     induction fuel; simpl; intros; try congruence.
     eapply exprUnify'_sound. eassumption.
   Qed.

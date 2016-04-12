@@ -1,11 +1,11 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
 
@@ -18,7 +18,7 @@ Module ExprDenote <: ExprDenote.
     Context {typ : Type}.
     Context {func : Type}.
     Context {RType_typD : RType typ}.
-    Context {Typ2_Fun : Typ2 _ Fun}.
+    Context {Typ2_Fun : Typ2 _ RFun}.
     Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
@@ -39,111 +39,71 @@ Module ExprDenote <: ExprDenote.
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
 
-    Definition exprT_App {tus tvs t u}
-    : exprT tus tvs (typD (typ_arr t u)) -> exprT tus tvs (typD t) -> exprT tus tvs (typD u) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus tvs T ->
-                   exprT tus tvs (typD t) ->
-                   exprT tus tvs (typD u)
-      with
-        | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
-      end.
-
-    Definition exprT_Abs {tus tvs t u}
-    : exprT tus (t :: tvs) (typD u) ->
-      exprT tus tvs (typD (typ_arr t u)) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
-      with
-        | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
-      end.
-
     Section exprT.
       Variables tus tvs : tenv typ.
 
       (** Auxiliary definitions **)
       Definition exprT_GetUAs (n : nat) (t : typ) :
         option (exprT tus tvs (typD t)) :=
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tus n)
-             (fun t_get =>
-                let '(existT t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get us)))).
+        match nth_error_get_hlist_nth typD tus n with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get us))
+          | _ => None
+          end
+        | _ => None
+        end.
 
       Definition exprT_GetVAs (n : nat) (t : typ) :
         option (exprT tus tvs (typD t)) :=
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tvs n)
-             (fun t_get =>
-                let '(existT t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get vs)))).
+        match nth_error_get_hlist_nth typD tvs n with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get vs))
+          | _ => None
+          end
+        | _ => None
+        end.
 
     End exprT.
 
-    Definition funcAs (f : func) (t : typ) : option (typD t) :=
-      match typeof_sym f as Z
-            return Z = typeof_sym f -> option (typD t)
-      with
-        | None => fun _ => None
-        | Some T => fun pf =>
-                      match type_cast T t with
-                        | None => None
-                        | Some cast =>
-                          Rcast option cast
-                                (Some (match pf in _ = Z
-                                             return match Z with
-                                                      | Some t => typD t
-                                                      | None => unit
-                                                    end -> typD _
-                                       with
-                                         | eq_refl => fun x => x
-                                       end (symD f)))
-                      end
-      end eq_refl.
-
     Definition func_simul (f : func) : option { t : typ & typD t } :=
       match typeof_sym f as Z
-            return Z = typeof_sym f -> option _
+            return Z = typeof_sym (RSym:=RSym_func) f -> option _
       with
         | None => fun _ => None
         | Some T => fun pf =>
-                      Some (@existT _ _ T
-                                    (match pf in _ = Z
-                                           return match Z with
-                                                    | Some t => typD t
-                                                    | None => unit
-                                                  end -> typD _
-                                     with
-                                       | eq_refl => fun x => x
-                                     end (symD f)))
+          Some (@existT _ _ T
+                        (match pf in _ = Z
+                               return match Z with
+                                      | Some t => typD t
+                                      | None => unit:Type
+                                      end -> typD _
+                         with
+                         | eq_refl => fun x => x
+                         end (symD f)))
       end eq_refl.
 
-    Section exprD'.
+    Section lambda_exprD.
       Variable tus : tenv typ.
 
-      Fixpoint exprD' (tvs : tenv typ) (t : typ) (e : expr typ func)
+      Fixpoint lambda_exprD (tvs : tenv typ) (t : typ) (e : expr typ func)
       : option (exprT tus tvs (typD t)) :=
         match e return option (exprT tus tvs (typD t)) with
           | Var v => @exprT_GetVAs tus tvs v t
           | Inj f =>
-            match @funcAs f t with
+            match @symAs _ _ _ _ f t with
               | None => None
               | Some val =>
                 Some (exprT_Inj tus tvs val)
             end
           | App f x =>
-            match exprD'_simul tvs x with
+            match lambda_exprD_simul tvs x with
               | None => None
-              | Some (existT t' x) =>
-                match exprD' tvs (typ_arr t' t) f with
+              | Some (existT _ t' x) =>
+                match lambda_exprD tvs (typ_arr t' t) f with
                   | None => None
-                  | Some f => Some (@exprT_App _ _ _ _ f x)
+                  | Some f => Some (exprT_App f x)
                 end
             end
           | Abs t' e =>
@@ -152,7 +112,7 @@ Module ExprDenote <: ExprDenote.
                          match type_cast d t' with
                            | None => None
                            | Some cast =>
-                             match exprD' (t' :: tvs) r e with
+                             match lambda_exprD (t' :: tvs) r e with
                                | None => None
                                | Some val =>
                                  Some (fun us vs x =>
@@ -162,27 +122,27 @@ Module ExprDenote <: ExprDenote.
                       None
           | UVar u => @exprT_GetUAs tus tvs u t
         end
-      with exprD'_simul (tvs : tenv typ) (e : expr typ func)
+      with lambda_exprD_simul (tvs : tenv typ) (e : expr typ func)
       : option { t : typ & exprT tus tvs (typD t) } :=
         match e return option { t : typ & exprT tus tvs (typD t) } with
           | Var v => exprT_UseV tus tvs v
           | Inj f =>
             match @func_simul f with
               | None => None
-              | Some (existT t val) =>
+              | Some (existT _ t val) =>
                 Some (@existT _ (fun t => exprT tus tvs (typD t))
                               t (fun _ _ => val))
             end
           | App f x =>
-            match exprD'_simul tvs f with
+            match lambda_exprD_simul tvs f with
               | None => None
-              | Some (existT t' f) =>
+              | Some (existT _ t' f) =>
                 arr_match (fun T =>
                              exprT tus tvs T ->
                              option { t : typ & exprT tus tvs (typD t) })
                           t'
                           (fun d r f =>
-                             match exprD' tvs d x with
+                             match lambda_exprD tvs d x with
                                | None => None
                                | Some x =>
                                  Some (@existT _
@@ -194,9 +154,9 @@ Module ExprDenote <: ExprDenote.
                           f
             end
           | Abs t e =>
-            match exprD'_simul (t :: tvs) e with
+            match lambda_exprD_simul (t :: tvs) e with
               | None => None
-              | Some (existT t' f) =>
+              | Some (existT _ t' f) =>
                 Some (@existT _ (fun t => exprT tus tvs (typD t))
                               (typ_arr t t')
                               match eq_sym (typD_arr t t') in _ = T
@@ -207,7 +167,7 @@ Module ExprDenote <: ExprDenote.
             end
           | UVar u => exprT_UseU tus tvs u
         end.
-    End exprD'.
+    End lambda_exprD.
 
     Section typeof_expr.
       Variable tus : tenv typ.
@@ -245,145 +205,147 @@ Module ExprDenote <: ExprDenote.
 
 
     (** Equations **)
-    Theorem exprD'_Var
+    Theorem lambda_exprD_Var
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t v,
-        exprD' tus tvs t (Var v) =
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tvs v)
-             (fun t_get =>
-                let '(existT t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get vs)))).
+        lambda_exprD tus tvs t (Var v) =
+        match nth_error_get_hlist_nth typD tvs v with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get vs))
+          | _ => None
+          end
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
-    Theorem exprD'_UVar
+    Theorem lambda_exprD_UVar
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t u,
-        exprD' tus tvs t (UVar u) =
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tus u)
-             (fun t_get =>
-                let '(existT t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get us)))).
+        lambda_exprD tus tvs t (UVar u) =
+        match nth_error_get_hlist_nth typD tus u with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get us))
+          | _ => None
+          end
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
-    Theorem exprD'_Inj
+    Theorem lambda_exprD_Inj
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t s,
-        exprD' tus tvs t (Inj s) =
-        bind (m := option)
-             (funcAs s t)
-             (fun val =>
-                ret (fun _ _ => val)).
+        lambda_exprD tus tvs t (Inj s) =
+        match symAs s t with
+        | Some val => Some (fun _ _ => val)
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
-    Lemma exprD'_App'
+    Lemma lambda_exprD_App'
     : forall tus tvs t f x,
-        exprD' tus tvs t (App f x) =
-        bind (m := option)
-             (exprD'_simul tus tvs x)
-                 (fun t_x =>
-                    let '(existT t' x) := t_x in
-                    bind (m := option)
-                         (exprD' tus tvs (typ_arr t' t) f)
-                         (fun f => ret (@exprT_App _ _ _ _ f x))).
+        lambda_exprD tus tvs t (App f x) =
+        match lambda_exprD_simul tus tvs x with
+        | Some (existT _ t' x) =>
+          match lambda_exprD tus tvs (typ_arr t' t) f with
+          | Some f => Some (exprT_App f x)
+          | _ => None
+          end
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
-    Lemma exprD'_simul_App'
+    Lemma lambda_exprD_simul_App'
     : forall tus tvs f x,
-        exprD'_simul tus tvs (App f x) =
-        bind (m := option)
-                      (exprD'_simul tus tvs f)
-                      (fun t_f =>
-                         let '(existT t' f) := t_f in
-                         arr_match (fun T =>
-                                      exprT tus tvs T ->
-                                      option { t : typ & exprT tus tvs (typD t) })
-                                   t'
-                                   (fun d r f =>
-                                      bind (m := option)
-                                           (exprD' tus tvs d x)
-                                           (fun x =>
-                                              ret (@existT _
-                                                           (fun t => exprT tus tvs (typD t))
-                                                           r
-                                                           (fun us vs => (f us vs) (x us vs)))))
-                                   (fun _ => None)
-                                   f).
+        lambda_exprD_simul tus tvs (App f x) =
+        match lambda_exprD_simul tus tvs f with
+        | Some (existT _ t' f) =>
+          arr_match (fun T =>
+                       exprT tus tvs T ->
+                       option { t : typ & exprT tus tvs (typD t) })
+                    t'
+                    (fun d r f =>
+                       match lambda_exprD tus tvs d x with
+                       | Some x =>
+                         Some (@existT _
+                                       (fun t => exprT tus tvs (typD t))
+                                       r
+                                       (fun us vs => (f us vs) (x us vs)))
+                       | _ => None
+                       end)
+                    (fun _ => None)
+                    f
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
-    Lemma exprD'_Abs'
+    Lemma lambda_exprD_Abs'
     : forall tus e tvs t' t,
-        exprD' tus tvs t (Abs t' e) =
+        lambda_exprD tus tvs t (Abs t' e) =
         arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
-                     bind (m := option)
-                          (type_cast d t')
-                          (fun cast =>
-                             bind (m := option)
-                                  (exprD' tus (t' :: tvs) r e)
-                                  (fun val =>
-                                     ret (fun us vs x =>
-                                            val us (Hcons (Rcast_val cast x) vs)))))
+                     match type_cast d t'
+                         , lambda_exprD tus (t' :: tvs) r e
+                     with
+                     | Some cast , Some val =>
+                       Some (fun us vs x =>
+                               val us (Hcons (Rcast_val cast x) vs))
+                     | _ , _ => None
+                     end)
                   None.
     Proof. reflexivity. Qed.
 
-    Lemma exprD'_simul_Abs'
+    Lemma lambda_exprD_simul_Abs'
     : forall tus e tvs t,
-        exprD'_simul tus tvs (Abs t e) =
-        bind (m := option)
-             (exprD'_simul tus (t :: tvs) e)
-             (fun t_val =>
-                let '(existT t' f) := t_val in
-                ret (@existT _ (fun t => exprT tus tvs (typD t))
-                             (typ_arr t t')
-                             match eq_sym (typD_arr t t') in _ = T
-                                   return exprT tus tvs T
-                             with
-                               | eq_refl => fun us vs x => f us (Hcons x vs)
-                             end)).
+        lambda_exprD_simul tus tvs (Abs t e) =
+        match lambda_exprD_simul tus (t :: tvs) e with
+        | Some (existT _ t' f) =>
+          Some (@existT _ (fun t => exprT tus tvs (typD t))
+                        (typ_arr t t')
+                        match eq_sym (typD_arr t t') in _ = T
+                              return exprT tus tvs T
+                        with
+                        | eq_refl => fun us vs x => f us (Hcons x vs)
+                        end)
+        | _ => None
+        end.
     Proof. reflexivity. Qed.
 
-    Theorem exprD'_Abs
+    Theorem lambda_exprD_Abs
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e,
-        exprD' tus tvs t (Abs t' e) =
+        lambda_exprD tus tvs t (Abs t' e) =
         arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
-                     bind (m := option)
-                          (type_cast d t')
-                          (fun cast =>
-                             bind (m := option)
-                                  (exprD' tus (t' :: tvs) r e)
-                                  (fun val =>
-                                     ret (fun us vs x =>
-                                            val us (Hcons (Rcast_val cast x) vs)))))
+                     match type_cast d t'
+                         , lambda_exprD tus (t' :: tvs) r e
+                     with
+                     | Some cast , Some val =>
+                       Some (fun us vs x =>
+                               val us (Hcons (Rcast_val cast x) vs))
+                     | _ , _ => None
+                     end)
                   None.
     Proof. reflexivity. Qed.
 
-    Lemma exprD'_typeof_expr
+    Lemma lambda_exprD_typeof_expr
     : forall tus e tvs t val,
-        exprD' tus tvs t e = Some val \/
-        exprD'_simul tus tvs e = Some (@existT _ _ t val) ->
+        lambda_exprD tus tvs t e = Some val \/
+        lambda_exprD_simul tus tvs e = Some (@existT _ _ t val) ->
         typeof_expr tus tvs e = Some t.
     Proof.
       induction e; simpl; intros.
-      { unfold exprD', exprD'_simul, exprT_GetVAs, exprT_UseV in *. simpl in *.
+      { unfold lambda_exprD, lambda_exprD_simul, exprT_GetVAs, exprT_UseV in *. simpl in *.
         destruct H; forward; inv_all; subst;
         eapply nth_error_get_hlist_nth_Some in H0; destruct H0; simpl in *; auto.
         red in r. subst. auto. }
-      { unfold exprD', exprD'_simul, func_simul, funcAs in *; simpl in *.
+      { unfold lambda_exprD, lambda_exprD_simul, func_simul, symAs in *; simpl in *.
         generalize dependent (symD f).
         destruct (typeof_sym f).
         { destruct 1. forward. inv_all; subst. auto. }
         { destruct 2; congruence. } }
-      { rewrite exprD'_App', exprD'_simul_App' in H; simpl in H.
+      { rewrite lambda_exprD_App', lambda_exprD_simul_App' in H; simpl in H.
         destruct H; forward; inv_all; subst.
         { specialize (IHe1 _ _ _ (or_introl H1)).
           specialize (IHe2 _ _ _ (or_intror H0)).
@@ -397,21 +359,23 @@ Module ExprDenote <: ExprDenote.
             rewrite H in *.
             specialize (IHe1 _ _ _ (or_intror H0)).
             red in x2. subst. simpl in *.
-            repeat rewrite eq_Arr_eq in *.
-            repeat rewrite eq_Const_eq in *.
+            Require Import MirrorCore.Util.Compat.
+            autorewrite_with_eq_rw_in H1.
             forward. inv_all; subst.
-            specialize (IHe2 _ _ _ (or_introl H1)).
+            specialize (IHe2 _ _ _ (or_introl _ H1)).
             rewrite IHe2. subst.
             unfold type_of_apply. rewrite H.
-            rewrite type_cast_refl; eauto. simpl.
-            rewrite eq_Const_eq. reflexivity. }
+            rewrite type_cast_refl; eauto. simpl. revert H2.
+            do 2 rewrite eq_Const_eq.
+            intro. inv_all. subst.
+            reflexivity. }
           { rewrite H in *. congruence. } } }
-      { rewrite exprD'_simul_Abs', exprD'_Abs in H; eauto; destruct H.
+      { rewrite lambda_exprD_simul_Abs', lambda_exprD_Abs in H; eauto; destruct H.
         { destruct (typ2_match_case t0).
           { destruct H0 as [ ? [ ? [ ? ? ] ] ].
             rewrite H0 in *.
             red in x1. subst. simpl in *.
-            consider (exprD' tus (t :: tvs) x0 e); intros.
+            consider (lambda_exprD tus (t :: tvs) x0 e); intros.
             { specialize (IHe _ _ _ (or_introl H)).
               rewrite IHe.
               consider (type_cast x t); intros.
@@ -425,32 +389,32 @@ Module ExprDenote <: ExprDenote.
         { simpl in *. forward.
           specialize (IHe _ _ _ (or_intror H0)).
           rewrite IHe. inv_all; subst. auto. } }
-      { unfold exprD'_simul, exprD', exprT_GetUAs, exprT_UseU in *. simpl in *.
+      { unfold lambda_exprD_simul, lambda_exprD, exprT_GetUAs, exprT_UseU in *. simpl in *.
         destruct H; forward; inv_all; subst;
         eapply nth_error_get_hlist_nth_Some in H0; destruct H0; auto.
         red in r. subst. auto. }
     Qed.
 
-    Lemma exprD'_deterministic
+    Lemma lambda_exprD_deterministic
     : forall tus e tvs t1 t2 val val',
-        exprD' tus tvs t1 e = Some val ->
-        exprD' tus tvs t2 e = Some val' ->
+        lambda_exprD tus tvs t1 e = Some val ->
+        lambda_exprD tus tvs t2 e = Some val' ->
         Rty t1 t2.
     Proof.
       induction e; simpl; intros; red.
-      { unfold exprD', exprT_GetVAs in *. simpl in *.
+      { unfold lambda_exprD, exprT_GetVAs in *. simpl in *.
         forward; inv_all; subst. }
-      { unfold exprD' in *; simpl in *. forward; inv_all; subst.
-        unfold funcAs in *.
+      { unfold lambda_exprD in *; simpl in *. forward; inv_all; subst.
+        unfold symAs in *.
         generalize dependent (symD f).
         destruct (typeof_sym f); intros; try congruence.
         forward. }
-      { rewrite exprD'_App' in *. simpl in *.
+      { rewrite lambda_exprD_App' in *. simpl in *.
         forward. inv_all; subst.
         specialize (IHe1 _ _ _ _ _ H2 H1).
         eapply typ2_inj in IHe1; eauto. destruct IHe1.
         destruct H3. reflexivity. }
-      { rewrite exprD'_Abs in *; eauto.
+      { rewrite lambda_exprD_Abs in *; eauto.
         destruct (typ2_match_case t1).
         { destruct (typ2_match_case t2).
           { forward_reason. unfold Rty in *.
@@ -467,7 +431,7 @@ Module ExprDenote <: ExprDenote.
             subst. reflexivity. }
           { rewrite H2 in *; congruence. } }
         { rewrite H1 in *. congruence. } }
-      { unfold exprD', exprT_GetUAs in *. simpl in *.
+      { unfold lambda_exprD, exprT_GetUAs in *. simpl in *.
         forward; inv_all; subst. }
     Qed.
 
@@ -478,12 +442,12 @@ Module ExprDenote <: ExprDenote.
 
     Lemma exprD_simul'
     : forall tus e tvs tv,
-        exprD'_simul tus tvs e = Some tv <->
+        lambda_exprD_simul tus tvs e = Some tv <->
         (typeof_expr tus tvs e = Some (projT1 tv) /\
-         exprD' tus tvs (projT1 tv) e = Some (projT2 tv)).
+         lambda_exprD tus tvs (projT1 tv) e = Some (projT2 tv)).
     Proof.
       induction e; simpl.
-      { unfold exprD'_simul, exprD', exprT_UseV, exprT_GetVAs. simpl. intros.
+      { unfold lambda_exprD_simul, lambda_exprD, exprT_UseV, exprT_GetVAs. simpl. intros.
         forward; inv_all; subst; simpl.
         eapply nth_error_get_hlist_nth_Some in H0. simpl in *.
         destruct H0.
@@ -493,7 +457,7 @@ Module ExprDenote <: ExprDenote.
         { destruct H0. inv_all; subst.
           rewrite type_cast_refl in H1; eauto. inv_all; subst.
           eauto. } }
-      { unfold exprD', exprD'_simul,func_simul, funcAs. simpl in *; intros.
+      { unfold lambda_exprD, lambda_exprD_simul,func_simul, symAs. simpl in *; intros.
         generalize (symD f).
         destruct (typeof_sym f).
         { split; intros; forward; inv_all; subst; simpl.
@@ -504,7 +468,7 @@ Module ExprDenote <: ExprDenote.
         { intuition congruence. } }
       { intros. specialize (@IHe1 tvs).
         specialize (IHe2 tvs).
-        rewrite exprD'_App'. rewrite exprD'_simul_App'.
+        rewrite lambda_exprD_App'. rewrite lambda_exprD_simul_App'.
         simpl in *.
         split; intros.
         { forward; inv_all; subst; simpl.
@@ -517,14 +481,14 @@ Module ExprDenote <: ExprDenote.
             unfold Rty in *. subst. simpl in *.
             rewrite H3 in H1.
             destruct tv; simpl in *.
-            consider (exprD'_simul tus tvs e2); intros.
+            consider (lambda_exprD_simul tus tvs e2); intros.
             { destruct s. specialize (proj1 (IHe2 _) eq_refl); clear IHe2.
               simpl in *. intros. forward_reason.
               Cases.rewrite_all_goal. simpl in *.
-              consider (exprD' tus tvs x0 e2).
+              consider (lambda_exprD tus tvs x0 e2).
               { intros.
                 unfold exprT_App in *. clear H3.
-                specialize (exprD'_deterministic _ _ _ H1 H6).
+                specialize (lambda_exprD_deterministic _ _ _ H1 H6).
                 unfold Rty. intros; subst.
                 assert (x1 = x).
                 { clear - H7. destruct (eq_sym (typ2_cast x2 x1)).
@@ -534,25 +498,24 @@ Module ExprDenote <: ExprDenote.
                 split.
                 { rewrite eq_Const_eq in *. reflexivity. }
                 { unfold typ_arr. rewrite H2.
-                  repeat rewrite eq_Arr_eq in *.
-                  repeat rewrite eq_Const_eq in *.
+                  autorewrite_with_eq_rw_in H7.
+                  autorewrite_with_eq_rw.
                   rewrite H6 in H1.
-                  inv_all; subst.
                   inv_all. subst. reflexivity. } }
               { intros. exfalso. clear - H7.
                 destruct (eq_sym (typ2_cast x0 x1)).
                 congruence. } }
             { exfalso.
-              rewrite eq_Arr_eq in *.
-              rewrite eq_Const_eq in *.
+              autorewrite_with_eq_rw_in H1.
               forward. inv_all. subst. subst.
               specialize (H5 (@existT _ _ x0 e3)); simpl in *.
               rewrite H1 in *.
-              erewrite exprD'_typeof_expr in H5.
+              erewrite lambda_exprD_typeof_expr in H5.
               2: eauto.
+              autorewrite_with_eq_rw_in H6.
               destruct H5.
               assert (Some x0 = Some x0 /\ Some e3 = Some e3); auto.
-              apply H6 in H7. congruence. } }
+              apply H7 in H8. congruence. } }
           { rewrite H3 in H1. congruence. } }
         { destruct H. forward; inv_all; subst.
           specialize (proj1 (IHe2 _) eq_refl); clear IHe2.
@@ -568,16 +531,15 @@ Module ExprDenote <: ExprDenote.
             specialize (IHe1 (@existT _ _ (typ_arr x x0) e0)).
             simpl in *. destruct IHe1. forward_reason.
             rewrite H8. rewrite H0.
-            repeat (rewrite eq_Arr_eq; rewrite eq_Const_eq).
+            autorewrite_with_eq_rw.
             Cases.rewrite_all_goal. f_equal. f_equal. subst.
             unfold exprT_App. clear.
-            unfold typD_arr.
             generalize (typ2_cast x x0). intro.
             unfold typ_arr in *.
             generalize dependent (typD (typ2 x x0)).
             intros. revert e0. clear. subst. auto. }
           { rewrite H0 in H5. congruence. } } }
-      { intros. rewrite exprD'_Abs, exprD'_simul_Abs'; eauto.
+      { intros. rewrite lambda_exprD_Abs, lambda_exprD_simul_Abs'; eauto.
         unfold typ_arr, arr_match in *.
         simpl; split; intros; forward; inv_all; subst; simpl in *.
         { eapply IHe in H0. forward_reason. simpl in *.
@@ -592,7 +554,7 @@ Module ExprDenote <: ExprDenote.
           rewrite typ2_match_iota in H1; eauto.
           rewrite type_cast_refl in *; eauto.
           specialize (IHe (t :: tvs)).
-          consider (exprD' tus (t :: tvs) t0 e).
+          consider (lambda_exprD tus (t :: tvs) t0 e).
           { intros.
             rewrite eq_option_eq in H1. inv_all; subst.
             specialize (IHe (@existT _ _ t0 e1)).
@@ -601,7 +563,7 @@ Module ExprDenote <: ExprDenote.
             unfold Rcast_val. reflexivity. }
           { intros. exfalso. clear - H1.
             destruct (eq_sym (typ2_cast t t0)). congruence. } } }
-      { unfold exprD', exprD'_simul, exprT_UseU, exprT_GetUAs. simpl. intros.
+      { unfold lambda_exprD, lambda_exprD_simul, exprT_UseU, exprT_GetUAs. simpl. intros.
         forward; inv_all; subst; simpl.
         eapply nth_error_get_hlist_nth_Some in H0. simpl in *.
         destruct H0.
@@ -613,44 +575,46 @@ Module ExprDenote <: ExprDenote.
           reflexivity. } }
     Qed.
 
-    Theorem exprD'_App
+    Theorem lambda_exprD_App
     : (* RTypeOk _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func -> *)
       forall tus tvs t f x,
-        exprD' tus tvs t (App f x) =
-        bind (m := option)
-             (typeof_expr tus tvs x)
-             (fun t' =>
-                bind (exprD' tus tvs (typ_arr t' t) f)
-                     (fun f =>
-                        bind (exprD' tus tvs t' x)
-                             (fun x =>
-                                ret (exprT_App f x)))).
+        lambda_exprD tus tvs t (App f x) =
+        match typeof_expr tus tvs x with
+        | Some t' =>
+          match lambda_exprD tus tvs (typ_arr t' t) f
+              , lambda_exprD tus tvs t' x
+          with
+          | Some f , Some x => Some (exprT_App f x)
+          | _ , _ => None
+          end
+        | _ => None
+        end.
     Proof.
       simpl. intros.
-      rewrite exprD'_App'. simpl.
-      consider (exprD'_simul tus tvs x); intros.
+      rewrite lambda_exprD_App'. simpl.
+      consider (lambda_exprD_simul tus tvs x); intros.
       { destruct s.
-        generalize (@exprD'_typeof_expr tus x tvs _ _ (or_intror H)).
+        generalize (@lambda_exprD_typeof_expr tus x tvs _ _ (or_intror H)).
         intros. rewrite H0.
         forward.
         eapply exprD_simul' in H.
         simpl in *. destruct H.
         rewrite H2. reflexivity. }
       { consider (typeof_expr tus tvs x); auto; intros.
-        consider (exprD' tus tvs (typ_arr t0 t) f); auto; intros.
-        consider (exprD' tus tvs t0 x); auto; intros.
+        consider (lambda_exprD tus tvs (typ_arr t0 t) f); auto; intros.
+        consider (lambda_exprD tus tvs t0 x); auto; intros.
         exfalso.
-        assert (exprD'_simul tus tvs x = Some (@existT _ _ t0 e0)).
+        assert (lambda_exprD_simul tus tvs x = Some (@existT _ _ t0 e0)).
         rewrite exprD_simul'. split; auto.
         congruence. }
     Qed.
 
-    Theorem exprD'_respects
+    Theorem lambda_exprD_respects
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e (pf : Rty t' t),
-        exprD' tus tvs t e =
+        lambda_exprD tus tvs t e =
         Rcast (fun T => option (exprT tus tvs T)) pf
-              (exprD' tus tvs t' e).
+              (lambda_exprD tus tvs t' e).
     Proof.
       destruct pf. change (eq_refl t') with (Rrefl t').
       unfold Rcast. rewrite Relim_refl; eauto with typeclass_instances.

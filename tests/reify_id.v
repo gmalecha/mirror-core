@@ -18,15 +18,21 @@ Reify Declare Syntax reify_expr :=
   }.
 
 Reify Pattern ptrns += (@RExact _ nat)  => (Nat 0).
+(*
 Reify Pattern ptrns += (@RHasType nat (@RGet 0 RIgnore)) => (fun a : id nat => Nat a).
+*)
 
 Ltac reify trm :=
   let k e :=
       pose e
   in
-  reify_expr reify_expr k [ True ] [ trm ].
+  reify_expr reify_expr k [[ True ]] [[ trm ]].
 
 Goal True.
   reify (fun x : nat => x).
   exact I.
 Qed.
+
+Goal True.
+  Fail reify (let x := 1 in x).
+Abort.

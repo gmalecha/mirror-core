@@ -1,4 +1,3 @@
-Require Import ExtLib.Core.RelDec.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 

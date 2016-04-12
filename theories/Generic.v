@@ -60,7 +60,7 @@ Section paraquant.
 
   Fixpoint paraquant_apply (n : nat) (ls : list T) {struct n}
   : forall q (f : paraquant n q), match qapply _ ls q with
-                                    | None => unit
+                                    | None => unit:Type
                                     | Some x => K x
                                   end :=
     match n as n

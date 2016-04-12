@@ -27,7 +27,7 @@ Section runOnGoals.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Variable tac : rtac typ expr.
@@ -180,14 +180,14 @@ Section runOnGoals.
 
 End runOnGoals.
 
-Arguments runOnGoals {typ expr _ _} tac tus tvs nus nvs ctx csub goal : rename.
+Arguments runOnGoals {typ expr _ _} tac%rtac tus tvs nus nvs {ctx} csub goal : rename.
 
 Section runOnGoals_proof.
   Context {typ : Type}.
   Context {expr : Type}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
@@ -210,3 +210,5 @@ Section runOnGoals_proof.
   Definition ON_ALL_sound : forall tac, rtac_sound tac -> rtacK_sound (ON_ALL tac)
   := runOnGoals_sound.
 End runOnGoals_proof.
+
+Arguments ON_ALL {typ expr _ _} tac%rtac tus tvs nus nvs {ctx} csub goal : rename.

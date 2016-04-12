@@ -13,7 +13,7 @@ Section parameterized.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
 
@@ -46,3 +46,7 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments THEN {typ expr} _%rtac _%rtacK _ _ _ _ {_} _ _ : rename.
+
+Notation "X  ;; Y" := (@THEN _ _ X%rtac Y%rtacK) (at level 70, right associativity) : rtac_scope.

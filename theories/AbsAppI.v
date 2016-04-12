@@ -1,17 +1,6 @@
-Require Import Coq.Bool.Bool.
-Require Import Coq.Relations.Relation_Definitions.
-Require Import Coq.Classes.Morphisms.
-Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import MirrorCore.TypesI.
-Require Import MirrorCore.EnvI.
-Require Import MirrorCore.OpenT.
 Require Import MirrorCore.ExprI.
 
 Set Implicit Arguments.
@@ -19,12 +8,12 @@ Set Strict Implicit.
 
 Section AppAbs.
   Variable typ : Type.
-  Variable RType_typ : RType typ.
+  Context {RType_typ : RType typ}.
 
   Variable expr : Type.
-  Variable Expr_expr : Expr RType_typ expr.
+  Context {Expr_expr : Expr typ expr}.
 
-  Variable Typ2_fun : Typ2 _ Fun.
+  Context {Typ2_fun : Typ2 _ RFun}.
 
   Class Abstraction :=
   { Abs : typ -> expr -> expr
@@ -33,7 +22,7 @@ Section AppAbs.
 
   Class AbstractionOk (A : Abstraction) :=
   { exprD_Abs : forall (tus : tenv typ) (tvs : tenv typ) e t t',
-      exprD' tus tvs (Abs t e) t' =
+      exprD tus tvs t' (Abs t e) =
       typ2_match (Typ2:=Typ2_fun)
                  (fun T => option (exprT tus tvs T)) t'
                  (fun d r =>
@@ -41,7 +30,7 @@ Section AppAbs.
                          (type_cast d t)
                          (fun cast =>
                             bind (m := option)
-                                 (exprD' tus (t :: tvs) e r)
+                                 (exprD tus (t :: tvs) r e)
                                  (fun val =>
                                     ret (fun us vs x =>
                                            val us (Hcons (F:=typD) (Relim (fun x => x) (Rsym cast) x) vs)))))
@@ -61,11 +50,20 @@ Section AppAbs.
   ; App_match : expr -> forall T, (expr -> expr -> T) -> T -> T
   }.
 
+  Definition exprT_Abs {tus tvs t u}
+  : exprT tus (t :: tvs) (typD u) ->
+    exprT tus tvs (typD (typ2 t u)) :=
+    match eq_sym (typ2_cast (F:=RFun) t u) in _ = T
+          return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
+    with
+    | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
+    end.
+
   Definition exprT_App {tus : tenv typ} {tvs : tenv typ} {T U : typ}
   : exprT tus tvs (typD (typ2 T U)) ->
     exprT tus tvs (typD T) ->
     exprT tus tvs (typD U) :=
-    match eq_sym (typ2_cast (F:=Fun) T U) in _ = t
+    match eq_sym (typ2_cast (F:=RFun) T U) in _ = t
           return exprT tus tvs t ->
                  exprT tus tvs (typD T) ->
                  exprT tus tvs (typD U)
@@ -75,9 +73,9 @@ Section AppAbs.
 
   Class ApplicationOk (A : Application) :=
   { exprD_App : forall (tus : tenv typ) (tvs : tenv typ) f x d r F X,
-      exprD' tus tvs f (typ2 d r) = Some F ->
-      exprD' tus tvs x d = Some X ->
-      exprD' tus tvs (App f x) r = Some (exprT_App F X)
+      exprD tus tvs (typ2 d r) f = Some F ->
+      exprD tus tvs d x = Some X ->
+      exprD tus tvs r (App f x) = Some (exprT_App F X)
   ; match_App_iota : forall f e, App_match (App f e) = fun T r _ => r f e
   ; match_App_case : forall e,
          (exists t' e',
@@ -88,3 +86,8 @@ Section AppAbs.
   }.
 
 End AppAbs.
+
+Arguments exprT_App {typ _ _ _ _ _ _} _ _ _ _.
+Arguments exprT_Abs {typ _ _ _ _ _ _} _ _ _.
+Arguments ApplicationOk {typ _ expr _ _} _ : rename.
+Arguments AbstractionOk {typ _ expr _ _} _ : rename.

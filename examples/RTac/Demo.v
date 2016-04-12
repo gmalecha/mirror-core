@@ -56,9 +56,10 @@ Definition tac : rtac typ (expr typ func) :=
 
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func))
            (goal : expr typ func)  :=
-  THENK (@runOnGoals _ _ _ _ tac) (@MINIFY _ _ _ _ _)
-        nil nil 0 0 (@TopSubst _ _ nil nil)
+  @THENK _ _ (@runOnGoals _ _ _ _ tac) (@MINIFY _ _ _ _ _)
+        nil nil 0 0 _ (@TopSubst _ _ nil nil)
         (@GGoal typ (expr typ func) goal).
+Arguments runRTac_empty_goal _%rtac _.
 
 Definition simple_goal : expr typ func :=
   fAll tyProp (fImpl (Var 0) (Var 0)).
@@ -84,9 +85,7 @@ Definition and_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
 
 Let to_rtacK : rtac typ (expr typ func) -> rtacK typ (expr typ func) :=
   runOnGoals.
-
-(** TODO: How to do a coercion? **)
-Local Coercion to_rtacK : rtac >-> rtacK.
+Arguments to_rtacK _%rtac _ _ _ _ {_} _ _.
 
 Eval compute in
     let goal :=
@@ -95,9 +94,22 @@ Eval compute in
                                  (fImpl (Var 1)
                                         (fAnd (Var 0) (Var 1)))))
     in
-    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (to_rtacK (THEN (APPLY and_lem)
-                                   (to_rtacK (FIRST (ASSUMPTION :: IDTAC :: nil))))))
+    runRTac_empty_goal (REPEAT 10 INTRO ;;
+                        APPLY and_lem ;;
+                        to_rtacK (FIRST (ASSUMPTION :: IDTAC :: nil)))
+                       goal.
+
+
+Eval compute in
+    let goal :=
+        fAll tyProp (fAll tyProp
+                          (fImpl (Var 0)
+                                 (fImpl (Var 1)
+                                        (fAnd (Var 0) (Var 1)))))
+    in
+    runRTac_empty_goal (REPEAT 10 INTRO ;;
+                        APPLY and_lem ;;
+                        to_rtacK (FIRST [ ASSUMPTION | IDTAC ]))
                        goal.
 
 Eval compute in
@@ -107,8 +119,8 @@ Eval compute in
                                  (fImpl (Var 1)
                                         (fAnd (Var 0) (Var 1)))))
     in
-    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (to_rtacK (EAPPLY and_lem))) goal.
+    runRTac_empty_goal (REPEAT 10 INTRO ;;
+                        to_rtacK (EAPPLY and_lem)) goal.
 
 Definition random_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
 {| Lemma.vars := tyProp :: tyNat :: tyBool :: tyNat :: nil
@@ -123,5 +135,5 @@ Eval compute in
                                  (fImpl (Var 1)
                                         (fAnd (Var 0) (Var 1)))))
     in
-    runRTac_empty_goal (THEN (REPEAT 10 INTRO)
-                             (to_rtacK (EAPPLY random_lem))) goal.
+    runRTac_empty_goal (REPEAT 10 INTRO ;;
+                        to_rtacK (EAPPLY random_lem)) goal.

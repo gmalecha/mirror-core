@@ -1,10 +1,7 @@
-Require Import ExtLib.Structures.Monads.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Monads.OptionMonad.
-Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 
 Set Implicit Arguments.
@@ -16,7 +13,7 @@ Module Type ExprDenote.
     Context {typ : Type}.
     Context {func : Type}.
     Context {RType_typD : RType typ}.
-    Context {Typ2_Fun : Typ2 RType_typD Fun}.
+    Context {Typ2_Fun : Typ2 RType_typD RFun}.
     Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)
@@ -37,58 +34,17 @@ Module Type ExprDenote.
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
 
-    Definition exprT_App {tus tvs t u}
-    : exprT tus tvs (typD (typ_arr t u)) -> exprT tus tvs (typD t)
-      -> exprT tus tvs (typD u) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus tvs T ->
-                   exprT tus tvs (typD t) ->
-                   exprT tus tvs (typD u)
-      with
-        | eq_refl => fun f x => fun us vs => (f us vs) (x us vs)
-      end.
-
-    Definition exprT_Abs {tus tvs t u}
-    : exprT tus (t :: tvs) (typD u) ->
-      exprT tus tvs (typD (typ_arr t u)) :=
-      match eq_sym (typD_arr t u) in _ = T
-            return exprT tus (t :: tvs) (typD u) -> exprT tus tvs T
-      with
-        | eq_refl => fun f => fun us vs x => f us (Hcons x vs)
-      end.
-
-    Definition funcAs (f : func) (t : typ) : option (typD t) :=
-      match typeof_sym f as Z
-            return Z = typeof_sym f -> option (typD t)
-      with
-        | None => fun _ => None
-        | Some T => fun pf =>
-                      match type_cast T t with
-                        | None => None
-                        | Some cast =>
-                          Rcast option cast
-                                (Some (match pf in _ = Z
-                                             return match Z with
-                                                      | Some t => typD t
-                                                      | None => unit
-                                                    end -> typD _
-                                       with
-                                         | eq_refl => fun x => x
-                                       end (symD f)))
-                      end
-      end eq_refl.
-
-    Parameter exprD'
-    : forall {Typ2_Fun : Typ2 _ Fun}
+    Parameter lambda_exprD
+    : forall {Typ2_Fun : Typ2 _ RFun}
              {RSym_func : RSym func}
              (tus tvs : tenv typ) (t : typ) (e : expr typ func),
         option (exprT tus tvs (typD t)).
 
-    Axiom exprD'_respects
+    Axiom lambda_exprD_respects
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e (pf : Rty t' t),
-        exprD' tus tvs t e =
-        Rcast (fun T => option (exprT tus tvs T)) pf (exprD' tus tvs t' e).
+        lambda_exprD tus tvs t e =
+        Rcast (fun T => option (exprT tus tvs T)) pf (lambda_exprD tus tvs t' e).
 
     Section typeof_expr.
       Variable tus : tenv typ.
@@ -124,68 +80,71 @@ Module Type ExprDenote.
       end.
     End typeof_expr.
 
-    Axiom exprD'_Var
+    Axiom lambda_exprD_Var
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t v,
-        exprD' tus tvs t (Var v) =
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tvs v)
-             (fun t_get =>
-                let '(existT t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get vs)))).
+        lambda_exprD tus tvs t (Var v) =
+        match nth_error_get_hlist_nth typD tvs v with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get vs))
+          | _ => None
+          end
+        | _ => None
+        end.
 
-    Axiom exprD'_UVar
+    Axiom lambda_exprD_UVar
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t u,
-        exprD' tus tvs t (UVar u) =
-        bind (m := option)
-             (nth_error_get_hlist_nth typD tus u)
-             (fun t_get =>
-                let '(existT t' get) := t_get in
-                bind (m := option)
-                     (type_cast t' t)
-                     (fun cast =>
-                        ret (fun us vs => Rcast_val cast (get us)))).
+        lambda_exprD tus tvs t (UVar u) =
+        match nth_error_get_hlist_nth typD tus u with
+        | Some (existT _ t' get) =>
+          match type_cast t' t with
+          | Some cast => Some (fun us vs => Rcast_val cast (get us))
+          | _ => None
+          end
+        | _ => None
+        end.
 
-    Axiom exprD'_Inj
+    Axiom lambda_exprD_Inj
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t s,
-        exprD' tus tvs t (Inj s) =
-        bind (m := option)
-             (funcAs s t)
-             (fun val =>
-                ret (fun _ _ => val)).
+        lambda_exprD tus tvs t (Inj s) =
+        match symAs s t with
+        | Some val => Some (fun _ _ => val)
+        | None => None
+        end.
 
-    Axiom exprD'_App
+    Axiom lambda_exprD_App
     : RTypeOk (typ:=typ) -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t f x,
-        exprD' tus tvs t (App f x) =
-        bind (m := option)
-             (typeof_expr tus tvs x)
-             (fun t' =>
-                bind (exprD' tus tvs (typ_arr t' t) f)
-                     (fun f =>
-                        bind (exprD' tus tvs t' x)
-                             (fun x =>
-                                ret (exprT_App f x)))).
+        lambda_exprD tus tvs t (App f x) =
+        match typeof_expr tus tvs x with
+        | Some t' =>
+          match lambda_exprD tus tvs (typ_arr t' t) f
+              , lambda_exprD tus tvs t' x
+          with
+          | Some f , Some x => Some (exprT_App f x)
+          | _ , _ => None
+          end
+        | None => None
+        end.
 
-    Axiom exprD'_Abs
+    Axiom lambda_exprD_Abs
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs t t' e,
-        exprD' tus tvs t (Abs t' e) =
+        lambda_exprD tus tvs t (Abs t' e) =
         arr_match (fun T => option (exprT tus tvs T)) t
                   (fun d r =>
-                     bind (m := option)
-                          (type_cast d t')
-                          (fun cast =>
-                             bind (m := option)
-                                  (exprD' tus (t' :: tvs) r e)
-                                  (fun val =>
-                                     ret (fun us vs x =>
-                                            val us (Hcons (Rcast_val cast x) vs)))))
+                     match type_cast d t' with
+                     | Some cast =>
+                       match lambda_exprD tus (t' :: tvs) r e with
+                       | Some val => Some (fun us vs x =>
+                                             val us (Hcons (Rcast_val cast x) vs))
+                       | None => None
+                       end
+                     | None => None
+                     end)
                   None.
 
   End with_types.
@@ -197,7 +156,7 @@ Module Type ExprFacts (ED : ExprDenote).
   Section with_types.
     Context {typ : Type}.
     Context {RType_typD : RType typ}.
-    Context {Typ2_Fun : Typ2 _ Fun}.
+    Context {Typ2_Fun : Typ2 _ RFun}.
     Context {func : Type}.
     Context {RSym_func : RSym func}.
 
@@ -206,11 +165,11 @@ Module Type ExprFacts (ED : ExprDenote).
     Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
     Context {RSymOk_func : RSymOk RSym_func}.
 
-    Axiom exprD'_ind
+    Axiom lambda_exprD_ind
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall (P : forall tus tvs, _ -> forall t, option (exprT tus tvs (typD t)) -> Prop) tus
         (Hnone : forall tus tvs e t,
-                   ED.exprD' tus tvs t e = None -> P tus tvs e t None)
+                   ED.lambda_exprD tus tvs t e = None -> P tus tvs e t None)
         (Hvar : forall tvs v t t' get (pf : Rty t t'),
                   nth_error_get_hlist_nth _ tvs v = Some (@existT _ _ t' get) ->
                   P tus tvs (Var v) t
@@ -235,12 +194,12 @@ Module Type ExprFacts (ED : ExprDenote).
                   P tus tvs f (typ2 d r) (Some fval) ->
                   P tus tvs x d (Some xval) ->
                   P tus tvs (App f x) r
-                    (Some (ED.exprT_App fval xval)))
+                    (Some (exprT_App fval xval)))
         (Habs : forall tvs d r e fval,
                   P tus (d :: tvs) e r (Some fval) ->
-                  P tus tvs (Abs d e) (typ2 d r) (Some (ED.exprT_Abs fval))),
+                  P tus tvs (Abs d e) (typ2 d r) (Some (exprT_Abs fval))),
         forall tvs e t,
-        P tus tvs e t (ED.exprD' tus tvs t e).
+        P tus tvs e t (ED.lambda_exprD tus tvs t e).
 
     Axiom typeof_expr_weaken
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
@@ -248,26 +207,26 @@ Module Type ExprFacts (ED : ExprDenote).
         ED.typeof_expr tus tvs e = Some t ->
         ED.typeof_expr (tus ++ tus') (tvs ++ tvs') e = Some t.
 
-    Axiom exprD'_weaken
+    Axiom lambda_exprD_weaken
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs (e : expr typ func) t val tus' tvs',
-        ED.exprD' tus tvs t e = Some val ->
+        ED.lambda_exprD tus tvs t e = Some val ->
         exists val',
-          ED.exprD' (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
+          ED.lambda_exprD (tus ++ tus') (tvs ++ tvs') t e = Some val' /\
           forall us vs us' vs',
             val us vs = val' (hlist_app us us') (hlist_app vs vs').
 
-    Axiom exprD'_type_cast
+    Axiom lambda_exprD_type_cast
     : @RTypeOk typ _ -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t,
-        ED.exprD' tus tvs t e =
-        match ED.typeof_expr tus tvs e with
+        ED.lambda_exprD tus tvs t e =
+        match ED.typeof_expr (Typ2_Fun:=Typ2_Fun) tus tvs e with
           | None => None
           | Some t' =>
             match type_cast t' t with
               | None => None
               | Some cast =>
-                match ED.exprD' tus tvs t' e with
+                match ED.lambda_exprD tus tvs t' e with
                   | None => None
                   | Some x =>
                     Some (fun us gs => ED.Rcast (fun x => x) cast (x us gs))
@@ -275,11 +234,11 @@ Module Type ExprFacts (ED : ExprDenote).
             end
         end.
 
-    Axiom typeof_expr_exprD'
+    Axiom typeof_expr_lambda_exprD
     : RTypeOk -> Typ2Ok Typ2_Fun -> RSymOk RSym_func ->
       forall tus tvs e t,
         ED.typeof_expr tus tvs e = Some t ->
         exists val,
-          ED.exprD' tus tvs t e = Some val.
+          ED.lambda_exprD tus tvs t e = Some val.
   End with_types.
 End ExprFacts.

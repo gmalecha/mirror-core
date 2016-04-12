@@ -37,7 +37,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Variable check : forall {subst : Type} {S : Subst subst expr} {SU : SubstUpdate subst expr},

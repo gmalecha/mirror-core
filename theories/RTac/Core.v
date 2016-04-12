@@ -24,18 +24,18 @@ Set Strict Implicit.
 (** TODO: Move to Data.HList **)
 Theorem rev_app_distr_trans
 : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
-Proof. clear.
-       induction x; simpl; intros.
-       - symmetry. apply app_nil_r_trans.
-       - rewrite IHx. apply app_ass_trans.
+Proof using.
+  induction x; simpl; intros.
+  - symmetry. apply app_nil_r_trans.
+  - rewrite IHx. apply app_ass_trans.
 Defined.
 
 (** TODO: This is cubic! **)
 Theorem rev_involutive_trans (A : Type)
 : forall (l : list A), rev (rev l) = l.
-Proof. clear.
-       induction l; simpl; auto.
-       rewrite rev_app_distr_trans. rewrite IHl. reflexivity.
+Proof using.
+  induction l; simpl; auto.
+  rewrite rev_app_distr_trans. rewrite IHl. reflexivity.
 Defined.
 
 Definition hlist_unrev {T} {F : T -> Type} {ls} (h : hlist F (rev ls))
@@ -56,7 +56,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 (*
   Context {ExprVar_expr : ExprVar expr}.
@@ -111,7 +111,7 @@ Section parameterized.
                              | _ => True
                            end
               with
-                | WFExs _ _ _ a b => conj b a
+                | @WFExs _ _ _ _ _ a b => conj b a
                 | _ => I
               end).
   Defined.
@@ -156,6 +156,24 @@ Section parameterized.
                    end
     end.
 
+  Lemma WellFormed_Goal_GConj_list
+  : forall tus tvs gs,
+      Forall (WellFormed_Goal tus tvs) gs ->
+      WellFormed_Goal tus tvs (GConj_list gs).
+  Proof.
+    clear.
+    induction 1.
+    { constructor. }
+    { simpl. destruct l; eauto.
+      eapply WFConj_; eauto. }
+  Qed.
+
+  Fixpoint GConj_list_simple (gs : list Goal) : Goal :=
+    match gs with
+    | nil => GSolved
+    | g :: gs => GConj_ g (GConj_list_simple gs)
+    end.
+
   Local Notation "'CSUBST' c" := (ctx_subst (typ:=typ) (expr:=expr) c) (at level 0).
 
   (** StateT subst Option Goal **)
@@ -172,7 +190,7 @@ Section parameterized.
 
   Definition fromResult {c} (r : Result c) : option (ctx_subst c * Goal) :=
     match r with
-      | Fail => None
+      | Fail _ => None
       | More_ s g => Some (s, g)
       | Solved s => Some (s, GSolved)
     end.
@@ -191,7 +209,7 @@ Section parameterized.
   : option (hlist F ls) :=
     match h in hlist _ ls return option (hlist F ls) with
       | Hnil => Some (Hnil)
-      | Hcons _ _ x y =>
+      | Hcons x y =>
         match x , hlist_mapT y with
           | Some x , Some y => Some (Hcons x y)
           | _ , _ => None
@@ -390,7 +408,7 @@ Section parameterized.
 
   Definition rtac_spec ctx (s : CSUBST ctx) g r : Prop :=
     match r with
-      | Fail => True
+      | Fail _ => True
       | Solved s' =>
         WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
         WellFormed_ctx_subst s ->
@@ -426,6 +444,28 @@ Section parameterized.
             forall us vs, cD' (fun us vs => gD' us vs -> gD us vs) us vs
         end
     end.
+
+  Definition rtac_spec_wf ctx (s : CSUBST ctx) g r : Prop :=
+    match r with
+      | Fail _ => True
+      | Solved s' =>
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+        WellFormed_ctx_subst s ->
+        WellFormed_ctx_subst s
+      | More_ s' g' =>
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g ->
+        WellFormed_ctx_subst s ->
+        WellFormed_ctx_subst (c:=ctx) s' /\
+        WellFormed_Goal (getUVars ctx) (getVars ctx) g'
+    end.
+
+  Theorem rtac_spec_rtac_spec_wf : forall ctx s g r,
+      @rtac_spec ctx s g r ->
+      @rtac_spec_wf ctx s g r.
+  Proof.
+    unfold rtac_spec, rtac_spec_wf.
+    destruct r; tauto.
+  Qed.
 
   Definition GoalImplies ctx (sg : CSUBST ctx * Goal) (sg' : CSUBST ctx * Goal)
   : Prop :=
@@ -491,15 +531,29 @@ Section parameterized.
        tac tus tvs (length tus) (length tvs) ctx s g = result) ->
       @rtac_spec ctx s (GGoal g) result.
 
+  Definition WellFormed_rtac (tac : rtac) : Prop :=
+    forall ctx s g result,
+      (let tus := getUVars ctx in
+       let tvs := getVars ctx in
+       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      @rtac_spec_wf ctx s (GGoal g) result.
+
+  Theorem rtac_sound_WellFormed_rtac : forall tac,
+      rtac_sound tac -> WellFormed_rtac tac.
+  Proof.
+    red; intros.
+    eapply rtac_spec_rtac_spec_wf. eauto.
+  Qed.
+
   Lemma left_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
                                            ((P /\ Q) <-> R).
-  Proof. clear. tauto. Qed.
+  Proof using. tauto. Qed.
 
   Lemma right_side : forall (P Q R : Prop), P ->
                                            (Q <-> R) ->
                                            (Q <-> (P /\ R)).
-  Proof. clear. tauto. Qed.
+  Proof using. tauto. Qed.
 
   Definition WellTyped_Goal tus tvs (g : Goal) : Prop :=
     exists gD, goalD tus tvs g = Some gD.
@@ -509,7 +563,7 @@ Section parameterized.
 
   Definition WellTyped_Result c (r : Result c) : Prop :=
     match r with
-      | Fail => True
+      | Fail _ => True
       | Solved cs =>  WellTyped_ctx_subst cs
       | More_ cs g => WellTyped_Goal (getUVars c) (getVars c) g /\
                       WellTyped_ctx_subst cs
@@ -572,7 +626,7 @@ Section parameterized.
   Theorem rtac_spec_More_
   : forall ctx (s : ctx_subst ctx) g,
       rtac_spec s (GGoal g) (More_ s (GGoal g)).
-  Proof.
+  Proof using.
     unfold rtac_spec.
     intros; subst.
     split; auto.
@@ -611,15 +665,10 @@ Section parameterized.
       intros us vs. generalize (H12 us vs); clear H12.
       eapply Ap_pctxD; eauto.
       eapply pctxD_SubstMorphism; eauto.
-      generalize (H10 us vs); clear H10.
-      eapply Fmap_pctxD_impl;
-        [ eassumption | | reflexivity | reflexivity ].
-      clear. do 6 red.
-      intros; equivs. tauto.
   Qed.
 
   Global Instance Reflexive_GoalImplies c : Reflexive (GoalImplies (ctx:=c)).
-  Proof.
+  Proof using.
     red. destruct x; simpl; intros;
          forward_reason.
     split; auto.
@@ -629,7 +678,7 @@ Section parameterized.
     intros. eapply Pure_pctxD; eauto.
   Qed.
   Global Instance Transitive_GoalImplies c : Transitive (GoalImplies (ctx:=c)).
-  Proof.
+  Proof using.
     red. destruct x; destruct y; destruct z; simpl; intros;
          forward_reason.
     split; auto.
@@ -642,9 +691,70 @@ Section parameterized.
     eapply Pure_pctxD; eauto.
   Qed.
 
+  Lemma goalD_GConj_list_GConj_list_simple : forall tus tvs gs,
+      Roption (RexprT _ _ iff)
+              (goalD tus tvs (GConj_list gs))
+              (goalD tus tvs (GConj_list_simple gs)).
+  Proof.
+    clear. induction gs using list_ind_singleton.
+    { reflexivity. }
+    { simpl.
+      destruct (goalD tus tvs t); try reflexivity.
+      constructor. do 5 red.
+      intros.
+      apply equiv_eq_eq in H. apply equiv_eq_eq in H0.
+      subst. tauto. }
+    { simpl in *.
+      destruct (goalD tus tvs t); try constructor.
+      destruct IHgs; try constructor.
+      do 5 red. intros.
+      apply equiv_eq_eq in H0; apply equiv_eq_eq in H1; subst.
+      apply Data.Prop.and_cancel. intros.
+      apply H; reflexivity. }
+  Qed.
+
+  Lemma goalD_GConj_list
+  : forall tus tvs gs,
+      Roption (RexprT _ _ iff)
+              (goalD tus tvs (GConj_list gs))
+              (List.fold_right (fun e P =>
+                                  match P , goalD tus tvs e with
+                                  | Some P' , Some G =>
+                                    Some (fun us vs => P' us vs /\ G us vs)
+                                  | _ , _ => None
+                                  end) (Some (fun _ _ => True)) gs).
+  Proof.
+    clear. induction gs using list_ind_singleton.
+    { simpl.
+      reflexivity. }
+    { simpl.
+      destruct (goalD tus tvs t); try constructor.
+      do 5 red. intros.
+      eapply equiv_eq_eq in H.
+      eapply equiv_eq_eq in H0. subst. tauto. }
+    { simpl in *.
+      destruct IHgs.
+      { destruct (goalD tus tvs t); constructor. }
+      { destruct (goalD tus tvs t); try constructor.
+        do 5 red. intros.
+        do 5 red in H. rewrite H; eauto.
+        eapply equiv_eq_eq in H0.
+        eapply equiv_eq_eq in H1. subst.
+        tauto. } }
+  Qed.
+
 End parameterized.
 
-Arguments rtac_sound {typ expr _ _ _} tac : rename.
+Delimit Scope rtac_scope with rtac.
+
+Arguments rtac_sound {typ expr _ _ _} tac%rtac : rename.
+Arguments WellFormed_rtac {typ expr _ _} tac%rtac : rename.
+
+Delimit Scope or_rtac_scope with or_rtac.
+
+Notation " [ ] " := (@nil (rtac _ _)) : or_rtac_scope.
+Notation " [  x ] " := (@cons (rtac _ _) x%rtac (@nil (rtac _ _))) : or_rtac_scope.
+Notation " [  x  | ..  | y  ] " := (@cons (rtac _ _) x%rtac .. (@cons (rtac _ _) y%rtac (@nil (rtac _ _))) ..) : or_rtac_scope.
 
 (*Arguments GEx {typ expr} _ _ _ : rename. *)
 Arguments GAll {typ expr} _ _ : rename.

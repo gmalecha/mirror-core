@@ -12,12 +12,12 @@ Section symbols.
   Class RSym : Type :=
   { typeof_sym : func -> option typ
     (** TODO(gmalecha): This could be problematic if
-     ** any of any [func] denotes to a term that contains
+     ** any [func] denotes to a term that contains
      ** a unification variable.
      **)
   ; symD : forall (f : func),
              match typeof_sym f with
-               | None => unit
+               | None => unit:Type
                | Some t => typD t
              end
   ; sym_eqb : func -> func -> option bool
@@ -74,12 +74,12 @@ Section symbols.
   {| typeof_sym := fun f =>
                     match fd f with
                       | None => None
-                      | Some (existT t _) => Some t
+                      | Some (existT _ t _) => Some t
                     end
    ; symD := fun f =>
                match fd f as F return match match F with
                                               | None => None
-                                              | Some (existT t _) => Some t
+                                              | Some (existT _ t _) => Some t
                                             end
                                       with
                                         | None => unit
@@ -87,7 +87,7 @@ Section symbols.
                                       end
                with
                  | None => tt
-                 | Some (existT t d) => d
+                 | Some (existT _ t d) => d
                end
    ; sym_eqb := eqb
    |}.

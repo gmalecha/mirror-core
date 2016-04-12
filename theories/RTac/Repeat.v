@@ -1,11 +1,7 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Structures.Monad.
-Require Import ExtLib.Structures.Traversable.
 Require Import ExtLib.Data.List.
-Require Import ExtLib.Data.Monads.OptionMonad.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.RunOnGoals.
@@ -19,7 +15,7 @@ Section parameterized.
   Context {typ expr : Type}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
@@ -40,7 +36,7 @@ Section parameterized.
             match @tac tus tvs nus nvs ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs _ sub' gl'
+                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -73,6 +69,7 @@ Section parameterized.
 
 End parameterized.
 
+Arguments REPEAT {_ _ _ _} _%nat _%rtac _ _ _ _ _ _ _.
 
 (*
   Section repeater.

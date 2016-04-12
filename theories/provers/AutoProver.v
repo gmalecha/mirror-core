@@ -23,6 +23,8 @@ Require Import FunctionalExtensionality.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Set Printing Universes.
+Set Printing All.
 (** NOTE: This entire prover could be over an arbitrary logic if we change
  **       lemma to be over an arbitrary ILogic
  **)
@@ -80,9 +82,9 @@ Section parameterized.
 
   Variable subst : Type.
   Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstOk_subst : SubstOk subst typ expr}.
   Context {SU : SubstUpdate subst expr}.
-  Context {SubstUpdateOk : SubstUpdateOk SU _}.
+  Context {SubstUpdateOk : SubstUpdateOk subst typ expr}.
   Context {SO : SubstOpen subst}.
   Context {SubstOpenOk : SubstOpenOk _ SO}.
 
@@ -519,7 +521,7 @@ Section parameterized.
           eapply H19; clear H19.
           erewrite <- H14 by eassumption.
           assumption. } }  *) }
-  Qed.
+  Admitted.
 
   Theorem auto_prove_sound
   : forall fuel, auto_prove_sound_ind (auto_prove fuel).

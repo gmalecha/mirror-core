@@ -22,14 +22,14 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Section runOnGoals.
+Section runOnGoals_list.
   Context {typ : Type}.
   Context {expr : Type}.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
   Fixpoint all_instantiated (tes : list (typ * option expr)) : bool :=
@@ -47,7 +47,7 @@ Section runOnGoals.
   Definition ResultAnd_to_Result_and c (r : ResultAnd c)
   : Result c * list (rtac typ expr) :=
     match r with
-      | RAFail => (Fail, nil)
+      | RAFail _ => (Fail, nil)
       | RASolved s tacs => (Solved s, tacs)
       | RAMore_ s g tacs => (More_ s g, tacs)
     end.
@@ -305,7 +305,7 @@ Section runOnGoals.
       eapply rtac_spec_GSolved_Solved. }
   Qed.
 
-End runOnGoals.
+End runOnGoals_list.
 
 Arguments runOnGoals_list {typ expr RType Expr} tac tus tvs nus nvs ctx csub goal : rename.
 
@@ -314,7 +314,7 @@ Section runOnGoals_list_proof.
   Context {expr : Type}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
@@ -342,3 +342,6 @@ Section runOnGoals_list_proof.
   : forall tacs, Forall rtac_sound tacs -> rtacK_sound (ON_EACH tacs)
   := runOnGoals_list_sound.
 End runOnGoals_list_proof.
+
+Arguments ON_EACH {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.
+Arguments runOnGoals_list {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.

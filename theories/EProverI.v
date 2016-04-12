@@ -1,4 +1,5 @@
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
 Require Import MirrorCore.VariablesI.
@@ -15,7 +16,7 @@ Section proverI.
   Context {typ : Type}.
   Variable expr : Type.
   Context {RType_typ : RType typ}.
-  Context {Expr_expr : Expr _ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
@@ -30,7 +31,7 @@ Section proverI.
 
   Definition EProveOk (summary : Type)
              (subst : Type) (Ssubst : Subst subst expr)
-             (SsubstOk : SubstOk Ssubst)
+             (SsubstOk : SubstOk subst typ expr)
     (Valid : forall tus tvs, summary -> option (exprT tus tvs Prop))
     (prover : summary -> tenv typ -> tenv typ -> subst -> expr -> option subst)
   : Prop :=
@@ -41,7 +42,7 @@ Section proverI.
       (forall sumD subD goalD,
          Valid tus tvs sum = Some sumD ->
          substD tus tvs sub = Some subD ->
-         exprD'_typ0 tus tvs goal = Some goalD ->
+         exprD_typ0 tus tvs goal = Some goalD ->
          exists subD',
            substD tus tvs sub' = Some subD' /\
            forall (us : HList.hlist typD tus)
@@ -53,7 +54,7 @@ Section proverI.
 
   Definition AllProvable tus tvs (es : list expr)
   : option (exprT tus tvs Prop) :=
-    match Traversable.mapT (T:=list) (F:=option) (exprD'_typ0 tus tvs) es with
+    match Traversable.mapT (T:=list) (F:=option) (exprD_typ0 tus tvs) es with
       | None => None
       | Some Ps => Some (fun us vs => Forall (fun x => x us vs) Ps)
     end.
@@ -90,7 +91,7 @@ Section proverI.
             sumD' us vs
   ; Prove_sound
     : forall subst (Ssubst : Subst subst expr)
-             (Sok : SubstOk Ssubst),
+             (Sok : SubstOk subst typ expr),
         EProveOk Sok factsD (@Prove P subst Ssubst)
   }.
 
@@ -119,7 +120,7 @@ Section proverI.
     forward_reason.
     rewrite factsD_conv with (pfu := eq_refl) (pfv := HList.app_nil_r_trans tvs).
     rewrite H.
-    autorewrite with eq_rw.
+    autorewrite_with_eq_rw.
     eexists; split; eauto.
     intros. rewrite (H0 us vs us' HList.Hnil).
     rewrite HList.hlist_app_nil_r.
@@ -140,7 +141,7 @@ Section proverI.
     eapply factsD_weaken with (tvs' := tvs') (tus' := nil) in H.
     forward_reason.
     rewrite factsD_conv with (pfv := eq_refl) (pfu := HList.app_nil_r_trans tus).
-    rewrite H. autorewrite with eq_rw.
+    rewrite H. autorewrite_with_eq_rw.
     eexists; split; eauto.
     intros. rewrite (H0 us vs HList.Hnil vs').
     rewrite HList.hlist_app_nil_r. reflexivity.

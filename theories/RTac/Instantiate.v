@@ -14,7 +14,7 @@ Section parameterized.
   Context {expr : Type}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {Typ0_Prop : Typ0 _ Prop}.
 
@@ -27,8 +27,8 @@ Section parameterized.
   Theorem INSTANTIATE_sound : rtac_sound INSTANTIATE.
   Proof.
     intros. eapply SIMPLIFY_sound.
-    intros; forward.
-    unfold propD, exprD'_typ0 in *.
+    red. intros; forward.
+    unfold propD, exprD_typ0 in *.
     forward.
     eapply (@instantiate_sound_ho  _ _ _ _ _ _ _ _ _ nil) in H3;
       [ | | eapply sem_preserves_if_ho_ctx_lookup; eauto ]; eauto.

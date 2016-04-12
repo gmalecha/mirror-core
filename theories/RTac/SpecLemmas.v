@@ -26,7 +26,7 @@ Section spec_lemmas.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
   Context {ExprUVarOk_expr : ExprUVarOk ExprUVar_expr}.
@@ -38,13 +38,13 @@ Section spec_lemmas.
       WellFormed_ctx_subst (fromAll cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
+    refine match H in @WellFormed_ctx_subst _ _ _ _ C cs
                  return match C as C return ctx_subst C -> Prop with
                           | CAll _ _ => fun x => WellFormed_ctx_subst (fromAll x)
                           | _ => fun _ => True
-                        end S
+                        end cs
            with
-             | WF_AllSubst _ _ _ pf => pf
+             | @WF_AllSubst _ _ _ _ _ _ _ pf => pf
              | _ => I
            end.
   Qed.
@@ -55,13 +55,13 @@ Section spec_lemmas.
       WellFormed_ctx_subst (fromHyp cs).
   Proof.
     intros.
-    refine match H in @WellFormed_ctx_subst _ _ _ _ C S
+    refine match H in @WellFormed_ctx_subst _ _ _ _ C cs
                  return match C as C return ctx_subst C -> Prop with
                           | CHyp _ _ => fun x => WellFormed_ctx_subst (fromHyp x)
                           | _ => fun _ => True
-                        end S
+                        end cs
            with
-             | WF_HypSubst _ _ _ pf => pf
+             | @WF_HypSubst _ _ _ _ _ _ _ pf => pf
              | _ => I
            end.
   Qed.
@@ -123,7 +123,7 @@ Section spec_lemmas.
       destruct (pctxD_substD H H0) as [ ? [ ? ? ] ].
       eapply ctx_substD_lookup in H4; eauto.
       forward_reason.
-      eapply exprD'_weakenU with (tus' := l) in H8; eauto.
+      eapply exprD_weakenU with (tus' := l) in H8; eauto.
       destruct H8 as [ ? [ ? ? ] ].
       eapply nth_error_get_hlist_nth_weaken in H4.
       revert H4. instantiate (1 := l).
@@ -142,8 +142,8 @@ Section spec_lemmas.
   Lemma _exists_impl : forall l (P Q : hlist typD l -> Prop),
                          (forall x, P x -> Q x) ->
                          _exists _ l P -> _exists _ l Q.
-  Proof.
-    clear. intros.
+  Proof using.
+    intros.
     eapply _exists_sem in H0. eapply _exists_sem.
     destruct H0. exists x. auto.
   Qed.
@@ -151,8 +151,8 @@ Section spec_lemmas.
   Lemma Ap_impls : forall (Ps : list Prop) (P Q : Prop),
                      _impls Ps (P -> Q) ->
                      _impls Ps P -> _impls Ps Q.
-  Proof.
-    clear. induction Ps; simpl; eauto.
+  Proof using.
+    induction Ps; simpl; eauto.
   Qed.
 
   Opaque remembers.
@@ -229,8 +229,8 @@ Section spec_lemmas.
     : forall ctx s t g c g',
       rtac_spec (AllSubst (t:=t) s) g (More_ c g') ->
       rtac_spec (ctx:=ctx) s (GAll t g) (More_ (fromAll c) (GAll t g')).
-  Proof.
-    clear. unfold rtac_spec; simpl; intros.
+  Proof using.
+    unfold rtac_spec; simpl; intros.
     inv_all. forward_reason.
     forward_reason.
     rewrite (ctx_subst_eta c) in *.
@@ -248,8 +248,8 @@ Section spec_lemmas.
     : forall ctx s t g c,
       rtac_spec (AllSubst (t:=t) s) g (Solved c) ->
       rtac_spec (ctx:=ctx) s (GAll t g) (Solved (fromAll c)).
-  Proof.
-    clear - RTypeOk_typ. intros.
+  Proof using RTypeOk_typ.
+    intros.
     eapply Proper_rtac_spec.
     3: eapply rtac_spec_All_More.
     - reflexivity.
@@ -339,8 +339,8 @@ Section spec_lemmas.
              (c : ctx_subst (CHyp ctx e)) (g : Goal typ expr),
       rtac_spec (HypSubst s) g (Solved c) ->
       rtac_spec s (GHyp e g) (Solved (fromHyp c)).
-  Proof.
-    clear. simpl. intros.
+  Proof using.
+    simpl. intros.
     inv_all. destruct H; auto.
     split; auto.
     forward.
@@ -355,7 +355,7 @@ Section spec_lemmas.
              (s : ctx_subst ctx) (c : ctx_subst (CHyp ctx e)),
       rtac_spec (HypSubst s) g (More_ c g0) ->
       rtac_spec s (GHyp e g) (More_ (fromHyp c) (GHyp e g0)).
-  Proof.
+  Proof using.
     simpl. intros. inv_all.
     forward_reason.
     split; auto.
@@ -374,8 +374,8 @@ Section spec_lemmas.
       rtac_spec s g1 (Solved c) ->
       rtac_spec c g2 r ->
       rtac_spec (ctx:=ctx) s (GConj_ g1 g2) r.
-  Proof.
-    clear. simpl.
+  Proof using.
+    simpl.
     destruct r; simpl; auto; intros; inv_all; forward_reason.
     { split; auto. split; auto.
       forward. forward_reason.
@@ -400,8 +400,8 @@ Section spec_lemmas.
       rtac_spec s g1 (More_ s' g1') ->
       rtac_spec s' g2 (Solved s'') ->
       rtac_spec (ctx:=ctx) s (GConj_ g1 g2) (More_ s'' g1').
-  Proof.
-    clear. simpl.
+  Proof using.
+    simpl.
     intros; inv_all. forward_reason.
     split; auto. split; auto.
     forward. forward_reason.
@@ -418,8 +418,8 @@ Section spec_lemmas.
       rtac_spec s g1 (More_ s' g1') ->
       rtac_spec s' g2 (More_ s'' g2') ->
       rtac_spec (ctx:=ctx) s (GConj_ g1 g2) (More_ s'' (GConj_ g1' g2')).
-  Proof.
-    clear. simpl.
+  Proof using.
+    simpl.
     intros; inv_all. forward_reason.
     split; auto.
     split.
@@ -436,8 +436,8 @@ Section spec_lemmas.
 
   Lemma rtac_spec_GSolved_Solved
     : forall ctx s, rtac_spec (ctx:=ctx) s GSolved (Solved s).
-  Proof.
-    clear. simpl.
+  Proof using.
+    simpl.
     intros. split; auto.
     forward. split. reflexivity.
     eapply Pure_pctxD; eauto.
@@ -456,8 +456,7 @@ Section spec_lemmas.
                (fun (us0 : hlist typD (getUVars ctx))
                     (vs0 : hlist typD (getVars ctx)) =>
                   forall z : hlist typD l, P (hlist_app us0 z) vs0) us vs).
-  Proof.
-    clear.
+  Proof using.
     constructor.
     { intros. eapply Pure_pctxD; eauto. }
     { intros. gather_facts. eapply Pure_pctxD; eauto. }
@@ -473,7 +472,7 @@ Section spec_lemmas.
       amap_is_full (length l) (fst (fromExs c)) = true ->
       rtac_spec (remembers s l a) g (Solved c) ->
       rtac_spec s (GExs l a g) (Solved (snd (fromExs c))).
-  Proof.
+  Proof using RTypeOk_typ ExprOk_expr.
     unfold rtac_spec. simpl.
     intros. inv_all.
     Transparent remembers. unfold remembers in *. Opaque remembers.
@@ -505,14 +504,15 @@ Section spec_lemmas.
       eapply nth_error_get_hlist_nth_weaken with (ls' := l) in H7.
       simpl in H7. rewrite H9 in H7.
       forward_reason. inv_all. subst.
-      eapply exprD'_weakenU with (tus' := l) in H11; eauto.
+      eapply exprD_weakenU with (tus' := l) in H11; eauto.
       destruct H11 as [ ? [ ? ? ] ].
       eexists; split; eauto.
       intros. gather_facts. eapply Pure_pctxD; eauto.
       intros. rewrite <- H13; clear H13; eauto.
       rewrite <- H11; clear H11.
-      eauto. }
-    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ _ H4 H8 H9).
+      eauto.
+      Unshelve. eassumption. eassumption. }
+    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ _ H4 H8 H9).
     clear H9. destruct 1 as [ ? [ ? ? ] ].
     { clear - H0.
       revert H0. revert e; revert s; revert ctx; revert l.
@@ -548,7 +548,7 @@ Section spec_lemmas.
       rtac_spec (remembers s l a) g (More_ c g') ->
       rtac_spec s (GExs l a g)
                 (More_ (snd (fromExs c)) (GExs l (fst (fromExs c)) g')).
-  Proof.
+  Proof using RTypeOk_typ ExprOk_expr.
     unfold rtac_spec.
     Transparent remembers. unfold remembers. Opaque remembers.
     intros. inv_all.
@@ -582,14 +582,15 @@ Section spec_lemmas.
       eapply nth_error_get_hlist_nth_weaken with (ls' := l) in H7.
       simpl in H7. rewrite H9 in H7.
       forward_reason. inv_all. subst.
-      eapply exprD'_weakenU with (tus' := l) in H11; eauto.
+      eapply exprD_weakenU with (tus' := l) in H11; eauto.
       destruct H11 as [ ? [ ? ? ] ].
       eexists; split; eauto.
       intros. gather_facts. eapply Pure_pctxD; eauto.
       intros. rewrite <- H13; clear H13; eauto.
       rewrite <- H11; clear H11.
-      eauto. }
-    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ _ H3 H8 H9).
+      eauto.
+      Unshelve. eassumption. eassumption. }
+    generalize (fun AC => @amap_instantiates_substD _ _ _ _ _ (getUVars ctx ++ l) (getVars ctx) _ AC (fun u : nat => ctx_lookup u s) _ _ _ _ _ H3 H8 H9).
     clear H9. destruct 1 as [ ? [ ? ? ] ].
     { clear - H0.
       revert H0. revert e; revert s; revert ctx; revert l.

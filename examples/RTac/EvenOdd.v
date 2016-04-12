@@ -95,15 +95,13 @@ Proof.
   intros. eapply exprUnify_sound; eauto with typeclass_instances.
 Qed.
 
-Arguments RtacSound {_ _ _ _ _} tac.
-
 Instance RtacSound l (RL : ReifiedLemma l) : RtacSound (APPLY l) :=
 { RtacSound_proof := APPLY_sound l (@ReifiedLemma_proof _ _ _ _ _ _ _) }.
 
 Definition even_odd_tac : rtac typ (expr typ func) :=
-  REPEAT 2000 (FIRST (APPLY EO_syn ::
-                      APPLY OE_syn ::
-                      APPLY E0_syn :: nil)).
+  REPEAT 2000 (FIRST [ APPLY EO_syn
+                     | APPLY OE_syn
+                     | APPLY E0_syn ]).
 
 Definition App' : expr typ func -> expr typ func -> expr typ func :=
   @App _ _.
@@ -181,7 +179,7 @@ Ltac solve_it trm :=
     (change (GoalD nil nil (GGoal eV))) ;
     apply (@runGoal_sound eV) ; vm_compute; reflexivity
   in
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 
 Ltac solve_it' trm :=
@@ -189,7 +187,7 @@ Ltac solve_it' trm :=
     (change (GoalD nil nil (GGoal eV))) ;
     apply (@runGoal_sound eV) ; vm_compute; reflexivity
   in
-  reify_expr bind reify_simple k [ True ] [ trm ].
+  reify_expr_bind reify_simple k [[ True ]] [[ trm ]].
 
 Ltac solve_it'' trm :=
   let k e :=
@@ -197,14 +195,14 @@ Ltac solve_it'' trm :=
     (change (GoalD nil nil (GGoal eV))) ;
     apply (@runGoal_sound eV) ; vm_compute; reflexivity
   in
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 Ltac solve_it''' trm :=
   let k e :=
     (change (GoalD nil nil (GGoal e))) ;
     apply (@runGoal_sound e) ; vm_compute; reflexivity
   in
-  reify_expr reify_simple k [ True ] [ trm ].
+  reify_expr reify_simple k [[ True ]] [[ trm ]].
 
 Definition proof : Even 4.
   Time  match goal with

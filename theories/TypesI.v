@@ -1,10 +1,16 @@
+Require Coq.Classes.EquivDec.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+
+Universe Urefl.
+
+(* This is Fun for reflected things *)
+Definition RFun (A B : Type@{Urefl}) : Type@{Urefl} := A -> B.
 
 Section typed.
   Variable typ : Type.
@@ -16,11 +22,7 @@ Section typed.
   Class RType : Type :=
   { (** NOTE: This must be decidable if [exprD] will respect it.
      **)
-    typD : typ -> Type
-(*
-    (** NOTE: weakening is not implementable unless types are strongly typed **)
-  ; type_weaken : forall ts t, typD nil t -> typD ts t
-*)
+    typD : typ -> Type@{Urefl}
   ; tyAcc : typ -> typ -> Prop
     (** NOTE: Everything below here is fixed! **)
   ; Rty : typ -> typ -> Prop := @eq typ
@@ -30,7 +32,7 @@ Section typed.
      *
      * The solution is to require that the function respects [Rty].
      *)
-  ; Relim : forall (F : Type -> Type) {to from}
+  ; Relim : forall (F : Type@{Urefl} -> Type) {to from}
                    (pf : Rty to from),
               F (typD from) ->
               F (typD to) :=
@@ -48,8 +50,6 @@ Section typed.
 
   Variable RType_typ : RType.
 
-  Require Coq.Classes.EquivDec.
-
   Class RTypeOk  : Type :=
   { Relim_refl
     : forall t F (val : F (typD t)),
@@ -60,15 +60,20 @@ Section typed.
         Relim F (Rsym pf) val =
         Relim (fun T => F T -> F _) pf (fun x => x) val
   ; Relim_trans
-    : forall t u v (pf1 : Rty t u) (pf2 : Rty u v) F
+    : forall t u v (pf1 : Rty t u) (pf2 : Rty u v) (F : Type@{Urefl} -> Type)
              (val : F (typD v)),
         Relim F (Rtrans pf1 pf2) val =
         Relim F pf1 (Relim F pf2 val)
   ; type_cast_refl : forall x, type_cast x x = Some (Rrefl x)
-  ; type_cast_total : forall x y,
-                        type_cast x y = None -> ~Rty x y
   ; EquivDec_typ :> EquivDec.EqDec typ (@eq typ)
   }.
+
+  Theorem type_cast_total {RTO : RTypeOk}
+  : forall x y, type_cast x y = None -> ~Rty x y.
+  Proof.
+    intros. intro. red in H0. subst.
+    rewrite type_cast_refl in H. inversion H.
+  Qed.
 
   Definition makeRTypeOk
              (wf : well_founded tyAcc)
@@ -82,7 +87,6 @@ Section typed.
     { assumption. }
     { destruct pf. reflexivity. }
     { destruct pf1; destruct pf2; reflexivity. }
-    { assumption. }
     { assumption. }
     { red.
       refine (fun x y => match type_cast x y as Z return type_cast x y = Z -> _ with
@@ -110,12 +114,12 @@ Section typed.
   Qed.
 
   Section Typ0.
-    Variable F : Type.
+    Variable F : Type@{Urefl}.
 
     Class Typ0 : Type :=
     { typ0 : typ
     ; typ0_cast : typD typ0 = F
-    ; typ0_match : forall (T : Type -> Type) t,
+    ; typ0_match : forall (T : Type@{Urefl} -> Type) t,
                      T F ->
                      T (typD t) ->
                      T (typD t)
@@ -123,7 +127,7 @@ Section typed.
 
     Class Typ0Ok (TI : Typ0) : Type :=
     { typ0_match_iota
-      : forall T tr fa,
+      : forall (T : Type@{Urefl} -> Type) tr fa,
           typ0_match T typ0 tr fa =
           match eq_sym typ0_cast in _ = t return T t with
             | eq_refl => tr
@@ -131,27 +135,27 @@ Section typed.
     ; typ0_match_case
       : forall x,
           (exists (pf : Rty x typ0),
-             forall T tr fa,
+             forall (T: Type@{Urefl} -> Type) tr fa,
                typ0_match T x tr fa =
                Relim T pf
                      match eq_sym typ0_cast in _ = t return T t with
                        | eq_refl => tr
                      end) \/
-          (forall T tr fa, typ0_match T x tr fa = fa)
+          (forall (T: Type@{Urefl} -> Type) tr fa, typ0_match T x tr fa = fa)
     ; typ0_match_Proper
-      : forall T t t' (pf : Rty t' t) tr fa,
+      : forall (T: Type@{Urefl} -> Type) t t' (pf : Rty t' t) tr fa,
           typ0_match T t tr fa =
           Relim T (Rsym pf) (typ0_match T t' tr (Relim T pf fa))
     }.
   End Typ0.
 
   Section Typ1.
-    Variable F : Type -> Type.
+    Variable F : Type@{Urefl} -> Type@{Urefl}.
 
     Class Typ1 : Type :=
     { typ1 : typ -> typ
     ; typ1_cast : forall a, typD (typ1 a) = F (typD a)
-    ; typ1_match : forall (T : Type -> Type) t,
+    ; typ1_match : forall (T : Type@{Urefl} -> Type) t,
                      (forall a, T (F (typD a))) ->
                      T (typD t) ->
                      T (typD t)
@@ -159,7 +163,7 @@ Section typed.
 
     Class Typ1Ok (TI : Typ1) : Type :=
     { typ1_match_iota
-      : forall T a tr fa,
+      : forall (T: Type@{Urefl} -> Type) a tr fa,
           typ1_match T (typ1 a) tr fa =
           match eq_sym (typ1_cast a) in _ = t return T t with
             | eq_refl => tr a
@@ -172,27 +176,27 @@ Section typed.
     ; typ1_match_case
       : forall x,
           (exists d (pf : Rty x (typ1 d)),
-             forall T tr fa,
+             forall (T: Type@{Urefl} -> Type) tr fa,
                typ1_match T x tr fa =
                Relim T pf
                      (match eq_sym (typ1_cast d) in _ = t return T t with
                         | eq_refl => tr d
                       end)) \/
-          (forall T tr fa, typ1_match T x tr fa = fa)
+          (forall (T: Type@{Urefl} -> Type) tr fa, typ1_match T x tr fa = fa)
     ; typ1_match_Proper
-      : forall T t t' (pf : Rty t' t) tr fa,
+      : forall (T: Type@{Urefl} -> Type) t t' (pf : Rty t' t) tr fa,
           typ1_match T t tr fa =
           Relim T (Rsym pf) (typ1_match T t' tr (Relim T pf fa))
     }.
   End Typ1.
 
   Section Typ2.
-    Variable F : Type -> Type -> Type.
+    Variable F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}.
 
     Class Typ2 : Type :=
     { typ2 : typ -> typ -> typ
     ; typ2_cast : forall a b, typD (typ2 a b) = F (typD a) (typD b)
-    ; typ2_match : forall (T : Type -> Type) t,
+    ; typ2_match : forall (T : Type@{Urefl} -> Type) t,
                      (forall a b, T (F (typD a) (typD b))) ->
                      T (typD t) ->
                      T (typD t)
@@ -229,7 +233,7 @@ Section typed.
   End Typ2.
 
   Section apps.
-    Variables (F : Type -> Type -> Type) (G : Type -> Type) (X : Type).
+    Variables (F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}) (G : Type@{Urefl} -> Type@{Urefl}) (X : Type@{Urefl}).
     Context {T2 : Typ2 F} {T1 : Typ1 G} {T0 : Typ0 X}.
 
     Let typ0 := @typ0 _ T0.
@@ -265,7 +269,6 @@ Section typed.
     Context {Typ2Ok_T2 : Typ2Ok T2}.
     Context {Typ1Ok_T1 : Typ1Ok T1}.
     Context {Typ0Ok_T0 : Typ0Ok T0}.
-
 
     Theorem Typ1Ok_App : Typ1Ok Typ2_App.
     Proof.
@@ -314,8 +317,7 @@ Section typed.
             intros. rewrite H. rewrite H0.
             clear.
             unfold Relim.
-
-            autorewrite with eq_rw.
+            autorewrite_eq_rw.
             generalize (eq_sym x2).
             destruct e.
             generalize (eq_sym x3).
@@ -330,23 +332,12 @@ Section typed.
                 generalize X ; generalize Y
             end.
             clear. destruct e. simpl.
-            generalize (F (typD (typed.typ0 (F:=X0))) (typD x1)).
+            generalize (F (typD (typed.typ0 (F:=X))) (typD x1)).
             intros. subst. reflexivity. }
           { right. intros.
             simpl. rewrite H. rewrite H0.
             unfold Relim.
-            rewrite eq_Arr_eq.
-            rewrite eq_Const_eq.
-            clear. revert x2.
-            match goal with
-              | |- forall y,
-                     match _ with eq_refl => match ?X with _ => _ end end _ = _ =>
-                generalize X
-            end.
-            generalize (typed.typ2 x0 x1).
-            destruct x2. simpl.
-            rewrite eq_Arr_eq.
-            rewrite match_eq_sym_eq. reflexivity. } }
+            autorewrite_eq_rw. reflexivity. } }
         { right. simpl. intros.
           rewrite H. reflexivity. } }
       { simpl.
@@ -416,7 +407,7 @@ Section typed.
             rewrite H. unfold Relim.
             rewrite eq_Arr_eq.
             rewrite H0. simpl.
-            autorewrite with eq_rw.
+            autorewrite_eq_rw.
             unfold typ0.
             generalize ((typ1_cast (typed.typ0 (F:=X)))).
             generalize (typ0_cast (F:=X)).
@@ -428,7 +419,7 @@ Section typed.
           { right. intros.
             rewrite H.
             unfold Relim.
-            autorewrite with eq_rw.
+            autorewrite_eq_rw.
             red in x1. subst. simpl in *.
             rewrite H0.
             generalize (typ1_cast x0).
@@ -444,10 +435,10 @@ Section typed.
 
   End apps.
 
-  Instance Typ0_Arr {T U : Type} (TF : Typ2 Fun) (T0T : Typ0 T) (T0U : Typ0 U)
+  Instance Typ0_Arr {T U : Type@{Urefl}} (TF : Typ2 RFun) (T0T : Typ0 T) (T0U : Typ0 U)
   : Typ0 (T -> U) := @Typ1_App _ _ (@Typ2_App _ _ TF T0T) T0U.
 
-  Instance Typ0Ok_Arr T U (TF : Typ2 Fun) (T0T : Typ0 T) (T0U : Typ0 U)
+  Instance Typ0Ok_Arr (T U:Type@{Urefl}) (TF : Typ2 RFun) (T0T : Typ0 T) (T0U : Typ0 U)
            (TFO : Typ2Ok TF) (T0TO : Typ0Ok T0T) (T0UO : Typ0Ok T0U)
   : Typ0Ok (Typ0_Arr TF T0T T0U).
   Proof.
@@ -475,13 +466,122 @@ Section typed.
     { simpl; intros.
       consider (type_cast t x).
       { left. exists (Rsym r). intros.
-        unfold Relim, Rsym. autorewrite with eq_rw. reflexivity. }
+        unfold Relim, Rsym. autorewrite_eq_rw. reflexivity. }
       { right. reflexivity. } }
     { simpl. intros. destruct pf. reflexivity. }
   Qed.
 
+  Definition castD (F : Type@{Urefl} -> Type) (U: Type@{Urefl})
+             {T : Typ0 U} (val : F (typD (typ0 (F:=U)))) : F U :=
+    match @typ0_cast _ T in _ = x return F x with
+      | eq_refl => val
+    end.
+
+  Definition castR (F : Type@{Urefl} -> Type) (U: Type@{Urefl})
+             {T : Typ0 U} (val : F U) : F (typD (typ0 (F:=U))) :=
+    match eq_sym (@typ0_cast _ T) in _ = x return F x with
+    | eq_refl => val
+    end.
+
 End typed.
+
+Section CastRD.
+  Context {typ : Type} {RType_typ : RType typ}.
+
+  Theorem castRD (F : Type@{Urefl} -> Type) (U : Type@{Urefl})
+          {HTyp0 : Typ0 RType_typ U} (x : F (typD (typ0 (F := U)))) :
+    castR F (castD F x) = x.
+  Proof.
+    unfold castR, castD, eq_sym.
+    destruct typ0_cast; reflexivity.
+  Qed.
+
+  Theorem castDR (F : Type@{Urefl} -> Type) (U : Type@{Urefl})
+          {HTyp0 : Typ0 RType_typ U} (x : F U) :
+    castD F (castR F x) = x.
+  Proof.
+    unfold castR, castD, eq_sym.
+    generalize dependent (typ0_cast (F := U)).
+    generalize dependent (typD (typ0 (F := U))).
+    destruct e; reflexivity.
+  Qed.
+
+  Lemma castD_option
+  : forall (T:Type@{Urefl}) (Ty0 : Typ0 _ T) x,
+      castD option x = match x with
+                       | None => None
+                       | Some x => Some (castD (fun x => x) x)
+                       end.
+  Proof.
+    intros. unfold castD.
+    autorewrite_with_eq_rw. reflexivity.
+  Qed.
+
+  Lemma castR_option
+  : forall (T:Type@{Urefl}) (Ty0 : Typ0 _ T) x,
+      castR option x = match x with
+                       | None => None
+                       | Some x => Some (castR (fun x => x) x)
+                       end.
+  Proof.
+    intros. unfold castR.
+    autorewrite_with_eq_rw. reflexivity.
+  Qed.
+
+
+End CastRD.
 
 Arguments typD {typ _} _ : rename.
 Arguments Rty {typ _} _ _ : rename.
 Arguments RTypeOk {typ _} : rename.
+Arguments castD {_ _} F U {Typ0} val : rename.
+Arguments castR {_ _} F U {Typ0} val : rename.
+
+Ltac Rty_inv :=
+  let rec find A B more none :=
+      match A with
+      | B => none tt
+      | typ1 ?A' =>
+        match B with
+        | typ1 ?B' => find A' B' more none
+        | _ => let r := constr:(A = B) in more r
+        end
+      | typ2 ?A1' ?A2' =>
+        match B with
+        | typ2 ?B1' ?B2' =>
+          let m' x := find A2' B2' ltac:(fun y => let r := constr:(x /\ y) in more r) ltac:(fun _ => more x) in
+          let n' x := find A2' B2' more none in
+          find A1' B1' m' n'
+        | _ => let r := constr:(A = B) in more r
+        end
+      | _ => let r := constr:(A = B) in more r
+      end
+  in
+  let rec break_ands H P :=
+      match P with
+      | ?A /\ ?B =>
+        let H1 := fresh in
+        let H2 := fresh in
+        destruct H as [ H1 H2 ]; break_ands H1 A ; break_ands H2 B
+      | _ => idtac
+      end
+  in
+  let finish Hstart P :=
+      let H := fresh in
+      assert (H : P) by (inv_all; eauto) ;
+        break_ands H P ; repeat progress subst ;
+        try ( rewrite (UIP_refl Hstart) in * ) ; try clear Hstart
+  in
+  match goal with
+  | H : Rty ?A ?B |- _ =>
+    find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
+  | H : @eq (option _) (Some ?A) (Some ?B) |- _ =>
+    find A B ltac:(fun x => finish H x) ltac:(fun _ => fail)
+  end.
+
+
+Existing Instance Typ2_App.
+Existing Instance Typ1Ok_App.
+Existing Instance Typ1_App.
+Existing Instance Typ0Ok_App.
+Existing Instance Typ0_term.

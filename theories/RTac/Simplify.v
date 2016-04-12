@@ -13,23 +13,19 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Context {ExprVar_expr : ExprVar expr}.
   Context {ExprVarOk_expr : ExprVarOk _}.
   Context {ExprUVar_expr : ExprUVar expr}.
 
-  Variable simplify : forall subst : Type,
-                        Subst subst expr ->
-                        Ctx typ expr -> subst -> expr -> expr.
-
-  Definition SIMPLIFY : rtac typ expr :=
-    fun _ _ _ _ ctx sub gl =>
-      More_ sub (GGoal (@simplify (ctx_subst ctx) _ ctx sub gl)).
-
-  Hypothesis simplify_sound'
-  : forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e' cD sD eD,
-      @simplify (ctx_subst ctx) _ ctx s e = e' ->
+  Definition reducer : Type :=
+    forall subst : Type,
+      Subst subst expr ->
+      Ctx typ expr -> subst -> expr -> expr.
+  Definition reducer_sound (r : reducer) : Prop :=
+    forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e' cD sD eD,
+      r (ctx_subst ctx) _ ctx s e = e' ->
       WellFormed_subst s ->
       @pctxD typ expr RType_typ _ Expr_expr ctx s = Some cD ->
       ctx_substD (getUVars ctx) (getVars ctx) s = Some sD ->
@@ -38,6 +34,14 @@ Section parameterized.
         propD (getUVars ctx) (getVars ctx) e' = Some eD' /\
         forall us vs,
           cD (fun us vs => sD us vs -> (eD' us vs -> eD us vs)) us vs.
+
+  Variable simplify : reducer.
+
+  Definition SIMPLIFY : rtac typ expr :=
+    fun _ _ _ _ ctx sub gl =>
+      More_ sub (GGoal (@simplify (ctx_subst ctx) _ ctx sub gl)).
+
+  Hypothesis simplify_sound' : reducer_sound simplify.
 
   Lemma simplify_sound
   : forall (ctx : Ctx typ expr) (s : ctx_subst ctx) e e',
@@ -90,3 +94,6 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments reducer _ _ : clear implicits.
+Arguments reducer_sound {_ _ _ _ _ _ _} _ : clear implicits.

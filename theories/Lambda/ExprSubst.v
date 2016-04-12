@@ -2,18 +2,13 @@
  ** (i.e. substituting and finding) unification variables
  **)
 Require Import Coq.Classes.Morphisms.
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Fun.
-Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Data.Bool.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.ListNth.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.VariablesI.
-Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Nat.
 
 Require Import MirrorCore.Lambda.ExprLift.
@@ -108,7 +103,7 @@ Section instantiate_thm.
   Variable typ : Type.
   Variable func : Type.
   Variable RType_typ : RType typ.
-  Variable Typ2_Fun : Typ2 _ Fun.
+  Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
@@ -116,12 +111,19 @@ Section instantiate_thm.
   Context {Typ2Ok_Fun : Typ2Ok Typ2_Fun}.
   Context {RSymOk_func : RSymOk RSym_func}.
 
+  Lemma if_true_or : forall a b : bool,
+      a = true \/ b = true ->
+      (if a then true else b) = true.
+  Proof using.
+    destruct 1; subst; auto. destruct a; reflexivity.
+  Qed.
+
   Theorem expr_subst_sound
   : expr_subst_spec_ho
-      (fun us vs e t => ExprDsimul.ExprDenote.exprD' us vs t e)
+      ExprDsimul.ExprDenote.lambda_exprD
       _mentionsU _mentionsV (@_subst typ func).
   Proof.
-    (** exprD'_ind does not seem powerful enough for this **)
+    (** lambda_exprD_ind does not seem powerful enough for this **)
     red. intros. subst n. generalize dependent _tvs. revert e'. revert t.
     induction e; simpl; intros.
     { clear H_substU.
@@ -134,7 +136,7 @@ Section instantiate_thm.
           eapply nth_error_get_hlist_nth_appR in H3; simpl in H3.
           { forward_reason. subst.
             eapply H_substV in H0. forward_reason.
-            generalize (exprD'_lift tus' e nil _tvs tvs' x); simpl.
+            generalize (lambda_exprD_lift tus' e nil _tvs tvs' x); simpl.
             rewrite H0. intros; forward.
             destruct r.
             eexists; split; eauto.
@@ -193,13 +195,7 @@ Section instantiate_thm.
       forward. eexists; split; eauto.
       inv_all; subst.
       eapply exprTPureR; auto. }
-    { Lemma if_true_or : forall a b : bool,
-        a = true \/ b = true ->
-        (if a then true else b) = true.
-      Proof. clear.
-             destruct 1; subst; auto. destruct a; reflexivity.
-      Qed.
-      match type of IHe2 with
+    { match type of IHe2 with
       | ?X -> _ =>
         let HQ := fresh in
         assert (HQ : X);
@@ -233,13 +229,13 @@ Section instantiate_thm.
       end.
       forward_reason.
       autorewrite with exprD_rw. simpl.
-      erewrite ExprDsimul.ExprDenote.exprD'_typeof_expr by eauto.
+      erewrite ExprDsimul.ExprDenote.lambda_exprD_typeof_expr by eauto.
       Cases.rewrite_all_goal.
       eexists; split; eauto.
       revert H2. eapply exprTApR; auto.
       revert H3. eapply exprTApR; auto.
       eapply exprTPureR; auto.
-      unfold ExprDsimul.ExprDenote.exprT_App.
+      unfold AbsAppI.exprT_App.
       clear.
       match goal with
         | |- context [ match ?X with _ => _ end ] =>
@@ -282,7 +278,7 @@ Section instantiate_thm.
         forward. inv_all; subst.
         specialize (H_substU _ _ (eq_sym (EqNat.beq_nat_refl _)) eq_refl).
         forward_reason.
-        generalize (exprD'_lift tus' e nil _tvs tvs' x); simpl.
+        generalize (lambda_exprD_lift tus' e nil _tvs tvs' x); simpl.
         change_rewrite H. intros; forward.
         destruct r.
         eexists; split; eauto.
@@ -400,13 +396,13 @@ Section instantiate_thm.
   Qed.
 
   Lemma lt_S_iff : forall a b, a < b <-> S a < S b.
-  Proof.
-    clear. split; intros; eauto using Lt.lt_n_S, Lt.lt_S_n.
+  Proof using.
+    split; intros; eauto using Lt.lt_n_S, Lt.lt_S_n.
   Qed.
 
   Lemma ge_S_iff : forall a b, a >= b <-> S a >= S b.
-  Proof.
-    clear. split; intros; eauto using Le.le_n_S, Le.le_S_n.
+  Proof using.
+    split; intros; eauto using Le.le_n_S, Le.le_S_n.
   Qed.
 
   Ltac learn :=
@@ -418,22 +414,9 @@ Section instantiate_thm.
            end.
 
   Lemma mentionsV_subst
-(*
-  : forall (substU : uvar -> option (expr typ func)) substV n v e,
-      _mentionsV v (_subst substU substV n e) = true <->
-      (   (v < n /\ _mentionsV v e = true)
-       \/ (v >= n /\
-           (   (_mentionsV v e = true /\ substV (v-n) = None)
-            \/ (exists u' e', _mentionsU u' e = true /\
-                              substU u' = Some e' /\
-                              _mentionsV (v-n) e' = true)
-            \/ (exists v' e', _mentionsV (v'+n) e = true /\
-                              substV v' = Some e' /\
-                              _mentionsV (v-n) e' = true)))).
-*)
   : mentionsV_subst_spec (@_subst _ _) _mentionsU (@_mentionsV typ func).
-  Proof.
-    clear. red.
+  Proof using.
+    red.
     intros substU substV n v_search e; revert n; revert v_search;
     induction e; intros v_search n; intros.
     { simpl.
@@ -553,8 +536,7 @@ Section instantiate_thm.
   Theorem Proper_subst
   : Proper ((eq ==> eq) ==> (eq ==> eq) ==> eq ==> eq ==> eq)%signature
            (@_subst typ func).
-  Proof.
-    clear.
+  Proof using.
     repeat red. intros. subst.
     revert y1.
     induction y2; intros; simpl; eauto.
@@ -597,234 +579,5 @@ Section instantiate_thm.
       rewrite H. reflexivity. symmetry.
       eapply EqNat.beq_nat_refl. }
   Qed.
-(**
-  Let Expr_expr := @Expr_expr _ _ RType_typ _ _.
-  Local Existing Instance Expr_expr.
 
-  Lemma typeof_expr_instantiate
-  : forall f tus tvs,
-      (forall u e, f u = Some e ->
-                   typeof_expr tus tvs e = nth_error tus u) ->
-      forall e tvs',
-        typeof_expr tus (tvs' ++ tvs) e =
-        typeof_expr tus (tvs' ++ tvs) (instantiate f (length tvs') e).
-  Proof.
-    induction e; simpl; intros; auto.
-    { rewrite (IHe1 tvs').
-      rewrite (IHe2 tvs').
-      reflexivity. }
-    { specialize (IHe (t :: tvs')).
-      simpl in IHe.
-      rewrite IHe. reflexivity. }
-    { specialize (H u).
-      destruct (f u).
-      { specialize (typeof_expr_lift tus e nil tvs' tvs).
-        simpl.
-        intro XXX; change_rewrite XXX; clear XXX.
-        symmetry. eapply H; reflexivity. }
-      { reflexivity. } }
-  Qed.
-
-  Lemma typeof_expr_instantiate'
-  : forall f tus tvs,
-      (forall u e t, f u = Some e ->
-                     nth_error tus u = Some t ->
-                     typeof_expr tus tvs e = Some t) ->
-      forall e tvs' t,
-        typeof_expr tus (tvs' ++ tvs) e = Some t ->
-        typeof_expr tus (tvs' ++ tvs) (instantiate f (length tvs') e) = Some t.
-  Proof.
-    induction e; simpl; intros; auto.
-    { forwardy.
-      erewrite IHe1 by eassumption.
-      erewrite IHe2 by eassumption.
-      eassumption. }
-    { specialize (IHe (t :: tvs')).
-      simpl in IHe.
-      forwardy.
-      erewrite IHe by eassumption. eassumption. }
-    { specialize (H u).
-      destruct (f u).
-      { specialize (typeof_expr_lift tus e nil tvs' tvs).
-        simpl.
-        intro XXX; change_rewrite XXX; clear XXX.
-        eapply H; eauto. }
-      { eapply H0. } }
-  Qed.
-
-  Theorem exprD'_instantiate_ho
-  : instantiate_spec_ho (@instantiate typ func).
-  Proof.
-    red. unfold ExprI.exprD'; simpl.
-    induction e; simpl; intros.
-    { eexists; split; eauto.
-      eapply CtxLogic.exprTPure; eauto. }
-    { eexists; split; eauto.
-      eapply CtxLogic.exprTPure; eauto. }
-    { autorewrite with exprD_rw in *; eauto.
-      simpl in *.
-      forwardy.
-      eapply typeof_expr_instantiate' with (f := f) in H0.
-      change_rewrite H0.
-      specialize (IHe1 tvs' (typ2 y t) _ _ EApp H H1).
-      specialize (IHe2 _ _ _ _ EApp H H2).
-      forward_reason.
-      change_rewrite H5. change_rewrite H4.
-      eexists; split; [ reflexivity | ].
-      intros. inv_all; subst.
-      unfold exprT_App.
-      autorewrite with eq_rw.
-      revert H6. eapply CtxLogic.exprTAp.
-      revert H7. eapply CtxLogic.exprTAp.
-      eapply CtxLogic.exprTPure.
-      clear. intros.
-      rewrite H by assumption.
-      rewrite H0 by assumption. reflexivity.
-      clear - H RTypeOk_typD Typ2Ok_Fun RSymOk_func.
-      red in H.
-      intros.
-      specialize (fun t get => H u e t get H0).
-      simpl in *.
-      consider (nth_error_get_hlist_nth typD tus u).
-      { intros. destruct s.
-        specialize (H2 _ _ eq_refl).
-        forward_reason.
-        eapply nth_error_get_hlist_nth_Some in H.
-        simpl in H. forward_reason.
-        rewrite x1 in H1. inv_all; subst.
-        eapply exprD'_typeof_expr; eauto. }
-      { intro. exfalso.
-        eapply nth_error_get_hlist_nth_None in H. congruence. } }
-    { autorewrite with exprD_rw in *.
-      destruct (typ2_match_case t0) as [ [ ? [ ? [ ? ? ] ] ] | ? ].
-      { rewrite H1 in *. clear H1.
-        simpl in *.
-        unfold Relim in *.
-        autorewrite with eq_rw in *.
-        forwardy.
-        Cases.rewrite_all_goal.
-        specialize (IHe (t :: tvs')_ _ _ _ H H3).
-        forward_reason.
-        simpl in *.
-        Cases.rewrite_all_goal.
-        eexists; split; eauto.
-        intros.
-        inv_all; subst.
-        revert H6. eapply CtxLogic.exprTAp.
-        eapply CtxLogic.exprTPure.
-        autorewrite with eq_rw.
-        intros.
-        eapply match_eq_match_eq.
-        eapply match_eq_match_eq with (F := fun x => x).
-        apply functional_extensionality.
-        intro. eapply (H1 (Hcons (Rcast_val y1 x3) vs')); auto. }
-      { rewrite H1 in H0. exfalso. congruence. } }
-    { red in H.
-      specialize (H u).
-      destruct (f u).
-      { autorewrite with exprD_rw in *; simpl in *.
-        forwardy.
-        specialize (H _ _ _ eq_refl H0).
-        forward_reason.
-        generalize (exprD'_lift tus e nil tvs' tvs t).
-        destruct y.
-        simpl. change_rewrite H.
-        intros; forwardy.
-        eexists; split; [ eassumption | ].
-        intros.
-        inv_all; subst.
-        revert H3. eapply CtxLogic.exprTAp.
-        eapply CtxLogic.exprTPure. intros.
-        erewrite H2 by eauto. eapply (H5 us Hnil vs' vs). }
-      { clear H.
-        eexists; split; [ eassumption | ].
-        eapply CtxLogic.exprTPure. intros.
-        reflexivity. } }
-  Qed.
-
-  Theorem instantiate_mentionsU
-  : @mentionsU_instantiate_spec (expr typ func) (@instantiate typ func) _mentionsU.
-  Proof.
-    clear.
-    red. intros f n e u. revert n.
-    induction e; simpl; intros.
-    { split; intros. congruence.
-      destruct H. destruct H; auto.
-      forward_reason; auto. }
-    { split; intros. congruence.
-      destruct H. destruct H; auto.
-      forward_reason; auto. }
-    { specialize (IHe1 n). specialize (IHe2 n).
-      simpl in *.
-      repeat rewrite <- _mentionsU_mentionsU in *.
-      transitivity (_mentionsU u (instantiate f n e1) = true \/ _mentionsU u (instantiate f n e2) = true).
-      { destruct (_mentionsU u (instantiate f n e1)); intuition. }
-      { rewrite IHe1. rewrite IHe2.
-        split.
-        { destruct 1.
-          { destruct H; forward_reason.
-            { rewrite H0. left; auto. }
-            { right. do 2 eexists; split; [ eassumption | ].
-              rewrite H0. eauto. } }
-          { destruct H; forward_reason.
-            { rewrite H. rewrite H0.
-              left. split; auto. destruct (_mentionsU u e1); reflexivity. }
-            { right. do 2 eexists; split; eauto.
-              split; auto.
-              repeat rewrite <- _mentionsU_mentionsU in *.
-              destruct (_mentionsU x e1); eauto. } } }
-        { destruct 1; forward_reason.
-          { rewrite H. destruct (_mentionsU u e1).
-            { left. left; auto. }
-            { right; left; auto. } }
-          { repeat rewrite <- _mentionsU_mentionsU in *.
-            consider (_mentionsU x e1).
-            { left; right. do 2 eexists; split; eauto. }
-            { intros. right; right; do 2 eexists; split; eauto. } } } } }
-    { specialize (IHe (S n)). simpl in IHe.
-      assert (Morphisms.respectful eq eq (fun _ : ExprI.var => false)
-                                   (fun v : var => match v with
-                                                     | 0 => false
-                                                     | S _ => false
-                                                   end)).
-      { red. intros; subst; destruct y; auto. }
-      (* rewrite Proper_mentionsAny in IHe; [ | reflexivity | eassumption | reflexivity ]. *)
-      rewrite IHe. clear - H.
-      split; destruct 1; intros;
-        try (rewrite Proper_mentionsAny; [ | reflexivity | symmetry; eassumption | reflexivity ]).
-      { left; auto. }
-      { right. do 2 destruct H0.
-        exists x; exists x0. auto. }
-      { left; eauto. }
-      { right; do 2 destruct H0; exists x; exists x0. auto. } }
-    { split.
-      { consider (EqNat.beq_nat u u0).
-        { intros; subst.
-          consider (f u0).
-          + intros. right.
-            rewrite mentionsU_lift in H0.
-            do 2 eexists; split; eauto.
-            rewrite <- EqNat.beq_nat_refl. auto.
-          + intros. left; auto. }
-        { intros. right.
-          consider (f u0); intros.
-          { do 2 eexists.
-            split; eauto.
-            rewrite mentionsU_lift in H1.
-            rewrite <- EqNat.beq_nat_refl. auto. }
-          { simpl in H1.
-            exfalso.
-            eapply EqNat.beq_nat_true_iff in H1. auto. } } }
-      { intros. destruct H.
-        { destruct H.
-          eapply EqNat.beq_nat_true_iff in H0.
-          subst. rewrite H.
-          simpl. rewrite <- EqNat.beq_nat_refl. auto. }
-        { forward_reason.
-          eapply EqNat.beq_nat_true_iff in H0.
-          subst.
-          rewrite H.
-          rewrite mentionsU_lift. assumption. } } }
-  Qed.
-**)
 End instantiate_thm.

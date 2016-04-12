@@ -20,6 +20,7 @@ Require Export MirrorCore.RTac.RunOnGoals.
 Require Export MirrorCore.RTac.RunOnGoals_list.
 Require Export MirrorCore.RTac.runTacK.
 Require Export MirrorCore.RTac.ThenK.
+Require Export MirrorCore.RTac.IdtacK.
 Require Export MirrorCore.RTac.Minify.
 Require Export MirrorCore.RTac.AtGoal.
 
@@ -27,15 +28,21 @@ Require Export MirrorCore.RTac.Interface.
 
 Ltac one_of lems :=
   match lems with
-    | (?X,?Y) => first [ one_of X | one_of Y ]
-    | _ => exact lems
+  | (?X,?Y) => first [ one_of X | one_of Y ]
+  | _ => exact lems
   end.
-
 
 Ltac rtac_derive_soundness' tac tacK lems :=
   let lems := (auto ; lems) in
   let rec rtac :=
-      try first [ simple eapply IDTAC_sound
+      try first [ match goal with
+                  | |- @rtac_sound ?t ?e ?rt ?t0 ?E (let x := ?X in @?G x) =>
+                    first [ simple eapply (@rtac_sound_let t e rt t0 E X G) ;
+                            [ rtac | intros ; rtac ]
+                          | simple eapply (@rtac_sound_letK t e rt t0 E X G) ;
+                            [ rtac | intros ; rtac ] ]
+                  end
+                | simple eapply IDTAC_sound
                 | simple eapply FAIL_sound
                 | simple eapply FIRST_sound ; Forall_rtac
                 | simple eapply SOLVE_sound ; rtac
@@ -49,10 +56,22 @@ Ltac rtac_derive_soundness' tac tacK lems :=
                 | simple eapply APPLY_sound ; [ lems ]
                 | simple eapply EAPPLY_sound ; [ lems ]
                 | solve [ eauto with typeclass_instances ]
+                | match goal with
+                  | |- @rtac_sound ?t ?e ?rt ?t0 ?E ?tac =>
+                    let x := constr:(_ : @RtacSound t e rt t0 E tac) in
+                    eapply (@RtacSound_proof t e rt t0 E tac x)
+                  end
                 | tac rtac rtacK lems
                 ]
   with rtacK :=
-      try first [ simple eapply runOnGoals_sound ; rtac
+      try first [ match goal with
+                  | |- @rtacK_sound ?t ?e ?rt ?t0 ?E (let x := ?X in @?G x) =>
+                    first [ simple eapply (@rtacK_sound_let t e rt t0 E X G) ;
+                            [ rtac | intros ; rtacK ]
+                          | simple eapply (@rtacK_sound_letK t e rt t0 E X G) ;
+                            [ rtacK | intros ; rtacK ] ]
+                  end
+                | simple eapply runOnGoals_sound ; rtac
                 | simple eapply runOnGoals_list_sound ; Forall_rtac
                 | simple eapply ON_ALL_sound ; rtac
                 | simple eapply ON_EACH_sound ; Forall_rtac
@@ -69,10 +88,13 @@ Ltac rtac_derive_soundness' tac tacK lems :=
                      | Forall_rtac ]
                    | solve [ eauto ] ]
   in
+  intros ;
   match goal with
-    | |- rtac_sound _ => rtac
-    | |- rtacK_sound _ => rtacK
-    | |- Forall rtac_sound _ => Forall_rtac
+  | |- rtac_sound _ => rtac
+  | |- rtacK_sound _ => rtacK
+  | |- Forall rtac_sound _ => Forall_rtac
+  | |- Forall RtacSound _ => Forall_rtac
+  | |- RtacSound _ => eapply mkRtacSound; rtac
   end.
 
 Ltac rtac_derive_soundness_default :=

@@ -12,7 +12,7 @@ Section parameterized.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition TRY (tac : rtac typ expr) : rtac typ expr :=
@@ -34,3 +34,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Arguments TRY {_ _} _%rtac _ _ _ _ _ _ _.

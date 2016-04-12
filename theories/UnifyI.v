@@ -1,13 +1,5 @@
-Require Import Coq.Bool.Bool.
-Require Import Coq.Lists.List.
-Require Import Coq.Classes.Morphisms.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Eq.
-Require Import ExtLib.Tactics.
-Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.EnvI.
 Require Import MirrorCore.SubstI.
 
 Set Implicit Arguments.
@@ -21,9 +13,9 @@ Section with_Expr.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : @Expr typ _ expr}.
   Context {Subst_subst : Subst subst expr}.
-  Context {SubstOk_subst : SubstOk Subst_subst}.
+  Context {SubstOk_subst : SubstOk subst typ expr}.
   Context {SubstUpdate_subst : SubstUpdate subst expr}.
-  Context {SubstUpdateOk_subst : SubstUpdateOk SubstUpdate_subst _}.
+  Context {SubstUpdateOk_subst : SubstUpdateOk subst typ expr}.
 
   Local Existing Instance RType_typ.
   Local Existing Instance Expr_expr.
@@ -41,8 +33,8 @@ Section with_Expr.
       WellFormed_subst s ->
       WellFormed_subst s' /\
       forall v1 v2 sD,
-        exprD' tu (tv' ++ tv) e1 t = Some v1 ->
-        exprD' tu (tv' ++ tv) e2 t = Some v2 ->
+        exprD tu (tv' ++ tv) t e1 = Some v1 ->
+        exprD tu (tv' ++ tv) t e2 = Some v2 ->
         substD tu tv s = Some sD ->
         exists sD',
              substR tu tv s s'

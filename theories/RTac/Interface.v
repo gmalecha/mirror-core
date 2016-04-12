@@ -1,4 +1,5 @@
 Require Import MirrorCore.RTac.Core.
+Require Import MirrorCore.RTac.CoreK.
 
 Section parameterized.
   Variable typ : Type.
@@ -6,24 +7,27 @@ Section parameterized.
 
   Context {RType_typ : RType typ}.
   Context {Typ0_Prop : Typ0 _ Prop}.
-  Context {Expr_expr : Expr RType_typ expr}.
+  Context {Expr_expr : Expr typ expr}.
   Context {ExprUVar_expr : ExprUVar expr}.
 
+  Section RtacSound.
   Variable tac : rtac typ expr.
 
   Class RtacSound : Prop :=
-  { RtacSound_proof : rtac_sound tac }.
+    RtacSound_proof :> rtac_sound tac.
 
-  Hypothesis tac_sound : rtac_sound tac.
+  Theorem mkRtacSound : rtac_sound tac -> RtacSound.
+  Proof. exact (fun x => x). Qed.
+
+  Hypothesis tac_sound : RtacSound.
 
   Definition runRtac (tus tvs : tenv typ) (goal : expr) (tac : rtac typ expr) :=
     tac tus tvs (length tus) (length tvs) _ (TopSubst _ tus tvs) goal.
 
-
   Definition propD us vs g : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
-    match exprD'_typ0 tus tvs g return Prop with
+    match exprD_typ0 tus tvs g return Prop with
       | None => True
       | Some P => P us vs
     end.
@@ -48,7 +52,7 @@ Section parameterized.
     rewrite (split_env_typeof_env us).
     rewrite (split_env_typeof_env vs).
     intros.
-    destruct (exprD'_typ0 (typeof_env us) (typeof_env vs) g); trivial.
+    destruct (exprD_typ0 (typeof_env us) (typeof_env vs) g); trivial.
     destruct H. constructor. constructor.
     destruct H0.
     eapply H1.
@@ -61,7 +65,7 @@ Section parameterized.
       | Some G => G us vs
       | _ => True
     end ->
-    match exprD'_typ0 tus tvs g return Prop with
+    match exprD_typ0 tus tvs g return Prop with
       | None => True
       | Some P => P us vs
     end.
@@ -82,11 +86,45 @@ Section parameterized.
     rewrite (split_env_typeof_env us).
     rewrite (split_env_typeof_env vs).
     intros.
-    destruct (exprD'_typ0 (typeof_env us) (typeof_env vs) g); trivial.
+    destruct (exprD_typ0 (typeof_env us) (typeof_env vs) g); trivial.
     destruct H. constructor. constructor.
     simpl in *. destruct H1.
     destruct (goalD (typeof_env us) (typeof_env vs) g'); eauto.
     { destruct H2. eapply H3; eauto. }
     { inversion H2. }
   Qed.
+  End RtacSound.
+
+  Lemma rtac_sound_let
+  : forall (t1 : rtac typ expr)
+           (t2 : _ -> rtac typ expr),
+      RtacSound t1 ->
+      (forall x, RtacSound x -> rtac_sound (t2 x)) ->
+      RtacSound (let x := t1 in t2 x).
+  Proof using. intros. eapply H0. eauto. Qed.
+
+  Lemma rtac_sound_letK
+  : forall (t1 : rtacK typ expr) (t2 : _ -> rtac typ expr),
+      rtacK_sound t1 ->
+      (forall x, rtacK_sound x -> rtac_sound (t2 x)) ->
+      rtac_sound (let x := t1 in t2 x).
+  Proof using. eauto. Qed.
+
+  Lemma rtacK_sound_let
+  : forall (t1 : rtac typ expr)
+           (t2 : _ -> rtacK typ expr),
+      rtac_sound t1 ->
+      (forall x, RtacSound x -> rtacK_sound (t2 x)) ->
+      rtacK_sound (let x := t1 in t2 x).
+  Proof using. intros. eapply H0. eauto. Qed.
+
+  Lemma rtacK_sound_letK
+  : forall (t1 : rtacK typ expr) (t2 : _ -> rtacK typ expr),
+      rtacK_sound t1 ->
+      (forall x, rtacK_sound x -> rtacK_sound (t2 x)) ->
+      rtacK_sound (let x := t1 in t2 x).
+  Proof using. eauto. Qed.
+
 End parameterized.
+
+Arguments RtacSound {typ expr _ _ _} _.

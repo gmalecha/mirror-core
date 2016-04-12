@@ -6,7 +6,6 @@
  ** NOTE
  **  It is not generic because it builds on top of Ext.Types
  **)
-Require Import Coq.PArith.BinPos.
 Require Import Coq.Lists.List.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
@@ -34,6 +33,28 @@ Section RSym.
   }.
 
   Definition functions := PositiveMap.t function.
+
+  Fixpoint join_functions (a b : functions) : functions :=
+    match a with
+    | PositiveMap.Leaf _ => b
+    | PositiveMap.Node l x r =>
+      PositiveMap.Node (join_functions l match b with
+                             | PositiveMap.Leaf _ => b
+                             | PositiveMap.Node l _ _ => l
+                             end)
+           match x with
+           | Some x => Some x
+           | None => match b with
+                     | PositiveMap.Leaf _ => None
+                     | PositiveMap.Node _ x _ => x
+                     end
+           end
+           (join_functions r match b with
+                             | PositiveMap.Leaf _ => b
+                             | PositiveMap.Node _ _ r => r
+                             end)
+    end.
+
   Variable fs : functions.
 
   Definition func_typeof_sym (i : func) : option typ :=
@@ -43,7 +64,7 @@ Section RSym.
     end.
 
   Definition funcD (f : func) : match func_typeof_sym f with
-                                  | None => unit
+                                  | None => unit:Type
                                   | Some t => typD t
                                 end :=
     match PositiveMap.find f fs as Z
@@ -84,3 +105,8 @@ Section RSym.
        end) ls 1%positive.
 
 End RSym.
+
+Arguments functions _ _ : clear implicits.
+Arguments function _ _ : clear implicits.
+Arguments F {_ _} _ _ : clear implicits.
+Arguments join_functions {_ _} _ _ : clear implicits.

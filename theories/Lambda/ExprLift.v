@@ -1,3 +1,4 @@
+Require Import Coq.omega.Omega.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.HList.
@@ -6,7 +7,9 @@ Require Import ExtLib.Data.Eq.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Util.Forwardy.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 
@@ -48,7 +51,7 @@ Section types.
   Context {typ : Type}.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
-  Context {Typ2_Fun : Typ2 RType_typD Fun}.
+  Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
 
   (** Reasoning principles **)
@@ -61,7 +64,7 @@ Section types.
       lower (length tvs) (length tvs') e = Some e' ->
       typeof_expr tus (tvs ++ tvs'') e' =
       typeof_expr tus (tvs ++ tvs' ++ tvs'') e.
-  Proof.
+  Proof using.
     intros tus e tvs tvs' tvs''; revert tvs.
     induction e; simpl; intros; simpl in *; forward; inv_all; subst; auto.
     { consider (v ?[ lt ] length tvs); intros; forward; inv_all; subst.
@@ -77,31 +80,32 @@ Section types.
       destruct H. reflexivity. }
   Qed.
 
-  Theorem exprD'_lower
+  Theorem lambda_exprD_lower
   : forall tus tvs tvs' tvs'' e t val e',
       lower (length tvs) (length tvs') e = Some e' ->
-      exprD' tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
+      lambda_exprD tus (tvs ++ tvs' ++ tvs'') t e = Some val ->
       exists val',
-        exprD' tus (tvs ++ tvs'') t e' = Some val' /\
+        lambda_exprD tus (tvs ++ tvs'') t e' = Some val' /\
         forall us vs vs' vs'',
           val us (hlist_app vs (hlist_app vs' vs'')) =
           val' us (hlist_app vs vs'').
-  Proof.
+  Proof using RTypeOk_typD RSymOk_func Typ2Ok_Fun.
     intros tus tvs tvs' tvs'' e. revert tvs.
     induction e; simpl; intros;
     autorewrite with exprD_rw in *; simpl in *; forward; inv_all; subst.
     { consider (v ?[ lt ] length tvs); intros; forward.
       { inv_all; subst.
         autorewrite with exprD_rw. simpl.
-        generalize H.
-        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tvs' ++ tvs'') in H.
-        intro.
-        eapply nth_error_get_hlist_nth_appL with (F := typD) (tvs' := tvs'') in H0.
+        generalize (@nth_error_get_hlist_nth_appL _ typD (tvs' ++ tvs'') _ _ H).
+        generalize (@nth_error_get_hlist_nth_appL _ typD tvs'' _ _ H).
+        intros.
         forward_reason; Cases.rewrite_all_goal.
-        destruct x0; simpl in *.
+        rewrite H6 in *.
+        inv_all. subst.
+        destruct x0; destruct x1; simpl in *.
         rewrite H3 in *. rewrite H1 in *. inv_all; subst.
         simpl in *. rewrite H2. eexists; split; eauto.
-        intros. simpl. rewrite H6. rewrite H4. reflexivity. }
+        intros. simpl. rewrite H7. rewrite H5. reflexivity. }
       { inv_all; subst.
         autorewrite with exprD_rw. simpl.
         consider (nth_error_get_hlist_nth typD (tvs ++ tvs'') (v - length tvs')); intros.
@@ -134,7 +138,7 @@ Section types.
       forward_reason.
       Cases.rewrite_all_goal.
       eexists; split; eauto. intros.
-      unfold exprT_App.
+      unfold AbsAppI.exprT_App.
       match goal with
         | |- match ?X with _ => _ end _ _ _ _ =
              match ?Y with _ => _ end _ _ _ _ =>
@@ -170,7 +174,7 @@ Section types.
   : forall tus e tvs tvs' tvs'',
       typeof_expr tus (tvs ++ tvs' ++ tvs'') (lift (length tvs) (length tvs') e) =
       typeof_expr tus (tvs ++ tvs'') e.
-  Proof.
+  Proof using.
     intros tus e tvs; revert tvs; induction e; simpl; intros;
     Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
@@ -182,12 +186,12 @@ Section types.
       rewrite IHe. reflexivity. }
   Qed.
 
-  Theorem exprD'_lift
+  Theorem lambda_exprD_lift
   : forall tus e tvs tvs' tvs'' t,
-      match exprD' tus (tvs ++ tvs'') t e with
+      match lambda_exprD tus (tvs ++ tvs'') t e with
         | None => True
         | Some val =>
-          match exprD' tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
+          match lambda_exprD tus (tvs ++ tvs' ++ tvs'') t (lift (length tvs) (length tvs') e) with
             | None => False
             | Some val' =>
               forall us vs vs' vs'',
@@ -195,23 +199,20 @@ Section types.
                 val' us (hlist_app vs (hlist_app vs' vs''))
           end
       end.
-  Proof.
+  Proof using RTypeOk_typD RSymOk_func Typ2Ok_Fun.
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
     { consider (v ?[ lt ] length tvs); intros.
-      { generalize H.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs' ++ tvs'') (F := typD) in H; eauto with typeclass_instances.
-        intro.
-        eapply nth_error_get_hlist_nth_appL with (tvs' := tvs'') (F := typD)
-          in H2; eauto with typeclass_instances.
+      { generalize (@nth_error_get_hlist_nth_appL _ typD (tvs' ++ tvs'') _ _ H).
+        generalize (@nth_error_get_hlist_nth_appL _ typD tvs'' _ _ H).
+        clear H. intros.
         forward_reason.
-        revert H2. Cases.rewrite_all_goal. destruct x1.
-        simpl in *. intros.
-        destruct r. rewrite H5 in *.
-        inv_all; subst. simpl in *.
-        rewrite type_cast_refl; eauto.
+        revert H3. revert H0. Cases.rewrite_all_goal. destruct x1.
+        intros; simpl in *. destruct x0; simpl in *.
+        inv_all. subst.
+        Cases.rewrite_all_goal.
         intros.
-        rewrite H4. rewrite H6. auto. }
+        rewrite H4. rewrite H6. reflexivity. }
       { eapply nth_error_get_hlist_nth_appR in H0; [ simpl in * | omega ].
         forward_reason.
         consider (nth_error_get_hlist_nth typD (tvs ++ tvs' ++ tvs'')
@@ -236,8 +237,8 @@ Section types.
       specialize (IHe1 tvs tvs' tvs'' (typ2 t0 t)).
       specialize (IHe2 tvs tvs' tvs'' t0).
       forward. inv_all. subst.
-      unfold exprT_App.
-      autorewrite with eq_rw.
+      unfold AbsAppI.exprT_App.
+      autorewrite_with_eq_rw.
       rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
     { destruct (typ2_match_case t0).
       { destruct H0 as [ ? [ ? [ ? ? ] ] ].
