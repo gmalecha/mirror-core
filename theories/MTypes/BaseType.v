@@ -160,3 +160,12 @@ Section RelDec_base_type.
   Qed.
   
 End RelDec_base_type.
+
+Section TSym_base_type.
+
+  Global Instance TSym_base_typ : TSym base_typ := {
+    symbolD n := base_typD (n := n);
+    symbol_dec n := base_typ_dec (n := n)    
+  }.
+
+End TSym_base_type.

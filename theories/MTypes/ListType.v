@@ -79,3 +79,12 @@ Section RelDec_list_type.
   Qed.
   
 End RelDec_list_type.
+
+Section TSym_list_type.
+
+  Global Instance TSym_list_typ : TSym list_typ := {
+    symbolD n := list_typD (n := n);
+    symbol_dec n := list_typ_dec (n := n)    
+  }.
+
+End TSym_list_type.

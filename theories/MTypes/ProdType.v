@@ -81,3 +81,12 @@ Section RelDec_prod_type.
   Qed.
   
 End RelDec_prod_type.
+
+Section TSym_prod_type.
+
+  Global Instance TSym_prod_typ : TSym prod_typ := {
+    symbolD n := prod_typD (n := n);
+    symbol_dec n := prod_typ_dec (n := n)    
+  }.
+
+End TSym_prod_type.
