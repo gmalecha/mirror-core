@@ -12,7 +12,7 @@ Set Maximal Implicit Insertion.
 Set Universe Polymorphism.
 
 Section TypeView.
-  Universes s v.
+  Polymorphic Universes s v.
   Variables typ1 typ2 : Type@{s}.
   Variable FV : PartialView typ1 typ2.
   Variable typ1D : typ1 -> Type@{v}.
