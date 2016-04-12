@@ -439,7 +439,7 @@ Section RSym_OneOf.
 
   Instance RSymOk_OneOf (m : pmap)
            (H1 : RSym_All m)
-           (H2 : forall p, RSymOk (H1 p))
+           (H2 : RSym_AllOk H1)
   : RSymOk (RSymOneOf m H1) :=
   { sym_eqbOk f1 f2 :=
       match f1 as f1'
