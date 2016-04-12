@@ -397,17 +397,6 @@ Section RSym_OneOf.
     | right _ => None
     end.
 
-  Instance RSymOneOf (m : pmap)
-    (H : forall p, RSym match pmap_lookup' m p return TypeR with
-                        | _Some T => T
-                        | _None => Empty_set
-                        end)
-  : RSym (OneOf m) :=
-  { typeof_sym s := typeof_sym_OneOf H s
-  ; symD f := symD_OneOf H f
-  ; sym_eqb f1 f2 := sym_eqb_OneOf H f1 f2
-  }.
-
   Fixpoint pmap_lookup'_Empty (p : positive) : pmap_lookup' Empty p = _None :=
     match p with
     | xH => eq_refl
@@ -437,10 +426,17 @@ Section RSym_OneOf.
   Definition RSym_AllOk m (e : RSym_All m) : Type :=
     forall p, RSymOk (e p).
 
+  Instance RSymOneOf (m : pmap) (H : RSym_All m)
+  : RSym (OneOf m) :=
+  { typeof_sym s := typeof_sym_OneOf H s
+  ; symD f := symD_OneOf H f
+  ; sym_eqb f1 f2 := sym_eqb_OneOf H f1 f2
+  }.
+
   Instance RSymOk_OneOf (m : pmap)
            (H1 : RSym_All m)
            (H2 : RSym_AllOk H1)
-  : RSymOk (RSymOneOf m H1) :=
+  : RSymOk (RSymOneOf H1) :=
   { sym_eqbOk f1 f2 :=
       match f1 as f1'
             return match sym_eqb f1' f2 return Prop with
