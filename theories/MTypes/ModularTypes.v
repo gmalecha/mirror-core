@@ -3,6 +3,7 @@ Require Import ExtLib.Data.SigT.
 Require Import ExtLib.Data.POption.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Core.RelDec.
 
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
@@ -271,6 +272,16 @@ Section parametric.
   { typD := mtypD
   ; type_cast := mtyp_cast
   ; tyAcc := mtyp_acc }.
+
+  Instance RelDec_mtyp : RelDec (@eq mtyp) := {
+    rel_dec a b := if (mtyp_dec a b) then true else false
+  }.
+
+  Instance RelDec_Correct_mtyp : RelDec_Correct RelDec_mtyp.
+  Proof.
+    split; intros; unfold rel_dec; simpl.
+    destruct (mtyp_dec x y); [subst|]; intuition congruence.
+  Qed.
 
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.

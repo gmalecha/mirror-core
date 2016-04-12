@@ -2,6 +2,8 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.PList.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -23,7 +25,7 @@ Definition list_typ_dec {n} (a : list_typ n) : forall b, {a = b} + {a <> b} :=
 
 Definition list_typD {n} (t : list_typ n) : type_for_arity n :=
   match t with
-	tList => list
+	tList => plist
   end.
 
 Section FuncView_list_type.
@@ -47,3 +49,29 @@ Section FuncView_list_type.
 
 End FuncView_list_type.
 
+Section RelDec_list_type.
+
+  Global Instance RelDec_list_typ (x : nat) : RelDec (@eq (list_typ x)) := {
+    rel_dec := fun a b => 
+                 match x with
+                 | 1 => true
+                 | _ => false
+                 end
+  }.
+
+  Definition list_typ_eq (x y : list_typ 1) : x = y :=
+    match x, y with
+    | tList, tList => eq_refl
+    end.
+
+  Global Instance RelDecOk_list_typ (x : nat) : RelDec_Correct (RelDec_list_typ x).
+  Proof.
+    split; intros.
+    destruct x; simpl in *; [inversion y|].
+    inversion x0; subst.
+    unfold rel_dec. simpl.
+    split; intros; [|reflexivity].
+    apply list_typ_eq.
+  Qed.
+  
+End RelDec_list_type.

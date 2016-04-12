@@ -3,6 +3,8 @@ Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
 
+Require Import ExtLib.Core.RelDec.
+
 Require Import Coq.Strings.String.
 
 Set Implicit Arguments.
@@ -136,3 +138,23 @@ Section FuncView_base_type.
   Qed.
 
 End FuncView_base_type.
+
+Section RelDec_base_type.
+
+  Global Instance RelDec_base_typ (x : nat) : RelDec (@eq (base_typ x)) := {
+    rel_dec a b :=
+      match base_typ_dec a b with
+      | left _ => true
+      | right _ => false
+      end
+  }.
+
+  Global Instance RelDecOk_base_typ (x : nat) : RelDec_Correct (RelDec_base_typ x).
+  Proof.
+    split; intros.
+    unfold rel_dec; simpl.
+    remember (base_typ_dec x0 y).
+    destruct s; subst; intuition.
+  Qed.
+  
+End RelDec_base_type.

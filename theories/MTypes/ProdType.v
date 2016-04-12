@@ -3,6 +3,8 @@ Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
 
+Require Import ExtLib.Core.RelDec.
+
 Set Implicit Arguments.
 Set Strict Implicit.
 
@@ -23,7 +25,7 @@ Definition prod_typ_dec {n} (a : prod_typ n) : forall b, {a = b} + {a <> b} :=
 
 Definition prod_typD {n} (t : prod_typ n) : type_for_arity n :=
   match t with
-	tProd => prod
+    tProd => prod
   end.
 
 Section FuncView_prod_type.
@@ -46,3 +48,31 @@ Section FuncView_prod_type.
   Qed.
 
 End FuncView_prod_type.
+
+Section RelDec_prod_type.
+
+  Global Instance RelDec_prod_typ (x : nat) : RelDec (@eq (prod_typ x)) := {
+    rel_dec := fun a b => 
+                 match x with
+                 | 2 => true
+                 | _ => false
+                 end
+  }.
+
+  Definition prod_typ_eq (x y : prod_typ 2) : x = y :=
+    match x, y with
+    | tProd, tProd => eq_refl
+    end.
+
+  Global Instance RelDecOk_prod_typ (x : nat) : RelDec_Correct (RelDec_prod_typ x).
+  Proof.
+    split; intros.
+    destruct x; simpl in *; [inversion y|].
+    destruct x; simpl in *; [inversion y|].
+    destruct x; simpl in *; [|inversion y].
+    unfold rel_dec. simpl.
+    split; intros; [|reflexivity].
+    apply prod_typ_eq.
+  Qed.
+  
+End RelDec_prod_type.
