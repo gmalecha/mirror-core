@@ -69,4 +69,7 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque REPEAT : typeclass_instances.
+Typeclasses Opaque REPEAT.
+
 Arguments REPEAT {_ _ _ _} _%nat _%rtac _ _ _ _ _ _ _.

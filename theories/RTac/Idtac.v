@@ -29,4 +29,6 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque IDTAC : typeclass_instances.
+
 Arguments IDTAC {typ expr} _ _ _ _ {_} _ _.

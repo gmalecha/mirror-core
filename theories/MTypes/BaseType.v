@@ -10,9 +10,7 @@ Require Import Coq.Strings.String.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Universes T.
-  
-Inductive base_typ : nat -> Type@{T} :=
+Inductive base_typ : nat -> Type :=
 | tNat : base_typ 0
 | tString : base_typ 0
 | tBool : base_typ 0
@@ -20,7 +18,9 @@ Inductive base_typ : nat -> Type@{T} :=
 
 Definition base_typ_dec {n} (a : base_typ n) : forall b, {a = b} + {a <> b}.
   refine(
-    match a as a in base_typ n return forall b : base_typ n, {a = b} + {a <> b} with
+    match a as a in base_typ n
+          return forall b : base_typ n, {a = b} + {a <> b}
+    with
     | tNat =>
       fun b =>
         match b as b in base_typ 0 return {tNat = b} + {tNat <> b} with
@@ -50,15 +50,15 @@ Defined.
 
 Definition base_typD {n} (t : base_typ n) : type_for_arity n :=
   match t with
-	| tNat => nat
-	| tString => string
-	| tBool => bool
-	| tProp => Prop
+  | tNat => nat
+  | tString => string
+  | tBool => bool
+  | tProp => Prop
   end.
 
 Section FuncView_base_type.
   Context {typ : Type}.
-  Context {FV : FuncView typ (base_typ 0)}.
+  Context {FV : PartialView typ (base_typ 0)}.
 
   Definition tyNat := f_insert tNat.
   Definition tyBool := f_insert tBool.
@@ -68,29 +68,29 @@ Section FuncView_base_type.
   Definition ptrn_tyNat : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
       match f with
-        | tNat => good f
-        | _ => bad f
+      | tNat => good f
+      | _ => bad f
       end.
 
   Definition ptrn_tyBool : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
       match f with
-        | tBool => good f
-        | _ => bad f
+      | tBool => good f
+      | _ => bad f
       end.
 
   Definition ptrn_tyString : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
       match f with
-        | tString => good f
-        | _ => bad f
+      | tString => good f
+      | _ => bad f
       end.
 
   Definition ptrn_tyProp : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
       match f with
-        | tProp => good f
-        | _ => bad f
+      | tProp => good f
+      | _ => bad f
       end.
 
   Global Instance ptrn_tyNat_ok  : ptrn_ok ptrn_tyNat.

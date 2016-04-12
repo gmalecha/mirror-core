@@ -10,11 +10,10 @@ Require Import MirrorCore.Views.FuncView.
 
 Section FuncViewSumN.
   Context {A func : Type}.
-  About OneOfType.
 
   Global Instance FuncViewPMap (p : positive) (m : OneOfType.pmap)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
-  : FuncView (OneOfType.OneOf m) A :=
+  : PartialView (OneOfType.OneOf m) A :=
   { f_insert := @OneOfType.Into m _ p (eq_sym pf)
   ; f_view   :=
       let view := @OneOfType.OutOf m _ _ (eq_sym pf) in
@@ -57,18 +56,16 @@ Section FuncViewSumN.
         subst.
         rewrite OneOfType.Outof_Into. reflexivity. } }
     { simpl. intros.
-      unfold OneOfType.Into.
-      unfold RSymOneOf.
-      unfold symAs. simpl.
+      unfold OneOfType.Into, RSymOneOf, func_equiv, symAs.
+      intros. simpl.
       autorewrite_with_eq_rw.
       unfold symD_OneOf, typeof_sym_OneOf. simpl.
-      unfold internal_eq_rew_dep, eq_rect_r, eq_rect.
+      unfold internal_eq_rew_dep, eq_rect_r, eq_rect. simpl.
       generalize (@symD typ RType_typ).
       generalize (@typeof_sym typ RType_typ).
       generalize (@type_cast typ RType_typ t).
       generalize (syms p).
-      destruct pf. intros.
-      reflexivity. }
+      destruct pf. reflexivity. }
   Qed.
 
 End FuncViewSumN.

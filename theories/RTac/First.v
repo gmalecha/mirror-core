@@ -66,6 +66,8 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque FIRST FIRSTK : typeclass_instances.
+
 Arguments FIRST {typ expr} _%or_rtac _ _ _ _ {_} _ _ : rename.
 Arguments FIRSTK {typ expr} _%or_rtacK _ _ _ _ {_} _ _ : rename.
 

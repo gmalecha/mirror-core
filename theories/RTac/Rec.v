@@ -111,6 +111,9 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque REC REC_N RECK : typeclass_instances.
+Typeclasses Opaque REC REC_N RECK.
+
 Arguments REC {_ _} n%nat f%rtac last%rtac _ _ _ _ _ _ _ : rename.
 Arguments REC_N {_ _} n%positive_scope f%rtac last%rtac _ _ _ _ _ _ _ : rename.
 Arguments RECK {_ _} n%nat f%rtacK last%rtac _ _ _ _ _ _ _ : rename.

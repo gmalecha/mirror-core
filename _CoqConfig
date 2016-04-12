@@ -85,9 +85,11 @@ theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
 theories/Lambda/Reify.v
 
+theories/Views/View.v
+theories/Views/TypeView.v
+theories/Views/FuncView.v
 theories/Views/Ptrns.v
 theories/Views/Ptrns2.v
-theories/Views/FuncView.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
 theories/Views/ListView.v

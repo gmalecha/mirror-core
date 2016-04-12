@@ -211,4 +211,6 @@ Section runOnGoals_proof.
   := runOnGoals_sound.
 End runOnGoals_proof.
 
+Hint Opaque runOnGoals ON_ALL : typeclass_instances.
+
 Arguments ON_ALL {typ expr _ _} tac%rtac tus tvs nus nvs {ctx} csub goal : rename.

@@ -130,7 +130,7 @@ End ProdFuncInst.
 
 Section MakeProd.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {HF : FuncView func (prod_func typ)}.
+  Context {HF : PartialView func (prod_func typ)}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
   Context {Typ2_tyProd : Typ2 _ prod}.
@@ -205,16 +205,23 @@ Section MakeProd.
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnPair p))) a) b.
+  Global Instance ptrnPair_ok : ltac:(PtrnOk (@ptrnPair)) :=
+    ltac:(unfold ptrnPair ; refine _).
 
   Definition ptrnFst {A T : Type}
              (p : ptrn (typ * typ) T)
              (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
     app (inj (ptrn_view _ (fptrnFst p))) a.
+  Global Instance ptrnFst_ok : ltac:(PtrnOk (@ptrnFst)) :=
+    ltac:(unfold ptrnFst ; refine _).
 
   Definition ptrnSnd {A T : Type}
              (p : ptrn (typ * typ) T)
              (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A) :=
     app (inj (ptrn_view _ (fptrnSnd p))) a.
+  Global Instance ptrnSnd_ok : ltac:(PtrnOk (@ptrnSnd)) :=
+    ltac:(unfold ptrnSnd ; refine _).
+
 
   Lemma Succeeds_fptrnPair {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPair p) res) :
@@ -262,32 +269,31 @@ Section MakeProd.
   Qed.
 
   Global Instance fptrnPair_SucceedsE {T : Type} {f : prod_func typ}
-         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-
-    SucceedsE f (fptrnPair p) res := {
-      s_result := exists t u, Succeeds (t, u) p res /\ f = pPair t u;
-      s_elim := @Succeeds_fptrnPair T f p res  pok
-    }.
+         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p}
+  : SucceedsE f (fptrnPair p) res :=
+  { s_result := exists t u, Succeeds (t, u) p res /\ f = pPair t u
+  ; s_elim := @Succeeds_fptrnPair T f p res  pok
+  }.
 
   Global Instance fptrnFst_SucceedsE {T : Type} {f : prod_func typ}
-         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-    SucceedsE f (fptrnFst p) res := {
-      s_result := exists t u, Succeeds (t, u) p res /\ f = pFst t u;
-      s_elim := @Succeeds_fptrnFst T f p res pok
-    }.
+         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p}
+  : SucceedsE f (fptrnFst p) res :=
+  { s_result := exists t u, Succeeds (t, u) p res /\ f = pFst t u
+  ; s_elim := @Succeeds_fptrnFst T f p res pok
+  }.
 
   Global Instance fptrnSnd_SucceedsE {T : Type} {f : prod_func typ}
-         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-    SucceedsE f (fptrnSnd p) res := {
-      s_result := exists t u, Succeeds (t, u) p res /\ f = pSnd t u;
-      s_elim := @Succeeds_fptrnSnd T f p res  pok
-    }.
+         {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p}
+  : SucceedsE f (fptrnSnd p) res :=
+  { s_result := exists t u, Succeeds (t, u) p res /\ f = pSnd t u
+  ; s_elim := @Succeeds_fptrnSnd T f p res  pok
+  }.
 
 End MakeProd.
 
 Section Tactics.
   Context {typ func : Type}.
-  Context {FV : FuncView func (prod_func typ)}.
+  Context {FV : PartialView func (prod_func typ)}.
   Context {RType_typ : RType typ} {RSym_func : RSym func}.
   Context {RTypeOk_typ : @RTypeOk _ RType_typ}.
   Context {RSymOk_func : RSymOk RSym_func}.
@@ -316,6 +322,8 @@ Section Tactics.
                  | simple eapply fptrnSnd_ok
                  | simple eapply fptrnPair_ok ].
 
+  Opaque por.
+
   Local Instance ptrn_ok_red_fst_ptrn : ptrn_ok red_fst_ptrn.
   Proof.
     unfold red_fst_ptrn, ptrnFst, ptrnPair.
@@ -328,11 +336,7 @@ Section Tactics.
   Definition red_snd_ptrn : ptrn (expr typ func) (expr typ func) :=
     pmap (fun xy => snd (snd xy)) (ptrnSnd ignore (ptrnPair ignore ignore get)).
 
-  Local Instance ptrn_ok_red_snd_ptrn : ptrn_ok red_snd_ptrn.
-  Proof.
-    unfold red_snd_ptrn, ptrnSnd, ptrnPair.
-    solve_ok.
-  Defined.
+  Local Instance ptrn_ok_red_snd_ptrn : ltac:(PtrnOk red_snd_ptrn) := _.
 
   Definition red_snd : expr typ func -> expr typ func :=
     run_ptrn_id red_snd_ptrn.
@@ -344,16 +348,6 @@ Section Tactics.
                 (beta_all (fun _ e args => red_fst (apps e args)))).
 *)
 
-  Ltac ok :=
-      repeat first [ eapply ptrn_ok_app
-                   | eapply ptrn_ok_get
-                   | eapply ptrn_ok_ignore
-                   | eapply ptrn_ok_inj
-                   | eapply ptrn_view_ok
-                   | eapply fptrnFst_ok
-                   | eapply fptrnPair_ok
-                   ].
-
   Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
   Proof.
     unfold partial_reducer_ok; intros.
@@ -363,10 +357,10 @@ Section Tactics.
     eapply run_ptrn_id_sound; eauto with typeclass_instances.
     unfold red_fst_ptrn.
     intros.
-    solve_denotation.
+    repeat solve_denotation.
     unfold pairR, fstR.
     solve_denotation.
-    assumption.
+    eassumption.
   Qed.
 
   Lemma red_snd_ok : partial_reducer_ok (fun e args => red_snd (apps e args)).
@@ -378,7 +372,7 @@ Section Tactics.
     eapply run_ptrn_id_sound; eauto with typeclass_instances.
     unfold red_snd_ptrn.
     intros.
-    solve_denotation.
+    repeat solve_denotation.
     unfold pairR, sndR.
     solve_denotation.
     assumption.
