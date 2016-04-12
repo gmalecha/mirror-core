@@ -1,6 +1,6 @@
--Q coq-ext-lib/theories ExtLib
 -Q theories MirrorCore
 -Q examples McExamples
+-Q coq-ext-lib/theories ExtLib
 
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
@@ -8,12 +8,12 @@
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 
+theories/ExprI.v
 theories/CtxLogic.v
-theories/OpenT.v
-theories/Generic.v
 theories/TypesI.v
 theories/EnvI.v
-theories/ExprI.v
+theories/OpenT.v
+theories/Generic.v
 theories/SubstituteI.v
 theories/VariablesI.v
 theories/AbsAppI.v
@@ -23,22 +23,21 @@ theories/ExprSem.v
 theories/ExprDAs.v
 theories/SymI.v
 theories/SubstI.v
-theories/ProverI.v
-theories/EProverI.v
 theories/Instantiate.v
 theories/VarsToUVars.v
 theories/Lemma.v
 theories/LemmaApply.v
 theories/Simple.v
 
-theories/provers/ProverTac.v
-theories/provers/AssumptionProver.v
-theories/provers/DefaultProver.v
-
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
-theories/ModularTypes.v
+theories/MTypes/ModularTypes.v
+theories/MTypes/GenericTypes.v
+theories/MTypes/TSyms.v
+theories/MTypes/ProdType.v
+theories/MTypes/ListType.v
+theories/MTypes/BaseType.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v
@@ -52,7 +51,9 @@ theories/Util/Compat.v
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
 theories/syms/SymSum.v
+theories/syms/SymProd.v
 theories/syms/SymOneOf.v
+theories/syms/SymSimple.v
 
 theories/Lambda/ExprCore.v
 theories/Lambda/ExprDI.v
@@ -69,7 +70,6 @@ theories/Lambda/TypedFoldLazy.v
 theories/Lambda/TypedFoldApp.v
 theories/Lambda/FoldApp.v
 theories/Lambda/StrongFoldApp.v
-theories/Lambda/WtExpr.v
 theories/Lambda/Lemma.v
 theories/Lambda/ExprUnify_common.v
 theories/Lambda/ExprUnify_simple.v
@@ -83,9 +83,13 @@ theories/Lambda/AutoSetoidRewriteRtac.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
+theories/Lambda/Reify.v
 
-theories/Views/Ptrns.v
+theories/Views/View.v
+theories/Views/TypeView.v
 theories/Views/FuncView.v
+theories/Views/Ptrns.v
+theories/Views/Ptrns2.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
 theories/Views/ListView.v
@@ -126,18 +130,19 @@ theories/RTac/Minify.v
 theories/RTac/AtGoal.v
 theories/RTac/Reduce.v
 theories/RTac/Interface.v
+theories/RTac/Auto.v
 theories/RTac/RTac.v
-theories/RTac/InContext.v
 
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
 examples/Cancel/Monoid.v
-examples/Cancel/MonoidDemo.v
 examples/Cancel/MonoidSyntaxSimple.v
 examples/Cancel/MonoidSyntaxNoDec.v
 examples/Cancel/MonoidSyntaxWithConst.v
 examples/Cancel/MonoidSyntaxModular.v
+examples/Cancel/LtacDemo.v
+examples/Cancel/RtacDemo.v
 
 examples/Hoare/ILogic.v
 examples/Hoare/ILogicFunc.v
@@ -148,32 +153,12 @@ examples/Hoare/ImpSyntax.v
 examples/Hoare/Verify.v
 examples/Hoare/Tests.v
 
-examples/Monad/MonadTypes.v
-examples/Monad/MonadSym.v
-examples/Monad/MonadExpr.v
-examples/Monad/Tests.v
-examples/Monad/MonadReify.v
-examples/Monad/MonadReduce.v
-
-examples/Wp/Imp.v
-examples/Wp/Wp.v
-
 examples/Simple/Simple.v
 examples/Simple/SimpleReify.v
 examples/Simple/SimpleExt.v
 examples/Simple/FoldTest.v
 
-
-# examples/Cancel/MonoidLemmasSyntax.v
-# examples/Cancel/LtacDemo.v
-# examples/Cancel/CancelTac.v
-# examples/Cancel/RtacDemo.v
-# examples/Cancel/CancelTacNoMatch.v
-# examples/Cancel/RtacDemoNoMatch.v
-
 examples/Reify/ModularReify.v
-
-# examples/Auto/Demo.v
 
 examples/RTac/Demo.v
 

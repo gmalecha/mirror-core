@@ -4,6 +4,7 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.RTac.Core.
 
@@ -40,45 +41,33 @@ Section parameterized.
   Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
 
-  Variable check : forall {subst : Type} {S : Subst subst expr} {SU : SubstUpdate subst expr},
-                     Ctx typ expr -> expr -> expr -> subst -> option subst.
+  Variable exprUnify : forall subst, Subst subst expr -> SubstUpdate subst expr ->
+    unifier typ expr subst.
 
   Let SubstUpdate_ctx_subst ctx :=
     @SubstUpdate_ctx_subst typ _ _ _ ctx.
   Local Existing Instance SubstUpdate_ctx_subst.
 
   Definition EASSUMPTION : rtac typ expr :=
-    fun _ _ _ _ ctx s gl =>
-      match @findHyp (ctx_subst ctx)
-                     (fun e => @check _ _ _ ctx gl e s) ctx with
+    fun tus tvs _ _ ctx s gl =>
+      match findHyp
+              (fun e => @exprUnify _ _ _ tus tvs 0 gl e (typ0 (F:=Prop)) s) ctx
+      with
         | None => Fail
         | Some s' => Solved s'
       end.
 
-  Hypothesis checkOk
-  : forall ctx e1 e2 s s',
-      @check (ctx_subst ctx) _ _ ctx e1 e2 s = Some s' ->
-      WellFormed_subst s ->
-      let tus := getUVars ctx in
-      let tvs := getVars ctx in
-      WellFormed_subst s' /\
-      forall v1 v2 sD,
-        propD tus tvs e1 = Some v1 ->
-        propD tus tvs e2 = Some v2 ->
-        substD tus tvs s = Some sD ->
-        substR tus tvs s s' /\
-        exists sD',
-             substD tus tvs s' = Some sD'
-          /\ forall us vs,
-               sD' us vs ->
-               sD us vs /\
-               v1 us vs = v2 us vs.
+  Variable exprUnify_sound
+  : forall subst (S : Subst subst expr) (SO : SubstOk subst typ expr) SU
+           (SUO : SubstUpdateOk subst typ expr),
+      unify_sound (@exprUnify subst S SU).
 
   Lemma findHypOk
   : forall g (ctx ctx' : Ctx typ expr)
            (s s' : ctx_subst (Ctx_append ctx ctx')),
       findHyp (T:=ctx_subst (Ctx_append ctx ctx'))
-              (fun g' => @check _ _ _ (Ctx_append ctx ctx') g g' s)
+              (fun e => @exprUnify _ _ _ (getUVars (Ctx_append ctx ctx'))
+                                   (getVars (Ctx_append ctx ctx')) 0 g e (typ0 (F:=Prop)) s)
               ctx = Some s' ->
       getAmbient ctx' = getEnvs ctx ->
       WellFormed_subst s ->
@@ -108,35 +97,43 @@ Section parameterized.
       simpl in *.
       rewrite getAmbient_Ctx_append. simpl.
       symmetry. apply getEnvs_getUVars_getVars. }
-    { consider (check (Subst_ctx_subst (Ctx_append (CHyp ctx e) ctx'))
-          (SubstUpdate_ctx_subst (Ctx_append (CHyp ctx e) ctx'))
-          (Ctx_append (CHyp ctx e) ctx') g e s); intros.
+    { match goal with
+      | [ H: match ?X with _ => _ end = _ |- _ ] => destruct X eqn:?
+      end.
       { inv_all; subst.
         clear IHctx.
-        eapply checkOk in H; clear checkOk; eauto.
-        forward_reason; split; auto.
+        specialize (@exprUnify_sound _ _ _ _ _ _ _ _ _ _ _ _ nil Heqo).
+        destruct (@exprUnify_sound H1); clear exprUnify_sound.
+        split; auto.
         forward.
         destruct (pctxD_substD H1 H4) as [ ? [ ? ? ] ].
-        specialize (fun v2 H => @H3 _ v2 _ eq_refl H H5).
-        destruct (pctxD_get_hyp _ _ _ H1 H4) as [ ? [ ? ? ] ].
-        change (getUVars ctx) with (getUVars (CHyp ctx e)) in H7.
-        change (getVars ctx) with (getVars (CHyp ctx e)) in H7.
-        eapply propD_weaken_by_Ctx_append in H7; eauto.
+        destruct (@pctxD_get_hyp _ _ _ _ _ _ _ _ _ _ _ _ H1 H4); eauto.
         forward_reason.
-        eapply H3 in H7.
+        eapply propD_weaken_by_Ctx_append with (ctx := CHyp ctx e) in H7; eauto.
+        forward_reason.
+        simpl in *.
+        unfold propD, exprD_typ0 in *.
+        forward; inv_all. subst.
+        specialize (@H11 _ _ _ eq_refl eq_refl H5).
         forward_reason.
         destruct (substD_pctxD _ H H4 H10) as [ ? [ ? ? ] ].
-        rewrite H12. split; try eassumption.
-        intros. gather_facts.
-        eapply pctxD_SubstMorphism; [ eapply H7 | |  | ]; eauto.
+        rewrite H12.
+        split; [ assumption | ].
+        intros.
+        gather_facts.
+        eapply pctxD_SubstMorphism; [ eassumption | | | ]; eauto.
         gather_facts.
         eapply Pure_pctxD; eauto.
-        clear - H11 H9.
-        intros; eauto.
-        eapply H11 in H1.
-        destruct H1. rewrite H2; clear H2.
-        eapply H9. eauto. }
-      { specialize (@IHctx (Ctx_append (CHyp (CTop (getUVars ctx) (getVars ctx)) e) ctx')).
+        intros.
+        destruct (H11 _ _ H13); clear H11.
+        specialize (H15 Hnil); simpl in H15.
+        eapply H9 in H8.
+        revert H8. revert H15.
+        clear.
+        do 2 rewrite eq_exprT_eq.
+        intro. rewrite H15. clear. tauto. }
+      { specialize
+          (@IHctx (Ctx_append (CHyp (CTop (getUVars ctx) (getVars ctx)) e) ctx')).
         rewrite Ctx_append_assoc in IHctx. simpl in *.
         eapply IHctx; eauto.
         rewrite getAmbient_Ctx_append. simpl.
@@ -158,3 +155,5 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Hint Opaque EASSUMPTION : typeclass_instances.

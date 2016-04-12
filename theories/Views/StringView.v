@@ -64,13 +64,13 @@ End StringFuncInst.
 
 Section MakeString.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func stringFunc}.
+  Context {FV : PartialView func stringFunc}.
 
   Definition fString s := f_insert (pString s).
 
-  Definition mkString (s : string) := Inj (typ := typ) (fString s).
+  Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
-  Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
+  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T) : ptrn stringFunc T :=
     fun f U good bad =>
       match f with
       | pString s => p s U good (fun x => bad f)
@@ -116,7 +116,7 @@ End MakeString.
 
 Section PtrnString.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func stringFunc}.
+  Context {FV : PartialView func stringFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)

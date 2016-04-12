@@ -1,4 +1,5 @@
 Require Import ExtLib.Data.Positive.
+Require Import ExtLib.Data.PList.
 Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.SymI.
@@ -8,6 +9,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Printing Universes.
 
+(** TODO(gmalecha): This should use the maps in FMapPositive from ExtLib.
+ **)
 Module OneOfType.
 
   (** This universe will be created each time the functor is instantiated *)
@@ -206,6 +209,18 @@ Module OneOfType.
       intros. subst. reflexivity. }
   Qed.
 
+  Theorem asNth_eq
+    : forall ts p oe v,
+      @asNth ts p oe = Some v ->
+      oe = {| index := p ; value := v |}.
+  Proof.
+    unfold asNth.
+    destruct oe; simpl.
+    revert value0. revert index0. revert ts.
+    induction p; destruct index0; simpl; intros; 
+    try congruence; eapply IHp in H; inv_all; subst; reflexivity.
+  Defined.
+
   Theorem Into_OutOf : forall ts T p pf v e,
       @OutOf ts T p pf e = Some v ->
       @Into ts T p pf v = e.
@@ -232,6 +247,15 @@ Module OneOfType.
     generalize dependent (pmap_lookup' ts index0).
     intros; subst. reflexivity.
   Qed.
+
+  Universe UPmap.
+  Polymorphic Fixpoint list_to_pmap_aux (lst : plist@{UPmap} Type) (p : positive) : pmap :=
+    match lst with
+    | pnil => OneOfType.Empty
+    | pcons x xs => OneOfType.pmap_insert p (list_to_pmap_aux xs (p + 1)) x
+  end.
+
+  Definition list_to_pmap (lst : plist@{UPmap} Type) := list_to_pmap_aux lst 1.
 
 End OneOfType.
 

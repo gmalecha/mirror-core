@@ -1,9 +1,14 @@
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Tactics.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprUnify_simul.
 Require Import MirrorCore.Lambda.Red.
-Require MirrorCore.Subst.FMapSubst.
+Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.RTac.RTac.
+Require Import MirrorCore.RTac.Interface.
+Require Import MirrorCore.Lambda.Rtac.
+Require MirrorCore.Subst.FMapSubst.
 Require Import McExamples.Simple.Simple.
 
 Local Instance Expr_expr : Expr _ (expr typ func) := @Expr_expr _ _ _ _ _.
@@ -14,31 +19,146 @@ Local Instance Subst_subst : SubstI.Subst subst (expr typ func)
 Local Instance SubstUpdate_subst : SubstI.SubstUpdate subst (expr typ func)
   := @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
 
+Definition ptrn_all : ptrn func typ :=
+  fun x _T good bad =>
+    match x with
+    | All t => good t
+    | _ => bad x
+    end.
+Instance ptrn_ok_ptrn_all : ptrn_ok ptrn_all.
+Proof.
+  red. destruct x;
+         try solve [ right; compute; reflexivity
+                   | left; eexists; compute; reflexivity ].
+Qed.
 
-Definition open (e : expr typ func)
-: option (@OpenAs typ (expr typ func)) :=
-  match e with
-    | App (Inj (All t)) e =>
-      Some (AsAl t (fun x => beta (App e x)))
-    | App (App (Inj Impl) P) Q =>
-      Some (AsHy P Q)
-    | _ => None
-  end.
+Instance SucceedsE_ptrn_all f t : SucceedsE f ptrn_all t :=
+{ s_result := f = All t }.
+Proof.
+abstract (
+  destruct f;
+    try solve [ intro H ; exact (@H _ (fun x => All x) (fun x => x)) ]).
+Defined.
 
-Let INTRO : rtac typ (expr typ func) := @INTRO _ _ _ _ open.
+Definition ptrn_impl : ptrn func unit :=
+  fun x _T good bad =>
+    match x with
+    | Impl => good tt
+    | _ => bad x
+    end.
+Instance ptrn_ok_ptrn_impl : ptrn_ok ptrn_impl.
+Proof.
+  red. destruct x;
+         try solve [ right; compute; reflexivity
+                   | left; eexists; compute; reflexivity ].
+Qed.
 
-Let APPLY
-: Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
-  @APPLY typ (expr typ func) _ _ _ _
-         (fun _ _ _ => @exprUnify _ _ _ _ _ _ _ _ 10).
+Instance SucceedsE_ptrn_impl f t : SucceedsE f ptrn_impl t :=
+{ s_result := f = Impl }.
+Proof.
+abstract (
+  destruct f;
+    try solve [ intro H ; exact (@H _ (fun x => Impl) (fun x => x)) ]).
+Defined.
 
-Let EAPPLY
-: Lemma.lemma typ (expr typ func) (expr typ func) -> rtac typ (expr typ func) :=
-  @EAPPLY typ (expr typ func) _ _ _ _
-         (fun _ _ _ => @exprUnify _ _ _ _ _ _ _ _ 10).
+Definition open
+: Ptrns.ptrn (expr typ func) (SimpleOpen typ func) :=
+  por (pmap (fun xy => sAsAl (fst xy) (snd xy))
+            (app (inj ptrn_all) get))
+      (pmap (fun xy => let '((_,x),y) := xy in sAsHy x y)
+            (app (app (inj ptrn_impl) get) get)).
 
-Let ASSUMPTION : rtac typ (expr typ func) :=
-  EASSUMPTION (fun _ _ _ _ x y s => if x ?[ eq ] y then Some s else None).
+Instance ptrn_ok_open : ptrn_ok open.
+Proof.
+  repeat first [ eapply ptrn_ok_pmap
+               | eapply ptrn_ok_por
+               | eapply ptrn_ok_app
+               | eapply ptrn_ok_get
+               | eapply ptrn_ok_inj
+               | eapply ptrn_ok_ptrn_all
+               | eapply ptrn_ok_ptrn_impl ].
+Qed.
+
+Theorem open_sound : simple_open_ptrn_sound open.
+Proof.
+  unfold open.
+  do 2 red; intros.
+  eapply Succeeds_por in H; eauto with typeclass_instances; destruct H.
+  { eapply Succeeds_pmap in H; eauto with typeclass_instances.
+    forward_reason; subst.
+    eapply Succeeds_app in H; eauto with typeclass_instances.
+    forward_reason; subst.
+    eapply Succeeds_inj in H0; eauto with typeclass_instances.
+    eapply Succeeds_get in H1.
+    forward_reason; subst.
+    eapply SucceedsE_ptrn_all in H0. red in H0.
+    compute in H0.
+    subst. simpl.
+    unfold propD, exprD_typ0. simpl.
+    intros. destruct x. simpl in *.
+    erewrite ExprTac.lambda_exprD_AppL in H; eauto with typeclass_instances.
+    Focus 2.
+    instantiate (2 := tyArr t tyProp).
+    rewrite lambda_exprD_Inj; eauto with typeclass_instances.
+    unfold symAs; simpl.
+    destruct (typ_eq_dec t t); simpl.
+    compute.
+    rewrite (UIP_refl e0). reflexivity.
+    clear - n; congruence.
+    forward; inv_all; subst.
+    eexists; split; [ reflexivity | ].
+    compute in H1. subst.
+    intros. compute in H0. eauto. }
+  { eapply Succeeds_pmap in H.
+    forward_reason; subst.
+    eapply Succeeds_app in H; instantiate; eauto with typeclass_instances.
+    2: eauto with typeclass_instances.
+    forward_reason; subst.
+    eapply Succeeds_app in H0; eauto with typeclass_instances.
+    forward_reason; subst.
+    eapply Succeeds_get in H1; eauto with typeclass_instances.
+    eapply Succeeds_get in H2; eauto with typeclass_instances.
+    eapply Succeeds_inj in H0; eauto with typeclass_instances.
+    forward_reason; subst.
+    eapply SucceedsE_ptrn_impl in H0.
+    compute in H0. subst.
+    destruct x; simpl.
+    destruct p; simpl.
+    unfold propD, exprD_typ0. simpl.
+    intros.
+    forward; inv_all; subst.
+    destruct x2; try solve [ exfalso; clear - H; compute in H; inversion H ].
+    destruct x; try solve [ exfalso; clear - H; compute in H; inversion H ].
+    rewrite H2. rewrite H1.
+    do 2 eexists. split; eauto. split; eauto.
+    subst. compute.
+    compute in H. inv_all. subst.
+    eauto. }
+Qed.
+
+Definition INTRO : rtac typ (expr typ func) :=
+  @INTRO_ptrn _ _ (pmap SimpleOpen_to_OpenAs open).
+
+Lemma open_ptrn_sound_pmap_SimpleOpen_to_OpenAs : forall x,
+      ptrn_ok x ->
+  simple_open_ptrn_sound x ->
+  open_ptrn_sound (pmap SimpleOpen_to_OpenAs x).
+Proof.
+  intros. red; intros.
+  eapply Succeeds_pmap in H1.
+  forward_reason.
+  subst.
+  eapply SimpleOpen_to_OpenAs_sound; eauto.
+  eassumption.
+Qed.
+
+Theorem INTRO_sound : RtacSound INTRO.
+Proof.
+  eapply INTRO_ptrn_sound.
+  - eauto with typeclass_instances.
+  - eapply open_ptrn_sound_pmap_SimpleOpen_to_OpenAs;
+      eauto using open_sound with typeclass_instances.
+Qed.
 
 Definition fAll (t : typ) (P : expr typ func) : expr typ func :=
   App (Inj (All t)) (Abs t P).
@@ -49,10 +169,9 @@ Definition fImpl (P Q : expr typ func) : expr typ func :=
 Definition fAnd (P Q : expr typ func) : expr typ func :=
   App (App (Inj And) P) Q.
 
-
 Definition tac : rtac typ (expr typ func) :=
   THEN (REPEAT 10 INTRO)
-       (runOnGoals (TRY ASSUMPTION)).
+       (runOnGoals (TRY EASSUMPTION)).
 
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func))
            (goal : expr typ func)  :=
@@ -96,7 +215,7 @@ Eval compute in
     in
     runRTac_empty_goal (REPEAT 10 INTRO ;;
                         APPLY and_lem ;;
-                        to_rtacK (FIRST (ASSUMPTION :: IDTAC :: nil)))
+                        to_rtacK (FIRST (EASSUMPTION :: IDTAC :: nil)))
                        goal.
 
 
@@ -109,7 +228,7 @@ Eval compute in
     in
     runRTac_empty_goal (REPEAT 10 INTRO ;;
                         APPLY and_lem ;;
-                        to_rtacK (FIRST [ ASSUMPTION | IDTAC ]))
+                        to_rtacK (FIRST [ EASSUMPTION | IDTAC ]))
                        goal.
 
 Eval compute in

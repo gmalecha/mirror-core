@@ -204,4 +204,6 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque EAPPLY : typeclass_instances.
+
 Arguments EAPPLY {typ expr _ _ _ _} unify lem _ _ _ _ _ _ _ : rename.

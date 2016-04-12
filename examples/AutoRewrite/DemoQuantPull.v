@@ -38,17 +38,14 @@ Definition goal : expr typ func :=
   fAnd (fEx tyNat (fEq_nat (Var 0) (fN 3)))
        (fEx tyNat (fEq_nat (Var 0) (fN 7))).
 
-Theorem pull_ex_and_left (T: Type)
+Axiom pull_ex_and_left (T: Type)
 : forall (P : T -> Prop) (Q : Prop), ((exists n : T, P n) /\ Q) = (exists n, P n /\ Q).
-Admitted.
 
 Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
       lem_pull_ex_nat_and_left : @pull_ex_and_left nat.
-Print lem_pull_ex_nat_and_left.
 
-Theorem pull_ex_and_right (T : Type)
+Axiom pull_ex_and_right (T : Type)
 : forall P Q, (Q /\ (exists n : T, P n)) = (exists n, Q /\ P n).
-Admitted.
 
 Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
       lem_pull_ex_nat_and_right : @pull_ex_and_right nat.

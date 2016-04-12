@@ -1,17 +1,42 @@
 mirror-core
 ===========
 
-A framework for general, extensible, reflective decision procedures.
+MirrorCore is a library for extensible reflective automation. It includes two
+main components.
+
+- Lambda -- a simply typed lambda calculus to use as the reflective core
+  language
+- RTac -- a reflective tactic language modeled on Ltac.
+
+The system is described at a mathematical level in two works:
+
+- [Extensible Proof Engineering in Intensional Type Theory](https://gmalecha.github.io/publications/extensible-proof-engineering-in-intensional-type-theory.html) by Gregory Malecha (PhD Dissertation)
+- [Extensible and Efficient Automation through Reflective Tactics](http://gmalecha.github.io/publication/2016/01/01/extensible-and-efficient-automation-through-reflective-tactics/) by Gregory Malecha & Jesper Bengtson (ESOP'16)
 
 Bugs
 ----
 
-If you find a bug, please report it on github: [[https://github.com/gmalecha/mirror-core/issues]]
+If you find a bug, please report it on github: https://github.com/gmalecha/mirror-core/issues
+
+Install with OPAM
+-----------------
+Add the Coq repository:
+
+    opam repo add coq-released https://coq.inria.fr/opam/released
+
+and run:
+
+    opam install coq-mirror-core
+
+To get the beta versions of Coq, activate the repository:
+
+    opam repo add coq-core-dev https://coq.inria.fr/opam/core-dev
+
 
 Quick Start
 -----------
 
-This version of MirrorCore builds on Coq 8.5 (currently in beta).
+This version of MirrorCore builds on Coq 8.5.
 
 (In the following commands 'mirror-core' refers to the root directory
 of mirror-core)
@@ -39,8 +64,8 @@ Dependencies
 
 MirrorCore depends on two external libraries.
 
-- coq-ext-lib (https://github.com/coq-ext-lib/coq-ext-lib)
-- coq-plugin-utils (https://github.com/gmalecha/coq-plugin-utils) (to build the plugins)
+- [coq-ext-lib](https://github.com/coq-ext-lib/coq-ext-lib)
+- [coq-plugin-utils](https://github.com/gmalecha/coq-plugin-utils) (to build the plugins)
 
 coq-pluging-utils needs to be installed, you should follow the
 directions in the README.md in that repository.

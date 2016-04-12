@@ -21,6 +21,8 @@ Inductive ap_func (typ : Type) :=
 | pPure (_ : typ)
 | pAp (_ _ : typ).
 
+Arguments ap_func _ : clear implicits.
+
 Section ApplicativeFuncInst.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
@@ -90,7 +92,7 @@ End ApplicativeFuncInst.
 
 Section MakeApplicative.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func (ap_func typ)}.
+  Context {FV : PartialView func (ap_func typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
@@ -110,15 +112,15 @@ Section MakeApplicative.
   Definition fptrnPure {T : Type} (p : Ptrns.ptrn typ T) : ptrn (ap_func typ) T :=
     fun f U good bad =>
       match f with
-        | pPure t => p t U good (fun _ => bad (pPure t))
-        | pAp t u => bad (pAp t u)
+      | pPure t => p t U good (fun _ => bad (pPure t))
+      | pAp t u => bad (pAp t u)
       end.
 
   Definition fptrnAp {T : Type} (p : Ptrns.ptrn (typ * typ) T) : ptrn (ap_func typ) T :=
     fun f U good bad =>
       match f with
-        | pPure t => bad (pPure t)
-        | pAp t u => p (t, u) U good (fun _ => bad (pAp t u))
+      | pPure t => bad (pPure t)
+      | pAp t u => p (t, u) U good (fun _ => bad (pAp t u))
       end.
 
   Global Instance fptrnPure_ok {T : Type} {p : ptrn typ T} {Hok : ptrn_ok p} :
@@ -182,10 +184,10 @@ Section MakeApplicative.
 
   Global Instance fptrnAp_SucceedsE {T : Type} {f : ap_func typ}
          {p : ptrn (typ * typ) T} {res : T} {pok : ptrn_ok p} :
-    SucceedsE f (fptrnAp p) res := {
-      s_result := exists t u, Succeeds (t, u) p res /\ f = pAp t u;
-      s_elim := @Succeeds_fptrnAp T f p res pok
-    }.
+    SucceedsE f (fptrnAp p) res :=
+  { s_result := exists t u, Succeeds (t, u) p res /\ f = pAp t u
+  ; s_elim := @Succeeds_fptrnAp T f p res pok
+  }.
 
   Definition applicative_ptrn_cases {T : Type}
              (do_pure : typ  -> expr typ func -> T)
@@ -199,21 +201,21 @@ Section MakeApplicative.
 Definition applicative_cases {T : Type}
            (do_pure : typ  -> expr typ func -> T)
            (do_ap : typ -> typ -> expr typ func -> expr typ func -> T)
-           (do_default : T) : Ptrns.tptrn (expr typ func) T :=
-  pdefault (applicative_ptrn_cases do_pure do_ap)
-           do_default.
+  : Ptrns.ptrn (expr typ func) T :=
+  applicative_ptrn_cases do_pure do_ap.
 
 End MakeApplicative.
 
 Section PtrnString.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func (ap_func typ)}.
+  Context {FV : PartialView func (ap_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkAp typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnPure {T A : Type}
-             (p : ptrn typ T)  (a : ptrn (expr typ func) A) : ptrn (expr typ func) (T * A):=
+             (p : ptrn typ T)  (a : ptrn (expr typ func) A)
+  : ptrn (expr typ func) (T * A):=
     app (inj (ptrn_view _ (fptrnPure p))) a.
 
   Definition ptrnAp {A B T : Type}
@@ -221,6 +223,5 @@ Section PtrnString.
              (a : ptrn (expr typ func) A)
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnAp p))) a) b.
-
 
 End PtrnString.

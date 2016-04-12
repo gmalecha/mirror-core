@@ -40,4 +40,6 @@ Section parameterized.
 
 End parameterized.
 
+Hint Opaque IDTACK : typeclass_instances.
+
 Arguments IDTACK {typ expr} _ _ _ _ {_} _ _ : rename.

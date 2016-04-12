@@ -1,6 +1,8 @@
 *.vo
 *.glob
 *.v.d
+_CoqPath
+_CoqProject
 Makefile.coq
 Makefile.test.coq
 Makefile.paths
@@ -23,3 +25,4 @@ coq-ext-lib
 .*.aux
 .merlin
 *.vio
+universes.txt

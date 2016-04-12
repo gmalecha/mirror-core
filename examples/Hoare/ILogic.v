@@ -213,15 +213,9 @@ Section fun_embed.
   Context {U} {ILOU : ILogicOps U} {ILU : ILogic U}.
   Context {EOTU : EmbedOp T U} {ETU : Embed T U}.
 
-  Lemma embed_drop : forall (P : U) (Q : T),
+  Axiom embed_drop : forall (P : U) (Q : T),
       |-- Q ->
       P |-- embed Q.
-  Proof.
-    intros.
-    transitivity (@embed _ _ EOTU ltrue).
-    - admit.
-    - eapply embed_sound. assumption.
-  Admitted.
 
   Global Instance EmbedOp_Fun {V} : EmbedOp T (V -> U) :=
   { embed P := fun _ => embed P }.

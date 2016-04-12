@@ -64,7 +64,7 @@ End BoolFuncInst.
 
 Section MakeBool.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func boolFunc}.
+  Context {FV : PartialView func boolFunc}.
 
   Definition fBool b := f_insert (pBool b).
 
@@ -112,12 +112,12 @@ End MakeBool.
 
 Section PtrnBool.
   Context {typ func : Type} {RType_typ : RType typ}.
-  Context {FV : FuncView func boolFunc}.
+  Context {FV : PartialView func boolFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkBool typ func' in JavaFunc (with typ and func instantiated) *)
 
   Definition ptrnBool {T : Type} (p : ptrn bool T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnBool p)).
+    inj (ptrn_view FV (fptrnBool p)).
 
 End PtrnBool.

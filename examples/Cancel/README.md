@@ -50,3 +50,23 @@ several choices.
 
 - MonoidSyntaxModular.v uses MirrorCore.ModularTypes to define the
   type language.
+
+Benchmarking
+------------
+
+You can run the Ltac vs. Rtac benchmark by cd'ing into the bench directory
+and running
+
+    ./run_bench.sh
+
+This will output the tactic execution time and the Qed time (on alternating
+lines of the files ltac.raw and rtac.raw. The format of these files is:
+
+    <tactic times, space separated, size 1>
+    <qed times, space separated, size 1>
+    <tactic times, space separated, size 2>
+    ....etc...
+
+Note that the default sizes are 3, 5, 10, 20, 50, 75, and 100. They can
+be in the run_bench.sh file. Each configuration is run 25 times (also
+configurable in the run_bench.sh file).

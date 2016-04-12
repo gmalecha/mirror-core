@@ -161,10 +161,7 @@ Section canceller.
     in
     match P with
       | App (App _ A) B =>
-        FIRST [ iter_left k A
-              | (* TODO(gmalecha): What is the purpose of this line? *)
-                FAIL ;; ON_ALL (THEN (EAPPLY lem_plus_comm_p) (delay (ON_ALL (iter_left k B))))
-              ]
+        iter_left k A
       | _ => FAIL
     end.
 

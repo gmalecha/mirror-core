@@ -17,7 +17,9 @@ init:
 	@ ./tools/setup.sh -b $(EXTBRANCH)
 	@ (cd coq-ext-lib; $(MAKE))
 
-universes: coq
+universes: universes.txt
+
+universes.txt: coq tests/universes.v
 	coqc `grep '\-Q' _CoqProject` `grep '\-I' _CoqProject` tests/universes
 
 check-imports:
@@ -35,3 +37,17 @@ todo:
 
 admit:
 	git grep -i admit
+
+_CoqProject: _CoqPath _CoqConfig Makefile
+	@ echo "# Generating _CoqProject"
+	@ rm -f _CoqProject
+ifneq ("$(wildcard _CoqPath)","")
+	@ echo "# including: _CoqPath"
+	@ cp _CoqPath _CoqProject
+	@ echo >> _CoqProject
+endif
+	@ echo "# including: _CoqConfig"
+	@ cat _CoqConfig >> _CoqProject
+
+_CoqPath:
+	@ echo > /dev/null

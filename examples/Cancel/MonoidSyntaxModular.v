@@ -4,7 +4,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require MirrorCore.syms.SymEnv.
 Require MirrorCore.syms.SymSum.
-Require Import MirrorCore.ModularTypes.
+Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Simple.
@@ -54,11 +54,15 @@ Module Syntax (M : Monoid).
     | tyM => M.M
     end.
 
+  Instance TSym_typ' : TSym typ' :=
+  { symbolD := @typ'D
+  ; symbol_dec := @typ'_dec }.
+
   Definition typ := mtyp typ'.
 
   (* Instantiate the RType interface *)
-  Instance RType_typ : RType typ := RType_mtyp typ' (@typ'D) (@typ'_dec).
-  Instance RTypeOk_typ : RTypeOk := @RTypeOk_mtyp typ' (@typ'D) (@typ'_dec).
+  Instance RType_typ : RType typ := RType_mtyp typ' _.
+  Instance RTypeOk_typ : RTypeOk := @RTypeOk_mtyp typ' _.
 
   (* Build instances for describing functions and Prop *)
   Instance Typ2_tyArr : Typ2 RType_typ Fun := Typ2_Fun.
@@ -75,7 +79,9 @@ Module Syntax (M : Monoid).
   | mU | mP | mR.
 
   Definition func'_eq_dec : forall a b : func', {a = b} + {a <> b}.
-  Proof. decide equality; eauto using mtyp_dec, typ'_dec. Defined.
+  Proof.
+    decide equality; eauto using mtyp_dec, typ'_dec with typeclass_instances.
+  Defined.
 
   Arguments tyArr {_} _ _.
   Arguments tyBase0 {_} _.

@@ -1,8 +1,13 @@
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.SigT.
+Require Import ExtLib.Data.POption.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.TypesI.
 Require Import ExtLib.Data.Eq.
+Require Import ExtLib.Core.RelDec.
+
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.Views.TypeView.
 
 Universes Usmall Ularge.
 
@@ -25,6 +30,20 @@ Section parametric.
 
   Variable symbol : nat -> Type.
 
+  Class TSym : Type :=
+  { symbolD : forall {n}, symbol n -> type_for_arity n
+(*  ; symbol_eq : forall {n} (a b : symbol n), option (a = b) *)
+  ; symbol_dec : forall {n} (a b : symbol n), {a = b} + {a <> b}
+(*
+  ; symbol_eq_total : forall n a b,
+      @symbol_eq n a b = match @symbol_dec n a b with
+                         | left x => Some x
+                         | right _ => None
+                         end
+*)
+  }.
+
+(*
   Variable symbolD : forall {n}, symbol n -> type_for_arity n.
 
   Variable symbol_eq : forall {n} (a b : symbol n), option (a = b).
@@ -38,6 +57,8 @@ Section parametric.
   Arguments symbolD {_} _.
   Arguments symbol_dec {_} _ _.
   Arguments symbol_eq {_} _ _.
+*)
+  Variable ts : TSym.
 
   Unset Elimination Schemes.
 
@@ -233,6 +254,14 @@ Section parametric.
   subst. reflexivity.
   Defined.
 
+  Instance RelDec_eq_mtyp : RelDec (@eq mtyp) :=
+  { rel_dec := fun a b => if mtyp_dec a b then true else false }.
+  Instance RelDec_Correct_eq_mtyp : RelDec_Correct RelDec_eq_mtyp.
+  Proof. constructor. unfold rel_dec. simpl.
+         intros. destruct (mtyp_dec x y); try tauto.
+         split; intros; congruence.
+  Defined.
+
   Inductive mtyp_acc (a : mtyp) : mtyp -> Prop :=
   | tyAcc_tyArrL   : forall b, mtyp_acc a (tyArr a b)
   | tyAcc_tyArrR   : forall b, mtyp_acc a (tyArr b a)
@@ -252,6 +281,16 @@ Section parametric.
   { typD := mtypD
   ; type_cast := mtyp_cast
   ; tyAcc := mtyp_acc }.
+
+  Instance RelDec_mtyp : RelDec (@eq mtyp) := {
+    rel_dec a b := if (mtyp_dec a b) then true else false
+  }.
+
+  Instance RelDec_Correct_mtyp : RelDec_Correct RelDec_mtyp.
+  Proof.
+    split; intros; unfold rel_dec; simpl.
+    destruct (mtyp_dec x y); [subst|]; intuition congruence.
+  Qed.
 
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.
@@ -411,6 +450,39 @@ Section parametric.
     { destruct pf. reflexivity. }
   Qed.
 
+  Global Instance TypeView_sym0
+  : PartialView mtyp (symbol 0) :=
+  { f_insert := tyBase0;
+    f_view :=
+     fun x =>
+       match x with
+       | tyBase0 s => pSome s
+       | _ => pNone
+       end
+  }.
+
+  Global Instance TypeView_sym1
+  : PartialView mtyp (symbol 1 * mtyp) :=
+  { f_insert := fun p => tyBase1 (fst p) (snd p);
+    f_view :=
+     fun x =>
+       match x with
+       | tyBase1 s t => pSome (s, t)
+       | _ => pNone
+       end
+  }.
+
+  Global Instance TypeView_sym2
+  : PartialView mtyp ((symbol 2) * mtyp * mtyp) :=
+  { f_insert := fun p => tyBase2 (fst (fst p)) (snd (fst p)) (snd p);
+    f_view :=
+     fun x =>
+       match x with
+       | tyBase2 s t u => pSome (s, t, u)
+       | _ => pNone
+       end
+  }.
+
 End parametric.
 
 Arguments tyBase0 {_} _.
@@ -418,11 +490,15 @@ Arguments tyBase1 {_} _ _.
 Arguments tyBase2 {_} _ _ _.
 Arguments tyApp {_ _} _ _.
 
-Arguments Typ0_sym {_ _ _} _.
-Arguments Typ1_sym {_ _ _} _.
-Arguments Typ2_sym {_ _ _} _.
-Arguments Typ2_Fun {_ _ _}.
-Arguments Typ0Ok_sym {_ _ _} _.
-Arguments Typ1Ok_sym {_ _ _} _.
-Arguments Typ2Ok_sym {_ _ _} _.
-Arguments Typ2Ok_Fun {_ _ _}.
+Arguments Typ0_sym {_ _} _.
+Arguments Typ1_sym {_ _} _.
+Arguments Typ2_sym {_ _} _.
+Arguments Typ2_Fun {_ _}.
+Arguments Typ0Ok_sym {_ _} _.
+Arguments Typ1Ok_sym {_ _} _.
+Arguments Typ2Ok_sym {_ _} _.
+Arguments Typ2Ok_Fun {_ _}.
+
+Arguments TypeView_sym0 {_}.
+Arguments TypeView_sym1 {_}.
+Arguments TypeView_sym2 {_}.

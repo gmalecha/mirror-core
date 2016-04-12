@@ -219,15 +219,14 @@ Proof.
 Qed.
 
 Definition simple_reduce (e : expr typ func) : expr typ func :=
-  run_tptrn
-    (pdefault_id
-       (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
-                          App a (Abs c (App (App b d) e)))
-             (app get (abs get (fun t =>
-                                  app (app get
-                                           (pmap (fun x => (t,Red.beta x)) get))
-                                      (pmap Red.beta get))))))
-    e.
+  run_ptrn
+    (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
+                       App a (Abs c (App (App b d) e)))
+          (app get (abs get (fun t =>
+                               app (app get
+                                        (pmap (fun x => (t,Red.beta x)) get))
+                                   (pmap Red.beta get)))))
+    e e.
 
 Definition the_rewrites
            (lems : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)))
@@ -254,20 +253,17 @@ Lemma simple_reduce_sound :
 Proof.
   unfold simple_reduce.
   intros.
-  unfold run_tptrn, pdefault_id.
-  eapply pdefault_sound.
+  revert H.
+  eapply Ptrns.run_ptrn_sound. 
   { repeat first [ simple eapply ptrn_ok_pmap
                  | simple eapply ptrn_ok_app
                  | simple eapply ptrn_ok_abs; intros
                  | simple eapply ptrn_ok_get
                  ]. }
   { do 3 red. intros; subst.
-    erewrite H1.
-    reflexivity.
     reflexivity. }
   { intros. ptrnE.
-    unfold ptret.
-    eapply lambda_exprD_Abs_prem in H0; forward_reason; subst.
+    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
     generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
@@ -284,7 +280,7 @@ Proof.
     intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
     f_equal. apply FunctionalExtensionality.functional_extensionality.
     intros. rewrite H5. rewrite H6. reflexivity. }
-  { unfold ptret. eauto. }
+  { eauto. }
 Qed.
 
 Theorem the_rewrites_sound

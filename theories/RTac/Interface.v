@@ -24,7 +24,7 @@ Section parameterized.
   Definition runRtac (tus tvs : tenv typ) (goal : expr) (tac : rtac typ expr) :=
     tac tus tvs (length tus) (length tvs) _ (TopSubst _ tus tvs) goal.
 
-  Definition propD us vs g : Prop :=
+  Definition env_propD us vs g : Prop :=
     let (tus,us) := split_env us in
     let (tvs,vs) := split_env vs in
     match exprD_typ0 tus tvs g return Prop with
@@ -39,12 +39,12 @@ Section parameterized.
   Lemma rtac_Solved_closed_soundness
   : forall us vs g,
       runRtac (typeof_env us) (typeof_env vs) g tac = Solved (@TopSubst _ _ _ _) ->
-      propD us vs g.
+      env_propD us vs g.
   Proof.
     intros.
     eapply tac_sound in H.
     simpl in H.
-    unfold propD, Ctx.propD in *.
+    unfold env_propD, Ctx.propD in *.
     rewrite (sigT_eta (split_env us)).
     rewrite (sigT_eta (split_env vs)).
     generalize dependent (projT2 (split_env us)).

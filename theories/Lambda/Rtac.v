@@ -101,38 +101,16 @@ Section tactics.
 
   (* Assumption Tactics *)
   Definition EASSUMPTION : rtac typ (expr typ func) :=
-    @EASSUMPTION typ (expr typ func) _ _
-       (fun subst S_subst SU ctx e1 e2 s =>
-          @exprUnify subst typ func _ _ _ S_subst SU 30
-                     (getUVars ctx) (getVars ctx) 0 e1 e2 (typ0 (F:=Prop)) s).
+    @EASSUMPTION typ (expr typ func) _ _ _
+       (fun subst S_subst SU => @exprUnify subst typ func _ _ _ S_subst SU 30).
 
   Global Instance RtacSound_EASSUMPTION : RtacSound EASSUMPTION.
   Proof.
-    eapply Assumption.ASSUMPTION_sound.
+    eapply Assumption.ASSUMPTION_sound; eauto.
     generalize 30.
     intros.
-    destruct (@exprUnify_sound (ctx_subst ctx) typ func _ _ _ _ _ _ _ _ _ _ n
-               _ _ _ _ _ _ _ nil H H0).
-    split; auto.
-    simpl in *.
-    intros.
-    unfold Ctx.propD, exprD_typ0 in *.
-    forwardy. inv_all; subst.
-    unfold exprD, tus, tvs in *. simpl in *.
-    destruct (@H2 _ _ sD H3 H4 H5); clear H2.
-    forward_reason.
-    split; eauto.
-    eexists; split; eauto.
-    intros.
-    specialize (H7 _ _ H8).
-    destruct H7.
-    split; auto.
-    specialize (H9 HList.Hnil); simpl in H9.
-    clear - H9.
-    generalize (typ0_cast (F:=Prop)).
-    generalize dependent (typD (typ0 (F:=Prop))).
-    intros; subst. assumption.
-  Defined.
+    eapply exprUnify_sound; eauto.
+  Qed.
 
   Section fr_to_r.
     Variable fr : full_reducer typ func.
@@ -239,8 +217,7 @@ Section tactics.
 
   Definition INTRO_ptrn (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
   : rtac typ (expr typ func) :=
-    INTRO (fun e =>
-             run_tptrn (pdefault (pmap Some p) None) e).
+    INTRO (run_ptrn (pmap Some p) None).
 
   Inductive SimpleOpen : Type :=
   | sAsEx (t : typ) (l : expr typ func)
@@ -303,60 +280,56 @@ Section tactics.
 
   Definition INSTANTIATE : rtac typ (expr typ func) := INSTANTIATE.
 
-  Instance RtacSound_INSTANTIATE : RtacSound INSTANTIATE.
+  Global Instance RtacSound_INSTANTIATE : RtacSound INSTANTIATE.
   Proof. eapply mkRtacSound.
          eapply INSTANTIATE_sound.
   Qed.
 
-  (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD_AppL : forall tus tvs tx ty f x fD,
-      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
-      lambda_exprD tus tvs ty (App f x) =
-      match exprD tus tvs tx x with
-      | None => None
-      | Some xD => Some (AbsAppI.exprT_App fD xD)
-      end.
-  Proof.
-    simpl; intros.
-    rewrite lambda_exprD_App.
-    destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs tx x) eqn:?.
-    { erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
-      rewrite H. rewrite Heqo. reflexivity. }
-    { destruct (typeof_expr tus tvs x) eqn:?; auto.
-      destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 t ty) f) eqn:?; auto.
-      assert (t = tx).
-      { destruct (ExprFacts.lambda_exprD_single_type H Heqo1).
-        clear H0. eapply typ2_inj in x0; eauto.
-        destruct x0. symmetry. apply H0. }
-      { subst. rewrite Heqo. reflexivity. } }
-  Qed.
+  (* Lemma exprD_AppL : forall tus tvs tx ty f x fD, *)
+  (*     lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD -> *)
+  (*     lambda_exprD tus tvs ty (App f x) = *)
+  (*     match exprD tus tvs tx x with *)
+  (*     | None => None *)
+  (*     | Some xD => Some (AbsAppI.exprT_App fD xD) *)
+  (*     end. *)
+  (* Proof. *)
+  (*   simpl; intros. *)
+  (*   rewrite lambda_exprD_App. *)
+  (*   destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs tx x) eqn:?. *)
+  (*   { erewrite ExprTac.lambda_exprD_typeof_Some by eassumption. *)
+  (*     rewrite H. rewrite Heqo. reflexivity. } *)
+  (*   { destruct (typeof_expr tus tvs x) eqn:?; auto. *)
+  (*     destruct (ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 t ty) f) eqn:?; auto. *)
+  (*     assert (t = tx). *)
+  (*     { destruct (ExprFacts.lambda_exprD_single_type H Heqo1). *)
+  (*       clear H0. eapply typ2_inj in x0; eauto. *)
+  (*       destruct x0. symmetry. apply H0. } *)
+  (*     { subst. rewrite Heqo. reflexivity. } } *)
+  (* Qed. *)
 
-  (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD_AppR : forall tus tvs tx ty f x xD,
-      lambda_exprD tus tvs tx x = Some xD ->
-      lambda_exprD tus tvs ty (App f x) =
-      match lambda_exprD tus tvs (typ2 tx ty) f with
-      | None => None
-      | Some fD => Some (AbsAppI.exprT_App fD xD)
-      end.
-  Proof.
-    simpl; intros.
-    rewrite lambda_exprD_App.
-    erewrite ExprTac.lambda_exprD_typeof_Some by eassumption.
-    rewrite H.
-    reflexivity.
-  Qed.
+  (* Lemma exprD_AppR : forall tus tvs tx ty f x xD, *)
+  (*     lambda_exprD tus tvs tx x = Some xD -> *)
+  (*     lambda_exprD tus tvs ty (App f x) = *)
+  (*     match lambda_exprD tus tvs (typ2 tx ty) f with *)
+  (*     | None => None *)
+  (*     | Some fD => Some (AbsAppI.exprT_App fD xD) *)
+  (*     end. *)
+  (* Proof. *)
+  (*   simpl; intros. *)
+  (*   rewrite lambda_exprD_App. *)
+  (*   erewrite ExprTac.lambda_exprD_typeof_Some by eassumption. *)
+  (*   rewrite H. *)
+  (*   reflexivity. *)
+  (* Qed. *)
 
-  (** TODO(gmalecha): These exist elsewhere. *)
-  Lemma exprD_App_both_cases : forall tus tvs tx ty f x fD xD,
-      lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD ->
-      lambda_exprD tus tvs tx x = Some xD ->
-      lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD).
-  Proof.
-    intros. erewrite exprD_AppR by eassumption.
-    rewrite H. reflexivity.
-  Qed.
-
+  (* Lemma exprD_App_both_cases : forall tus tvs tx ty f x fD xD, *)
+  (*     lambda_exprD tus tvs (typ2 (F:=RFun) tx ty) f = Some fD -> *)
+  (*     lambda_exprD tus tvs tx x = Some xD -> *)
+  (*     lambda_exprD tus tvs ty (App f x) = Some (AbsAppI.exprT_App fD xD). *)
+  (* Proof. *)
+  (*   intros. erewrite exprD_AppR by eassumption. *)
+  (*   rewrite H. reflexivity. *)
+  (* Qed. *)
 
   Theorem SimpleOpen_to_OpenAs_sound : forall tus tvs e ot,
       simple_open_spec tus tvs e ot ->
@@ -434,24 +407,23 @@ Section tactics.
     apply INTRO_sound.
     red. intros.
     revert H1.
-    unfold run_tptrn.
-    eapply pdefault_sound.
+    eapply run_ptrn_sound.
     - eapply ptrn_ok_pmap. eassumption.
     - red. red. red. intros.
-      subst. do 2 red in H2.
-      eapply Data.Prop.impl_iff.
-      + erewrite H2. reflexivity.
-        reflexivity.
-      + reflexivity.
+      subst. tauto.
     - intros.
       eapply Succeeds_pmap in H1; eauto.
       destruct H1 as [ ? [ ? ? ] ]; subst.
-      unfold ptret in H2.
       inv_all; subst.
       red in H0.
       specialize (H0 tus tvs _ _ H1).
       eauto.
-    - unfold ptret. inversion 1.
+    - inversion 1.
   Qed.
 
 End tactics.
+
+Hint Opaque  EAPPLY EAPPLY_m APPLY APPLY_m APPLY_depth EAPPLY_depth EASSUMPTION INTRO SIMPL : typeclass_instances.
+Typeclasses Opaque EAPPLY EAPPLY_m APPLY APPLY_m APPLY_depth EAPPLY_depth EASSUMPTION INTRO SIMPL.
+
+Arguments SimpleOpen _ _ : clear implicits.

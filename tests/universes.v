@@ -13,15 +13,10 @@ Require Import MirrorCore.ExprSem.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.SubstI.
-Require Import MirrorCore.ProverI.
-Require Import MirrorCore.EProverI.
 Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.VarsToUVars.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.LemmaApply.
-Require Import MirrorCore.provers.ProverTac.
-Require Import MirrorCore.provers.AssumptionProver.
-Require Import MirrorCore.provers.DefaultProver.
 Require Import MirrorCore.Subst.UVarMap.
 Require Import MirrorCore.Subst.FMapSubst.
 
@@ -65,6 +60,7 @@ Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
+
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Ptrns.
 
@@ -110,8 +106,10 @@ Require Import MirrorCore.RTac.Minify.
 Require Import MirrorCore.RTac.AtGoal.
 Require Import MirrorCore.RTac.Reduce.
 Require Import MirrorCore.RTac.Interface.
+Require Import MirrorCore.RTac.Auto.
 Require Import MirrorCore.RTac.RTac.
-Require Import MirrorCore.RTac.InContext.
 
 Require Import MirrorCore.Reify.Patterns.
 Require Import MirrorCore.Reify.Reify.
+
+Print Sorted Universes "universes.txt".

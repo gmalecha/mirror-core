@@ -37,16 +37,6 @@ Section OpenT.
     Context {T : Type}.
     Variable R : relation T.
 
-    (** TODO: Move to Data.HList **)
-    Theorem Symmetric_equiv_hlist
-    : (forall t, Symmetric (@Rd t)) ->
-      forall ls, Symmetric (@equiv_hlist _ _ Rd ls).
-    Proof.
-      compute.
-      induction 2. constructor. constructor. apply H; auto. auto.
-    Qed.
-
-
     Definition OpenTrel : relation (OpenT T) :=
       fun a b => forall x y, equiv_hlist Rd x y -> R (a x) (b y).
 

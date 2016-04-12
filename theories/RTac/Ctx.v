@@ -107,7 +107,7 @@ Section parameterized.
     match ctx with
       | CTop tus' tvs' => (tus' ++ tus, tvs' ++ tvs)
       | CAll ctx' t => getEnvs' ctx' tus (t :: tvs)
-      | CExs ctx' ts => getEnvs' ctx' (ts ++ tus) tvs (** TODO: Check **)
+      | CExs ctx' ts => getEnvs' ctx' (ts ++ tus) tvs
       | CHyp ctx' _ => getEnvs' ctx' tus tvs
     end.
 
@@ -302,7 +302,7 @@ Section parameterized.
              end).
   Defined.
 
-(* TODO: These are redundant *)
+  (* TODO: These are redundant *)
   Lemma eta_ctx_subst_exs c ts (s : ctx_subst (CExs c ts))
   : exists y z, s = ExsSubst z y.
   Proof using.
