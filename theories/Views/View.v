@@ -150,21 +150,16 @@ Proof.
     econstructor; [ eapply pv_compat0 | eapply pv_compat1 ]. }
 Qed.
 
-(** TODO(gmalecha): Unnecessary
-Section FuncViewProd.
-  Context {A B C D typ : Type}.
-  Context {RType_typ : RType typ}.
-  Context {RTypeOk_typ : RTypeOk}.
-  Context {RSA : RSym A} {RSB : RSym B} {RSC : RSym C} {RSD : RSym D}.
-  Context {FVab : FuncView A B}.
-  Context {FVcd : FuncView C D}.
-  Context {FVabOk : @FuncViewOk _ _ FVab typ _ _ _}.
-  Context {FVcdOk : @FuncViewOk _ _ FVcd typ _ _ _}.
+Section PartialViewProd.
+  Polymorphic Context {A B C D : Type}.
+  Polymorphic Context {FVab : PartialView A B}.
+  Polymorphic Context {FVcd : PartialView C D}.
+  Polymorphic Context {Rab : A -> B -> Prop} {Rcd : C -> D -> Prop}.
+  Polymorphic Context {FVabOk : @PartialViewOk _ _ FVab Rab}.
+  Polymorphic Context {FVcdOk : @PartialViewOk _ _ FVcd Rcd}.
 
-  Context {Typ2Prod : Typ2 _ prod}.
-
-  Global Instance FuncView_prod : FuncView (A * C) (B * D) := {
-    f_insert := fun p => (f_insert (fst p), f_insert (snd p));
+  Global Polymorphic Instance FuncView_prod : PartialView (A * C) (B * D) :=
+  { f_insert := fun p => (f_insert (fst p), f_insert (snd p));
     f_view :=
       fun p =>
         match f_view (fst p), f_view (snd p) with
@@ -173,41 +168,28 @@ Section FuncViewProd.
         end
   }.
 
-  Theorem FuncView_prodOk
-  : @FuncViewOk _ _ FuncView_prod typ RType_typ _ _.
+  (** TODO(gmalecha): Move this to ExtLib.Data.Prod **)
+  Inductive Rpair (x : A * C) (y : B * D) : Prop :=
+  | Rpair_pair : Rab (fst x) (fst y) ->
+                 Rcd (snd x) (snd y) -> Rpair x y.
+
+  Polymorphic Theorem PartialView_prodOk
+  : @PartialViewOk _ _ FuncView_prod Rpair.
   Proof.
     constructor.
     { intros; destruct f, a; simpl in *; split; intros.
       { destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
-        remember (f_view a0) as o1; remember (f_view c) as o2.
-        destruct o1, o2; try congruence. inversion H; subst.
-        f_equal; [apply fv_ok0; rewrite Heqo1 | apply fv_ok1; rewrite Heqo2]; reflexivity. }
-      { inversion H; subst.
-        destruct FVabOk as [? _]; destruct FVcdOk as [? _]; simpl in *.
-        specialize (fv_ok0 (f_insert b) b).
-        destruct fv_ok0 as [_ ?]. specialize (H0 eq_refl). rewrite H0.
-        specialize (fv_ok1 (f_insert d) d).
-        destruct fv_ok1 as [_ ?]. specialize (H1 eq_refl). rewrite H1.
+        specialize (pv_ok0 a0).
+        specialize (pv_ok1 c).
+        destruct (f_view a0); destruct (f_view c); try congruence.
+        f_equal; [ eapply pv_ok0 | eapply pv_ok1 ]; congruence. }
+      { inversion H; clear H; subst.
+        rewrite (proj2 (pv_ok _ b) eq_refl).
+        rewrite (proj2 (pv_ok _ d) eq_refl).
         reflexivity. } }
-    { intros; destruct a.
-      destruct FVabOk as [_ ?]; destruct FVcdOk as [_ ?]; simpl in *.
-      unfold RSymProd, symAs, typeof_prod in *. simpl in *.
-      specialize (fv_compat0 b); specialize (fv_compat1 d).
-      generalize dependent (symD (f_insert b)).
-      generalize dependent (symD (f_insert d)).
-      rewrite fv_compat_typ; eauto with typeclass_instances.
-      rewrite fv_compat_typ; eauto with typeclass_instances.
-      generalize dependent (symD b).
-      generalize dependent (symD d).
-      destruct (typeof_sym b); destruct (typeof_sym d); intros; auto.
-      { intros.
-        specialize (fv_compat1 t1).
-        specialize (fv_compat0 t0).
-        destruct (type_cast t (typ2 t0 t1)); auto.
-        rewrite type_cast_refl in *; eauto.
-        compute in fv_compat1, fv_compat0.
-        inv_all. subst. reflexivity. } }
+    { destruct a; simpl; constructor; simpl.
+      eapply FVabOk.
+      eapply FVcdOk. }
   Qed.
 
-End FuncViewProd.
-**)
+End PartialViewProd.
