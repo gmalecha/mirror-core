@@ -35,7 +35,7 @@ Section FuncViewSumN.
                   | OneOfType._None => Empty_set
                   end)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
-  : FuncViewOk (FuncViewPMap p m pf) (RSymOneOf m syms)
+  : FuncViewOk (FuncViewPMap p m pf) (RSymOneOf syms)
                (match eq_sym pf in _ = Z
                       return RSym match Z with
                                   | OneOfType._Some T => T
