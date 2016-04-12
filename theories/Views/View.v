@@ -129,12 +129,13 @@ Section Rcompose.
   | Rcomposed : forall b, Rab a b -> Rbc b c -> Rcompose a c.
 End Rcompose.
 
-Theorem PartialView_transOk {A B C : Type} {Rab} {Rbc}
+Theorem PartialView_transOk {A B C : Type} {Rab} {Rbc} {Rabc : _ -> _ -> Prop}
         (FVab : PartialView A B) (FVbc : PartialView B C)
         (FVabOk : @PartialViewOk _ _ FVab Rab)
-        (FVbcOk : @PartialViewOk _ _ FVbc Rbc) :
+        (FVbcOk : @PartialViewOk _ _ FVbc Rbc)
+        (Rabc_factors : forall a b c, Rab a b -> Rbc b c -> Rabc a c):
   @PartialViewOk _ _ (@PartialView_trans A B C FVab FVbc)
-                 (Rcompose Rab Rbc).
+                 Rabc.
 Proof.
   constructor.
   { split; intros.
@@ -147,7 +148,7 @@ Proof.
       firstorder congruence. } }
   { intros.
     destruct FVabOk as [_ ?]; destruct FVbcOk as [_ ?]; simpl in *.
-    econstructor; [ eapply pv_compat0 | eapply pv_compat1 ]. }
+    eapply Rabc_factors; [ eapply pv_compat0 | eapply pv_compat1 ]. }
 Qed.
 
 Section PartialViewProd.
