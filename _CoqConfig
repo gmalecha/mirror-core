@@ -34,6 +34,7 @@ theories/Subst/FMapSubst.v
 theories/MTypes/ModularTypes.v
 theories/MTypes/GenericTypes.v
 theories/MTypes/TSyms.v
+theories/MTypes/TSymOneOf.v
 theories/MTypes/ProdType.v
 theories/MTypes/ListType.v
 theories/MTypes/BaseType.v
