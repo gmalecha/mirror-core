@@ -13,7 +13,6 @@ Set Printing Universes.
  **)
 Module OneOfType.
 
-  (** This universe will be created each time the functor is instantiated *)
   Definition TypeR := Type.
   Definition TypeS := Type.
 
