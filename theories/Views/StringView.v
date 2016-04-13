@@ -110,8 +110,9 @@ Section MakeString.
 End MakeString.
 
 Section mkString.
-  Polymorphic Context {typ func : Type}.
-  Polymorphic Context {FV : PartialView func stringFunc}.
+  Polymorphic Universe u.
+  Polymorphic Context {typ func : Type@{u}}.
+  Polymorphic Context {FV : PartialView@{u} func stringFunc}.
 
   Polymorphic Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
