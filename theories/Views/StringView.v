@@ -63,12 +63,10 @@ Section StringFuncInst.
 End StringFuncInst.
 
 Section MakeString.
-  Polymorphic Context {typ func : Type} {RType_typ : RType typ}.
+  Polymorphic Context {func : Type}.
   Polymorphic Context {FV : PartialView func stringFunc}.
 
   Polymorphic Definition fString s := f_insert (pString s).
-
-  Polymorphic Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
   Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T)
   : ptrn stringFunc T :=
@@ -86,10 +84,6 @@ Section MakeString.
       rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
-(*
-  Definition ptrnString {T : Type} (p : ptrn string T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnString p)).
-*)
 
   Polymorphic Lemma Succeeds_fptrnString {T : Type} (f : stringFunc) (p : ptrn string T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnString p) res) :
@@ -115,8 +109,16 @@ Section MakeString.
 
 End MakeString.
 
+Section mkString.
+  Polymorphic Context {typ func : Type}.
+  Polymorphic Context {FV : PartialView func stringFunc}.
+
+  Polymorphic Definition mkString (s : string) := Inj (typ:=typ) (fString s).
+
+End mkString.
+
 Section PtrnString.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Type}.
   Context {FV : PartialView func stringFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
