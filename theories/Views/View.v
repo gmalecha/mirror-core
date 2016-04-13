@@ -109,25 +109,21 @@ Proof.
   { simpl. reflexivity. }
 Defined.
 
-Definition PartialView_trans {A B C : Type}
-           (FVab : PartialView A B) (FVbc : PartialView B C) :
-  PartialView A C := {|
-    f_insert := fun a => f_insert (f_insert a);
-    f_view :=
-    fun a =>
-      match f_view a with
-      | pSome b => f_view b
-      | pNone => pNone
-      end
-  |}.
+Theorem PartialViewOk_id_eq {T}
+: @PartialViewOk T T (@PartialView_id T) (@eq T).
+Proof. eapply PartialViewOk_id. eauto. Defined.
 
-Section Rcompose.
-  Context {A B C : Type}.
-  Variable Rab : A -> B -> Prop.
-  Variable Rbc : B -> C -> Prop.
-  Inductive Rcompose (a : A) (c : C) : Prop :=
-  | Rcomposed : forall b, Rab a b -> Rbc b c -> Rcompose a c.
-End Rcompose.
+Definition PartialView_trans {A B C : Type}
+           (FVab : PartialView A B) (FVbc : PartialView B C)
+: PartialView A C :=
+{| f_insert := fun a => f_insert (f_insert a);
+   f_view :=
+     fun a =>
+       match f_view a with
+       | pSome b => f_view b
+       | pNone => pNone
+       end
+ |}.
 
 Theorem PartialView_transOk {A B C : Type} {Rab} {Rbc} {Rabc : _ -> _ -> Prop}
         (FVab : PartialView A B) (FVbc : PartialView B C)
@@ -174,7 +170,7 @@ Section PartialViewProd.
   | Rpair_pair : Rab (fst x) (fst y) ->
                  Rcd (snd x) (snd y) -> Rpair x y.
 
-  Polymorphic Theorem PartialView_prodOk
+  Polymorphic Theorem PartialViewOk_prod
   : @PartialViewOk _ _ PartialView_prod Rpair.
   Proof.
     constructor.
