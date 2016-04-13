@@ -19,8 +19,8 @@ Set Universe Polymorphism.
  **)
 
 Section PartialView.
-  Universes s t.
-  Variables func A : Type@{s}.
+  Universes s.
+  Variable func A : Type@{s}.
 
   Class PartialView : Type@{s} :=
   { f_insert : A -> func
