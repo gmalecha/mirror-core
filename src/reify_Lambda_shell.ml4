@@ -57,6 +57,7 @@ sig
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 
   val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
+  val ics : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr list -> Evd.evar_map * Term.constr list
 end
 
 module Reification : REIFICATION =
@@ -1474,7 +1475,28 @@ struct
     in
     Constrintern.interp_open_constr env sigma c
 
+  let k ls evm = (evm,ls)
+
+  let ics ?env ?sigma ls =
+    let env =
+      match env with
+      | None -> snd (Lemmas.get_current_context ())
+      | Some x -> x
+    in
+    let sigma =
+      match sigma with
+      | None -> fst (Lemmas.get_current_context ())
+      | Some x -> x
+    in
+    let rec go evm k = function
+        [] -> k [] evm
+      | c :: cs ->
+        let (cc, uevm) = Constrintern.interp_constr env evm c in
+        go (Evd.merge_universe_context evm uevm)
+          (fun ls evm -> k (cc::ls) evm) cs
+    in go sigma k ls
 end
+
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->
@@ -1494,11 +1516,8 @@ END
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
   | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" lconstr(template) ] ->
     [ try
-	let (evm,env) = Lemmas.get_current_context () in
-	(** TODO: I probably need this as well! **)
-	let (pattern,z1)  = Constrintern.interp_constr env evm pattern in
-	let (template,z2) = Constrintern.interp_constr env evm template in
-	let (rule,_)      = Constrintern.interp_constr env evm rule in
+        let (evm, [pattern;template;rule]) =
+          Reification.ics [pattern;template;rule] in
 	Reification.add_pattern rule pattern template evm
       with
 	Failure msg -> Errors.errorlabstrm "Reify" (Pp.str msg)
@@ -1507,8 +1526,7 @@ END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern CLASSIFIED AS QUERY
   | [ "Reify" "Print" "Patterns" constr(name) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let (name,_) = Constrintern.interp_constr env evm name in
+    [ let (_,name) = Reification.ic name in
       Pp.(msg_info (   str "Patterns for "
 	            ++ Printer.pr_constr name
 	            ++ str ":"
@@ -1519,8 +1537,7 @@ END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let (evm,key) = Reification.ic ~env:env ~sigma:evm key in
+    [ let (evm,key) = Reification.ic key in
       if Reification.declare_table name evm key then
 	()
       else
@@ -1531,8 +1548,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
     ]
   | [ "Reify" "Declare" "Typed" "Table" ident(name) ":" constr(key) "=>" lconstr(typ) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let (evm,key) = Reification.ic ~env:env ~sigma:evm key in
-      let (evm,typ) = Reification.ic ~env:env ~sigma:evm typ in
+      let (evm,[key;typ]) = Reification.ics [key;typ] in
       if Reification.declare_typed_table name evm key typ then
 	()
       else
@@ -1543,10 +1559,7 @@ END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
   | [ "Reify" "Seed" "Table" constr(tbl) "+=" integer(key) "=>" lconstr(value) ] ->
-    [ (** TODO: Universes... **)
-      let (evm,env) = Lemmas.get_current_context () in
-      let (tbl,_)   = Constrintern.interp_constr env evm tbl in
-      let (value,_) = Constrintern.interp_constr env evm value in
+    [ let (evm,[tbl;value])   = Reification.ics [tbl;value] in
       if Reification.seed_table tbl key value then
 	()
       else
@@ -1556,11 +1569,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
               ++ str " table.") ]
   | [ "Reify" "Seed" "Typed" "Table" constr(tbl) "+=" integer(key) "=>"
 	"[[" constr(typ) "," constr(value) "]]" ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      (** TODO: Universes... **)
-      let (tbl,_)   = Constrintern.interp_constr env evm tbl in
-      let (typ,_)   = Constrintern.interp_constr env evm typ in
-      let (value,_) = Constrintern.interp_constr env evm value in
+    [ let (evm,[tbl;typ;value]) = Reification.ics [tbl;typ;value] in
       if Reification.seed_typed_table tbl key typ value then
 	()
       else
@@ -1574,10 +1583,8 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
   | [ "Reify" "BuildLemma" "<" constr(typ) constr(term) constr(concl) ">"
         ident(name) ":" lconstr(lem) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
-      let (lem,_)   = Constrintern.interp_constr env evm lem in
-      let (typ,_)   = Constrintern.interp_constr env evm typ in
-      let (term,_)  = Constrintern.interp_constr env evm term in
-      let (concl,_) = Constrintern.interp_constr env evm concl in
+      let (evm,[lem;typ;term;concl])   =
+        Reification.ics ~env:env ~sigma:evm [lem;typ;term;concl] in
       let (evm,lem_type) = Typing.type_of env evm lem in
       try
         Reification.declare_syntax_lemma
