@@ -34,7 +34,7 @@ sig
 
   (** Patterns **)
   val declare_pattern : Names.identifier -> Evd.evar_map -> Term.constr -> unit
-  val add_pattern     : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> unit
+  val add_pattern     : Term.constr -> Term.constr (* rpattern *) -> Term.constr -> Evd.evar_map -> unit
   val print_patterns  : Term.constr -> Pp.std_ppcmds
 
   (** Functions **)
@@ -201,7 +201,7 @@ struct
     let ctx = Universes.restrict_universe_context (Univ.ContextSet.of_context (snd (Evd.universe_context evm))) vars in
     Declare.(Term.mkConst(declare_constant na
 			    (Entries.(DefinitionEntry
-					(definition_entry ~opaque:false ~univs:(Univ.ContextSet.to_context ctx) c))
+					(definition_entry ~opaque:false ~univs:(Univ.ContextSet.to_context ctx) ~poly:false c))
 
 					(*
 
@@ -1408,8 +1408,12 @@ struct
       })
 
   let add_pattern (name : Term.constr)
-      (ptrn : Term.constr) (template : Term.constr) : unit =
+      (ptrn : Term.constr) (template : Term.constr) evm : unit =
     let _ = Patterns.add_pattern name ptrn template in
+    let fresh_name = Namegen.next_global_ident_away
+        (Names.id_of_string "_pattern_name") []
+    in
+    let _ = decl_constant fresh_name evm template in
     Lib.add_anonymous_leaf (new_pattern_object (name, ptrn, template))
 
   let declare_syntax = Syntax.declare_syntax
@@ -1492,10 +1496,10 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
 	(** TODO: I probably need this as well! **)
-	let (pattern,_)  = Constrintern.interp_constr env evm pattern in
-	let (template,_) = Constrintern.interp_constr env evm template in
-	let (rule,_)     = Constrintern.interp_constr env evm rule in
-	Reification.add_pattern rule pattern template
+	let (pattern,z1)  = Constrintern.interp_constr env evm pattern in
+	let (template,z2) = Constrintern.interp_constr env evm template in
+	let (rule,_)      = Constrintern.interp_constr env evm rule in
+	Reification.add_pattern rule pattern template evm
       with
 	Failure msg -> Errors.errorlabstrm "Reify" (Pp.str msg)
     ]
