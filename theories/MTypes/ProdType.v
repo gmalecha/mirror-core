@@ -32,9 +32,9 @@ Definition prod_typD {n} (t : prod_typ n) : type_for_arity n :=
 
 Section FuncView_prod_type.
   Context {typ : Type}.
-  Context {FV : PartialView typ (prod_typ 2 * typ * typ)}.
+  Context {FV : PartialView typ (prod_typ 2 * (typ * typ))}.
 
-  Definition tyProd t u := f_insert (tProd, t, u).
+  Definition tyProd t u := f_insert (tProd, (t, u)).
 
   Definition ptrn_tyProd {T : Type} (p : Ptrns.ptrn (typ * typ) T)
   : ptrn (prod_typ 2 * typ * typ) T :=

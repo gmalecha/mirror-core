@@ -58,7 +58,7 @@ Definition base_typD {n} (t : base_typ n) : type_for_arity n :=
   | tProp => Prop
   end.
 
-Section FuncView_base_type.
+Section TypeView_base_type.
   Context {typ : Type}.
   Context {FV : PartialView typ (base_typ 0)}.
 
@@ -139,7 +139,7 @@ Section FuncView_base_type.
     { left. exists tProp. unfold Succeeds. reflexivity. }
   Qed.
 
-End FuncView_base_type.
+End TypeView_base_type.
 
 Section RelDec_base_type.
 

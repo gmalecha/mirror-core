@@ -492,7 +492,7 @@ Section RSym_OneOf.
     destruct p; simpl; eauto.
   Defined.
 
-  Definition RSym_AllOk_Empty : RSym_AllOk RSym_All_Empty.
+  Definition RSymOk_All_Empty : RSym_AllOk RSym_All_Empty.
   Proof.
     red. intros. unfold RSym_All_Empty.
     generalize (pmap_lookup'_Empty p).
