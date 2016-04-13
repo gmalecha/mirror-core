@@ -11,7 +11,7 @@ Require Import MirrorCore.Views.FuncView.
 Section FuncViewSumN.
   Context {A func : Type}.
 
-  Global Instance FuncViewPMap (p : positive) (m : OneOfType.pmap)
+  Global Instance PartialViewPMap (p : positive) (m : OneOfType.pmap)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
   : PartialView (OneOfType.OneOf m) A :=
   { f_insert := @OneOfType.Into m _ p (eq_sym pf)
@@ -29,13 +29,9 @@ Section FuncViewSumN.
 
   Global Instance FuncViewOkPMap
          (p : positive) (m : OneOfType.pmap)
-         (syms : forall p : positive,
-             RSym match OneOfType.pmap_lookup' m p return OneOfType.TypeR with
-                  | OneOfType._Some T => T
-                  | OneOfType._None => Empty_set
-                  end)
+         (syms : RSym_All m)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
-  : FuncViewOk (FuncViewPMap p m pf) (RSymOneOf syms)
+  : FuncViewOk (PartialViewPMap p m pf) (RSymOneOf syms)
                (match eq_sym pf in _ = Z
                       return RSym match Z with
                                   | OneOfType._Some T => T

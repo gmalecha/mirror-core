@@ -334,6 +334,7 @@ Section parametric.
       end
     | _ => fun fa => fa
     end }.
+
   Instance Typ0Ok_sym (s : symbol 0) : Typ0Ok (Typ0_sym s).
   Proof using.
     constructor.
@@ -471,17 +472,18 @@ Section parametric.
   Qed.
 
   Global Instance TypeView_sym2
-  : PartialView mtyp ((symbol 2) * mtyp * mtyp) :=
-  { f_insert := fun p => tyBase2 (fst (fst p)) (snd (fst p)) (snd p);
+  : PartialView mtyp (symbol 2 * (mtyp * mtyp)) :=
+  { f_insert := fun p => tyBase2 (fst p) (fst (snd p)) (snd (snd p));
     f_view :=
      fun x =>
        match x with
-       | tyBase2 s t u => pSome (s, t, u)
+       | tyBase2 s t u => pSome (s, (t, u))
        | _ => pNone
        end
   }.
 
-  Definition typ2D := (fun ab => @symbolD _ 2 (fst (fst ab)) (mtypD (snd (fst ab))) (mtypD (snd ab))).
+  Definition typ2D :=
+    (fun ab => @symbolD _ 2 (fst ab) (mtypD (fst (snd ab))) (mtypD (snd (snd ab)))).
 
   Global Definition TypeViewOk_sym2
   : @TypeViewOk _ _ mtypD typ2D TypeView_sym2.
@@ -515,6 +517,10 @@ Arguments TypeView_sym2 {_}.
 
 Arguments symbolD {_ _ _} _.
 Arguments symbol_dec {_ _ _} _ _.
+
+Arguments typ0D {_ _} _.
+Arguments typ1D {_ _} _.
+Arguments typ2D {_ _} _.
 
 Section TSym_sum.
   About TSym.

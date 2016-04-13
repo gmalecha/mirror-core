@@ -5,10 +5,10 @@ Require Import ExtLib.Tactics.
 
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.TypesI.
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-Set Printing Universes.
 
 (** TODO(gmalecha): This should use the maps in FMapPositive from ExtLib.
  **)
@@ -71,20 +71,20 @@ Module OneOfType.
     | _Some T => T n
     end.
 
-  Record OneOf (ts : pmap) (x : nat) : Type := mkOneOf
-  { index : positive
-  ; value : type_nth ts index x
+  Record OneOfF (ts : pmap) (x : nat) : Type := mkOneOfF
+  { indexF : positive
+  ; valueF : type_nth ts indexF x
   }.
 
-  Definition Into {ts} {T : nat -> TypeR} x (n : positive)
+  Definition IntoF {ts} {T : nat -> TypeR} x (n : positive)
              (pf : pmap_lookup' ts n = _Some T)
-  : T x -> OneOf ts x :=
+  : T x -> OneOfF ts x :=
     match pf in _ = X return match X return TypeR with
                              | _Some T => T x
                              | _None => Empty_set
-                             end -> OneOf ts x
+                             end -> OneOfF ts x
     with
-    | eq_refl => @mkOneOf ts x n
+    | eq_refl => @mkOneOfF ts x n
     end.
 
   Fixpoint asNth' {ts : pmap} {n} (p p' : positive)
@@ -101,15 +101,15 @@ Module OneOfType.
     | _ , _ => fun _ => None
   end.
 
-  Definition asNth {ts : pmap} {n} (p : positive) (oe : OneOf ts n)
+  Definition asNth {ts : pmap} {n} (p : positive) (oe : OneOfF ts n)
   : option (type_nth ts p n) :=
-    @asNth' ts n p oe.(index) oe.(value).
+    @asNth' ts n p oe.(indexF) oe.(valueF).
 
-  Definition OutOf {ts} {T : nat -> TypeR} {x} (n : positive)
+  Definition OutOfF {ts} {T : nat -> TypeR} {x} (n : positive)
              (pf : pmap_lookup' ts n = _Some T)
-  : OneOf ts x -> option (T x) :=
+  : OneOfF ts x -> option (T x) :=
     match pf in _ = X
-          return OneOf ts x ->
+          return OneOfF ts x ->
                  option match X return TypeR with
                         | _None => Empty_set
                         | _Some T => T x
@@ -119,9 +119,9 @@ Module OneOfType.
     end.
 
   Global Instance Injective_OneOf n m i1 i2 v1 v2
-  : Injective (@eq (OneOf m n)
-                   {| index := i1 ; value := v1 |}
-                   {| index := i2 ; value := v2 |}) :=
+  : Injective (@eq (OneOfF m n)
+                   {| indexF := i1 ; valueF := v1 |}
+                   {| indexF := i2 ; valueF := v2 |}) :=
   { result := exists pf : i2 = i1,
       v1 = match pf in _ = T
                  return type_nth m T n
@@ -130,11 +130,11 @@ Module OneOfType.
            end
   ; injection := fun H =>
       match H in _ = h
-            return exists pf : index h = i1 ,
+            return exists pf : indexF h = i1 ,
           v1 = match pf in (_ = T)
                      return type_nth m T n
                with
-               | eq_refl => value h
+               | eq_refl => valueF h
                end
       with
       | eq_refl => @ex_intro _ _ eq_refl eq_refl
@@ -142,30 +142,30 @@ Module OneOfType.
   }.
 
 
-  Definition asNth'' {ts : pmap} {n} p (x : OneOf ts n)
+  Definition asNth'' {ts : pmap} {n} p (x : OneOfF ts n)
   : option (type_nth ts p n) :=
-    match Pos.eq_dec (index x) p with
+    match Pos.eq_dec (indexF x) p with
     | left pf' => Some match pf' in _ = X
                              return type_nth ts X n
                        with
-                       | eq_refl => value x
+                       | eq_refl => valueF x
                        end
     | right _ => None
     end.
 
   Theorem asNth'_asNth''
   : forall ts n p x,
-      @asNth' ts n p (index x) (value x) = @asNth'' ts n p x.
+      @asNth' ts n p (indexF x) (valueF x) = @asNth'' ts n p x.
   Proof using.
     destruct x. unfold asNth''. simpl.
-    destruct (Pos.eq_dec index0 p); subst.
-    { revert value0; revert ts.
+    destruct (Pos.eq_dec indexF0 p); subst.
+    { revert valueF0; revert ts.
       induction p; simpl; intros; eauto. }
-    { revert value0; revert ts; generalize dependent index0.
-      induction p; destruct index0; simpl; intros; eauto.
-      { assert (index0 <> p) by congruence.
+    { revert valueF0; revert ts; generalize dependent indexF0.
+      induction p; destruct indexF0; simpl; intros; eauto.
+      { assert (indexF0 <> p) by congruence.
         eauto. }
-      { assert (index0 <> p) by congruence.
+      { assert (indexF0 <> p) by congruence.
         eauto. }
       { congruence. } }
   Qed.
@@ -178,10 +178,10 @@ Module OneOfType.
 
   Require Import MirrorCore.Util.Compat.
 
-  Theorem Outof_Into : forall n ts T p pf v,
-    @OutOf ts n T p pf (@Into ts n T p pf v) = Some v.
+  Theorem OutofF_IntoF : forall n ts T p pf v,
+    @OutOfF ts n T p pf (@IntoF ts n T p pf v) = Some v.
   Proof using.
-    unfold OutOf, Into.
+    unfold OutOfF, IntoF.
     intros.
     autorewrite_with_eq_rw.
     unfold asNth. simpl.
@@ -193,33 +193,33 @@ Module OneOfType.
   Theorem asNth_eq
     : forall ts n p oe v,
       @asNth ts n p oe = Some v ->
-      oe = {| index := p ; value := v |}.
+      oe = {| indexF := p ; valueF := v |}.
   Proof.
     unfold asNth.
     destruct oe; simpl.
-    revert value0. revert index0. revert ts.
-    induction p; destruct index0; simpl; intros;
+    revert valueF0. revert indexF0. revert ts.
+    induction p; destruct indexF0; simpl; intros;
     try congruence; eapply IHp in H; inv_all; subst; reflexivity.
   Defined.
 
-  Theorem Into_OutOf : forall ts n T p pf v e,
-      @OutOf ts n T p pf e = Some v ->
-      @Into ts n T p pf v = e.
+  Theorem IntoF_OutOfF : forall ts n T p pf v e,
+      @OutOfF ts n T p pf e = Some v ->
+      @IntoF ts n T p pf v = e.
   Proof using.
-    unfold OutOf, Into.
+    unfold OutOfF, IntoF.
     intros. revert H.
     autorewrite_with_eq_rw.
     unfold asNth.
     destruct e; simpl in *.
     intro.
-    assert (p = index0).
-    { destruct (asNth' p index0 value0) eqn:?; try congruence.
+    assert (p = indexF0).
+    { destruct (asNth' p indexF0 valueF0) eqn:?; try congruence.
       inv_all. subst.
       clear - Heqo.
       revert Heqo.
-      revert value0 t.
-      revert index0. revert ts.
-      induction p; destruct index0; simpl; intros; try congruence.
+      revert valueF0 t.
+      revert indexF0. revert ts.
+      induction p; destruct indexF0; simpl; intros; try congruence.
       { f_equal. eauto. }
       { f_equal. eauto. } }
     subst.
@@ -237,7 +237,8 @@ Module OneOfType.
     | pcons x xs => OneOfType.pmap_insert p (list_to_pmap_aux xs (p + 1)) x
   end.
 
-  Definition list_to_pmap (lst : plist@{UPmap} (nat -> TypeR)) := list_to_pmap_aux lst 1.
+  Definition list_to_pmap (lst : plist@{UPmap} (nat -> TypeR)) :=
+    list_to_pmap_aux lst 1.
 
 End OneOfType.
 
@@ -251,19 +252,23 @@ Section TSym_OneOf.
    ; symbol_dec := fun _ x _ => match x with end
    |}.
 
-  Instance TSymOneOf (m : pmap)
-    (H : forall p, TSym (type_nth m p))
-  : TSym (OneOf m) :=
-  { symbolD := fun s x => let ts := H x.(index) in
-                          @symbolD _ ts _ x.(value)
+  Definition TSym_All m : Type :=
+    forall p, TSym (type_nth m p).
+
+  Instance TSymOneOf (m : pmap) (H : TSym_All m)
+  : TSym (OneOfF m) :=
+  { symbolD := fun s x => let ts := H x.(indexF) in
+                          @symbolD _ ts _ x.(valueF)
   ; symbol_dec := fun _ a b =>
     match a as a , b as b return {a = b} + {a <> b} with
-    |   {| index := i1 ; value := v1 |}
-      , {| index := i2 ; value := v2 |} =>
+    |   {| indexF := i1 ; valueF := v1 |}
+      , {| indexF := i2 ; valueF := v2 |} =>
         match Pos.eq_dec i1 i2 with
         | left pf =>
           match pf in _ = Z return forall x : type_nth _ Z _,
-              {mkOneOf m _ i1 v1 = mkOneOf m _ Z x} + {mkOneOf m _ i1 v1 <> mkOneOf m _ Z x} with
+              {mkOneOfF m _ i1 v1 = mkOneOfF m _ Z x} +
+              {mkOneOfF m _ i1 v1 <> mkOneOfF m _ Z x}
+          with
           | eq_refl => fun v2 =>
             match @symbol_dec _ (H i1) _ v1 v2 with
             | left pf => left _
@@ -281,8 +286,82 @@ Section TSym_OneOf.
     rewrite (uip_trans Pos.eq_dec _ _ x eq_refl) in H0. apply n0. assumption. }
   { intro.
     apply n0.
-    change (index ({| index := i1; value := v1 |}) = index {| index := i2; value := v2 |}).
+    change (indexF {| indexF := i1; valueF := v1 |} =
+            indexF {| indexF := i2; valueF := v2 |}).
     rewrite H0. reflexivity. }
+  Defined.
+
+  Definition TSym_All_Empty : TSym_All Empty.
+  Proof.
+    red. intros.
+    induction p; unfold type_nth in *; simpl; eauto.
+    eapply TSym_Empty_set.
+  Defined.
+
+  Definition TSym_All_Branch_None l r
+  : TSym_All l -> TSym_All r -> TSym_All (Branch _None l r).
+  Proof.
+    red. intros.
+    destruct p.
+    { apply X0. }
+    { apply X. }
+    { apply TSym_Empty_set. }
+  Defined.
+
+  Definition TSym_All_Branch_Some s l r
+  : TSym s -> TSym_All l -> TSym_All r -> TSym_All (Branch (_Some s) l r).
+  Proof.
+    red. intros.
+    destruct p.
+    { apply X1. }
+    { apply X0. }
+    { assumption. }
+  Defined.
+
+  Definition PartialViewPMap_Type (A : nat -> TypeR) (p : positive) (m : pmap)
+             (pf : _Some A = pmap_lookup' m p) (n : nat)
+  : PartialView (OneOfF m n) (A n) :=
+  {| f_insert := IntoF n p (eq_sym pf)
+   ; f_view := let view := OutOfF p (eq_sym pf) in
+               fun x : OneOfF m n =>
+                 match view x with
+                 | Some x0 => POption.pSome x0
+                 | None => POption.pNone
+                 end |}.
+
+  Definition PartialViewOk_TSymOneOf (m : pmap) (H : TSym_All m)
+             (p : positive) Z (pf : _Some Z = pmap_lookup' m p)
+             n
+  : let X : TSym Z := match eq_sym pf in _ = K
+                            return TSym (fun n => match K return TypeR with
+                                                  | _Some T => T n
+                                                  | _None => Empty_set
+                                                  end)
+                      with
+                      | eq_refl => H p
+                      end in
+    PartialViewOk (PartialViewPMap_Type p m pf n)
+                  (fun a b =>
+                     @symbolD _ (TSymOneOf H) _ a = symbolD b).
+  Proof.
+    constructor.
+    { simpl; intros.
+      split.
+      { intros.
+        generalize (@IntoF_OutOfF m _ n p (eq_sym pf) a f).
+        destruct (OutOfF p (eq_sym pf) f).
+        { intro. apply H1.
+          clear - H0. f_equal. injection H0. tauto. }
+        { inversion H0. } }
+      { intros. subst.
+        rewrite OutofF_IntoF. reflexivity. } }
+    { simpl. unfold IntoF.
+      intros. unfold type_nth.
+      simpl.
+      autorewrite_with_eq_rw.
+      simpl.
+      generalize (H p). clear. unfold type_nth.
+      destruct pf. reflexivity. }
   Defined.
 
 End TSym_OneOf.
