@@ -7,6 +7,7 @@ Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
+Require Import MirrorCore.Lambda.AutoSetoidRewrite_plugins.
 Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.

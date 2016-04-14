@@ -17,9 +17,9 @@ Section poly.
   Inductive VType : Type :=
   | tVar : positive -> VType.
 
-  Variable typ_unify : typ -> typ -> pmap typ -> option (pmap typ).
-
   Context {PV_vtype : PartialView typ VType}.
+
+  Variable typ_unify : typ -> typ -> pmap typ -> option (pmap typ).
 
   Definition type_remember (p : positive) (t : typ) (m : pmap typ)
   : option (pmap typ) :=
