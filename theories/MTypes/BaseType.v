@@ -1,9 +1,11 @@
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Views.TypeView.
 Require Import MirrorCore.MTypes.ModularTypes.
 
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.POption.
 
 Require Import Coq.Strings.String.
 
@@ -57,6 +59,55 @@ Definition base_typD {n} (t : base_typ n) : type_for_arity n :=
   | tBool => bool
   | tProp => Prop
   end.
+
+Section DepMatch_base_typ.
+  Context {typ : Type}.
+  Context {RType_typ : RType typ}.
+  Context {FV : PartialView typ (base_typ 0)}.
+  Context {FVOk : TypeViewOk typD (base_typD (n := 0)) FV}. 
+
+  Definition string_match (F : typ -> Type) (x : typ) :
+    F (f_insert tString) -> (unit -> F x) -> F x :=
+    match f_view x as Z return f_view x = Z -> F (f_insert tString) -> (unit -> F x) -> F x
+    with
+    | pSome v => 
+      match v as y in base_typ 0 return f_view x = pSome y -> 
+                                        F (f_insert tString) -> 
+                                        (unit -> F x) -> F x with
+      | tString => 
+        fun pf X _ =>
+          match (match @pv_ok _ _ _ _ FVOk x tString with | conj A _ => A end) pf 
+                in _ = Z 
+                return F Z with
+          | eq_refl => X
+          end
+      | _ => fun _ _ X => X tt
+      end 
+    | pNone => fun _ _ X => X tt
+    end eq_refl.
+
+  Definition prop_match (F : typ -> Type) (x : typ) :
+    F (f_insert tProp) -> (unit -> F x) -> F x :=
+    match f_view x as Z return f_view x = Z -> F (f_insert tProp) -> (unit -> F x) -> F x
+    with
+    | pSome v => 
+      match v as y in base_typ 0 return f_view x = pSome y -> 
+                                        F (f_insert tProp) -> 
+                                        (unit -> F x) -> F x with
+      | tProp => 
+        fun pf X _ =>
+          match (match @pv_ok _ _ _ _ FVOk x tProp with | conj A _ => A end) pf 
+                in _ = Z 
+                return F Z with
+          | eq_refl => X
+          end
+      | _ => fun _ _ X => X tt
+      end 
+    | pNone => fun _ _ X => X tt
+    end eq_refl.
+
+
+End DepMatch_base_typ.
 
 Section TypeView_base_type.
   Context {typ : Type}.
