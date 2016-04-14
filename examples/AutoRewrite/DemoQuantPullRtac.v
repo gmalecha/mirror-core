@@ -5,8 +5,7 @@ Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
-Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
+Require Import MirrorCore.Lambda.RewriteStrat.
 Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
@@ -113,7 +112,7 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
           | Solved _ =>
             change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
               cut(result = resultV) ;
-              [ 
+              [
               | vm_cast_no_check (@eq_refl _ resultV) ]
           | More_ _ ?g' =>
             pose (g'V := g') ;

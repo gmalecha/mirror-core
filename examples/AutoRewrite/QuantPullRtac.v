@@ -6,8 +6,7 @@ Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
 Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
-Require Import MirrorCore.Lambda.AutoSetoidRewrite_plugins.
+Require Import MirrorCore.Lambda.RewriteStrat.
 Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
@@ -189,16 +188,19 @@ Definition get_respectful : respectful_dec typ func Rbase :=
      (Inj (All tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
      (Inj And, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
      (Inj Or, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
-     (Inj Plus, Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) ::
+     (Inj Plus, Rrespects (Rinj (Inj (Eq tyNat)))
+                          (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) ::
 
-nil).
+     nil).
 
 
-Lemma RelDec_semidec {T} (rT : T -> T -> Prop) (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
+Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
+      (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
 : forall a b : T, a ?[ rT ] b = true -> rT a b.
 Proof. intros. consider (a ?[ rT ] b); auto. Qed.
 
-Theorem get_respectful_only_all_ex_sound : respectful_spec RbaseD get_respectful_only_all_ex.
+Theorem get_respectful_only_all_ex_sound
+: respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
   eapply do_respectful_sound.
   - eapply RelDec_semidec; eauto with typeclass_instances.
@@ -229,19 +231,10 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                    (pmap Red.beta get)))))
     e e.
 
-Definition the_rewrites
-           (lems : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)))
+Definition the_rewrites (lems : list (rw_lemma typ func (expr typ func) *
+                                      CoreK.rtacK typ (expr typ func)))
 : lem_rewriter typ func Rbase :=
   rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).
-
-(** TODO(gmalecha): Move **)
-Definition rewrite_db_sound hints : Prop :=
-  Forall
-    (fun
-       lt : Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) *
-            CoreK.rtacK typ (expr typ func) =>
-     Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
-     CoreK.rtacK_sound (snd lt)) hints.
 
 Lemma simple_reduce_sound :
   forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
@@ -255,7 +248,7 @@ Proof.
   unfold simple_reduce.
   intros.
   revert H.
-  eapply Ptrns.run_ptrn_sound. 
+  eapply Ptrns.run_ptrn_sound.
   { repeat first [ simple eapply ptrn_ok_pmap
                  | simple eapply ptrn_ok_app
                  | simple eapply ptrn_ok_abs; intros
@@ -285,7 +278,7 @@ Proof.
 Qed.
 
 Theorem the_rewrites_sound
-: forall hints, rewrite_db_sound hints ->
+: forall hints, rewrite_db_sound RbaseD hints ->
     setoid_rewrite_spec RbaseD (the_rewrites hints).
 Proof.
   unfold the_rewrites. intros.
@@ -300,12 +293,13 @@ Proof.
   { eapply RbaseD_single_type. }
 Qed.
 
-Definition the_lemmas : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
+Definition the_lemmas
+: list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
   (lem_pull_ex_nat_and_left, IDTACK) ::
   (lem_pull_ex_nat_and_right, IDTACK) ::
   nil.
 
-Theorem the_lemmas_sound : rewrite_db_sound the_lemmas.
+Theorem the_lemmas_sound : rewrite_db_sound RbaseD the_lemmas.
 Proof.
   repeat first [ apply Forall_cons; [ simple apply conj | ] | apply Forall_nil ];
   simpl; solve [ apply IDTACK_sound

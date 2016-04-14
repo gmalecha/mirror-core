@@ -1,4 +1,5 @@
-Require Import FunctionalExtensionality.
+Require Import Coq.Logic.FunctionalExtensionality.
+Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.AbsAppI.

@@ -3,8 +3,9 @@ Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Data.Vector.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Views.View.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.Polymorphic.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -29,7 +30,7 @@ Section poly.
    ** TODO: We should really stop looking at the term as
    **       soon as we have instantiated everything
    **)
-  Fixpoint get_types {T} (a b : expr typ sym) (s : pmap typ)
+  Local Fixpoint get_types {T} (a b : expr typ sym) (s : pmap typ)
            (ok : pmap typ -> T) (bad : T) {struct a}
   : T :=
     match a , b with
@@ -51,26 +52,13 @@ Section poly.
     | _ , _ => ok s
     end.
 
-  Fixpoint polymorphic (n : nat) T : Type :=
-    match n with
-    | 0 => T
-    | S n => typ -> polymorphic n T
-    end.
-
-  Fixpoint inst {T} (n : nat)
-  : polymorphic n T -> vector typ n -> T :=
-    match n as n return polymorphic n T -> vector typ n -> T with
-    | 0 => fun p _ => p
-    | S n => fun p a => inst (p (Vector.vector_hd a)) (Vector.vector_tl a)
-    end.
-
-  Fixpoint build_vector p (n : nat) : vector typ n :=
+  Local Fixpoint build_vector p (n : nat) : vector typ n :=
     match n with
     | 0 => Vnil _
     | S n => Vcons (f_insert (tVar p)) (build_vector (Pos.succ p) n)
     end.
 
-  Fixpoint get_vector {T} n p
+  Local Fixpoint get_vector {T} n p
   : forall (ok : vector typ n -> T) (bad : T) (m : pmap typ), T :=
     match n as n return (vector typ n -> T) -> T -> pmap typ -> T with
     | 0 => fun ok _ _ => ok (Vnil _)
@@ -82,7 +70,8 @@ Section poly.
                end
     end.
 
-  Definition get_inst {n} (t : polymorphic n (expr typ sym)) (w : expr typ sym)
+  Definition get_inst {n} (t : polymorphic typ n (expr typ sym))
+             (w : expr typ sym)
   : option (vector typ n) :=
     let t' := inst t (build_vector 1 n) in
     get_types t' w (pmap_empty _)

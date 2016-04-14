@@ -28,7 +28,7 @@ Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.Lambda.AutoSetoidRewriteRtac.
+Require Import MirrorCore.Lambda.Rewrite.Core.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -98,171 +98,8 @@ Section setoid.
     inversion H.
   Qed.
 
-  (** Apply the same rewrite multiple times while it is still making progress **)
-  Section repeat_rewrite.
-    Variable rw : lem_rewriter typ func Rbase.
-    Variable is_refl : refl_dec R.
-    Variable is_trans : trans_dec R.
-
-    Fixpoint repeat_rewrite' (n : nat)
-             (prog : expr typ func -> Progressing (expr typ func))
-             (e : expr typ func) (r : R)
-    : mrw (Progressing (expr typ func)) :=
-      match n with
-      | 0 => if is_refl r
-             then rw_ret (prog e)
-             else rw_fail
-      | S n => rw_bind_catch
-                 (rw e r)
-                 (fun e' =>
-                    match e' with
-                    | NoProgress =>
-                      if is_refl r then rw_ret (prog e) else rw_fail
-                    | Progress e' as X =>
-                      if is_trans r then repeat_rewrite' n (@Progress _) e' r
-                      else rw_ret X
-                    end)
-                 (if is_refl r
-                  then rw_ret (prog e)
-                  else rw_fail)
-      end.
-
-    Hypothesis rw_sound : setoid_rewrite_spec RbaseD rw.
-    Hypothesis is_reflOk : refl_dec_ok (RD RbaseD) is_refl.
-    Hypothesis is_transOk : trans_dec_ok (RD RbaseD) is_trans.
-
-    Lemma repeat_rewrite'_mono : forall n e r c A B C D E F X Y,
-        repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F = Some (X,Y) ->
-        X <> NoProgress.
-    Proof using.
-      induction n; simpl.
-      { intros. destruct (is_refl r). inversion H. congruence. inversion H. }
-      { intros.
-        eapply rw_bind_catch_case in H. destruct H; forward_reason.
-        { destruct x.
-          { destruct (is_trans r); eauto.
-            inversion H0. congruence. }
-          { destruct (is_refl r).
-            { inversion H0; congruence. }
-            { inversion H0. } } }
-        { destruct (is_refl r).
-          { inversion H; congruence. }
-          { inversion H. } } }
-    Qed.
-
-    Theorem repeat_rewrite'_sound
-    : forall n (prog : bool),
-        setoid_rewrite_spec
-          RbaseD
-          (repeat_rewrite' n
-                           (if prog then @Progress _ else (fun _ => NoProgress))).
-    Proof using is_reflOk is_transOk rw_sound.
-      induction n.
-      { intros. simpl. destruct prog.
-        { do 2 red. intros.
-          specialize (@is_reflOk r).
-          destruct (is_refl r).
-          { inversion H; clear H; subst.
-            split; auto.
-            intros.
-            eapply is_reflOk in H; trivial.
-            simpl.
-            forward.
-            split; [ reflexivity | ].
-            intros. eapply Pure_pctxD; eauto. }
-          { inversion H. } }
-        { do 2 red; intros.
-          specialize (@is_reflOk r).
-          destruct (is_refl r).
-          { inversion H; clear H; subst.
-            split; auto.
-            intros.
-            eapply is_reflOk in H; eauto.
-            simpl. forward.
-            split; [ reflexivity | ].
-            intros; eapply Pure_pctxD; eauto. }
-          { inversion H. } } }
-      { simpl. do 2 red; intros.
-        eapply rw_bind_catch_case in H; destruct H; forward_reason.
-        { eapply rw_sound in H.
-          forward_reason. destruct x.
-          { specialize (@is_transOk r).
-            destruct (is_trans r).
-            { generalize (repeat_rewrite'_mono _ _ _ _ _ _ _ _ _ H1).
-              eapply (IHn true) in H1.
-              forward_reason. split; auto.
-              intros.
-              specialize (H3 _ _ H5).
-              specialize (H2 _ _ H5).
-              simpl in *.
-              forward.
-              forward_reason.
-              destruct e'; simpl in *.
-              { Cases.rewrite_all_goal.
-                split; [ reflexivity | ].
-                intros. gather_facts.
-                eapply pctxD_SubstMorphism; [ | | eassumption | ]; eauto.
-                gather_facts.
-                eapply is_transOk in H5; eauto.
-                eapply Pure_pctxD; eauto. }
-              { congruence. } }
-            { inversion H1; clear H1; subst.
-              simpl in *. split; auto. } }
-          { specialize (@is_reflOk r).
-            destruct (is_refl r); [ | inversion H1 ].
-            inversion H1; clear H1; subst.
-            split; auto.
-            intros. specialize (H2 _ _ H1).
-            forward. destruct prog; simpl in *.
-            { rewrite H5. forward_reason.
-              split; auto. }
-            { rewrite H5; forward_reason; auto. } } }
-        { specialize (@is_reflOk r).
-          destruct (is_refl r); [ | inversion H ].
-          inversion H; clear H; subst.
-          split; auto.
-          intros.
-          forward.
-          cutrewrite (ProgressD e
-                                ((if prog then (@Progress _)
-                                  else fun _ : expr typ func => NoProgress) e) = e);
-            [ | destruct prog; reflexivity ].
-          rewrite H3; forward_reason.
-          split; [ reflexivity | ].
-          eapply is_reflOk in H; eauto.
-          eapply Pure_pctxD; eauto. } }
-    Qed.
-
-    Definition repeat_rewrite (progress : bool)
-    : nat -> lem_rewriter typ func Rbase :=
-      let prog := if progress then @Progress _ else (fun _ => NoProgress) in
-      fun n =>
-        repeat_rewrite' n prog.
-
-    Theorem repeat_rewrite_sound
-    : forall b n, setoid_rewrite_spec RbaseD (repeat_rewrite b n).
-    Proof using is_reflOk is_transOk rw_sound.
-      unfold repeat_rewrite. simpl. intros.
-      eapply repeat_rewrite'_sound.
-    Qed.
-
-  End repeat_rewrite.
-
   Section core_rewrite.
     (* This is the implementation of rewriting a single lemma *)
-    (** Note, this is quite inefficient due to building and destructing
-     ** the pair
-     **)
-    Fixpoint extend_ctx (tvs' : tenv typ)
-             (ctx : Ctx typ (expr typ func)) (cs : ctx_subst ctx) {struct tvs'}
-    : { ctx : Ctx typ (expr typ func) & ctx_subst ctx } :=
-      match tvs' with
-      | nil => @existT _ _ ctx cs
-      | t :: tvs' =>
-        match @extend_ctx tvs' ctx cs with
-        | existT _ ctx' cs' => @existT _ _ (CAll ctx' t) (AllSubst cs')
-        end
-      end.
 
     Require Import MirrorCore.RTac.SolveK.
 
@@ -836,7 +673,7 @@ Section setoid.
   (* This section implements the re-indexing operation
    * to run [rtac]'s from [mrw]. Note that the main thing to do
    * is extend the context with any extra variables and re-index
-   * variables in the term.
+   * variables in the term since they are in the opposite order.
    *)
   Section reindexing.
     (* This has to do with converting expressions for tactics *)
@@ -982,7 +819,7 @@ Section setoid.
                     tenv typ -> tenv typ -> nat -> nat ->
                     forall ctx : Ctx typ (expr typ func),
                       ctx_subst ctx -> option (expr typ func * ctx_subst ctx))
-    : expr typ func -> mrw (expr typ func) :=
+    : expr typ func -> mrw typ func (expr typ func) :=
       fun e tvs' tus tvs nus nvs ctx cs =>
         let under := length tvs' in
         let e' := expr_convert under nvs e in
@@ -1214,13 +1051,13 @@ Section setoid.
 
     Definition using_rewrite_db''
                (ls : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
-    : expr typ func -> R -> mrw (expr typ func) :=
+    : expr typ func -> R -> mrw typ func (expr typ func) :=
       let rw_db := using_rewrite_db' ls in
       fun e r => for_tactic (fun e => rw_db e r) e.
 
     Definition using_prewrite_db''
         (lems : expr typ func -> R -> list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
-    : expr typ func -> R -> mrw (expr typ func) :=
+    : expr typ func -> R -> mrw typ func (expr typ func) :=
       fun e r =>
         for_tactic (fun e => using_rewrite_db' (lems e r) e r) e.
 
@@ -1598,11 +1435,17 @@ Section setoid.
       fun e r => rw_bind (using_rewrite_db'' hints e r)
                          (fun e => rw_ret (Progress e)).
 
+    Definition rewrite_db_sound hints : Prop :=
+      Forall
+        (fun
+            lt : Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) *
+                 CoreK.rtacK typ (expr typ func) =>
+            Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
+            CoreK.rtacK_sound (snd lt)) hints.
+
     Theorem using_rewrite_db_sound
-    : forall hints : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)),
-        Forall (fun lt =>
-                  lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
-                  rtacK_sound (snd lt)) hints ->
+    : forall hints,
+        rewrite_db_sound hints ->
         setoid_rewrite_spec RbaseD (using_rewrite_db hints).
     Proof using RSymOk_func RTypeOk_typD RbaseD_single_type
           Rbase_eq_ok RelDec_Correct_eq_typ Typ2Ok_Fun.
@@ -1823,333 +1666,5 @@ Section setoid.
     Qed.
 
   End reindexing.
-
-  Section reduction.
-    Variable reducer : expr typ func -> expr typ func.
-    Variable lr : lem_rewriter typ func Rbase.
-
-    Definition rw_simplify : lem_rewriter _ _ _ :=
-      fun e => lr (reducer e).
-
-    Hypothesis reducer_sound
-    : forall tus tvs t e eD,
-        lambda_exprD tus tvs t e = Some eD ->
-        exists eD',
-          lambda_exprD tus tvs t (reducer e) = Some eD' /\
-          forall us vs, eD us vs = eD' us vs.
-    Hypothesis lr_sound : setoid_rewrite_spec RbaseD lr.
-
-    Theorem rw_simplify_sound
-    : setoid_rewrite_spec RbaseD rw_simplify.
-    Proof using lr_sound reducer_sound.
-      unfold rw_simplify. do 2 red. intros.
-      eapply lr_sound in H; eauto.
-      forward_reason; split; eauto.
-      intros. eapply H1 in H2; clear H1.
-      forward.
-      specialize (@reducer_sound _ _ _ _ _ H3).
-      destruct reducer_sound as [ ? [ ? ? ] ].
-      rewrite H4 in *.
-      destruct (pctxD cs') eqn:?; auto.
-      destruct e'.
-      { simpl in *.
-        forward.
-        destruct H6; split; auto.
-        intros.
-        gather_facts.
-        eapply Pure_pctxD; eauto.
-        intros. rewrite H5. eauto. }
-      { simpl in *. rewrite H4 in *.
-        rewrite H3.
-        destruct H2; split; auto.
-        intros.
-        gather_facts.
-        eapply Pure_pctxD; eauto.
-        intros. rewrite H5.
-        auto. }
-    Qed.
-
-    Definition rw_post_simplify : lem_rewriter _ _ _ :=
-      Eval unfold rw_bind, rw_ret in
-      fun e r => rw_bind (lr e r)
-                         (fun e' => rw_ret match e' with
-                                           | Progress e' => Progress (reducer e')
-                                           | NoProgress => NoProgress
-                                           end).
-
-    Theorem rw_post_simplify_sound
-    : setoid_rewrite_spec RbaseD rw_post_simplify.
-    Proof using lr_sound reducer_sound.
-      unfold rw_post_simplify. do 2 red. intros.
-      forward. inv_all; subst.
-      eapply lr_sound in H1; eauto.
-      forward_reason; split; eauto.
-      intros. eapply H1 in H2; clear H1.
-      destruct (pctxD cs) eqn:?; auto.
-      destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t e) eqn:?; auto.
-      destruct (pctxD cs') eqn:?; auto.
-      destruct p0; simpl in *.
-      { destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t new_val) eqn:?; try contradiction.
-        eapply reducer_sound in Heqo2.
-        destruct Heqo2 as [ ? [ ? ? ] ].
-        rewrite H1. destruct H2; split; auto.
-        intros.
-        gather_facts.
-        eapply Pure_pctxD; eauto.
-        intros. rewrite <- H3. eauto. }
-      { destruct (lambda_exprD (getUVars ctx) (tvs' ++ getVars ctx) t e); auto. }
-    Qed.
-
-  End reduction.
-
-  Section get_respectful.
-    (* This is just a "special" version of the rewriting lemma *)
-    Record Proper_concl : Type :=
-    { relation : R
-    ; term     : expr typ func
-    }.
-
-    Definition Proper_conclD (tus tvs : tenv typ) (p : Proper_concl)
-    : option (exprT tus tvs Prop) :=
-      match typeof_expr tus tvs p.(term) with
-      | Some t =>
-        match RD RbaseD p.(relation) t
-            , lambda_exprD tus tvs t p.(term)
-        with
-        | Some rD , Some eD =>
-          Some (fun us vs => rD (eD us vs) (eD us vs))
-        | _ , _ => None
-        end
-      | None => None
-      end.
-
-    Definition Proper_lemma := Lemma.lemma typ (expr typ func) Proper_concl.
-
-    (* This splits a relation into a relation arity and a relation *)
-    Fixpoint split_R (r : R) : list R * R :=
-      match r with
-      | Rrespects l r =>
-        let (ls, r) := split_R r in
-        (l :: ls, r)
-      | _ => (nil, r)
-      end.
-
-    Lemma split_R_sound : forall r_end r rs,
-        split_R r = (rs, r_end) ->
-        fold_right Rrespects r_end rs = r.
-    Proof using.
-      induction r; simpl; intros; inv_all; subst; simpl; try reflexivity.
-      destruct (split_R r2). inv_all. subst.
-      specialize (IHr2 _ eq_refl).
-      simpl. rewrite IHr2. reflexivity.
-    Qed.
-
-    Require Import MirrorCore.RTac.CoreK.
-
-    Definition apply_respectful (lem : Proper_lemma)
-               (tacK : rtacK typ (expr typ func))
-    : respectful_dec _ _ _ :=
-      let (rs,r_final) := split_R lem.(Lemma.concl).(relation) in
-      match lem.(Lemma.vars) with
-      | nil => match lem.(Lemma.premises) with
-               | nil => fun e r =>
-                          match expr_sdec e lem.(Lemma.concl).(term)
-                                , Req_dec Rbase_eq r r_final
-                          with
-                          | true , true => rw_ret rs
-                          | _ , _ => rw_fail
-                          end
-               | _ :: _ => fun e r =>
-                             (** TODO(gmalecha): Handle this *)
-                             rw_fail
-               end
-      | _ :: _ => fun _ _ => (** TODO(gmalecha): Handle this *)
-                    rw_fail
-      end.
-
-    Theorem apply_respectful_sound : forall lem tacK,
-        Lemma.lemmaD Proper_conclD nil nil lem ->
-        forall Htac : rtacK_sound tacK,
-          respectful_spec RbaseD (apply_respectful lem tacK).
-    Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
-          Typ2Ok_Fun.
-      red; intros.
-      unfold apply_respectful in H0.
-      consider (split_R (relation (Lemma.concl lem))); intros.
-      destruct (Lemma.vars lem) eqn:?.
-      { destruct (Lemma.premises lem) eqn:?; try solve [ inversion H2 ].
-        generalize (expr_sdec_sound e lem.(Lemma.concl).(term)).
-        generalize (Req_dec_ok Rbase_eq Rbase_eq_ok r r0).
-        destruct (expr_sdec e (term (Lemma.concl lem))); try solve [ inversion H2 ].
-        destruct (Req_dec Rbase_eq r r0); try solve [ inversion H2 ].
-        unfold rw_ret in H2. inv_all.
-        intros. specialize (H2 eq_refl). specialize (H5 eq_refl).
-        subst.
-        split; auto. intros.
-        forward.
-        red in H.
-        simpl in H.
-        unfold Lemma.lemmaD' in H.
-        forwardy. inv_all. subst.
-        generalize dependent lem.(Lemma.vars); intros; subst.
-        generalize dependent lem.(Lemma.premises); intros; subst.
-        simpl in *.
-        unfold Proper_conclD in H6.
-        forwardy.
-        inv_all. subst.
-        simpl in *.
-        erewrite split_R_sound by eassumption.
-        destruct (ExprFacts.lambda_exprD_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
-        simpl in H.
-        generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H4).
-        unfold Rty. intros.
-        revert H5.
-        subst y. intros.
-        rewrite H7.
-        split; [ reflexivity | ].
-        intros.
-        eapply Pure_pctxD; eauto.
-        intros.
-        specialize (@H9 HList.Hnil HList.Hnil us0 (HList.hlist_app vs' vs0)); simpl in H9.
-        rewrite H9 in H5.
-        rewrite H4 in H.
-        inv_all. subst. eapply H5. }
-      { inversion H2. }
-    Qed.
-
-    Definition apply_prespectful {T : Type}
-               (get : expr typ func -> R -> option T)
-               (lem : T -> Proper_lemma) (tacK : rtacK _ _)
-    : respectful_dec _ _ _ :=
-      fun e r =>
-        match get e r with
-        | Some t => apply_respectful (lem t) tacK e r
-        | _ => rw_fail
-        end.
-
-    Theorem apply_prespectful_sound : forall {T} get (lem : T -> _) (tacK : _),
-        (forall e r x,
-            get e r = Some x ->
-            forall tus tvs t eD,
-              lambda_exprD tus tvs t e = Some eD ->
-              Lemma.lemmaD Proper_conclD nil nil (lem x)) ->
-        rtacK_sound tacK ->
-        respectful_spec RbaseD (apply_prespectful get lem tacK).
-    Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
-          Typ2Ok_Fun.
-      intros. unfold apply_prespectful.
-      red. intros.
-      destruct (get e r) eqn:?; try solve [ inversion H1 ].
-      (** above *)
-      unfold apply_respectful in H1.
-      destruct (split_R t.(lem).(concl).(relation)) eqn:?.
-      eapply split_R_sound in Heqp.
-      destruct (t.(lem).(vars)) eqn:Hvars; [ | inversion H1 ].
-      destruct (t.(lem).(premises)) eqn:Hprems; [ | inversion H1 ].
-      generalize (expr_sdec_sound e t.(lem).(concl).(term)).
-      destruct (expr_sdec e t.(lem).(concl).(term)); [ | inversion H1 ].
-      generalize (Req_dec_ok _ Rbase_eq_ok r r0).
-      destruct (Req_dec Rbase_eq r r0); [ | inversion H1 ].
-      intro X; specialize (X eq_refl); subst.
-      intro X; specialize (X eq_refl); subst.
-      inversion H1; clear H1; subst.
-      split; auto.
-      intros.
-      forward.
-      eapply H in Heqo; [ | eapply H4 ].
-      rename Heqo into Hlem.
-      red in Hlem.
-      simpl in Hlem.
-      red in Hlem. rewrite Hprems in *. rewrite Hvars in *.
-      simpl in Hlem. red in Hlem.
-      revert Hlem.
-      forward. inv_all. subst.
-      destruct (ExprFacts.lambda_exprD_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
-      simpl in H.
-      generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H6 H4).
-      intro. red in H10. revert Hlem. subst.
-      simpl in *.
-      rewrite Heqp in *.
-      rewrite H7 in *.
-      rewrite H4 in *.
-      inv_all. subst.
-      intros.
-      intros; split; [ reflexivity | ].
-      intros. eapply Pure_pctxD; eauto.
-      intros. red.
-      rewrite (H9 Hnil Hnil us0 (hlist_app vs' vs0)) in Hlem.
-      eapply Hlem.
-    Qed.
-
-    Definition or_respectful
-               (a b : expr typ func -> R -> mrw (list R))
-    : respectful_dec _ _ _ :=
-      fun e r => rw_orelse (a e r) (b e r).
-
-    Theorem or_respectful_sound : forall a b,
-        respectful_spec RbaseD a ->
-        respectful_spec RbaseD b ->
-        respectful_spec RbaseD (or_respectful a b).
-    Proof using.
-      unfold or_respectful. intros.
-      red. intros.
-      eapply rw_orelse_case in H1; destruct H1; [ eapply H | eapply H0 ];
-      eassumption.
-    Qed.
-
-    Definition fail_respectful : respectful_dec typ func Rbase :=
-      fun _ _ => rw_fail.
-
-    Theorem fail_respectful_sound : respectful_spec RbaseD fail_respectful.
-    Proof using.
-      red. intros. inversion H.
-    Qed.
-
-    Require Import MirrorCore.RTac.IdtacK.
-
-    Fixpoint do_respectful (propers : list (expr typ func * R))
-    : respectful_dec _ _ _ :=
-      match propers with
-      | nil => fail_respectful
-      | (f,rel) :: propers =>
-        or_respectful
-          (apply_respectful {| vars := nil
-                             ; premises := nil
-                             ; concl := {| relation := rel
-                                         ; term := f |}
-                             |} IDTACK)
-          (fun x => do_respectful propers x)
-      end.
-
-    Theorem do_respectful_sound
-    : forall propers,
-        Forall (fun er =>
-                  let '(e,r) := er in
-                  match typeof_expr nil nil e with
-                  | None => False
-                  | Some t =>
-                    match RD RbaseD r t
-                        , lambda_exprD nil nil t e
-                    with
-                    | Some rD , Some eD =>
-                      Proper rD (eD Hnil Hnil)
-                    | _ , _ => False
-                    end
-                  end) propers ->
-        respectful_spec RbaseD (do_respectful propers).
-    Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
-      induction 1.
-      { eapply fail_respectful_sound. }
-      { simpl. destruct x. eapply or_respectful_sound.
-        { apply apply_respectful_sound.
-          { clear - H.
-            red. simpl. unfold lemmaD'. simpl.
-            unfold Proper_conclD. simpl.
-            forward. }
-          { apply IDTACK_sound. } }
-        { eauto. } }
-    Qed.
-
-  End get_respectful.
 
 End setoid.

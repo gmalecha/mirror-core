@@ -80,13 +80,21 @@ theories/Lambda/ExprSubst.v
 theories/Lambda/ExprSubstitute.v
 theories/Lambda/AppN.v
 theories/Lambda/ExprVariables.v
-theories/Lambda/AutoSetoidRewriteRtac.v
-theories/Lambda/AutoSetoidRewrite_plugins.v
 theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
 theories/Lambda/Reify.v
+theories/Lambda/Polymorphic.v
 theories/Lambda/PolyInst.v
+theories/Lambda/RewriteStrat.v
+theories/Lambda/Rewrite/Core.v
+theories/Lambda/Rewrite/BottomUp.v
+theories/Lambda/Rewrite/Tactic.v
+theories/Lambda/Rewrite/Repeat.v
+theories/Lambda/Rewrite/Reduce.v
+theories/Lambda/Rewrite/Respectful.v
+theories/Lambda/Rewrite/Rewrite.v
+theories/Lambda/Rewrite/HintDbs.v
 
 theories/Views/View.v
 theories/Views/TypeView.v
