@@ -174,7 +174,7 @@ Module OneOfType.
   : forall n p ts v, asNth' (ts:=ts) (n:=n) p p v = Some v.
   Proof.
     induction p; simpl; intros; eauto.
-  Qed.
+  Defined.
 
   Require Import MirrorCore.Util.Compat.
 
@@ -188,7 +188,7 @@ Module OneOfType.
     rewrite asNth'_get_lookup.
     { generalize dependent (pmap_lookup' ts p).
       intros. subst. reflexivity. }
-  Qed.
+  Defined.
 
   Theorem asNth_eq
     : forall ts n p oe v,
@@ -227,7 +227,7 @@ Module OneOfType.
     f_equal. clear.
     unfold type_nth in *.
     destruct pf. reflexivity.
-  Qed.
+  Defined.
 
   Universe UPmap.
   Polymorphic Fixpoint list_to_pmap_aux
