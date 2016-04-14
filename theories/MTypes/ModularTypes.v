@@ -2,6 +2,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Vector.
 Require Import ExtLib.Data.SigT.
 Require Import ExtLib.Data.POption.
+Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Eq.
 
@@ -51,7 +52,9 @@ Section parametric.
   | tyBase0 : symbol 0 -> mtyp
   | tyBase1 : symbol 1 -> mtyp -> mtyp
   | tyBase2 : symbol 2 -> mtyp -> mtyp -> mtyp
-  | tyApp : forall {n}, symbol (3 + n) -> vector mtyp (3 + n) -> mtyp.
+  | tyApp : forall {n}, symbol (3 + n) -> vector mtyp (3 + n) -> mtyp
+  | tyProp
+  | tyVar : positive -> mtyp. (** Reserved for unification, do not use **)
 
   Section mtyp_ind.
     Variable P : mtyp -> Prop.
@@ -59,7 +62,9 @@ Section parametric.
                 (Hbase0 : forall s, P (tyBase0 s))
                 (Hbase1 : forall s {a}, P a -> P (tyBase1 s a))
                 (Hbase2 : forall s {a b}, P a -> P b -> P (tyBase2 s a b))
-                (Happ : forall {n} s ms, ForallV P ms -> P (@tyApp n s ms)).
+                (Happ : forall {n} s ms, ForallV P ms -> P (@tyApp n s ms))
+                (Hprop : P tyProp)
+                (Hvar : forall p, P (tyVar p)).
     Fixpoint mtyp_ind (x : mtyp) : P x :=
       match x as x return P x with
       | tyArr a b => Harr _ _ (mtyp_ind a) (mtyp_ind b)
@@ -72,6 +77,8 @@ Section parametric.
                         | Vnil _ => ForallV_nil _
                         | Vcons m ms => ForallV_cons _(mtyp_ind m) (all ms)
                         end) _ ms)
+      | tyProp => Hprop
+      | tyVar p => Hvar p
       end.
   End mtyp_ind.
 
@@ -86,6 +93,8 @@ Section parametric.
     | tyBase1 s m => symbolD s (mtypD m)
     | tyBase2 s m1 m2 => symbolD s (mtypD m1) (mtypD m2)
     | tyApp s ms => applyn (symbolD s) (vector_map mtypD ms)
+    | tyProp => Prop
+    | tyVar _ => Empty_set
     end.
 
   Let getAppN (a : mtyp) : nat :=
@@ -176,6 +185,12 @@ Section parametric.
         end
       | right _ => right _
       end
+    | tyProp , tyProp => left eq_refl
+    | tyVar a , tyVar b =>
+      match Pos.eq_dec a b with
+      | left pf => left (f_equal _ pf)
+      | right _ => right _
+      end
     | _ , _ => right _
     end;
   try solve [ clear ; intro pf; inversion pf
@@ -233,6 +248,12 @@ Section parametric.
         | left pf , left pf' => Some _
         | _ , _ => None
         end
+      | right _ => None
+      end
+    | tyProp , tyProp => Some eq_refl
+    | tyVar a , tyVar b =>
+      match Pos.eq_dec a b with
+      | left pf => Some (f_equal _ pf)
       | right _ => None
       end
     | _ , _ => None
@@ -305,6 +326,8 @@ Section parametric.
     - rewrite symbol_dec_refl. rewrite IHa. reflexivity.
     - rewrite symbol_dec_refl. rewrite IHa1; rewrite IHa2; reflexivity.
     - repeat rewrite dec_refl. reflexivity.
+    - reflexivity.
+    - rewrite dec_refl. reflexivity.
   Qed.
 
   Instance RTypeOk_mtyp : RTypeOk.
@@ -317,6 +340,26 @@ Section parametric.
     - apply mtyp_cast_refl.
     - eauto with typeclass_instances.
   Qed.
+
+  Global Instance Typ0_Prop : Typ0 _ Prop :=
+  { typ0 := tyProp
+  ; typ0_cast := eq_refl
+  ; typ0_match := fun T (m : mtyp) tr =>
+    match m as t' return T (mtypD t') -> T (mtypD t')
+    with
+    | tyProp => fun _ => tr
+    | _ => fun fa => fa
+    end }.
+
+  Global Instance Typ0Ok_Prop : Typ0Ok Typ0_Prop.
+  Proof using.
+    constructor.
+    { reflexivity. }
+    { destruct x; simpl; try (right; reflexivity).
+      left; exists eq_refl. reflexivity. }
+    { destruct pf; reflexivity. }
+  Qed.
+
 
   Instance Typ0_sym (s : symbol 0) : Typ0 _ (symbolD s) :=
   { typ0 := tyBase0 s
@@ -501,6 +544,9 @@ Arguments tyBase0 {_} _.
 Arguments tyBase1 {_} _ _.
 Arguments tyBase2 {_} _ _ _.
 Arguments tyApp {_ _} _ _.
+Arguments tyArr {_} _ _.
+Arguments tyProp {_}.
+Arguments tyVar {_} _.
 
 Arguments Typ0_sym {_ _} _.
 Arguments Typ1_sym {_ _} _.

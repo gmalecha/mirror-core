@@ -6,6 +6,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.View.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Polymorphic.
+Require Import MirrorCore.Lib.TypeVar.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -15,16 +16,16 @@ Section poly.
   Context {RT : RType typ}
           {RS : RSym sym}.
 
-  Inductive VType : Type :=
-  | tVar : positive -> VType.
-
-  Context {PV_vtype : PartialView typ VType}.
+  Context {PV_vtype : PartialView typ (VType 0)}.
 
   Variable typ_unify : typ -> typ -> pmap typ -> option (pmap typ).
 
-  Definition type_remember (p : positive) (t : typ) (m : pmap typ)
+  Definition type_remember (p : VType 0) (t : typ) (m : pmap typ)
   : option (pmap typ) :=
-    Some (pmap_insert p t m).
+    match p with
+    | tVar p =>
+      Some (pmap_insert p t m)
+    end.
 
   (** NOTE: This function does not need to be complete
    ** TODO: We should really stop looking at the term as

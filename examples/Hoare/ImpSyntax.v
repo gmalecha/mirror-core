@@ -20,7 +20,6 @@ Module ImpSyntax (I : ImpLang).
   | tyCmd      : tsym 0
   | tySProp    : tsym 0
   | tyHProp    : tsym 0
-  | tyProp     : tsym 0
   | tyVariable : tsym 0
   | tyExpr     : tsym 0
   | tyValue    : tsym 0.
@@ -31,7 +30,6 @@ Module ImpSyntax (I : ImpLang).
     | tyCmd => I.icmd
     | tySProp => I.SProp
     | tyHProp => I.HProp
-    | tyProp => Prop
     | tyVariable => I.var
     | tyExpr => I.iexpr
     | tyValue => I.value
@@ -46,7 +44,6 @@ Module ImpSyntax (I : ImpLang).
     | tyVariable => 4
     | tyExpr => 5
     | tyValue => 6
-    | tyProp => 7
     end.
 
   Definition tsym_neq : forall n (a b : tsym n),
@@ -81,11 +78,6 @@ Module ImpSyntax (I : ImpLang).
                     | tyHProp => left eq_refl
                     | _ => right _
                     end
-    | tyProp => fun b =>
-                    match b with
-                    | tyProp => left eq_refl
-                    | _ => right _
-                    end
     | tyVariable => fun b =>
                     match b with
                     | tyVariable => left eq_refl
@@ -116,8 +108,6 @@ Module ImpSyntax (I : ImpLang).
 
   Global Instance Typ2_Fun : @Typ2 typ _ Fun := Typ2_Fun.
   Global Instance Typ2Ok_Fun : Typ2Ok Typ2_Fun := Typ2Ok_Fun.
-  Global Instance Typ0_Prop : @Typ0 typ _ Prop := Typ0_sym tyProp.
-  Global Instance Typ0Ok_Prop : Typ0Ok Typ0_Prop := Typ0Ok_sym tyProp.
 
   Global Instance RelDec_eq_typ : RelDec (@eq typ) := RelDec_Rty _.
   Global Instance RelDec_Correct_eq_typ : RelDec_Correct RelDec_eq_typ :=
@@ -141,15 +131,13 @@ Module ImpSyntax (I : ImpLang).
 
   Local Notation "! x" := (@tyBase0 tsym x) (at level 0).
 
-  Arguments tyArr {_} _ _.
-
   Definition typeof_sym_imp (f : imp_func) : option typ :=
     match f with
     | pVar _ => Some !tyVariable
     | pNat _ => Some !tyValue
     | pLocals_get => Some (tyArr !tyVariable (tyArr !tyLocals !tyValue))
     | pLocals_upd => Some (tyArr !tyVariable (tyArr !tyValue (tyArr !tyLocals !tyLocals)))
-    | pEq t => Some (tyArr t (tyArr t !tyProp))
+    | pEq t => Some (tyArr t (tyArr t tyProp))
     | pEval_expri => Some (tyArr !tyExpr (tyArr !tyLocals !tyValue))
     | eVar => Some (tyArr !tyVariable !tyExpr)
     | eConst => Some (tyArr !tyValue !tyExpr)
@@ -274,7 +262,6 @@ Module ImpSyntax (I : ImpLang).
         end
       | tyBase0 l =>
         match l as l in tsym 0 return loption (ILogic.ILogicOps@{Urefl Urefl} (tsymD _ l)) with
-        | tyProp => lSome _
         | tyHProp => lSome _
         | tySProp => lSome _
         | _ => lNone
@@ -282,6 +269,8 @@ Module ImpSyntax (I : ImpLang).
       | tyBase1 _ _ => lNone
       | tyBase2 _ _ _ => lNone
       | tyApp _ _ => lNone
+      | tyProp => lSome _
+      | tyVar _ => lNone
       end.
 
   Definition eops : embed_ops _ :=
@@ -290,12 +279,8 @@ Module ImpSyntax (I : ImpLang).
             return loption
                      (ILogic.EmbedOp (TypesI.typD t) (TypesI.typD u))
       with
-      | tyBase0 t =>
-        match t as t in tsym 0
-              return loption (ILogic.EmbedOp (tsymD _ t) (TypesI.typD u))
-        with
-        | tyProp =>
-          match u with
+      | tyProp =>
+match u with
           | tyBase0 u =>
             match u as u in tsym 0
                   return loption (ILogic.EmbedOp Prop (tsymD 0 u))
@@ -324,6 +309,11 @@ Module ImpSyntax (I : ImpLang).
             end
           | _ => lNone
           end
+        
+      | tyBase0 t =>
+        match t as t in tsym 0
+              return loption (ILogic.EmbedOp (tsymD _ t) (TypesI.typD u))
+        with
         | tyHProp =>
           match u with
           | tyArr a b =>
@@ -352,7 +342,7 @@ Module ImpSyntax (I : ImpLang).
       end.
 
   Lemma tsym0_case : forall x : tsym 0,
-      x = tyLocals \/ x = tyCmd \/ x = tyProp \/ x = tyHProp \/ x = tySProp
+      x = tyLocals \/ x = tyCmd \/ x = tyHProp \/ x = tySProp
       \/ x = tyVariable \/ x = tyExpr \/ x = tyValue.
   Proof using.
     intro.
@@ -388,8 +378,8 @@ Module ImpSyntax (I : ImpLang).
     { destruct (tsym0_case t);
       repeat match goal with
              | H : _ \/ _ |- _ => destruct H
-             end; subst; eauto with typeclass_instances; simpl.
-      eapply ILogic.ILogic_Prop. }
+             end; subst; eauto with typeclass_instances; simpl. }
+    { eapply _. }
   Qed.
 
   Theorem eops_ok : ILogicFunc.embed_opsOk lops eops.
@@ -426,8 +416,6 @@ Module ImpSyntax (I : ImpLang).
           repeat match goal with
                  | H : _ \/ _ |- _ => destruct H; subst; auto
                  end; simpl.
-          eapply I.Embed_Prop_HProp.
-          eapply I.Embed_Prop_SProp.
       - destruct t'; simpl; auto.
         * destruct t'1; simpl; auto.
           destruct t'2; simpl; auto.
@@ -439,12 +427,26 @@ Module ImpSyntax (I : ImpLang).
           repeat match goal with
                  | H : _ \/ _ |- _ => destruct H; subst; auto
                  end.
-          eapply ILogic.Embed_Fun.
         * generalize (tsym0_case t); intro ;
           repeat match goal with
                  | H : _ \/ _ |- _ => destruct H; subst; auto
                  end.
-      - intros. destruct (lops t'); auto.
+    + destruct t'; simpl; auto.
+      destruct t'1; simpl; auto.
+      destruct t'2; simpl; auto.
+      generalize (tsym0_case t); intro ;
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H; subst; auto
+               end.
+      generalize (tsym0_case t0); intro ;
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H; subst; auto
+               end.
+      eapply _.
+      generalize (tsym0_case t); intro ;
+        repeat match goal with
+               | H : _ \/ _ |- _ => destruct H; subst; auto
+               end; eapply _.
   Qed.
 
   Local Instance RSym_ilfunc : SymI.RSym (ilfunc typ) :=
@@ -643,18 +645,18 @@ Definition test_lemma :=
     fun (x y : function reify_imp_typ) => ILogicFunc.ilf_embed x y.
 
   (** Special cases for Coq's primitives **)
-  Reify Pattern patterns_ilogic_func += (!!True) => ILogicFunc.ilf_true !tyProp.
-  Reify Pattern patterns_ilogic_func += (!!False) => ILogicFunc.ilf_false !tyProp.
-  Reify Pattern patterns_ilogic_func += (!!and) => ILogicFunc.ilf_and !tyProp.
-  Reify Pattern patterns_ilogic_func += (!! or) => ILogicFunc.ilf_or !tyProp.
+  Reify Pattern patterns_ilogic_func += (!!True) => ILogicFunc.ilf_true (@tyProp tsym).
+  Reify Pattern patterns_ilogic_func += (!!False) => ILogicFunc.ilf_false (@tyProp tsym).
+  Reify Pattern patterns_ilogic_func += (!!and) => ILogicFunc.ilf_and (@tyProp tsym).
+  Reify Pattern patterns_ilogic_func += (!! or) => ILogicFunc.ilf_or (@tyProp tsym).
 
   Reify Pattern patterns_imp += (RPi (?0) (?1)) =>
     fun (x : function reify_imp_typ) (y : function reify_imp) =>
-      ExprCore.App (mkLogic (@ILogicFunc.ilf_forall typ x !tyProp ))
+      ExprCore.App (mkLogic (@ILogicFunc.ilf_forall typ x (@tyProp tsym) ))
                    (@ExprCore.Abs typ func x y).
   Reify Pattern patterns_imp += (RImpl (?0) (?1)) =>
     fun (x y : function reify_imp) =>
-      ExprCore.App (ExprCore.App (mkLogic (@ILogicFunc.ilf_impl typ !tyProp)) x) y.
+      ExprCore.App (ExprCore.App (mkLogic (@ILogicFunc.ilf_impl typ (@tyProp tsym))) x) y.
   (** END LOGIC REIFY **)
 
 
@@ -667,7 +669,7 @@ Definition test_lemma :=
   Reify Pattern patterns_imp_typ += (!! I.icmd) => !tyCmd.
   Reify Pattern patterns_imp_typ += (!! I.SProp) => !tySProp.
   Reify Pattern patterns_imp_typ += (!! I.HProp) => !tyHProp.
-  Reify Pattern patterns_imp_typ += (!! Prop) => !tyProp.
+  Reify Pattern patterns_imp_typ += (!! Prop) => (@tyProp tsym).
   Reify Pattern patterns_imp_typ += (!! I.var) => !tyVariable.
   Reify Pattern patterns_imp_typ += (!! I.iexpr) => !tyExpr.
   Reify Pattern patterns_imp_typ += (!! nat)  => !tyValue.

@@ -4,6 +4,7 @@ Require Import Coq.PArith.BinPos.
 Require Import Coq.Relations.Relations.
 Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Structures.Functor.
 Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SubstI.
@@ -27,6 +28,7 @@ Require Import MirrorCore.Lambda.PolyInst.
 Require Import MirrorCore.Views.View.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.MTypes.MTypeUnify.
+Require Import MirrorCore.Lib.TypeVar.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -71,15 +73,9 @@ Section setoid.
       RbaseD r t2 = Some rD2 ->
       t1 = t2.
 
-  Fixpoint polymorphic (n : nat) T : Type :=
-    match n with
-    | 0 => T
-    | S n => typ -> polymorphic n T
-    end.
-
   Inductive HintRewrite : Type :=
   | PRw : forall n,
-      polymorphic n (rw_lemma typ func Rbase) ->
+      polymorphic typ n (rw_lemma typ func Rbase) ->
       rtacK typ (expr typ func) ->
       HintRewrite
   | Rw : rw_lemma typ func Rbase -> rtacK typ (expr typ func) ->
@@ -88,38 +84,18 @@ Section setoid.
   Definition RewriteHintDb : Type :=
     list HintRewrite.
 
-  Context {PV_vtype : PartialView (tsym 0) VType}.
-
-  Section fmap_polymorphic.
-    Variables T U : Type.
-    Variable f : T -> U.
-    Fixpoint fmap_polymorphic (n : nat)
-    : polymorphic n T -> polymorphic n U :=
-      match n with
-      | 0 => f
-      | S n => fun x y => fmap_polymorphic n (x y)
-      end.
-  End fmap_polymorphic.
-
-  Require Import ExtLib.Structures.Functor.
-  Instance Functor_polymorphic n : Functor (polymorphic n) :=
-  { fmap := fun T U f => @fmap_polymorphic T U f n }.
-
-  Local Definition base_update (l : tsym 0) (r : typ) p :=
-    match f_view l with
-    | POption.pNone => Some p
-    | POption.pSome (tVar n) => PolyInst.type_remember n r p
-    end.
+  Context {PV_vtype : PartialView (tsym 0) (VType 0)}.
 
   Local Definition view_update :=
-    (mtype_unify tsym (FMapPositive.pmap typ) base_update).
+    (mtype_unify tsym (FMapPositive.pmap typ)
+                 (fun a b c => Some (FMapPositive.pmap_insert a b c))).
 
-  Let local_view : PartialView typ VType :=
+  Let local_view : PartialView typ (VType 0) :=
     PartialView_trans TypeView_sym0 PV_vtype.
   Local Existing Instance local_view.
 
   Local Definition get_lemma {n : nat}
-        (p : polymorphic n (rw_lemma typ func Rbase))
+        (p : polymorphic typ n (rw_lemma typ func Rbase))
         (e : expr typ func)
   : option (rw_lemma typ func Rbase) :=
     match get_inst view_update (fmap (fun x => x.(concl).(lhs)) p) e with

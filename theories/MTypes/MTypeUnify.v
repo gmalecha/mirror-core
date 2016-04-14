@@ -5,22 +5,26 @@ Section parametric.
   Variable TSym_tsym : TSym tsym.
 
   Variable S : Type.
-  Variable add : tsym 0 -> mtyp tsym -> S -> option S.
+  Variable add : positive -> mtyp tsym -> S -> option S.
 
   (** This is asymmetric, the first argument is the "special one" **)
   Fixpoint mtype_unify (a b : mtyp tsym) (s : S) {struct a}
   : option S :=
     match a with
-    | tyArr _ da ca =>
+    | tyArr da ca =>
       match b with
-      | tyArr _ db cb =>
+      | tyArr db cb =>
         match mtype_unify da ca s with
         | Some s' => mtype_unify ca cb s'
         | _ => None
         end
       | _ => None
       end
-    | tyBase0 sym => add sym b s
+    | tyBase0 _ =>
+      match b with
+      | tyBase0 _ => Some s
+      | _ => None
+      end
     | tyBase1 _ ta =>
       match b with
       | tyBase1 _ tb => mtype_unify ta tb s
@@ -51,6 +55,11 @@ Section parametric.
            end) _ _ va vb s
       | _ => None
       end
+    | tyProp => match b with
+                | tyProp => Some s
+                | _ => None
+                end
+    | tyVar v => add v b s
     end.
 
 End parametric.
