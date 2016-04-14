@@ -38,6 +38,7 @@ theories/MTypes/TSymOneOf.v
 theories/MTypes/ProdType.v
 theories/MTypes/ListType.v
 theories/MTypes/BaseType.v
+theories/MTypes/MTypeUnify.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v
@@ -84,6 +85,7 @@ theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
 theories/Lambda/Reify.v
+theories/Lambda/PolyInst.v
 
 theories/Views/View.v
 theories/Views/TypeView.v
