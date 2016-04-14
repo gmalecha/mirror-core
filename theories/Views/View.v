@@ -145,7 +145,7 @@ Proof.
   { intros.
     destruct FVabOk as [_ ?]; destruct FVbcOk as [_ ?]; simpl in *.
     eapply Rabc_factors; [ eapply pv_compat0 | eapply pv_compat1 ]. }
-Qed.
+Defined.
 
 Section PartialViewProd.
   Polymorphic Context {A B C D : Type}.

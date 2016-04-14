@@ -489,7 +489,7 @@ Section parametric.
     constructor; simpl.
     { destruct f; split; try congruence. }
     { reflexivity. }
-  Qed.
+  Defined.
 
   Global Instance TypeView_sym1
   : PartialView mtyp (symbol 1 * mtyp) :=
@@ -512,7 +512,7 @@ Section parametric.
       { inversion 1. subst. reflexivity. }
       { inversion 1. subst. destruct a; reflexivity. } }
     { reflexivity. }
-  Qed.
+  Defined.
 
   Global Instance TypeView_sym2
   : PartialView mtyp (symbol 2 * (mtyp * mtyp)) :=
@@ -536,7 +536,7 @@ Section parametric.
       { inversion 1. subst. reflexivity. }
       { inversion 1. subst. destruct a; simpl. destruct p. reflexivity. } }
     { reflexivity. }
-  Qed.
+  Defined.
 
 End parametric.
 
