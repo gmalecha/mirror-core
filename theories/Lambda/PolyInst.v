@@ -21,16 +21,22 @@ Section poly.
 
   Context {PV_vtype : PartialView typ VType}.
 
-  (** NOTE: This function does not need to be complete **)
+  Definition type_remember (p : positive) (t : typ) (m : pmap typ)
+  : option (pmap typ) :=
+    Some (pmap_insert p t m).
+
+  (** NOTE: This function does not need to be complete
+   ** TODO: We should really stop looking at the term as
+   **       soon as we have instantiated everything
+   **)
   Fixpoint get_types {T} (a b : expr typ sym) (s : pmap typ)
            (ok : pmap typ -> T) (bad : T) {struct a}
-  : T.
-  refine
+  : T :=
     match a , b with
     | App fa aa , App fb ab =>
-      get_types _ fa fb s
-                 (fun s' => get_types _ aa ab s' ok bad)
-                 bad
+      get_types fa fb s
+                (fun s' => get_types aa ab s' ok bad)
+                bad
     | Inj a , Inj b =>
       match typeof_sym a
           , typeof_sym b
@@ -44,7 +50,6 @@ Section poly.
       end
     | _ , _ => ok s
     end.
-  Defined.
 
   Fixpoint polymorphic (n : nat) T : Type :=
     match n with
