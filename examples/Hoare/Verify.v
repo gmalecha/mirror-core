@@ -49,8 +49,8 @@ Module ImpVerify (I : ImpLang).
   Local Existing Instance RTypeOk_typ.
   Local Existing Instance Typ2_Fun.
   Local Existing Instance Typ2Ok_Fun.
-  Local Existing Instance Typ0_Prop.
-  Local Existing Instance Typ0Ok_Prop.
+  Local Existing Instance ModularTypes.Typ0_Prop.
+  Local Existing Instance ModularTypes.Typ0Ok_Prop.
 
   Section with_fs.
     Variable fs' : SymEnv.functions typ _.
@@ -596,20 +596,20 @@ Module ImpVerify (I : ImpLang).
           let resultV := eval vm_compute in result in
           lazymatch resultV with
           | Solved _ =>
-            change (@propD _ _ _ Typ0_Prop (Expr_expr tbl) nil nil g) ;
+            change (@propD _ _ _ (@ModularTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g) ;
               cut(result = resultV) ;
               [ exact (@rtac_Solved_closed_soundness _ _ _ _ _ _ (tac_sound tbl) nil nil g)
               | vm_cast_no_check (@eq_refl _ resultV) ]
           | More_ _ ?g' =>
             pose (g'V := g') ;
-            let post := constr:(match @goalD _ _ _ Typ0_Prop (Expr_expr tbl) nil nil g'V with
+            let post := constr:(match @goalD _ _ _ (@ModularTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g'V with
                                 | Some G => G HList.Hnil HList.Hnil
                                 | None => True
                                 end) in
             let post := reduce_propD tbl g'V post in
             let G := post in
             cut G ;
-              [ change (@closedD _ _ _ Typ0_Prop (Expr_expr tbl) nil nil g g'V) ;
+              [ change (@closedD _ _ _ (@ModularTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g g'V) ;
                 cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
                 [ exact (@rtac_More_closed_soundness _ _ _ _ _ _ (tac_sound tbl) nil nil g g'V)
                 | vm_cast_no_check (@eq_refl _ resultV) ]
