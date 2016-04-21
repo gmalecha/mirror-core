@@ -1,4 +1,4 @@
-Require Import ExtLib.Core.RelDec.
+alRequire Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
@@ -10,9 +10,9 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import McExamples.Simple.Simple.
-Require Import McExamples.Simple.SimpleReify.
-Require Import McExamples.AutoRewrite.QuantPullRtac.
+Require Import McExamples.PolyRewrite.MSimple.
+Require Import McExamples.PolyRewrite.MSimpleReify.
+Require Import McExamples.PolyRewriteRewrite.PolyQuantPullRtac.
 
 Set Implicit Arguments.
 Set Strict Implicit.

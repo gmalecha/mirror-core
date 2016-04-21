@@ -180,5 +180,6 @@ examples/AutoRewrite/DemoQuantPullRtac.v
 examples/AutoRewrite/DemoQuantPullLtac.v
 
 examples/PolyRewrite/MSimple.v
+examples/PolyRewrite/MSimpleReify.v
 examples/PolyRewrite/PolyQuantPullRtac.v
 examples/PolyRewrite/DemoPolyQuantPullRtac.v
