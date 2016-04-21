@@ -28,6 +28,8 @@ theories/Lemma.v
 theories/LemmaApply.v
 theories/Simple.v
 
+theories/Lib/TypeVar.v
+
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
@@ -176,3 +178,7 @@ examples/RTac/Demo.v
 examples/AutoRewrite/QuantPullRtac.v
 examples/AutoRewrite/DemoQuantPullRtac.v
 examples/AutoRewrite/DemoQuantPullLtac.v
+
+examples/PolyRewrite/MSimple.v
+examples/PolyRewrite/PolyQuantPullRtac.v
+examples/PolyRewrite/DemoPolyQuantPullRtac.v
