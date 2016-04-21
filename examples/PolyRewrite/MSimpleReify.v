@@ -1,8 +1,8 @@
 Require Import Coq.Lists.List.
 Require Import MirrorCore.Reify.Reify.
+Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.PolyRewrite.MSimple.
-Require Coq.Numbers.BinNums.
 
 (** Declare patterns **)
 Reify Declare Patterns patterns_simple_typ : typ.
@@ -29,10 +29,9 @@ Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
 Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
 Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
-Require Import MirrorCore.MTypes.ModularTypes.
-Reify Pattern patterns_simple_typ += (!! nat)  => tyNat.
-Reify Pattern patterns_simple_typ += (!! bool) => tyBool.
-Reify Pattern patterns_simple_typ += (!! Prop) => tyProp.
+Reify Pattern patterns_simple_typ += (!! nat)  => (tyBase0 tyNat).
+Reify Pattern patterns_simple_typ += (!! bool) => (tyBase0 tyBool).
+Reify Pattern patterns_simple_typ += (!! Prop) => (@tyProp typ').
 Reify Pattern patterns_simple_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function reify_simple_typ) => tyArr a b).
 
 Reify Pattern patterns_simple += (@RGet 0 RConst) => (fun (n : @id nat) => @Inj typ func (N n)).
@@ -115,7 +114,7 @@ Defined.
 Print test_fail.
 
 Definition foo : nat := 6.
-Reify Seed Typed Table table_terms += 1 => [[ Simple.tyNat , foo ]].
+Reify Seed Typed Table table_terms += 1 => [[ MSimple.tyNat , foo ]].
 
 Definition test_table : expr typ func.
   reify (foo).
