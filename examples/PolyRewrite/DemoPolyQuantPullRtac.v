@@ -105,13 +105,17 @@ Locate Typ2_tyArr.
 Ltac reduce_propD g e := eval cbv beta iota zeta delta
     [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
-      typeof_sym RSym_func type_cast typeof_func RType_typ typ2_match
-      (*Typ2_tyArr typ_eq_dec typ_rec typ_rect *)
+      typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
+      Typ2_Fun mtyp_dec
       mtyp_dec
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
+      RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
+      typD mtypD symbolD
     ] in e.
+
+Arguments Typ0_Prop {_ _}.
 
   Ltac run_tactic reify tac tac_sound :=
     match goal with
@@ -142,7 +146,7 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
                 | try clear g'V g ]
             end
           | Fail => idtac "failed"
-          | ?G => idtac G
+          | ?G => fail "reduction failed with " G
           end
       in
       reify_expr_bind reify k [[ True ]] [[ goal ]]
