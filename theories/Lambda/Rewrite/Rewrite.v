@@ -1543,8 +1543,7 @@ Section setoid.
                         list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
     : lem_rewriter _ _ _ :=
       fun e r => rw_bind (using_prewrite_db'' hints e r)
-                         (fun e => rw_ret (Progress e)).
-
+                      (fun e => rw_ret (Progress e)).
 
     (** TODO(gmalecha): This is almost identical to the above theorem *)
     Theorem using_prewrite_db_sound

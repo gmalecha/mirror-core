@@ -188,7 +188,7 @@ Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
 Existing Instance RelDec_eq_mtyp.
 
-Definition tyBNat := tyBase0 tyNat.
+Let tyBNat := tyBase0 tyNat.
 
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_respectful rel_dec
@@ -355,3 +355,27 @@ Proof.
   - eapply pull_all_quant_sound.
   - eapply get_respectful_sound.
 Qed.
+
+(* Polymorphic hints support *)
+Locate rtacK.
+Locate lemmaD.
+
+Definition hints_sound (hints : expr typ func -> R typ Rbase ->
+                     list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
+        (forall r e,
+            Forall (fun lt =>
+                      (forall tus tvs t eD,
+                          lambda_exprD tus tvs t e = Some eD ->
+                          Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
+                      CoreK.rtacK_sound (snd lt)) (hints e r)).
+
+Print CompileHints.
+Locate PartialView.
+
+Lemma CompileHints_sound :
+  forall h,
+    hints_sound (CompileHints h).
+Admitted.
+
+Locate CompileHints.
+Check CompileHints.

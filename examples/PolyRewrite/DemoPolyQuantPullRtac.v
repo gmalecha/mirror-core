@@ -1,4 +1,9 @@
-alRequire Import ExtLib.Core.RelDec.
+(* DemoPolyQuantPullRtac.v
+ * Contains a demonstration of the quantifier-puller's funcionality,
+ * As well as some supporting infrastructure/automation.
+ *)
+
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
@@ -12,25 +17,28 @@ Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
-Require Import McExamples.PolyRewriteRewrite.PolyQuantPullRtac.
+Require Import McExamples.PolyRewrite.PolyQuantPullRtac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Definition fAnd a b : expr typ func := App (App (Inj Simple.And) a) b.
-Definition fOr a b : expr typ func := App (App (Inj Simple.And) a) b.
-Definition fAll t P : expr typ func := App (Inj (Simple.All t)) (Abs t P).
-Definition fEx t P : expr typ func := App (Inj (Simple.Ex t)) (Abs t P).
-Definition fEq t : expr typ func := (Inj (Simple.Eq t)).
-Definition fImpl : expr typ func := (Inj Simple.Impl).
-Definition fEq_nat a b : expr typ func := App (App (fEq tyNat) a) b.
-Definition fN n : expr typ func := Inj (Simple.N n).
+(* Convenient abbreviation for modular type *)
+Let tyBNat := ModularTypes.tyBase0 tyNat.
+
+Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
+Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.
+Definition fAll t P : expr typ func := App (Inj (MSimple.All t)) (Abs t P).
+Definition fEx t P : expr typ func := App (Inj (MSimple.Ex t)) (Abs t P).
+Definition fEq t : expr typ func := (Inj (MSimple.Eq t)).
+Definition fImpl : expr typ func := (Inj MSimple.Impl).
+Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
+Definition fN n : expr typ func := Inj (MSimple.N n).
 
 Fixpoint goal n : expr typ func :=
   match n with
   | 0 => fEq_nat (fN 0) (fN 0)
   | S n =>
-    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n))
+    fAnd (fEx tyBNat (goal n)) (fEx tyBNat (goal n))
   end.
 
 
@@ -38,7 +46,7 @@ Fixpoint goal2 mx n (acc : nat) : expr typ func :=
   match n with
   | 0 =>
     if acc ?[ lt ] mx then
-      fEx tyNat (fEq_nat (fN 0) (fN 0))
+      fEx tyBNat (fEq_nat (fN 0) (fN 0))
     else
       fEq_nat (fN 0) (fN 0)
   | S n =>
@@ -89,14 +97,17 @@ Qed.
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.MTypes.ModularTypes.
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
+Locate Typ2_tyArr.
 
 Ltac reduce_propD g e := eval cbv beta iota zeta delta
     [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
       typeof_sym RSym_func type_cast typeof_func RType_typ typ2_match
-      Typ2_tyArr typ_eq_dec  typ_rec typ_rect
+      (*Typ2_tyArr typ_eq_dec typ_rec typ_rect *)
+      mtyp_dec
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
@@ -137,7 +148,7 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
     end.
 
 Goal goal2_D 10 7 0.
-simpl.
+  simpl.
 Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0; tauto.
 Qed.
