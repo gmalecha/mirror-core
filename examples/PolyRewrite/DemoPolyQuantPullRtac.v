@@ -119,7 +119,7 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
       let k g :=
           let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
           let resultV := eval vm_compute in result in
-          match resultV with
+          lazymatch resultV with
           | Solved _ =>
             change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
               cut(result = resultV) ;
@@ -142,6 +142,7 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
                 | try clear g'V g ]
             end
           | Fail => idtac "failed"
+          | ?G => idtac G
           end
       in
       reify_expr_bind reify k [[ True ]] [[ goal ]]
