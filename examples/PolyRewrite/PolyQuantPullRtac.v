@@ -1,3 +1,9 @@
+(* PolyQuantPullRtac.v
+ * Rtac implementation of existential quantifier puller, which can "pull"
+ * quantifiers out of and'd expressions to the front.
+ * Testbed for the second-class polymorphism mechanism.
+ *)
+
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
@@ -11,6 +17,7 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
+Require Import MirrorCore.MTypes.ModularTypes.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
 
@@ -24,6 +31,7 @@ Reify Declare Patterns patterns_concl : (rw_concl typ func Rbase).
 Reify Declare Syntax reify_concl_base :=
   (CPatterns patterns_concl).
 
+(* Pattern language notations *)
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
 Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
@@ -43,9 +51,11 @@ Reify Pattern patterns_concl += (!!(@Basics.flip Prop Prop Prop) @ !!Basics.impl
 
 Existing Instance RType_typ.
 Existing Instance Expr.Expr_expr.
+Existing Instance Typ2_Fun.
+Existing Instance Typ2Ok_Fun.
 
 Definition RbaseD (e : expr typ func) (t : typ)
-: option (TypesI.typD t -> TypesI.typD t -> Prop) :=
+  : option (TypesI.typD t -> TypesI.typD t -> Prop) :=
   env_exprD nil nil (tyArr t (tyArr t tyProp)) e.
 
 Theorem RbaseD_single_type
@@ -176,20 +186,24 @@ Qed.
 
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
+Existing Instance RelDec_eq_mtyp.
+
+Definition tyBNat := tyBase0 tyNat.
+
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_respectful rel_dec
-    ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
-     (Inj (All tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
+    ((Inj (Ex tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
+     (Inj (All tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
      nil).
 
 Definition get_respectful : respectful_dec typ func Rbase :=
   do_respectful rel_dec
-    ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
-     (Inj (All tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
+    ((Inj (Ex tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
+     (Inj (All tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
      (Inj And, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
      (Inj Or, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
-     (Inj Plus, Rrespects (Rinj (Inj (Eq tyNat)))
-                          (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) ::
+     (Inj Plus, Rrespects (Rinj (Inj (Eq tyBNat)))
+                          (Rrespects (Rinj (Inj (Eq tyBNat))) (Rinj (Inj (Eq tyBNat))))) ::
 
      nil).
 
@@ -261,7 +275,7 @@ Proof.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
     generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
-    simpl. Cases.rewrite_all_goal. intros; forward.
+    simpl. (* next tactic does nothing? *) Cases.rewrite_all_goal. intros; forward.
     erewrite lambda_exprD_App; try eassumption.
     2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
     2: rewrite typ2_match_iota; eauto with typeclass_instances.
@@ -272,8 +286,25 @@ Proof.
     simpl. eexists; split; eauto.
     unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
     intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
-    f_equal. apply FunctionalExtensionality.functional_extensionality.
-    intros. rewrite H5. rewrite H6. reflexivity. }
+    f_equal.
+
+    (* new *)
+    (*
+    destruct (lambda_exprD tus (x4::tvs) x x7) eqn:Htmp; try congruence.
+    inversion H1; subst; clear H1.
+    de
+    rewrite H in H4.
+    idtac.
+     *)
+
+    (* end new *)
+
+    unfold lambda_exprD.
+
+    Set Printing Implicit.
+    Check FunctionalExtensionality.functional_extensionality.
+    apply FunctionalExtensionality.functional_extensionality.
+    intros. rewrite H5. rewrite H6. reflexivity. admit. }
   { eauto. }
 Qed.
 
