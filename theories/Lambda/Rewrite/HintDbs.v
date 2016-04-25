@@ -84,14 +84,18 @@ Section setoid.
   Definition RewriteHintDb : Type :=
     list HintRewrite.
 
-  Context {PV_vtype : PartialView (tsym 0) (VType 0)}.
-
   Local Definition view_update :=
     (mtype_unify tsym (FMapPositive.pmap typ)
                  (fun a b c => Some (FMapPositive.pmap_insert a b c))).
 
   Let local_view : PartialView typ (VType 0) :=
-    PartialView_trans TypeView_sym0 PV_vtype.
+  {| f_insert := fun x => match x with
+                         | tVar p => tyVar p
+                         end
+  ; f_view := fun x => match x with
+                       | tyVar x => POption.pSome (tVar x)
+                       | _ => POption.pNone
+                       end |}.
   Local Existing Instance local_view.
 
   Local Definition get_lemma {n : nat}
