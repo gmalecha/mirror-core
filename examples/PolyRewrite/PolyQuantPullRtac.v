@@ -15,6 +15,7 @@ Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.RewriteStrat.
 Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.MTypes.ModularTypes.
@@ -245,10 +246,41 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                    (pmap Red.beta get)))))
     e e.
 
+Print HintRewrite.
+Check List.map.
+
+(* Polymorphic hints support *)
+Locate rtacK.
+Locate lemmaD.
+
+Definition hints_sound (hints : expr typ func -> R typ Rbase ->
+                     list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
+        (forall r e,
+            Forall (fun lt =>
+                      (forall tus tvs t eD,
+                          lambda_exprD tus tvs t e = Some eD ->
+                          Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
+                      CoreK.rtacK_sound (snd lt)) (hints e r)).
+
+(* TODO: actually prove this once we're sure it's the right thing *)
+Lemma CompileHints_sound :
+  forall h,
+    hints_sound (CompileHints h).
+Proof.
+Admitted.
+
+(* build hint database from provided lemmas list *)
+Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
+                                     CoreK.rtacK typ (expr typ func))) : RewriteHintDb Rbase :=
+  List.map (fun l => let '(rwl, rtc) := l in
+                  Rw rwl rtc
+           ) lems.
+
 Definition the_rewrites (lems : list (rw_lemma typ func (expr typ func) *
                                       CoreK.rtacK typ (expr typ func)))
-: lem_rewriter typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).
+  : lem_rewriter typ func Rbase :=
+  (*rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).*)
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints (build_hint_db lems)))).
 
 Lemma simple_reduce_sound :
   forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
@@ -305,11 +337,29 @@ Proof.
   { intros.
     generalize (Red.beta_sound tus tvs e t). rewrite H0.
     intros; forward. eauto. }
-  eapply using_rewrite_db_sound; eauto.
+  eapply using_prewrite_db_sound; eauto with typeclass_instances.
   { eapply RelDec_semidec; eauto with typeclass_instances. }
   { eapply RbaseD_single_type. }
+  (* this is the point where i need to use the hint db compilation correctness lemma. e.g. *)
+  (* generalize CompileHints_sound *)
+  { eapply CompileHints_sound. }
 Qed.
 
+  (*
+  (* ugh, looks like I have to clean up some goals I didn't have to before... *)
+  - intros.
+    eapply rel_dec_correct; eauto.
+  - intros.
+    SearchAbout RbaseD.
+    eapply RbaseD_single_type; eau
+
+
+
+    consider (a ?[eq] b); intros; auto; try congruence.
+*)
+
+
+(* should take a HintDB as argument *)
 Definition the_lemmas
 : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
   (lem_pull_ex_nat_and_left, IDTACK) ::
@@ -356,26 +406,3 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
-(* Polymorphic hints support *)
-Locate rtacK.
-Locate lemmaD.
-
-Definition hints_sound (hints : expr typ func -> R typ Rbase ->
-                     list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
-        (forall r e,
-            Forall (fun lt =>
-                      (forall tus tvs t eD,
-                          lambda_exprD tus tvs t e = Some eD ->
-                          Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
-                      CoreK.rtacK_sound (snd lt)) (hints e r)).
-
-Print CompileHints.
-Locate PartialView.
-
-Lemma CompileHints_sound :
-  forall h,
-    hints_sound (CompileHints h).
-Admitted.
-
-Locate CompileHints.
-Check CompileHints.
