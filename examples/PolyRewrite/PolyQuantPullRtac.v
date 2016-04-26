@@ -267,6 +267,71 @@ Lemma CompileHints_sound :
   forall h,
     hints_sound (CompileHints h).
 Proof.
+  induction h; intros; simpl.
+  { unfold hints_sound. intros. constructor. }
+  { destruct a eqn:Ha.
+    { admit. (* for now, don't care about polymorphic RW .*) }
+    { unfold hints_sound in *.
+      intros.
+      specialize (IHh r1 e).
+      inversion IHh; subst; clear IHh.
+      { constructor; [|constructor].
+        split.
+      
+      
+      inversion IHh.
+      { Print HintDbs.get_lemma.
+        destruct a eqn:Ha.
+    { destruct (HintDbs.get_lemma Rbase p e).
+      { inversion H; subst.
+        { split.
+          { intros.
+            simpl.
+            unfold Lemma.lemmaD. simpl.
+            unfold Lemma.lemmaD'. simpl.
+            Check Lemma.premises.
+            unfold Lemma.premises. simpl.
+            SearchAbout Lemma.lemmaD.
+
+      
+    intros.
+    apply Forall_forall. intros.
+    destruct a eqn:Ha.
+    { destruct (HintDbs.get_lemma Rbase p e).
+      { inversion H; subst.
+        { split.
+          { intros.
+            simpl.
+            unfold Lemma.lemmaD. simpl.
+            unfold Lemma.lemmaD'. simpl.
+            Check Lemma.premises.
+            unfold Lemma.premises. simpl.
+            SearchAbout Lemma.lemmaD.
+        eapply Forall_forall with (x := x) in IHh.
+    Focus 2.
+    destruct 
+    SearchAbout List.Forall.
+    inversion IHh; subst; clear IHh.
+    { destruct a eqn:Ha.
+      { destruct (HintDbs.get_lemma Rbase p e) eqn:He1.
+        { subst.
+          constructor; try constructor.
+          Focus 2.
+          SearchAbout CoreK.rtacK_sound.
+
+        subst.
+    { destruct (HintDbs.get_lemma Rbase p e) eqn:He1.
+      { split.
+        { intros.
+          inversion IHh; subst; clear IHh.
+          Pr
+          Print CompileHints.
+          Focus 2.
+          { simpl.
+        spli
+    intros.
+  intros.
+  in
 Admitted.
 
 (* build hint database from provided lemmas list *)
@@ -340,24 +405,8 @@ Proof.
   eapply using_prewrite_db_sound; eauto with typeclass_instances.
   { eapply RelDec_semidec; eauto with typeclass_instances. }
   { eapply RbaseD_single_type. }
-  (* this is the point where i need to use the hint db compilation correctness lemma. e.g. *)
-  (* generalize CompileHints_sound *)
   { eapply CompileHints_sound. }
 Qed.
-
-  (*
-  (* ugh, looks like I have to clean up some goals I didn't have to before... *)
-  - intros.
-    eapply rel_dec_correct; eauto.
-  - intros.
-    SearchAbout RbaseD.
-    eapply RbaseD_single_type; eau
-
-
-
-    consider (a ?[eq] b); intros; auto; try congruence.
-*)
-
 
 (* should take a HintDB as argument *)
 Definition the_lemmas
