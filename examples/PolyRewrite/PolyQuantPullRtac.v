@@ -262,77 +262,84 @@ Definition hints_sound (hints : expr typ func -> R typ Rbase ->
                           Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       CoreK.rtacK_sound (snd lt)) (hints e r)).
 
+Check using_prewrite_db_sound.
+Print CompileHints.
+
 (* TODO: actually prove this once we're sure it's the right thing *)
+Print rewrite_db_sound.
+Check rewrite_db_sound.
+
+(* rewrite_db_sound for non polymorphic case *)
+(* for polymorphic case - prove polymorphic lemma and tactic continuation are sound *)
+(* need a new definition. we are going to remove rewrite_db_sound, to capture poly and non poly cases *)
+(* two functions. one will be like non_poly_rewrite sound, taking a lemma and a continuation and returns Prop *)
+(* other is poly_rewrite_sound, taking a poly lemma and continuation and returns Prop *)
+Locate polymorphic.
+Print Polymorphic.polymorphic.
+(* use Polymorphic.polymorphic, instantiate the quantifiers. need to quantify over all types,
+run inst, and take denotation *)
+Print Polymorphic.inst.
+Print rewrite_db_sound.
+(* for now, we can just say the soundness of a PRw is False. *)
+(* quantify over all vectors of type n *)
+(* for this one, look at defn inside of *)
+(* we just map these functions over the list. *)
+
+Check Rw.
+
+(* TODO: make these more polymorphic so that they work with things other than typ *)
+(* Soundness for individual lemmas in a hint database *)
+Definition prewrite_Rw_sound (lem : rw_lemma typ func Rbase) (rts : CoreK.rtacK typ (expr typ func)) : Prop :=
+  Lemma.lemmaD (rw_conclD RbaseD) nil nil lem /\
+  CoreK.rtacK_sound rts.
+
+Definition prewrite_Prw_sound (n : nat) (plem : Polymorphic.polymorphic typ n (rw_lemma typ func Rbase))
+           (rts : CoreK.rtacK typ (expr typ func)): Prop :=
+  (forall (v : Vector.vector typ n),
+      Lemma.lemmaD (rw_conclD RbaseD) nil nil (Polymorphic.inst plem v)) /\
+  CoreK.rtacK_sound rts.
+
+Definition RewriteHintDb_sound (db : RewriteHintDb Rbase) : Prop :=
+  Forall (fun h : HintRewrite Rbase =>
+            match h with
+            | PRw _ n plem rts => prewrite_Prw_sound n plem rts
+            | Rw lem rts => prewrite_Rw_sound lem rts
+            end) db.
+
+(* need prewrite_db_sound *)
 Lemma CompileHints_sound :
-  forall h,
-    hints_sound (CompileHints h).
+  forall db,
+    RewriteHintDb_sound db ->
+    hints_sound (CompileHints db).
 Proof.
-  induction h; intros; simpl.
+  induction db; intros; simpl.
   { unfold hints_sound. intros. constructor. }
-  { destruct a eqn:Ha.
-    { admit. (* for now, don't care about polymorphic RW .*) }
-    { unfold hints_sound in *.
-      intros.
-      specialize (IHh r1 e).
-      inversion IHh; subst; clear IHh.
-      { constructor; [|constructor].
-        split.
-      
-      
-      inversion IHh.
-      { Print HintDbs.get_lemma.
-        destruct a eqn:Ha.
-    { destruct (HintDbs.get_lemma Rbase p e).
-      { inversion H; subst.
-        { split.
-          { intros.
-            simpl.
-            unfold Lemma.lemmaD. simpl.
-            unfold Lemma.lemmaD'. simpl.
-            Check Lemma.premises.
-            unfold Lemma.premises. simpl.
-            SearchAbout Lemma.lemmaD.
-
-      
-    intros.
-    apply Forall_forall. intros.
-    destruct a eqn:Ha.
-    { destruct (HintDbs.get_lemma Rbase p e).
-      { inversion H; subst.
-        { split.
-          { intros.
-            simpl.
-            unfold Lemma.lemmaD. simpl.
-            unfold Lemma.lemmaD'. simpl.
-            Check Lemma.premises.
-            unfold Lemma.premises. simpl.
-            SearchAbout Lemma.lemmaD.
-        eapply Forall_forall with (x := x) in IHh.
-    Focus 2.
-    destruct 
-    SearchAbout List.Forall.
-    inversion IHh; subst; clear IHh.
-    { destruct a eqn:Ha.
-      { destruct (HintDbs.get_lemma Rbase p e) eqn:He1.
-        { subst.
-          constructor; try constructor.
-          Focus 2.
-          SearchAbout CoreK.rtacK_sound.
-
-        subst.
-    { destruct (HintDbs.get_lemma Rbase p e) eqn:He1.
-      { split.
-        { intros.
-          inversion IHh; subst; clear IHh.
-          Pr
-          Print CompileHints.
-          Focus 2.
-          { simpl.
-        spli
-    intros.
-  intros.
-  in
-Admitted.
+  { inversion H; subst; clear H.
+    specialize (IHdb H3). clear H3.
+    unfold hints_sound. intros.
+    destruct a.
+    (* PRw case *)
+    { destruct (HintDbs.get_lemma Rbase p e) eqn:Hgl; [|eapply IHdb].
+      constructor; [|eauto].
+      unfold prewrite_Prw_sound in *. forward_reason.
+      split; [|eauto]. intros.
+      simpl.
+      SearchAbout Lemma.lemmaD.
+      unfold HintDbs.get_lemma in *.
+      destruct (PolyInst.get_inst HintDbs.view_update
+            (Functor.fmap
+               (fun
+                  x : Lemma.lemma (mtyp typ') (expr (mtyp typ') func)
+                        (rw_concl (mtyp typ') func Rbase) =>
+                   lhs (Lemma.concl x)) p) e); [|congruence].
+      inversion Hgl; subst; clear Hgl.
+      eauto. }
+     
+    (* Rw case *)
+    { constructor; [|eauto].
+      unfold prewrite_Rw_sound in H2. forward_reason.
+      simpl. split; auto. } }
+Qed.
 
 (* build hint database from provided lemmas list *)
 Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
@@ -391,6 +398,23 @@ Proof.
   { eauto. }
 Qed.
 
+(* relate two notions of soundness for hint dbs *)
+Lemma rewrite_db_sound_sound' :
+  forall hints,
+    rewrite_db_sound RbaseD hints ->
+    RewriteHintDb_sound (build_hint_db hints).
+Proof.
+  induction hints.
+  { simpl. intros. constructor.  }
+  { simpl. intros.
+    destruct a.
+    unfold rewrite_db_sound in H. inversion H; subst; clear H.
+    constructor.
+    { unfold prewrite_Rw_sound. simpl in *. assumption. }
+    { apply IHhints.
+      apply H3. } }
+Qed.
+
 Theorem the_rewrites_sound
 : forall hints, rewrite_db_sound RbaseD hints ->
     setoid_rewrite_spec RbaseD (the_rewrites hints).
@@ -405,7 +429,8 @@ Proof.
   eapply using_prewrite_db_sound; eauto with typeclass_instances.
   { eapply RelDec_semidec; eauto with typeclass_instances. }
   { eapply RbaseD_single_type. }
-  { eapply CompileHints_sound. }
+  { eapply CompileHints_sound.
+    apply rewrite_db_sound_sound'; auto. }
 Qed.
 
 (* should take a HintDB as argument *)
