@@ -246,13 +246,8 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                    (pmap Red.beta get)))))
     e e.
 
-Print HintRewrite.
-Check List.map.
 
 (* Polymorphic hints support *)
-Locate rtacK.
-Locate lemmaD.
-
 Definition hints_sound (hints : expr typ func -> R typ Rbase ->
                      list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
         (forall r e,
@@ -262,37 +257,14 @@ Definition hints_sound (hints : expr typ func -> R typ Rbase ->
                           Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       CoreK.rtacK_sound (snd lt)) (hints e r)).
 
-Check using_prewrite_db_sound.
-Print CompileHints.
-
-(* TODO: actually prove this once we're sure it's the right thing *)
-Print rewrite_db_sound.
-Check rewrite_db_sound.
-
-(* rewrite_db_sound for non polymorphic case *)
-(* for polymorphic case - prove polymorphic lemma and tactic continuation are sound *)
-(* need a new definition. we are going to remove rewrite_db_sound, to capture poly and non poly cases *)
-(* two functions. one will be like non_poly_rewrite sound, taking a lemma and a continuation and returns Prop *)
-(* other is poly_rewrite_sound, taking a poly lemma and continuation and returns Prop *)
-Locate polymorphic.
-Print Polymorphic.polymorphic.
-(* use Polymorphic.polymorphic, instantiate the quantifiers. need to quantify over all types,
-run inst, and take denotation *)
-Print Polymorphic.inst.
-Print rewrite_db_sound.
-(* for now, we can just say the soundness of a PRw is False. *)
-(* quantify over all vectors of type n *)
-(* for this one, look at defn inside of *)
-(* we just map these functions over the list. *)
-
-Check Rw.
-
 (* TODO: make these more polymorphic so that they work with things other than typ *)
 (* Soundness for individual lemmas in a hint database *)
 Definition prewrite_Rw_sound (lem : rw_lemma typ func Rbase) (rts : CoreK.rtacK typ (expr typ func)) : Prop :=
   Lemma.lemmaD (rw_conclD RbaseD) nil nil lem /\
   CoreK.rtacK_sound rts.
 
+(* TODO (Mario) - write a convencience function to make this easier to use than working
+   directly with the vector. *)
 Definition prewrite_Prw_sound (n : nat) (plem : Polymorphic.polymorphic typ n (rw_lemma typ func Rbase))
            (rts : CoreK.rtacK typ (expr typ func)): Prop :=
   (forall (v : Vector.vector typ n),
@@ -324,7 +296,6 @@ Proof.
       unfold prewrite_Prw_sound in *. forward_reason.
       split; [|eauto]. intros.
       simpl.
-      SearchAbout Lemma.lemmaD.
       unfold HintDbs.get_lemma in *.
       destruct (PolyInst.get_inst HintDbs.view_update
             (Functor.fmap
