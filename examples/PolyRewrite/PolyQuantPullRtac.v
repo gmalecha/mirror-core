@@ -79,7 +79,43 @@ Proof.
 Qed.
 
 Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
-      lem_pull_ex_nat_and_left : @pull_ex_and_left nat.
+lem_pull_ex_nat_and_left : @pull_ex_and_left nat.
+
+(* TODO - update reifier plugin so that we can produce polymorphic lemmas
+   and don't have to input them manually *)
+Definition lem_pull_ex_and_left : typ -> Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) :=
+  fun ty : typ =>
+{|
+Lemma.vars := tyProp :: tyArr ty tyProp :: nil;
+Lemma.premises := nil;
+Lemma.concl := {|
+               lhs := App
+                        (App (Inj And)
+                           (App (Inj (Ex ty)) (ExprCore.Var 1)))
+                        (ExprCore.Var 0);
+               rel := Rflip (Rinj (Inj Impl));
+               rhs := App (Inj (Ex ty))
+                        (Abs ty
+                           (App
+                              (App (Inj And)
+                                 (App (ExprCore.Var 2) (ExprCore.Var 0)))
+                              (ExprCore.Var 1))) |} |}.
+
+(* need to convert between singleton vectors and single argument *)
+
+Lemma lem_pull_ex_and_left_sound
+  : forall t : typ,
+    Lemma.lemmaD (rw_conclD RbaseD) nil nil (lem_pull_ex_and_left t).
+Proof.
+  intros.
+  repeat progress (red; simpl; try rewrite mtyp_cast_refl).
+  intros.
+  repeat progress (red in H; simpl in H).
+  forward_reason.
+  repeat progress (red in H; simpl in H).
+  split; auto.
+  eexists; eauto.
+Qed.
 
 Definition lem_pull_ex_nat_and_left_sound
 : Lemma.lemmaD (rw_conclD RbaseD) nil nil lem_pull_ex_nat_and_left :=
@@ -92,13 +128,37 @@ Proof.
   split; eauto.
 Qed.
 
+
 Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
-      lem_pull_ex_nat_and_right : @pull_ex_and_right nat.
+lem_pull_ex_nat_and_right : @pull_ex_and_right nat.
 
-Definition lem_pull_ex_nat_and_right_sound
-: Lemma.lemmaD (rw_conclD RbaseD) nil nil lem_pull_ex_nat_and_right :=
-  @pull_ex_and_right nat.
+Definition lem_pull_ex_and_right : typ -> Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) :=
+  fun ty : typ =>
+    {|
+      Lemma.vars := tyProp :: tyArr (tyBase0 tyNat) tyProp :: nil;
+      Lemma.premises := nil;
+      Lemma.concl := {|
+                      lhs := App (App (Inj And) (ExprCore.Var 0))
+                                 (App (Inj (Ex (tyBase0 tyNat))) (ExprCore.Var 1));
+                      rel := Rflip (Rinj (Inj Impl));
+                      rhs := App (Inj (Ex (tyBase0 tyNat)))
+                                 (Abs (tyBase0 tyNat)
+                                      (App (App (Inj And) (ExprCore.Var 1))
+                                           (App (ExprCore.Var 2) (ExprCore.Var 0)))) |} |}.
 
+Lemma lem_pull_ex_and_right_sound
+  : forall t : typ,
+    Lemma.lemmaD (rw_conclD RbaseD) nil nil (lem_pull_ex_and_right t).
+Proof.
+  intros.
+  repeat progress (red; simpl; try rewrite mtyp_cast_refl).
+  intros.
+  repeat progress (red in H; simpl in H).
+  forward_reason.
+  repeat progress (red in H0; simpl in H0).
+  split; eauto.
+Qed.
+    
 Definition is_refl : refl_dec Rbase :=
   fun (r : Rbase) =>
     match r with
@@ -297,13 +357,9 @@ Proof.
       split; [|eauto]. intros.
       simpl.
       unfold HintDbs.get_lemma in *.
-      destruct (PolyInst.get_inst HintDbs.view_update
-            (Functor.fmap
-               (fun
-                  x : Lemma.lemma (mtyp typ') (expr (mtyp typ') func)
-                        (rw_concl (mtyp typ') func Rbase) =>
-                   lhs (Lemma.concl x)) p) e); [|congruence].
-      inversion Hgl; subst; clear Hgl.
+      Require Import MirrorCore.Util.Forwardy.
+      forwardy.
+      inversion H3; subst; clear H3.
       eauto. }
      
     (* Rw case *)
@@ -313,17 +369,18 @@ Proof.
 Qed.
 
 (* build hint database from provided lemmas list *)
+(*
 Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
                                      CoreK.rtacK typ (expr typ func))) : RewriteHintDb Rbase :=
   List.map (fun l => let '(rwl, rtc) := l in
                   Rw rwl rtc
            ) lems.
+*)
 
-Definition the_rewrites (lems : list (rw_lemma typ func (expr typ func) *
-                                      CoreK.rtacK typ (expr typ func)))
+Definition the_rewrites (lems : RewriteHintDb Rbase)
   : lem_rewriter typ func Rbase :=
   (*rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).*)
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints (build_hint_db lems)))).
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
 
 Lemma simple_reduce_sound :
   forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
@@ -369,25 +426,8 @@ Proof.
   { eauto. }
 Qed.
 
-(* relate two notions of soundness for hint dbs *)
-Lemma rewrite_db_sound_sound' :
-  forall hints,
-    rewrite_db_sound RbaseD hints ->
-    RewriteHintDb_sound (build_hint_db hints).
-Proof.
-  induction hints.
-  { simpl. intros. constructor.  }
-  { simpl. intros.
-    destruct a.
-    unfold rewrite_db_sound in H. inversion H; subst; clear H.
-    constructor.
-    { unfold prewrite_Rw_sound. simpl in *. assumption. }
-    { apply IHhints.
-      apply H3. } }
-Qed.
-
 Theorem the_rewrites_sound
-: forall hints, rewrite_db_sound RbaseD hints ->
+: forall hints, RewriteHintDb_sound hints ->
     setoid_rewrite_spec RbaseD (the_rewrites hints).
 Proof.
   unfold the_rewrites. intros.
@@ -401,22 +441,22 @@ Proof.
   { eapply RelDec_semidec; eauto with typeclass_instances. }
   { eapply RbaseD_single_type. }
   { eapply CompileHints_sound.
-    apply rewrite_db_sound_sound'; auto. }
+    auto. }
 Qed.
 
-(* should take a HintDB as argument *)
 Definition the_lemmas
-: list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
-  (lem_pull_ex_nat_and_left, IDTACK) ::
-  (lem_pull_ex_nat_and_right, IDTACK) ::
-  nil.
+  : RewriteHintDb Rbase :=
+  PRw _ 1 lem_pull_ex_and_left IDTACK ::
+     PRw _ 1 lem_pull_ex_and_right IDTACK ::
+     nil.
 
-Theorem the_lemmas_sound : rewrite_db_sound RbaseD the_lemmas.
+(* need a more convenient interface than raw vectors *)
+(* go from poly n to the actual thing with quantifiers as actual quantifiers *)
+Theorem the_lemmas_sound : RewriteHintDb_sound the_lemmas.
 Proof.
-  repeat first [ apply Forall_cons; [ simple apply conj | ] | apply Forall_nil ];
-  simpl; solve [ apply IDTACK_sound
-               | exact (@pull_ex_and_right nat)
-               | exact (@pull_ex_and_left nat) ].
+  repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply IDTACK_sound.
+  { intros. unfold Polymorphic.inst. apply lem_pull_ex_and_left_sound. }
+  { intros. unfold Polymorphic.inst. apply lem_pull_ex_and_right_sound. }
 Qed.
 
 Definition pull_all_quant : lem_rewriter typ func Rbase :=
@@ -451,3 +491,8 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
+(* next up: finish this file
+figure out how to make opaque terms reduce so the lemma soundness proof
+is not crazy painful - ask Gregory
+do respectful stuff - basically make respectfulness definitions polymorphic
+*)
