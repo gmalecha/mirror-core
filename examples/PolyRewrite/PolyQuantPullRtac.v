@@ -257,23 +257,15 @@ Print Polymorphic.polymorphic.
 
 (* Polymorphic wrapper for do_respectful *)
 Print PRw.
+Print Proper_concl.
+
 Inductive HintProper : Type :=
 | PPr : forall n : nat,
-    Polymorphic.polymorphic (mtyp typ') n (expr typ func * R typ Rbase) ->
+    Polymorphic.polymorphic (mtyp typ') n (@Proper_concl typ func Rbase) ->
     HintProper
-| Pr : expr typ func -> R typ Rbase -> HintProper
 .
 
 Definition ProperDb := list HintProper.
-
-Print do_respectful.
-Print CompileHints.
-
-Print PolyInst.get_inst.
-Check @PolyInst.get_vector.
-
-Check do_respectful.
-Print do_respectful.
 
 (* need a version of get_lemma for polymorphic lemmas *)
 
@@ -295,36 +287,88 @@ Let local_view : (PartialView@{X} typ (VType 0)) :=
                        | _ => POption.pNone
                        end |}.
 
+Arguments term {_ _ _} _.
 
-Definition get_proper (n : nat) (p : Polymorphic.polymorphic (mtyp typ') n (expr typ func * R typ Rbase))
+Definition PolymorphicD {T} (TD : T -> Prop) n x : Prop :=
+  forall (v : Vector.vector typ n),
+    TD (Polymorphic.inst x v).
+
+Arguments Build_Proper_concl {_ _ _} _ _.
+
+Definition get_proper (n : nat) (p : Polymorphic.polymorphic (mtyp typ') n (Proper_concl Rbase))
            (e : expr typ func)
-  : option (Proper_lemma Rbase) :=
+  : option (Proper_concl Rbase) :=
   let p' :=
-      Functor.fmap (fun pair => let '(lt, _) := pair in lt) p in
+      Functor.fmap term p in
   match @PolyInst.get_inst _ _ _ _ local_view HintDbs.view_update n p' e with
   | Some args =>
-    match (Polymorphic.inst p args) with
-    | (e, r) =>
-      Some ({| Lemma.vars := nil;
-               Lemma.premises := nil;
-               Lemma.concl := {| relation := r; term := e |}
-            |})
-    end
+    Some (Polymorphic.inst p args) 
   | None => None
   end.
+
+Definition properD (pc : Proper_concl Rbase) : Prop :=
+  match pc with
+  | Build_Proper_concl r e =>
+    match typeof_expr nil nil e with
+    | Some t =>
+      match RD RbaseD r t with
+      | Some rD =>
+        match lambda_exprD nil nil t e with
+        | Some eD =>
+          Morphisms.Proper rD (eD HList.Hnil HList.Hnil)
+        | None => False
+        end
+      | None => False
+      end
+    | None => False
+    end
+  end.
+
+Require Import MirrorCore.Lambda.Polymorphic.
+
+Require Import MirrorCore.Util.Forwardy.
+
+Lemma inst_sound :
+  forall {T} n (y: polymorphic typ n T) (P : T -> Prop) v,
+    PolymorphicD P n y ->
+    P (inst y v).
+Proof.
+  unfold PolymorphicD.
+  intros.
+  auto.
+Qed.
+
+Lemma get_proper_sound :
+  forall n (p : polymorphic _ _ _) e x,
+      get_proper n p e  = Some x ->
+      PolymorphicD properD n p ->
+      properD x.
+Proof.
+  unfold get_proper. simpl. intros.
+  forwardy. inv_all.
+  subst.
+
+  apply inst_sound.
+  assumption.
+Qed.
+
+Check get_proper.
 
 Definition do_one_prespectful (h : HintProper) : respectful_dec typ func Rbase :=
   match h with
   | PPr n pe =>
     (fun (e : expr typ func) =>
        match get_proper n pe e with
-       | Some lem => apply_respectful rel_dec lem IDTACK e
+       | Some lem =>
+         apply_respectful rel_dec {| Lemma.vars := nil;
+                                     Lemma.premises := nil;
+                                     Lemma.concl := lem |} IDTACK e
        | None => fail_respectful e
          end)
-  | Pr e r =>
+(*  | Pr e r =>
     apply_respectful rel_dec {| Lemma.vars := nil;
                         Lemma.premises := nil;
-                        Lemma.concl := {| relation := r; term := e |} |} IDTACK
+                        Lemma.concl := {| relation := r; term := e |} |} IDTACK *)
   end.
 
 Existing Instance Polymorphic.Functor_polymorphic.
@@ -338,16 +382,85 @@ Fixpoint do_prespectful (pdb : ProperDb) : respectful_dec typ func Rbase :=
       (fun (e : expr typ func) => do_prespectful pdb' e)
   end.
 
-Locate CompileHints.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
-
-SearchAbout  CompileHints.
 
 (* Up next - soundness of do_prespectful.
    look at CompileHints_sound.
    Idea - no matter what GetPolyInst returns, we're good.
  *)
 
+
+Definition ProperHint_sound (hp : HintProper) : Prop :=
+  match hp with
+  | PPr n p => PolymorphicD properD n p
+  end.
+
+Definition ProperDb_sound (pdb : ProperDb) : Prop :=
+  Forall ProperHint_sound pdb.
+
+Lemma Proper_conclD_properD :
+  forall x,
+    properD x -> Proper_conclD RbaseD nil nil x = Some (fun _ _ => properD x).
+Proof.
+  destruct x; simpl.
+  unfold Proper_conclD. simpl.
+  forward.
+  f_equal.
+  Locate functional_extensionality.
+  Require Import Coq.Logic.FunctionalExtensionality.
+  do 2 (apply functional_extensionality; intros).
+  Require Import ExtLib.Data.HList.
+  rewrite (hlist_eta x). rewrite (hlist_eta x0).
+  reflexivity.
+Qed.
+
+Lemma do_one_prespectful_sound :
+  forall hp : HintProper,
+    ProperHint_sound hp ->
+    respectful_spec RbaseD (do_one_prespectful hp).
+Proof.
+  intros.
+  unfold do_one_prespectful.
+  destruct hp.
+  red. intros.
+  Check @get_proper_sound.
+  generalize (@get_proper_sound n p e).
+  destruct (get_proper n p e).
+  {
+    intros.
+    eapply apply_respectful_sound; eauto using IDTACK_sound.
+    apply RelDecCorrect_eq_expr; eauto with typeclass_instances.
+    red. simpl.
+    red. simpl.
+    specialize (H2 _ eq_refl H).
+    rewrite Proper_conclD_properD; assumption.
+  }
+  {
+    intros.
+    apply fail_respectful_sound; auto.
+  }
+Qed.
+
+Lemma do_prespectful_sound :
+  forall pdb,
+    ProperDb_sound pdb ->
+    respectful_spec RbaseD (do_prespectful pdb).
+Proof.
+  induction 1.
+  { apply fail_respectful_sound. }
+  { apply or_respectful_sound.
+    { apply do_one_prespectful_sound; assumption. }
+    { assumption. } }
+Qed.
+
+(* NEXT: change these so they use polymorphic version
+   change demo so it tries to pull bools and ints
+   should make monomorphic wrapper for properness
+   make rewrites have 1 constructor (and mono. wrapper)
+   comment and clean up
+   move everything into mirror-core
+   type classes (possibly before move)
+*)
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_respectful rel_dec
     ((Inj (Ex tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
@@ -415,6 +528,7 @@ Definition hints_sound (hints : expr typ func -> R typ Rbase ->
                           lambda_exprD tus tvs t e = Some eD ->
                           Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       CoreK.rtacK_sound (snd lt)) (hints e r)).
+
 
 (* TODO: make these more polymorphic so that they work with things other than typ *)
 (* Soundness for individual lemmas in a hint database *)
