@@ -49,9 +49,9 @@ Section parameterized.
   Local Existing Instance SubstUpdate_ctx_subst.
 
   Definition EASSUMPTION : rtac typ expr :=
-    fun tus tvs _ _ ctx s gl =>
+    fun ctx s gl =>
       match findHyp
-              (fun e => @exprUnify _ _ _ tus tvs 0 gl e (typ0 (F:=Prop)) s) ctx
+              (fun e => @exprUnify _ _ _ (getUVars ctx) (getVars ctx) 0 gl e (typ0 (F:=Prop)) s) ctx
       with
         | None => Fail
         | Some s' => Solved s'
@@ -156,4 +156,5 @@ Section parameterized.
 
 End parameterized.
 
+Typeclasses Opaque EASSUMPTION.
 Hint Opaque EASSUMPTION : typeclass_instances.

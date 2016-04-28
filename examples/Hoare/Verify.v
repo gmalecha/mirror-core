@@ -100,7 +100,7 @@ Module ImpVerify (I : ImpLang).
                   Ptrns.ignore) Ptrns.ignore)
             false in
       AT_GOAL (fun _ _ gl => if check gl then yes else no).
-    Arguments ON_ENTAILMENT _%rtac _%rtac _ _ _ _ _ _ _.
+    Arguments ON_ENTAILMENT _%rtac _%rtac _ _ _.
 
     Definition INTRO_All : imp_tac := INTRO_all.
     Definition INTRO_Hyp : imp_tac := INTRO_hyp.

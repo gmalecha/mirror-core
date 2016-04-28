@@ -20,9 +20,9 @@ Section parameterized.
   Definition THEN (c1 : rtac typ expr)
              (c2 : rtacK typ expr)
   : rtac typ expr :=
-    fun tus tvs nus nvs ctx sub g =>
-      match c1 tus tvs nus nvs ctx sub g with
-        | More_ sub' g' => c2 tus tvs nus nvs _ sub' g'
+    fun ctx sub g =>
+      match c1 ctx sub g with
+        | More_ sub' g' => c2 _ sub' g'
         | Solved sub => Solved sub
         | Fail => Fail
       end.
@@ -47,8 +47,9 @@ Section parameterized.
 
 End parameterized.
 
+Typeclasses Opaque THEN.
 Hint Opaque THEN : typeclass_instances.
 
-Arguments THEN {typ expr} _%rtac _%rtacK _ _ _ _ {_} _ _ : rename.
+Arguments THEN {typ expr} _%rtac _%rtacK _ _ _ : rename.
 
 Notation "X  ;; Y" := (@THEN _ _ X%rtac Y%rtacK) (at level 70, right associativity) : rtac_scope.

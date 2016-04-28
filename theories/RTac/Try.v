@@ -16,8 +16,8 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition TRY (tac : rtac typ expr) : rtac typ expr :=
-    fun tus tvs nus nvs ctx s g =>
-      match tac tus tvs nus nvs ctx s g with
+    fun ctx s g =>
+      match tac ctx s g with
         | Fail => More_ s (GGoal g)
         | x => x
       end.
@@ -28,11 +28,12 @@ Section parameterized.
     unfold TRY, rtac_sound.
     intros; subst.
     specialize (H ctx s g _ eq_refl).
-    destruct (tac (getUVars ctx) (getVars ctx)
-           (length (getUVars ctx)) (length (getVars ctx)) ctx s
-           g); eauto using rtac_spec_More_.
+    destruct (tac ctx s g); eauto using rtac_spec_More_.
   Qed.
 
 End parameterized.
 
-Arguments TRY {_ _} _%rtac _ _ _ _ _ _ _.
+Hint Opaque TRY : typeclass_instances.
+Typeclasses Opaque TRY.
+
+Arguments TRY {_ _} _%rtac _ _ _.

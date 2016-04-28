@@ -18,7 +18,7 @@ Section parameterized.
 
 
   Definition IDTAC : rtac typ expr :=
-    fun _ _ _ _ ctx sub gl => More_ sub (GGoal gl).
+    fun ctx sub gl => More_ sub (GGoal gl).
 
   Theorem IDTAC_sound : rtac_sound IDTAC.
   Proof.
@@ -30,5 +30,6 @@ Section parameterized.
 End parameterized.
 
 Hint Opaque IDTAC : typeclass_instances.
+Typeclasses Opaque IDTAC.
 
-Arguments IDTAC {typ expr} _ _ _ _ {_} _ _.
+Arguments IDTAC {typ expr} _ _ _.

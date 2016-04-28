@@ -38,7 +38,7 @@ Section parameterized.
   Variable simplify : reducer.
 
   Definition SIMPLIFY : rtac typ expr :=
-    fun _ _ _ _ ctx sub gl =>
+    fun ctx sub gl =>
       More_ sub (GGoal (@simplify (ctx_subst ctx) _ ctx sub gl)).
 
   Hypothesis simplify_sound' : reducer_sound simplify.
@@ -94,6 +94,9 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Typeclasses Opaque SIMPLIFY.
+Hint Opaque SIMPLIFY.
 
 Arguments reducer _ _ : clear implicits.
 Arguments reducer_sound {_ _ _ _ _ _ _} _ : clear implicits.

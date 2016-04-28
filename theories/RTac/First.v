@@ -18,14 +18,14 @@ Section parameterized.
 
   Fixpoint FIRST (tacs : list (rtac typ expr))
   : rtac typ expr :=
-    fun tus tvs nus nvs ctx s gl =>
+    fun ctx s gl =>
       match tacs with
-        | nil => Fail
-        | tac :: tacs' =>
-          match tac tus tvs nus nvs ctx s gl with
-            | Fail => @FIRST tacs' tus tvs nus nvs ctx s gl
-            | x => x
-          end
+      | nil => Fail
+      | tac :: tacs' =>
+        match tac ctx s gl with
+        | Fail => @FIRST tacs' ctx s gl
+        | x => x
+        end
       end.
 
   Theorem FIRST_sound
@@ -36,18 +36,17 @@ Section parameterized.
     { unfold rtac_sound. intros; subst; simpl; auto. }
     { red. intros.
       specialize (H ctx s g _ eq_refl).
-      subst. destruct (x (getUVars ctx) (getVars ctx)
-         (length (getUVars ctx)) (length (getVars ctx)) ctx s g); eauto. }
+      subst. destruct (x ctx s g); eauto. }
   Qed.
 
   Fixpoint FIRSTK (tacs : list (rtacK typ expr))
   : rtacK typ expr :=
-    fun tus tvs nus nvs ctx s gl =>
+    fun ctx s gl =>
       match tacs with
         | nil => Fail
         | tac :: tacs' =>
-          match tac tus tvs nus nvs ctx s gl with
-            | Fail => @FIRSTK tacs' tus tvs nus nvs ctx s gl
+          match tac ctx s gl with
+            | Fail => @FIRSTK tacs' ctx s gl
             | x => x
           end
       end.
@@ -60,16 +59,15 @@ Section parameterized.
     { unfold rtacK_sound. intros; subst; simpl; auto. }
     { red. intros.
       specialize (H ctx s g _ eq_refl).
-      subst. destruct (x (getUVars ctx) (getVars ctx)
-         (length (getUVars ctx)) (length (getVars ctx)) ctx s g); eauto. }
+      subst. destruct (x ctx s g); eauto. }
   Qed.
 
 End parameterized.
 
 Hint Opaque FIRST FIRSTK : typeclass_instances.
 
-Arguments FIRST {typ expr} _%or_rtac _ _ _ _ {_} _ _ : rename.
-Arguments FIRSTK {typ expr} _%or_rtacK _ _ _ _ {_} _ _ : rename.
+Arguments FIRST {typ expr} _%or_rtac _ _ _ : rename.
+Arguments FIRSTK {typ expr} _%or_rtacK _ _ _ : rename.
 
 Section parse_demo.
   Variable IDTAC : rtac unit unit.

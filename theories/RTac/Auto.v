@@ -105,4 +105,4 @@ End parameterized.
 Hint Opaque EAUTO : typeclass_instances.
 Typeclasses Opaque EAUTO.
 
-Arguments EAUTO {typ expr _ _ _ _} unify hints depth _ _ _ _ _ _ _ : rename.
+Arguments EAUTO {typ expr _ _ _ _} unify hints depth _ _ _ : rename.

@@ -190,9 +190,9 @@ Section parameterized.
 
   Definition fromResult {c} (r : Result c) : option (ctx_subst c * Goal) :=
     match r with
-      | Fail _ => None
-      | More_ s g => Some (s, g)
-      | Solved s => Some (s, GSolved)
+    | Fail _ => None
+    | More_ s g => Some (s, g)
+    | Solved s => Some (s, GSolved)
     end.
 
   Definition DEAD {c} : Result c.
@@ -201,19 +201,18 @@ Section parameterized.
 
   (** Treat this as opaque! **)
   Definition rtac : Type :=
-    tenv typ -> tenv typ -> nat -> nat ->
     forall c : Ctx typ expr, ctx_subst c -> expr -> Result c.
 
   Fixpoint hlist_mapT {T : Type} {F : T -> Type}
            {ls : list T} (h : HList.hlist (fun x => option (F x)) ls)
   : option (hlist F ls) :=
     match h in hlist _ ls return option (hlist F ls) with
-      | Hnil => Some (Hnil)
-      | Hcons x y =>
-        match x , hlist_mapT y with
-          | Some x , Some y => Some (Hcons x y)
-          | _ , _ => None
-        end
+    | Hnil => Some (Hnil)
+    | Hcons x y =>
+      match x , hlist_mapT y with
+      | Some x , Some y => Some (Hcons x y)
+      | _ , _ => None
+      end
     end.
 
   Section with_T.
@@ -526,16 +525,12 @@ Section parameterized.
 
   Definition rtac_sound (tac : rtac) : Prop :=
     forall ctx s g result,
-      (let tus := getUVars ctx in
-       let tvs := getVars ctx in
-       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      tac ctx s g = result ->
       @rtac_spec ctx s (GGoal g) result.
 
   Definition WellFormed_rtac (tac : rtac) : Prop :=
     forall ctx s g result,
-      (let tus := getUVars ctx in
-       let tvs := getVars ctx in
-       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      tac ctx s g = result ->
       @rtac_spec_wf ctx s (GGoal g) result.
 
   Theorem rtac_sound_WellFormed_rtac : forall tac,

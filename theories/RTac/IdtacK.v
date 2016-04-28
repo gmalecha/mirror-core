@@ -17,7 +17,7 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition IDTACK : rtacK typ expr :=
-    fun _ _ _ _ ctx sub gl => More_ sub gl.
+    fun ctx sub gl => More_ sub gl.
 
   (** TODO: Move this **)
   Lemma rtacK_spec_More_
@@ -40,6 +40,7 @@ Section parameterized.
 
 End parameterized.
 
+Typeclasses Opaque IDTACK.
 Hint Opaque IDTACK : typeclass_instances.
 
-Arguments IDTACK {typ expr} _ _ _ _ {_} _ _ : rename.
+Arguments IDTACK {typ expr} _ _ _ : rename.

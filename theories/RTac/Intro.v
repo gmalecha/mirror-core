@@ -35,12 +35,13 @@ Section parameterized.
 
   Definition INTRO
   : rtac typ expr :=
-    fun tus tvs nus nvs ctx sub gl =>
+    fun ctx sub gl =>
       match open gl with
       | None => Fail
       | Some (AsAl t g') =>
-        More_ sub (GAll t (GGoal (g' (Var nvs))))
+        More_ sub (GAll t (GGoal (g' (Var (countVars ctx)))))
       | Some (AsEx t g') =>
+        let nus := countUVars ctx in
         More_ sub (GEx_empty nus t (GGoal (g' (UVar nus))))
       | Some (AsHy h g') =>
         More_ sub (GHyp h (GGoal g'))
@@ -116,7 +117,6 @@ Section parameterized.
         specialize (@Hopen _ (UVar (countUVars ctx)) _ eq_refl H4).
         inv_all; subst.
         destruct Hopen as [ ? [ ? ? ] ]; clear Hopen; eauto.
-        rewrite <- countUVars_getUVars.
         rewrite H6.
         split; [ reflexivity | ].
         intros.
@@ -143,7 +143,6 @@ Section parameterized.
         specialize (@Hopen _ (Var (countVars ctx)) _ eq_refl H4).
         inv_all; subst.
         destruct Hopen as [ ? [ ? ? ] ]; clear Hopen; eauto.
-        rewrite <- countVars_getVars.
         rewrite H6.
         split; [ reflexivity | ].
         intros.
@@ -161,5 +160,8 @@ Section parameterized.
   Qed.
 
 End parameterized.
+
+Typeclasses Opaque INTRO.
+Hint Opaque INTRO : typeclasses_eauto.
 
 Arguments OpenAs _ _ : clear implicits.

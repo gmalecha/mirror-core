@@ -16,7 +16,7 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition FAIL : rtac typ expr :=
-    fun _ _ _ _ _ _ _ => Fail.
+    fun _ _ _ => Fail.
 
   Theorem FAIL_sound
   : rtac_sound FAIL.
@@ -29,3 +29,4 @@ Section parameterized.
 End parameterized.
 
 Hint Opaque FAIL : typeclass_instances.
+Typeclasses Opaque FAIL.

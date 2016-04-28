@@ -176,7 +176,7 @@ Definition tac : rtac typ (expr typ func) :=
 Definition runRTac_empty_goal (tac : rtac typ (expr typ func))
            (goal : expr typ func)  :=
   @THENK _ _ (@runOnGoals _ _ _ _ tac) (@MINIFY _ _ _ _ _)
-        nil nil 0 0 _ (@TopSubst _ _ nil nil)
+        _ (@TopSubst _ _ nil nil)
         (@GGoal typ (expr typ func) goal).
 Arguments runRTac_empty_goal _%rtac _.
 
@@ -204,7 +204,7 @@ Definition and_lem : Lemma.lemma typ (expr typ func) (expr typ func) :=
 
 Let to_rtacK : rtac typ (expr typ func) -> rtacK typ (expr typ func) :=
   runOnGoals.
-Arguments to_rtacK _%rtac _ _ _ _ {_} _ _.
+Arguments to_rtacK _%rtac _ _ _.
 
 Eval compute in
     let goal :=

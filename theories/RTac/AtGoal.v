@@ -23,7 +23,7 @@ Section parameterized.
 
   Definition AT_GOAL
   : rtac typ expr :=
-    fun tus tvs nus nvs ctx s e => (@tac ctx s e) tus tvs nus nvs ctx s e.
+    fun ctx s e => (@tac ctx s e) ctx s e.
 
   Hypothesis tac_sound : forall c s e, rtac_sound (@tac c s e).
 
@@ -36,6 +36,7 @@ Section parameterized.
 
 End parameterized.
 
+Typeclasses Opaque AT_GOAL.
 Hint Opaque AT_GOAL : typeclass_instances.
 
-Arguments AT_GOAL {typ expr} _%rtac _ _ _ _ _ _ _.
+Arguments AT_GOAL {typ expr} _%rtac _ _ _.

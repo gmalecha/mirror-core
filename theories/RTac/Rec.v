@@ -22,9 +22,8 @@ Section parameterized.
     (fix rec (n : nat) : rtac typ expr :=
        match n with
          | 0 => b last
-         | S n => fun e sub tus tvs =>
-                    b (fun e sub tus tvs => rec n e sub tus tvs)
-                      e sub tus tvs
+         | S n =>
+           fun e sub => b (fun e sub => rec n e sub) e sub
        end) n.
 
   Theorem REC_sound
@@ -46,12 +45,12 @@ Section parameterized.
         match n with
           | BinNums.xH => fun all => all last
           | BinNums.xI n =>
-            fun all e sub tus tvs =>
-              rec_N_rec n (fun z e sub tus tvs => b (fun e sub tus tvs => all (fun e sub tus tvs => all z e sub tus tvs) e sub tus tvs) e sub tus tvs) e sub tus tvs
+            fun all e sub =>
+              rec_N_rec n (fun z e sub => b (fun e sub => all (fun e sub => all z e sub) e sub) sub) sub
           | BinNums.xO n =>
-            fun all e sub tus tvs =>
-              rec_N_rec n (fun z e sub tus tvs => all (fun e sub tus tvs => all z e sub tus tvs) e sub tus tvs)
-                  e sub tus tvs
+            fun all e sub =>
+              rec_N_rec n (fun z e sub => all (fun e sub => all z e sub) e sub)
+                  sub
         end.
 
       Hypothesis b_sound : forall t, rtac_sound t -> rtac_sound (b t).
@@ -95,9 +94,9 @@ Section parameterized.
     (fix rec (n : nat) : rtacK typ expr :=
        match n with
          | 0 => b last
-         | S n => fun e sub tus tvs =>
-                    b (fun e sub tus tvs => rec n e sub tus tvs)
-                      e sub tus tvs
+         | S n => fun e sub =>
+                    b (fun e sub => rec n e sub)
+                      e sub
        end) n.
 
   Theorem RECK_sound
@@ -114,6 +113,6 @@ End parameterized.
 Hint Opaque REC REC_N RECK : typeclass_instances.
 Typeclasses Opaque REC REC_N RECK.
 
-Arguments REC {_ _} n%nat f%rtac last%rtac _ _ _ _ _ _ _ : rename.
-Arguments REC_N {_ _} n%positive_scope f%rtac last%rtac _ _ _ _ _ _ _ : rename.
-Arguments RECK {_ _} n%nat f%rtacK last%rtac _ _ _ _ _ _ _ : rename.
+Arguments REC {_ _} n%nat f%rtac last%rtac _ _ _ : rename.
+Arguments REC_N {_ _} n%positive_scope f%rtac last%rtac _ _ _ : rename.
+Arguments RECK {_ _} n%nat f%rtacK last%rtac _ _ _ : rename.

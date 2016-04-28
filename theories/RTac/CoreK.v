@@ -181,23 +181,18 @@ Section parameterized.
 
   (** Treat this as opaque! **)
   Definition rtacK : Type :=
-    tenv typ -> tenv typ -> nat -> nat ->
     forall c : Ctx typ expr, ctx_subst c -> Goal typ expr -> Result c.
 
   Definition rtacK_sound (tac : rtacK)
   : Prop :=
     forall ctx s g result,
-      (let tus := getUVars ctx in
-       let tvs := getVars ctx in
-       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      tac ctx s g = result ->
       @rtacK_spec ctx s g result.
 
   Definition WellFormed_rtacK (tac : rtacK)
   : Prop :=
     forall ctx s g result,
-      (let tus := getUVars ctx in
-       let tvs := getVars ctx in
-       tac tus tvs (length tus) (length tvs) ctx s g = result) ->
+      tac ctx s g = result ->
       @rtacK_spec_wf ctx s g result.
 
   Theorem rtacK_sound_WellFormed_rtacK : forall tac,

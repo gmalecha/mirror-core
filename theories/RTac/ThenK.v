@@ -20,9 +20,9 @@ Section parameterized.
   Definition THENK (c1 : rtacK typ expr)
              (c2 : rtacK typ expr)
   : rtacK typ expr :=
-    fun tus tvs nus nvs ctx sub g =>
-      match c1 tus tvs nus nvs ctx sub g with
-        | More_ sub' g' => c2 tus tvs nus nvs _ sub' g'
+    fun ctx sub g =>
+      match c1 ctx sub g with
+        | More_ sub' g' => c2 _ sub' g'
         | Solved sub => Solved sub
         | Fail => Fail
       end.
@@ -47,9 +47,10 @@ Section parameterized.
 
 End parameterized.
 
+Typeclasses Opaque THENK.
 Hint Opaque THENK : typeclass_instances.
 
-Arguments THENK {typ expr} _%rtacK _%rtacK _ _ _ _ {_} _ _ : rename.
+Arguments THENK {typ expr} _%rtacK _%rtacK _ _ _ : rename.
 
 Notation "X  ;;; Y" := (@THENK _ _ X%rtacK Y%rtacK) (at level 70, right associativity) : rtacK_scope.
 Require Import MirrorCore.RTac.RunOnGoals.

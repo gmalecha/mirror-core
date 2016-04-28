@@ -44,7 +44,9 @@ Section parameterized.
 
   Definition EAPPLY : rtac typ expr :=
     let len_vars := length lem.(vars) in
-    fun tus tvs nus nvs ctx sub goal =>
+    fun ctx sub goal =>
+      let (tus,tvs) := getEnvs ctx in
+      let nus := length tus in
       match @eapplicable typ expr _ _
                          _ _ _
                          (@exprUnify _ _ (SubstUpdate_ctx_subst _))
@@ -139,9 +141,9 @@ Section parameterized.
       with (Expr_expr:=Expr_expr)
            (Subst_subst:=Subst_ctx_subst _)
            (SubstOk_subst:=SubstOk_ctx_subst _)
-           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst _)) in H;
+           (unify:=@exprUnify _ _ (SubstUpdate_ctx_subst _)) in H0;
       eauto.
-    { rewrite (ctx_subst_eta c) in H; simpl in *.
+    { rewrite (ctx_subst_eta c) in H0; simpl in *.
       forward_reason; inv_all; subst.
       split; auto.
       split.
@@ -154,22 +156,24 @@ Section parameterized.
         - constructor.
         - auto. }
       simpl in *. forward.
-      destruct (drop_exact_append_exact (vars lem) (getUVars ctx)) as [ ? [ ? ? ] ].
-      destruct (pctxD_substD H1 H) as [ ? [ ? ? ] ].
-      eapply exprD_typ0_weakenU with (tus' := lem.(vars)) in H5.
-      destruct H5 as [ ? [ ? ? ] ].
+      destruct (drop_exact_append_exact (vars lem) t) as [ ? [ ? ? ] ].
+      destruct (pctxD_substD H2 H0) as [ ? [ ? ? ] ].
+      eapply exprD_typ0_weakenU with (tus' := lem.(vars)) in H6.
+      destruct H6 as [ ? [ ? ? ] ].
+      rewrite getEnvs_getUVars_getVars in H. inversion H. subst.
       forward_reason.
       repeat match goal with
                | H : _ = _ , H' : _ |- _ =>
                  rewrite H in H'
              end.
       destruct lemD as [ lemD' ]; clear lemD; rename lemD' into lemD.
-      specialize (H2 _ _ lemD eq_refl eq_refl).
+      specialize (H3 _ _ lemD eq_refl eq_refl).
       forward_reason. forwardy. inv_all; subst.
-      destruct (substD_pctxD _ H3 H H14) as [ ? [ ? ? ] ].
-      rewrite H15. inv_all; subst.
-      clear H2.
-      change_rewrite H11.
+      destruct (substD_pctxD _ H4 H0 H15) as [ ? [ ? ? ] ].
+      rewrite H. inv_all; subst.
+      change_rewrite H12.
+      rewrite H0 in *. rewrite H12 in *. simpl in H3.
+      rewrite H in H3.
       assert (GOALSD : List.mapT_list (goalD (getUVars ctx ++ vars lem) (getVars ctx))
                                       (map
                                          (fun e3 : expr => GGoal (vars_to_uvars 0 (length (getUVars ctx)) e3))
@@ -179,31 +183,31 @@ Section parameterized.
                            (getUVars ctx ++ vars lem) (getVars ctx)
                            (fun P => forall us vs, x2 (fun us vs => forall us', P (HList.hlist_app us us') vs) us vs) Z
                            _ _ GOALSD) as [ ? [ ? ? ] ]; clear GOALSD.
-      { clear - H15. constructor; intros.
+      { constructor; intros.
         eapply Pure_pctxD; eauto.
         gather_facts.
         eapply Pure_pctxD; eauto. }
-      change_rewrite H2.
+      change_rewrite H18.
       split.
       { simpl. assumption. }
         intros. gather_facts.
         eapply Pure_pctxD; eauto.
-        clear - H13 H9 H7 H10.
         intros.
-        eapply Quant._exists_sem in H1. destruct H1.
+        eapply Quant._exists_sem in H22. destruct H22.
         repeat match goal with
                  | H : forall x, _ , H' : _ |- _ =>
                    specialize (H H')
                end.
-        rewrite H10; clear H10.
-        rewrite H7 in *; clear H7.
-        destruct H13. tauto. tauto. }
+        rewrite H11; clear H11.
+        rewrite H8 in *; clear H8.
+        destruct H14. tauto. tauto. }
     { unfold freshUVars. constructor; eauto.
       eapply WellFormed_entry_amap_empty; eauto. }
   Qed.
 
 End parameterized.
 
+Typeclasses Opaque EAPPLY.
 Hint Opaque EAPPLY : typeclass_instances.
 
-Arguments EAPPLY {typ expr _ _ _ _} unify lem _ _ _ _ _ _ _ : rename.
+Arguments EAPPLY {typ expr _ _ _ _} unify lem _ _ _ : rename.

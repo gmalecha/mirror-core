@@ -22,7 +22,7 @@ Section parameterized.
   Hypothesis tac_sound : RtacSound.
 
   Definition runRtac (tus tvs : tenv typ) (goal : expr) (tac : rtac typ expr) :=
-    tac tus tvs (length tus) (length tvs) _ (TopSubst _ tus tvs) goal.
+    tac _ (TopSubst _ tus tvs) goal.
 
   Definition env_propD us vs g : Prop :=
     let (tus,us) := split_env us in

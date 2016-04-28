@@ -57,7 +57,7 @@ Section runOnGoals_list.
   Arguments RAMore_ {_} _ _ _.
 
   Fixpoint runOnGoals_list_rec
-           (tacs : list (rtac typ expr)) (tus tvs : tenv typ) (nus nvs : nat)
+           (tacs : list (rtac typ expr))
            (ctx : Ctx typ expr) (s : ctx_subst ctx) (g : Goal typ expr)
            {struct g}
   : ResultAnd ctx :=
@@ -65,7 +65,7 @@ Section runOnGoals_list.
       | GGoal e =>
         match tacs with
           | tac :: tacs =>
-            match @tac tus tvs nus nvs ctx s e with
+            match @tac ctx s e with
               | Fail => RAFail
               | Solved s' => RASolved s' tacs
               | More_ s' g' => RAMore_ s' g' tacs
@@ -75,8 +75,7 @@ Section runOnGoals_list.
       | GSolved => RASolved s tacs
       | GAll t g =>
         match
-          @runOnGoals_list_rec tacs tus (tvs ++ t :: nil) nus (S nvs)
-                           (CAll ctx t) (AllSubst s) g
+          @runOnGoals_list_rec tacs (CAll ctx t) (AllSubst s) g
         with
           | RAFail => RAFail
           | RASolved s' tacs' => RASolved (fromAll s') tacs'
@@ -85,8 +84,7 @@ Section runOnGoals_list.
       | GExs ts sub g =>
         let s' := remembers s ts sub in
         match
-          @runOnGoals_list_rec tacs (tus ++ ts) tvs (length ts + nus) nvs
-                           (CExs ctx ts) s' g
+          @runOnGoals_list_rec tacs (CExs ctx ts) s' g
         with
           | RAFail => RAFail
           | RASolved s'' tacs' =>
@@ -108,7 +106,7 @@ Section runOnGoals_list.
         end
       | GHyp h g =>
         match
-          @runOnGoals_list_rec tacs tus tvs nus nvs (CHyp ctx h) (HypSubst s) g
+          @runOnGoals_list_rec tacs (CHyp ctx h) (HypSubst s) g
         with
           | RAFail => RAFail
           | RASolved s' tacs' => RASolved (fromHyp s') tacs'
@@ -120,14 +118,14 @@ Section runOnGoals_list.
          ** from [l].
          **)
         match
-          @runOnGoals_list_rec tacs tus tvs nus nvs ctx s l
+          @runOnGoals_list_rec tacs ctx s l
         with
           | RAFail => RAFail
           | RASolved s' tacs' =>
-            runOnGoals_list_rec tacs' tus tvs nus nvs s' r
+            runOnGoals_list_rec tacs' s' r
           | RAMore_ s' g' tacs' =>
             match
-              runOnGoals_list_rec tacs' tus tvs nus nvs s' r
+              runOnGoals_list_rec tacs' s' r
             with
               | RAFail => RAFail
               | RASolved s'' tacs'' =>
@@ -139,9 +137,9 @@ Section runOnGoals_list.
     end.
 
   Definition runOnGoals_list (tacs : list (rtac typ expr)) : rtacK typ expr :=
-    fun tus tvs nus nvs ctx sub g =>
+    fun ctx sub g =>
       (* This follows ltac semantics and requires the right number of goals *)
-      match @runOnGoals_list_rec tacs tus tvs nus nvs ctx sub g with
+      match @runOnGoals_list_rec tacs ctx sub g with
         | RAMore_ sub' g' nil => More_ sub' g'
         | RASolved sub' nil => Solved sub'
         | _ => Fail
@@ -150,12 +148,7 @@ Section runOnGoals_list.
   Lemma runOnGoals_list_rec_sound_ind
   : forall g tacs ctx s ra,
       Forall rtac_sound tacs ->
-      (@runOnGoals_list_rec tacs
-                              (getUVars ctx)
-                              (getVars ctx)
-                              (countUVars ctx)
-                              (countVars ctx)
-                              ctx s g) = ra ->
+      (@runOnGoals_list_rec tacs ctx s g) = ra ->
       forall r tacs',
       ResultAnd_to_Result_and ra = (r,tacs') ->
       @rtac_spec typ expr _ _ _ ctx s g r /\
@@ -207,10 +200,7 @@ Section runOnGoals_list.
       simpl; intros.
       specialize (IHg tacs (CExs ctx l) (remembers s l a)).
       simpl in IHg.
-      destruct (runOnGoals_list_rec
-                  tacs (getUVars ctx ++ l)
-                  (getVars ctx) (length l + countUVars ctx)
-                  (countVars ctx) (remembers s l a) g);
+      destruct (runOnGoals_list_rec tacs (remembers s l a) g);
         specialize (IHg _ H eq_refl _ _ eq_refl); subst;
         inversion H1; clear H1; subst.
       { split; constructor. }
@@ -241,9 +231,7 @@ Section runOnGoals_list.
       simpl. intros.
       specialize (IHg tacs (CHyp ctx e) (HypSubst s)).
       simpl in IHg.
-      destruct (runOnGoals_list_rec
-                  tacs (getUVars ctx) (getVars ctx)
-                  (countUVars ctx) (countVars ctx) (HypSubst s) g);
+      destruct (runOnGoals_list_rec tacs (HypSubst s) g);
         specialize (IHg _ H eq_refl _ _ eq_refl).
       { subst; inversion H1; clear H1; subst.
         simpl. split; constructor. }
@@ -257,17 +245,13 @@ Section runOnGoals_list.
         eapply rtac_spec_Hyp_More. auto. } }
     { simpl; intros.
       specialize (IHg1 tacs ctx s).
-      destruct (runOnGoals_list_rec
-                  tacs (getUVars ctx) (getVars ctx)
-                  (countUVars ctx) (countVars ctx) s g1);
+      destruct (runOnGoals_list_rec tacs s g1);
         specialize (IHg1 _ H eq_refl _ _ eq_refl); subst.
       { inversion H1; clear H1; subst.
         simpl; split; constructor. }
       { specialize (IHg2 l ctx c).
         destruct IHg1.
-        destruct (runOnGoals_list_rec
-                    l (getUVars ctx) (getVars ctx)
-                    (countUVars ctx) (countVars ctx) c g2);
+        destruct (runOnGoals_list_rec l c g2);
           specialize (IHg2 _ H2 eq_refl _ _ eq_refl).
         { inversion H1; clear H1; subst.
           split; constructor. }
@@ -277,9 +261,7 @@ Section runOnGoals_list.
           forward_reason; split; eauto using rtac_spec_Conj_Solved. } }
       { specialize (IHg2 l ctx c).
         destruct IHg1.
-        destruct (runOnGoals_list_rec
-                    l (getUVars ctx) (getVars ctx)
-                    (countUVars ctx) (countVars ctx) c g2);
+        destruct (runOnGoals_list_rec l c g2);
           destruct (IHg2 _ H2 eq_refl _ _ eq_refl); clear IHg2;
           inversion H1; clear H1; subst.
         { split; constructor. }
@@ -293,10 +275,7 @@ Section runOnGoals_list.
         split; constructor. }
       { specialize (H ctx s e).
         simpl in H.
-        rewrite countVars_getVars in H2.
-        rewrite countUVars_getUVars in H2.
-        destruct (x (getUVars ctx) (getVars ctx) (length (getUVars ctx))
-                    (length (getVars ctx)) ctx s e);
+        destruct (x ctx s e);
           specialize (H _ eq_refl); inversion H2; clear H2; subst; eauto. } }
     { (* Solved *)
       simpl. intros; subst.
@@ -307,7 +286,7 @@ Section runOnGoals_list.
 
 End runOnGoals_list.
 
-Arguments runOnGoals_list {typ expr RType Expr} tac tus tvs nus nvs ctx csub goal : rename.
+Arguments runOnGoals_list {typ expr RType Expr} tac ctx csub goal : rename.
 
 Section runOnGoals_list_proof.
   Context {typ : Type}.
@@ -327,11 +306,7 @@ Section runOnGoals_list_proof.
     intros. red. intros.
     generalize (@runOnGoals_list_rec_sound_ind typ expr _ _ _ _ _ g tacs ctx s).
     unfold runOnGoals_list in H0.
-    rewrite countUVars_getUVars in *.
-    rewrite countVars_getVars in *.
-    destruct (runOnGoals_list_rec
-                tacs (getUVars ctx) (getVars ctx)
-                (length (getUVars ctx)) (length (getVars ctx)) s g); subst;
+    destruct (runOnGoals_list_rec tacs s g); subst;
     intro XXX; specialize (XXX _ H eq_refl _ _ eq_refl).
     { tauto. }
     { destruct l. tauto. constructor. }
@@ -343,7 +318,8 @@ Section runOnGoals_list_proof.
   := runOnGoals_list_sound.
 End runOnGoals_list_proof.
 
+Typeclasses Opaque ON_EACH runOnGoals_list.
 Hint Opaque ON_EACH runOnGoals_list : typeclass_instances.
 
-Arguments ON_EACH {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.
-Arguments runOnGoals_list {typ expr _ _} tac%or_rtac _ _ _ _ {_} _ _ : rename.
+Arguments ON_EACH {typ expr _ _} tac%or_rtac _ _ _ : rename.
+Arguments runOnGoals_list {typ expr _ _} tac%or_rtac _ _ _ : rename.

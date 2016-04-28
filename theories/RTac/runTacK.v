@@ -9,7 +9,7 @@ Section runTacK.
   Variable ExprUVar_expr : ExprUVar expr.
 
   Definition runTacK (tac : rtacK typ expr) : rtac typ expr :=
-    fun a b c d e f g => tac a b c d e f (GGoal g).
+    fun e f g => tac e f (GGoal g).
 
   Theorem runTacK_sound : forall t, rtacK_sound t -> rtac_sound (runTacK t).
   Proof.

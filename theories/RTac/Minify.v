@@ -2154,7 +2154,8 @@ Section parameterized.
   End minify.
 
   Definition MINIFY : rtacK typ expr :=
-    fun tus tvs nus nvs c cs g =>
+    fun c cs g =>
+      let nus := countUVars c in
       More cs (@minify_goal nus c cs nil nus g).
 
   Theorem MINIFY_sound : rtacK_sound MINIFY.
@@ -2169,7 +2170,9 @@ Section parameterized.
     destruct (@minify_goal_sound_lem (length (getUVars ctx)) _ s eq_refl H0 g nil nil nil nil _ eq_refl H).
     split; auto.
     split.
-    { clear - H1. repeat rewrite app_nil_r_trans in H1. assumption. }
+    { clear - H1. repeat rewrite app_nil_r_trans in H1.
+      rewrite <- countUVars_getUVars in H1.
+      assumption. }
     forward.
     rewrite goalD_conv with (pfu:=app_nil_r_trans _) (pfv:=eq_refl) in H4.
     autorewrite_with_eq_rw_in H4.
@@ -2186,6 +2189,9 @@ Section parameterized.
     cutrewrite (minify_goal (length (getUVars ctx)) s nil (length (getUVars ctx)) g = minify_goal (length (getUVars ctx)) s nil (length (getUVars ctx ++ nil)) g).
     { rewrite goalD_conv with (pfu:=eq_refl) (pfv:=app_nil_r_trans _).
       autorewrite_with_eq_rw.
+      rewrite countUVars_getUVars.
+      replace (length (getUVars ctx ++ nil)) with (length (getUVars ctx)) in H2
+          by (f_equal; symmetry; apply app_nil_r).
       rewrite H2.
       split; [ reflexivity | ].
       intros. gather_facts.
@@ -2201,4 +2207,4 @@ End parameterized.
 Hint Opaque MINIFY : typeclass_instances.
 Typeclasses Opaque MINIFY.
 
-Arguments MINIFY {typ expr _ _ _} _ _ _ _ {_} _ _.
+Arguments MINIFY {typ expr _ _ _} _ _ _.

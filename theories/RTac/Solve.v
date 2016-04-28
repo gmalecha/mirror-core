@@ -16,8 +16,8 @@ Section parameterized.
   Context {ExprUVar_expr : ExprUVar expr}.
 
   Definition SOLVE (tac : rtac typ expr) : rtac typ expr :=
-    fun tus tvs nus nvs ctx s g =>
-      match is_solved (tac tus tvs nus nvs ctx s g) with
+    fun ctx s g =>
+      match is_solved (tac ctx s g) with
       | Some s => Solved s
       | _ => Fail
       end.
@@ -28,8 +28,7 @@ Section parameterized.
     unfold SOLVE, rtac_sound.
     intros.
     specialize (H ctx s g).
-    destruct (is_solved (tac (getUVars ctx) (getVars ctx) (length (getUVars ctx))
-              (length (getVars ctx)) ctx s g)) eqn:?; subst; try apply rtac_spec_Fail.
+    destruct (is_solved (tac ctx s g)) eqn:?; subst; try apply rtac_spec_Fail.
     eapply is_solved_sound in Heqo.
     eapply Proper_rtac_spec_impl.
     { reflexivity. }
@@ -39,13 +38,13 @@ Section parameterized.
 
   Fixpoint SOLVES (tacs : list (rtac typ expr)) : rtac typ expr :=
     match tacs with
-    | nil => fun tus tvs nus nvs ctx s g => Fail
+    | nil => fun ctx s g => Fail
     | tac :: tacs =>
       let rec := SOLVES tacs in
-      fun tus tvs nus nvs ctx s g =>
-        match is_solved (tac tus tvs nus nvs ctx s g) with
+      fun ctx s g =>
+        match is_solved (tac ctx s g) with
         | Some s => Solved s
-        | _ => rec tus tvs nus nvs ctx s g
+        | _ => rec ctx s g
         end
     end.
 
@@ -56,8 +55,7 @@ Section parameterized.
     { red. intros; subst. eapply rtac_spec_Fail. }
     { red.
       intros.
-      destruct (is_solved (x (getUVars ctx) (getVars ctx) (length (getUVars ctx))
-                             (length (getVars ctx)) ctx s g)) eqn:?; subst; eauto.
+      destruct (is_solved (x ctx s g)) eqn:?; subst; eauto.
       eapply is_solved_sound in Heqo.
       eapply Proper_rtac_spec_impl.
       { reflexivity. }
@@ -67,5 +65,5 @@ Section parameterized.
 
 End parameterized.
 
-Arguments SOLVE {_ _} _%rtac _ _ _ _ _ _ _.
-Arguments SOLVES {_ _} _%or_rtac _ _ _ _ _ _ _.
+Arguments SOLVE {_ _} _%rtac _ _ _.
+Arguments SOLVES {_ _} _%or_rtac _ _ _.

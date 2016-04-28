@@ -51,4 +51,4 @@ End parameterized.
 
 Hint Opaque APPLY : typeclass_instances.
 
-Arguments APPLY {typ expr _ _ _ _} unify lem _ _ _ _ _ _ _ : rename.
+Arguments APPLY {typ expr _ _ _ _} unify lem _ _ _ : rename.

@@ -29,14 +29,14 @@ Section parameterized.
 
     Fixpoint REPEAT' (n : nat) {struct n}
     : rtac typ expr :=
-      fun tus tvs nus nvs ctx sub gl =>
+      fun ctx sub gl =>
         match n with
           | 0 => More_ sub (GGoal gl)
           | S n =>
-            match @tac tus tvs nus nvs ctx sub gl with
+            match @tac ctx sub gl with
               | Fail => More_ sub (GGoal gl)
               | More_ sub' gl' =>
-                runOnGoals (fun x => REPEAT' n x) tus tvs nus nvs sub' gl'
+                runOnGoals (fun x => @REPEAT' n x) _ sub' gl'
               | Solved s => Solved s
             end
         end.
@@ -57,9 +57,7 @@ Section parameterized.
       eapply rtac_spec_More_; auto.
     - simpl. red; intros; subst.
       specialize (H ctx s g _ eq_refl).
-      destruct (tac (getUVars ctx) (getVars ctx)
-                    (length (getUVars ctx)) (length (getVars ctx))
-                    ctx s g); auto using rtac_spec_More_.
+      destruct (tac ctx s g); auto using rtac_spec_More_.
       eapply rtac_spec_trans; eauto.
       eapply runOnGoals_sound in IHn.
       revert IHn.
@@ -72,4 +70,4 @@ End parameterized.
 Hint Opaque REPEAT : typeclass_instances.
 Typeclasses Opaque REPEAT.
 
-Arguments REPEAT {_ _ _ _} _%nat _%rtac _ _ _ _ _ _ _.
+Arguments REPEAT {_ _ _ _} _%nat _%rtac _ _ _.
