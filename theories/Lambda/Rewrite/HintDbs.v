@@ -1,3 +1,5 @@
+(** The implementation of rewriting hint databases
+ **)
 Require Import Coq.omega.Omega.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.PArith.BinPos.
