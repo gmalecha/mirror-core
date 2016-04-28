@@ -460,50 +460,53 @@ Qed.
    comment and clean up
    move everything into mirror-core
    type classes (possibly before move)
-*)
+ *)
+
+
+Check do_prespectful.
+Print ProperDb.
+Print HintProper.
+Print Proper_concl.
+
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
-  do_respectful rel_dec
-    ((Inj (Ex tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
-     (Inj (All tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
+  do_prespectful
+  (PPr 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+       PPr 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
      nil).
 
 Definition get_respectful : respectful_dec typ func Rbase :=
-  do_respectful rel_dec
-    ((Inj (Ex tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
-     (Inj (All tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
-     (Inj And, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
-     (Inj Or, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
-     (Inj Plus, Rrespects (Rinj (Inj (Eq tyBNat)))
-                          (Rrespects (Rinj (Inj (Eq tyBNat))) (Rinj (Inj (Eq tyBNat))))) ::
-
-     nil).
-
+  do_prespectful
+    (PPr 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+         PPr 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+         PPr 0 {| term := Inj And; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
+         PPr 0 {| term := Inj Or; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
+         PPr 0 {| term := Inj Plus;
+                  relation := Rrespects (Rinj (Inj (Eq tyBNat)))
+                          (Rrespects (Rinj (Inj (Eq tyBNat))) (Rinj (Inj (Eq tyBNat)))) |} :: nil).
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
 : forall a b : T, a ?[ rT ] b = true -> rT a b.
 Proof. intros. consider (a ?[ rT ] b); auto. Qed.
 
+Ltac prove_prespectful :=
+  repeat match goal with
+         | |- _ -> _ => intros
+         | |- context[mtyp_cast _ _ _ _] => rewrite mtyp_cast_refl
+         | _ => red; simpl
+         end; firstorder.
+
 Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
-  eapply do_respectful_sound.
-  - eapply RelDec_semidec; eauto with typeclass_instances.
-  - repeat first [ eapply Forall_cons | eapply Forall_nil ]; simpl.
-    { compute. firstorder. }
-    { compute. firstorder. }
+  eapply do_prespectful_sound.
+  repeat first [ eapply Forall_cons | eapply Forall_nil ]; simpl; prove_prespectful.
 Qed.
 
 Theorem get_respectful_sound : respectful_spec RbaseD get_respectful.
 Proof.
-  eapply do_respectful_sound.
-  - eapply RelDec_semidec; eauto with typeclass_instances.
-  - repeat first [ eapply Forall_cons | eapply Forall_nil ]; simpl.
-    { compute. firstorder. }
-    { compute. firstorder. }
-    { compute. firstorder. }
-    { compute. firstorder. }
-    { compute. firstorder. }
+  eapply do_prespectful_sound.
+  repeat first [eapply Forall_cons | eapply Forall_nil]; prove_prespectful.
 Qed.
 
 Require Import MirrorCore.Views.Ptrns.
@@ -704,18 +707,6 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
-
-(* next up: finish this file
-figure out how to make opaque terms reduce so the lemma soundness proof
-is not crazy painful - ask Gregory
-do respectful stuff - basically make respectfulness definitions polymorphic
- *)
-
-Locate respectful_spec.
-SearchAbout get_respectful.
-Check get_respectful.
-Print respectful_dec.
-Locate do_respectful.
 
 (* need to define a rewrite-db style type with poly and non poly respectfulness hints
    then use this to implement do_respectful. *)

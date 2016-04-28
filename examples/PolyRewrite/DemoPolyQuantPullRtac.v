@@ -65,6 +65,19 @@ Fixpoint goal2_D mx n (acc : nat) : Prop :=
     goal2_D mx n (acc * 2) /\ goal2_D mx n (acc * 2 + 1)
   end.
 
+Fixpoint goal2_D' mx mx2 n (acc : nat) : Prop :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      exists x : nat, 0 = 0
+    else if acc ?[lt] mx2 then
+           exists b : bool, 0 = 0 else
+           0 = 0
+  | S n =>
+    goal2_D' mx mx2 n (acc * 2) /\ goal2_D' mx mx2 n (acc * 2 + 1)
+  end.
+
+
 
 Fixpoint count_quant (e : expr typ func) : nat :=
   match e with
@@ -158,8 +171,9 @@ Arguments Typ0_Prop {_ _}.
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
 
-Goal goal2_D 10 7 0.
+Goal goal2_D' 2 4 5 0.
   simpl.
 Time run_tactic reify_simple rewrite_it rewrite_it_sound.
-repeat exists 0; tauto.
+repeat exists 0.
+repeat exists true. tauto.
 Qed.
