@@ -60,45 +60,45 @@ Section setoid.
    **   the full design still requires a bit more work.
    **)
   Definition mrw (T : Type) : Type :=
-    tenv typ -> tenv typ -> tenv typ -> nat -> nat ->
+    tenv typ ->
     forall c : Ctx typ (expr typ func), ctx_subst c ->
                                         option (T * ctx_subst c).
 
   Definition rw_ret {T} (val : T) : mrw T :=
-    fun _ _ _ _ _ _ s => Some (val, s).
+    fun _ _ s => Some (val, s).
 
   Definition rw_bind {T U} (c : mrw T) (k : T -> mrw U) : mrw U :=
-    fun tvs' tus tvs nus nvs ctx cs =>
-      match c tvs' tus tvs nus nvs ctx cs with
+    fun tvs' ctx cs =>
+      match c tvs' ctx cs with
       | None => None
-      | Some (v,cs') => k v tvs' tus tvs nus nvs ctx cs'
+      | Some (v,cs') => k v tvs' ctx cs'
       end.
 
   Definition rw_orelse {T} (c1 c2 : mrw T) : mrw T :=
-    fun tvs' tus tvs nus nvs ctx cs =>
-      match c1 tvs' tus tvs nus nvs ctx cs with
-      | None => c2 tvs' tus tvs nus nvs ctx cs
+    fun tvs' ctx cs =>
+      match c1 tvs' ctx cs with
+      | None => c2 tvs' ctx cs
       | z => z
       end.
 
   Definition rw_fail {T} : mrw T :=
-    fun tvs' tus tvs nus nvs ctx cs =>
+    fun tvs' ctx cs =>
       None.
 
   Definition rw_bind_catch {T U : Type} (c : mrw T) (k : T -> mrw U)
              (otherwise : mrw U)
   : mrw U :=
-    fun tus' tus tvs nus nvs ctx cs =>
-      match c tus' tus tvs nus nvs ctx cs with
-      | None => otherwise tus' tus tvs nus nvs ctx cs
-      | Some (val,cs') => k val tus' tus tvs nus nvs ctx cs'
+    fun tus' ctx cs =>
+      match c tus' ctx cs with
+      | None => otherwise tus' ctx cs
+      | Some (val,cs') => k val tus' ctx cs'
       end.
 
   Lemma rw_orelse_case
-  : forall (T : Type) (A B : mrw T) a b c d e f g h,
-      @rw_orelse _ A B a b c d e f g = h ->
-      A a b c d e f g = h \/
-      B a b c d e f g = h.
+  : forall (T : Type) (A B : mrw T) e f g h,
+      @rw_orelse _ A B e f g = h ->
+      A e f g = h \/
+      B e f g = h.
   Proof using.
     unfold rw_orelse. intros.
     forward.
@@ -106,11 +106,11 @@ Section setoid.
 
   Lemma rw_bind_catch_case
   : forall (T U : Type) (A : mrw T) (B : T -> mrw U) (C : mrw U)
-           a b c d e f g h,
-      @rw_bind_catch _ _ A B C a b c d e f g = h ->
-      (exists x g', A a b c d e f g = Some (x,g') /\
-                    B x a b c d e f g' = h) \/
-      (C a b c d e f g = h /\ A a b c d e f g = None).
+           e f g h,
+      @rw_bind_catch _ _ A B C e f g = h ->
+      (exists x g', A e f g = Some (x,g') /\
+                    B x e f g' = h) \/
+      (C e f g = h /\ A e f g = None).
   Proof using.
     unfold rw_bind_catch. intros; forward.
     left. do 2 eexists; split; eauto.
@@ -118,11 +118,11 @@ Section setoid.
 
   Lemma rw_bind_case
   : forall (T U : Type) (A : mrw T) (B : T -> mrw U)
-           a b c d e f g h,
-      @rw_bind _ _ A B a b c d e f g = Some h ->
+           e f g h,
+      @rw_bind _ _ A B e f g = Some h ->
       exists x g',
-        A a b c d e f g = Some (x, g') /\
-        B x a b c d e f g' = Some h.
+        A e f g = Some (x, g') /\
+        B x e f g' = Some h.
   Proof using.
     unfold rw_bind. intros; forward.
     do 2 eexists; eauto.
@@ -145,8 +145,8 @@ Section setoid.
 
   Definition mrw_equiv {T} (rT : T -> T -> Prop) (l : mrw T) (r : mrw T)
   : Prop :=
-    forall a b c d e f g,
-      Roption (Eqpair rT eq) (l a b c d e f g) (r a b c d e f g).
+    forall e f g,
+      Roption (Eqpair rT eq) (l e f g) (r e f g).
 
   Instance Reflexive_mrw_equiv {T} (rT : T -> T -> Prop)
            {Refl_rT : Reflexive rT}
@@ -180,7 +180,7 @@ Section setoid.
   Proof using.
     unfold rw_bind. simpl.
     red. intros.
-    destruct (c a b c0 d e f g); try constructor.
+    destruct (c e f g); try constructor.
     destruct p.
     eapply Reflexive_Roption. apply Reflexive_Eqpair; eauto.
   Qed.
@@ -201,7 +201,7 @@ Section setoid.
   Proof using.
     red. red. red. red. unfold rw_bind. intros.
     red in H.
-    specialize (H a b c d e f g).
+    specialize (H e f g).
     destruct H. constructor.
     destruct H. subst.
     eapply H0.
@@ -212,7 +212,7 @@ Section setoid.
   { result := rT a b }.
   Proof using.
     unfold rw_ret. intros. red in H.
-    specialize (H nil nil nil 0 0 _ (@TopSubst _ _ nil nil)).
+    specialize (H nil _ (@TopSubst _ _ nil nil)).
     inv_all. assumption.
   Defined.
   (** End of monad definitions **)
@@ -264,7 +264,7 @@ Section setoid.
            (e' : Progressing (expr typ func)),
       let tus := getUVars ctx in
       let tvs := getVars ctx in
-      rw tvs' tus tvs (length tus) (length tvs) ctx cs = Some (e', cs') ->
+      rw tvs' ctx cs = Some (e', cs') ->
       WellFormed_ctx_subst cs ->
       WellFormed_ctx_subst cs' /\
       forall t rD,
@@ -310,7 +310,7 @@ Section setoid.
     forall tvs' (ctx : Ctx typ (expr typ func)) cs cs' e r rs,
       let tus := getUVars ctx in
       let tvs := getVars ctx in
-      respectful e r tvs' tus tvs (length tus) (length tvs) ctx cs = Some (rs,cs') ->
+      respectful e r tvs' ctx cs = Some (rs,cs') ->
       WellFormed_ctx_subst cs ->
       WellFormed_ctx_subst cs' /\
       forall ts t rD,

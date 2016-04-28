@@ -1,3 +1,5 @@
+(** This file implements rewriting using lemmas.
+ **)
 Require Import Coq.omega.Omega.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.PArith.BinPos.
@@ -76,9 +78,6 @@ Section setoid.
       RbaseD r t2 = Some rD2 ->
       t1 = t2.
 
-  (** This starts plugins for the rewriter **)
-  (******************************************)
-
   Definition func_sdec (a b : func) : bool :=
     match sym_eqb a b with
     | Some x => x
@@ -111,15 +110,17 @@ Section setoid.
      **)
     Definition core_rewrite (lem : rw_lemma typ func Rbase)
                (tac : rtacK typ (expr typ func))
-    : expr typ func -> tenv typ -> tenv typ -> nat -> nat ->
+    : expr typ func ->
       forall c : Ctx typ (expr typ func),
         ctx_subst c -> option (expr typ func * ctx_subst c) :=
         match typeof_expr nil lem.(vars) lem.(concl).(lhs) with
-        | None => fun _ _ _ _ _ _ _ => None
+        | None => fun _ _ _ => None
         | Some t =>
-          fun e tus tvs nus nvs ctx cs =>
+          fun e ctx cs =>
            let ctx' := CExs ctx lem.(vars) in
            let cs' : ctx_subst ctx' := ExsSubst cs (amap_empty _) in
+           let (tus,tvs) := getEnvs ctx in
+           let nus := length tus in
            let tus' := tus ++ lem.(vars) in
            match
              exprUnify 10 tus' tvs 0 (vars_to_uvars 0 nus lem.(concl).(lhs))
@@ -131,7 +132,7 @@ Section setoid.
                  List.map (fun e => GGoal (vars_to_uvars 0 nus e)) lem.(premises)
              in
              match
-               (SOLVEK tac) tus' tvs (length lem.(vars) + nus) nvs ctx' cs'' (GConj_list prems)
+               (SOLVEK tac) ctx' cs'' (GConj_list prems)
              with
              | Solved cs''' =>
                match cs''' in ctx_subst ctx
@@ -289,7 +290,7 @@ Section setoid.
         let tvs := getVars ctx in
         forall l0 r0 e e' cs',
           WellFormed_rtacK r0 ->
-          core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
+          core_rewrite l0 r0 e cs = Some (e', cs') ->
           WellFormed_ctx_subst cs ->
           WellFormed_ctx_subst cs' /\
           (forall (Hlem : lemmaD (rw_conclD RbaseD) nil nil l0)
@@ -326,7 +327,8 @@ Section setoid.
       simpl.
       intros.
       consider (typeof_expr nil l0.(vars) l0.(concl).(lhs)); intros.
-      { match goal with
+      { rewrite getEnvs_getUVars_getVars in *.
+        match goal with
         | H : match ?X with _ => _ end = _ |- _ =>
           consider X; intros
         end; try match goal with
@@ -336,14 +338,13 @@ Section setoid.
         { apply WF_SOLVEK. assumption. }
         clear H; rename H4 into H.
         match goal with
-        | Hrt : WellFormed_rtacK ?X , _ : match ?X _ _ _ _ ?C ?CS ?G with _ => _ end = _ |- _ =>
+        | Hrt : WellFormed_rtacK ?X , _ : match ?X ?C ?CS ?G with _ => _ end = _ |- _ =>
           specialize (@Hrt C CS G _ eq_refl)
         end.
         match goal with
         | Hrt : rtacK_spec_wf _ _ ?X , H : match ?Y with _ => _ end = _ |- _ =>
           replace Y with X in H ; [ destruct X eqn:?; intros | f_equal ]
         end; try congruence.
-        2: clear; simpl; repeat rewrite app_length; simpl; omega.
         rewrite (ctx_subst_eta c0) in H3.
         repeat match goal with
                | H : match ?X with _ => _ end = _ |- _ =>
@@ -631,7 +632,7 @@ Section setoid.
         forall l0 r0 e e' cs'
           (Hlem  : lemmaD (rw_conclD RbaseD) nil nil l0)
           (Hrtac : rtacK_sound r0),
-          core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
+          core_rewrite l0 r0 e cs = Some (e', cs') ->
           WellFormed_ctx_subst cs ->
           WellFormed_ctx_subst cs' /\
           (forall (t : typ) (rD : typD t -> typD t -> Prop),
@@ -816,16 +817,15 @@ Section setoid.
      *)
     Definition for_tactic
                (m : expr typ func ->
-                    tenv typ -> tenv typ -> nat -> nat ->
                     forall ctx : Ctx typ (expr typ func),
                       ctx_subst ctx -> option (expr typ func * ctx_subst ctx))
     : expr typ func -> mrw typ func (expr typ func) :=
-      fun e tvs' tus tvs nus nvs ctx cs =>
+      fun e tvs' ctx cs =>
         let under := length tvs' in
+        let nvs := countVars ctx in
         let e' := expr_convert under nvs e in
         match
-          m e' tus (tvs ++ tvs') nus (under + nvs) _
-            (@wrap_tvs_ctx_subst tvs' ctx cs)
+          m e' _ (@wrap_tvs_ctx_subst tvs' ctx cs)
         with
         | None => None
         | Some (v,cs') =>
@@ -839,20 +839,19 @@ Section setoid.
     Fixpoint using_rewrite_db'
              (ls : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
     : expr typ func -> R ->
-      tenv typ -> tenv typ -> nat -> nat ->
       forall ctx, ctx_subst ctx -> option (expr typ func * ctx_subst ctx) :=
       match ls with
-      | nil => fun _ _ _ _ _ _ _ _ => None
+      | nil => fun _ _ _ _ => None
       | (lem,tac) :: ls =>
         let res := using_rewrite_db' ls in
         let crw := core_rewrite lem tac in
-        fun e r tus tvs nus nvs ctx cs =>
+        fun e r ctx cs =>
           if Req_dec Rbase_eq r lem.(concl).(rel) then
-            match crw e tus tvs nus nvs ctx cs with
-            | None => res e r tus tvs nus nvs ctx cs
+            match crw e _ cs with
+            | None => res e r ctx cs
             | X => X
             end
-          else res e r tus tvs nus nvs ctx cs
+          else res e r ctx cs
       end.
 
     Lemma using_rewrite_db'_sound
@@ -864,7 +863,7 @@ Section setoid.
                   lemmaD (rw_conclD RbaseD) nil nil (fst lt) /\
                   rtacK_sound (snd lt)) hints ->
         forall e e' cs',
-          @using_rewrite_db' hints e r tus tvs (length tus) (length tvs) ctx cs = Some (e', cs') ->
+          @using_rewrite_db' hints e r ctx cs = Some (e', cs') ->
           WellFormed_ctx_subst cs ->
           WellFormed_ctx_subst cs' /\
           (forall (t : typ) (rD : typD t -> typD t -> Prop),
@@ -897,12 +896,12 @@ Section setoid.
       induction 1.
       { simpl. inversion 1. }
       { simpl. intros. destruct x.
-        assert (using_rewrite_db' l e r tus tvs (length tus) (length tvs) cs = Some (e',cs')
+        assert (using_rewrite_db' l e r cs = Some (e',cs')
              \/ (r = l0.(concl).(rel) /\
-                 core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs = Some (e',cs'))).
+                 core_rewrite l0 r0 e cs = Some (e',cs'))).
         { generalize (Req_dec_ok Rbase_eq Rbase_eq_ok r l0.(concl).(rel)).
           destruct (Req_dec Rbase_eq r l0.(concl).(rel)); eauto.
-          intros. destruct (core_rewrite l0 r0 e tus tvs (length tus) (length tvs) cs); eauto. }
+          intros. destruct (core_rewrite l0 r0 e cs); eauto. }
         clear H1. destruct H3; eauto.
         destruct H1. subst. clear IHForall H0.
         simpl in H. destruct H.
@@ -923,7 +922,7 @@ Section setoid.
           let tus := getUVars ctx in
           let tvs := getVars ctx in
           forall e e' cs',
-            @using_prewrite_db' e r tus tvs (length tus) (length tvs) ctx cs = Some (e', cs') ->
+            @using_prewrite_db' e r ctx cs = Some (e', cs') ->
             forall (Hrtac_wf : forall e r,
                        Forall (fun lt => WellFormed_rtacK (snd lt)) (phints e r)),
             WellFormed_ctx_subst cs ->
@@ -965,8 +964,7 @@ Section setoid.
         unfold using_prewrite_db'.
         intros r ctx cs e. revert cs.
         cut (forall (cs : ctx_subst ctx) (e' : expr typ func) (cs' : ctx_subst ctx),
-                using_rewrite_db' (phints e r) e r (getUVars ctx)
-                                  (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs =
+                using_rewrite_db' (phints e r) e r cs =
                 Some (e', cs') ->
                 (Forall
                    (fun lt : rw_lemma typ func Rbase * rtacK typ (expr typ func) =>
@@ -1017,12 +1015,12 @@ Section setoid.
         { inversion 1. }
         { simpl. intros.
           destruct a.
-          assert (using_rewrite_db' l e r (getUVars ctx) (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs = Some (e',cs')
+          assert (using_rewrite_db' l e r cs = Some (e',cs')
                   \/ (r = r0.(concl).(rel) /\
-                      core_rewrite r0 r1 e (getUVars ctx) (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs = Some (e',cs'))).
+                      core_rewrite r0 r1 e cs = Some (e',cs'))).
           { generalize (Req_dec_ok Rbase_eq Rbase_eq_ok r r0.(concl).(rel)).
             destruct (Req_dec Rbase_eq r r0.(concl).(rel)); eauto.
-            intros. destruct (core_rewrite r0 r1 e (getUVars ctx) (getVars ctx) (length (getUVars ctx)) (length (getVars ctx)) cs); eauto. }
+            intros. destruct (core_rewrite r0 r1 e cs); eauto. }
           clear H.
           destruct H2.
           { eapply IHl in H; clear IHl; eauto.
@@ -1454,16 +1452,12 @@ Section setoid.
       red. red. intros.
       unfold rw_bind in H0.
       forwardy. inv_all. subst.
-      rewrite Plus.plus_comm in H0. rewrite <- app_length in H0.
       destruct (fun Hx =>
                     @using_rewrite_db'_sound r _ (wrap_tvs_ctx_subst tvs' cs) hints H
                                              (expr_convert (length tvs') (length (getVars ctx)) e) e1 c0 Hx
                                              (WellFormed_ctx_subst_wrap_tvs _ H1)).
       { rewrite <- H0. f_equal.
-        eauto using getUVars_wrap_tvs.
-        eauto using getVars_wrap_tvs.
-        rewrite getUVars_wrap_tvs. reflexivity.
-        rewrite getVars_wrap_tvs. reflexivity. }
+        rewrite countVars_getVars. reflexivity. }
       clear H0. subst.
       split.
       { eapply WellFormed_ctx_subst_unwrap_tvs
@@ -1494,9 +1488,10 @@ Section setoid.
          with (pfu:=eq_sym (getUVars_wrap_tvs tvs' ctx)) (pfv:=eq_sym(getVars_wrap_tvs tvs' ctx))
            in H6.
       clear Hconv.
-      autorewrite_with_eq_rw_in H6.
+      progress autorewrite_with_eq_rw_in H6.
       forwardy; inv_all; subst.
       eapply expr_convert_sound in H6.
+      rewrite <- countVars_getVars in *.
       destruct H6 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
       destruct H7.
       split.
@@ -1564,15 +1559,11 @@ Section setoid.
       red. red. intros.
       unfold rw_bind in H0.
       forwardy. inv_all. subst.
-      rewrite Plus.plus_comm in H0. rewrite <- app_length in H0.
       destruct (@using_prewrite_db_sound' hints r _ (wrap_tvs_ctx_subst tvs' cs)
                                           (expr_convert (length tvs') (length (getVars ctx)) e) e1 c0).
       { rewrite <- H0.
-        unfold using_prewrite_db'. f_equal.
-        eauto using getUVars_wrap_tvs.
-        eauto using getVars_wrap_tvs.
-        rewrite getUVars_wrap_tvs. reflexivity.
-        rewrite getVars_wrap_tvs. reflexivity. }
+        unfold using_prewrite_db'.
+        rewrite countVars_getVars. reflexivity. }
       { clear - H.
         intros. specialize (H r e).
         revert H.
@@ -1623,6 +1614,7 @@ Section setoid.
       autorewrite_with_eq_rw_in H6.
       forwardy; inv_all; subst.
       eapply expr_convert_sound in H6.
+      rewrite <- countVars_getVars in *.
       destruct H6 as [ ? [ Hx ? ] ]; rewrite Hx; clear Hx.
       destruct H7.
       split.

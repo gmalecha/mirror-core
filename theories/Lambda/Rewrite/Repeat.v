@@ -78,8 +78,8 @@ Section setoid.
   Hypothesis is_reflOk : refl_dec_ok (RD RbaseD) is_refl.
   Hypothesis is_transOk : trans_dec_ok (RD RbaseD) is_trans.
 
-  Local Lemma repeat_rewrite'_mono : forall n e r c A B C D E F X Y,
-      repeat_rewrite' (c:=c) n (@Progress _) e r A B C D E F = Some (X,Y) ->
+  Local Lemma repeat_rewrite'_mono : forall n e r c E F X Y,
+      repeat_rewrite' (c:=c) n (@Progress _) e r E F = Some (X,Y) ->
       X <> NoProgress.
   Proof using.
     induction n; simpl.
@@ -135,7 +135,7 @@ Section setoid.
         forward_reason. destruct x.
         { specialize (@is_transOk r).
           destruct (is_trans r).
-          { generalize (repeat_rewrite'_mono _ _ _ _ _ _ _ _ _ H1).
+          { generalize (repeat_rewrite'_mono _ _ _ _ _ H1).
             eapply (IHn true) in H1.
             forward_reason. split; auto.
             intros.

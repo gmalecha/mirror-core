@@ -1,3 +1,5 @@
+(** This file implements a bottom-up rewriting traversal.
+ **)
 Require Import Coq.omega.Omega.
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.PArith.BinPos.
@@ -109,9 +111,9 @@ Section setoid.
         | nil =>
           match rg with
           | Rpointwise _t (*=t*) rg' =>
-            fun tvs tus tvs' nus nvs c cs =>
+            fun tvs c cs =>
               match @setoid_rewrite' e' nil rg'
-                                     (t::tvs) tus tvs' nus nvs c cs
+                                     (t::tvs) c cs
               with
               | Some (e'',cs'') =>
                 Some (fmap_Progressing (Abs t) e'', cs'')
@@ -330,7 +332,7 @@ Section setoid.
         forall es ctx (cs : ctx_subst ctx) cs' f f' rs e' prog,
           let tvs := getVars ctx in
           let tus := getUVars ctx in
-          recursive_rewrite' prog f' es rs tvs' tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
+          recursive_rewrite' prog f' es rs tvs' cs = Some (e', cs') ->
           forall (Hrws : setoid_rewrite_rec es),
             WellFormed_ctx_subst cs ->
             WellFormed_ctx_subst cs' /\
@@ -408,8 +410,7 @@ Section setoid.
         forward_reason.
         assert (exists prog',
            recursive_rewrite' prog' (App f' (ProgressD a_fst x)) es rs tvs'
-                              (getUVars ctx) (getVars ctx) (length (getUVars ctx))
-                              (length (getVars ctx)) x0 = Some (e', cs') /\
+                              x0 = Some (e', cs') /\
            (e' = NoProgress -> x = NoProgress)).
         { clear - H1. destruct x; eexists; split; eauto.
           { destruct e'; try congruence.
@@ -534,7 +535,7 @@ Section setoid.
         forall es ctx (cs : ctx_subst ctx) cs' f f' rs e',
           let tvs := getVars ctx in
           let tus := getUVars ctx in
-          recursive_rewrite f' es rs tvs' tus tvs (length tus) (length tvs) cs = Some (e', cs') ->
+          recursive_rewrite f' es rs tvs' cs = Some (e', cs') ->
           forall (Hrws : setoid_rewrite_rec es),
             WellFormed_ctx_subst cs ->
             WellFormed_ctx_subst cs' /\

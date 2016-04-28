@@ -1,3 +1,5 @@
+(** This file implements the search for respectful instances.
+ **)
 Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
@@ -57,9 +59,6 @@ Section setoid.
       RbaseD r t1 = Some rD1 ->
       RbaseD r t2 = Some rD2 ->
       t1 = t2.
-
-  (** This starts plugins for the rewriter **)
-  (******************************************)
 
   Definition func_sdec (a b : func) : bool :=
     match sym_eqb a b with

@@ -56,7 +56,6 @@ Section setoid.
   Local Existing Instance Expr_expr.
   Local Existing Instance ExprOk_expr.
 
-
   Definition auto_setoid_rewrite_bu
              (r : R)
              (reflexive : refl_dec R)
@@ -65,8 +64,8 @@ Section setoid.
              (respectful : ResolveProper typ func Rbase)
   : rtac typ (expr typ func) :=
     let rw := bottom_up reflexive transitive rewriter respectful in
-    fun tus tvs nus nvs ctx cs g =>
-      match @rw g r nil tus tvs nus nvs ctx cs with
+    fun ctx cs g =>
+      match @rw g r nil ctx cs with
       | None => Fail
       | Some (Progress g', cs') => More_ cs' (GGoal g')
       | Some (NoProgress, cs') => Fail
@@ -96,9 +95,7 @@ Section setoid.
                                  RbaseD_single_type is_refl is_trans rw proper
                                  His_reflOk His_transOk H H0 g (Rflip R_impl) ctx s nil).
     simpl.
-    destruct (bottom_up is_refl is_trans rw proper g (Rflip R_impl) nil
-      (getUVars ctx) (getVars ctx) (length (getUVars ctx))
-      (length (getVars ctx)) s).
+    destruct (bottom_up is_refl is_trans rw proper g (Rflip R_impl) nil s).
     { destruct p. destruct p; subst; eauto using rtac_spec_Fail.
       red. intros Hbus ? ?.
       specialize (Hbus _ _ eq_refl H2).
