@@ -149,6 +149,17 @@ Section simple_dep_types.
         @wtexpr_equiv tvs t a c.
     Set Elimination Schemes.
 
+    Section wtexpr_equiv_ind.
+(*
+      Variable P : forall tvs t (e1 e2 : wtexpr tus tvs t),
+        @wtexpr_equiv tvs t e1 e2 -> Prop.
+      Hypothesis Hvar : forall tvs t m,
+          @P tvs t (wtVar m) (wtVar m) (eqVar m).
+*)
+    End wtexpr_equiv_ind.
+
+
+
     Lemma wtexpr_equiv_refl : forall tvs t a,
         @wtexpr_equiv tvs t a a.
     Proof.

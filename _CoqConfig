@@ -1,0 +1,20 @@
+-Q theories MirrorCore
+-Q examples McExamples
+
+-I src
+-I $(COQLIB)/user-contrib/PluginUtils
+
+src/reify_Lambda_shell.ml4
+src/reify_Lambda_plugin.mllib
+
+theories/Util/Approx.v
+theories/Util/Iteration.v
+theories/Util/ListMapT.v
+theories/Util/Forwardy.v
+theories/Util/Nat.v
+theories/Util/HListBuild.v
+theories/Util/Compat.v
+
+theories/LambdaWt/TypedExpr.v
+theories/LambdaWt/Unify.v
+theories/LambdaWt/WtExpr.v
