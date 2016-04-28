@@ -79,10 +79,14 @@ Definition benchmark (n m : nat) : bool :=
   | _ => false
   end.
 
+Check get_respectful.
+
+
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
                           (Rflip (Rinj fImpl))
                           (is_reflR is_refl) (is_transR is_trans) pull_all_quant get_respectful.
+
 Theorem rewrite_it_sound : rtac_sound rewrite_it.
 Proof.
   eapply auto_setoid_rewrite_bu_sound with (RbaseD:=RbaseD).

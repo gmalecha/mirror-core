@@ -135,14 +135,14 @@ lem_pull_ex_nat_and_right : @pull_ex_and_right nat.
 Definition lem_pull_ex_and_right : typ -> Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) :=
   fun ty : typ =>
     {|
-      Lemma.vars := tyProp :: tyArr (tyBase0 tyNat) tyProp :: nil;
+      Lemma.vars := tyProp :: tyArr ty tyProp :: nil;
       Lemma.premises := nil;
       Lemma.concl := {|
                       lhs := App (App (Inj And) (ExprCore.Var 0))
-                                 (App (Inj (Ex (tyBase0 tyNat))) (ExprCore.Var 1));
+                                 (App (Inj (Ex ty)) (ExprCore.Var 1));
                       rel := Rflip (Rinj (Inj Impl));
-                      rhs := App (Inj (Ex (tyBase0 tyNat)))
-                                 (Abs (tyBase0 tyNat)
+                      rhs := App (Inj (Ex ty))
+                                 (Abs ty
                                       (App (App (Inj And) (ExprCore.Var 1))
                                            (App (ExprCore.Var 2) (ExprCore.Var 0)))) |} |}.
 
@@ -158,7 +158,7 @@ Proof.
   repeat progress (red in H0; simpl in H0).
   split; eauto.
 Qed.
-    
+
 Definition is_refl : refl_dec Rbase :=
   fun (r : Rbase) =>
     match r with
@@ -460,7 +460,7 @@ Proof.
       forwardy.
       inversion H3; subst; clear H3.
       eauto. }
-     
+
     (* Rw case *)
     { constructor; [|eauto].
       unfold prewrite_Rw_sound in H2. forward_reason.
@@ -558,7 +558,6 @@ Proof.
   { intros. unfold Polymorphic.inst. apply lem_pull_ex_and_right_sound. }
 Qed.
 
-(* TODO - we need a polymorphic version of this *)
 Definition pull_all_quant : lem_rewriter typ func Rbase :=
   repeat_rewrite (fun e r =>
                     bottom_up (is_reflR is_refl) (is_transR is_trans) (the_rewrites the_lemmas)
@@ -591,9 +590,10 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
-Print respectful_dec.
 
 (* next up: finish this file
+figure out how to make opaque terms reduce so the lemma soundness proof
+is not crazy painful - ask Gregory
 do respectful stuff - basically make respectfulness definitions polymorphic
  *)
 

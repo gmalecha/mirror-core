@@ -14,20 +14,23 @@ Section parametric.
     | tyArr da ca =>
       match b with
       | tyArr db cb =>
-        match mtype_unify da ca s with
+        match mtype_unify da db s with
         | Some s' => mtype_unify ca cb s'
         | _ => None
         end
+      | tyVar v => add v a s
       | _ => None
       end
     | tyBase0 _ =>
       match b with
       | tyBase0 _ => Some s
+      | tyVar v => add v a s
       | _ => None
       end
     | tyBase1 _ ta =>
       match b with
       | tyBase1 _ tb => mtype_unify ta tb s
+      | tyVar v => add v a s
       | _ => None
       end
     | tyBase2 _ ta ta' =>
@@ -37,6 +40,7 @@ Section parametric.
         | Some s' => mtype_unify ta' tb' s'
         | _ => None
         end
+      | tyVar v => add v a s
       | _ => None
       end
     | tyApp _ va =>
@@ -53,10 +57,12 @@ Section parametric.
              end
            | _ , _ => None
            end) _ _ va vb s
+      | tyVar v => add v a s
       | _ => None
       end
     | tyProp => match b with
                 | tyProp => Some s
+                | tyVar v => add v a s
                 | _ => None
                 end
     | tyVar v => add v b s
