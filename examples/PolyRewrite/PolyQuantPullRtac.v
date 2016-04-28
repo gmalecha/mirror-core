@@ -251,6 +251,103 @@ Existing Instance RelDec_eq_mtyp.
 
 Let tyBNat := tyBase0 tyNat.
 
+Check do_respectful.
+(* list (expr typ func * R typ Rbase) *)
+Print Polymorphic.polymorphic.
+
+(* Polymorphic wrapper for do_respectful *)
+Print PRw.
+Inductive HintProper : Type :=
+| PPr : forall n : nat,
+    Polymorphic.polymorphic (mtyp typ') n (expr typ func * R typ Rbase) ->
+    HintProper
+| Pr : expr typ func -> R typ Rbase -> HintProper
+.
+
+Definition ProperDb := list HintProper.
+
+Print do_respectful.
+Print CompileHints.
+
+Print PolyInst.get_inst.
+Check @PolyInst.get_vector.
+
+Check do_respectful.
+Print do_respectful.
+
+(* need a version of get_lemma for polymorphic lemmas *)
+
+(* TODO: rewrite hints-compile in the same way using map, essentially *)
+Arguments fail_respectful {_ _ _} _ _ _ _ _ _ _ _ _.
+
+Require Import ExtLib.Data.Vector.
+
+(* copied from HintDbs.v *)
+Require Import MirrorCore.Lib.TypeVar.
+Universe X.
+
+Let local_view : (PartialView@{X} typ (VType 0)) :=
+  {| f_insert := fun x => match x with
+                       | tVar p => tyVar p
+                       end
+     ; f_view := fun x => match x with
+                       | tyVar x => POption.pSome (tVar x)
+                       | _ => POption.pNone
+                       end |}.
+
+
+Definition get_proper (n : nat) (p : Polymorphic.polymorphic (mtyp typ') n (expr typ func * R typ Rbase))
+           (e : expr typ func)
+  : option (Proper_lemma Rbase) :=
+  let p' :=
+      Functor.fmap (fun pair => let '(lt, _) := pair in lt) p in
+  match @PolyInst.get_inst _ _ _ _ local_view HintDbs.view_update n p' e with
+  | Some args =>
+    match (Polymorphic.inst p args) with
+    | (e, r) =>
+      Some ({| Lemma.vars := nil;
+               Lemma.premises := nil;
+               Lemma.concl := {| relation := r; term := e |}
+            |})
+    end
+  | None => None
+  end.
+
+Definition do_one_prespectful (h : HintProper) : respectful_dec typ func Rbase :=
+  match h with
+  | PPr n pe =>
+    (fun (e : expr typ func) =>
+       match get_proper n pe e with
+       | Some lem => apply_respectful rel_dec lem IDTACK e
+       | None => fail_respectful e
+         end)
+  | Pr e r =>
+    apply_respectful rel_dec {| Lemma.vars := nil;
+                        Lemma.premises := nil;
+                        Lemma.concl := {| relation := r; term := e |} |} IDTACK
+  end.
+
+Existing Instance Polymorphic.Functor_polymorphic.
+
+Fixpoint do_prespectful (pdb : ProperDb) : respectful_dec typ func Rbase :=
+  match pdb with
+  | nil => fail_respectful
+  | p :: pdb' =>
+    or_respectful
+      (do_one_prespectful p)
+      (fun (e : expr typ func) => do_prespectful pdb' e)
+  end.
+
+Locate CompileHints.
+Require Import MirrorCore.Lambda.Rewrite.HintDbs.
+
+SearchAbout  CompileHints.
+
+(* Up next - soundness of do_prespectful.
+   look at CompileHints_sound.
+   Idea - no matter what GetPolyInst returns, we're good.
+ *)
+
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_respectful rel_dec
     ((Inj (Ex tyBNat), Rrespects (Rpointwise tyBNat flip_impl) flip_impl) ::
@@ -295,6 +392,8 @@ Proof.
     { compute. firstorder. }
     { compute. firstorder. }
 Qed.
+
+Require Import MirrorCore.Views.Ptrns.
 
 Definition simple_reduce (e : expr typ func) : expr typ func :=
   run_ptrn
@@ -459,6 +558,7 @@ Proof.
   { intros. unfold Polymorphic.inst. apply lem_pull_ex_and_right_sound. }
 Qed.
 
+(* TODO - we need a polymorphic version of this *)
 Definition pull_all_quant : lem_rewriter typ func Rbase :=
   repeat_rewrite (fun e r =>
                     bottom_up (is_reflR is_refl) (is_transR is_trans) (the_rewrites the_lemmas)
@@ -491,8 +591,34 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
+Print respectful_dec.
+
 (* next up: finish this file
-figure out how to make opaque terms reduce so the lemma soundness proof
-is not crazy painful - ask Gregory
 do respectful stuff - basically make respectfulness definitions polymorphic
+ *)
+
+Locate respectful_spec.
+SearchAbout get_respectful.
+Check get_respectful.
+Print respectful_dec.
+Locate do_respectful.
+
+(* need to define a rewrite-db style type with poly and non poly respectfulness hints
+   then use this to implement do_respectful. *)
+
+(* do_respectful *)
+(* answers question "what can i fill in ? with in
+   Proper (? => ? => R) f, of the list provided?"
+   returns a single way to solve it.
+ *)
+
+(*
+1. compute type of e
+2. usie polyinst to instantiate the variables
+there is also a unify function
+used by compilehints
+(two types; one has type vars and one doesn't, attempts to unify)
+if it fails, skip this one
+3. I have a candidate substitution
+
 *)
