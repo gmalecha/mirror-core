@@ -1,33 +1,12 @@
 (** The implementation of rewriting hint databases
  **)
-Require Import Coq.omega.Omega.
-Require Import Coq.Classes.Morphisms.
-Require Import Coq.PArith.BinPos.
-Require Import Coq.Relations.Relations.
-Require Import Coq.FSets.FMapPositive.
-Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Structures.Functor.
-Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lemma.
-Require Import MirrorCore.VarsToUVars.
-Require Import MirrorCore.Instantiate.
-Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.Util.Compat.
-Require Import MirrorCore.Util.Iteration.
-Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.ExprTac.
-Require Import MirrorCore.Lambda.ExprUnify.
-Require Import MirrorCore.Lambda.AppN.
-Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.Lambda.Rewrite.Core.
 Require Import MirrorCore.Lambda.Polymorphic.
 Require Import MirrorCore.Lambda.PolyInst.
-Require Import MirrorCore.Views.View.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.MTypes.MTypeUnify.
 Require Import MirrorCore.Lib.TypeVar.

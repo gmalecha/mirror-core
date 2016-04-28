@@ -1,22 +1,13 @@
 Require Import Coq.Classes.Morphisms.
-Require Import Coq.Relations.Relations.
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI.
 Require Import MirrorCore.Lemma.
-Require Import MirrorCore.VarsToUVars.
-Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.Util.Compat.
-Require Import MirrorCore.Util.Iteration.
-Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
+Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
-Require Import MirrorCore.Lambda.ExprUnify.
-Require Import MirrorCore.Lambda.AppN.
-Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
 
@@ -127,8 +118,6 @@ Section setoid.
     specialize (IHr2 _ eq_refl).
     simpl. rewrite IHr2. reflexivity.
   Qed.
-
-  Require Import MirrorCore.RTac.CoreK.
 
   Definition apply_respectful (lem : Proper_lemma)
              (tacK : rtacK typ (expr typ func))
@@ -289,19 +278,17 @@ Section setoid.
     red. intros. inversion H.
   Qed.
 
-  Require Import MirrorCore.RTac.IdtacK.
-
   Fixpoint do_respectful (propers : list (expr typ func * R))
-    : respectful_dec _ _ _ :=
+  : respectful_dec _ _ _ :=
     match propers with
     | nil => fail_respectful
     | (f,rel) :: propers =>
       or_respectful
         (apply_respectful {| vars := nil
-                             ; premises := nil
-                             ; concl := {| relation := rel
-                                           ; term := f |}
-                          |} IDTACK)
+                           ; premises := nil
+                           ; concl := {| relation := rel
+                                       ; term := f |}
+                           |} IDTACK)
         (fun x => do_respectful propers x)
     end.
 
