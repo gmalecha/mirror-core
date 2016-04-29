@@ -2,7 +2,7 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.LambdaWt.TypedExpr.
+Require Import MirrorCore.LambdaWt.WtExpr.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -124,7 +124,7 @@ Section unify.
            (xs'' : hlist (wtexpr tus tvsX) tvs'')
            (pf : tux = (List.app tvs'' tvs)),
       subst (hlist_app xs'' (hlist_app xs' xs))
-            (wtexpr_lift tvs' tvs'' match pf in _ = X return TypedExpr.wtexpr _ _ X _ with
+            (wtexpr_lift tvs' tvs'' match pf in _ = X return wtexpr _ X _ with
                                     | eq_refl => e
                                     end) =
       subst (hlist_app xs'' xs) match pf with
@@ -143,7 +143,7 @@ Section unify.
       rewrite IHe1. rewrite IHe2. reflexivity. }
     { intros; subst. simpl.
       f_equal.
-      pose (s := fun (t : TypedExpr.type Tsymbol) (e0 : TypedExpr.wtexpr Esymbol tus tvsX t) =>
+      pose (s := fun (t : type) (e0 : wtexpr tus tvsX t) =>
                    wtexpr_lift (d :: nil) nil e0).
       specialize (IHe _ _ _ (d :: tvs'')
                       (hlist_map s xs) (hlist_map s xs')
@@ -308,16 +308,15 @@ Section unify.
   Arguments wtApp {_ _ _ _ _ _} _ _.
   Arguments wtAbs {_ _ _ _ _ _} _.
 
-
   Fixpoint unify {tus tvs t} (e1 e2 : wtexpr tus tvs t) (s : Inst tus)
            {struct e1}
     : option (Inst tus).
   refine
-    (match e1 in TypedExpr.wtexpr _ _ _ t
+    (match e1 in WtExpr.wtexpr _ _ _ t
            return wtexpr tus tvs t -> option (Inst tus)
      with
      | wtVar x => fun e2 =>
-       match e2 in TypedExpr.wtexpr _ _ _ t
+       match e2 in WtExpr.wtexpr _ _ _ t
              return member t tvs -> option _
        with
        | wtVar y => fun x =>
@@ -331,7 +330,7 @@ Section unify.
        | _ => fun _ => None
        end x
      | wtInj f => fun e2 =>
-       match e2 in TypedExpr.wtexpr _ _ _ t
+       match e2 in WtExpr.wtexpr _ _ _ t
              return Esymbol t -> option (Inst tus)
        with
        | wtInj f' => fun f => if Esymbol_eq_dec f f' then Some s else None
@@ -340,7 +339,7 @@ Section unify.
        | _ => fun _ => None
        end f
      | @wtApp _ _ _ _ d c f x => fun e2 =>
-       match e2 in TypedExpr.wtexpr _ _ _ t
+       match e2 in WtExpr.wtexpr _ _ _ t
              return (forall tu, member (tu,t) tus ->
                                 hlist (wtexpr tus tvs) tu ->
                                 Inst tus -> option (Inst tus)) ->
@@ -366,7 +365,7 @@ Section unify.
               check_set (unifyRec (wtApp f x)) u xs (wtApp f x) s)
            (fun x => unify _ _ _ f x)
      | @wtAbs _ _ _ _ d r e => fun e2 =>
-       match e2 in TypedExpr.wtexpr _ _ _ t'
+       match e2 in WtExpr.wtexpr _ _ _ t'
              return (forall tu, member (tu,t') tus ->
                                 hlist (wtexpr tus tvs) tu ->
                                 Inst tus -> option (Inst tus)) ->
@@ -392,7 +391,7 @@ Section unify.
               check_set (unifyRec (wtAbs e)) u xs (wtAbs e) s)
            (fun x => @unify _ _ _ e x)
      | @wtUVar _ _ _ _ ts t u xs => fun b =>
-       match b in TypedExpr.wtexpr _ _ _ t
+       match b in WtExpr.wtexpr _ _ _ t
              return member (ts,t) tus ->
                     hlist (wtexpr tus tvs) ts ->
                     option (Inst tus)

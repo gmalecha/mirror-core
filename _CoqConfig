@@ -15,6 +15,5 @@ theories/Util/Nat.v
 theories/Util/HListBuild.v
 theories/Util/Compat.v
 
-theories/LambdaWt/TypedExpr.v
-theories/LambdaWt/Unify.v
 theories/LambdaWt/WtExpr.v
+theories/LambdaWt/Unify.v

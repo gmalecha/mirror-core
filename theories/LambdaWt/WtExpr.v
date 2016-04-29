@@ -63,26 +63,26 @@ Section simple_dep_types.
   Arguments wtInj {_ _ _} _.
   Arguments wtVar {_ _ _} _.
 
- Section hlist_Forall.
-   Context {T : Type} {F G : T -> Type}.
-   Variable P : forall t, F t -> Prop.
-   Inductive hlist_Forall : forall ts, hlist F ts -> Prop :=
-   | hlist_Forall_nil : @hlist_Forall nil Hnil
-   | hlist_Forall_cons : forall t ts x xs,
-       @P t x ->
-       @hlist_Forall ts xs ->
-       @hlist_Forall (t :: ts) (Hcons x xs).
+  Section hlist_Forall.
+    Context {T : Type} {F G : T -> Type}.
+    Variable P : forall t, F t -> Prop.
+    Inductive hlist_Forall : forall ts, hlist F ts -> Prop :=
+    | hlist_Forall_nil : @hlist_Forall nil Hnil
+    | hlist_Forall_cons : forall t ts x xs,
+        @P t x ->
+        @hlist_Forall ts xs ->
+        @hlist_Forall (t :: ts) (Hcons x xs).
 
-   Variable R : forall t, F t -> G t -> Prop.
-   Inductive hlist_Forall2 : forall ts, hlist F ts -> hlist G ts -> Prop :=
-   | hlist_Forall2_nil : @hlist_Forall2 nil Hnil Hnil
-   | hlist_Forall2_cons : forall t ts x xs y ys,
-       @R t x y ->
-       @hlist_Forall2 ts xs ys ->
-       @hlist_Forall2 (t :: ts) (Hcons x xs) (Hcons y ys).
- End hlist_Forall.
- Arguments hlist_Forall_nil {_ _ _}.
- Arguments hlist_Forall_cons {_ _ _ _ _ _ _} _ _.
+    Variable R : forall t, F t -> G t -> Prop.
+    Inductive hlist_Forall2 : forall ts, hlist F ts -> hlist G ts -> Prop :=
+    | hlist_Forall2_nil : @hlist_Forall2 nil Hnil Hnil
+    | hlist_Forall2_cons : forall t ts x xs y ys,
+        @R t x y ->
+        @hlist_Forall2 ts xs ys ->
+        @hlist_Forall2 (t :: ts) (Hcons x xs) (Hcons y ys).
+  End hlist_Forall.
+  Arguments hlist_Forall_nil {_ _ _}.
+  Arguments hlist_Forall_cons {_ _ _ _ _ _ _} _ _.
 
   Section ind.
     Variable tus : list Tuvar.
@@ -122,14 +122,30 @@ Section simple_dep_types.
                                       Forall2 (x :: xs) (y :: ys).
   End Forall2.
 
+  Section hlist_Forall2.
+    Context {T : Type} {F : T -> Type} {G : forall x, F x -> F x -> Prop}
+            (P : forall x (a b : F x), G x a b -> Prop).
+
+    Variable R : forall t (a b : F t), G a b -> Prop.
+    Inductive hlist_Forall2_dep : forall ts (a b : hlist F ts), hlist_Forall2 G a b -> Prop :=
+    | hlist_Forall2_dep_nil : @hlist_Forall2_dep nil Hnil Hnil (@hlist_Forall2_nil _ _ _ _)
+    | hlist_Forall2_dep_cons : forall t ts x xs y ys pf pfs,
+        P pf ->
+        @hlist_Forall2_dep ts xs ys pfs ->
+        @hlist_Forall2_dep (t :: ts) (Hcons x xs) (Hcons y ys)
+                           (@hlist_Forall2_cons T F F G t ts _ _ _ _ pf pfs).
+
+  End hlist_Forall2.
+
+
   Section equiv.
     Context {tus : list Tuvar}.
     Variables R : forall tvs t, wtexpr tus tvs t -> wtexpr tus tvs t -> Prop.
     Unset Elimination Schemes.
     Inductive wtexpr_equiv (tvs : list type)
     : forall t, wtexpr tus tvs t -> wtexpr tus tvs t -> Prop :=
-    | eqVar : forall t m, @wtexpr_equiv tvs t (wtVar m) (wtVar m)
-    | eqInj : forall t f, @wtexpr_equiv tvs t (wtInj f) (wtInj f)
+    | eqVar : forall {t} m, @wtexpr_equiv tvs t (wtVar m) (wtVar m)
+    | eqInj : forall {t} f, @wtexpr_equiv tvs t (wtInj f) (wtInj f)
     | eqApp : forall d c f x g y,
         @wtexpr_equiv tvs (TArr d c) f g ->
         @wtexpr_equiv tvs d x y ->
@@ -150,15 +166,60 @@ Section simple_dep_types.
     Set Elimination Schemes.
 
     Section wtexpr_equiv_ind.
-(*
       Variable P : forall tvs t (e1 e2 : wtexpr tus tvs t),
         @wtexpr_equiv tvs t e1 e2 -> Prop.
       Hypothesis Hvar : forall tvs t m,
           @P tvs t (wtVar m) (wtVar m) (eqVar m).
-*)
+      Hypothesis Hinj : forall tvs t f,
+          @P tvs t (wtInj f) (wtInj f) (eqInj _ f).
+      Hypothesis Happ : forall tvs d c f f' x x' pf pf',
+          @P tvs (TArr d c) f f' pf ->
+          @P tvs d x x' pf' ->
+          @P tvs c (wtApp f x) (wtApp f' x') (eqApp pf pf').
+      Hypothesis Habs : forall tvs d c e e' pf,
+          @P (d :: tvs) c e e' pf ->
+          @P tvs (TArr d c) (wtAbs e) (wtAbs e') (eqAbs pf).
+      Hypothesis Huvar : forall tvs ts t (u : member (ts,t) tus) xs xs'
+                                (pfs : hlist_Forall2 (@wtexpr_equiv tvs) xs xs'),
+          hlist_Forall2_dep (@P tvs) pfs ->
+          @P tvs t (wtUVar u xs) (wtUVar u xs') (eqUVar u pfs).
+      Hypothesis Hconv : forall tvs t a b pf,
+          @P tvs t a b (eqConv pf).
+      Hypothesis Htrans : forall tvs t a b c pf pf',
+          @P tvs t a b pf ->
+          @P tvs t b c pf' ->
+          @P tvs t a c (eqTrans pf pf').
+
+      Theorem wtexpr_equiv_ind : forall tvs t a b pf,
+          @P tvs t a b pf.
+      Proof.
+        refine (fix rec (tvs : list type) (t : type) (a b : wtexpr tus tvs t)
+                    (pf : wtexpr_equiv a b) {struct pf} : P pf :=
+                  match pf as pf in @wtexpr_equiv _ t a b
+                        return P pf
+                  with
+                  | eqVar _ => Hvar _
+                  | eqInj _ _ => Hinj _ _
+                  | eqApp l r => Happ (rec _ _ _ _ l) (rec _ _ _ _ r)
+                  | eqAbs e => Habs (rec _ _ _ _ e)
+                  | @eqUVar _ ts t u xs xs' pfs =>
+                    Huvar _
+                          ((fix rec' ls (xs xs' : hlist _ ls) (pfs : hlist_Forall2 (wtexpr_equiv (tvs:=tvs)) xs xs')
+                                {struct pfs}
+                            : hlist_Forall2_dep (P (tvs:=tvs)) pfs :=
+                              match pfs as pfs in hlist_Forall2 _ _ _
+                                    return hlist_Forall2_dep (P (tvs:=tvs)) pfs
+                              with
+                              | hlist_Forall2_nil _ => hlist_Forall2_dep_nil _
+                              | hlist_Forall2_cons _ _ _ _ _ =>
+                                hlist_Forall2_dep_cons _ _ _ _ (rec _ _ _ _ _) (rec' _ _ _ _)
+                              end) ts _ _ _)
+                  | eqConv r => Hconv r
+                  | eqTrans a b => Htrans (rec _ _ _ _ a) (rec _ _ _ _ b)
+                  end).
+      Defined.
+
     End wtexpr_equiv_ind.
-
-
 
     Lemma wtexpr_equiv_refl : forall tvs t a,
         @wtexpr_equiv tvs t a a.
@@ -174,18 +235,12 @@ Section simple_dep_types.
         @wtexpr_equiv tvs t a b ->
         @wtexpr_equiv tvs t b a.
     Proof using Tsymbol Esymbol R.
-      (** TODO: Needs a stronger induction hypothesis that exposes
-       ** recursive information for hlist_Forall2
-       **)
-(*
       induction 2; try solve [ constructor; eauto ].
       - constructor.
         clear - H0.
-        induction H0; constructor.
-        + eapply H.
+        induction H0; constructor; eauto.
       - eapply eqTrans; eauto.
-*)
-    Admitted.
+    Qed.
 
     Lemma wtexpr_equiv_trans : forall tvs t a b c,
         @wtexpr_equiv tvs t a b ->
@@ -689,6 +744,11 @@ Section simple_dep_types.
     | wtAbs e => wtAbs (inst xs e)
     | wtUVar u ys => hlist_get u xs _ ys
     end.
+
+(*
+  Definition Unifiable_eq {tus} s tvs t a b : Prop :=
+    @Unifiable tus s tvs t a b \/ @Unifiable tus s tvs t b a.
+*)
 
 (*
   (** Unification **)
