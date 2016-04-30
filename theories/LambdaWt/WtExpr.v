@@ -221,33 +221,31 @@ Section simple_dep_types.
 
     End wtexpr_equiv_ind.
 
-    Lemma wtexpr_equiv_refl : forall tvs t a,
-        @wtexpr_equiv tvs t a a.
+    Global Instance Reflexive_wtexpr_equiv : forall tvs t,
+        Reflexive (@wtexpr_equiv tvs t).
     Proof.
-      induction a; constructor; eauto.
+      red.
+      induction x; constructor; eauto.
       clear - H.
       induction H; constructor; eauto.
     Qed.
 
-    Lemma wtexpr_equiv_symm :
-      (forall tvs t a b, @R tvs t a b -> R b a) ->
-      forall tvs t a b,
-        @wtexpr_equiv tvs t a b ->
-        @wtexpr_equiv tvs t b a.
+    Global Instance Symmetric_wtexpr_equiv :
+      (forall tvs t, Symmetric (@R tvs t)) ->
+      forall tvs t, Symmetric (@wtexpr_equiv tvs t).
     Proof using Tsymbol Esymbol R.
       induction 2; try solve [ constructor; eauto ].
       - constructor.
         clear - H0.
         induction H0; constructor; eauto.
+      - constructor. symmetry. assumption.
       - eapply eqTrans; eauto.
     Qed.
 
-    Lemma wtexpr_equiv_trans : forall tvs t a b c,
-        @wtexpr_equiv tvs t a b ->
-        @wtexpr_equiv tvs t b c ->
-        @wtexpr_equiv tvs t a c.
+    Global Instance Transitive_wtexpr_equiv : forall tvs t,
+        Transitive (@wtexpr_equiv tvs t).
     Proof.
-      eapply eqTrans.
+      red. eapply eqTrans.
     Qed.
 
   End equiv.

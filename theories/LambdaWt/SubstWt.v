@@ -20,7 +20,9 @@ Section subst.
   Let wtexpr := wtexpr Esymbol.
   Let Tuvar := Tuvar Tsymbol.
 
-  Definition Acyclic (tus : list Tuvar) (h : hlist (fun tst => option (wtexpr tus (fst tst) (snd tst))) tus) :=
+  Definition Acyclic (tus : list Tuvar)
+             (h : hlist (fun tst => option (wtexpr tus (fst tst) (snd tst))) tus)
+  :=
     True.
 
   Record Inst (tus : list Tuvar) : Type :=
@@ -44,13 +46,56 @@ Section subst.
       | MN _ m => fun hs => Hcons (hlist_hd hs) (hlist_set m (hlist_tl hs))
       end.
 
-    Lemma hlist_get_set : forall ls i hs, hlist_get (ls:=ls) i (hlist_set i hs) = v.
+    Lemma hlist_get_set
+    : forall ls i hs,
+        hlist_get (ls:=ls) i (hlist_set i hs) = v.
     Proof.
       induction i; simpl; intros; auto.
     Defined.
+
+    Variable T_dec : EqDec T (@eq T).
+    Lemma hlist_get_set_neq
+    : forall ls i j hs,
+        i <> j ->
+        hlist_get (ls:=ls) i (hlist_set j hs) = hlist_get i hs.
+    Proof.
+      induction i; simpl; intros; auto.
+      { destruct (member_case j).
+        { destruct H0. subst.
+          exfalso. apply H; clear H.
+          rewrite (UIP_refl x). reflexivity. }
+        { destruct H0. subst. reflexivity. } }
+      { destruct (member_case j).
+        { destruct H0. subst. simpl. auto. }
+        { destruct H0. subst. simpl. eapply IHi.
+          intro. apply H.
+          subst. reflexivity. } }
+    Defined.
+
+    Lemma hlist_get_set_neq'
+    : forall t' ls (i : member t' ls) j hs,
+        (forall pf : t = t',
+            i <> match pf with
+                 | eq_refl => j
+                 end) ->
+        hlist_get (ls:=ls) i (hlist_set j hs) = hlist_get i hs.
+    Proof.
+      induction i; simpl; intros; auto.
+      { destruct (member_case j).
+        { destruct H0. subst.
+          exfalso. specialize (H eq_refl). auto. }
+        { destruct H0. subst. reflexivity. } }
+      { destruct (member_case j).
+        { destruct H0. subst. reflexivity. }
+        { destruct H0. subst. simpl. eapply IHi.
+          intros; intro. specialize (H pf). subst t'.
+          subst i. tauto. } }
+    Defined.
+
   End hlist_set.
 
-  Definition Inst_set {tus ts t} (uv : member (ts,t) tus) (e : wtexpr tus ts t) (i : Inst tus)
+  Definition Inst_set {tus ts t} (uv : member (ts,t) tus) (e : wtexpr tus ts t)
+             (i : Inst tus)
   : Inst tus :=
     {| values := hlist_set (Some e) uv i.(values)
      ; _acyclic := I
@@ -72,6 +117,7 @@ Section subst.
       wtexpr_equiv (Unifiable i1) e1 e2 ->
       wtexpr_equiv (Unifiable i2) e1 e2.
 
+
   Theorem Inst_set_ok : forall tus tvs ts t (u : member (ts,t) tus) w s s',
       Inst_set u w s = s' ->
       Inst_lookup s u = None ->
@@ -88,10 +134,23 @@ Section subst.
       - constructor.
         inversion pf. constructor. subst.
         unfold Inst_lookup, Inst_set. simpl.
-        admit.
+        etransitivity; [ | eapply H ].
+        unfold Inst_lookup.
+        clear - H0 H u0 u Tsymbol_eq_dec.
+        eapply (@hlist_get_set_neq' _ _ _ (Some w) _ _ u0 u (values s)).
+        intros. intro.
+        subst. unfold Inst_lookup in *.
+        inversion pf. subst.
+        rewrite (UIP_refl pf) in H.
+        congruence.
       - eapply eqTrans; eauto. }
     { intros.
       constructor. unfold Inst_lookup, Inst_set.
       simpl. rewrite hlist_get_set. reflexivity. }
-  Admitted.
+    Unshelve.
+    eapply pair_eq_dec.
+    eapply list_eq_dec. eapply type_eq_dec. eapply Tsymbol_eq_dec.
+    eapply type_eq_dec. eapply Tsymbol_eq_dec.
+  Defined.
+
 End subst.

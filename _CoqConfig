@@ -17,3 +17,4 @@ theories/Util/Compat.v
 
 theories/LambdaWt/WtExpr.v
 theories/LambdaWt/Unify.v
+theories/LambdaWt/SubstWt.v

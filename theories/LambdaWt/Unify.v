@@ -35,6 +35,12 @@ Section unify.
   Definition Unifiable_eq {tus} s tvs t a b : Prop :=
     @Unifiable tus s tvs t a b \/ @Unifiable tus s tvs t b a.
 
+  Global Instance Symmetric_Unifiable_eq tus tvs t (i : Inst tus)
+  : Symmetric (Unifiable_eq i (tvs:=tvs) (t:=t)).
+  Proof.
+    red. destruct 1; (left + right); solve [ eauto ].
+  Qed.
+
   (** This is probably not an ideal definition **)
   Definition Inst_evolves {tus} (i1 i2 : Inst tus) : Prop :=
     forall tvs t (e1 e2 : wtexpr tus tvs t),
@@ -185,7 +191,7 @@ Section unify.
     subst.
     destruct (wtexpr_eq_dec Tsymbol_eq_dec Esymbol_eq_dec e f).
     - inv_all; subst.
-      simpl. eapply wtexpr_equiv_refl.
+      simpl. reflexivity.
     - destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs e);
         try congruence.
       inv_all. subst.
@@ -217,8 +223,7 @@ Section unify.
       destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtInj Esymbol tus tvs t m));
         try congruence.
       { intro. apply H0 in H; clear H0. auto. }
-      { inv_all. subst. intros.
-      eapply wtexpr_equiv_refl. } }
+      { inv_all. subst. intros. reflexivity. } }
     { intros.
       generalize (find_in_hlist_ok R (wtApp e1 e2) xs).
       destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtApp e1 e2));
@@ -274,9 +279,8 @@ Section unify.
       destruct (@Inst_set_ok tus tvs _ _ u w s _ eq_refl Hnot_there).
       split; auto.
       eapply eqTrans.
-      2: eapply wtexpr_equiv_symm; try eassumption.
-      constructor. constructor. eauto.
-      destruct 1; [ right | left]; eassumption. }
+      2: symmetry; try eassumption.
+      constructor. constructor. eauto. }
   Qed.
 
   Section unify_list.
@@ -420,16 +424,6 @@ Section unify.
   Instance Transitive_Inst_evolves tus : Transitive (@Inst_evolves tus).
   Proof. compute. auto. Qed.
 
-  Instance Symmetric_wtexpr_equiv tus R tvs t
-  : (forall tvs t, Symmetric (R tvs t)) ->
-    Symmetric (@wtexpr_equiv Tsymbol Esymbol tus R tvs t).
-  Proof. Admitted.
-
-  Instance Symmetric_Unifiable_eq tus tvs t (i : Inst tus)
-  : Symmetric (Unifiable_eq i (tvs:=tvs) (t:=t)).
-  Proof.
-    red. destruct 1; (left + right); solve [ eauto ].
-  Qed.
 
   Section unify_ok.
     Variable tus : list Tuvar.
