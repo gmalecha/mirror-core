@@ -127,8 +127,10 @@ Section simple_dep_types.
             (P : forall x (a b : F x), G x a b -> Prop).
 
     Variable R : forall t (a b : F t), G a b -> Prop.
-    Inductive hlist_Forall2_dep : forall ts (a b : hlist F ts), hlist_Forall2 G a b -> Prop :=
-    | hlist_Forall2_dep_nil : @hlist_Forall2_dep nil Hnil Hnil (@hlist_Forall2_nil _ _ _ _)
+    Inductive hlist_Forall2_dep
+    : forall ts (a b : hlist F ts), hlist_Forall2 G a b -> Prop :=
+    | hlist_Forall2_dep_nil :
+        @hlist_Forall2_dep nil Hnil Hnil (@hlist_Forall2_nil _ _ _ _)
     | hlist_Forall2_dep_cons : forall t ts x xs y ys pf pfs,
         P pf ->
         @hlist_Forall2_dep ts xs ys pfs ->
