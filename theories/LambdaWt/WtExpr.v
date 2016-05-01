@@ -251,7 +251,7 @@ Section simple_dep_types.
   End equiv.
 
   Definition exprT (tus : list Tuvar) (tvs : list type) (t : type) : Type :=
-    hlist (fun tst => let '(ts,t) := tst in  hlist typeD ts -> typeD t) tus ->
+    hlist (fun tst => hlist typeD (fst tst) -> typeD (snd tst)) tus ->
     hlist typeD tvs ->
     typeD t.
 

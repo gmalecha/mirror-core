@@ -29,6 +29,37 @@ Section subst.
   { values   : hlist (fun tst => option (wtexpr tus (fst tst) (snd tst))) tus
   ; _acyclic : Acyclic values }.
 
+  Section instD.
+    Variable tus' : list Tuvar.
+    Variable us' : hlist (fun tst =>
+                            hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst))
+            tus'.
+
+    Fixpoint InstD' (tus : list Tuvar)
+             (inst : hlist (fun tst => option (wtexpr tus' (fst tst) (snd tst))) tus)
+    : hlist (fun tst => hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst))
+            tus -> Prop :=
+      match inst in hlist _ tus
+            return hlist (fun tst =>
+                            hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst))
+                         tus -> Prop
+      with
+      | Hnil => fun _ => True
+      | Hcons None ist => fun us => InstD' ist (hlist_tl us)
+      | Hcons (Some val) ist => fun us =>
+           (forall cs, hlist_hd us cs = wtexprD EsymbolD val us' cs)
+        /\ InstD' ist (hlist_tl us)
+      end.
+  End instD.
+
+  Definition InstD (tus : list Tuvar)
+             (inst : hlist (fun tst => option (wtexpr tus (fst tst) (snd tst))) tus)
+             (us : hlist (fun tst =>
+                            hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst))
+                         tus)
+  : Prop :=
+    @InstD' tus us tus inst us.
+
   Definition Inst_lookup {tus} (i : Inst tus) {ts t} (uv : member (ts,t) tus)
   : option (wtexpr tus ts t) :=
     hlist_get uv i.(values).
