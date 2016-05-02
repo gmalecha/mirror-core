@@ -24,3 +24,5 @@ coq-ext-lib
 .merlin
 *.vio
 universes.txt
+_CoqPath
+_CoqProject

@@ -1,5 +1,7 @@
+Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -252,32 +254,36 @@ Section simple_dep_types.
 
   End equiv.
 
-  Definition exprT (tus : list Tuvar) (tvs : list type) (t : type) : Type :=
+  Definition exprT (tus : list Tuvar) (tvs : list type) (t : Type) : Type :=
     hlist (fun tst => hlist typeD (fst tst) -> typeD (snd tst)) tus ->
     hlist typeD tvs ->
-    typeD t.
+    t.
 
-  Definition Pure_exprT {tus} {tvs} {t} (val : typeD t) : exprT tus tvs t :=
+  Global Instance Applicative_exprT {tus tvs} : Applicative (exprT tus tvs) :=
+  { pure := fun _ x _ _ => x
+  ; ap   := fun _ _ f x us vs => (f us vs) (x us vs) }.
+
+  Definition Pure_exprT {tus} {tvs} {t} (val : typeD t) : exprT tus tvs (typeD t) :=
     fun _ _ => val.
-  Definition Ap_exprT {tus} {tvs} {d c} (f : exprT tus tvs (TArr d c))
-    (x : exprT tus tvs d) : exprT tus tvs c :=
+  Definition Ap_exprT {tus} {tvs} {d c} (f : exprT tus tvs (typeD (TArr d c)))
+    (x : exprT tus tvs (typeD d)) : exprT tus tvs (typeD c) :=
     fun us vs => (f us vs) (x us vs).
-  Definition Abs_exprT {tus} {tvs} {d c} (f : exprT tus (d :: tvs) c)
-  : exprT tus tvs (TArr d c) :=
+  Definition Abs_exprT {tus} {tvs} {d c} (f : exprT tus (d :: tvs) (typeD c))
+  : exprT tus tvs (typeD (TArr d c)) :=
     fun us vs x => f us (Hcons x vs).
-  Definition Var_exprT {tus} {tvs} {t} (m : member t tvs) : exprT tus tvs t :=
+  Definition Var_exprT {tus} {tvs} {t} (m : member t tvs) : exprT tus tvs (typeD t) :=
     fun _ => hlist_get m.
   Definition UVar_exprT {tus} {tvs} {ts} {t} (m : member (ts,t) tus)
-             (es : hlist (exprT tus tvs) ts)
-  : exprT tus tvs t :=
+             (es : hlist (fun t => exprT tus tvs (typeD t)) ts)
+  : exprT tus tvs (typeD t) :=
     fun us vs =>
       let u := hlist_get m us in
-      u (hlist_map (fun t (v : exprT tus tvs t) => v us vs) es).
+      u (hlist_map (fun t (v : exprT tus tvs (typeD t)) => v us vs) es).
 
   Fixpoint wtexprD (tus : list Tuvar) (tvs : list type) (t : type)
            (e : wtexpr tus tvs t)
-  : exprT tus tvs t :=
-    match e in wtexpr _ _ t return exprT tus tvs t with
+  : exprT tus tvs (typeD t) :=
+    match e in wtexpr _ _ t return exprT tus tvs (typeD t) with
     | wtVar x => Var_exprT x
     | wtInj s => Pure_exprT (EsymbolD s)
     | wtApp f x => Ap_exprT (wtexprD f) (wtexprD x)
@@ -288,8 +294,6 @@ Section simple_dep_types.
   Variable Esymbol_eq_dec : forall {t} (a b : Esymbol t), {a = b} + {a <> b}.
 
   (** * Auxiliary Functions **)
-
-  Require Import ExtLib.Tactics.
 
   Section member_eq_dec.
     Context {T : Type}.
