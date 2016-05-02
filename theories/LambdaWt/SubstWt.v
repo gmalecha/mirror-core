@@ -53,12 +53,12 @@ Section subst.
   End instD.
 
   Definition InstD (tus : list Tuvar)
-             (inst : hlist (fun tst => option (wtexpr tus (fst tst) (snd tst))) tus)
+             (inst : Inst tus)
              (us : hlist (fun tst =>
                             hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst))
                          tus)
   : Prop :=
-    @InstD' tus us tus inst us.
+    @InstD' tus us tus inst.(values) us.
 
   Definition Inst_lookup {tus} (i : Inst tus) {ts t} (uv : member (ts,t) tus)
   : option (wtexpr tus ts t) :=
