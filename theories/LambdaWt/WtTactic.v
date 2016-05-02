@@ -1,6 +1,11 @@
 Require Import Coq.Lists.List.
+Require Import ExtLib.Data.Member.
+Require Import ExtLib.Data.HList.
 Require Import MirrorCore.LambdaWt.WtExpr.
 Require Import MirrorCore.LambdaWt.SubstWt.
+
+Set Implicit Arguments.
+Set Strict Implicit.
 
 Section simple_dep_types.
   Variable Tsymbol : Type.
@@ -18,22 +23,22 @@ Section simple_dep_types.
 
 
     Fixpoint foralls_prop (ts : list (type Tsymbol))
-    : (HList.hlist (typeD TsymbolD) ts -> typeD TsymbolD tyProp) ->
+    : (hlist (typeD TsymbolD) ts -> typeD TsymbolD tyProp) ->
       typeD TsymbolD tyProp :=
       match ts with
-      | nil => fun k => k HList.Hnil
+      | nil => fun k => k Hnil
       | t :: ts => fun k =>
-        foralls_prop ts (fun vs =>
-                           forall_prop _ (fun v => k (HList.Hcons v vs)))
+        foralls_prop (fun vs =>
+                        forall_prop (fun v => k (Hcons v vs)))
       end.
 
     Fixpoint foralls_uvar_prop (ts : list (Tuvar Tsymbol))
-    : (HList.hlist (fun tst => HList.hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst)) ts -> Prop) ->
+    : (hlist (fun tst => hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst)) ts -> Prop) ->
       Prop :=
       match ts with
-      | nil => fun k => k HList.Hnil
+      | nil => fun k => k Hnil
       | t :: ts => fun k =>
-        foralls_uvar_prop ts (fun vs => forall v, k (HList.Hcons v vs))
+        foralls_uvar_prop (fun vs => forall v, k (Hcons v vs))
       end.
 
     Variable impl_prop :
@@ -45,13 +50,13 @@ Section simple_dep_types.
 
     Section impls.
       Context {tus : list (Tuvar Tsymbol)} {tvs : list (type Tsymbol)}.
-      Fixpoint impls_prop (ts : list (exprT TsymbolD tus tvs (typeD TsymbolD tyProp)))
-               (post : exprT TsymbolD tus tvs (typeD TsymbolD tyProp))
-      : exprT TsymbolD tus tvs (typeD TsymbolD tyProp) :=
+      Fixpoint impls_prop (ts : list (typeD TsymbolD tyProp))
+               (post : typeD TsymbolD tyProp)
+      : typeD TsymbolD tyProp :=
         match ts with
         | nil => post
         | t :: ts =>
-          ap (ap (pure impl_prop) t) (impls_prop ts post)
+          impl_prop t (impls_prop ts post)
         end.
     End impls.
 
@@ -63,9 +68,6 @@ Section simple_dep_types.
     | wtConj   : wtgoal tus tvs -> wtgoal tus tvs -> wtgoal tus tvs
     | wtHyp    : wtexpr Esymbol tus tvs tyProp -> wtgoal tus tvs -> wtgoal tus tvs
     | wtAll    : forall t, wtgoal tus (t :: tvs) -> wtgoal tus tvs.
-
-    Definition migrator tus tus' : Type :=
-      forall ts t, Member.member (ts,t) tus' -> wtexpr Esymbol tus ts t.
 
     Variables Pre Post : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
 
@@ -81,9 +83,7 @@ Section simple_dep_types.
         m { tus' : _
           & Post tus' tvs
           * Inst Esymbol tus'
-          * migrator tus' tus }%type.
-
-
+          * migrator Esymbol tus tus' }%type.
 
     Variable PreD : forall {tus tvs}, Pre tus tvs ->
                                       exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
@@ -94,53 +94,19 @@ Section simple_dep_types.
     Variable tyProp_to_Prop : typeD TsymbolD tyProp -> Prop.
     Variable Prop_to_tyProp : Prop -> typeD TsymbolD tyProp.
 
-    Definition migrator_tl {a b c} (mig : migrator a (b :: c))
-    : migrator a c :=
-      fun ts t X => mig ts t (Member.MN b X).
-
-
-    Section migrate.
-      Variable tus : list (Tuvar Tsymbol).
-      Variable pre : HList.hlist (fun tst : list (type Tsymbol) * type Tsymbol =>
-                       HList.hlist (typeD TsymbolD) (fst tst) ->
-                       typeD TsymbolD (snd tst)) tus.
-
-      Fixpoint migrate_env {tus'} {struct tus'}
-      : migrator tus tus' ->
-        HList.hlist (fun tst : list (type Tsymbol) * type Tsymbol =>
-                       HList.hlist (typeD TsymbolD) (fst tst) ->
-                       typeD TsymbolD (snd tst)) tus' :=
-        match tus' as tus'
-              return migrator tus tus' ->
-                     HList.hlist (fun tst : list (type Tsymbol) * type Tsymbol =>
-                                    HList.hlist (typeD TsymbolD) (fst tst) ->
-                                    typeD TsymbolD (snd tst)) tus'
-        with
-        | nil => fun _ => HList.Hnil
-        | (ts,t) :: tus' => fun mig =>
-          @HList.Hcons _ (fun tst : list (type Tsymbol) * type Tsymbol =>
-                            HList.hlist (typeD TsymbolD) (fst tst) ->
-                            typeD TsymbolD (snd tst))
-                       (ts,t) _
-                       (wtexprD EsymbolD (mig _ _ (Member.MZ _ _)) pre)
-                       (@migrate_env _ (migrator_tl mig))
-        end.
-
-    End migrate.
-
     Definition logicT_spec (l : logicT) : Prop :=
       forall tus tvs prems goal inst result,
         l tus tvs prems inst goal = result ->
-        mD _ (fun t =>
+        mD (fun t =>
                 let '(existT _ tus' (post, inst', trans)) := t in
-                foralls_uvar_prop tus' (fun us' =>
+                @foralls_uvar_prop tus' (fun us' =>
+                  let us := migrate_env EsymbolD trans us' in
                   InstD EsymbolD inst' us' ->
                   tyProp_to_Prop
-                    (foralls_prop tvs (fun vs =>
-                       impls_prop (List.map (fun p us' vs => wtexprD EsymbolD p (migrate_env _ us' trans) vs) prems)
-                                  (fun us' vs =>
-                                     impl_prop (@PostD _ _ post us' vs)
-                                               (@PreD  _ _ goal  (migrate_env _ us' trans)  vs)) us' vs))))
+                    (@foralls_prop tvs (fun vs =>
+                       impls_prop (map (fun p => wtexprD EsymbolD p us vs) prems)
+                                  (impl_prop (@PostD _ _ post us' vs)
+                                             (@PreD  _ _ goal us  vs))))))
            result.
   End logicT.
 End simple_dep_types.
