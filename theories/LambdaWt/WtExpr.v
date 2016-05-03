@@ -862,7 +862,7 @@ Section hlist_map_rules.
 End hlist_map_rules.
 
 Lemma hlist_get_member_weaken:
-  forall (tvs tvs' : list type) (t0 : type) (m : member t0 tvs) (vs : Venv tvs) (vs' : Venv tvs'),
+  forall {T : Type} (F : T -> Type) (tvs tvs' : list T) (t0 : T) (m : member t0 tvs) (vs : hlist F tvs) (vs' : hlist F tvs'),
     hlist_get (member_weaken tvs' m) (hlist_app vs' vs) = hlist_get m vs.
 Proof.
   clear.
@@ -870,9 +870,10 @@ Proof.
   { rewrite (hlist_eta vs'). reflexivity. }
   { rewrite (hlist_eta vs'). simpl. eauto. }
 Qed.
-Lemma hlist_get_member_lift:
-  forall (tvs tvs' tvs0 : list type) (t0 : type) (m : member t0 (tvs0 ++ tvs)) (vs : Venv tvs) 
-         (vs' : Venv tvs') (vs'' : Venv tvs0),
+
+Lemma hlist_get_member_lift
+: forall T (F : T -> Type) (tvs tvs' tvs0 : list T) (t0 : T) (m : member t0 (tvs0 ++ tvs)) (vs : hlist F tvs) 
+         (vs' : hlist F tvs') (vs'' : hlist F tvs0),
     hlist_get (member_lift tvs tvs' tvs0 m) (hlist_app vs'' (hlist_app vs' vs)) = hlist_get m (hlist_app vs'' vs).
 Proof.
   clear.

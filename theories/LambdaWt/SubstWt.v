@@ -143,21 +143,118 @@ Section subst.
     @Unifiable tus s tvs t a b \/ @Unifiable tus s tvs t b a.
 *)
 
-  Definition Inst_evolves {tus} (i1 i2 : Inst tus) : Prop :=
-    forall tvs t (e1 e2 : wtexpr tus tvs t),
-      wtexpr_equiv (Unifiable i1) e1 e2 ->
-      wtexpr_equiv (Unifiable i2) e1 e2.
+  Fixpoint vars_id {tus} tvs : hlist (WtExpr.wtexpr Esymbol tus tvs) tvs :=
+    match tvs as tvs
+          return hlist (WtExpr.wtexpr Esymbol tus tvs) tvs
+    with
+    | nil => Hnil
+    | t :: ts =>
+      Hcons (wtVar Esymbol tus (MZ t ts))
+            (hlist_map
+               (fun t' : WtExpr.type Tsymbol => wtexpr_lift (t :: nil) nil)
+               (vars_id ts))
+    end.
 
+  Section mid.
+    Variable T : (list (WtExpr.type Tsymbol) * WtExpr.type Tsymbol) -> Type.
+
+    Fixpoint migrator_id' tus {struct tus}
+    : (forall ts t, member (ts,t) tus -> T (ts,t)) ->
+      hlist T tus :=
+      match tus as tus
+            return (forall ts t, member (ts,t) tus -> T (ts,t)) ->
+                   hlist T tus
+      with
+      | nil => fun _ => Hnil
+      | (ts,t) :: tus => fun mk =>
+                           Hcons (@mk _ _ (@MZ _ _ _))
+                                 (migrator_id' (fun ts t z => @mk ts t (MN _ z)))
+      end.
+  End mid.
+
+  Definition migrator_id tus : migrator Esymbol tus tus :=
+    @migrator_id' _ tus (fun ts t x => wtUVar x (vars_id ts)).
+
+  Lemma hlist_get_migrator_id' : forall T ts t tus mk (m : member (ts,t) tus),
+      hlist_get m (@migrator_id' T tus mk) = mk _ _ m.
+  Proof.
+    induction m; simpl; auto.
+    destruct l. simpl. rewrite IHm. reflexivity.
+  Qed.
+
+  Lemma hlist_get_migrator_id : forall ts t tus (m : member (ts,t) tus),
+      hlist_get m (migrator_id tus) = wtUVar m (vars_id _).
+  Proof.
+    intros. unfold migrator_id.
+    rewrite hlist_get_migrator_id'. reflexivity.
+  Qed.
+
+  Lemma subst_wtexpr_lift
+  : forall (tus : list (WtExpr.Tuvar Tsymbol))
+           (tvs tvs'' : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+           (e : WtExpr.wtexpr Esymbol tus (tvs ++ tvs'') t) tvs' Z,
+    forall (vs : hlist _ tvs) (vs' : hlist _ tvs') (vs'' : hlist _ tvs''),
+      subst (hlist_app vs (hlist_app vs' vs''))
+            (wtexpr_lift tvs' tvs e) =
+      subst (tvs:=Z) (hlist_app vs vs'') e.
+  Proof.
+    clear.
+    intros tus tvs tvs'' t e.
+    eapply wtexpr_ind_app with (e:=e); simpl; intros; auto.
+    { rewrite hlist_get_member_lift. reflexivity. }
+    { rewrite H. rewrite H0. reflexivity. }
+    { f_equal.
+      remember (fun (t0 : WtExpr.type Tsymbol)
+                    (e0 : WtExpr.wtexpr Esymbol tus Z t0) =>
+                  wtexpr_lift (d :: nil) nil e0).
+      specialize (H tvs' _ (Hcons (wtVar Esymbol tus (MZ d Z))
+                                  (hlist_map w vs))
+                    (hlist_map w vs') (hlist_map w vs'')). simpl in H.
+      repeat rewrite hlist_app_hlist_map.
+      eauto. }
+    { rewrite hlist_map_hlist_map. f_equal.
+      clear - H.
+      induction H; simpl; eauto.
+      f_equal; eauto. }
+  Qed.
+
+  Theorem migrate_expr_migrate_id : forall tus tvs t (e : wtexpr tus tvs t),
+      migrate_expr (migrator_id _) e = e.
+  Proof.
+    induction e; simpl; intros; auto.
+    { rewrite IHe1. rewrite IHe2. reflexivity. }
+    { rewrite IHe. reflexivity. }
+    { rewrite hlist_get_migrator_id. simpl.
+      f_equal.
+      clear - H.
+      induction H; simpl; auto.
+      f_equal; eauto.
+      etransitivity; [ | eassumption ].
+      rewrite hlist_map_hlist_map.
+      eapply hlist_map_ext.
+      intros.
+      rewrite <- IHhlist_Forall.
+      rewrite hlist_map_hlist_map.
+      eapply (fun Z => @subst_wtexpr_lift tus nil _ _ t0 (t :: nil) _
+                                          Hnil (Hcons Z Hnil)). }
+  Qed.
+
+  Definition Inst_evolves {tus tus'} (mig : migrator Esymbol tus' tus)
+             (i1 : Inst tus) (i2 : Inst tus') : Prop :=
+    forall tvs t (e1 e2 : wtexpr tus' tvs t),
+      wtexpr_equiv (Unifiable i1) (migrate_expr mig e1) (migrate_expr mig e2) ->
+      wtexpr_equiv (Unifiable i2) e1 e2.
 
   Theorem Inst_set_ok : forall tus tvs ts t (u : member (ts,t) tus) w s s',
       Inst_set u w s = s' ->
       Inst_lookup s u = None ->
-      Inst_evolves s s' /\
+      Inst_evolves (migrator_id _) s s' /\
       forall xs, Unifiable s' (wtUVar u xs) (subst (tvs:=tvs) xs w).
   Proof.
     intros. subst.
     split.
     { red. intros.
+      do 2 rewrite migrate_expr_migrate_id in H.
       induction H; try solve [ constructor; eauto ].
       - constructor.
         clear - H.

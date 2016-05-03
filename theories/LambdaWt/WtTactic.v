@@ -82,6 +82,7 @@ Section simple_dep_types.
         (goal  : Pre tus tvs),
         m { tus' : _
           & Post tus' tvs
+          * list (wtexpr Esymbol tus' tvs tyProp)
           * Inst Esymbol tus'
           * migrator Esymbol tus tus' }%type.
 
@@ -98,14 +99,16 @@ Section simple_dep_types.
       forall tus tvs prems goal inst result,
         l tus tvs prems inst goal = result ->
         mD (fun t =>
-                let '(existT _ tus' (post, inst', trans)) := t in
+                let '(existT _ tus' (post, prems', inst', trans)) := t in
+                Inst_evolves trans inst' inst /\
                 @foralls_uvar_prop tus' (fun us' =>
                   let us := migrate_env EsymbolD trans us' in
                   InstD EsymbolD inst' us' ->
                   tyProp_to_Prop
                     (@foralls_prop tvs (fun vs =>
-                       impls_prop (map (fun p => wtexprD EsymbolD p us vs) prems)
-                                  (impl_prop (@PostD _ _ post us' vs)
+                       impl_prop (impls_prop (map (fun p => wtexprD EsymbolD p us' vs) prems')
+                                             (@PostD _ _ post us' vs))
+                                 (impls_prop (map (fun p => wtexprD EsymbolD p us vs) prems)
                                              (@PreD  _ _ goal us  vs))))))
            result.
   End logicT.
