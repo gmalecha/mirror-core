@@ -101,8 +101,7 @@ Lemma.concl := {|
                                  (App (ExprCore.Var 2) (ExprCore.Var 0)))
                               (ExprCore.Var 1))) |} |}.
 
-(* need to convert between singleton vectors and single argument *)
-
+(* Lemmas used by the quantifier puller *)
 Lemma lem_pull_ex_and_left_sound
   : forall t : typ,
     Lemma.lemmaD (rw_conclD RbaseD) nil nil (lem_pull_ex_and_left t).
@@ -260,8 +259,10 @@ Print PRw.
 Print Proper_concl.
 
 Inductive HintProper : Type :=
-| PPr : forall n : nat,
+| PPr_tc : forall n : nat,
     Polymorphic.polymorphic (mtyp typ') n (@Proper_concl typ func Rbase) ->
+    (* typeclass constraints *)
+    Polymorphic.polymorphic (mtyp typ') n bool ->
     HintProper
 .
 
@@ -294,18 +295,26 @@ Definition PolymorphicD {T} (TD : T -> Prop) n x : Prop :=
     TD (Polymorphic.inst x v).
 
 Arguments Build_Proper_concl {_ _ _} _ _.
+Require Import MirrorCore.Lambda.Polymorphic.
+Require Import MirrorCore.Util.Forwardy.
 
-Definition get_proper (n : nat) (p : Polymorphic.polymorphic (mtyp typ') n (Proper_concl Rbase))
+(* TODO - pass instantiation functions *)
+Definition get_proper (n : nat)
+           (p : Polymorphic.polymorphic (mtyp typ') n (Proper_concl Rbase))
+           (tc : Polymorphic.polymorphic (mtyp typ') n bool)
            (e : expr typ func)
   : option (Proper_concl Rbase) :=
   let p' :=
       Functor.fmap term p in
   match @PolyInst.get_inst _ _ _ _ local_view HintDbs.view_update n p' e with
   | Some args =>
-    Some (Polymorphic.inst p args) 
+    if (Polymorphic.inst tc args)
+    then Some (Polymorphic.inst p args)
+    else None
   | None => None
   end.
 
+(* *)
 Definition properD (pc : Proper_concl Rbase) : Prop :=
   match pc with
   | Build_Proper_concl r e =>
@@ -324,9 +333,21 @@ Definition properD (pc : Proper_concl Rbase) : Prop :=
     end
   end.
 
-Require Import MirrorCore.Lambda.Polymorphic.
+(* build a make_polymorphic function that takes a vector of types *)
 
-Require Import MirrorCore.Util.Forwardy.
+Print polymorphic.
+
+Fixpoint make_polymorphic T U n {struct n} : (vector T n -> U) -> polymorphic T n U :=
+  match n as n return (vector T n -> U) -> polymorphic T n U with
+          | 0 => fun P => P (Vnil _)
+          | S n' => fun P => fun v => (make_polymorphic (fun V => P (Vcons v V)))
+  end.  
+
+Definition tc_properD {T : Type} (TD : T -> Prop) n (tc : Polymorphic.polymorphic (mtyp typ') n bool) pc : polymorphic (mtyp typ') n Prop :=
+  make_polymorphic (fun args =>
+                      if Polymorphic.inst tc args
+                      then TD (Polymorphic.inst pc args)
+                      else True).
 
 Lemma inst_sound :
   forall {T} n (y: polymorphic typ n T) (P : T -> Prop) v,
@@ -338,17 +359,29 @@ Proof.
   auto.
 Qed.
 
+Lemma make_polymorphic_inst :
+  forall T n f v,
+    @inst (mtyp typ') T n (make_polymorphic f) v = f v.
+Proof.
+  induction v; simpl; try rewrite IHv; reflexivity.
+Qed.
+
+(* need with_typeclass_lemmaD *)
+(* this probably means we need some kind of abstraction *)
 Lemma get_proper_sound :
-  forall n (p : polymorphic _ _ _) e x,
-      get_proper n p e  = Some x ->
-      PolymorphicD properD n p ->
+  forall n (p : polymorphic _ _ _) (tc : polymorphic _ _ _) e x,
+      get_proper n p tc e  = Some x ->
+      PolymorphicD (fun x => x) n (tc_properD properD n tc p) ->
       properD x.
 Proof.
   unfold get_proper. simpl. intros.
-  forwardy. inv_all.
-  subst.
-
-  apply inst_sound.
+  forwardy.
+  destruct (inst tc y) eqn:Hitc; [|congruence].
+  inversion H1. subst. clear H1.
+  eapply inst_sound with (v := y) in H0.
+  unfold tc_properD in H0.
+  rewrite make_polymorphic_inst in H0.
+  rewrite Hitc in H0.
   assumption.
 Qed.
 
@@ -356,19 +389,15 @@ Check get_proper.
 
 Definition do_one_prespectful (h : HintProper) : respectful_dec typ func Rbase :=
   match h with
-  | PPr n pe =>
+  | PPr_tc n pc tc =>
     (fun (e : expr typ func) =>
-       match get_proper n pe e with
+       match get_proper n pc tc e with
        | Some lem =>
          apply_respectful rel_dec {| Lemma.vars := nil;
                                      Lemma.premises := nil;
                                      Lemma.concl := lem |} IDTACK e
        | None => fail_respectful e
          end)
-(*  | Pr e r =>
-    apply_respectful rel_dec {| Lemma.vars := nil;
-                        Lemma.premises := nil;
-                        Lemma.concl := {| relation := r; term := e |} |} IDTACK *)
   end.
 
 Existing Instance Polymorphic.Functor_polymorphic.
@@ -384,19 +413,14 @@ Fixpoint do_prespectful (pdb : ProperDb) : respectful_dec typ func Rbase :=
 
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 
-(* Up next - soundness of do_prespectful.
-   look at CompileHints_sound.
-   Idea - no matter what GetPolyInst returns, we're good.
- *)
-
-
-Definition ProperHint_sound (hp : HintProper) : Prop :=
+Definition ProperHintOk (hp : HintProper) : Prop :=
   match hp with
-  | PPr n p => PolymorphicD properD n p
+  | PPr_tc n pc tc =>
+    PolymorphicD (fun x => x) n (tc_properD properD n tc pc)
   end.
 
 Definition ProperDb_sound (pdb : ProperDb) : Prop :=
-  Forall ProperHint_sound pdb.
+  Forall ProperHintOk pdb.
 
 Lemma Proper_conclD_properD :
   forall x,
@@ -416,16 +440,15 @@ Qed.
 
 Lemma do_one_prespectful_sound :
   forall hp : HintProper,
-    ProperHint_sound hp ->
+    ProperHintOk hp ->
     respectful_spec RbaseD (do_one_prespectful hp).
 Proof.
   intros.
   unfold do_one_prespectful.
   destruct hp.
   red. intros.
-  Check @get_proper_sound.
-  generalize (@get_proper_sound n p e).
-  destruct (get_proper n p e).
+  generalize (@get_proper_sound n p p0 e).
+  destruct (get_proper n p p0 e).
   {
     intros.
     eapply apply_respectful_sound; eauto using IDTACK_sound.
@@ -453,20 +476,31 @@ Proof.
     { assumption. } }
 Qed.
 
-(* NEXT: change these so they use polymorphic version
-   change demo so it tries to pull bools and ints
-   should make monomorphic wrapper for properness
+(* should make monomorphic wrapper for properness
    make rewrites have 1 constructor (and mono. wrapper)
    comment and clean up
    move everything into mirror-core
    type classes (possibly before move)
  *)
 
+(* no-op typeclass, used to construct polymorphic types without constraints *)
+Definition tc_any (n : nat) : polymorphic (mtyp typ') n bool :=
+  make_polymorphic (fun _ => true).
 
-Check do_prespectful.
-Print ProperDb.
-Print HintProper.
-Print Proper_concl.
+(* Convenience constructors for building lemmas that do not leverage full polymorphism *)
+(* non polymorphic proper hint *)
+Definition Pr (pc : Proper_concl Rbase) :=
+  PPr_tc 0 pc true.
+
+Definition PrOk (pc : Proper_concl Rbase) :=
+  properD pc.
+
+(* polymorphic proper hint without typeclass constraints *)
+Definition PPr (n : nat) (pc : polymorphic (mtyp typ') n (Proper_concl Rbase)) :=
+  PPr_tc n pc (tc_any n).
+
+Definition PPrOk (n : nat) (pc : polymorphic (mtyp typ') n (Proper_concl Rbase)) :=
+  PolymorphicD properD n pc.
 
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_prespectful
@@ -478,11 +512,11 @@ Definition get_respectful : respectful_dec typ func Rbase :=
   do_prespectful
     (PPr 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
          PPr 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
-         PPr 0 {| term := Inj And; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
-         PPr 0 {| term := Inj Or; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
-         PPr 0 {| term := Inj Plus;
-                  relation := Rrespects (Rinj (Inj (Eq tyBNat)))
-                          (Rrespects (Rinj (Inj (Eq tyBNat))) (Rinj (Inj (Eq tyBNat)))) |} :: nil).
+         Pr {| term := Inj And; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
+         Pr {| term := Inj Or; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
+         Pr {| term := Inj Plus;
+               relation := Rrespects (Rinj (Inj (Eq tyBNat)))
+                                     (Rrespects (Rinj (Inj (Eq tyBNat))) (Rinj (Inj (Eq tyBNat)))) |} :: nil).
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
@@ -509,6 +543,7 @@ Proof.
   repeat first [eapply Forall_cons | eapply Forall_nil]; prove_prespectful.
 Qed.
 
+
 Require Import MirrorCore.Views.Ptrns.
 
 Definition simple_reduce (e : expr typ func) : expr typ func :=
@@ -521,7 +556,6 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                    (pmap Red.beta get)))))
     e e.
 
-
 (* Polymorphic hints support *)
 Definition hints_sound (hints : expr typ func -> R typ Rbase ->
                      list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
@@ -532,8 +566,6 @@ Definition hints_sound (hints : expr typ func -> R typ Rbase ->
                           Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
                       CoreK.rtacK_sound (snd lt)) (hints e r)).
 
-
-(* TODO: make these more polymorphic so that they work with things other than typ *)
 (* Soundness for individual lemmas in a hint database *)
 Definition prewrite_Rw_sound (lem : rw_lemma typ func Rbase) (rts : CoreK.rtacK typ (expr typ func)) : Prop :=
   Lemma.lemmaD (rw_conclD RbaseD) nil nil lem /\
@@ -554,7 +586,6 @@ Definition RewriteHintDb_sound (db : RewriteHintDb Rbase) : Prop :=
             | Rw lem rts => prewrite_Rw_sound lem rts
             end) db.
 
-(* need prewrite_db_sound *)
 Lemma CompileHints_sound :
   forall db,
     RewriteHintDb_sound db ->
@@ -666,6 +697,8 @@ Definition the_lemmas
      PRw _ 1 lem_pull_ex_and_right IDTACK ::
      nil.
 
+(* check Polymorphic.v or PolyInst.v  - move the stuff into there. *)
+
 (* need a more convenient interface than raw vectors *)
 (* go from poly n to the actual thing with quantifiers as actual quantifiers *)
 Theorem the_lemmas_sound : RewriteHintDb_sound the_lemmas.
@@ -706,24 +739,3 @@ Proof.
   - eapply pull_all_quant_sound.
   - eapply get_respectful_sound.
 Qed.
-
-
-(* need to define a rewrite-db style type with poly and non poly respectfulness hints
-   then use this to implement do_respectful. *)
-
-(* do_respectful *)
-(* answers question "what can i fill in ? with in
-   Proper (? => ? => R) f, of the list provided?"
-   returns a single way to solve it.
- *)
-
-(*
-1. compute type of e
-2. usie polyinst to instantiate the variables
-there is also a unify function
-used by compilehints
-(two types; one has type vars and one doesn't, attempts to unify)
-if it fails, skip this one
-3. I have a candidate substitution
-
-*)
