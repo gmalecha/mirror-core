@@ -16,7 +16,7 @@ Section poly.
   Context {RT : RType typ}
           {RS : RSym sym}.
 
-  Context {PV_vtype : PartialView typ (VType 0)}.
+  Variable mkVar : positive -> typ.
 
   Variable typ_unify : typ -> typ -> pmap typ -> option (pmap typ).
 
@@ -56,7 +56,7 @@ Section poly.
   Local Fixpoint build_vector p (n : nat) : vector typ n :=
     match n with
     | 0 => Vnil _
-    | S n => Vcons (f_insert (tVar p)) (build_vector (Pos.succ p) n)
+    | S n => Vcons (mkVar p) (build_vector (Pos.succ p) n)
     end.
 
   Local Fixpoint get_vector {T} n p

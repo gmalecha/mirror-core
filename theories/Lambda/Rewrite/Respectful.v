@@ -10,6 +10,8 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
+Require Import MirrorCore.Lambda.Polymorphic.
+Require Import MirrorCore.Lambda.PolyInst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -89,7 +91,7 @@ Section setoid.
     match typeof_expr tus tvs p.(term) with
     | Some t =>
       match RD RbaseD p.(relation) t
-            , lambda_exprD tus tvs t p.(term)
+          , lambda_exprD tus tvs t p.(term)
       with
       | Some rD , Some eD =>
         Some (fun us vs => rD (eD us vs) (eD us vs))
@@ -98,7 +100,111 @@ Section setoid.
     | None => None
     end.
 
-  Definition Proper_lemma := Lemma.lemma typ (expr typ func) Proper_concl.
+  Definition Proper_conclP (pc : Proper_concl) : Prop :=
+    match pc with
+    | Build_Proper_concl r e =>
+      match typeof_expr nil nil e with
+      | Some t =>
+        match RD RbaseD r t with
+        | Some rD =>
+          match lambda_exprD nil nil t e with
+          | Some eD =>
+            Morphisms.Proper rD (eD HList.Hnil HList.Hnil)
+          | None => False
+          end
+        | None => False
+        end
+      | None => False
+      end
+    end.
+
+  Local Lemma Proper_conclD_Proper_conclP
+  : forall x,
+    Proper_conclP x ->
+    Proper_conclD nil nil x = Some (fun _ _ => Proper_conclP x).
+  Proof using.
+    destruct x; simpl.
+    unfold Proper_conclD. simpl.
+    forward.
+    f_equal.
+    do 2 (apply FunctionalExtensionality.functional_extensionality; intros).
+    rewrite (hlist_eta x). rewrite (hlist_eta x0).
+    reflexivity.
+  Qed.
+
+  (** TODO(mario): move *)
+  (* no-op typeclass, used to construct polymorphic types without constraints *)
+  Definition tc_any (n : nat) : polymorphic typ n bool :=
+    make_polymorphic (fun _ => true).
+
+  (** A "lemma" representing [Proper ...] that can be polymorphic and
+   ** use typeclasses.
+   **)
+  Inductive HintProper : Type :=
+  | PPr_tc : forall {n : nat},
+      Polymorphic.polymorphic typ n Proper_concl ->
+      Polymorphic.polymorphic typ n bool ->
+      HintProper.
+
+  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
+             (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
+  : polymorphic typ n Prop :=
+    make_polymorphic (fun args =>
+                        if inst tc args
+                        then TD (inst pc args)
+                        else True).
+
+  Definition ProperHintOk (hp : HintProper) : Prop :=
+    match hp with
+    | PPr_tc pc tc =>
+      polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc)
+    end.
+
+  (** Convenience constructors for building lemmas that do not use
+   ** polymorphism.
+   **)
+  Definition Pr (pc : Proper_concl) :=
+    PPr_tc (n:=0) pc true.
+
+  Theorem Pr_sound (pc : Proper_concl)
+  : Proper_conclP pc ->
+    ProperHintOk (Pr pc).
+  Proof using.
+    clear. destruct pc; simpl.
+    unfold polymorphicD, with_typeclasses. simpl.
+    tauto.
+  Qed.
+
+  (** polymorphic proper hint without typeclass constraints *)
+  Definition PPr {n : nat} (pc : polymorphic typ n Proper_concl) :=
+    PPr_tc (n:=n) pc (tc_any n).
+
+  Theorem PPr_sound {n : nat} (pc : polymorphic typ n Proper_concl)
+  : polymorphicD Proper_conclP pc ->
+    ProperHintOk (PPr pc).
+  Proof using.
+    clear.
+    unfold ProperHintOk, with_typeclasses. simpl.
+    intros. unfold tc_any. eapply polymorphicD_make_polymorphic.
+    intros. rewrite inst_make_polymorphic. eapply inst_sound.
+    eauto.
+  Qed.
+
+  Theorem PPr_tc_sound {n : nat} (pc : polymorphic typ n Proper_concl) tc
+  : polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc) ->
+    ProperHintOk (PPr_tc pc tc).
+  Proof using.
+    clear. simpl. tauto.
+  Qed.
+
+
+  (** A list of [HintProper]s representing a "database" *)
+  Definition ProperDb := list HintProper.
+
+  Definition ProperDbOk (pdb : ProperDb) : Prop :=
+    Forall ProperHintOk pdb.
+
+  Local Definition Proper_lemma := Lemma.lemma typ (expr typ func) Proper_concl.
 
   (* This splits a relation into a relation arity and a relation *)
   Local Fixpoint split_R (r : R) : list R * R :=
@@ -119,7 +225,7 @@ Section setoid.
     simpl. rewrite IHr2. reflexivity.
   Qed.
 
-  Definition apply_respectful (lem : Proper_lemma)
+  Local Definition apply_respectful (lem : Proper_lemma)
              (tacK : rtacK typ (expr typ func))
   : respectful_dec _ _ _ :=
     let (rs,r_final) := split_R lem.(Lemma.concl).(relation) in
@@ -140,7 +246,7 @@ Section setoid.
                   rw_fail
     end.
 
-  Theorem apply_respectful_sound : forall lem tacK,
+  Local Theorem apply_respectful_sound : forall lem tacK,
       Lemma.lemmaD Proper_conclD nil nil lem ->
       forall Htac : rtacK_sound tacK,
         respectful_spec RbaseD (apply_respectful lem tacK).
@@ -172,7 +278,8 @@ Section setoid.
       inv_all. subst.
       simpl in *.
       erewrite split_R_sound by eassumption.
-      destruct (ExprFacts.lambda_exprD_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
+      destruct (ExprFacts.lambda_exprD_weaken _ _ _
+                   (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
       simpl in H.
       generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H H4).
       unfold Rty. intros.
@@ -188,70 +295,6 @@ Section setoid.
       rewrite H4 in H.
       inv_all. subst. eapply H5. }
     { inversion H2. }
-  Qed.
-
-  Definition apply_prespectful {T : Type}
-             (get : expr typ func -> R -> option T)
-             (lem : T -> Proper_lemma) (tacK : rtacK _ _)
-    : respectful_dec _ _ _ :=
-    fun e r =>
-      match get e r with
-      | Some t => apply_respectful (lem t) tacK e r
-      | _ => rw_fail
-      end.
-
-  Theorem apply_prespectful_sound : forall {T} get (lem : T -> _) (tacK : _),
-      (forall e r x,
-          get e r = Some x ->
-          forall tus tvs t eD,
-            lambda_exprD tus tvs t e = Some eD ->
-            Lemma.lemmaD Proper_conclD nil nil (lem x)) ->
-      rtacK_sound tacK ->
-      respectful_spec RbaseD (apply_prespectful get lem tacK).
-  Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
-        Typ2Ok_Fun.
-    intros. unfold apply_prespectful.
-    red. intros.
-    destruct (get e r) eqn:?; try solve [ inversion H1 ].
-    (** above *)
-    unfold apply_respectful in H1.
-    destruct (split_R t.(lem).(concl).(relation)) eqn:?.
-    eapply split_R_sound in Heqp.
-    destruct (t.(lem).(vars)) eqn:Hvars; [ | inversion H1 ].
-    destruct (t.(lem).(premises)) eqn:Hprems; [ | inversion H1 ].
-    generalize (expr_sdec_sound e t.(lem).(concl).(term)).
-    destruct (expr_sdec e t.(lem).(concl).(term)); [ | inversion H1 ].
-    generalize (Req_dec_ok _ Rbase_eq_ok r r0).
-    destruct (Req_dec Rbase_eq r r0); [ | inversion H1 ].
-    intro X; specialize (X eq_refl); subst.
-    intro X; specialize (X eq_refl); subst.
-    inversion H1; clear H1; subst.
-    split; auto.
-    intros.
-    forward.
-    eapply H in Heqo; [ | eapply H4 ].
-    rename Heqo into Hlem.
-    red in Hlem.
-    simpl in Hlem.
-    red in Hlem. rewrite Hprems in *. rewrite Hvars in *.
-    simpl in Hlem. red in Hlem.
-    revert Hlem.
-    forward. inv_all. subst.
-    destruct (ExprFacts.lambda_exprD_weaken _ _ _ (getUVars ctx) (tvs'++getVars ctx) H8) as [ ? [ ? ? ] ].
-    simpl in H.
-    generalize (@lambda_exprD_deterministic _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ H6 H4).
-    intro. red in H10. revert Hlem. subst.
-    simpl in *.
-    rewrite Heqp in *.
-    rewrite H7 in *.
-    rewrite H4 in *.
-    inv_all. subst.
-    intros.
-    intros; split; [ reflexivity | ].
-    intros. eapply Pure_pctxD; eauto.
-    intros. red.
-    rewrite (H9 Hnil Hnil us0 (hlist_app vs' vs0)) in Hlem.
-    eapply Hlem.
   Qed.
 
   Definition or_respectful
@@ -278,47 +321,108 @@ Section setoid.
     red. intros. inversion H.
   Qed.
 
-  Fixpoint do_respectful (propers : list (expr typ func * R))
-  : respectful_dec _ _ _ :=
-    match propers with
-    | nil => fail_respectful
-    | (f,rel) :: propers =>
-      or_respectful
-        (apply_respectful {| vars := nil
-                           ; premises := nil
-                           ; concl := {| relation := rel
-                                       ; term := f |}
-                           |} IDTACK)
-        (fun x => do_respectful propers x)
+  Section for_polymorphism.
+
+  Variable unify_function : typ -> typ -> FMapPositive.pmap typ -> option (FMapPositive.pmap typ).
+  Variable mkVar : BinNums.positive -> typ.
+
+  Local Definition get_Proper {n : nat}
+             (p : polymorphic typ n Proper_concl)
+             (tc : polymorphic typ n bool)
+             (e : expr typ func)
+  : option Proper_concl :=
+    let p' := Functor.fmap term p in
+    match @get_inst _ _ _ _ mkVar unify_function n p' e with
+    | Some args =>
+      if Polymorphic.inst tc args
+      then Some (Polymorphic.inst p args)
+      else None
+    | None => None
     end.
 
-  Theorem do_respectful_sound
-    : forall propers,
-      Forall (fun er =>
-                let '(e,r) := er in
-                match typeof_expr nil nil e with
-                | None => False
-                | Some t =>
-                  match RD RbaseD r t
-                        , lambda_exprD nil nil t e
-                  with
-                  | Some rD , Some eD =>
-                    Proper rD (eD Hnil Hnil)
-                  | _ , _ => False
-                  end
-                end) propers ->
-      respectful_spec RbaseD (do_respectful propers).
+  Local Lemma get_Proper_sound :
+    forall n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
+      get_Proper p tc e  = Some x ->
+      polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc p) ->
+      Proper_conclP x.
+  Proof using.
+    unfold get_Proper. simpl. intros.
+    forwardy.
+    destruct (inst tc y) eqn:Hitc; [|congruence].
+    inversion H1. subst. clear H1.
+    eapply inst_sound with (v := y) in H0.
+    unfold with_typeclasses in H0.
+    rewrite inst_make_polymorphic in H0.
+    rewrite Hitc in H0.
+    assumption.
+  Qed.
+
+
+  Local Definition do_one_prespectful (h : HintProper) : respectful_dec typ func Rbase :=
+    match h with
+    | PPr_tc pc tc =>
+      (fun (e : expr typ func) =>
+         match get_Proper pc tc e with
+         | Some lem =>
+           apply_respectful {| vars := nil
+                             ; premises := nil
+                             ; concl := lem |} IDTACK e
+         | None => fail_respectful e
+         end)
+    end.
+
+  Local Lemma do_one_prespectful_sound :
+    forall hp : HintProper,
+      ProperHintOk hp ->
+      respectful_spec RbaseD (do_one_prespectful hp).
+  Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
+        Typ2Ok_Fun.
+    intros.
+    unfold do_one_prespectful.
+    destruct hp.
+    red. intros.
+    generalize (@get_Proper_sound n p p0 e).
+    destruct (get_Proper p p0 e).
+    { intros.
+      eapply apply_respectful_sound; eauto using IDTACK_sound.
+      red. simpl.
+      red. simpl.
+      specialize (H2 _ eq_refl H).
+      rewrite Proper_conclD_Proper_conclP; assumption. }
+    { intros.
+      apply fail_respectful_sound; auto. }
+  Qed.
+
+  (** This is the main entry point for the file *)
+  Fixpoint do_prespectful (pdb : ProperDb) : respectful_dec typ func Rbase :=
+    match pdb with
+    | nil => fail_respectful
+    | p :: pdb' =>
+      or_respectful (do_one_prespectful p) (fun e => do_prespectful pdb' e)
+    end.
+
+  Theorem do_prespectful_sound
+  : forall propers,
+      ProperDbOk propers ->
+      respectful_spec RbaseD (do_prespectful propers).
   Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
     induction 1.
     { eapply fail_respectful_sound. }
-    { simpl. destruct x. eapply or_respectful_sound.
-      { apply apply_respectful_sound.
-        { clear - H.
-          red. simpl. unfold lemmaD'. simpl.
-          unfold Proper_conclD. simpl.
-          forward. }
-        { apply IDTACK_sound. } }
-      { eauto. } }
+    { simpl. eapply or_respectful_sound; eauto using do_one_prespectful_sound. }
+  Qed.
+
+  End for_polymorphism.
+
+  (** This is the non-polymorphic entry point *)
+  Definition do_respectful : ProperDb -> respectful_dec typ func Rbase :=
+    do_prespectful (fun _ _ => Some) (fun _ => typ0 (F:=Prop)).
+
+  Theorem do_respectful_sound
+  : forall propers,
+      ProperDbOk propers ->
+      respectful_spec RbaseD (do_respectful propers).
+  Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
+    eapply do_prespectful_sound.
   Qed.
 
 End setoid.

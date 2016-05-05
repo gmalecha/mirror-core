@@ -13,13 +13,61 @@ Section poly.
     | S n => typ -> polymorphic n T
     end.
 
+  Section polymorphicD.
+    Context {T : Type} (TD : T -> Prop).
+
+    Fixpoint polymorphicD {n} : polymorphic n T -> Prop :=
+      match n as n return polymorphic n T -> Prop with
+      | 0 => fun p => TD p
+      | S n => fun p => forall t, polymorphicD (p t)
+      end.
+  End polymorphicD.
+
   Fixpoint inst {T} (n : nat)
   : polymorphic n T -> vector typ n -> T :=
     match n as n return polymorphic n T -> vector typ n -> T with
     | 0 => fun p _ => p
     | S n => fun p a => inst (p (Vector.vector_hd a)) (Vector.vector_tl a)
     end.
+
+  Theorem inst_sound
+  : forall {T} {n} (y: polymorphic n T) (P : T -> Prop) v,
+      polymorphicD P y ->
+      P (inst y v).
+  Proof.
+    induction n; simpl; eauto.
+    intros; eapply IHn; eauto.
+  Qed.
+
+  Section make.
+    Context {U : Type}.
+    Fixpoint make_polymorphic n {struct n}
+    : (vector typ n -> U) -> polymorphic n U :=
+      match n as n return (vector typ n -> U) -> polymorphic n U with
+      | 0 => fun P => P (Vnil _)
+      | S n' => fun P => fun v => (make_polymorphic (fun V => P (Vcons v V)))
+      end.
+
+    Theorem inst_make_polymorphic
+    : forall n f v,
+        @inst U n (make_polymorphic f) v = f v.
+    Proof.
+      induction v; simpl; try rewrite IHv; reflexivity.
+    Qed.
+
+    Theorem polymorphicD_make_polymorphic
+    : forall (UD : U -> Prop) n (p : vector _ n -> _),
+        (forall v, UD (p v)) ->
+        polymorphicD UD (make_polymorphic p).
+    Proof.
+      induction n; simpl; eauto.
+    Qed.
+
+  End make.
 End poly.
+
+Arguments make_polymorphic {_ _ n} _.
+Arguments polymorphicD {_ _} _ {n} _.
 
 Section fmap_polymorphic.
   Context {Z T U : Type}.
