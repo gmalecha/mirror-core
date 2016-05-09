@@ -86,6 +86,7 @@ Section setoid.
   ; term     : expr typ func
   }.
 
+  (* TODO(mario): explain the difference between the following two functions *)
   Definition Proper_conclD (tus tvs : tenv typ) (p : Proper_concl)
   : option (exprT tus tvs Prop) :=
     match typeof_expr tus tvs p.(term) with
@@ -132,11 +133,6 @@ Section setoid.
     reflexivity.
   Qed.
 
-  (** TODO(mario): move *)
-  (* no-op typeclass, used to construct polymorphic types without constraints *)
-  Definition tc_any (n : nat) : polymorphic typ n bool :=
-    make_polymorphic (fun _ => true).
-
   (** A "lemma" representing [Proper ...] that can be polymorphic and
    ** use typeclasses.
    **)
@@ -146,6 +142,11 @@ Section setoid.
       Polymorphic.polymorphic typ n bool ->
       HintProper.
 
+  (* TODO(mario): this is duplicated in HintDbs.v. We should find a long-term home for it *)
+  (* no-op typeclass, used to construct polymorphic types without constraints *)
+  Definition tc_any (n : nat) : polymorphic typ n bool :=
+    make_polymorphic (fun _ => true).
+
   Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
              (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
   : polymorphic typ n Prop :=
@@ -153,6 +154,8 @@ Section setoid.
                         if inst tc args
                         then TD (inst pc args)
                         else True).
+
+  (* TODO(mario): end duplicated code *)
 
   Definition ProperHintOk (hp : HintProper) : Prop :=
     match hp with

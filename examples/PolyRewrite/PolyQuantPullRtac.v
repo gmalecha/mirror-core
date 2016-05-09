@@ -268,9 +268,18 @@ Inductive HintProper : Type :=
 
 Definition ProperDb := list HintProper.
 
-(* need a version of get_lemma for polymorphic lemmas *)
+Print HintRewrite.
 
-(* TODO: rewrite hints-compile in the same way using map, essentially *)
+Inductive HintRewrite : Type :=
+    | PRw_tc : forall n : nat,
+        Polymorphic.polymorphic (mtyp typ') n (rw_lemma (mtyp typ') func Rbase) ->
+        Polymorphic.polymorphic (mtyp typ') n bool ->
+        CoreK.rtacK (mtyp typ') (expr (mtyp typ') func) ->
+        HintRewrite.
+
+Definition RewriteDb := list HintRewrite.
+
+(* TODO: rewrite hints-compile in such a way as to use map *)
 Arguments fail_respectful {_ _ _} _ _ _ _ _ _ _ _ _.
 
 Require Import ExtLib.Data.Vector.
@@ -411,7 +420,7 @@ Fixpoint do_prespectful (pdb : ProperDb) : respectful_dec typ func Rbase :=
       (fun (e : expr typ func) => do_prespectful pdb' e)
   end.
 
-Require Import MirrorCore.Lambda.Rewrite.HintDbs.
+(*Require Import MirrorCore.Lambda.Rewrite.HintDbs.*)
 
 Definition ProperHintOk (hp : HintProper) : Prop :=
   match hp with
@@ -487,7 +496,88 @@ Qed.
 Definition tc_any (n : nat) : polymorphic (mtyp typ') n bool :=
   make_polymorphic (fun _ => true).
 
+(* Polymorphic rewrite hints support *)
+Definition hints_sound (hints : expr typ func -> R typ Rbase ->
+                     list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
+        (forall r e,
+            Forall (fun lt =>
+                      (forall tus tvs t eD,
+                          lambda_exprD tus tvs t e = Some eD ->
+                          Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
+                      CoreK.rtacK_sound (snd lt)) (hints e r)).
+
+(* Soundness for individual lemmas in a hint database *)
+Definition prewrite_Rw_sound (lem : rw_lemma typ func Rbase) (rts : CoreK.rtacK typ (expr typ func)) : Prop :=
+  Lemma.lemmaD (rw_conclD RbaseD) nil nil lem /\
+  CoreK.rtacK_sound rts.
+
+(* TODO (Mario) - write a convencience function to make this easier to use than working
+   directly with the vector. *)
+Definition prewrite_Prw_tc_sound (n : nat) (plem : Polymorphic.polymorphic typ n (rw_lemma typ func Rbase))
+           (tc : polymorphic typ n bool)
+           (rts : CoreK.rtacK typ (expr typ func)) : Prop :=
+  (forall (v : Vector.vector typ n),
+      (inst tc v = true) ->
+      Lemma.lemmaD (rw_conclD RbaseD) nil nil (Polymorphic.inst plem v)) /\
+  CoreK.rtacK_sound rts.
+
+Check PRw_tc.
+Print RewriteHintDb.
+
+Check RewriteDb.
+Check PRw_tc.
+
+Definition RewriteHintDb_sound (db : RewriteHintDb Rbase) : Prop :=
+  Forall (fun h : HintRewrite =>
+            match h with
+            | PRw_tc n plem tc rts => prewrite_Prw_tc_sound n plem tc rts
+            end) db.
+
+Lemma CompileHints_sound :
+  forall db,
+    RewriteHintDb_sound db ->
+    hints_sound (CompileHints db).
+Proof.
+  induction db; intros; simpl.
+  { unfold hints_sound. intros. constructor. }
+  { inversion H; subst; clear H.
+    specialize (IHdb H3). clear H3.
+    unfold hints_sound. intros.
+    destruct a.
+    (* PRw case *)
+    { destruct (HintDbs.get_lemma Rbase p e) eqn:Hgl; [|eapply IHdb].
+      constructor; [|eauto].
+      unfold prewrite_Prw_sound in *. forward_reason.
+      split; [|eauto]. intros.
+      simpl.
+      unfold HintDbs.get_lemma in *.
+      Require Import MirrorCore.Util.Forwardy.
+      forwardy.
+      inversion H3; subst; clear H3.
+      eauto. }
+
+    (* Rw case *)
+    { constructor; [|eauto].
+      unfold prewrite_Rw_sound in H2. forward_reason.
+      simpl. split; auto. } }
+Qed.
+
+
 (* Convenience constructors for building lemmas that do not leverage full polymorphism *)
+(* non polymorphic rewrite hint *)
+Print HintRewrite.
+Definition Rw (rw : rw_lemma (mtyp typ') func Rbase) :
+  (CoreK.rtacK (mtyp typ') (expr (mtyp typ') func)) -> HintRewrite :=
+  PRw_tc 0 rw true.
+
+SearchAbout rw_lemma.
+
+Definition RwOk (rw : rw_lemma (mtyp typ') func Rbase) :=
+  lemmaD.
+
+(* polymorphic rewrite hint without typeclass constraints *)
+Definition PRw
+
 (* non polymorphic proper hint *)
 Definition Pr (pc : Proper_concl Rbase) :=
   PPr_tc 0 pc true.
@@ -555,65 +645,6 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                         (pmap (fun x => (t,Red.beta x)) get))
                                    (pmap Red.beta get)))))
     e e.
-
-(* Polymorphic hints support *)
-Definition hints_sound (hints : expr typ func -> R typ Rbase ->
-                     list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
-        (forall r e,
-            Forall (fun lt =>
-                      (forall tus tvs t eD,
-                          lambda_exprD tus tvs t e = Some eD ->
-                          Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
-                      CoreK.rtacK_sound (snd lt)) (hints e r)).
-
-(* Soundness for individual lemmas in a hint database *)
-Definition prewrite_Rw_sound (lem : rw_lemma typ func Rbase) (rts : CoreK.rtacK typ (expr typ func)) : Prop :=
-  Lemma.lemmaD (rw_conclD RbaseD) nil nil lem /\
-  CoreK.rtacK_sound rts.
-
-(* TODO (Mario) - write a convencience function to make this easier to use than working
-   directly with the vector. *)
-Definition prewrite_Prw_sound (n : nat) (plem : Polymorphic.polymorphic typ n (rw_lemma typ func Rbase))
-           (rts : CoreK.rtacK typ (expr typ func)): Prop :=
-  (forall (v : Vector.vector typ n),
-      Lemma.lemmaD (rw_conclD RbaseD) nil nil (Polymorphic.inst plem v)) /\
-  CoreK.rtacK_sound rts.
-
-Definition RewriteHintDb_sound (db : RewriteHintDb Rbase) : Prop :=
-  Forall (fun h : HintRewrite Rbase =>
-            match h with
-            | PRw _ n plem rts => prewrite_Prw_sound n plem rts
-            | Rw lem rts => prewrite_Rw_sound lem rts
-            end) db.
-
-Lemma CompileHints_sound :
-  forall db,
-    RewriteHintDb_sound db ->
-    hints_sound (CompileHints db).
-Proof.
-  induction db; intros; simpl.
-  { unfold hints_sound. intros. constructor. }
-  { inversion H; subst; clear H.
-    specialize (IHdb H3). clear H3.
-    unfold hints_sound. intros.
-    destruct a.
-    (* PRw case *)
-    { destruct (HintDbs.get_lemma Rbase p e) eqn:Hgl; [|eapply IHdb].
-      constructor; [|eauto].
-      unfold prewrite_Prw_sound in *. forward_reason.
-      split; [|eauto]. intros.
-      simpl.
-      unfold HintDbs.get_lemma in *.
-      Require Import MirrorCore.Util.Forwardy.
-      forwardy.
-      inversion H3; subst; clear H3.
-      eauto. }
-
-    (* Rw case *)
-    { constructor; [|eauto].
-      unfold prewrite_Rw_sound in H2. forward_reason.
-      simpl. split; auto. } }
-Qed.
 
 (* build hint database from provided lemmas list *)
 (*

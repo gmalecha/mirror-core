@@ -55,15 +55,84 @@ Section setoid.
       t1 = t2.
 
   Inductive HintRewrite : Type :=
+    | PRw_tc : forall {n : nat},
+        polymorphic typ n (rw_lemma typ func Rbase) ->
+        polymorphic typ n bool ->
+        CoreK.rtacK typ (expr typ func) ->
+        HintRewrite.
+
+  (* TODO - change to RewriteDb for consistency? *)
+  Definition RewriteHintDb : Type := list HintRewrite.
+
+  (*
+  Inductive HintRewrite : Type :=
   | PRw : forall n,
       polymorphic typ n (rw_lemma typ func Rbase) ->
       rtacK typ (expr typ func) ->
       HintRewrite
   | Rw : rw_lemma typ func Rbase -> rtacK typ (expr typ func) ->
          HintRewrite.
+   *)
 
-  Definition RewriteHintDb : Type :=
-    list HintRewrite.
+  (* TODO(mario): this is duplicated in Respectful.v. We should find a long-term home for it *)
+  (* TODO(mario): convert this so it uses rw_concl instead of rw_lemma? *)
+  (* no-op typeclass, used to construct polymorphic types without constraints *)
+  Definition tc_any (n : nat) : polymorphic typ n bool :=
+    make_polymorphic (fun _ => true).
+
+  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
+             (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
+    : polymorphic typ n Prop :=
+    make_polymorphic (fun args =>
+                        if inst tc args
+                        then TD (inst pc args)
+                        else True).
+
+  (* TODO(mario): end duplicated code *)
+
+  (* TODO(mario): implement this, which requires figuring out a suitable
+       meaning for rw_lemmaP (the analogue of Proper_conclP) *)
+  (*
+  Definition RewriteHintOk (hr : HintRewrite) : Prop :=
+    match hr with
+    | PRw_tc pc tc tac =>
+      polymorphicD (fun x => x) (with_typeclasses (rw_lemmaP tac) tc pc)
+    end.
+   *)
+
+
+  (** Convenience constructors for building lemmas that do not use
+   ** polymorphism.
+   **)
+  (* not all of these have been updated yet *)
+  Definition Rw (rw : rw_lemma typ func Rbase) :=
+    @PRw_tc 0 rw true.
+
+  (*
+  Theorem Rw_sound (rw : rw_lemma typ func Rbase)
+    : Proper_conclP pc ->
+      RewriteHintOk (Pr pc).
+*)
+
+  (** polymorphic proper hint without typeclass constraints *)
+  Definition PRw {n : nat} (pc : polymorphic typ n (rw_lemma typ func Rbase)) :=
+    PRw_tc (n:=n) pc (tc_any n).
+
+  (*
+  Theorem PRw_sound {n : nat} (pc : polymorphic typ n Proper_concl)
+    : polymorphicD Proper_conclP pc ->
+      RewriteHintOk (PRw pc).
+   *)
+
+  (*
+  Theorem PRw_tc_sound {n : nat} (pc : polymorphic typ n Proper_concl) tc
+    : polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc) ->
+      ProperHintOk (PPr_tc pc tc).
+  Proof using.
+    clear. simpl. tauto.
+  Qed.
+*)
+
 
   Local Definition view_update :=
     (mtype_unify tsym (FMapPositive.pmap typ)
@@ -82,8 +151,8 @@ Section setoid.
   Local Definition get_lemma {n : nat}
         (p : polymorphic typ n (rw_lemma typ func Rbase))
         (e : expr typ func)
-  : option (rw_lemma typ func Rbase) :=
-    match get_inst view_update (fmap (fun x => x.(concl).(lhs)) p) e with
+    : option (rw_lemma typ func Rbase) :=
+    match get_inst _ view_update (fmap (fun x => x.(concl).(lhs)) p) e with
     | None => None
     | Some args => Some (inst p args)
     end.
@@ -91,7 +160,7 @@ Section setoid.
   Fixpoint CompileHints (hints : RewriteHintDb)
            (e : expr typ func)
            (r : R)
-  : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
+    : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
     match hints with
     | nil => nil
     | Rw lem tac :: hints =>
