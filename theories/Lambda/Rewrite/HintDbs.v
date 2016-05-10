@@ -64,16 +64,6 @@ Section setoid.
   (* TODO - change to RewriteDb for consistency? *)
   Definition RewriteHintDb : Type := list HintRewrite.
 
-  (*
-  Inductive HintRewrite : Type :=
-  | PRw : forall n,
-      polymorphic typ n (rw_lemma typ func Rbase) ->
-      rtacK typ (expr typ func) ->
-      HintRewrite
-  | Rw : rw_lemma typ func Rbase -> rtacK typ (expr typ func) ->
-         HintRewrite.
-   *)
-
   (* TODO(mario): this is duplicated in Respectful.v. We should find a long-term home for it *)
   (* TODO(mario): convert this so it uses rw_concl instead of rw_lemma? *)
   (* no-op typeclass, used to construct polymorphic types without constraints *)
@@ -90,49 +80,58 @@ Section setoid.
 
   (* TODO(mario): end duplicated code *)
 
-  (* TODO(mario): implement this, which requires figuring out a suitable
-       meaning for rw_lemmaP (the analogue of Proper_conclP) *)
-  (*
+  Definition rw_lemmaP (rw : rw_lemma typ func Rbase) : Prop :=
+    lemmaD (rw_conclD RbaseD) nil nil rw.
+  
   Definition RewriteHintOk (hr : HintRewrite) : Prop :=
     match hr with
-    | PRw_tc pc tc tac =>
-      polymorphicD (fun x => x) (with_typeclasses (rw_lemmaP tac) tc pc)
+    | PRw_tc plem tc tac =>
+      polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) /\
+      rtacK_sound tac
     end.
-   *)
 
+    Theorem PRw_tc_sound {n : nat} (plem : polymorphic typ n (rw_lemma typ func Rbase)) tc tac
+      : polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) ->
+        rtacK_sound tac ->
+      RewriteHintOk (PRw_tc plem tc tac).
+  Proof using.
+    clear. simpl. tauto.
+  Qed.
 
   (** Convenience constructors for building lemmas that do not use
    ** polymorphism.
    **)
-  (* not all of these have been updated yet *)
   Definition Rw (rw : rw_lemma typ func Rbase) :=
     @PRw_tc 0 rw true.
 
-  (*
-  Theorem Rw_sound (rw : rw_lemma typ func Rbase)
-    : Proper_conclP pc ->
-      RewriteHintOk (Pr pc).
-*)
+  Theorem Rw_sound (rw : rw_lemma typ func Rbase) (tac : CoreK.rtacK typ (expr typ func))
+    : rw_lemmaP rw ->
+      CoreK.rtacK_sound tac ->
+      RewriteHintOk (Rw rw tac).
+  Proof.
+    clear.
+    intros.
+    eapply PRw_tc_sound; eauto.
+  Qed.
 
   (** polymorphic proper hint without typeclass constraints *)
   Definition PRw {n : nat} (pc : polymorphic typ n (rw_lemma typ func Rbase)) :=
     PRw_tc (n:=n) pc (tc_any n).
 
-  (*
-  Theorem PRw_sound {n : nat} (pc : polymorphic typ n Proper_concl)
-    : polymorphicD Proper_conclP pc ->
-      RewriteHintOk (PRw pc).
-   *)
-
-  (*
-  Theorem PRw_tc_sound {n : nat} (pc : polymorphic typ n Proper_concl) tc
-    : polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc) ->
-      ProperHintOk (PPr_tc pc tc).
-  Proof using.
-    clear. simpl. tauto.
+  Theorem PRw_sound {n : nat} (plem : polymorphic typ n (rw_lemma typ func Rbase)) (tac : CoreK.rtacK typ (expr typ func))
+    : polymorphicD rw_lemmaP plem ->
+      CoreK.rtacK_sound tac ->
+      RewriteHintOk (PRw plem tac).
+  Proof.
+    intros.
+    eapply PRw_tc_sound; eauto.
+    eapply polymorphicD_make_polymorphic. intros.
+    unfold tc_any.
+    rewrite inst_make_polymorphic.
+    unfold rw_lemmaP, lemmaD.
+    apply inst_sound.
+    simpl. assumption.
   Qed.
-*)
-
 
   Local Definition view_update :=
     (mtype_unify tsym (FMapPositive.pmap typ)
@@ -149,12 +148,16 @@ Section setoid.
   Local Existing Instance local_view.
 
   Local Definition get_lemma {n : nat}
-        (p : polymorphic typ n (rw_lemma typ func Rbase))
+        (plem : polymorphic typ n (rw_lemma typ func Rbase))
+        (tc : polymorphic typ n bool)
         (e : expr typ func)
     : option (rw_lemma typ func Rbase) :=
-    match get_inst _ view_update (fmap (fun x => x.(concl).(lhs)) p) e with
+    match get_inst tyVar view_update (fmap (fun x => x.(concl).(lhs)) plem) e with
     | None => None
-    | Some args => Some (inst p args)
+    | Some args =>
+      if (inst tc args)
+      then Some (inst plem args)
+      else None
     end.
 
   Fixpoint CompileHints (hints : RewriteHintDb)
@@ -163,13 +166,51 @@ Section setoid.
     : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
     match hints with
     | nil => nil
-    | Rw lem tac :: hints =>
-      (lem, tac) :: CompileHints hints e r
-    | PRw n plem tac :: hints =>
-      match get_lemma plem e with
+    | PRw_tc plem tc tac :: hints =>
+      match get_lemma plem tc e with
       | None => CompileHints hints e r
       | Some lem => (lem, tac) :: CompileHints hints e r
-      end
+      end        
     end.
 
+  Definition hints_sound (hints : expr typ func -> R ->
+                                  list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
+    (forall r e,
+        Forall (fun lt =>
+                  (forall tus tvs t eD,
+                      lambda_exprD tus tvs t e = Some eD ->
+                      Lemma.lemmaD (rw_conclD RbaseD) nil nil (fst lt)) /\
+                  CoreK.rtacK_sound (snd lt)) (hints e r)).
+
+
+  Definition RewriteHintDbOk (db : RewriteHintDb) : Prop :=
+    Forall RewriteHintOk db.
+  
+  Lemma CompileHints_sound :
+  forall db,
+    RewriteHintDbOk db ->
+    hints_sound (CompileHints db).
+  Proof.
+    induction db; intros; simpl.
+    { unfold hints_sound. intros. constructor. }
+    { inversion H; subst; clear H.
+      specialize (IHdb H3). clear H3.
+      unfold hints_sound. intros.
+      destruct a.
+      destruct (get_lemma p p0) eqn:Hgl; [|eapply IHdb].
+      constructor; [|eauto].
+      unfold RewriteHintOk in *. destruct H2.
+      split; [|eauto].
+      intros.
+      unfold get_lemma in *.
+      Require Import MirrorCore.Util.Forwardy.
+      forwardy.
+      destruct (inst p0 y) eqn:Hinst; [|congruence].
+      inversion H3; subst; clear H3.
+      unfold rw_lemmaP in *.
+      unfold with_typeclasses in H.
+      simpl in *.
+      eapply inst_sound.
+      admit. (* I'm basically there, but it's 4am and I just can't quite finish this. *)
+  Admitted.
 End setoid.
