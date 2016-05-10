@@ -82,7 +82,7 @@ Section setoid.
 
   Definition rw_lemmaP (rw : rw_lemma typ func Rbase) : Prop :=
     lemmaD (rw_conclD RbaseD) nil nil rw.
-  
+
   Definition RewriteHintOk (hr : HintRewrite) : Prop :=
     match hr with
     | PRw_tc plem tc tac =>
@@ -170,11 +170,13 @@ Section setoid.
       match get_lemma plem tc e with
       | None => CompileHints hints e r
       | Some lem => (lem, tac) :: CompileHints hints e r
-      end        
+      end
     end.
 
-  Definition hints_sound (hints : expr typ func -> R ->
-                                  list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func))) : Prop :=
+  Definition hints_sound
+             (hints : expr typ func -> R ->
+                      list (rw_lemma typ func Rbase * CoreK.rtacK typ (expr typ func)))
+  : Prop :=
     (forall r e,
         Forall (fun lt =>
                   (forall tus tvs t eD,
@@ -185,12 +187,12 @@ Section setoid.
 
   Definition RewriteHintDbOk (db : RewriteHintDb) : Prop :=
     Forall RewriteHintOk db.
-  
-  Lemma CompileHints_sound :
+
+  Theorem CompileHints_sound :
   forall db,
     RewriteHintDbOk db ->
     hints_sound (CompileHints db).
-  Proof.
+  Proof using.
     induction db; intros; simpl.
     { unfold hints_sound. intros. constructor. }
     { inversion H; subst; clear H.
@@ -205,12 +207,12 @@ Section setoid.
       unfold get_lemma in *.
       Require Import MirrorCore.Util.Forwardy.
       forwardy.
-      destruct (inst p0 y) eqn:Hinst; [|congruence].
-      inversion H3; subst; clear H3.
-      unfold rw_lemmaP in *.
+      eapply inst_sound with (v:=y) in H.
       unfold with_typeclasses in H.
-      simpl in *.
-      eapply inst_sound.
-      admit. (* I'm basically there, but it's 4am and I just can't quite finish this. *)
-  Admitted.
+      rewrite inst_make_polymorphic in H.
+      destruct (inst p0 y); [|congruence].
+      inversion H3; clear H3; subst.
+      simpl in *. clear H2.
+      red in H. tauto. }
+  Qed.
 End setoid.
