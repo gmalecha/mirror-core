@@ -284,8 +284,25 @@ Print PPr.
 Check do_prespectful.
 
 (* TODO: need to figure out what arguments to fill in here. *)
+Check do_prespectful.
+Check do_respectful.
+SearchAbout mtyp.
+Print do_respectful.
+Print do_prespectful.
+
+Typeclasses eauto := debug.
+
+Locate MTypeUnify.
+
+
+(* force implementation to be pmaps? (in MTypeUnify - maybe?)
+   write a convencience wrapper that handles everything for mtyp
+   figure out what arguments i want to_respectful/do_prespectful to have
+   and then make it have them
+   *)
+
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
-  do_prespectful (expr_eq_dec _ _)
+  do_prespectful (expr_eq_dec _ _) (MTypeUnify.mtype_unify _ _ HintDbs.view_update) _
   (@PPr _ _ _ 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
        @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
      nil).

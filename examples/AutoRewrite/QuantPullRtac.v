@@ -178,21 +178,17 @@ Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_respectful rel_dec
-    ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
-     (Inj (All tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
-     nil).
+                ((Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat)))) ::
+                 (Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat)))) :: nil).
 
 Definition get_respectful : respectful_dec typ func Rbase :=
   do_respectful rel_dec
-    ((Inj (Ex tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
-     (Inj (All tyNat), Rrespects (Rpointwise tyNat flip_impl) flip_impl) ::
-     (Inj And, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
-     (Inj Or, Rrespects flip_impl (Rrespects flip_impl flip_impl)) ::
-     (Inj Plus, Rrespects (Rinj (Inj (Eq tyNat)))
-                          (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) ::
-
-     nil).
-
+                ((Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat)))) ::
+                 (Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat)))) ::
+                 (Pr (Build_Proper_concl (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And))) ::
+                 (Pr (Build_Proper_concl (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or))) ::
+                 (Pr (Build_Proper_concl (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus))) ::
+                 nil).
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
