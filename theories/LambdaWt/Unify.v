@@ -303,8 +303,17 @@ Section unify.
       end e2.
   End unify_list.
 
-  Variable unifyRec : forall {tus tvs t} (e1 e2 : wtexpr tus tvs t)
-                             (s : Inst tus), option (Inst tus).
+  Definition Unifier : Type :=
+    forall {tus tvs t} (e1 e2 : wtexpr tus tvs t)
+           (s : Inst tus), option (Inst tus).
+
+  Definition UnifierOk (u : Unifier) : Prop :=
+    forall tus tvs t e e' i i',
+      @u tus tvs t e e' i = Some i' ->
+      unify_spec i i' e e'.
+
+
+  Variable unifyRec : Unifier.
 
   Arguments wtVar {_ _ _ _ _} _.
   Arguments wtInj {_ _ _ _ _} _.
@@ -423,7 +432,6 @@ Section unify.
   Proof. compute. auto. Qed.
   Instance Transitive_Inst_evolves tus : Transitive (@Inst_evolves tus).
   Proof. compute. auto. Qed.
-
 
   Section unify_ok.
     Variable tus : list Tuvar.
@@ -611,3 +619,105 @@ Section unify.
   End unify_ok.
 
 End unify.
+
+(** The Approxmation of the fixpoint.
+ ** We use [positive] for fuel to avoid constructing very large natural numbers.
+ **)
+Section funify.
+  Variable Tsymbol : Type.
+  Variable TsymbolD : Tsymbol -> Type@{Urefl}.
+  Variable Tsymbol_eq_dec : forall a b : Tsymbol, {a = b} + {a <> b}.
+  Let type := type Tsymbol.
+  Variable Esymbol : type -> Type.
+  Variable EsymbolD : forall t, Esymbol t -> typeD TsymbolD t.
+  Variable Esymbol_eq_dec : forall {t} (a b : Esymbol t), {a = b} + {a <> b}.
+
+  Let wtexpr := wtexpr Esymbol.
+  Let Tuvar := Tuvar Tsymbol.
+
+  Variable Inst : list Tuvar -> Type.
+  Variable Inst_lookup : forall {tus},
+      Inst tus -> forall {ts t}, member (ts,t) tus ->
+                                 option (wtexpr tus ts t).
+  Variable Inst_set : forall {tus ts t},
+      member (ts,t) tus -> wtexpr tus ts t -> Inst tus -> Inst tus.
+  Hypothesis Inst_set_ok : forall tus tvs ts t (u : member (ts,t) tus) w s s',
+      Inst_set u w s = s' ->
+      Inst_lookup s u = None ->
+      Inst_evolves Inst Inst_lookup s s' /\
+      forall xs,
+        Unifiable Inst Inst_lookup s' (wtUVar u xs) (subst (tvs:=tvs) xs w).
+
+  Let unifyX :=
+    @unify Tsymbol Tsymbol_eq_dec Esymbol Esymbol_eq_dec
+           Inst Inst_lookup Inst_set.
+
+  Require Import Coq.Numbers.BinNums.
+
+  (** NOTE: Terms are eta-expanded to avoid partial application
+   **)
+  Local Fixpoint funify' (k : _ -> _) (p : positive)
+           (tus : list (WtExpr.Tuvar Tsymbol))
+           (tvs : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+           (e1 e2 : WtExpr.wtexpr Esymbol tus tvs t)
+           (inst : Inst tus) {struct p}
+  : option (Inst tus) :=
+    match p with
+    | xH => k (fun tus tvs t e1 e2 inst => None) tus tvs t e1 e2 inst
+    | xO p =>
+      @funify' (fun rec tus tvs t e1 e2 inst =>
+                  @k (fun tus tvs t e1 e2 inst => k rec tus tvs t e1 e2 inst)
+                     tus tvs t e1 e2 inst) p
+               tus tvs t e1 e2 inst
+    | xI p =>
+      @unifyX (fun tus tvs t e1 e2 inst =>
+                 @funify' (fun rec tus tvs t e1 e2 inst =>
+                            @k (fun tus tvs t e1 e2 inst =>
+                                  k rec tus tvs t e1 e2 inst)
+                               tus tvs t e1 e2 inst)
+                          p
+                          tus tvs t e1 e2 inst)
+              tus tvs t e1 e2 inst
+    end.
+
+  Local Lemma funify'_sound
+  : forall p k,
+      (forall z,
+          (forall tus tvs t e e' i i',
+              z tus tvs t e e' i = Some i' ->
+              unify_spec Inst Inst_lookup i i' e e') ->
+          (forall tus tvs t e e' i i',
+              k z tus tvs t e e' i = Some i' ->
+              unify_spec Inst Inst_lookup i i' e e')) ->
+      forall tus tvs t e e' i i',
+        @funify' k p tus tvs t e e' i = Some i' ->
+        unify_spec Inst Inst_lookup i i' e e'.
+  Proof.
+    induction p; simpl; intros.
+    { unfold unifyX in *.
+      eapply unify_ok in H0; eauto.
+      intros. eapply IHp in H1; eauto. }
+    { unfold unifyX in *.
+      eapply IHp in H0; eauto. }
+    { eapply H in H0; eauto.
+      inversion 1. }
+  Qed.
+
+  Definition funify (p : positive) : Unifier Esymbol Inst :=
+    fun (tus : list (WtExpr.Tuvar Tsymbol))
+        (tvs : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+        (e1 e2 : WtExpr.wtexpr Esymbol tus tvs t)
+        (inst : Inst tus) =>
+    @funify' unifyX p tus tvs t e1 e2 inst.
+
+  Theorem funify_sound
+  : forall p, UnifierOk Inst_lookup (funify p).
+  Proof.
+    red.
+    intros. revert H. eapply funify'_sound.
+    unfold unifyX.
+    intros.
+    revert H0.
+    eapply unify_ok; eauto.
+  Qed.
+End funify.
