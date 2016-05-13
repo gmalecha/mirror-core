@@ -255,9 +255,10 @@ Arguments fail_respectful {_ _ _} _ _ _ _ _ _ _ _ _.
 Require Import ExtLib.Data.Vector.
 
 (* copied from HintDbs.v *)
-Require Import MirrorCore.Lib.TypeVar.
+Require Import MirrorCore.Lib.TypeVar. (** TODO: Eliminate *)
 Universe X.
 
+(** TODO: Eliminate **)
 Let local_view : (PartialView@{X} typ (VType 0)) :=
   {| f_insert := fun x => match x with
                        | tVar p => tyVar p
@@ -269,6 +270,7 @@ Let local_view : (PartialView@{X} typ (VType 0)) :=
 
 Arguments term {_ _ _} _.
 
+(** TODO: NO Printing *)
 Locate polymorphicD.
 Print Polymorphic.polymorphicD.
 
@@ -288,12 +290,22 @@ Require Import MirrorCore.Util.Forwardy.
 
 Check do_prespectful.
 
-SearchAbout (positive -> mtyp _).
+(** Build_Proper_concl => mkProper **)
+Check @Build_Proper_concl.
+Definition mkProper {typ func Rbase} (r : R typ Rbase) (e : expr typ func) : Proper_concl Rbase :=
+  Build_Proper_concl r e.
+
+Ltac get_num_arrs t :=
+  lazymatch t with
+  | _ -> ?T => let x := get_num_arrs T in
+               constr:(S x)
+  | _ => constr:(0)
+  end.
 
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-                 (@PPr _ _ _ 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
-                       @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+                 (@PPr _ _ _ 1 (fun T => mkProper (Rrespects (Rpointwise T flip_impl) flip_impl) (Inj (Ex T))) ::
+                  @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
      nil).
 
 Definition get_respectful : respectful_dec typ func Rbase :=
@@ -322,15 +334,18 @@ Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
   eapply do_prespectful_sound; [eapply rel_dec_correct|].
-  repeat first [ eapply Forall_cons | eapply Forall_nil]; simpl; prove_prespectful.
+  red; repeat first [ simple eapply Forall_cons; [ prove_prespectful | ] | simple eapply Forall_nil].
 Qed.
 
 Theorem get_respectful_sound : respectful_spec RbaseD get_respectful.
 Proof.
+  (** TODO: Make respectful_spec opaque to type classes
+   **  Hint Opaque respectful_sepc.
+   **)
   eapply do_prespectful_sound; [eapply rel_dec_correct|].
-  repeat first [eapply Forall_cons | eapply Forall_nil]; prove_prespectful.
+  (** Encapsulate this into 'prove_ProperDb' tactic *)
+  red; repeat first [simple apply Forall_cons; [ prove_prespectful | ] | simple apply Forall_nil ].
 Qed.
-
 
 Require Import MirrorCore.Views.Ptrns.
 

@@ -48,6 +48,7 @@ Definition RbaseD (e : expr typ func) (t : typ)
 : option (TypesI.typD t -> TypesI.typD t -> Prop) :=
   env_exprD nil nil (tyArr t (tyArr t tyProp)) e.
 
+(** TODO: Try to get rid of this **)
 Theorem RbaseD_single_type
 : forall (r : expr typ func) (t1 t2 : typ)
          (rD1 : TypesI.typD t1 -> TypesI.typD t1 -> Prop)
@@ -176,18 +177,38 @@ Qed.
 
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
+(** the regular Pr definition shoudl be replaced with this one
+ ** change PPr as well
+ ** change PPr_tc
+ **)
+Definition Pr {t f rel} (r : R t rel) (e : expr t f) : @HintProper t f rel :=
+  Pr (Build_Proper_concl r e).
+
+(** Change this to use a new class SemiDec that looks like RelDec but is only a semi-decideter
+ ** - Instance that derives [SemiDec] from [SemiDec typ , SemiDec func => expr typ func]
+ ** - Instance that derives [RelDec T => SemiDec T]
+ ** - Instance that derives [RSym T => SemiDec T]
+ **)
+
+(** It might be convenient to make notation for Rrespects and Rpointwise
+ **   a ===> b === Rrespects a b
+ **   a +++> b === Rrespects a b
+ **   a ---> b === Rrespects (Rflip a) b
+ **   t ***> b === Rpointwise t b
+ ** put them in a separate notation scope
+ **)
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
   do_respectful rel_dec
-                ((Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat)))) ::
-                 (Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat)))) :: nil).
+                ((Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
+                 (Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) :: nil).
 
 Definition get_respectful : respectful_dec typ func Rbase :=
   do_respectful rel_dec
-                ((Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat)))) ::
-                 (Pr (Build_Proper_concl (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat)))) ::
-                 (Pr (Build_Proper_concl (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And))) ::
-                 (Pr (Build_Proper_concl (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or))) ::
-                 (Pr (Build_Proper_concl (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus))) ::
+                ((Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
+                 (Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) ::
+                 (Pr (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And)) ::
+                 (Pr (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or)) ::
+                 (Pr (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus)) ::
                  nil).
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
@@ -217,6 +238,8 @@ Proof.
     { compute. firstorder. }
 Qed.
 
+(** TODO: Like to figure this out
+ **)
 Definition simple_reduce (e : expr typ func) : expr typ func :=
   run_ptrn
     (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
@@ -227,6 +250,12 @@ Definition simple_reduce (e : expr typ func) : expr typ func :=
                                    (pmap Red.beta get)))))
     e e.
 
+(** Rename [lem_rewriter] to [RwAction]
+ ** - this is a change in Rewrite.Core
+ ** Rename [respectful_dec] to [ResolveProper]
+ **)
+
+(** lems should be a rewrite database *)
 Definition the_rewrites (lems : list (rw_lemma typ func (expr typ func) *
                                       CoreK.rtacK typ (expr typ func)))
 : lem_rewriter typ func Rbase :=
@@ -281,7 +310,12 @@ Proof.
   eapply rw_post_simplify_sound.
   { eapply simple_reduce_sound. }
   eapply rw_simplify_sound.
-  { intros.
+  { (** This type should be named
+     ** It might already be named but it should have a better name.
+     ** Probably the code from RTac/Simplify.v or something that is pretty close to it
+     ** And then, Red and RedAll should export functions that have this type.
+     **)
+    intros.
     generalize (Red.beta_sound tus tvs e t). rewrite H0.
     intros; forward. eauto. }
   eapply using_rewrite_db_sound; eauto.
@@ -289,6 +323,8 @@ Proof.
   { eapply RbaseD_single_type. }
 Qed.
 
+
+(** This should be a HintDb *)
 Definition the_lemmas
 : list (rw_lemma typ func (expr typ func) * CoreK.rtacK typ (expr typ func)) :=
   (lem_pull_ex_nat_and_left, IDTACK) ::
