@@ -3,6 +3,7 @@ Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.LambdaWt.WtExpr.
+Require Import MirrorCore.LambdaWt.SubstWt.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -20,20 +21,18 @@ Section unify.
   Let Tuvar := Tuvar Tsymbol.
 
   Variable Inst : list Tuvar -> Type.
-  Variable Inst_lookup : forall {tus},
-      Inst tus -> forall {ts t}, member (ts,t) tus ->
-                                 option (wtexpr tus ts t).
-  Variable Inst_set : forall {tus ts t},
-      member (ts,t) tus -> wtexpr tus ts t -> Inst tus -> Inst tus.
+  Context {Inst_Inst : Instantiation TsymbolD Esymbol Inst}.
 
+(*
   Inductive Unifiable {tus} (s : Inst tus) (tvs : list type) (t : type)
     : wtexpr tus tvs t -> wtexpr tus tvs t -> Prop :=
   | Unif_UVar : forall ts (u : member (ts,t) tus) xs e,
       Inst_lookup s u = Some e ->
       @Unifiable tus s tvs t (wtUVar u xs) (subst xs e).
+*)
 
   Definition Unifiable_eq {tus} s tvs t a b : Prop :=
-    @Unifiable tus s tvs t a b \/ @Unifiable tus s tvs t b a.
+    @Unifiable _ _ _ _ _ tus s tvs t a b \/ @Unifiable _ _ _ _ _ tus s tvs t b a.
 
   Global Instance Symmetric_Unifiable_eq tus tvs t (i : Inst tus)
   : Symmetric (Unifiable_eq i (tvs:=tvs) (t:=t)).
@@ -42,16 +41,12 @@ Section unify.
   Qed.
 
   (** This is probably not an ideal definition **)
+(*
   Definition Inst_evolves {tus} (i1 i2 : Inst tus) : Prop :=
     forall tvs t (e1 e2 : wtexpr tus tvs t),
       wtexpr_equiv (Unifiable_eq i1) e1 e2 ->
       wtexpr_equiv (Unifiable_eq i2) e1 e2.
-
-  Hypothesis Inst_set_ok : forall tus tvs ts t (u : member (ts,t) tus) w s s',
-      Inst_set u w s = s' ->
-      Inst_lookup s u = None ->
-      Inst_evolves s s' /\
-      forall xs, Unifiable s' (wtUVar u xs) (subst (tvs:=tvs) xs w).
+*)
 
   Theorem Inst_lookup_ok : forall tus tvs ts t (u : member (ts,t) tus) s e,
       Inst_lookup s u = Some e ->
@@ -74,7 +69,7 @@ Section unify.
   Definition unify_spec {tus} (i i' : Inst tus) {tvs t}
              (e1 e2 : wtexpr tus tvs t)
   : Prop :=
-    Inst_evolves i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
+    Inst_evolves (migrator_id _ _) i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
 
   Lemma hlist_get_member_lift'
     : forall tus tvsX tvs tvs' tvs''
@@ -256,6 +251,28 @@ Section unify.
       intros. apply H1 in H0; clear H1. eauto. }
   Qed.
 
+  Lemma wtexpr_equiv_Unifiable_eq_Inst_evolves:
+    forall (tus : list (WtExpr.Tuvar Tsymbol)) (tvs : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+           (s s' : Inst tus),
+      Inst_evolves (migrator_id Esymbol tus) s s' ->
+      forall (x y : WtExpr.wtexpr Esymbol tus tvs t),
+        wtexpr_equiv (Unifiable_eq s) x y ->
+        wtexpr_equiv (Unifiable_eq s') x y.
+  Proof.
+    induction 2; try solve [ constructor; eauto ].
+    { eapply eqUVar.
+      clear - H0 pfs.
+      induction H0; try constructor; eauto. }
+    { constructor.
+      destruct pf; [ left; specialize (H _ _ a b)
+                   | right; specialize (H _ _ b a) ]; subst.
+      repeat rewrite migrate_expr_migrate_id in H.
+      eapply H. eapply H0.
+      repeat rewrite migrate_expr_migrate_id in H.
+      eapply H. eapply H0. }
+    { eapply eqTrans; eassumption. }
+  Qed.
+
   Lemma check_set_ok : forall tus tvs ts t unify u xs e s s',
       @check_set tus tvs ts t unify u xs e s = Some s' ->
       (forall e' s s',
@@ -269,18 +286,19 @@ Section unify.
       red. destruct H1; split; auto.
       assert (wtexpr_equiv (Unifiable_eq s) (wtUVar u xs) (subst xs w)).
       { econstructor. econstructor. econstructor. eassumption. }
-      eapply H1 in H3.
-      eapply eqTrans; eassumption. }
+      eapply eqTrans with (b:=subst xs w).
+      { eapply wtexpr_equiv_Unifiable_eq_Inst_evolves; eassumption. }
+      { assumption. } }
     { intro Hnot_there.
       consider (pattern_expr Tsymbol_eq_dec Esymbol_eq_dec e xs);
         intros; try congruence.
       inv_all. subst.
       eapply pattern_expr_ok with (R := Unifiable_eq (Inst_set u w s)) in H.
-      destruct (@Inst_set_ok tus tvs _ _ u w s _ eq_refl Hnot_there).
+      destruct (@Inst_set_ok _ _ _ _ _ tus tvs _ _ u w s _ eq_refl Hnot_there).
       split; auto.
       eapply eqTrans.
       2: symmetry; try eassumption.
-      constructor. constructor. eauto. }
+      constructor. constructor. eapply H2. }
   Qed.
 
   Section unify_list.
@@ -428,10 +446,21 @@ Section unify.
      end e2).
   Defined.
 
-  Instance Reflexive_Inst_evolves tus : Reflexive (@Inst_evolves tus).
-  Proof. compute. auto. Qed.
-  Instance Transitive_Inst_evolves tus : Transitive (@Inst_evolves tus).
-  Proof. compute. auto. Qed.
+  Instance Reflexive_Inst_evolves tus : Reflexive (@Inst_evolves _ _ _ _ _ tus tus (migrator_id _ _)).
+  Proof.
+    (* Coq bug! compute. *)
+    repeat red. intros.
+    repeat rewrite migrate_expr_migrate_id in H.
+    assumption.
+  Qed.
+  Instance Transitive_Inst_evolves tus : Transitive (@Inst_evolves _ _ _ _ _ tus tus (migrator_id _ _)).
+  Proof.
+    repeat red. intros.
+    eapply H0.
+    repeat rewrite migrate_expr_migrate_id.
+    eapply H.
+    assumption.
+  Qed.
 
   Section unify_ok.
     Variable tus : list Tuvar.
@@ -444,7 +473,7 @@ Section unify.
       destruct 1; destruct 1.
       split.
       { etransitivity; eauto. }
-      { constructor; eauto. }
+      { constructor; eauto using wtexpr_equiv_Unifiable_eq_Inst_evolves. }
     Qed.
 
     Lemma member_check_eq_ok
@@ -584,7 +613,7 @@ Section unify.
         { clear - H H0.
           intros. specialize (H1 _ eq_refl). subst. simpl in *.
           red.
-          cut (Inst_evolves i i' /\
+          cut (Inst_evolves (migrator_id _ _) i i' /\
                hlist_Forall2 (wtexpr_equiv (Unifiable_eq i') (tvs:=tvs)) xs h).
           { destruct 1; split; eauto using eqUVar. }
           clear u.
@@ -606,7 +635,7 @@ Section unify.
             split.
             { etransitivity; eauto. }
             { rewrite (hlist_eta h).
-              constructor; eauto. } } }
+              constructor; eauto using wtexpr_equiv_Unifiable_eq_Inst_evolves. } } }
         { eapply check_set_ok in H0.
           { destruct H0; split; eauto. }
           { intros. eapply check_set_ok in H1.
@@ -636,21 +665,11 @@ Section funify.
   Let Tuvar := Tuvar Tsymbol.
 
   Variable Inst : list Tuvar -> Type.
-  Variable Inst_lookup : forall {tus},
-      Inst tus -> forall {ts t}, member (ts,t) tus ->
-                                 option (wtexpr tus ts t).
-  Variable Inst_set : forall {tus ts t},
-      member (ts,t) tus -> wtexpr tus ts t -> Inst tus -> Inst tus.
-  Hypothesis Inst_set_ok : forall tus tvs ts t (u : member (ts,t) tus) w s s',
-      Inst_set u w s = s' ->
-      Inst_lookup s u = None ->
-      Inst_evolves Inst Inst_lookup s s' /\
-      forall xs,
-        Unifiable Inst Inst_lookup s' (wtUVar u xs) (subst (tvs:=tvs) xs w).
+  Context {Inst_Inst : @Instantiation Tsymbol TsymbolD Esymbol Inst}.
 
   Let unifyX :=
-    @unify Tsymbol Tsymbol_eq_dec Esymbol Esymbol_eq_dec
-           Inst Inst_lookup Inst_set.
+    @unify Tsymbol TsymbolD Tsymbol_eq_dec Esymbol Esymbol_eq_dec
+           Inst Inst_Inst.
 
   Require Import Coq.Numbers.BinNums.
 
@@ -685,13 +704,13 @@ Section funify.
       (forall z,
           (forall tus tvs t e e' i i',
               z tus tvs t e e' i = Some i' ->
-              unify_spec Inst Inst_lookup i i' e e') ->
+              unify_spec i i' e e') ->
           (forall tus tvs t e e' i i',
               k z tus tvs t e e' i = Some i' ->
-              unify_spec Inst Inst_lookup i i' e e')) ->
+              unify_spec i i' e e')) ->
       forall tus tvs t e e' i i',
         @funify' k p tus tvs t e e' i = Some i' ->
-        unify_spec Inst Inst_lookup i i' e e'.
+        unify_spec i i' e e'.
   Proof.
     induction p; simpl; intros.
     { unfold unifyX in *.
@@ -711,7 +730,7 @@ Section funify.
     @funify' unifyX p tus tvs t e1 e2 inst.
 
   Theorem funify_sound
-  : forall p, UnifierOk Inst_lookup (funify p).
+  : forall p, UnifierOk (funify p).
   Proof.
     red.
     intros. revert H. eapply funify'_sound.
