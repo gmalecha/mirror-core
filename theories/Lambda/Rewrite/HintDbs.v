@@ -134,8 +134,7 @@ Section setoid.
   Qed.
 
   Local Definition view_update :=
-    (mtype_unify tsym (FMapPositive.pmap typ)
-                 (fun a b c => Some (FMapPositive.pmap_insert a b c))).
+    (mtype_unify tsym).
 
   Let local_view : PartialView typ (VType 0) :=
   {| f_insert := fun x => match x with

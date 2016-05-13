@@ -280,37 +280,26 @@ Arguments Build_Proper_concl {_ _ _} _ _.
 Require Import MirrorCore.Lambda.Polymorphic.
 Require Import MirrorCore.Util.Forwardy.
 
-Print PPr.
-Check do_prespectful.
-
-(* TODO: need to figure out what arguments to fill in here. *)
-Check do_prespectful.
-Check do_respectful.
-SearchAbout mtyp.
-Print do_respectful.
-Print do_prespectful.
-
-Typeclasses eauto := debug.
-
-Locate MTypeUnify.
-
-
-(* force implementation to be pmaps? (in MTypeUnify - maybe?)
+(* force implementation to be pmaps? (in MTypeUnify - maybe?) (done)
    write a convencience wrapper that handles everything for mtyp
    figure out what arguments i want to_respectful/do_prespectful to have
    and then make it have them
-   *)
+ *)
+
+Check do_prespectful.
+
+SearchAbout (positive -> mtyp _).
 
 Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
-  do_prespectful (expr_eq_dec _ _) (MTypeUnify.mtype_unify _ _ HintDbs.view_update) _
-  (@PPr _ _ _ 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
-       @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
+                 (@PPr _ _ _ 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+                       @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
      nil).
 
 Definition get_respectful : respectful_dec typ func Rbase :=
-  do_prespectful
-    (PPr 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
-         PPr 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
+    (@PPr _ _ _ 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
+         @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
          Pr {| term := Inj And; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
          Pr {| term := Inj Or; relation := Rrespects flip_impl (Rrespects flip_impl flip_impl) |} ::
          Pr {| term := Inj Plus;
@@ -332,13 +321,13 @@ Ltac prove_prespectful :=
 Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
-  eapply do_prespectful_sound.
-  repeat first [ eapply Forall_cons | eapply Forall_nil ]; simpl; prove_prespectful.
+  eapply do_prespectful_sound; [eapply rel_dec_correct|].
+  repeat first [ eapply Forall_cons | eapply Forall_nil]; simpl; prove_prespectful.
 Qed.
 
 Theorem get_respectful_sound : respectful_spec RbaseD get_respectful.
 Proof.
-  eapply do_prespectful_sound.
+  eapply do_prespectful_sound; [eapply rel_dec_correct|].
   repeat first [eapply Forall_cons | eapply Forall_nil]; prove_prespectful.
 Qed.
 
@@ -413,8 +402,10 @@ Proof.
   { eauto. }
 Qed.
 
+Check RewriteHintDbOk.
+
 Theorem the_rewrites_sound
-: forall hints, RewriteHintDb_sound hints ->
+: forall hints, RewriteHintDbOk RbaseD hints ->
     setoid_rewrite_spec RbaseD (the_rewrites hints).
 Proof.
   unfold the_rewrites. intros.
@@ -433,19 +424,19 @@ Qed.
 
 Definition the_lemmas
   : RewriteHintDb Rbase :=
-  PRw _ 1 lem_pull_ex_and_left IDTACK ::
-     PRw _ 1 lem_pull_ex_and_right IDTACK ::
+  @PRw _ _ _ 1 lem_pull_ex_and_left IDTACK ::
+     @PRw _ _ _ 1 lem_pull_ex_and_right IDTACK ::
      nil.
 
 (* check Polymorphic.v or PolyInst.v  - move the stuff into there. *)
 
 (* need a more convenient interface than raw vectors *)
 (* go from poly n to the actual thing with quantifiers as actual quantifiers *)
-Theorem the_lemmas_sound : RewriteHintDb_sound the_lemmas.
+Theorem the_lemmas_sound : RewriteHintDbOk RbaseD the_lemmas.
 Proof.
   repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply IDTACK_sound.
-  { intros. unfold Polymorphic.inst. apply lem_pull_ex_and_left_sound. }
-  { intros. unfold Polymorphic.inst. apply lem_pull_ex_and_right_sound. }
+  { unfold polymorphicD. intros. apply lem_pull_ex_and_left_sound. }
+  { unfold polymorphicD. intros. apply lem_pull_ex_and_right_sound. }
 Qed.
 
 Definition pull_all_quant : lem_rewriter typ func Rbase :=

@@ -1,14 +1,15 @@
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import ExtLib.Data.Map.FMapPositive.
 
 Section parametric.
   Variable tsym : nat -> Type.
   Variable TSym_tsym : TSym tsym.
 
-  Variable S : Type.
-  Variable add : positive -> mtyp tsym -> S -> option S.
+  Let S := FMapPositive.pmap (mtyp tsym).
+  Let add : positive -> mtyp tsym -> S -> option S := (fun a b c => Some (FMapPositive.pmap_insert a b c)).
 
   (** This is asymmetric, the first argument is the "special one" **)
-  Fixpoint mtype_unify (a b : mtyp tsym) (s : S) {struct a}
+  Fixpoint mtype_unify (a b : mtyp tsym) (s : pmap (mtyp tsym)) {struct a}
   : option S :=
     match a with
     | tyArr da ca =>
