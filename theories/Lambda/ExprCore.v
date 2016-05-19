@@ -1,10 +1,11 @@
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -195,7 +196,6 @@ Section env.
                   (fun v : var => fv v || fv' v) e =
       mentionsAny fu fv e || mentionsAny fu' fv' e.
   Proof.
-    Require Import ExtLib.Tactics.
     induction e; simpl; auto; intros; Cases.rewrite_all_goal.
     { forward. simpl. rewrite orb_true_r. reflexivity. }
     { rewrite <- IHe. eapply Proper_mentionsAny; eauto.
@@ -289,7 +289,6 @@ Section env.
             - right. eauto. } }
     { rewrite IHe.
       eapply or_iff_compat_l.
-      Require Import ExtLib.Data.Prop.
       clear. split; intros; forward_reason.
       - forward. subst. eauto.
       - exists (S x). eauto. }
