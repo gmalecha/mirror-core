@@ -52,10 +52,10 @@ Section setoid.
   Variable RbaseD : Rbase -> forall t : typ, option (typD t -> typD t -> Prop).
 
   Variable reducer : expr typ func -> expr typ func.
-  Variable lr : lem_rewriter typ func Rbase.
+  Variable rwa : RwAction typ func Rbase.
 
-  Definition rw_simplify : lem_rewriter _ _ _ :=
-    fun e => lr (reducer e).
+  Definition rw_simplify : RwAction _ _ _ :=
+    fun e => rwa (reducer e).
 
   Hypothesis reducer_sound
   : forall tus tvs t e eD,
@@ -63,13 +63,14 @@ Section setoid.
       exists eD',
         lambda_exprD tus tvs t (reducer e) = Some eD' /\
         forall us vs, eD us vs = eD' us vs.
-  Hypothesis lr_sound : setoid_rewrite_spec RbaseD lr.
+
+  Hypothesis rwa_sound : setoid_rewrite_spec RbaseD rwa.
 
   Theorem rw_simplify_sound
   : setoid_rewrite_spec RbaseD rw_simplify.
-  Proof using lr_sound reducer_sound.
+  Proof using rwa_sound reducer_sound.
     unfold rw_simplify. do 2 red. intros.
-    eapply lr_sound in H; eauto.
+    eapply rwa_sound in H; eauto.
     forward_reason; split; eauto.
     intros. eapply H1 in H2; clear H1.
     forward.
@@ -95,9 +96,9 @@ Section setoid.
       auto. }
   Qed.
 
-  Definition rw_post_simplify : lem_rewriter _ _ _ :=
+  Definition rw_post_simplify : RwAction _ _ _ :=
     Eval unfold rw_bind, rw_ret in
-      fun e r => rw_bind (lr e r)
+      fun e r => rw_bind (rwa e r)
                          (fun e' => rw_ret match e' with
                                            | Progress e' => Progress (reducer e')
                                            | NoProgress => NoProgress
@@ -105,10 +106,10 @@ Section setoid.
 
   Theorem rw_post_simplify_sound
   : setoid_rewrite_spec RbaseD rw_post_simplify.
-  Proof using lr_sound reducer_sound.
+  Proof using rwa_sound reducer_sound.
     unfold rw_post_simplify. do 2 red. intros.
     forward. inv_all; subst.
-    eapply lr_sound in H1; eauto.
+    eapply rwa_sound in H1; eauto.
     forward_reason; split; eauto.
     intros. eapply H1 in H2; clear H1.
     destruct (pctxD cs) eqn:?; auto.

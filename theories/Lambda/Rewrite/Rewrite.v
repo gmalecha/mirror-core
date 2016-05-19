@@ -1431,7 +1431,7 @@ Section setoid.
 
     Definition using_rewrite_db
                (hints : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
-    : lem_rewriter _ _ _ :=
+    : RwAction _ _ _ :=
       fun e r => rw_bind (using_rewrite_db'' hints e r)
                          (fun e => rw_ret (Progress e)).
 
@@ -1541,7 +1541,7 @@ Section setoid.
     Definition using_prewrite_db
                (hints : expr typ func -> R ->
                         list (rw_lemma typ func Rbase * rtacK typ (expr typ func)))
-    : lem_rewriter _ _ _ :=
+    : RwAction _ _ _ :=
       fun e r => rw_bind (using_prewrite_db'' hints e r)
                       (fun e => rw_ret (Progress e)).
 

@@ -61,8 +61,8 @@ Section setoid.
              (r : R)
              (reflexive : refl_dec R)
              (transitive : trans_dec R)
-             (rewriter : lem_rewriter typ func Rbase)
-             (respectful : respectful_dec typ func Rbase)
+             (rewriter : RwAction typ func Rbase)
+             (respectful : ResolveProper typ func Rbase)
   : rtac typ (expr typ func) :=
     let rw := bottom_up reflexive transitive rewriter respectful in
     fun tus tvs nus nvs ctx cs g =>

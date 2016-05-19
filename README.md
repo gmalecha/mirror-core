@@ -67,7 +67,14 @@ MirrorCore depends on two external libraries.
 - [coq-ext-lib](https://github.com/coq-ext-lib/coq-ext-lib)
 - [coq-plugin-utils](https://github.com/gmalecha/coq-plugin-utils) (to build the plugins)
 
-coq-pluging-utils needs to be installed, you should follow the
+Both of these can be installed using opam,
+provided you have added the repository described above.
+
+```
+opam install coq-ext-lib coq-plugin-utils
+```
+
+coq-plugin-utils needs to be installed, you should follow the
 directions in the README.md in that repository.
 
 coq-ext-lib does not need to be installed.

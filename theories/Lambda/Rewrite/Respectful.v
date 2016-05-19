@@ -81,7 +81,7 @@ Section setoid.
   Qed.
 
   (* This is just a "special" version of the rewriting lemma *)
-  Record Proper_concl : Type :=
+  Record Proper_concl : Type := MkProper
   { relation : R
   ; term     : expr typ func
   }.
@@ -103,7 +103,7 @@ Section setoid.
 
   Definition Proper_conclP (pc : Proper_concl) : Prop :=
     match pc with
-    | Build_Proper_concl r e =>
+    | MkProper r e =>
       match typeof_expr nil nil e with
       | Some t =>
         match RD RbaseD r t with
@@ -142,6 +142,9 @@ Section setoid.
       Polymorphic.polymorphic typ n bool ->
       HintProper.
 
+  (* Wrappers for more conveniently building properness lemmas *)
+  (* Have a Rewritable typeclass that encapsulates that R and typ and func and Rbase and... *)
+
   (* TODO(mario): this is duplicated in HintDbs.v. We should find a long-term home for it *)
   (* no-op typeclass, used to construct polymorphic types without constraints *)
   Definition tc_any (n : nat) : polymorphic typ n bool :=
@@ -156,7 +159,6 @@ Section setoid.
                         else True).
 
   (* TODO(mario): end duplicated code *)
-
   Definition ProperHintOk (hp : HintProper) : Prop :=
     match hp with
     | PPr_tc pc tc =>
@@ -177,6 +179,10 @@ Section setoid.
     unfold polymorphicD, with_typeclasses. simpl.
     tauto.
   Qed.
+
+  (* Convenience for building monomorphic proper hints *)
+  Definition Pr' (r : R) (t : expr typ func) :=
+    Pr (MkProper r t).
 
   (** polymorphic proper hint without typeclass constraints *)
   Definition PPr {n : nat} (pc : polymorphic typ n Proper_concl) :=
@@ -230,7 +236,7 @@ Section setoid.
 
   Local Definition apply_respectful (lem : Proper_lemma)
              (tacK : rtacK typ (expr typ func))
-  : respectful_dec _ _ _ :=
+  : ResolveProper _ _ _ :=
     let (rs,r_final) := split_R lem.(Lemma.concl).(relation) in
     match lem.(Lemma.vars) with
     | nil => match lem.(Lemma.premises) with
@@ -302,7 +308,7 @@ Section setoid.
 
   Definition or_respectful
              (a b : expr typ func -> R -> mrw typ func (list R))
-    : respectful_dec _ _ _ :=
+    : ResolveProper _ _ _ :=
     fun e r => rw_orelse (a e r) (b e r).
 
   Theorem or_respectful_sound : forall a b,
@@ -316,7 +322,7 @@ Section setoid.
       eassumption.
   Qed.
 
-  Definition fail_respectful : respectful_dec typ func Rbase :=
+  Definition fail_respectful : ResolveProper typ func Rbase :=
     fun _ _ => rw_fail.
 
   Theorem fail_respectful_sound : respectful_spec RbaseD fail_respectful.
@@ -361,7 +367,7 @@ Section setoid.
   Qed.
 
 
-  Local Definition do_one_prespectful (h : HintProper) : respectful_dec typ func Rbase :=
+  Local Definition do_one_prespectful (h : HintProper) : ResolveProper typ func Rbase :=
     match h with
     | PPr_tc pc tc =>
       (fun (e : expr typ func) =>
@@ -397,7 +403,7 @@ Section setoid.
   Qed.
 
   (** This is the main entry point for the file *)
-  Fixpoint do_prespectful (pdb : ProperDb) : respectful_dec typ func Rbase :=
+  Fixpoint do_prespectful (pdb : ProperDb) : ResolveProper typ func Rbase :=
     match pdb with
     | nil => fail_respectful
     | p :: pdb' =>
@@ -417,7 +423,7 @@ Section setoid.
   End for_polymorphism.
 
   (** This is the non-polymorphic entry point *)
-  Definition do_respectful : ProperDb -> respectful_dec typ func Rbase :=
+  Definition do_respectful : ProperDb -> ResolveProper typ func Rbase :=
     do_prespectful (fun _ _ => Some) (fun _ => typ0 (F:=Prop)).
 
   Theorem do_respectful_sound

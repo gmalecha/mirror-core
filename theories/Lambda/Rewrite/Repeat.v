@@ -47,7 +47,7 @@ Section setoid.
   (** Apply the same rewrite until it stops making progress
    **)
 
-  Variable rw : lem_rewriter typ func Rbase.
+  Variable rw : RwAction typ func Rbase.
   Variable is_refl : refl_dec R.
   Variable is_trans : trans_dec R.
 
@@ -181,7 +181,7 @@ Section setoid.
   Qed.
 
   Definition repeat_rewrite (progress : bool)
-  : nat -> lem_rewriter typ func Rbase :=
+  : nat -> RwAction typ func Rbase :=
     let prog := if progress then @Progress _ else (fun _ => NoProgress) in
     fun n =>
       repeat_rewrite' n prog.

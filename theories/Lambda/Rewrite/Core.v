@@ -334,9 +334,9 @@ Section setoid.
       | Some _ , Some _ , Some _ , None => False
       end.
 
-  Definition lem_rewriter : Type :=
+  Definition RwAction : Type :=
     expr typ func -> R -> mrw (Progressing (expr typ func)).
-  Definition respectful_dec : Type :=
+  Definition ResolveProper : Type :=
     expr typ func -> R -> mrw (list R).
 
 End setoid.
@@ -358,7 +358,7 @@ End setoid.
 Arguments mrw _ _ _ : clear implicits.
 Arguments NoProgress {_}.
 Arguments Progress {_} _.
-Arguments lem_rewriter typ func Rbase : clear implicits.
-Arguments respectful_dec typ func Rbase : clear implicits.
+Arguments RwAction typ func Rbase : clear implicits.
+Arguments ResolveProper typ func Rbase : clear implicits.
 
 Export MirrorCore.Lambda.RewriteRelations.

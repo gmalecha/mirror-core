@@ -17,6 +17,8 @@ Require Import McExamples.Simple.SimpleReify.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(* TODO - change typ to mtyp typ' *)
+(* TODO - figure out how to resolve the dependency this creates on PolyRewrite *)
 Let Rbase := expr typ func.
 
 Reify Declare Patterns patterns_concl : (rw_concl typ func Rbase).
@@ -49,6 +51,7 @@ Definition RbaseD (e : expr typ func) (t : typ)
   env_exprD nil nil (tyArr t (tyArr t tyProp)) e.
 
 (** TODO: Try to get rid of this **)
+(*
 Theorem RbaseD_single_type
 : forall (r : expr typ func) (t1 t2 : typ)
          (rD1 : TypesI.typD t1 -> TypesI.typD t1 -> Prop)
@@ -60,6 +63,7 @@ Proof.
   generalize (lambda_exprD_deterministic _ _ _ H0 H). unfold Rty.
   intros. inversion H3. reflexivity.
 Qed.
+*)
 
 Theorem pull_ex_and_left
 : forall T P Q, Basics.flip Basics.impl ((@ex T P) /\ Q) (exists n, P n /\ Q).
@@ -177,18 +181,56 @@ Qed.
 
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
-(** the regular Pr definition shoudl be replaced with this one
- ** change PPr as well
- ** change PPr_tc
- **)
-Definition Pr {t f rel} (r : R t rel) (e : expr t f) : @HintProper t f rel :=
-  Pr (Build_Proper_concl r e).
-
 (** Change this to use a new class SemiDec that looks like RelDec but is only a semi-decideter
  ** - Instance that derives [SemiDec] from [SemiDec typ , SemiDec func => expr typ func]
- ** - Instance that derives [RelDec T => SemiDec T]
  ** - Instance that derives [RSym T => SemiDec T]
  **)
+Locate rel_dec.
+
+Print ExtLib.Core.RelDec.
+
+Section SemiDec.
+
+  Parameter T : Type.
+  Parameter equ : T -> T -> Prop.
+
+  Class SemiDec : Type :=
+    { semi_dec : T -> T -> option bool }.
+
+  (* unsure what the right arguments are *)
+  Arguments semi_dec {_} !x !y.
+
+  (** TODO: is this the correctness interface we want *)
+  Class SemiDec_Correct (ES : SemiDec) : Prop :=
+    {
+      semi_dec_ok : forall (x y : T) (b : bool), semi_dec x y = Some b -> (b = true <-> equ x y)
+      (*semi_dec_ok1 : forall x y : T, semi_dec x y = Some true -> equ x y;
+      semi_dec_ok2 : forall x y : T, semi_dec x y = Some false -> ~equ x y *)
+    }.
+
+  Section RelDec.
+
+    Parameter RD : RelDec equ.
+    Parameter RDC : RelDec_Correct RD.
+
+    Instance SemiDec_RelDec : SemiDec :=
+      { semi_dec :=
+          fun x y => Some (@rel_dec T equ RD x y) }.
+
+    Require Import ExtLib.Tactics.Consider.
+    Instance SemiDec_Correct_RelDec : SemiDec_Correct SemiDec_RelDec.
+    Proof.
+      constructor. unfold semi_dec. simpl. intros. split.
+      { intros. subst. inversion H; subst.
+        consider (x ?[equ] y); tauto. }
+      { intros. inversion H; subst.
+        consider (x ?[equ] y); tauto. }
+    Qed.
+  End RelDec.
+
+  Check RSym.
+
+End SemiDec.
 
 (** It might be convenient to make notation for Rrespects and Rpointwise
  **   a ===> b === Rrespects a b
@@ -197,18 +239,19 @@ Definition Pr {t f rel} (r : R t rel) (e : expr t f) : @HintProper t f rel :=
  **   t ***> b === Rpointwise t b
  ** put them in a separate notation scope
  **)
-Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
-  do_respectful rel_dec
-                ((Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
-                 (Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) :: nil).
 
-Definition get_respectful : respectful_dec typ func Rbase :=
+Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_respectful rel_dec
-                ((Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
-                 (Pr (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) ::
-                 (Pr (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And)) ::
-                 (Pr (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or)) ::
-                 (Pr (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus)) ::
+                ((Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
+                 (Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) :: nil).
+
+Definition get_respectful : ResolveProper typ func Rbase :=
+  do_respectful rel_dec
+                ((Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
+                 (Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) ::
+                 (Pr' (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And)) ::
+                 (Pr' (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or)) ::
+                 (Pr' (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus)) ::
                  nil).
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
@@ -238,69 +281,19 @@ Proof.
     { compute. firstorder. }
 Qed.
 
-(** TODO: Like to figure this out
- **)
-Definition simple_reduce (e : expr typ func) : expr typ func :=
-  run_ptrn
-    (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
-                       App a (Abs c (App (App b d) e)))
-          (app get (abs get (fun t =>
-                               app (app get
-                                        (pmap (fun x => (t,Red.beta x)) get))
-                                   (pmap Red.beta get)))))
-    e e.
-
-(** Rename [lem_rewriter] to [RwAction]
- ** - this is a change in Rewrite.Core
- ** Rename [respectful_dec] to [ResolveProper]
- **)
-
+Require Import MirrorCore.Lambda.Rtac.
 (** lems should be a rewrite database *)
-Definition the_rewrites (lems : list (rw_lemma typ func (expr typ func) *
-                                      CoreK.rtacK typ (expr typ func)))
-: lem_rewriter typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).
+Locate rw_post_simplify.
+Check using_prewrite_db.
 
-Lemma simple_reduce_sound :
-  forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
-         (eD : exprT tus tvs (TypesI.typD t)),
-    ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some eD ->
-    exists eD' : exprT tus tvs (TypesI.typD t),
-      ExprDsimul.ExprDenote.lambda_exprD tus tvs t (simple_reduce e) = Some eD' /\
-      (forall (us : HList.hlist TypesI.typD tus)
-              (vs : HList.hlist TypesI.typD tvs), eD us vs = eD' us vs).
-Proof.
-  unfold simple_reduce.
-  intros.
-  revert H.
-  eapply Ptrns.run_ptrn_sound.
-  { repeat first [ simple eapply ptrn_ok_pmap
-                 | simple eapply ptrn_ok_app
-                 | simple eapply ptrn_ok_abs; intros
-                 | simple eapply ptrn_ok_get
-                 ]. }
-  { do 3 red. intros; subst.
-    reflexivity. }
-  { intros. ptrnE.
-    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
-    inv_all. subst.
-    generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
-    generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
-    simpl. Cases.rewrite_all_goal. intros; forward.
-    erewrite lambda_exprD_App; try eassumption.
-    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
-    2: rewrite typ2_match_iota; eauto with typeclass_instances.
-    2: rewrite type_cast_refl; eauto with typeclass_instances.
-    2: erewrite lambda_exprD_App; try eassumption.
-    3: erewrite lambda_exprD_App; try eassumption; eauto.
-    2: autorewrite_with_eq_rw; reflexivity.
-    simpl. eexists; split; eauto.
-    unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
-    intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
-    f_equal. apply FunctionalExtensionality.functional_extensionality.
-    intros. rewrite H5. rewrite H6. reflexivity. }
-  { eauto. }
-Qed.
+Check CompileHints.
+Require Import MirrorCore.MTypes.ModularTypes.
+
+Definition the_rewrites (lems : RewriteHintDb Rbase (*list (rw_lemma typ func (expr typ func) *
+                                      CoreK.rtacK typ (expr typ func)) *))
+: RwAction typ func Rbase :=
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
+
 
 Theorem the_rewrites_sound
 : forall hints, rewrite_db_sound RbaseD hints ->

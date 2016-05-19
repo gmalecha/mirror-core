@@ -270,30 +270,24 @@ Let local_view : (PartialView@{X} typ (VType 0)) :=
 
 Arguments term {_ _ _} _.
 
-(** TODO: NO Printing *)
-Locate polymorphicD.
-Print Polymorphic.polymorphicD.
-
 Definition PolymorphicD {T} (TD : T -> Prop) n x : Prop :=
   forall (v : Vector.vector typ n),
     TD (Polymorphic.inst x v).
 
-Arguments Build_Proper_concl {_ _ _} _ _.
+(*cArguments l {_ _ _} _ _. *)
 Require Import MirrorCore.Lambda.Polymorphic.
 Require Import MirrorCore.Util.Forwardy.
 
-(* force implementation to be pmaps? (in MTypeUnify - maybe?) (done)
+(* 
    write a convencience wrapper that handles everything for mtyp
    figure out what arguments i want to_respectful/do_prespectful to have
    and then make it have them
  *)
 
-Check do_prespectful.
-
-(** Build_Proper_concl => mkProper **)
-Check @Build_Proper_concl.
+(*
 Definition mkProper {typ func Rbase} (r : R typ Rbase) (e : expr typ func) : Proper_concl Rbase :=
   Build_Proper_concl r e.
+*)
 
 Ltac get_num_arrs t :=
   lazymatch t with
@@ -302,13 +296,13 @@ Ltac get_num_arrs t :=
   | _ => constr:(0)
   end.
 
-Definition get_respectful_only_all_ex : respectful_dec typ func Rbase :=
+Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-                 (@PPr _ _ _ 1 (fun T => mkProper (Rrespects (Rpointwise T flip_impl) flip_impl) (Inj (Ex T))) ::
+                 (@PPr _ _ _ 1 (fun T => MkProper (Rrespects (Rpointwise T flip_impl) flip_impl) (Inj (Ex T))) ::
                   @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
      nil).
 
-Definition get_respectful : respectful_dec typ func Rbase :=
+Definition get_respectful : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
     (@PPr _ _ _ 1 (fun T => {|term := Inj (Ex T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
          @PPr _ _ _ 1 (fun T => {|term := Inj (All T); relation := Rrespects (Rpointwise T flip_impl) flip_impl |}) ::
@@ -369,7 +363,7 @@ Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
 *)
 
 Definition the_rewrites (lems : RewriteHintDb Rbase)
-  : lem_rewriter typ func Rbase :=
+  : RwAction typ func Rbase :=
   (*rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).*)
   rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
 
@@ -417,8 +411,6 @@ Proof.
   { eauto. }
 Qed.
 
-Check RewriteHintDbOk.
-
 Theorem the_rewrites_sound
 : forall hints, RewriteHintDbOk RbaseD hints ->
     setoid_rewrite_spec RbaseD (the_rewrites hints).
@@ -443,10 +435,6 @@ Definition the_lemmas
      @PRw _ _ _ 1 lem_pull_ex_and_right IDTACK ::
      nil.
 
-(* check Polymorphic.v or PolyInst.v  - move the stuff into there. *)
-
-(* need a more convenient interface than raw vectors *)
-(* go from poly n to the actual thing with quantifiers as actual quantifiers *)
 Theorem the_lemmas_sound : RewriteHintDbOk RbaseD the_lemmas.
 Proof.
   repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply IDTACK_sound.
@@ -454,7 +442,7 @@ Proof.
   { unfold polymorphicD. intros. apply lem_pull_ex_and_right_sound. }
 Qed.
 
-Definition pull_all_quant : lem_rewriter typ func Rbase :=
+Definition pull_all_quant : RwAction typ func Rbase :=
   repeat_rewrite (fun e r =>
                     bottom_up (is_reflR is_refl) (is_transR is_trans) (the_rewrites the_lemmas)
                               get_respectful_only_all_ex e r)
@@ -473,7 +461,7 @@ Proof.
   + eapply is_transROk. eapply is_trans_ok.
 Qed.
 
-Definition quant_pull : lem_rewriter _ _ _ :=
+Definition quant_pull : RwAction _ _ _ :=
   bottom_up (is_reflR is_refl) (is_transR is_trans) pull_all_quant get_respectful.
 
 Theorem quant_pull_sound : setoid_rewrite_spec RbaseD quant_pull.
@@ -485,3 +473,5 @@ Proof.
   - eapply pull_all_quant_sound.
   - eapply get_respectful_sound.
 Qed.
+
+(* use mtyps instead of typs in lambda - lambdaMT *)

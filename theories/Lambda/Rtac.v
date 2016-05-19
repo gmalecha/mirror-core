@@ -215,6 +215,65 @@ Section tactics.
     eapply full_reducer_to_reducer_sound. assumption.
   Qed.
 
+  (** Convenience reduction tactic (reduces just the top level of the term
+     rather than descending deeper; can be more efficient) *)
+  Require Import MirrorCore.Lambda.Ptrns. (* for app, abs *)
+  Definition simple_reduce (e : expr typ func) : expr typ func :=
+    run_ptrn
+      (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
+                      App a (Abs c (App (App b d) e)))
+            (app get (abs get (fun t =>
+                                 app (app get
+                                          (pmap (fun x => (t,Red.beta x)) get))
+                                     (pmap Red.beta get)))))
+      e e.
+
+  Require Import MirrorCore.Lambda.Rewrite.BottomUp.
+
+  Lemma simple_reduce_sound :
+    forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
+      (eD : exprT tus tvs (TypesI.typD t)),
+      ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some eD ->
+      exists eD' : exprT tus tvs (TypesI.typD t),
+        ExprDsimul.ExprDenote.lambda_exprD tus tvs t (simple_reduce e) = Some eD' /\
+        (forall (us : HList.hlist TypesI.typD tus)
+           (vs : HList.hlist TypesI.typD tvs), eD us vs = eD' us vs).
+  Proof.
+    unfold simple_reduce.
+    intros.
+    revert H.
+    eapply Ptrns.run_ptrn_sound.
+    { repeat first [ simple eapply ptrn_ok_pmap
+                   | simple eapply ptrn_ok_app
+                   | simple eapply ptrn_ok_abs; intros
+                   | simple eapply ptrn_ok_get
+                   ]. }
+    { do 3 red. intros; subst.
+      reflexivity. }
+    { intros. ptrnE.
+      eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+      inv_all. subst.
+      generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
+      generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
+      simpl. Cases.rewrite_all_goal. intros; forward.
+      erewrite lambda_exprD_App; try eassumption.
+      2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
+      2: rewrite typ2_match_iota; eauto with typeclass_instances.
+      2: rewrite type_cast_refl; eauto with typeclass_instances.
+      2: erewrite lambda_exprD_App; try eassumption.
+      3: erewrite lambda_exprD_App; try eassumption; eauto.
+      2: autorewrite_with_eq_rw; reflexivity.
+      simpl. eexists; split; eauto.
+      unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
+      intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
+      autorewrite_with_eq_rw.
+      f_equal.
+      destruct (eq_sym (typ2_cast x4 x2)).
+      apply FunctionalExtensionality.functional_extensionality.
+      intros. rewrite H5. rewrite H6. reflexivity. }
+    { eauto. }
+  Qed.
+
   Definition INTRO_ptrn (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
   : rtac typ (expr typ func) :=
     INTRO (run_ptrn (pmap Some p) None).
