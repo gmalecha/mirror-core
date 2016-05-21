@@ -19,6 +19,7 @@ Set Strict Implicit.
 
 (* TODO - change typ to mtyp typ' *)
 (* TODO - figure out how to resolve the dependency this creates on PolyRewrite *)
+(* TODO - i think MLambda will resolve this *)
 Let Rbase := expr typ func.
 
 Reify Declare Patterns patterns_concl : (rw_concl typ func Rbase).
@@ -181,83 +182,25 @@ Qed.
 
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
-(** Change this to use a new class SemiDec that looks like RelDec but is only a semi-decideter
- ** - Instance that derives [SemiDec] from [SemiDec typ , SemiDec func => expr typ func]
- ** - Instance that derives [RSym T => SemiDec T]
- **)
-Locate rel_dec.
 
-Print ExtLib.Core.RelDec.
+Require Import MirrorCore.Lambda.Rewrite.Respectful.
+Local Open Scope Rrespects_scope.
+  Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
+    do_respectful rel_dec
+                  ((Pr' ((tyNat ***> flip_impl) ===> flip_impl) (Inj (Ex tyNat))) ::
+                                                                                  (Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) :: nil).
 
-Section SemiDec.
+  Definition get_respectful : ResolveProper typ func Rbase :=
+    do_respectful rel_dec
+                  ((Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
+                                                                                             (Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) ::
+                                                                                             (Pr' (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And)) ::
+                                                                                             (Pr' (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or)) ::
+                                                                                             (Pr' (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus)) ::
+                                                                                             nil).
 
-  Parameter T : Type.
-  Parameter equ : T -> T -> Prop.
+  Local Close Scope Rrespects_scope.
 
-  Class SemiDec : Type :=
-    { semi_dec : T -> T -> option bool }.
-
-  (* unsure what the right arguments are *)
-  Arguments semi_dec {_} !x !y.
-
-  (** TODO: is this the correctness interface we want *)
-  Class SemiDec_Correct (ES : SemiDec) : Prop :=
-    {
-      semi_dec_ok : forall (x y : T) (b : bool), semi_dec x y = Some b -> (b = true <-> equ x y)
-      (*semi_dec_ok1 : forall x y : T, semi_dec x y = Some true -> equ x y;
-      semi_dec_ok2 : forall x y : T, semi_dec x y = Some false -> ~equ x y *)
-    }.
-
-  Section RelDec.
-
-    Parameter RD : RelDec equ.
-    Parameter RDC : RelDec_Correct RD.
-
-    Instance SemiDec_RelDec : SemiDec :=
-      { semi_dec :=
-          fun x y => Some (@rel_dec T equ RD x y) }.
-
-    Require Import ExtLib.Tactics.Consider.
-    Instance SemiDec_Correct_RelDec : SemiDec_Correct SemiDec_RelDec.
-    Proof.
-      constructor. unfold semi_dec. simpl. intros. split.
-      { intros. subst. inversion H; subst.
-        consider (x ?[equ] y); tauto. }
-      { intros. inversion H; subst.
-        consider (x ?[equ] y); tauto. }
-    Qed.
-  End RelDec.
-
-  Check RSym.
-
-End SemiDec.
-
-(** It might be convenient to make notation for Rrespects and Rpointwise
- **   a ===> b === Rrespects a b
- **   a +++> b === Rrespects a b
- **   a ---> b === Rrespects (Rflip a) b
- **   t ***> b === Rpointwise t b
- ** put them in a separate notation scope
- **)
-
-Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
-  do_respectful rel_dec
-                ((Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
-                 (Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) :: nil).
-
-Definition get_respectful : ResolveProper typ func Rbase :=
-  do_respectful rel_dec
-                ((Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (Ex tyNat))) ::
-                 (Pr' (Rrespects (Rpointwise tyNat flip_impl) flip_impl) (Inj (All tyNat))) ::
-                 (Pr' (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj And)) ::
-                 (Pr' (Rrespects flip_impl (Rrespects flip_impl flip_impl)) (Inj Or)) ::
-                 (Pr' (Rrespects (Rinj (Inj (Eq tyNat))) (Rrespects (Rinj (Inj (Eq tyNat))) (Rinj (Inj (Eq tyNat))))) (Inj Plus)) ::
-                 nil).
-
-Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
-      (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
-: forall a b : T, a ?[ rT ] b = true -> rT a b.
-Proof. intros. consider (a ?[ rT ] b); auto. Qed.
 
 Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
@@ -281,12 +224,10 @@ Proof.
     { compute. firstorder. }
 Qed.
 
+(* TODO: The rest of this file is broken, and essentially is subsumed by
+   PolyQuantpullRtac anyway. We should figure out whether to remove it. *)
+(*
 Require Import MirrorCore.Lambda.Rtac.
-(** lems should be a rewrite database *)
-Locate rw_post_simplify.
-Check using_prewrite_db.
-
-Check CompileHints.
 Require Import MirrorCore.MTypes.ModularTypes.
 
 Definition the_rewrites (lems : RewriteHintDb Rbase (*list (rw_lemma typ func (expr typ func) *
@@ -303,12 +244,7 @@ Proof.
   eapply rw_post_simplify_sound.
   { eapply simple_reduce_sound. }
   eapply rw_simplify_sound.
-  { (** This type should be named
-     ** It might already be named but it should have a better name.
-     ** Probably the code from RTac/Simplify.v or something that is pretty close to it
-     ** And then, Red and RedAll should export functions that have this type.
-     **)
-    intros.
+  { intros.
     generalize (Red.beta_sound tus tvs e t). rewrite H0.
     intros; forward. eauto. }
   eapply using_rewrite_db_sound; eauto.
@@ -363,3 +299,4 @@ Proof.
   - eapply pull_all_quant_sound.
   - eapply get_respectful_sound.
 Qed.
+*)

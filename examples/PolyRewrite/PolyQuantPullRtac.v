@@ -296,6 +296,7 @@ Ltac get_num_arrs t :=
   | _ => constr:(0)
   end.
 
+(* TODO: Use the new notations *)
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
                  (@PPr _ _ _ 1 (fun T => MkProper (Rrespects (Rpointwise T flip_impl) flip_impl) (Inj (Ex T))) ::
@@ -364,7 +365,6 @@ Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
 
 Definition the_rewrites (lems : RewriteHintDb Rbase)
   : RwAction typ func Rbase :=
-  (*rw_post_simplify simple_reduce (rw_simplify Red.beta (using_rewrite_db rel_dec lems)).*)
   rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
 
 Lemma simple_reduce_sound :
@@ -419,6 +419,11 @@ Proof.
   eapply rw_post_simplify_sound.
   { eapply simple_reduce_sound. }
   eapply rw_simplify_sound.
+  (** This type should be named
+     ** It might already be named but it should have a better name.
+     ** Probably the code from RTac/Simplify.v or something that is pretty close to it
+     ** And then, Red and RedAll should export functions that have this type.
+     **)
   { intros.
     generalize (Red.beta_sound tus tvs e t). rewrite H0.
     intros; forward. eauto. }

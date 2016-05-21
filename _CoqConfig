@@ -50,6 +50,7 @@ theories/Util/Quant.v
 theories/Util/Nat.v
 theories/Util/HListBuild.v
 theories/Util/Compat.v
+theories/Util/SemiDec.v
 
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
@@ -174,10 +175,6 @@ examples/Simple/FoldTest.v
 examples/Reify/ModularReify.v
 
 examples/RTac/Demo.v
-
-examples/AutoRewrite/QuantPullRtac.v
-examples/AutoRewrite/DemoQuantPullRtac.v
-examples/AutoRewrite/DemoQuantPullLtac.v
 
 examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v

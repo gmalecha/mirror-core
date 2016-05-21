@@ -435,3 +435,15 @@ Section setoid.
   Qed.
 
 End setoid.
+
+(**
+      Helpful notations for workign with Respectfulness,
+      based on the ones in Coq's standard library.
+ *)
+Delimit Scope Rrespects_scope with Rresp.
+(** These are the same associativities and precedences as the respectfulness
+   noations in the standard library *)
+Notation "a ===> b" := (Rrespects a b) (right associativity, at level 55) : Rrespects_scope.
+Notation "a +++> b" := (Rrespects a b) (right associativity, at level 55) : Rrespects_scope.
+Notation "a ---> b" := (Rrespects (Rflip a) b) (right associativity, at level 55) : Rrespects_scope.
+Notation "t ***> b" := (Rpointwise t b) (right associativity, at level 55) : Rrespects_scope.
