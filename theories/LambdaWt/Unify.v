@@ -2,7 +2,9 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.LambdaWt.DepUtil.
 Require Import MirrorCore.LambdaWt.WtExpr.
+Require Import MirrorCore.LambdaWt.WtMigrator.
 Require Import MirrorCore.LambdaWt.SubstWt.
 
 Set Implicit Arguments.
@@ -69,52 +71,8 @@ Section unify.
   Definition unify_spec {tus} (i i' : Inst tus) {tvs t}
              (e1 e2 : wtexpr tus tvs t)
   : Prop :=
-    Inst_evolves (migrator_id _ _) i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
+    Inst_evolves migrator_id i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
 
-  Lemma hlist_get_member_lift'
-    : forall tus tvsX tvs tvs' tvs''
-             (xs : hlist (wtexpr tus tvsX) tvs)
-             (xs' : hlist (wtexpr tus tvsX) tvs')
-             (xs'' : hlist (wtexpr tus tvsX) tvs'')
-             t Z
-             (pf : Z = (List.app tvs'' tvs))
-             (m : member t Z),
-      hlist_get (member_lift tvs tvs' tvs'' match pf with
-                                            | eq_refl => m
-                                            end) (hlist_app xs'' (hlist_app xs' xs)) =
-      hlist_get match pf with
-                | eq_refl => m
-                end (hlist_app xs'' xs).
-  Proof using.
-    clear.
-    induction tvs''; simpl.
-    { intros; subst. rewrite (hlist_eta xs''). simpl.
-      clear.
-      induction xs'.
-      { reflexivity. }
-      { simpl. eauto. } }
-    { clear - IHtvs''.
-      intros; subst.
-      destruct (member_case m).
-      { destruct H. subst. simpl. rewrite (hlist_eta xs'').
-        reflexivity. }
-      { destruct H. subst. simpl. rewrite (hlist_eta xs''). simpl.
-        specialize (IHtvs'' xs xs' (hlist_tl xs'') t _ eq_refl).
-        simpl in *. eauto. } }
-  Qed.
-
-  Lemma hlist_get_member_lift
-  : forall tus tvsX tvs tvs' tvs''
-           (xs : hlist (wtexpr tus tvsX) tvs)
-           (xs' : hlist (wtexpr tus tvsX) tvs')
-           (xs'' : hlist (wtexpr tus tvsX) tvs'')
-           t
-           (m : member t (List.app tvs'' tvs)),
-      hlist_get (member_lift tvs tvs' tvs'' m) (hlist_app xs'' (hlist_app xs' xs)) =
-      hlist_get m (hlist_app xs'' xs).
-  Proof using.
-    intros. eapply hlist_get_member_lift' with (pf:=eq_refl).
-  Qed.
 
   Lemma subst_lift'
   : forall (tus : list Tuvar) t tux
@@ -148,7 +106,7 @@ Section unify.
                    wtexpr_lift (d :: nil) nil e0).
       specialize (IHe _ _ _ (d :: tvs'')
                       (hlist_map s xs) (hlist_map s xs')
-                      (Hcons (wtVar Esymbol tus (MZ d tvsX))
+                      (Hcons (wtVar (MZ d tvsX))
                              (hlist_map s xs'')) eq_refl).
       simpl in *.
       repeat rewrite hlist_app_hlist_map.
@@ -209,13 +167,13 @@ Section unify.
   Proof.
     induction e; simpl in *.
     { intros.
-      generalize (find_in_hlist_ok R (wtVar Esymbol tus m) xs).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtVar Esymbol tus m)); try congruence.
+      generalize (find_in_hlist_ok R (wtVar m) xs).
+      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtVar m)); try congruence.
       intros. eapply H0 in H; clear H0.
       auto. }
     { intros.
-      generalize (find_in_hlist_ok R (wtInj Esymbol tus tvs t m) xs).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtInj Esymbol tus tvs t m));
+      generalize (find_in_hlist_ok R (wtInj m) xs).
+      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtInj m));
         try congruence.
       { intro. apply H0 in H; clear H0. auto. }
       { inv_all. subst. intros. reflexivity. } }
@@ -252,9 +210,9 @@ Section unify.
   Qed.
 
   Lemma wtexpr_equiv_Unifiable_eq_Inst_evolves:
-    forall (tus : list (WtExpr.Tuvar Tsymbol)) (tvs : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+    forall (tus : list (WtExpr.Tuvar Tsymbol)) (tvs : list type) (t : type)
            (s s' : Inst tus),
-      Inst_evolves (migrator_id Esymbol tus) s s' ->
+      Inst_evolves migrator_id s s' ->
       forall (x y : WtExpr.wtexpr Esymbol tus tvs t),
         wtexpr_equiv (Unifiable_eq s) x y ->
         wtexpr_equiv (Unifiable_eq s') x y.
@@ -266,9 +224,9 @@ Section unify.
     { constructor.
       destruct pf; [ left; specialize (H _ _ a b)
                    | right; specialize (H _ _ b a) ]; subst.
-      repeat rewrite migrate_expr_migrate_id in H.
+      repeat rewrite migrate_expr_migrator_id in H.
       eapply H. eapply H0.
-      repeat rewrite migrate_expr_migrate_id in H.
+      repeat rewrite migrate_expr_migrator_id in H.
       eapply H. eapply H0. }
     { eapply eqTrans; eassumption. }
   Qed.
@@ -308,7 +266,7 @@ Section unify.
 
     Fixpoint unify_list {ts} (e1 e2 : hlist (wtexpr tus tvs) ts)
              (s : Inst tus) {struct e1}
-      : option (Inst tus) :=
+    : option (Inst tus) :=
       match e1 in hlist _ ts
             return hlist (wtexpr tus tvs) ts -> option (Inst tus)
       with
@@ -332,12 +290,6 @@ Section unify.
 
 
   Variable unifyRec : Unifier.
-
-  Arguments wtVar {_ _ _ _ _} _.
-  Arguments wtInj {_ _ _ _ _} _.
-  Arguments wtUVar {_ _ _ _ _ _} _ _.
-  Arguments wtApp {_ _ _ _ _ _} _ _.
-  Arguments wtAbs {_ _ _ _ _ _} _.
 
   Fixpoint unify {tus tvs t} (e1 e2 : wtexpr tus tvs t) (s : Inst tus)
            {struct e1}
@@ -446,18 +398,22 @@ Section unify.
      end e2).
   Defined.
 
-  Instance Reflexive_Inst_evolves tus : Reflexive (@Inst_evolves _ _ _ _ _ tus tus (migrator_id _ _)).
+  Instance Reflexive_Inst_evolves tus
+  : Reflexive (@Inst_evolves _ _ _ _ _ tus tus migrator_id).
   Proof.
     (* Coq bug! compute. *)
     repeat red. intros.
-    repeat rewrite migrate_expr_migrate_id in H.
+    repeat rewrite migrate_expr_migrator_id.
     assumption.
   Qed.
-  Instance Transitive_Inst_evolves tus : Transitive (@Inst_evolves _ _ _ _ _ tus tus (migrator_id _ _)).
+  Instance Transitive_Inst_evolves tus
+  : Transitive (@Inst_evolves _ _ _ _ _ tus tus migrator_id).
   Proof.
     repeat red. intros.
     eapply H0.
-    repeat rewrite migrate_expr_migrate_id.
+    red in H. red in H.
+    specialize (H _ _ e1 e2).
+    repeat rewrite migrate_expr_migrator_id in H.
     eapply H.
     assumption.
   Qed.
@@ -613,7 +569,7 @@ Section unify.
         { clear - H H0.
           intros. specialize (H1 _ eq_refl). subst. simpl in *.
           red.
-          cut (Inst_evolves (migrator_id _ _) i i' /\
+          cut (Inst_evolves migrator_id i i' /\
                hlist_Forall2 (wtexpr_equiv (Unifiable_eq i') (tvs:=tvs)) xs h).
           { destruct 1; split; eauto using eqUVar. }
           clear u.
@@ -676,8 +632,8 @@ Section funify.
   (** NOTE: Terms are eta-expanded to avoid partial application
    **)
   Local Fixpoint funify' (k : _ -> _) (p : positive)
-           (tus : list (WtExpr.Tuvar Tsymbol))
-           (tvs : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+           (tus : list Tuvar)
+           (tvs : list type) (t : type)
            (e1 e2 : WtExpr.wtexpr Esymbol tus tvs t)
            (inst : Inst tus) {struct p}
   : option (Inst tus) :=
@@ -723,8 +679,8 @@ Section funify.
   Qed.
 
   Definition funify (p : positive) : Unifier Esymbol Inst :=
-    fun (tus : list (WtExpr.Tuvar Tsymbol))
-        (tvs : list (WtExpr.type Tsymbol)) (t : WtExpr.type Tsymbol)
+    fun (tus : list Tuvar)
+        (tvs : list type) (t : type)
         (e1 e2 : WtExpr.wtexpr Esymbol tus tvs t)
         (inst : Inst tus) =>
     @funify' unifyX p tus tvs t e1 e2 inst.

@@ -2,6 +2,8 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.LambdaWt.DepUtil.
+Require Import MirrorCore.LambdaWt.WtType.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -13,46 +15,17 @@ Section simple_dep_types.
   Variable Tsymbol : Type.
   Variable TsymbolD : Tsymbol -> Type@{Urefl}.
 
-  Inductive type : Type :=
-  | TArr : type -> type -> type
-  | TInj : Tsymbol -> type.
-
-  Fixpoint typeD (t : type) : Type@{Urefl} :=
-    match t with
-    | TArr a b => typeD a -> typeD b
-    | TInj s => TsymbolD s
-    end.
-
   Variable Tsymbol_eq_dec : forall a b : Tsymbol, {a = b} + {a <> b}.
 
-  (** TODO: If we move to a weaker notion of types, e.g. with reduction,
-   ** we're going to need a weaker equivalence relation
-   **)
-  Fixpoint type_eq_dec (t t' : type) : {t = t'} + {t <> t'}.
-  refine
-    match t as t , t' as t' return {t = t'} + {t <> t'} with
-    | TInj a , TInj b => match Tsymbol_eq_dec a b with
-                         | left pf => left (f_equal _ pf)
-                         | right pf => right _
-                         end
-    | TArr d c , TArr d' c' => match type_eq_dec d d'
-                                   , type_eq_dec c c'
-                               with
-                               | left pf , left pf' => left _
-                               | _ , _ => right _
-                               end
-    | _ , _ => right _
-    end; try congruence.
-  Defined.
+  Variable Esymbol : type Tsymbol -> Type.
+  Variable EsymbolD : forall t, Esymbol t -> typeD TsymbolD t.
 
-  Variable Esymbol : type -> Type.
-  Variable EsymbolD : forall t, Esymbol t -> typeD t.
-
-  Definition Tuvar : Type := list type * type.
+  Definition Tuvar : Type := list (type Tsymbol) * type Tsymbol.
 
   (** A guaranteed well-typed expr **)
   Unset Elimination Schemes.
-  Inductive wtexpr (tus : list Tuvar) (tvs : list type) : type -> Type :=
+  Inductive wtexpr (tus : list Tuvar) (tvs : list (type Tsymbol))
+  : type Tsymbol -> Type :=
   | wtVar : forall t, member t tvs -> wtexpr tus tvs t
   | wtInj : forall t, Esymbol t -> wtexpr tus tvs t
   | wtApp : forall d r, wtexpr tus tvs (TArr d r) ->
@@ -64,27 +37,6 @@ Section simple_dep_types.
 
   Arguments wtInj {_ _ _} _.
   Arguments wtVar {_ _ _} _.
-
-  Section hlist_Forall.
-    Context {T : Type} {F G : T -> Type}.
-    Variable P : forall t, F t -> Prop.
-    Inductive hlist_Forall : forall ts, hlist F ts -> Prop :=
-    | hlist_Forall_nil : @hlist_Forall nil Hnil
-    | hlist_Forall_cons : forall t ts x xs,
-        @P t x ->
-        @hlist_Forall ts xs ->
-        @hlist_Forall (t :: ts) (Hcons x xs).
-
-    Variable R : forall t, F t -> G t -> Prop.
-    Inductive hlist_Forall2 : forall ts, hlist F ts -> hlist G ts -> Prop :=
-    | hlist_Forall2_nil : @hlist_Forall2 nil Hnil Hnil
-    | hlist_Forall2_cons : forall t ts x xs y ys,
-        @R t x y ->
-        @hlist_Forall2 ts xs ys ->
-        @hlist_Forall2 (t :: ts) (Hcons x xs) (Hcons y ys).
-  End hlist_Forall.
-  Arguments hlist_Forall_nil {_ _ _}.
-  Arguments hlist_Forall_cons {_ _ _ _ _ _ _} _ _.
 
   Section ind.
     Variable tus : list Tuvar.
@@ -117,7 +69,7 @@ Section simple_dep_types.
 
   Section ind_app.
     Variable tus : list Tuvar.
-    Variable tvs : list type.
+    Variable tvs : list (type Tsymbol).
     Variable P : forall tvs' t, wtexpr tus (tvs' ++ tvs) t -> Prop.
     Hypothesis Hvar : forall tvs t m, @P tvs t (wtVar m).
     Hypothesis Hinj : forall tvs t m, @P tvs t (wtInj m).
@@ -145,39 +97,11 @@ Section simple_dep_types.
       end.
   End ind_app.
 
-
-  Section Forall2.
-    Context {T U : Type}.
-    Variable P : T -> U -> Prop.
-    Inductive Forall2 : list T -> list U -> Prop :=
-    | Forall2nil : Forall2 nil nil
-    | Forall2cons : forall x xs y ys, P x y -> Forall2 xs ys ->
-                                      Forall2 (x :: xs) (y :: ys).
-  End Forall2.
-
-  Section hlist_Forall2.
-    Context {T : Type} {F : T -> Type} {G : forall x, F x -> F x -> Prop}
-            (P : forall x (a b : F x), G x a b -> Prop).
-
-    Variable R : forall t (a b : F t), G a b -> Prop.
-    Inductive hlist_Forall2_dep
-    : forall ts (a b : hlist F ts), hlist_Forall2 G a b -> Prop :=
-    | hlist_Forall2_dep_nil :
-        @hlist_Forall2_dep nil Hnil Hnil (@hlist_Forall2_nil _ _ _ _)
-    | hlist_Forall2_dep_cons : forall t ts x xs y ys pf pfs,
-        P pf ->
-        @hlist_Forall2_dep ts xs ys pfs ->
-        @hlist_Forall2_dep (t :: ts) (Hcons x xs) (Hcons y ys)
-                           (@hlist_Forall2_cons T F F G t ts _ _ _ _ pf pfs).
-
-  End hlist_Forall2.
-
-
   Section equiv.
     Context {tus : list Tuvar}.
     Variables R : forall tvs t, wtexpr tus tvs t -> wtexpr tus tvs t -> Prop.
     Unset Elimination Schemes.
-    Inductive wtexpr_equiv (tvs : list type)
+    Inductive wtexpr_equiv (tvs : list (type Tsymbol))
     : forall t, wtexpr tus tvs t -> wtexpr tus tvs t -> Prop :=
     | eqVar : forall {t} m, @wtexpr_equiv tvs t (wtVar m) (wtVar m)
     | eqInj : forall {t} f, @wtexpr_equiv tvs t (wtInj f) (wtInj f)
@@ -228,7 +152,8 @@ Section simple_dep_types.
       Theorem wtexpr_equiv_ind : forall tvs t a b pf,
           @P tvs t a b pf.
       Proof.
-        refine (fix rec (tvs : list type) (t : type) (a b : wtexpr tus tvs t)
+        refine (fix rec (tvs : list (type Tsymbol))
+                    (t : type Tsymbol) (a b : wtexpr tus tvs t)
                     (pf : wtexpr_equiv a b) {struct pf} : P pf :=
                   match pf as pf in @wtexpr_equiv _ t a b
                         return P pf
@@ -285,40 +210,44 @@ Section simple_dep_types.
 
   End equiv.
 
-  Definition Uenv (tus : list Tuvar) : Type :=
-    hlist (fun tst => hlist typeD (fst tst) -> typeD (snd tst)) tus.
+  Definition Uenv : list Tuvar -> Type :=
+    hlist (fun tst => hlist (typeD TsymbolD) (fst tst) ->
+                      typeD TsymbolD (snd tst)).
 
-  Definition Venv (tvs : list type) : Type :=
-    hlist typeD tvs.
+  Definition Venv : list (type Tsymbol) -> Type :=
+    hlist (typeD TsymbolD).
 
-  Definition exprT (tus : list Tuvar) (tvs : list type) (t : Type) : Type :=
+  Definition exprT (tus : list Tuvar) (tvs : list (type Tsymbol)) (t : Type)
+  : Type :=
     Uenv tus -> Venv tvs -> t.
 
   Global Instance Applicative_exprT {tus tvs} : Applicative (exprT tus tvs) :=
   { pure := fun _ x _ _ => x
   ; ap   := fun _ _ f x us vs => (f us vs) (x us vs) }.
 
-  Definition Pure_exprT {tus} {tvs} {t} (val : typeD t) : exprT tus tvs (typeD t) :=
+  Definition Pure_exprT {tus} {tvs} {t} (val : typeD TsymbolD t)
+  : exprT tus tvs (typeD TsymbolD t) :=
     fun _ _ => val.
-  Definition Ap_exprT {tus} {tvs} {d c} (f : exprT tus tvs (typeD (TArr d c)))
-    (x : exprT tus tvs (typeD d)) : exprT tus tvs (typeD c) :=
+  Definition Ap_exprT {tus} {tvs} {d c} (f : exprT tus tvs (typeD TsymbolD (TArr d c)))
+    (x : exprT tus tvs (typeD TsymbolD d)) : exprT tus tvs (typeD TsymbolD c) :=
     fun us vs => (f us vs) (x us vs).
-  Definition Abs_exprT {tus} {tvs} {d c} (f : exprT tus (d :: tvs) (typeD c))
-  : exprT tus tvs (typeD (TArr d c)) :=
+  Definition Abs_exprT {tus} {tvs} {d c} (f : exprT tus (d :: tvs) (typeD TsymbolD c))
+  : exprT tus tvs (typeD TsymbolD (TArr d c)) :=
     fun us vs x => f us (Hcons x vs).
-  Definition Var_exprT {tus} {tvs} {t} (m : member t tvs) : exprT tus tvs (typeD t) :=
+  Definition Var_exprT {tus} {tvs} {t} (m : member t tvs)
+  : exprT tus tvs (typeD TsymbolD t) :=
     fun _ => hlist_get m.
   Definition UVar_exprT {tus} {tvs} {ts} {t} (m : member (ts,t) tus)
-             (es : hlist (fun t => exprT tus tvs (typeD t)) ts)
-  : exprT tus tvs (typeD t) :=
+             (es : hlist (fun t => exprT tus tvs (typeD TsymbolD t)) ts)
+  : exprT tus tvs (typeD TsymbolD t) :=
     fun us vs =>
       let u := hlist_get m us in
-      u (hlist_map (fun t (v : exprT tus tvs (typeD t)) => v us vs) es).
+      u (hlist_map (fun t (v : exprT tus tvs (typeD TsymbolD t)) => v us vs) es).
 
-  Fixpoint wtexprD (tus : list Tuvar) (tvs : list type) (t : type)
+  Fixpoint wtexprD (tus : list Tuvar) (tvs : list (type Tsymbol)) (t : type Tsymbol)
            (e : wtexpr tus tvs t)
-  : exprT tus tvs (typeD t) :=
-    match e in wtexpr _ _ t return exprT tus tvs (typeD t) with
+  : exprT tus tvs (typeD TsymbolD t) :=
+    match e in wtexpr _ _ t return exprT tus tvs (typeD _ t) with
     | wtVar x => Var_exprT x
     | wtInj s => Pure_exprT (EsymbolD s)
     | wtApp f x => Ap_exprT (wtexprD f) (wtexprD x)
@@ -328,120 +257,6 @@ Section simple_dep_types.
 
   Variable Esymbol_eq_dec : forall {t} (a b : Esymbol t), {a = b} + {a <> b}.
 
-  (** * Auxiliary Functions **)
-
-  Section member_eq_dec.
-    Context {T : Type}.
-    Context {T_dec : forall a b : T, {a = b} + {a <> b}}.
-    Fixpoint member_eq_dec ts (t : T) (a : member t ts)
-    : forall b,  {a = b} + {a <> b}.
-    refine
-      match a in member _ ts
-            return forall b : member t ts, {a = b} + {a <> b}
-      with
-      | MZ _ _ => fun b =>
-        match b as b in member _ (t' :: l)
-              return forall pf : t' = t,
-            {MZ t l = match pf with
-                      | eq_refl => b
-                      end} +
-            {MZ t l <> match pf with
-                       | eq_refl => b
-                       end}
-        with
-        | MZ _ ls => fun pf => left _
-        | MN _ _ => fun pf => right _
-        end eq_refl
-      | MN _ m => fun b =>
-        match b as b in member _ (t' :: l)
-              return forall m, (forall x, {m = x} + {m <> x}) ->
-                            {MN _ m = b} + {MN _ m <> b}
-        with
-        | MZ _ _ => fun _ _ => right _
-        | MN _ m => fun _ rec => match rec m with
-                                 | left pf => left _
-                                 | right pf => right _
-                                 end
-        end m (fun x => member_eq_dec _ _ m x)
-      end.
-    destruct (eq_sym (UIP_refl pf)). reflexivity.
-    clear - pf. subst. intro. inversion H.
-    clear. intro. inversion H.
-    f_equal. assumption.
-    clear - pf T_dec. intro. apply pf. inversion H.
-    eapply Eqdep_dec.inj_pair2_eq_dec in H1. assumption.
-    eapply List.list_eq_dec. eassumption.
-    Unshelve. eapply T_dec.
-    Defined.
-
-    Require Import Coq.Lists.List.
-
-    Section with_t.
-      Context {t : T}.
-      Fixpoint member_weaken {ls} ls'
-      : member t ls -> member t (ls' ++ ls) :=
-        match ls' as ls'
-              return member t ls -> member t (ls' ++ ls)
-        with
-        | nil => fun x => x
-        | l :: ls' => fun x => MN _ (member_weaken ls' x)
-        end.
-
-      Fixpoint member_lift ls ls' ls''
-      : member t (ls'' ++ ls) -> member t (ls'' ++ ls' ++ ls) :=
-        match ls'' as ls''
-              return member t (ls'' ++ ls) -> member t (ls'' ++ ls' ++ ls)
-        with
-        | nil => member_weaken ls'
-        | l :: ls'' => fun m =>
-          match m in member _ (x :: xs)
-                return forall xs', (member t xs -> member t xs') ->
-                                   member t (x :: xs')
-          with
-          | MZ _ _ => fun _ _ => MZ _ _
-          | MN _ m => fun _ rec => MN _ (rec m)
-          end _ (member_lift  ls ls' ls'')
-        end.
-    End with_t.
-  End member_eq_dec.
-
-
-  Definition codom (t : type) : type :=
-    match t with
-    | TArr _ c => c
-    | _ => t
-    end.
-
-  Definition dom (t : type) : type :=
-    match t with
-    | TArr d _ => d
-    | _ => t
-    end.
-
-  Section hlist_eq_dec.
-    Context {T : Type} {F : T -> Type}.
-    Variable F_dec : forall t (a b : F t), {a = b} + {a <> b}.
-    Fixpoint hlist_eq_dec {ls} (a : hlist F ls)
-    : forall b : hlist F ls, {a = b} + {a <> b}.
-    refine
-      match a as a in hlist _ ls
-            return forall b : hlist F ls, {a = b} + {a <> b}
-      with
-      | Hnil => fun x => left _
-      | Hcons x xs => fun b =>
-                        match F_dec x (hlist_hd b)
-                            , hlist_eq_dec _ xs (hlist_tl b)
-                        with
-                        | left pf , left pf' => left _
-                        | _ , _ => right _
-                        end
-      end.
-    { symmetry. apply (hlist_eta x). }
-    { rewrite hlist_eta. congruence. }
-    { clear - n. intro; subst. simpl in *. auto. }
-    { clear - n. intro; subst. simpl in *. auto. }
-    Defined.
-  End hlist_eq_dec.
 
 (*
   Fixpoint member_check_eq {tus} {ts ts' : list type} {t : type}
@@ -484,7 +299,8 @@ Section simple_dep_types.
       end.
 *)
 
-  Fixpoint member_check_eq {tus} {ts ts' : list type} {t : type}
+  Fixpoint member_check_eq {tus} {ts ts' : list (type Tsymbol)}
+           {t : type Tsymbol}
            (m1 : member (ts,t) tus)
   : member (ts',t) tus -> option (ts = ts') :=
       match m1 in member _ tus
@@ -506,20 +322,6 @@ Section simple_dep_types.
         end (fun m2' => @member_check_eq _ _ _ _ m1' m2')
       end.
 
-  (** TODO(gmalecha): Move to ExtLib **)
-  Definition pair_eq_dec {T U} (T_dec : forall a b : T, {a = b} + {a <> b})
-             (U_dec : forall a b : U, {a = b} + {a <> b})
-    : forall a b : T * U, {a = b} + {a <> b}.
-    refine
-      (fun a b =>
-         match a as a , b as b with
-         | (l,r) , (l',r') => match T_dec l l' , U_dec r r' with
-                              | left pf , left pf' => left _
-                              | _ , _ => right _
-                              end
-         end); subst; auto. congruence. congruence.
-  Defined.
-
   Lemma wtVar_inj : forall tus tvs t v v',
       @wtVar tus tvs t v = wtVar v' ->
       v = v'.
@@ -528,6 +330,7 @@ Section simple_dep_types.
     inversion 1.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply type_eq_dec.
+    eapply Tsymbol_eq_dec.
   Defined.
   Lemma wtInj_inj : forall tus tvs t v v',
       @wtInj tus tvs t v = wtInj v' ->
@@ -537,6 +340,7 @@ Section simple_dep_types.
     inversion 1.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply type_eq_dec.
+    eapply Tsymbol_eq_dec.
   Defined.
   Lemma wtAbs_inj : forall tus tvs d c e e',
       @wtAbs tus tvs d c e = wtAbs e' ->
@@ -545,7 +349,7 @@ Section simple_dep_types.
     intros. inversion H.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
-    all: eapply type_eq_dec.
+    all: eapply type_eq_dec; eapply Tsymbol_eq_dec.
   Defined.
   Lemma wtApp_inj : forall tus tvs d c f f' x x',
       @wtApp tus tvs d c f x = wtApp f' x' ->
@@ -555,7 +359,7 @@ Section simple_dep_types.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply Eqdep_dec.inj_pair2_eq_dec in H2; auto.
-    all: eapply type_eq_dec.
+    all: eapply type_eq_dec; eapply Tsymbol_eq_dec.
   Defined.
   Lemma wtUVar_inj : forall tus tvs ts t u u' xs xs',
       @wtUVar tus tvs ts t u xs = wtUVar u' xs' ->
@@ -565,7 +369,7 @@ Section simple_dep_types.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply Eqdep_dec.inj_pair2_eq_dec in H1; auto.
     eapply Eqdep_dec.inj_pair2_eq_dec in H2; auto.
-    all: try apply list_eq_dec; eapply type_eq_dec.
+    all: try apply List.list_eq_dec; eapply type_eq_dec; eapply Tsymbol_eq_dec.
   Defined.
 
   Fixpoint wtexpr_eq_dec {tus tvs t} (a : wtexpr tus tvs t)
@@ -580,7 +384,7 @@ Section simple_dep_types.
           { wtVar x = b } + { wtVar x <> b }
       with
       | wtVar v' => fun v =>
-        match member_eq_dec (T_dec:=type_eq_dec) v v' with
+        match member_eq_dec (T_dec:=type_eq_dec Tsymbol_eq_dec) v v' with
         | left pf => left _
         | right pf => right _
         end
@@ -605,7 +409,7 @@ Section simple_dep_types.
           { wtApp f x = b } + { wtApp f x <> b }
       with
       | @wtApp _ _ d' c' f' x' => fun f x rec_f rec_x =>
-        match type_eq_dec d' d with
+        match type_eq_dec Tsymbol_eq_dec d' d with
         | left pf =>
           match rec_f match pf with
                       | eq_refl => f'
@@ -648,7 +452,7 @@ Section simple_dep_types.
                       {wtUVar u xs = b} + {wtUVar u xs <> b}
       with
       | @wtUVar _ _ ts' t' u' xs' => fun u xs rec =>
-        match list_eq_dec type_eq_dec ts' ts with
+        match List.list_eq_dec (type_eq_dec Tsymbol_eq_dec) ts' ts with
         | left pf =>
           match member_eq_dec u match pf with
                                 | eq_refl => u'
@@ -665,6 +469,7 @@ Section simple_dep_types.
       | _ => fun _ _ _ => right _
       end u xs (fun xs' => hlist_eq_dec (wtexpr_eq_dec _ _) xs xs')
     end; try solve [ clear; intro H; inversion H | subst; reflexivity | congruence ].
+
   - intro. eapply wtVar_inj in H. auto.
   - intro. eapply wtInj_inj in H. auto.
   - intro. subst. eapply wtApp_inj in H. tauto.
@@ -675,7 +480,7 @@ Section simple_dep_types.
   - destruct t1; auto; clear. intro H; inversion H.
   - intro. eapply wtAbs_inj in H. tauto.
   - destruct t0; auto. clear; intro H; inversion H.
-  - eapply pair_eq_dec. eapply list_eq_dec. eapply type_eq_dec. eapply type_eq_dec.
+  - eapply pair_eq_dec; try eapply List.list_eq_dec; eapply type_eq_dec; eapply Tsymbol_eq_dec.
   - subst. intro. apply wtUVar_inj in H. tauto.
   - subst. intro. apply wtUVar_inj in H; tauto.
   - intro. inversion H. congruence.
@@ -703,7 +508,7 @@ Section simple_dep_types.
     with
     | Hnil => None
     | @Hcons _ _ t' _ x' xs =>
-      match type_eq_dec t' t with
+      match type_eq_dec Tsymbol_eq_dec t' t with
       | left pf =>
         if wtexpr_eq_dec x match pf with
                            | eq_refl => x'
@@ -768,222 +573,96 @@ Section simple_dep_types.
     | wtUVar u ys => wtUVar u (hlist_map (fun t => subst xs) ys)
     end.
 
-  (** Instantiation **)
-  Definition migrator tus tus' : Type :=
-    hlist (fun tst => wtexpr tus' (fst tst) (snd tst)) tus.
-
-  Definition migrator_tl : forall {a b c} (mig : migrator (b :: c) a),
-      migrator c a := fun _ => @hlist_tl _ _.
-
-(*
-  Section migrate.
-    Variable tus : list Tuvar.
-    Variable pre : Uenv tus.
-
-    Fixpoint migrate_env' {tus'} (mig : migrator tus' tus) {struct mig}
-    : Uenv tus' :=
-      match mig in hlist _ tus'
-            return Uenv tus'
-      with
-      | Hnil => Hnil
-      | @Hcons _ _ X _ val mig' =>
-        @Hcons _ (fun tst : list type * type =>
-                    hlist typeD (fst tst) ->
-                    typeD (snd tst))
-               X _
-               (wtexprD val pre)
-               (@migrate_env' _ mig')
-      end.
-
-  End migrate.
-*)
-
-  Definition migrate_env {tus tus'} (mig : migrator tus' tus) (e : Uenv tus)
-  : Uenv tus' :=
-    hlist_map (fun _ val => wtexprD val e) mig.
-
-  Section migrate_expr.
-    Context {tus tus'} (mig : migrator tus tus').
-
-    Fixpoint migrate_expr {tvs t}
-             (e : wtexpr tus tvs t)
-    : wtexpr tus' tvs t :=
-      match e in wtexpr _ _ t
-            return wtexpr tus' tvs t
-      with
-      | wtVar v => wtVar v
-      | wtInj v => wtInj v
-      | wtApp f x => wtApp (migrate_expr f) (migrate_expr x)
-      | wtAbs e => wtAbs (migrate_expr e)
-      | wtUVar u vs => subst (hlist_map (@migrate_expr tvs) vs) (hlist_get u mig)
-      end.
-  End migrate_expr.
-
-  Fixpoint migrator_compose {tus tus' tus''}
-           (mig : migrator tus tus')
-           (mig' : migrator tus' tus'')
-  : migrator tus tus'' :=
-    match mig in hlist _ tus
-          return migrator tus tus''
-    with
-    | Hnil => Hnil
-    | @Hcons _ _ l ls e mig'0 => Hcons (migrate_expr mig' e) (migrator_compose mig'0 mig')
-    end.
-
-Section hlist_map_rules.
-  Variable A : Type.
-  Variables F G G' : A -> Type.
-  Variable ff : forall x, F x -> G x.
-  Variable gg : forall x, G x -> G' x.
-
-  Theorem hlist_map_hlist_map : forall ls (hl : hlist F ls),
-      hlist_map gg (hlist_map ff hl) = hlist_map (fun _ x => gg (ff x)) hl.
-  Proof.
-    induction hl; simpl; f_equal. assumption.
-  Defined.
-
-  Theorem hlist_get_hlist_map : forall ls t (hl : hlist F ls) (m : member t ls),
-      hlist_get m (hlist_map ff hl) = ff (hlist_get m hl).
-  Proof.
-    induction m; simpl.
-    { rewrite (hlist_eta hl). reflexivity. }
-    { rewrite (hlist_eta hl). simpl. auto. }
-  Defined.
-
-  Lemma hlist_map_ext : forall (ff gg : forall x, F x -> G x),
-      (forall x t, ff x t = gg x t) ->
-      forall ls (hl : hlist F ls),
-        hlist_map ff hl = hlist_map gg hl.
-  Proof.
-    induction hl; simpl; auto.
-    intros. f_equal; auto.
-  Defined.
-
-End hlist_map_rules.
-
-Lemma hlist_get_member_weaken:
-  forall {T : Type} (F : T -> Type) (tvs tvs' : list T) (t0 : T) (m : member t0 tvs) (vs : hlist F tvs) (vs' : hlist F tvs'),
-    hlist_get (member_weaken tvs' m) (hlist_app vs' vs) = hlist_get m vs.
-Proof.
-  clear.
-  induction tvs'; simpl; intros.
-  { rewrite (hlist_eta vs'). reflexivity. }
-  { rewrite (hlist_eta vs'). simpl. eauto. }
-Qed.
-
-Lemma hlist_get_member_lift
-: forall T (F : T -> Type) (tvs tvs' tvs0 : list T) (t0 : T) (m : member t0 (tvs0 ++ tvs)) (vs : hlist F tvs) 
-         (vs' : hlist F tvs') (vs'' : hlist F tvs0),
-    hlist_get (member_lift tvs tvs' tvs0 m) (hlist_app vs'' (hlist_app vs' vs)) = hlist_get m (hlist_app vs'' vs).
-Proof.
-  clear.
-  induction vs''.
-  { simpl in *.
-    eapply hlist_get_member_weaken. }
-  { destruct (member_case m).
-    { destruct H. subst. reflexivity. }
-    { destruct H. subst. eapply IHvs''. } }
-Qed.
-
-Lemma wtexprD_wtexpr_lift : forall tus tvs tvs' tvs'' t (e : wtexpr tus (tvs'' ++ tvs) t),
-    forall us (vs : Venv tvs) (vs' : Venv tvs') (vs'' : Venv tvs''),
-      wtexprD (wtexpr_lift tvs' tvs'' e) us (hlist_app vs'' (hlist_app vs' vs)) = wtexprD e us (hlist_app vs'' vs).
-Proof using.
-  clear. intros tus tvs tvs' tvs'' t.
-  intro.
-  eapply wtexpr_ind_app with (e:=e); simpl; intros.
-  { unfold Var_exprT.
-    eapply hlist_get_member_lift. }
-  { unfold Pure_exprT. reflexivity. }
-  { unfold Ap_exprT.
-    rewrite (H us vs vs' vs'').
-    rewrite (H0 us vs vs' vs''). reflexivity. }
-  { unfold Abs_exprT.
-    eapply FunctionalExtensionality.functional_extensionality.
-    intros.
-    eapply (H us vs vs' (Hcons x vs'')). }
-  { unfold UVar_exprT.
-    repeat rewrite hlist_map_hlist_map.
-    f_equal.
-    clear - H.
-    induction H.
-    - reflexivity.
-    - simpl. f_equal; eauto. }
-Qed.
-
-Lemma wtexprD_subst : forall tus tvs t
-                        (e : wtexpr tus tvs t)
-                        tvs'
-                        (hl : hlist (wtexpr tus tvs') tvs),
-    forall us vs,
-      wtexprD (@subst tus tvs' tvs t hl e) us vs =
-      (wtexprD e) us (hlist_map (fun _ e => wtexprD e us vs) hl).
-Proof.
-  induction e; simpl; intros.
-  { unfold Var_exprT. rewrite hlist_get_hlist_map. reflexivity. }
-  { reflexivity. }
-  { unfold Ap_exprT. rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
-  { unfold Abs_exprT.
-    eapply FunctionalExtensionality.functional_extensionality.
-    intros. rewrite IHe. simpl. rewrite hlist_map_hlist_map.
-    f_equal. f_equal.
-    eapply hlist_map_ext.
-    intros.
-    eapply wtexprD_wtexpr_lift with (vs'' := Hnil) (vs' := Hcons x Hnil) (vs:=vs). }
-  { unfold UVar_exprT. f_equal.
-    repeat rewrite hlist_map_hlist_map.
-    clear - H.
-    induction H; simpl.
-    - reflexivity.
-    - f_equal; eauto. }
-Qed.
-
-  Theorem migrate_env_migrate_expr : forall tus tus' tvs t (mig : migrator tus tus') (e : wtexpr tus tvs t),
-      forall us vs,
-        wtexprD (migrate_expr mig e) us vs = wtexprD e (migrate_env mig us) vs.
-  Proof.
-    induction e.
-    { simpl. unfold Var_exprT. reflexivity. }
-    { simpl. unfold Pure_exprT. reflexivity. }
-    { simpl. unfold Ap_exprT. intros.
-      rewrite IHe1. rewrite IHe2. reflexivity. }
-    { simpl. unfold Abs_exprT. intros.
+  Lemma wtexprD_wtexpr_lift
+  : forall tus tvs tvs' tvs'' t (e : wtexpr tus (tvs'' ++ tvs) t),
+      forall us (vs : Venv tvs) (vs' : Venv tvs') (vs'' : Venv tvs''),
+        wtexprD (wtexpr_lift tvs' tvs'' e) us (hlist_app vs'' (hlist_app vs' vs)) = wtexprD e us (hlist_app vs'' vs).
+  Proof using.
+    clear. intros tus tvs tvs' tvs'' t.
+    intro.
+    eapply wtexpr_ind_app with (e:=e); simpl; intros.
+    { unfold Var_exprT.
+      eapply hlist_get_member_lift. }
+    { unfold Pure_exprT. reflexivity. }
+    { unfold Ap_exprT.
+      rewrite (H us vs vs' vs'').
+      rewrite (H0 us vs vs' vs''). reflexivity. }
+    { unfold Abs_exprT.
       eapply FunctionalExtensionality.functional_extensionality.
-      intros. eapply IHe. }
-    { simpl. intros. unfold UVar_exprT.
-      unfold migrate_env at 1.
-      rewrite hlist_get_hlist_map.
-      generalize (hlist_get u mig); simpl.
-      rewrite hlist_map_hlist_map.
-      intros. rewrite wtexprD_subst.
-      rewrite hlist_map_hlist_map.
+      intros.
+      eapply (H us vs vs' (Hcons x vs'')). }
+    { unfold UVar_exprT.
+      repeat rewrite hlist_map_hlist_map.
       f_equal.
+      clear - H.
+      induction H.
+      - reflexivity.
+      - simpl. f_equal; eauto. }
+  Qed.
+
+  Lemma wtexprD_subst
+  : forall tus tvs t
+           (e : wtexpr tus tvs t)
+           tvs'
+           (hl : hlist (wtexpr tus tvs') tvs),
+      forall us vs,
+        wtexprD (@subst tus tvs' tvs t hl e) us vs =
+        (wtexprD e) us (hlist_map (fun _ e => wtexprD e us vs) hl).
+  Proof.
+    induction e; simpl; intros.
+    { unfold Var_exprT. rewrite hlist_get_hlist_map. reflexivity. }
+    { reflexivity. }
+    { unfold Ap_exprT. rewrite <- IHe1. rewrite <- IHe2. reflexivity. }
+    { unfold Abs_exprT.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros. rewrite IHe. simpl. rewrite hlist_map_hlist_map.
+      f_equal. f_equal.
+      eapply hlist_map_ext.
+      intros.
+      eapply wtexprD_wtexpr_lift with (vs'' := Hnil) (vs' := Hcons x Hnil) (vs:=vs). }
+    { unfold UVar_exprT. f_equal.
+      repeat rewrite hlist_map_hlist_map.
       clear - H.
       induction H; simpl.
       - reflexivity.
       - f_equal; eauto. }
   Qed.
 
-
-(*
-  Fixpoint inst {tus tus'} {tvs} {t}
-           (xs : hlist (fun tst => forall tvs,
-                            hlist (wtexpr tus tvs) (fst tst) ->
-                            wtexpr tus' tvs (snd tst)) tus)
-           (e : wtexpr tus tvs t)
-  : wtexpr tus' tvs t :=
-    match e in wtexpr _ _ t return wtexpr tus' tvs t
-    with
-    | wtVar v => wtVar v
-    | wtInj s => wtInj s
-    | wtApp f x => wtApp (inst xs f) (inst xs x)
-    | wtAbs e => wtAbs (inst xs e)
-    | wtUVar u ys => hlist_get u xs _ ys
-    end.
-*)
+  Lemma subst_wtexpr_lift
+  : forall (tus : list Tuvar)
+           (tvs tvs'' : list (type Tsymbol)) (t : type Tsymbol)
+           (e : wtexpr tus (tvs ++ tvs'') t) tvs' Z,
+    forall (vs : hlist _ tvs) (vs' : hlist _ tvs') (vs'' : hlist _ tvs''),
+      subst (hlist_app vs (hlist_app vs' vs''))
+            (wtexpr_lift tvs' tvs e) =
+      subst (tvs:=Z) (hlist_app vs vs'') e.
+  Proof.
+    clear.
+    intros tus tvs tvs'' t e.
+    eapply wtexpr_ind_app with (e:=e); simpl; intros; auto.
+    { rewrite hlist_get_member_lift. reflexivity. }
+    { rewrite H. rewrite H0. reflexivity. }
+    { f_equal.
+      remember (fun (t0 : type Tsymbol)
+                    (e0 : wtexpr tus Z t0) =>
+                  wtexpr_lift (d :: nil) nil e0).
+      specialize (H tvs' _ (Hcons (wtVar (MZ d Z))
+                                  (hlist_map w vs))
+                    (hlist_map w vs') (hlist_map w vs'')). simpl in H.
+      repeat rewrite hlist_app_hlist_map.
+      eauto. }
+    { rewrite hlist_map_hlist_map. f_equal.
+      clear - H.
+      induction H; simpl; eauto.
+      f_equal; eauto. }
+  Qed.
 
 End simple_dep_types.
 
+Arguments wtVar {_ _ _} [_ _] _.
+Arguments wtInj {_ _ _} [_ _] _.
+
+Export WtType.
 
 (* Reduction Oriented Substitutions...
   (** Substitution **)

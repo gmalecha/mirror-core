@@ -15,7 +15,10 @@ theories/Util/Nat.v
 theories/Util/HListBuild.v
 theories/Util/Compat.v
 
+theories/LambdaWt/DepUtil.v
+theories/LambdaWt/WtType.v
 theories/LambdaWt/WtExpr.v
+theories/LambdaWt/WtMigrator.v
 theories/LambdaWt/Unify.v
 theories/LambdaWt/SubstWt.v
 theories/LambdaWt/WtTactic.v

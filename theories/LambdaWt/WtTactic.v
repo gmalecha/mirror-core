@@ -1,8 +1,11 @@
 Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
+Require Import ChargeCore.Logics.ILogic.
 Require Import MirrorCore.LambdaWt.WtExpr.
 Require Import MirrorCore.LambdaWt.SubstWt.
+Require Import MirrorCore.LambdaWt.WtMigrator.
+
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -19,12 +22,11 @@ Section simple_dep_types.
   Context (Inst : list _ -> Type)
           {Inst_Inst : Instantiation TsymbolD Esymbol Inst}.
 
-  Section logicT.
-    Variable tyProp : type Tsymbol.
-    Variable forall_prop : forall (T : Type),
-        (T -> typeD TsymbolD tyProp) ->
-        typeD TsymbolD tyProp.
+  Variable tyProp : type Tsymbol.
+  Context {tyPropL : ILogicOps (typeD TsymbolD tyProp)}.
+  Context {tyPropLo : ILogic (typeD TsymbolD tyProp)}.
 
+  Section logicT.
 
     Fixpoint foralls_prop (ts : list (type Tsymbol))
     : (hlist (typeD TsymbolD) ts -> typeD TsymbolD tyProp) ->
@@ -33,7 +35,7 @@ Section simple_dep_types.
       | nil => fun k => k Hnil
       | t :: ts => fun k =>
         foralls_prop (fun vs =>
-                        forall_prop (fun v => k (Hcons v vs)))
+                        lforall (fun v => k (Hcons v vs)))
       end.
 
     Fixpoint foralls_uvar_prop (ts : list (Tuvar Tsymbol))
@@ -45,11 +47,6 @@ Section simple_dep_types.
         foralls_uvar_prop (fun vs => forall v, k (Hcons v vs))
       end.
 
-    Variable impl_prop :
-        typeD TsymbolD tyProp ->
-        typeD TsymbolD tyProp ->
-        typeD TsymbolD tyProp.
-
     Require Import ExtLib.Structures.Applicative.
 
     Section impls.
@@ -60,7 +57,7 @@ Section simple_dep_types.
         match ts with
         | nil => post
         | t :: ts =>
-          impl_prop t (impls_prop ts post)
+          limpl t (impls_prop ts post)
         end.
     End impls.
 
@@ -73,23 +70,17 @@ Section simple_dep_types.
     | wtHyp    : wtexpr Esymbol tus tvs tyProp -> wtgoal tus tvs -> wtgoal tus tvs
     | wtAll    : forall t, wtgoal tus (t :: tvs) -> wtgoal tus tvs.
 
-    Variable tyProp_to_Prop : typeD TsymbolD tyProp -> Prop.
-    Variable Prop_to_tyProp : Prop -> typeD TsymbolD tyProp.
-
     Fixpoint wtgoalD {tus tvs} (g : wtgoal tus tvs) {struct g}
     : exprT TsymbolD tus tvs (typeD TsymbolD tyProp) :=
       match g with
-      | wtSolved _ _ => pure (Prop_to_tyProp True)
+      | wtSolved _ _ => pure ltrue
       | wtGoal g => wtexprD EsymbolD g
       | wtConj l r =>
-        ap (ap
-              (pure (fun x y => Prop_to_tyProp (tyProp_to_Prop x /\ tyProp_to_Prop y)))
-              (wtgoalD l))
-           (wtgoalD r)
-      | wtHyp h g => ap (ap (pure impl_prop) (wtexprD EsymbolD h)) (wtgoalD g)
+        ap (ap (pure land) (wtgoalD l)) (wtgoalD r)
+      | wtHyp h g => ap (ap (pure limpl) (wtexprD EsymbolD h)) (wtgoalD g)
       | @wtAll _ _ t g =>
         let gD := wtgoalD g in
-        ap (T:=exprT TsymbolD tus tvs) (pure (@forall_prop (typeD TsymbolD t)))
+        ap (T:=exprT TsymbolD tus tvs) (pure (@lforall _ _ (typeD TsymbolD t)))
            (fun us vs v => gD us (Hcons v vs))
       end.
 
@@ -128,19 +119,21 @@ Section simple_dep_types.
       forall prems goal inst result,
         c prems inst goal = result ->
         mD (fun t =>
-                match t with
-                | mkResultC tus' post prems' inst' trans =>
-                Inst_evolves trans inst' inst /\
+              match t with
+              | mkResultC tus' post prems' inst' trans =>
+                Inst_evolves trans inst inst' /\
                 @foralls_uvar_prop tus' (fun us' =>
                   let us := migrate_env EsymbolD trans us' in
                   InstD inst' us' ->
-                  tyProp_to_Prop
+                  lentails ltrue
                     (@foralls_prop tvs (fun vs =>
-                       impl_prop (impls_prop (map (fun p => wtexprD EsymbolD p us' vs) prems')
-                                             (@PostD _ _ post us' vs))
-                                 (impls_prop (map (fun p => wtexprD EsymbolD p us vs) prems)
-                                             (@PreD  _ _ goal us  vs)))))
-                end)
+                       limpl (impls_prop
+                                (map (fun p => wtexprD EsymbolD p us' vs) prems')
+                                (@PostD _ _ post us' vs))
+                             (impls_prop
+                                (map (fun p => wtexprD EsymbolD p us vs) prems)
+                                (@PreD  _ _ goal us  vs)))))
+              end)
            result.
 
     Definition logicT_spec (l : logicT) : Prop :=
@@ -148,12 +141,108 @@ Section simple_dep_types.
         logicC_spec (l tus tvs).
   End logicT.
 
+  Definition exprR tus tvs (T : Type) (R : T -> T -> Prop)
+  : exprT TsymbolD tus tvs T -> exprT TsymbolD tus tvs T -> Prop :=
+    fun v1 v2 =>
+      forall us vs, R (v1 us vs) (v2 us vs).
+
+  Definition wtRespectful {t u}
+             (P : typeD TsymbolD t -> typeD TsymbolD t -> Prop)
+             (Q : typeD TsymbolD u -> typeD TsymbolD u -> Prop)
+  : typeD TsymbolD (TArr t u) -> typeD TsymbolD (TArr t u) -> Prop :=
+    fun f g => forall x y, P x y -> Q (f x) (g y).
+
+  Lemma exprR_Ap_exprT
+  : forall tus tvs (T U : type Tsymbol) P Q
+           (f g : exprT TsymbolD tus tvs (typeD TsymbolD (TArr T U)))
+           (x y : exprT TsymbolD tus tvs (typeD TsymbolD T)),
+      exprR (wtRespectful P Q) f g ->
+      exprR P x y ->
+      exprR Q (Ap_exprT f x) (Ap_exprT g y).
+  Proof using.
+    clear.
+    unfold wtRespectful, Ap_exprT, exprR.
+    intros; eauto.
+  Defined.
+
+  Lemma wtexpr_equiv_wtexprD
+  : forall tus
+           (R : forall tvs t, wtexpr Esymbol tus tvs t -> wtexpr Esymbol tus tvs t -> Prop)
+           (P : forall t, typeD TsymbolD t -> typeD TsymbolD t -> Prop),
+      forall tvs t e1 e2,
+        (forall tvs t a b, R tvs t a b -> @exprR tus tvs _ (P t) (wtexprD EsymbolD a) (wtexprD EsymbolD b)) ->
+        (forall tvs t, Reflexive (R tvs t)) ->
+        wtexpr_equiv R e1 e2 ->
+        @exprR tus tvs _ (P t) (wtexprD EsymbolD e1) (wtexprD EsymbolD e2).
+  Proof.
+    induction 3; intros; try solve [ eauto | eapply H; eapply H0 ].
+    { simpl.
+      eapply exprR_Ap_exprT. 2: eassumption.
+      admit. }
+    { simpl. admit. }
+    { simpl. admit. }
+    { admit. }
+  Admitted.
+
+  Lemma foralls_uvar_prop_impl
+    : forall ts (P Q : _ -> Prop),
+      (forall xs, P xs -> Q xs) ->
+      (@foralls_uvar_prop ts P -> @foralls_uvar_prop ts Q).
+  Proof.
+    clear.
+    induction ts; simpl; intros; auto.
+    eapply IHts; [| eassumption ].
+    simpl. eauto.
+  Qed.
+
+  Lemma foralls_prop_impl : forall ts P Q,
+      (forall xs, P xs |-- Q xs) ->
+      @foralls_prop ts P |-- @foralls_prop ts Q.
+  Proof.
+    clear - tyPropLo.
+    induction ts; simpl; eauto.
+    intros.
+    eapply IHts. intros.
+    eapply lforallR. intros. eapply lforallL. eapply H.
+  Qed.
+
+  Lemma foralls_uvar_prop_sem
+    : forall ts (P : _ -> Prop),
+      (forall xs, P xs) ->
+      (@foralls_uvar_prop ts P).
+  Proof.
+    clear.
+    induction ts; simpl; intros; auto.
+  Qed.
+
+  Lemma foralls_prop_sem : forall ts Q,
+      (forall xs, |-- Q xs) ->
+      |-- @foralls_prop ts Q.
+  Proof.
+    clear - tyPropLo.
+    induction ts; simpl; eauto.
+    intros.
+    eapply IHts. intros.
+    eapply lforallR. intros. eauto.
+  Qed.
+
+  Lemma impls_prop_pure : forall A B,
+      A |-- B ->
+      forall Cs,
+        A |-- impls_prop Cs B.
+  Proof.
+    induction Cs; simpl; intros; eauto.
+    apply limplAdj.
+    etransitivity; [ | eapply IHCs ].
+    eapply landL1. reflexivity.
+  Qed.
+
+
   Require Import MirrorCore.LambdaWt.Unify.
   Require Import ExtLib.Structures.Monads.
   Require Import ExtLib.Structures.Functor.
 
   Section assumption_tactic.
-    Variable tyProp : type Tsymbol.
     Variable m : Type -> Type.
     Context {Monad_m : Monad m}.
     Context {MonadPlus_m : MonadPlus m}.
@@ -164,22 +253,22 @@ Section simple_dep_types.
     Variable unifyOk : UnifierOk unify.
 
     Variable mD : forall T (TD : T -> Prop), m T -> Prop.
-    Variable forall_prop : forall (T : Type),
-        (T -> typeD TsymbolD tyProp) ->
-        typeD TsymbolD tyProp.
-    Variable impl_prop :
-        typeD TsymbolD tyProp ->
-        typeD TsymbolD tyProp ->
-        typeD TsymbolD tyProp.
-
-    Variable tyProp_to_Prop : typeD TsymbolD tyProp -> Prop.
-    Variable Prop_to_tyProp : Prop -> typeD TsymbolD tyProp.
-
-    Hypothesis mD_mzero : forall T (P : T -> _), mD P mzero.
     Hypothesis mD_fmap : forall T U (f : T -> U) (P Q : _ -> Prop) x,
         (forall x, Q x -> P (f x)) ->
         mD Q x ->
         mD P (fmap f x).
+    Hypothesis mD_bind : forall T U (P : T -> Prop) (Q : U -> Prop) c k,
+        mD P c ->
+        (forall x, P x -> mD Q (k x)) ->
+        mD Q (bind c k).
+    Hypothesis mD_ret : forall T (P : T -> Prop) x,
+        P x -> mD P (ret x).
+    Hypothesis mD_conseq : forall T (P Q : T -> Prop) x,
+        mD Q x ->
+        (forall x, Q x -> P x) ->
+        mD P x.
+
+    Hypothesis mD_mzero : forall T (P : T -> _), mD P mzero.
     Hypothesis mD_mplus : forall T U (P : T -> Prop) (Q : U -> Prop)
                                  (x : m T) (y : m U),
         mD P x ->
@@ -188,17 +277,6 @@ Section simple_dep_types.
                      | inl x => P x
                      | inr x => Q x
                      end) (mplus x y).
-    Hypothesis mD_bind : forall T U (P : T -> Prop) (Q : U -> Prop) c k,
-        mD P c ->
-        (forall x, P x -> mD Q (k x)) ->
-        mD Q (bind c k).
-    Hypothesis mD_ret : forall T (P : T -> Prop) x,
-        P x -> mD P (ret x).
-
-    Hypothesis mD_conseq : forall T (P Q : T -> Prop) x,
-        mD Q x ->
-        (forall x, Q x -> P x) ->
-        mD P x.
 
     Theorem mD_mjoin : forall T (P : T -> Prop) x y,
         mD P x ->
@@ -233,8 +311,8 @@ Section simple_dep_types.
       Local Lemma find_premise_sound
       : forall prems,
           mD (fun inst' : Inst tus =>
-                let trans := migrator_id Esymbol tus in
-                SubstWt.Inst_evolves trans inst' s /\
+                let trans := migrator_id in
+                SubstWt.Inst_evolves trans s inst' /\
                 foralls_uvar_prop
                   (fun
                       us : hlist
@@ -242,10 +320,10 @@ Section simple_dep_types.
                                 hlist (typeD TsymbolD) (fst tst) -> typeD TsymbolD (snd tst))
                              tus =>
                       InstD inst' us ->
-                      tyProp_to_Prop
-                        (foralls_prop tyProp forall_prop
+                      lentails ltrue
+                        (foralls_prop
                                       (fun vs : hlist (typeD TsymbolD) tvs =>
-                                         impls_prop tyProp impl_prop
+                                         impls_prop
                                                     (map
                                                        (fun p : wtexpr Esymbol tus tvs tyProp =>
                                                           wtexprD EsymbolD p us vs) prems)
@@ -259,81 +337,90 @@ Section simple_dep_types.
           | |- mD ?X _ =>
             assert (mD X (find_premise prems))
           end.
-          { clear - IHprems. admit. }
+          { eapply mD_conseq; [ eassumption | ].
+            simpl. destruct 1; split; auto.
+            revert H0.
+            eapply foralls_uvar_prop_impl.
+            intros.
+            etransitivity; [ eapply H0; eassumption | ].
+            eapply foralls_prop_impl; intros.
+            eapply limplAdj. eapply landL1. reflexivity. }
           clear IHprems.
           destruct (unify gl a s) eqn:?; eauto.
-          eapply mD_mjoin; eauto.
-          { eapply mD_ret. simpl.
-            admit. } }
+          eapply mD_mjoin; [ | solve [ eauto ] ].
+          clear H.
+          eapply mD_ret.
+          eapply unifyOk in Heqo.
+          destruct Heqo; split; [ eassumption | ].
+          eapply foralls_uvar_prop_sem. intros.
+          eapply foralls_prop_sem; intros.
+          eapply limplAdj.
+          eapply impls_prop_pure.
+          eapply landL2.
+          clear - H1 H0 Inst_Inst tyPropLo.
+          admit. }
       Admitted.
 
     End find_premise.
 
+    Require Import ChargeCore.Tactics.Tactics.
+    Lemma impls_prop_ap
+      : forall P Q prems G,
+        G |-- impls_prop prems (P -->> Q) ->
+        G |-- impls_prop prems P -->> impls_prop prems Q.
+    Proof.
+      induction prems; simpl; auto.
+      intros.
+      charge_intros.
+      charge_eapply (IHprems (G //\\ a)).
+      charge_split.
+      { charge_tauto. }
+      { charge_tauto. }
+      Unshelve.
+      charge_tauto.
+    Qed.
+
+
     Definition Assumption
-    : logicT tyProp m
+    : logicT m
              (fun tus tvs => wtexpr Esymbol tus tvs tyProp)
              (fun _ _ => unit) :=
       fun tus tvs prems sub goal =>
         fmap (F:=m)
-             (fun sub' => mkResultC (fun _ _ => unit) tt prems sub' (migrator_id _ _))
+             (fun sub' => mkResultC (fun _ _ => unit) tt prems sub' migrator_id)
              (find_premise goal sub prems).
 
     Theorem Assumption_sound
-    : logicT_spec forall_prop impl_prop tyProp_to_Prop
-                  (fun tus tvs e => wtexprD EsymbolD e)
-                  (fun _ _ _ => Pure_exprT (Prop_to_tyProp True))
+    : logicT_spec (fun tus tvs e => wtexprD EsymbolD e)
+                  (fun _ _ _ => Pure_exprT ltrue)
                   mD Assumption.
     Proof.
       red. red. unfold Assumption. intros.
       subst.
-      eapply mD_fmap
-      with (Q:=fun inst' =>
-                 let trans := migrator_id _ _ in
-                 SubstWt.Inst_evolves trans inst' inst /\
-                 foralls_uvar_prop
-                   (fun
-                       us : hlist
-                              (fun tst : list (type Tsymbol) * type Tsymbol =>
-                                 hlist (typeD TsymbolD) (fst tst) ->
-                                 typeD TsymbolD (snd tst)) tus =>
-                       InstD inst' us ->
-                       tyProp_to_Prop
-                         (foralls_prop tyProp forall_prop
-                                       (fun vs : hlist (typeD TsymbolD) tvs =>
-                                          impls_prop tyProp impl_prop
-                                                     (map
-                                                        (fun p : wtexpr Esymbol tus tvs tyProp =>
-                                                           wtexprD EsymbolD p us vs) prems)
-                                                     (wtexprD EsymbolD goal us vs))))).
+      eapply mD_fmap; [ | eapply find_premise_sound ].
       { destruct 1.
         split; [ assumption | ].
-        admit. }
-      eapply find_premise_sound.
+        revert H0.
+        eapply foralls_uvar_prop_impl; intros.
+        rewrite H0; eauto; clear H0.
+        eapply foralls_prop_impl; intros.
+        rewrite migrate_env_migrator_id.
+        eapply impls_prop_ap.
+        charge_revert.
+        eapply impls_prop_ap.
+        eapply impls_prop_pure.
+        charge_tauto. }
     Admitted.
   End assumption_tactic.
 
   Section cut_tactic.
-    Variable tyProp : type Tsymbol.
     Variable m : Type -> Type.
     Context {Monad_m : Monad m}.
     Context {MonadPlus_m : MonadPlus m}.
     Context {MonadZero_m : MonadZero m}.
     Context {Functor_m : Functor m}.
 
-    Variable unify : Unifier Esymbol Inst.
-    Variable unifyOk : UnifierOk unify.
-
     Variable mD : forall T (TD : T -> Prop), m T -> Prop.
-    Variable forall_prop : forall (T : Type),
-        (T -> typeD TsymbolD tyProp) ->
-        typeD TsymbolD tyProp.
-    Variable impl_prop :
-        typeD TsymbolD tyProp ->
-        typeD TsymbolD tyProp ->
-        typeD TsymbolD tyProp.
-
-    Variable tyProp_to_Prop : typeD TsymbolD tyProp -> Prop.
-    Variable Prop_to_tyProp : Prop -> typeD TsymbolD tyProp.
 
     Hypothesis mD_mzero : forall T (P : T -> _), mD P mzero.
     Hypothesis mD_fmap : forall T U (f : T -> U) (P Q : _ -> Prop) x,
@@ -361,33 +448,38 @@ Section simple_dep_types.
         mD P x.
 
     Definition Cut {tus tvs} (t : wtexpr Esymbol tus tvs tyProp)
-    : logicC tyProp m
+    : logicC m
              (fun tus tvs => wtexpr Esymbol tus tvs tyProp)
-             (fun tus tvs => wtgoal tyProp tus tvs)%type
+             (fun tus tvs => wtgoal tus tvs)%type
              tus tvs :=
       fun prems sub goal =>
-        ret (m:=m) (mkResultC (wtgoal tyProp)
+        ret (m:=m) (mkResultC wtgoal
                               (wtConj (wtGoal t) (wtHyp t (wtGoal goal)))
                               prems
                               sub
-                              (migrator_id _ _)).
+                              migrator_id).
 
 
     Existing Instance Reflexive_Inst_evolves.
 
     Theorem Cut_sound
     : forall tus tvs t,
-        logicC_spec forall_prop impl_prop tyProp_to_Prop
-                    (fun tus tvs e => wtexprD EsymbolD e)
-                    (fun _ _ e => @wtgoalD tyProp forall_prop impl_prop tyProp_to_Prop Prop_to_tyProp _ _ e)
+        logicC_spec (fun tus tvs e => wtexprD EsymbolD e)
+                    (fun _ _ e => @wtgoalD _ _ e)
                     mD
                     (@Cut tus tvs t).
     Proof.
       unfold Cut. red. simpl; intros. subst.
       eapply mD_ret.
       split; [ reflexivity | ].
-      { simpl. admit. }
-    Admitted.
+      { simpl.
+        eapply foralls_uvar_prop_sem; intros.
+        eapply foralls_prop_sem; intros.
+        rewrite migrate_env_migrator_id.
+        eapply impls_prop_ap.
+        eapply impls_prop_pure.
+        charge_tauto. }
+    Qed.
 
   End cut_tactic.
 
