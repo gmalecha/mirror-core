@@ -10,6 +10,9 @@ Require Import MirrorCore.LambdaWt.MLogic.
 Require Import MirrorCore.LambdaWt.WtExpr.
 Require Import MirrorCore.LambdaWt.SubstWt.
 Require Import MirrorCore.LambdaWt.WtMigrator.
+Require Import MirrorCore.LambdaWt.WtCtx.
+
+(** Only for Assumption and tactics *)
 Require Import MirrorCore.LambdaWt.Unify.
 
 Set Implicit Arguments.
@@ -91,59 +94,6 @@ Section simple_dep_types.
     End impls.
 
     Variable m : Type -> Type.
-
-    Inductive wtgoal tus tvs : Type :=
-    | wtSolved : wtgoal tus tvs
-    | wtGoal   : wtexpr Esymbol tus tvs tyProp -> wtgoal tus tvs
-    | wtConj   : wtgoal tus tvs -> wtgoal tus tvs -> wtgoal tus tvs
-    | wtHyp    : wtexpr Esymbol tus tvs tyProp -> wtgoal tus tvs -> wtgoal tus tvs
-    | wtAll    : forall t, wtgoal tus (t :: tvs) -> wtgoal tus tvs.
-    Arguments wtSolved {_ _}.
-    Arguments wtGoal {_ _} _.
-    Arguments wtConj {_ _} _ _.
-    Arguments wtHyp {_ _} _ _.
-    Arguments wtAll {_ _} _ _.
-
-    Section wtgoal_subst.
-      Context {tus tus' : list (Tuvar Tsymbol)}.
-      Variable mig : migrator Esymbol tus tus'.
-
-      Fixpoint wtgoal_subst {tvs tvs'}
-               (sVar : hlist (wtexpr Esymbol tus' tvs') tvs)
-               (gl : wtgoal tus tvs)
-      : wtgoal tus' tvs'.
-      refine
-        match gl with
-        | wtSolved => wtSolved
-        | wtGoal gl => wtGoal (subst sVar (migrate_expr mig gl))
-        | wtConj l r =>
-          wtConj (wtgoal_subst _ _ sVar l) (wtgoal_subst _ _ sVar r)
-        | wtHyp p g =>
-          wtHyp (subst sVar (migrate_expr mig p)) (wtgoal_subst _ _ sVar g)
-        | wtAll t g =>
-          wtAll t (wtgoal_subst _ _
-                                (Hcons (wtVar (Member.MZ _ _)) _) g)
-        end.
-      eapply hlist_map.
-      2: eapply sVar.
-      intros.
-      eapply (@wtexpr_lift _ _ tus' _ _ (_::nil) nil X).
-      Defined.
-    End wtgoal_subst.
-
-    Fixpoint wtgoalD {tus tvs} (g : wtgoal tus tvs) {struct g}
-    : exprT TsymbolD tus tvs (typeD TsymbolD tyProp) :=
-      match g with
-      | wtSolved => pure ltrue
-      | wtGoal g => wtexprD EsymbolD g
-      | wtConj l r =>
-        ap (ap (pure land) (wtgoalD l)) (wtgoalD r)
-      | wtHyp h g => ap (ap (pure limpl) (wtexprD EsymbolD h)) (wtgoalD g)
-      | @wtAll _ _ t g =>
-        let gD := wtgoalD g in
-        ap (T:=exprT TsymbolD tus tvs) (pure (@lforall _ _ (typeD TsymbolD t)))
-           (fun us vs v => gD us (Hcons v vs))
-      end.
 
     Variables Pre Post : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
 
@@ -377,13 +327,14 @@ Section simple_dep_types.
     Context {MLogicZero_m : MLogicZero m}.
 
     Context {Post : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type}.
+
     Definition Under_All {tus tvs}
-               (tac : forall t, logicC m wtgoal Post tus (t :: tvs))
-    : logicC m wtgoal Post tus tvs.
+               (tac : forall t, logicC m (wtgoal Esymbol tyProp) Post tus (t :: tvs))
+    : logicC m (wtgoal Esymbol tyProp) Post tus tvs.
     refine (
         fun prems sub goal =>
           match goal with
-          | @wtAll _ _ t goal' =>
+          | wtAll t goal' =>
             (** TODO(gmalecha): This is going to be too expensive.
              ** 1/ Combine prems and quantifiers into a context.
              ** 2/ Might not want to eagerly instantiate premises
@@ -597,11 +548,11 @@ Section simple_dep_types.
     Definition Cut {tus tvs} (t : wtexpr Esymbol tus tvs tyProp)
     : logicC m
              (fun tus tvs => wtexpr Esymbol tus tvs tyProp)
-             (fun tus tvs => wtgoal tus tvs)%type
+             (fun tus tvs => wtgoal Esymbol tyProp tus tvs)%type
              tus tvs :=
       fun prems sub goal =>
         ret (m:=m) (mkResultC
-                      (mkResultA wtgoal
+                      (mkResultA (wtgoal Esymbol tyProp)
                                  (wtConj (wtGoal t) (wtHyp t (wtGoal goal)))
                                  prems
                                  sub
@@ -612,7 +563,7 @@ Section simple_dep_types.
     Theorem Cut_sound
     : forall tus tvs t,
         logicC_spec (fun tus tvs e => wtexprD EsymbolD e)
-                    (fun _ _ e => @wtgoalD _ _ e)
+                    (fun _ _ e => wtgoalD EsymbolD e)
                     (@Cut tus tvs t).
     Proof.
       unfold Cut. red. simpl; intros. subst.
