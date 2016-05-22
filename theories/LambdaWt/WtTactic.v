@@ -6,7 +6,6 @@ Require Import MirrorCore.LambdaWt.WtExpr.
 Require Import MirrorCore.LambdaWt.SubstWt.
 Require Import MirrorCore.LambdaWt.WtMigrator.
 
-
 Set Implicit Arguments.
 Set Strict Implicit.
 
@@ -165,25 +164,6 @@ Section simple_dep_types.
     intros; eauto.
   Defined.
 
-  Lemma wtexpr_equiv_wtexprD
-  : forall tus
-           (R : forall tvs t, wtexpr Esymbol tus tvs t -> wtexpr Esymbol tus tvs t -> Prop)
-           (P : forall t, typeD TsymbolD t -> typeD TsymbolD t -> Prop),
-      forall tvs t e1 e2,
-        (forall tvs t a b, R tvs t a b -> @exprR tus tvs _ (P t) (wtexprD EsymbolD a) (wtexprD EsymbolD b)) ->
-        (forall tvs t, Reflexive (R tvs t)) ->
-        wtexpr_equiv R e1 e2 ->
-        @exprR tus tvs _ (P t) (wtexprD EsymbolD e1) (wtexprD EsymbolD e2).
-  Proof.
-    induction 3; intros; try solve [ eauto | eapply H; eapply H0 ].
-    { simpl.
-      eapply exprR_Ap_exprT. 2: eassumption.
-      admit. }
-    { simpl. admit. }
-    { simpl. admit. }
-    { admit. }
-  Admitted.
-
   Lemma foralls_uvar_prop_impl
     : forall ts (P Q : _ -> Prop),
       (forall xs, P xs -> Q xs) ->
@@ -241,6 +221,39 @@ Section simple_dep_types.
   Require Import MirrorCore.LambdaWt.Unify.
   Require Import ExtLib.Structures.Monads.
   Require Import ExtLib.Structures.Functor.
+
+  Lemma wtexpr_equiv_Unifiable_eq
+  : forall tus tvs t (e1 e2 : wtexpr Esymbol tus tvs t)
+           (i : Inst tus),
+      wtexpr_equiv (Unifiable_eq i) e1 e2 ->
+      forall (xs : Uenv TsymbolD tus)
+             (vs : Venv TsymbolD tvs),
+        InstD i xs ->
+        wtexprD EsymbolD e1 xs vs = wtexprD EsymbolD e2 xs vs.
+  Proof.
+    induction 1; intros; try solve [ eauto | eapply H; eapply H0 ].
+    { simpl.
+      unfold Ap_exprT.
+      rewrite IHwtexpr_equiv1; eauto.
+      rewrite IHwtexpr_equiv2; eauto. }
+    { simpl. unfold Abs_exprT.
+      eapply FunctionalExtensionality.functional_extensionality; eauto. }
+    { simpl. unfold UVar_exprT.
+      repeat rewrite hlist_map_hlist_map.
+      f_equal.
+      clear - H0 H.
+      induction H; simpl; auto.
+      f_equal; eauto. }
+    { destruct pf.
+      { inversion H0; clear H0; subst.
+        (** TODO(gmalecha): This should be provable *)
+        admit. }
+      { inversion H0; clear H0; subst.
+        (** TODO(gmalecha): This should be provable *)
+        admit. } }
+    { etransitivity;
+      [ eapply IHwtexpr_equiv1 | eapply IHwtexpr_equiv2 ]; eauto. }
+  Admitted.
 
   Section assumption_tactic.
     Variable m : Type -> Type.
@@ -357,9 +370,9 @@ Section simple_dep_types.
           eapply limplAdj.
           eapply impls_prop_pure.
           eapply landL2.
-          clear - H1 H0 Inst_Inst tyPropLo.
-          admit. }
-      Admitted.
+          erewrite <- wtexpr_equiv_Unifiable_eq; eauto.
+          { reflexivity. } }
+      Qed.
 
     End find_premise.
 
@@ -410,7 +423,7 @@ Section simple_dep_types.
         eapply impls_prop_ap.
         eapply impls_prop_pure.
         charge_tauto. }
-    Admitted.
+    Qed.
   End assumption_tactic.
 
   Section cut_tactic.
