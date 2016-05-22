@@ -1,22 +1,12 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.Util.Compat.
-Require Import MirrorCore.Views.Ptrns.
+(** TODO(mario): After the fixes below, none of these
+ ** imports will be necessary.
+ **)
+Require Import MirrorCore.TypesI.
+Require Import MirrorCore.SymI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
-Require Import MirrorCore.Lambda.RedAll.
-Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.Lambda.RewriteStrat.
-Require Import MirrorCore.Lambda.Red.
-Require Import MirrorCore.Lambda.Ptrns.
-Require Import MirrorCore.Lambda.Rewrite.HintDbs.
-Require Import MirrorCore.Reify.Reify.
-Require Import MirrorCore.RTac.IdtacK.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import McExamples.PolyRewrite.MSimple.
-Require Import McExamples.PolyRewrite.MSimpleReify.
-
-(* TODO - many of the above imports are unnecessary *)
 
 (** Interface for semi-deciders (that use the RelDec typeclass)
 **)
@@ -27,25 +17,22 @@ Section SemiDec.
   Variable SD : RelDec equ.
 
   Class RelDecSemiOk (SD : RelDec equ) : Prop :=
-    {
-      semi_dec_ok : forall (x y : T), rel_dec x y = true -> equ x y
-    }.
+  { semi_dec_ok : forall (x y : T), rel_dec x y = true -> equ x y
+  }.
 
   Section RelDec.
 
     Variable RD : RelDec equ.
     Variable RDC : RelDec_Correct RD.
 
-    
-    Print RelDec_Correct.
-    Check @rel_dec_correct.
-
     Instance RelDecSemiOk_RelDec : RelDecSemiOk RD :=
-      { semi_dec_ok :=
-          fun x y => proj1 (@rel_dec_correct T equ RD RDC x y) }.
+    { semi_dec_ok :=
+        fun x y => proj1 (@rel_dec_correct T equ RD RDC x y) }.
   End RelDec.
-End SemiDec.  
+End SemiDec.
 
+(** TODO(mario): This should be moved to SymI.v
+ **)
 Section SemiDec_RSym.
 
   (* need to have a typ *)
@@ -56,15 +43,13 @@ Section SemiDec_RSym.
   Variable RsOk : RSymOk Rs.
 
   Instance RelDecSemi_RSym : @RelDec func eq :=
-    { rel_dec x y :=
-        match @sym_eqb _ _ _ Rs x y with
-        | Some b => b
-        | _ => false
-        end
-    }.
+  { rel_dec x y :=
+      match @sym_eqb _ _ _ Rs x y with
+      | Some b => b
+      | _ => false
+      end
+  }.
 
-  Check RelDecSemiOk.
-  
   Instance RelDecSemiOk_Rsym : RelDecSemiOk func _ RelDecSemi_RSym.
   Proof.
     destruct RsOk.
@@ -75,6 +60,9 @@ Section SemiDec_RSym.
   Qed.
 End SemiDec_RSym.
 
+(** TODO(mario): This should be moved to somewhere in Lambda, probably
+ ** Lambda/ExprCore.v
+ **)
 Section SemiDec_expr.
 
   Variable typ : Type.
@@ -88,16 +76,17 @@ Section SemiDec_expr.
      in the longer run,
      Lambda/ExprCore.v should change to use SemiDec *)
   Instance RelDecSemi_expr : RelDec (@eq (expr typ func)) :=
-    { rel_dec :=
-        expr_eq_dec (@ExprFacts.RelDec_eq_typ typ typ_Rt) (@RelDecSemi_RSym typ typ_Rt func func_Rs)
-    }.
+  { rel_dec :=
+      expr_eq_dec (@ExprFacts.RelDec_eq_typ typ typ_Rt)
+                  (@RelDecSemi_RSym typ typ_Rt func func_Rs)
+  }.
 
   Lemma expr_semi_dec_eq :
     forall x y, expr_eq_dec ExprFacts.RelDec_eq_typ (RelDecSemi_RSym typ _ func func_Rs) x y = true ->
            x = y.
   Proof.
     induction x; destruct y; try solve [intros; simpl in *; congruence].
-    { intros. simpl in *. 
+    { intros. simpl in *.
       apply EqNat.beq_nat_true in H. subst. reflexivity. }
     { intros. simpl in *.
       unfold rel_dec in H. simpl in H.
@@ -105,10 +94,21 @@ Section SemiDec_expr.
       destruct (sym_eqb f f0) eqn:Heqb.
       { subst; subst; reflexivity. }
       { congruence. } }
-    { admit. (* can't figure out app case -- Mario *) }
-    { admit. (* or this one. *) }
+    { simpl.
+      specialize (IHx1 y1).
+      specialize (IHx2 y2).
+      destruct (expr_eq_dec ExprFacts.RelDec_eq_typ
+       (RelDecSemi_RSym typ typ_Rt func func_Rs) x1 y1); try congruence.
+      intros; f_equal; eauto. }
+    { simpl.
+      match goal with
+      | |- context [ match ?X with true => _ | _ => _ end ] =>
+        consider X
+      end; intros.
+      subst.
+      f_equal; eauto. }
     { intros. simpl in *. apply EqNat.beq_nat_true in H. subst. reflexivity. }
-  Admitted.
+  Qed.
 
   (* put SemiDec inside of theories/Util *)
   (* Do this: make a copy of Lambda that only uses MTypes *)
@@ -118,8 +118,7 @@ Section SemiDec_expr.
     unfold rel_dec in H. simpl in H.
     apply expr_semi_dec_eq in H; auto.
   Qed.
-End SemiDec_expr .
-
+End SemiDec_expr.
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)

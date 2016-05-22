@@ -250,7 +250,7 @@ Existing Instance RelDec_eq_mtyp.
 
 Let tyBNat := tyBase0 tyNat.
 
-Arguments fail_respectful {_ _ _} _ _ _ _ _ _ _ _ _.
+Arguments fail_respectful {_ _ _} _ _ _ _ _.
 
 Require Import ExtLib.Data.Vector.
 

@@ -86,14 +86,11 @@ Fixpoint count_quant (e : expr typ func) : nat :=
   end.
 
 Definition benchmark (n m : nat) : bool :=
-  match quant_pull (goal2 m n 0) (Rinj fImpl) nil nil nil 0 0 (TopSubst _ nil nil)
+  match quant_pull (goal2 m n 0) (Rinj fImpl) nil (TopSubst _ nil nil)
   with
   | Some _ => true
   | _ => false
   end.
-
-Check get_respectful.
-
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
