@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ChargeCore.Logics.ILogic.
+Require Import MirrorCore.LambdaWt.MLogic.
 Require Import MirrorCore.LambdaWt.WtExpr.
 Require Import MirrorCore.LambdaWt.SubstWt.
 Require Import MirrorCore.LambdaWt.WtMigrator.
@@ -265,42 +266,10 @@ Section simple_dep_types.
     Variable unify : Unifier Esymbol Inst.
     Variable unifyOk : UnifierOk unify.
 
-    Variable mD : forall T (TD : T -> Prop), m T -> Prop.
-    Hypothesis mD_fmap : forall T U (f : T -> U) (P Q : _ -> Prop) x,
-        (forall x, Q x -> P (f x)) ->
-        mD Q x ->
-        mD P (fmap f x).
-    Hypothesis mD_bind : forall T U (P : T -> Prop) (Q : U -> Prop) c k,
-        mD P c ->
-        (forall x, P x -> mD Q (k x)) ->
-        mD Q (bind c k).
-    Hypothesis mD_ret : forall T (P : T -> Prop) x,
-        P x -> mD P (ret x).
-    Hypothesis mD_conseq : forall T (P Q : T -> Prop) x,
-        mD Q x ->
-        (forall x, Q x -> P x) ->
-        mD P x.
-
-    Hypothesis mD_mzero : forall T (P : T -> _), mD P mzero.
-    Hypothesis mD_mplus : forall T U (P : T -> Prop) (Q : U -> Prop)
-                                 (x : m T) (y : m U),
-        mD P x ->
-        mD Q y ->
-        mD (fun x => match x with
-                     | inl x => P x
-                     | inr x => Q x
-                     end) (mplus x y).
-
-    Theorem mD_mjoin : forall T (P : T -> Prop) x y,
-        mD P x ->
-        mD P y ->
-        mD P (mjoin x y).
-    Proof.
-      unfold mjoin.
-      intros. eapply mD_bind. eapply mD_mplus.
-      eassumption. eassumption.
-      simpl. destruct x0; eauto using mD_ret.
-    Qed.
+    Context {FLogic_m : FLogic m}.
+    Context {MLogic_m : MLogic m}.
+    Context {MLogicPlus_m : MLogicPlus m}.
+    Context {MLogicZero_m : MLogicZero m}.
 
     Section find_premise.
       Context {tus : list (Tuvar Tsymbol)}.
@@ -323,7 +292,7 @@ Section simple_dep_types.
 
       Local Lemma find_premise_sound
       : forall prems,
-          mD (fun inst' : Inst tus =>
+          fmodels (fun inst' : Inst tus =>
                 let trans := migrator_id in
                 SubstWt.Inst_evolves trans s inst' /\
                 foralls_uvar_prop
@@ -344,13 +313,13 @@ Section simple_dep_types.
              (find_premise prems).
       Proof.
         induction prems.
-        { eapply mD_mzero. }
+        { eapply fmodels_mzero. }
         { simpl.
           lazymatch goal with
-          | |- mD ?X _ =>
-            assert (mD X (find_premise prems))
+          | |- fmodels ?X _ =>
+            assert (fmodels X (find_premise prems))
           end.
-          { eapply mD_conseq; [ eassumption | ].
+          { eapply fmodels_conseq; [ eassumption | ].
             simpl. destruct 1; split; auto.
             revert H0.
             eapply foralls_uvar_prop_impl.
@@ -360,9 +329,9 @@ Section simple_dep_types.
             eapply limplAdj. eapply landL1. reflexivity. }
           clear IHprems.
           destruct (unify gl a s) eqn:?; eauto.
-          eapply mD_mjoin; [ | solve [ eauto ] ].
+          eapply fmodels_mjoin; [ | solve [ eauto ] ].
           clear H.
-          eapply mD_ret.
+          eapply fmodels_ret.
           eapply unifyOk in Heqo.
           destruct Heqo; split; [ eassumption | ].
           eapply foralls_uvar_prop_sem. intros.
@@ -406,11 +375,11 @@ Section simple_dep_types.
     Theorem Assumption_sound
     : logicT_spec (fun tus tvs e => wtexprD EsymbolD e)
                   (fun _ _ _ => Pure_exprT ltrue)
-                  mD Assumption.
+                  fmodels Assumption.
     Proof.
       red. red. unfold Assumption. intros.
       subst.
-      eapply mD_fmap; [ | eapply find_premise_sound ].
+      eapply fmodels_fmap; [ | eapply find_premise_sound ].
       { destruct 1.
         split; [ assumption | ].
         revert H0.
@@ -433,32 +402,10 @@ Section simple_dep_types.
     Context {MonadZero_m : MonadZero m}.
     Context {Functor_m : Functor m}.
 
-    Variable mD : forall T (TD : T -> Prop), m T -> Prop.
-
-    Hypothesis mD_mzero : forall T (P : T -> _), mD P mzero.
-    Hypothesis mD_fmap : forall T U (f : T -> U) (P Q : _ -> Prop) x,
-        (forall x, Q x -> P (f x)) ->
-        mD Q x ->
-        mD P (fmap f x).
-    Hypothesis mD_mplus : forall T U (P : T -> Prop) (Q : U -> Prop)
-                                 (x : m T) (y : m U),
-        mD P x ->
-        mD Q y ->
-        mD (fun x => match x with
-                     | inl x => P x
-                     | inr x => Q x
-                     end) (mplus x y).
-    Hypothesis mD_bind : forall T U (P : T -> Prop) (Q : U -> Prop) c k,
-        mD P c ->
-        (forall x, P x -> mD Q (k x)) ->
-        mD Q (bind c k).
-    Hypothesis mD_ret : forall T (P : T -> Prop) x,
-        P x -> mD P (ret x).
-
-    Hypothesis mD_conseq : forall T (P Q : T -> Prop) x,
-        mD Q x ->
-        (forall x, Q x -> P x) ->
-        mD P x.
+    Context {FLogic_m : FLogic m}.
+    Context {MLogic_m : MLogic m}.
+    Context {MLogicPlus_m : MLogicPlus m}.
+    Context {MLogicZero_m : MLogicZero m}.
 
     Definition Cut {tus tvs} (t : wtexpr Esymbol tus tvs tyProp)
     : logicC m
@@ -472,18 +419,17 @@ Section simple_dep_types.
                               sub
                               migrator_id).
 
-
     Existing Instance Reflexive_Inst_evolves.
 
     Theorem Cut_sound
     : forall tus tvs t,
         logicC_spec (fun tus tvs e => wtexprD EsymbolD e)
                     (fun _ _ e => @wtgoalD _ _ e)
-                    mD
+                    fmodels
                     (@Cut tus tvs t).
     Proof.
       unfold Cut. red. simpl; intros. subst.
-      eapply mD_ret.
+      eapply fmodels_ret.
       split; [ reflexivity | ].
       { simpl.
         eapply foralls_uvar_prop_sem; intros.

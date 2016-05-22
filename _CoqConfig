@@ -21,4 +21,5 @@ theories/LambdaWt/WtExpr.v
 theories/LambdaWt/WtMigrator.v
 theories/LambdaWt/Unify.v
 theories/LambdaWt/SubstWt.v
+theories/LambdaWt/MLogic.v
 theories/LambdaWt/WtTactic.v
