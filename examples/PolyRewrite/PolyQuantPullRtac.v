@@ -81,25 +81,8 @@ Qed.
 Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
 lem_pull_ex_nat_and_left : @pull_ex_and_left nat.
 
-(* TODO - update reifier plugin so that we can produce polymorphic lemmas
-   and don't have to input them manually *)
-Definition lem_pull_ex_and_left : typ -> Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) :=
-  fun ty : typ =>
-{|
-Lemma.vars := tyProp :: tyArr ty tyProp :: nil;
-Lemma.premises := nil;
-Lemma.concl := {|
-               lhs := App
-                        (App (Inj And)
-                           (App (Inj (Ex ty)) (ExprCore.Var 1)))
-                        (ExprCore.Var 0);
-               rel := Rflip (Rinj (Inj Impl));
-               rhs := App (Inj (Ex ty))
-                        (Abs ty
-                           (App
-                              (App (Inj And)
-                                 (App (ExprCore.Var 2) (ExprCore.Var 0)))
-                              (ExprCore.Var 1))) |} |}.
+Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
+lem_pull_ex_and_left : @pull_ex_and_left.
 
 (* Lemmas used by the quantifier puller *)
 Lemma lem_pull_ex_and_left_sound
@@ -131,19 +114,8 @@ Qed.
 Reify BuildLemma < reify_simple_typ reify_simple reify_concl_base >
 lem_pull_ex_nat_and_right : @pull_ex_and_right nat.
 
-Definition lem_pull_ex_and_right : typ -> Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase) :=
-  fun ty : typ =>
-    {|
-      Lemma.vars := tyProp :: tyArr ty tyProp :: nil;
-      Lemma.premises := nil;
-      Lemma.concl := {|
-                      lhs := App (App (Inj And) (ExprCore.Var 0))
-                                 (App (Inj (Ex ty)) (ExprCore.Var 1));
-                      rel := Rflip (Rinj (Inj Impl));
-                      rhs := App (Inj (Ex ty))
-                                 (Abs ty
-                                      (App (App (Inj And) (ExprCore.Var 1))
-                                           (App (ExprCore.Var 2) (ExprCore.Var 0)))) |} |}.
+Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
+lem_pull_ex_and_right : @pull_ex_and_right.
 
 Lemma lem_pull_ex_and_right_sound
   : forall t : typ,

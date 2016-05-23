@@ -15,6 +15,7 @@ mirror-core.tgz
 coq-ext-lib
 *.cmi
 *.cmo
+*.cmt
 *.cmx
 *.cmxs
 *.cma

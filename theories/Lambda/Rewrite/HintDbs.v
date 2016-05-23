@@ -90,10 +90,12 @@ Section setoid.
       rtacK_sound tac
     end.
 
-    Theorem PRw_tc_sound {n : nat} (plem : polymorphic typ n (rw_lemma typ func Rbase)) tc tac
-      : polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) ->
-        rtacK_sound tac ->
-      RewriteHintOk (PRw_tc plem tc tac).
+  Theorem PRw_tc_sound
+          {n : nat}
+          (plem : polymorphic typ n (rw_lemma typ func Rbase)) tc tac
+  : polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) ->
+    rtacK_sound tac ->
+    RewriteHintOk (PRw_tc plem tc tac).
   Proof using.
     clear. simpl. tauto.
   Qed.
@@ -104,11 +106,13 @@ Section setoid.
   Definition Rw (rw : rw_lemma typ func Rbase) :=
     @PRw_tc 0 rw true.
 
-  Theorem Rw_sound (rw : rw_lemma typ func Rbase) (tac : CoreK.rtacK typ (expr typ func))
-    : rw_lemmaP rw ->
+  Theorem Rw_sound
+          (rw : rw_lemma typ func Rbase)
+          (tac : CoreK.rtacK typ (expr typ func))
+  : rw_lemmaP rw ->
       CoreK.rtacK_sound tac ->
       RewriteHintOk (Rw rw tac).
-  Proof.
+  Proof using.
     clear.
     intros.
     eapply PRw_tc_sound; eauto.
@@ -118,11 +122,14 @@ Section setoid.
   Definition PRw {n : nat} (pc : polymorphic typ n (rw_lemma typ func Rbase)) :=
     PRw_tc (n:=n) pc (tc_any n).
 
-  Theorem PRw_sound {n : nat} (plem : polymorphic typ n (rw_lemma typ func Rbase)) (tac : CoreK.rtacK typ (expr typ func))
-    : polymorphicD rw_lemmaP plem ->
-      CoreK.rtacK_sound tac ->
-      RewriteHintOk (PRw plem tac).
-  Proof.
+  Theorem PRw_sound
+          {n : nat}
+          (plem : polymorphic typ n (rw_lemma typ func Rbase))
+          (tac : CoreK.rtacK typ (expr typ func))
+  : polymorphicD rw_lemmaP plem ->
+    CoreK.rtacK_sound tac ->
+    RewriteHintOk (PRw plem tac).
+  Proof using.
     intros.
     eapply PRw_tc_sound; eauto.
     eapply polymorphicD_make_polymorphic. intros.
@@ -150,8 +157,10 @@ Section setoid.
         (plem : polymorphic typ n (rw_lemma typ func Rbase))
         (tc : polymorphic typ n bool)
         (e : expr typ func)
-    : option (rw_lemma typ func Rbase) :=
-    match get_inst tyVar view_update (fmap (fun x => x.(concl).(lhs)) plem) e with
+  : option (rw_lemma typ func Rbase) :=
+    match
+      get_inst tyVar view_update (fmap (fun x => x.(concl).(lhs)) plem) e
+    with
     | None => None
     | Some args =>
       if (inst tc args)
@@ -187,10 +196,10 @@ Section setoid.
   Definition RewriteHintDbOk (db : RewriteHintDb) : Prop :=
     Forall RewriteHintOk db.
 
-  Theorem CompileHints_sound :
-  forall db,
-    RewriteHintDbOk db ->
-    hints_sound (CompileHints db).
+  Theorem CompileHints_sound
+  : forall db,
+      RewriteHintDbOk db ->
+      hints_sound (CompileHints db).
   Proof using.
     induction db; intros; simpl.
     { unfold hints_sound. intros. constructor. }

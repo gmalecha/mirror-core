@@ -48,11 +48,11 @@ sig
   val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
 
   val reify_lemma : type_fn:Term.constr -> prem_fn:Term.constr -> concl_fn:Term.constr ->
-    Environ.env -> Evd.evar_map -> Term.types -> Term.constr
+    Environ.env -> Evd.evar_map -> int -> Term.types -> Term.constr
   val declare_syntax_lemma :
     name:Names.identifier ->
     type_fn:Term.constr -> prem_fn:Term.constr -> concl_fn:Term.constr ->
-    Environ.env -> Evd.evar_map -> Term.constr -> unit
+    Environ.env -> Evd.evar_map -> int -> Term.constr -> unit
 
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 
@@ -126,10 +126,18 @@ struct
   ; next     : int
   }
 
+  type use_or_bind =
+    | Use of Term.constr
+    | RBind
+    | RSkip
+
+  let maybe_bind = function true -> RBind
+                          | false -> RSkip
+
   type reify_env =
   { env : Environ.env
   ; evm : Evd.evar_map
-  ; bindings : bool list
+  ; bindings : use_or_bind list
   ; typed_tables : (int * Term.constr) environment Cmap.t ref
   }
 
@@ -187,7 +195,7 @@ struct
   let reifier_local (f : reify_env -> reify_env) (c : 'a reifier) : 'a reifier =
     fun gl -> c (f gl)
 
-  let reifier_under_binder (b : bool) (t : Term.constr) (c : 'a reifier)
+  let reifier_under_binder (b : use_or_bind) (t : Term.constr) (c : 'a reifier)
   : 'a reifier =
     fun gl -> c { gl with
                   bindings = b :: gl.bindings
@@ -199,10 +207,12 @@ struct
     (** TODO: This looks weird... **)
     let (evm, _) = Typing.type_of (Global.env ()) evm c in
     let vars = Universes.universes_of_constr c in
-    let ctx = Universes.restrict_universe_context (Univ.ContextSet.of_context (snd (Evd.universe_context evm))) vars in
+    let ctx = Universes.restrict_universe_context
+        (Univ.ContextSet.of_context (snd (Evd.universe_context evm))) vars in
     Declare.(Term.mkConst(declare_constant na
 			    (Entries.(DefinitionEntry
-					(definition_entry ~opaque:false ~univs:(Univ.ContextSet.to_context ctx) ~poly:false c))
+					(definition_entry ~opaque:false
+                                                          ~univs:(Univ.ContextSet.to_context ctx) ~poly:false c))
 
 					(*
 
@@ -516,7 +526,7 @@ struct
 	    match effect with
 	      None ->
 		fun s x ->
-		  let nbindings = false :: x.bindings in
+		  let nbindings = maybe_bind false :: x.bindings in
 		  let nenv =
 		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
 		      x.env
@@ -525,7 +535,7 @@ struct
 	    | Some eft ->
 	      fun s x ->
 		let x = eft s x in
-		let nbindings = false :: x.bindings in
+		let nbindings = maybe_bind false :: x.bindings in
 		let nenv =
 		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
 		    x.env
@@ -545,7 +555,7 @@ struct
 	    match effect with
 	      None ->
 		fun s x ->
-		  let nbindings = true :: x.bindings in
+		  let nbindings = maybe_bind true :: x.bindings in
 		  let nenv =
 		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
 		      x.env
@@ -554,7 +564,7 @@ struct
 	    | Some eft ->
 	      fun s x ->
 		let x = eft s x in
-		let nbindings = true :: x.bindings in
+		let nbindings = maybe_bind true :: x.bindings in
 		let nenv =
 		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
 		    x.env
@@ -828,15 +838,20 @@ struct
     let reify_table : syntax_data CEphemeron.key Cmap.t ref =
       ref Cmap.empty
 
-    let find =
+    let find for_var =
       let rec find ls i acc =
 	match ls with
           [] -> assert false
         | l :: ls ->
 	  if i = 0 then
-            (assert l ; acc)
+            begin
+              match l with
+                RBind -> for_var acc
+              | RSkip -> assert false
+              | Use t -> t
+            end
           else
-	    find ls (i - 1) (if l then acc + 1 else acc)
+	    find ls (i - 1) (if l = maybe_bind true then acc + 1 else acc)
       in
       fun ls i -> find ls i 0
 
@@ -862,7 +877,7 @@ struct
 		  let new_gl =
 		    { gl with
 		      env = Environ.push_rel (name, None, lhs) gl.env
-		    ; bindings = true :: gl.bindings
+		    ; bindings = maybe_bind true :: gl.bindings
 		    }
 		  in
 		  let body = reifier_run (!top (Term rhs)) new_gl in
@@ -870,12 +885,12 @@ struct
 	      | _ -> reifier_fail_lazy trm gl
 	    end
 	| Var ctor ->
+          let mkVar idx = Term.mkApp (ctor, [| Std.Nat.to_nat idx |]) in
 	  fun trm gl ->
 	    begin
 	      match Term.kind_of_term (get_term trm) with
 		Term.Rel i ->
-		  let idx = find gl.bindings (i-1) in
-		  Term.mkApp (ctor, [| Std.Nat.to_nat idx |])
+		  find mkVar gl.bindings (i-1)
 	      | _ -> reifier_fail_lazy trm gl
 	    end
 	| App ctor ->
@@ -998,6 +1013,20 @@ struct
         | Fail -> reifier_fail_lazy
       in
       let result = compile_command ls in
+      let result =
+        fun trm gl ->
+          reifier_try (result trm)
+	    (fun gl ->
+               match Term.kind_of_term (get_term trm) with
+                 Term.Rel i ->
+                   begin
+                     try
+		       find (fun _ -> raise (Failure "")) gl.bindings (i-1)
+                     with
+                       Failure _ -> reifier_fail_lazy trm gl
+                   end
+               | _ -> reifier_fail_lazy trm gl) gl
+      in
       top := result ;
       result
 
@@ -1157,19 +1186,24 @@ struct
 
   let lemma_mod = ["MirrorCore";"Lemma"]
 
+  let rec wrap_lambdas typ t n =
+    if n <= 0 then t
+    else
+      wrap_lambdas typ (Term.mkLambda (Names.Anonymous, typ, t)) (n-1)
+
   let reify_lemma
-      ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule env evm pred =
+      ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule env evm pargs pred =
     let build_lemma = Std.resolve_symbol lemma_mod "Build_lemma" in
     let finish alls prems pred =
       let ty = Syntax.reify_type typ_rule in
       let pr = Syntax.reify_type prem_rule in
       let co = Syntax.reify_type concl_rule in
-      reifier_ret
-        (Term.mkApp (Lazy.force build_lemma,
-                     [| ty ; pr ; co
-                      ; Std.List.to_list ty alls
-                      ; Std.List.to_list pr (List.rev prems)
-                      ; pred |]))
+      let lem = Term.mkApp (Lazy.force build_lemma,
+                            [| ty ; pr ; co
+                             ; Std.List.to_list ty alls
+                             ; Std.List.to_list pr (List.rev prems)
+                             ; pred |]) in
+      reifier_ret (wrap_lambdas ty lem pargs)
     in
     let get_prems alls =
       let rec get_prems prems pred =
@@ -1181,7 +1215,7 @@ struct
                reifier_bind
                  (Syntax.reify_term prem_rule (Term t))
                  (fun pr ->
-                    reifier_under_binder false t
+                    reifier_under_binder (maybe_bind false) t
                       (get_prems (pr :: prems) b)))
           ; (Term_match.Ignore,
              fun () s ->
@@ -1203,25 +1237,42 @@ struct
              reifier_bind
                (Syntax.reify_term typ_rule (Term t))
                (fun ty ->
-                  reifier_under_binder true t (get_foralls (ty :: alls) b)))
+                  reifier_under_binder (maybe_bind true) t (get_foralls (ty :: alls) b)))
         ; (Term_match.Ignore,
-           fun _ _ -> get_prems alls [] pred)
+           fun () _ -> get_prems alls [] pred)
         ]
         pred
     in
+    let rec get_polys n alls pred =
+      if n < pargs then
+        Term_match.matches n
+          [ (Term_match.Pi (Term_match.get 0, Term_match.get 1),
+             fun n s ->
+               let t = Hashtbl.find s 0 in
+               assert (Term.isSort t) ;
+               let b = Hashtbl.find s 1 in
+               reifier_under_binder (Use (Term.mkRel (pargs - n))) t
+                 (get_polys (n+1) alls b))
+          ; (Term_match.Ignore,
+             fun _ _ -> raise (ReificationFailure (lazy pred)))
+          ]
+          pred
+      else
+        get_foralls alls pred
+    in
     try
-    reifier_run (get_foralls [] pred)
-      (initial_env env evm [])
+      reifier_run (get_polys 0 [] pred)
+        (initial_env env evm [])
     with
     | Not_found -> assert false
 
   let declare_syntax_lemma
     ~name:name ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
-    env evm pred =
+    env evm pargs pred =
     let body =
       try
         reify_lemma ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
-          env evm pred
+          env evm pargs pred
       with
         Not_found ->
         assert false
@@ -1589,9 +1640,34 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
       try
         Reification.declare_syntax_lemma
           ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
-          env evm lem_type
+          env evm 0 lem_type
       with
         (Reification.ReificationFailure trm) ->
+          Errors.errorlabstrm "Reify"
+            Pp.(   str "Failed to reify term '"
+		++ Printer.pr_constr (Lazy.force trm)
+                ++ str "'.")
+    ]
+END
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Poly_Lemma
+  | [ "Reify" "BuildPolyLemma" integer(pargs) "<" constr(typ) constr(term) constr(concl) ">"
+        ident(name) ":" lconstr(lem) ] ->
+    [ if pargs < 0 then
+        Errors.errorlabstrm "Reify"
+          Pp.(   str "Polymorphic lemmas can not have a negative number"
+              ++ str " of polymorphic arguments")
+      else
+        let (evm,env) = Lemmas.get_current_context () in
+        let (evm,[lem;typ;term;concl])   =
+          Reification.ics ~env:env ~sigma:evm [lem;typ;term;concl] in
+        let (evm,lem_type) = Typing.type_of env evm lem in
+        try
+          Reification.declare_syntax_lemma
+            ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
+            env evm pargs lem_type
+        with
+          (Reification.ReificationFailure trm) ->
           Errors.errorlabstrm "Reify"
             Pp.(   str "Failed to reify term '"
 		++ Printer.pr_constr (Lazy.force trm)

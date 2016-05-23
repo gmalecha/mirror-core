@@ -569,7 +569,6 @@ Arguments typ1D {_ _} _.
 Arguments typ2D {_ _} _.
 
 Section TSym_sum.
-  About TSym.
   Variable F G : nat -> Type.
   Context {TSym_F : TSym F} {TSym_G : TSym G}.
 

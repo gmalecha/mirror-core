@@ -139,10 +139,12 @@ Fixpoint build_env (t : types) : dlist (fun n => plist (type_for_arity n)) 0.
 Defined.
 
 (** * Demo **)
-Definition test : types :=
+Local Definition test : types :=
   pcons (a_type 0 nat)
         (pcons (a_type 1 list)
                (pcons (a_type 0 bool)
                pnil)).
 
+(*
 Eval cbv beta iota zeta delta - [ type_for_arity ] in build_env test.
+*)
