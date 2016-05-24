@@ -43,6 +43,7 @@ Reify Pattern patterns_simple += (RPi (?0) (?1)) => (fun (t : function reify_sim
 Reify Pattern patterns_simple += (!! @ex @ ?0) => (fun (t : function reify_simple_typ) => Inj (typ:=typ) (Ex t)).
 Reify Pattern patterns_simple += (!! and) => (Inj (typ:=typ) And).
 Reify Pattern patterns_simple += (!! or) => (Inj (typ:=typ) Or).
+Reify Pattern patterns_simple += (!! Basics.impl) => (Inj (typ:=typ) Impl).
 
 Ltac reify_typ trm :=
   let k e :=

@@ -43,7 +43,7 @@ sig
   (** Reification **)
   val reify     : Environ.env -> Evd.evar_map -> map_type list (* tables *) ->
     Term.constr -> Term.constr -> Term.constr * all_tables
-  val reify_all : Environ.env -> Evd.evar_map -> map_type list (* tables *) ->
+  val reify_all : ?poly:Term.types list -> Environ.env -> Evd.evar_map -> map_type list (* tables *) ->
     (Term.constr * Term.constr) list -> Term.constr list * all_tables
   val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
 
@@ -58,6 +58,9 @@ sig
 
   val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
   val ics : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr list -> Evd.evar_map * Term.constr list
+
+  (** TODO(gmalecha): This should move *)
+  val nat_to_int : Term.constr -> int
 end
 
 module Reification : REIFICATION =
@@ -66,6 +69,7 @@ struct
       (struct
         let contrib_name = contrib_name
       end)
+  let nat_to_int = Std.Nat.of_nat
 
   let do_debug = true
 
@@ -203,7 +207,7 @@ struct
 
   let reifier_run (c : 'a reifier) (gl : reify_env) = c gl
 
-  let decl_constant ?typ (na : Names.identifier) evm (c : Term.constr) =
+  let decl_constant ?typ ?opaque:(opaque=false) (na : Names.identifier) evm (c : Term.constr) =
     (** TODO: This looks weird... **)
     let (evm, _) = Typing.type_of (Global.env ()) evm c in
     let vars = Universes.universes_of_constr c in
@@ -211,7 +215,7 @@ struct
         (Univ.ContextSet.of_context (snd (Evd.universe_context evm))) vars in
     Declare.(Term.mkConst(declare_constant na
 			    (Entries.(DefinitionEntry
-					(definition_entry ~opaque:false
+					(definition_entry ~opaque:opaque
                                                           ~univs:(Univ.ContextSet.to_context ctx) ~poly:false c))
 
 					(*
@@ -1117,12 +1121,12 @@ struct
           reify_table := Cmap.add name (CEphemeron.create data) !reify_table ;
           data
       with
-        Not_found when Term.isConst name ->
+        Not_found ->
+        if not (Term.isConst name) then
+          Pp.(msg_debug (str "compiling inline reify command:" ++ spc () ++ Printer.pr_constr name)) ;
         let data = compile_name name in
         reify_table := Cmap.add name (CEphemeron.create data) !reify_table ;
         data
-      | Not_found ->
-        debug "Not_found, not name" ; assert false
 
     let reify_term (name : Term.constr) =
       let data = get_entry name in
@@ -1174,11 +1178,39 @@ struct
     let result = Syntax.reify_term name (Term trm) env in
     (result, { tables = !(env.typed_tables) })
 
-  let reify_all (env : Environ.env) (evm : Evd.evar_map) tbls ns_e =
+  let rec wrap_lambdas t =
+    function [] -> t
+           | typ :: typs ->
+             wrap_lambdas (Term.mkLambda (Names.Anonymous, typ, t)) typs
+
+  let polymorphically k pred =
+    function [] -> k (Term pred)
+           | all_ts ->
+      let pargs = List.length all_ts in
+      let rec polymorphically n pred =
+        function [] -> reifier_bind (k (Term pred))
+                         (fun t -> reifier_ret (wrap_lambdas t all_ts))
+               | t::ts ->
+                 Term_match.matches n
+                   [ (Term_match.Pi (Term_match.get 0, Term_match.get 1),
+                      fun n s ->
+                        let t = Hashtbl.find s 0 in
+                        assert (Term.isSort t) ;
+                        let b = Hashtbl.find s 1 in
+                        reifier_under_binder (Use (Term.mkRel (pargs - n))) t
+                          (polymorphically (n+1) b ts))
+                   ; (Term_match.Ignore,
+                      fun _ _ -> raise (ReificationFailure (lazy pred)))
+                   ]
+                   pred
+      in
+      polymorphically 0 pred all_ts
+
+  let reify_all ?poly:(poly=[])(env : Environ.env) (evm : Evd.evar_map) tbls ns_e =
     let start_time = Sys.time () in
     let st = initial_env env evm tbls in
     let result =
-      List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e
+      List.map (fun (ns,e) -> polymorphically (Syntax.reify_term ns) e poly st) ns_e
     in
     let end_time = Sys.time () in
     Pp.(msg_info (str "Total reification time = " ++ real (end_time -. start_time) ++ fnl ())) ;
@@ -1186,16 +1218,11 @@ struct
 
   let lemma_mod = ["MirrorCore";"Lemma"]
 
-  let rec wrap_lambdas typ t n =
-    if n <= 0 then t
-    else
-      wrap_lambdas typ (Term.mkLambda (Names.Anonymous, typ, t)) (n-1)
-
   let reify_lemma
       ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule env evm pargs pred =
     let build_lemma = Std.resolve_symbol lemma_mod "Build_lemma" in
+    let ty = Syntax.reify_type typ_rule in
     let finish alls prems pred =
-      let ty = Syntax.reify_type typ_rule in
       let pr = Syntax.reify_type prem_rule in
       let co = Syntax.reify_type concl_rule in
       let lem = Term.mkApp (Lazy.force build_lemma,
@@ -1203,7 +1230,7 @@ struct
                              ; Std.List.to_list ty alls
                              ; Std.List.to_list pr (List.rev prems)
                              ; pred |]) in
-      reifier_ret (wrap_lambdas ty lem pargs)
+      reifier_ret lem
     in
     let get_prems alls =
       let rec get_prems prems pred =
@@ -1243,25 +1270,11 @@ struct
         ]
         pred
     in
-    let rec get_polys n alls pred =
-      if n < pargs then
-        Term_match.matches n
-          [ (Term_match.Pi (Term_match.get 0, Term_match.get 1),
-             fun n s ->
-               let t = Hashtbl.find s 0 in
-               assert (Term.isSort t) ;
-               let b = Hashtbl.find s 1 in
-               reifier_under_binder (Use (Term.mkRel (pargs - n))) t
-                 (get_polys (n+1) alls b))
-          ; (Term_match.Ignore,
-             fun _ _ -> raise (ReificationFailure (lazy pred)))
-          ]
-          pred
-      else
-        get_foralls alls pred
+    let rec dup n =
+      if n <= 0 then [] else ty :: dup (n-1)
     in
     try
-      reifier_run (get_polys 0 [] pred)
+      reifier_run (polymorphically (fun x -> get_foralls [] (get_term x)) pred (dup pargs))
         (initial_env env evm [])
     with
     | Not_found -> assert false
@@ -1436,7 +1449,7 @@ struct
   let a_pattern = Std.resolve_symbol pattern_mod "a_pattern"
 
   let declare_pattern (name : Names.identifier) evd (value : Term.constr) =
-    let obj = decl_constant name evd (Term.mkApp (Lazy.force a_pattern, [| value |])) in
+    let obj = decl_constant ~opaque:true name evd (Term.mkApp (Lazy.force a_pattern, [| value |])) in
 (*    let _ = Lib.add_anonymous_leaf (pattern_table_object obj) in *)
     Patterns.declare_pattern obj
 
@@ -1709,6 +1722,43 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
     ]
 END
 
+TACTIC EXTEND Reify_Lambda_Shell_poly_reify_constr
+  | ["reify_poly_expr" constr(n) constr(typ) constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
+    [ let n = Reification.nat_to_int n in
+      let rec dup n =
+        if n <= 0 then [] else typ :: dup (n-1)
+      in
+      let tbls = Reification.parse_tables tbls in
+      Proofview.Goal.enter begin fun gl ->
+	try
+	  let (res,tbl_data) =
+	    Reification.reify_all ~poly:(dup n) (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)
+              tbls (List.map (fun e -> (name,e)) es)
+	  in
+	  let rec generate tbls acc =
+	    match tbls with
+	      [] ->
+		let ltac_args =
+		  List.map
+		    Plugin_utils.Use_ltac.to_ltac_val
+		    (List.rev_append acc res)
+		in
+		Plugin_utils.Use_ltac.ltac_apply k ltac_args
+	    | tbl :: tbls ->
+	      let mp = Reification.export_table acc tbl tbl_data in
+	      Plugin_utils.Use_ltac.pose "tbl" mp
+		(fun var -> generate tbls (var :: acc))
+	  in
+	  generate tbls []
+        with
+          Reification.ReificationFailure trm ->
+	    let pr = Pp.(   (str "Failed to reify term '")
+		         ++ (Printer.pr_constr (Lazy.force trm))
+                         ++ (str "'.")) in
+	    Tacticals.New.tclZEROMSG pr
+      end
+    ]
+END
 
 TACTIC EXTEND Reify_Lambda_Shell_reify_bind
   | ["reify_expr_bind" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->

@@ -150,31 +150,31 @@ theories/RTac/RTac.v
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 
-examples/Cancel/Monoid.v
-examples/Cancel/MonoidSyntaxSimple.v
-examples/Cancel/MonoidSyntaxNoDec.v
-examples/Cancel/MonoidSyntaxWithConst.v
-examples/Cancel/MonoidSyntaxModular.v
-examples/Cancel/LtacDemo.v
-examples/Cancel/RtacDemo.v
+# examples/Cancel/Monoid.v
+# examples/Cancel/MonoidSyntaxSimple.v
+# examples/Cancel/MonoidSyntaxNoDec.v
+# examples/Cancel/MonoidSyntaxWithConst.v
+# examples/Cancel/MonoidSyntaxModular.v
+# examples/Cancel/LtacDemo.v
+# examples/Cancel/RtacDemo.v
 
-examples/Hoare/ILogic.v
-examples/Hoare/ILogicFunc.v
-examples/Hoare/LogicTac.v
-examples/Hoare/Imp.v
-examples/Hoare/ImpMetaTheory.v
-examples/Hoare/ImpSyntax.v
-examples/Hoare/Verify.v
-examples/Hoare/Tests.v
+# examples/Hoare/ILogic.v
+# examples/Hoare/ILogicFunc.v
+# examples/Hoare/LogicTac.v
+# examples/Hoare/Imp.v
+# examples/Hoare/ImpMetaTheory.v
+# examples/Hoare/ImpSyntax.v
+# examples/Hoare/Verify.v
+# examples/Hoare/Tests.v
 
-examples/Simple/Simple.v
-examples/Simple/SimpleReify.v
-examples/Simple/SimpleExt.v
-examples/Simple/FoldTest.v
+# examples/Simple/Simple.v
+# examples/Simple/SimpleReify.v
+# examples/Simple/SimpleExt.v
+# examples/Simple/FoldTest.v
 
-examples/Reify/ModularReify.v
+# examples/Reify/ModularReify.v
 
-examples/RTac/Demo.v
+# examples/RTac/Demo.v
 
 examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v
