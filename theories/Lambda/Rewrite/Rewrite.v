@@ -28,7 +28,6 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.AppN.
-Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
 

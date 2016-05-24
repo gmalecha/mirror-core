@@ -7,7 +7,6 @@ Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
-Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
 
