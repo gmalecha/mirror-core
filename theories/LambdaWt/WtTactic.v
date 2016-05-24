@@ -97,8 +97,16 @@ Section simple_dep_types.
 
     Variables Pre Post : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
 
+    (** TODO(gmalecha):
+     **  I need to figure out how contexts should play into this.
+     **  - Should [tus] and [tvs] be computed from the context, or should
+     **    the type of contexts be dependent on them?
+     **)
     Record resultA tus resultUs tvs : Type := mkResultA
     { result         : Post resultUs tvs
+      (** The only reason to return this is to avoid duplicate work
+       ** when doing migration.
+       **)
     ; resultPrems    : list (wtexpr Esymbol resultUs tvs tyProp)
     ; resultSubst    : Inst resultUs
     ; resultMigrator : migrator Esymbol tus resultUs }.
@@ -110,6 +118,8 @@ Section simple_dep_types.
     Arguments mkResultC {_ _ _} _ : clear implicits.
 
     (** Statically known pre- and post-context
+     ** - Things are problematic at this level because there is no way to
+     **   make manipulations dependent on the values in Pre.
      **)
     Definition logicA tus tus' tvs : Type :=
       forall
@@ -277,44 +287,367 @@ Section simple_dep_types.
       [ eapply IHwtexpr_equiv1 | eapply IHwtexpr_equiv2 ]; eauto. }
   Admitted.
 
-  Section evar_tactic.
-    Variable m : Type -> Type.
+  Section arrow_tactics.
+    Context {m : Type -> Type}.
     Context {Monad_m : Monad m}.
     Context {Functor_m : Functor m}.
-
-    Variable unify : Unifier Esymbol Inst.
-    Variable unifyOk : UnifierOk unify.
 
     Context {FLogic_m : FLogic m}.
     Context {MLogic_m : MLogic m}.
 
+    Section pureA.
+      Variables Pre Post
+      : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
 
-    Definition migrator_fresh t tus
-    : migrator Esymbol tus (tus ++ t :: nil).
-      eapply WtMigrator.migrator_id'. simpl.
-      intros. eapply wtUVar.
-      eapply DepUtil.member_lift with (ls'':=tus) (ls:=nil) (ls':=t::nil).
-      rewrite (app_nil_r_trans tus). eassumption.
-      eapply WtMigrator.vars_id.
-    Defined.
+      Definition pureA {tus tvs} (f : Pre tus tvs -> Post tus tvs)
+      : logicA m Pre Post tus tus tvs :=
+        fun prems sub goal =>
+          ret {| result := f goal
+               ; resultPrems := prems
+               ; resultSubst := sub
+               ; resultMigrator := migrator_id |}.
 
-    Definition Inst_fresh t {tus} (i : Inst tus)
-    : Inst (tus ++ t :: nil).
+      Variable PreD : forall tus tvs,
+          Pre tus tvs ->
+          exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+      Variable PostD : forall tus tvs,
+          Post tus tvs ->
+          exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+
+    End pureA.
+
+    Section identA.
+      Variables Pre
+      : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
+
+      Definition identA {tus tvs} := @pureA Pre Pre tus tvs (fun x => x).
+
+      Variable PreD : forall tus tvs,
+          Pre tus tvs ->
+          exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+
+      Theorem identA_sound
+      : forall tus tvs, logicA_spec PreD PreD (@identA tus tvs).
+      Proof.
+      Admitted.
+    End identA.
+
+    Section composeA.
+    Variables G G' G'' : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
+
+    Variable GD : forall tus tvs,
+        G tus tvs ->
+        exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+
+    Variable GD' : forall tus tvs,
+        G' tus tvs ->
+        exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+
+    Variable GD'' : forall tus tvs,
+        G'' tus tvs ->
+        exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+
+    Context {tus tus' tus'' : list (Tuvar Tsymbol)}.
+    Context {tvs : list (type Tsymbol)}.
+    Definition composeA
+               (a : logicA m G G' tus tus' tvs)
+               (b : logicA m G' G'' tus' tus'' tvs)
+    : logicA m G G'' tus tus'' tvs :=
+      fun prems sub goal =>
+        bind (a prems sub goal)
+             (fun x =>
+                match x with
+                | mkResultA _ goal' prems' sub' mig' =>
+                  fmap (fun x =>
+                          match x with
+                          | mkResultA _ goal'' prems'' sub'' mig'' =>
+                            mkResultA _ goal'' prems'' sub''
+                                      (migrator_compose mig' mig'')
+                          end) (b prems' sub' goal')
+                end).
+
+    Theorem composeA_sound
+    : forall a b,
+        logicA_spec GD GD' a ->
+        logicA_spec GD' GD'' b ->
+        logicA_spec GD GD'' (composeA a b).
+    Proof.
+      intros.
+      unfold composeA.
+      red; simpl; intros; subst.
+      eapply fmodels_bind.
+      { eapply H; reflexivity. }
+      { destruct x. destruct 1.
+        eapply fmodels_fmap.
+        2: eapply H0; reflexivity.
+        destruct x; destruct 1.
+        split.
+        { eapply Inst_evolves_trans; eauto. }
+        { admit. } }
     Admitted.
 
-    Variables Pre Post : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
-    Variable Pre_Post_migrate
-      : forall tus t tvs, Pre tus tvs -> Post (tus ++ t :: nil) tvs.
+    Definition logicC_of_logicA (l : logicA m G G' tus tus' tvs)
+    : logicC m G G' tus tvs :=
+      fun prems sub goal =>
+        fmap (fun x => mkResultC x) (l prems sub goal).
+
+    End composeA.
+
+    Definition prodA {tus tvs} {G1 G2 G3 G4}
+               (a : logicA m G1 G2 tus tus tvs)
+               (b : logicA m G3 G4 tus tus tvs)
+    : logicA m
+             (fun tus tvs => G1 tus tvs * G3 tus tvs)%type
+             (fun tus tvs => G2 tus tvs * G4 tus tvs)%type
+             tus tus tvs :=
+      fun prems sub gl =>
+        bind (a prems sub (fst gl))
+             (fun a' =>
+                match a' with
+                | mkResultA _ gla prems' sub' mig' =>
+                  fmap (F:=m)
+                       (fun b' =>
+                          match b' with
+                          | mkResultA _ glb prems'' sub'' mig'' =>
+                            {| result := (gla,glb)
+                               ; resultPrems := prems''
+                               ; resultSubst := sub''
+                               ; resultMigrator := migrator_compose mig' mig''
+                            |}
+                          end)
+                       (b prems' sub' (snd gl))
+                      end).
+
+  End arrow_tactics.
+
+  Arguments identA {_ _ _ _ _} _ _ _.
+  Arguments composeA {_ _ _ _ _ _ _ _ _ _} _ _ _ _ _.
+  Arguments pureA {_ _ _ _ _ _} _ _ _ _.
+
+  Section evar_tactic.
+    Context {m : Type -> Type}.
+    Context {Monad_m : Monad m}.
+    Context {Functor_m : Functor m}.
+    Context {FLogic_m : FLogic m}.
+    Context {MLogic_m : MLogic m}.
+
+    Variables Pre Post Post'
+    : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
+    Variable Pre_migrate
+    : forall tus t tvs, migrator Esymbol tus (tus ++ t :: nil) ->
+                        Pre tus tvs -> Pre (tus ++ t :: nil) tvs.
 
     Definition Evar {tus tvs} t
-    : logicA m Pre Post tus (tus ++ t :: nil) tvs :=
+    : logicA m Pre Pre tus (tus ++ t :: nil) tvs :=
       fun prems sub goal =>
         let mig := migrator_fresh t tus in
-        ret {| result := Pre_Post_migrate t goal
+        ret {| result := Pre_migrate t mig goal
              ; resultPrems := map (migrate_expr mig) prems
              ; resultSubst := Inst_fresh t sub
              ; resultMigrator := mig |}.
+
+    (** This is really inefficient due to all of the casting *)
+    Fixpoint Evars {tus tvs} tus'
+    : logicA m Pre Pre tus (tus ++ tus') tvs :=
+      match tus' as tus'
+            return logicA m Pre Pre tus (tus ++ tus') tvs
+      with
+      | nil => match eq_sym (app_nil_r_trans tus) in _ = X
+                     return logicA m Pre Pre tus X tvs
+               with
+               | eq_refl => identA
+               end
+      | t :: tus' =>
+        composeA (Evar t)
+                 match app_ass_trans tus (t :: nil) tus' in _ = X
+                       return logicA m Pre Pre (tus ++ t::nil) X tvs
+                 with
+                 | eq_refl => Evars tus'
+                 end
+      end.
+
   End evar_tactic.
+
+  Section apply_tactic.
+    Variable m : Type -> Type.
+    Context {Monad_m : Monad m}.
+    Context {MonadZero_m : MonadZero m}.
+    Context {Functor_m : Functor m}.
+
+    Context {FLogic_m : FLogic m}.
+    Context {MLogic_m : MLogic m}.
+    Context {MLogicZero_m : MLogicZero m}.
+
+    Variable unify : Unifier Esymbol Inst.
+    Variable unifyOk : UnifierOk unify.
+
+    Section lemma.
+      Variable C : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
+      Variable CD : forall {tus tvs},
+          C tus tvs -> exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
+
+      Record lemma tus tvs : Type :=
+      { vars  : list (type Tsymbol)
+      ; prems : list (wtexpr Esymbol tus (vars ++ tvs) tyProp)
+      ; concl : C tus (vars ++ tvs)
+      }.
+
+      Definition lemmaD {tus tvs} (l : lemma tus tvs)
+      : exprT TsymbolD tus tvs (typeD TsymbolD tyProp) :=
+        fun us vs =>
+          foralls_prop
+            (fun vs' : Venv TsymbolD l.(vars) =>
+               impls_prop
+                 (map (fun e => wtexprD EsymbolD e us (hlist_app vs' vs))
+                      l.(prems))
+                 (CD l.(concl) us (hlist_app vs' vs))).
+
+      Definition lift_lemma {tus tvs} {tus'} tvs'
+                 (mig : migrator Esymbol tus tus')
+                 (lem : lemma tus tvs)
+      : lemma tus' (tvs' ++ tvs).
+      Proof using.
+      Admitted.
+
+      Global Instance Migrate_lemma : Migrate Esymbol lemma.
+      Admitted.
+    End lemma.
+
+    Arguments lift_lemma {_ _ _ _} _ _ _.
+    Arguments Evars {_ _ _ Pre} _ [_ _] _ _ _ _.
+    Arguments migrate_expr {_ _} [_ _] _ [_ _] _.
+
+    Section migrating.
+      Context {tus tus' : list (Tuvar Tsymbol)}.
+      Context {tvs : list (type Tsymbol)}.
+
+      Context {Pre Post Val : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type}.
+      Variable migVal : Migrate Esymbol Val.
+
+      Definition migrating
+                 (c : logicA m Pre Post tus tus' tvs)
+      : logicA m
+               (fun tus tvs => Pre tus tvs * Val tus tvs)%type
+               (fun tus tvs => Post tus tvs * Val tus tvs)%type
+               tus tus' tvs :=
+        fun prems sub gl =>
+          fmap (fun x =>
+                  match x with
+                  | mkResultA _ gl' prems' sub' mig' =>
+                    mkResultA _ (gl', migrate mig' (snd gl))
+                              prems' sub' mig'
+                  end)
+               (c prems sub (fst gl)).
+    End migrating.
+
+    (** Soundness of unification should be justified once! *)
+    Definition Unify {tus tvs t}
+               (e1 e2 : wtexpr Esymbol tus tvs t)
+    : logicA m
+             (fun _ _ => unit)
+             (fun _ _ => bool)
+             tus tus tvs :=
+      fun prems sub gl =>
+        match unify e1 e2 sub
+              return m (resultA (fun _ _ => bool) tus tus tvs)
+        with
+        | None =>
+          ret (m:=m)
+              {| result := false
+               ; resultPrems := prems
+               ; resultSubst := sub
+               ; resultMigrator := migrator_id
+               |}
+        | Some sub' =>
+          ret {| result := true
+               ; resultPrems := prems
+               ; resultSubst := sub'
+               ; resultMigrator := migrator_id
+               |}
+        end.
+
+    Definition Unify' {tus tvs t}
+    : logicA m
+             (fun tus tvs => wtexpr Esymbol tus tvs t * wtexpr Esymbol tus tvs t)%type
+             (fun _ _ => bool)
+             tus tus tvs :=
+      fun prems sub gl =>
+        let (e1,e2) := gl in
+        match unify e1 e2 sub
+              return m (resultA (fun _ _ => bool) tus tus tvs)
+        with
+        | None =>
+          ret (m:=m)
+              {| result := false
+               ; resultPrems := prems
+               ; resultSubst := sub
+               ; resultMigrator := migrator_id
+               |}
+        | Some sub' =>
+          ret {| result := true
+               ; resultPrems := prems
+               ; resultSubst := sub'
+               ; resultMigrator := migrator_id
+               |}
+        end.
+
+    (** TODO(gmalecha): move this to WtMigrator *)
+    Definition migrator_pure {tus}
+    : migrator Esymbol nil tus := Hnil.
+
+    (** TODO(gmalecha): Fundamentally this operation is the problem.
+     ** This type does not express the fact that the lemma is related to
+     ** the outside lemma.
+     **)
+    Definition inj_lemma {tus tvs}
+               (lem : lemma (fun tus tvs => wtexpr Esymbol tus tvs tyProp) nil nil)
+    : logicA m
+             (fun tus tvs => unit)
+             (fun tus tvs => lemma (fun tus tvs => wtexpr Esymbol tus tvs tyProp) tus tvs)
+             tus tus tvs :=
+      pureA (fun _ =>
+               match app_nil_r_trans tvs in _ = X return lemma _ _ X with
+               | eq_refl => lift_lemma tvs (@migrator_pure tus) lem
+               end).
+
+    Definition Var {tus tvs} {t} (mem : member t tvs)
+    : logicA m
+             (fun _ _ => unit)
+             (fun tus tvs => wtexpr Esymbol tus tvs t)
+             tus tus tvs :=
+      pureA (fun _ => wtVar mem).
+
+    Definition Uvar {tus tvs} {ts t} (mem : member (ts,t) tus)
+    : logicA m
+             (fun tus tvs => hlist (wtexpr Esymbol tus tvs) ts)
+             (fun tus tvs => wtexpr Esymbol tus tvs t)
+             tus tus tvs :=
+      pureA (fun hl => wtUVar mem hl).
+
+    (** TODO(gmalecha): There is no way to manipulate a lemma that
+     ** is embedded inside the context because it does not have a name
+     ** that you can use to refer to it on the outside.
+     **)
+    Definition EApply {tus tvs}
+               (lem : lemma (fun tus tvs => wtexpr Esymbol tus tvs tyProp)
+                            tus tvs)
+    : logicA m
+             (fun tus tvs => wtexpr Esymbol tus tvs tyProp)
+             (fun tus tvs => wtgoal Esymbol tyProp tus tvs)
+             tus (tus ++ List.map (fun t => (tvs,t)) lem.(vars)) tvs.
+    refine (
+        composeA
+          (Evars (Pre:=fun tus tvs => wtexpr Esymbol tus tvs tyProp)
+                 (fun _ _ _ mig e => migrate_expr mig e)
+                 (List.map (fun t => (tvs,t)) lem.(vars)))
+          (_)).
+    eapply composeA; eauto.
+
+
+
+
+  End apply_tactic.
+
 
   Section under_tactic.
     Variable m : Type -> Type.
@@ -374,8 +707,7 @@ Section simple_dep_types.
         match prems with
         | nil => mzero
         | p :: ps =>
-          match @unify _ _ _ gl p s
-          with
+          match @unify _ _ _ gl p s with
           | None => find_premise ps
           | Some s' => mjoin (ret s') (find_premise ps)
           end
@@ -486,56 +818,6 @@ Section simple_dep_types.
     Qed.
   End assumption_tactic.
 
-  Section apply_tactic.
-    Variable m : Type -> Type.
-    Context {Monad_m : Monad m}.
-    Context {MonadZero_m : MonadZero m}.
-    Context {Functor_m : Functor m}.
-
-    Context {FLogic_m : FLogic m}.
-    Context {MLogic_m : MLogic m}.
-    Context {MLogicZero_m : MLogicZero m}.
-
-    Variable unify : Unifier Esymbol Inst.
-    Variable unifyOk : UnifierOk unify.
-
-    Section lemma.
-      Variable C : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
-      Variable CD : forall {tus tvs},
-          C tus tvs -> exprT TsymbolD tus tvs (typeD TsymbolD tyProp).
-
-      Record lemma tus tvs : Type :=
-      { vars  : list (type Tsymbol)
-      ; prems : list (wtexpr Esymbol tus (vars ++ tvs) tyProp)
-      ; concl : C tus (vars ++ tvs)
-      }.
-
-      Definition lemmaD {tus tvs} (l : lemma tus tvs)
-      : exprT TsymbolD tus tvs (typeD TsymbolD tyProp) :=
-        fun us vs =>
-          foralls_prop
-            (fun vs' : Venv TsymbolD l.(vars) =>
-               impls_prop
-                 (map (fun e => wtexprD EsymbolD e us (hlist_app vs' vs))
-                      l.(prems))
-                 (CD l.(concl) us (hlist_app vs' vs))).
-    End lemma.
-(*
-    Definition EApply {tus tvs}
-               (lem : lemma (fun tus tvs => wtexpr Esymbol tus tvs tyProp) tus tvs)
-    : logicC m
-             (fun tus tvs => wtexpr Esymbol tus tvs tyProp)
-             (fun tus tvs => wtgoal tus tvs)%type
-             tus tvs.
-    refine (
-      fun prems sub goal =>
-        match unify goal lem.(concl) sub with
-        | None => mzero
-        | Some sub' => _
-        end).
-*)
-
-  End apply_tactic.
 
   Section cut_tactic.
     Variable m : Type -> Type.

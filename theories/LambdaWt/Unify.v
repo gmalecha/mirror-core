@@ -398,26 +398,6 @@ Section unify.
      end e2).
   Defined.
 
-  Instance Reflexive_Inst_evolves tus
-  : Reflexive (@Inst_evolves _ _ _ _ _ tus tus migrator_id).
-  Proof.
-    (* Coq bug! compute. *)
-    repeat red. intros.
-    repeat rewrite migrate_expr_migrator_id.
-    assumption.
-  Qed.
-  Instance Transitive_Inst_evolves tus
-  : Transitive (@Inst_evolves _ _ _ _ _ tus tus migrator_id).
-  Proof.
-    repeat red. intros.
-    eapply H0.
-    red in H. red in H.
-    specialize (H _ _ e1 e2).
-    repeat rewrite migrate_expr_migrator_id in H.
-    eapply H.
-    assumption.
-  Qed.
-
   Section unify_ok.
     Variable tus : list Tuvar.
 

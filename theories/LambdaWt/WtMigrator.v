@@ -3,6 +3,7 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.LambdaWt.DepUtil.
 Require Import MirrorCore.LambdaWt.WtType.
 Require Import MirrorCore.LambdaWt.WtExpr.
 
@@ -27,6 +28,13 @@ Section simple_dep_types.
   : forall {a b c} (mig : migrator (b :: c) a),
       migrator c a := fun _ => @hlist_tl _ _.
 
+  Section class.
+    Variable (T : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type).
+    Class Migrate : Type :=
+    { migrate : forall {tus tus'}, migrator tus tus' ->
+                                   forall tvs, T tus tvs -> T tus'  tvs }.
+  End class.
+
   Definition migrate_env {tus tus'}
              (mig : migrator tus' tus) (e : Uenv TsymbolD tus)
   : Uenv TsymbolD tus' := Eval cbv beta in
@@ -49,16 +57,112 @@ Section simple_dep_types.
       end.
   End migrate_expr.
 
-  Fixpoint migrator_compose {tus tus' tus''}
+  Global Instance Migrate_wtexpr t
+  : Migrate (fun tus tvs => wtexpr Esymbol tus tvs t) :=
+  { migrate := fun tus tus' mig tvs => @migrate_expr _ _ mig _ t }.
+
+  Definition migrator_compose {tus tus' tus''}
            (mig : migrator tus tus')
            (mig' : migrator tus' tus'')
   : migrator tus tus'' :=
-    match mig in hlist _ tus
-          return migrator tus tus''
-    with
-    | Hnil => Hnil
-    | @Hcons _ _ l ls e mig'0 => Hcons (migrate_expr mig' e) (migrator_compose mig'0 mig')
-    end.
+    hlist_map (fun t e => migrate_expr mig' e) mig.
+
+  Lemma wtexpr_lift_migrate_expr
+  : forall (tus' tus'' : list (Tuvar Tsymbol)) (mig' : migrator tus' tus'')
+           (d tvs0 d' : list (type Tsymbol))
+           (x : type Tsymbol) (t : wtexpr Esymbol tus' (d' ++ tvs0) x),
+      wtexpr_lift d d' (migrate_expr mig' t) =
+      migrate_expr mig' (wtexpr_lift d d' t).
+  Proof using.
+    do 5 intro.
+    eapply wtexpr_ind_app; simpl; intros; eauto.
+    { rewrite H. rewrite H0. reflexivity. }
+    { rewrite H. reflexivity. }
+    { generalize (hlist_get u mig'); simpl; intros.
+      rewrite hlist_map_hlist_map.
+      admit. }
+  Admitted.
+
+  Lemma subst_subst'
+  : forall tus tvs' tvs'' tvs Z t (e : wtexpr Esymbol tus (Z ++ tvs) t)
+           (X : hlist (fun t => wtexpr Esymbol tus (Z ++ tvs'') t) tvs')
+           (Y : hlist (fun t => wtexpr Esymbol tus (Z ++ tvs') t) tvs)
+           P Q,
+      subst (hlist_app Q X) (subst (hlist_app P Y) e) =
+      subst (hlist_map (fun t e => subst (hlist_app Q X) e) (hlist_app P Y)) e.
+  Proof using.
+    clear.
+    do 7 intro.
+    eapply wtexpr_ind_app with (tus:=tus) (tvs:=tvs) (e:=e);
+      try solve [ simpl; intros; auto ].
+    { simpl; intros. rewrite hlist_get_hlist_map. reflexivity. }
+    { simpl; intros; rewrite <- H. rewrite <- H0. reflexivity. }
+    { intros.
+      simpl.
+      specialize (H (hlist_map (fun t e => wtexpr_lift (d::nil) nil e) X)
+                    (hlist_map (fun t e => wtexpr_lift (d::nil) nil e) Y)
+                    (Hcons (wtVar (MZ d _))
+                           (hlist_map (fun t e => wtexpr_lift (d::nil) nil e) P))
+                    (Hcons (wtVar (MZ d _))
+                           (hlist_map (fun t e => wtexpr_lift (d::nil) nil e) Q))).
+      simpl in H.
+      f_equal.
+      repeat rewrite hlist_app_hlist_map in H.
+      repeat rewrite hlist_app_hlist_map.
+      etransitivity; [ eapply H | clear H ].
+      f_equal. f_equal.
+      f_equal.
+      { repeat rewrite hlist_map_hlist_map.
+        eapply hlist_map_ext. intros.
+        admit. }
+      admit. }
+  Admitted.
+
+  Lemma migrate_expr_migrator_compose
+  : forall tus tus' tus'' tvs t
+           (mig : migrator tus tus') (mig' : migrator tus' tus'')
+           (e : wtexpr Esymbol _ tvs t),
+      migrate_expr (migrator_compose mig mig') e =
+      migrate_expr mig' (migrate_expr mig e).
+  Proof.
+    induction e; simpl; auto.
+    { rewrite IHe1. rewrite IHe2. reflexivity. }
+    { rewrite IHe. reflexivity. }
+    { unfold migrator_compose at 2.
+      rewrite hlist_get_hlist_map.
+      transitivity (subst
+                      (hlist_map (fun t e => migrate_expr mig' e) (hlist_map (@migrate_expr _ _ mig _) xs))
+                      (migrate_expr mig' (hlist_get u mig))).
+      { f_equal. clear - H.
+        induction H; simpl; auto.
+        { rewrite H. rewrite IHhlist_Forall. reflexivity. } }
+      { clear H.
+        generalize (hlist_map (@migrate_expr tus tus' mig tvs) xs).
+        clear. generalize dependent tvs.
+        generalize (hlist_get u mig).
+        simpl; clear.
+        (** LEMMA **)
+        induction w; intros; simpl; auto.
+        { repeat rewrite hlist_get_hlist_map.
+          reflexivity. }
+        { rewrite IHw1. rewrite IHw2. reflexivity. }
+        { specialize (fun h => IHw (d::tvs0) (@Hcons _ _ _ _ (wtVar (MZ d tvs0)) h)).
+          specialize (IHw (hlist_map (fun t e => wtexpr_lift (d::nil) nil e) h)).
+          simpl in IHw.
+          revert IHw.
+          match goal with
+          | |- _ = ?X -> _ = wtAbs ?Y =>
+            change X with Y; generalize Y
+          end; intros; subst.
+          repeat rewrite hlist_map_hlist_map.
+          f_equal.
+          f_equal. f_equal.
+          eapply hlist_map_ext.
+          intros. rewrite wtexpr_lift_migrate_expr. reflexivity. }
+        { rewrite hlist_map_hlist_map.
+          intros.
+          admit. }
+  Admitted.
 
   Theorem migrate_env_migrate_expr
   : forall tus tus' tvs t (mig : migrator tus tus')
@@ -215,7 +319,24 @@ Section simple_dep_types.
     reflexivity.
   Qed.
 
+  Definition migrator_fresh t tus
+  : migrator tus (tus ++ t :: nil) :=
+    Eval simpl in
+    migrator_id'
+      (fun tst : Tuvar Tsymbol =>
+         wtexpr Esymbol (tus ++ t :: nil) (fst tst) (snd tst))
+      (fun (ts : list (type Tsymbol)) (t0 : type Tsymbol)
+           (X : member (ts, t0) tus) =>
+         wtUVar
+           (member_lift nil (t :: nil) tus
+                        (match eq_sym (app_nil_r_trans tus) in _ = X
+                               return member _ X
+                         with
+                         | eq_refl => X
+                         end)) (vars_id _)).
+
 End simple_dep_types.
 
 Arguments migrator {_} _ _ _.
 Arguments migrator_id {_ _ tus}.
+Arguments migrator_fresh {_ _} _ _.

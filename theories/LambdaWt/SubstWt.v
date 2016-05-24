@@ -1,4 +1,6 @@
 Require Import Coq.Lists.List.
+Require Import ExtLib.Structures.Functor.
+Require Import ExtLib.Data.Option.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
@@ -36,11 +38,14 @@ Section substI.
       @Unifiable' _ (@i1) _ _ e1 e2 ->
       @Unifiable' _ (@i2) _ _ (migrate_expr mig e1) (migrate_expr mig e2).
 
-  Class Instantiation (T : list (Tuvar Tsymbol) -> Type) : Type :=
+  Variable (T : list (Tuvar Tsymbol) -> Type).
+
+  Class Instantiation : Type :=
   { Inst_lookup : forall {tus} (i : T tus) {ts t} (uv : member (ts,t) tus),
                          option (wtexpr Esymbol tus ts t)
   ; Inst_set    : forall {tus ts t} (uv : member (ts,t) tus) (e : wtexpr Esymbol tus ts t)
                          (i : T tus), T tus
+  ; Inst_fresh  : forall tst {tus}, T tus -> T (tus ++ tst :: nil)
   ; InstD       : forall {tus : list (Tuvar Tsymbol)}
                          (inst : T tus)
                          (us : hlist (fun tst =>
@@ -58,6 +63,43 @@ Section substI.
       inst_evolves migrator_id (@Inst_lookup _ s) (@Inst_lookup _ s') /\
       forall xs, Unifiable s' (wtUVar u xs) (subst (tvs:=tvs) xs w)
   }.
+
+  Variable Inst : Instantiation.
+
+  Theorem Inst_evolves_trans
+  : forall tus tus' tus'' mig mig'
+           (i : T tus) (i' : T tus') (i'' : T tus''),
+      Inst_evolves mig i i' ->
+      Inst_evolves mig' i' i'' ->
+      Inst_evolves (migrator_compose mig mig') i i''.
+  Proof.
+    unfold Inst_evolves, inst_evolves.
+    intros.
+    repeat rewrite migrate_expr_migrator_compose.
+    eapply H0. eapply H. assumption.
+  Qed.
+
+  Global Instance Reflexive_Inst_evolves tus
+  : Reflexive (Inst_evolves (migrator_id (tus:=tus))).
+  Proof.
+    (* Coq bug! compute. *)
+    repeat red. intros.
+    repeat rewrite migrate_expr_migrator_id.
+    assumption.
+  Qed.
+
+  Global Instance Transitive_Inst_evolves tus
+  : Transitive (Inst_evolves (migrator_id (tus:=tus))).
+  Proof.
+    repeat red. intros.
+    eapply H0.
+    red in H. red in H.
+    specialize (H _ _ e1 e2).
+    repeat rewrite migrate_expr_migrator_id in H.
+    eapply H.
+    assumption.
+  Qed.
+
 End substI.
 
 
@@ -231,11 +273,29 @@ Section subst.
       eapply type_eq_dec; eapply Tsymbol_eq_dec.
   Defined.
 
+  Definition simple_inst_fresh
+             (tst : WtExpr.Tuvar Tsymbol)
+             {tus : list (WtExpr.Tuvar Tsymbol)}
+             (i : simple_inst tus)
+  : simple_inst (tus ++ tst :: nil) :=
+    {| values :=
+         hlist_app (hlist_map (fun t x =>
+                                 fmap (F:=option)
+                                      (migrate_expr (migrator_fresh tst _)) x)
+                              i.(values))
+                   (Hcons None Hnil)
+     ; _acyclic := I |}.
+
   Global Instance Instantiation_simple_inst
   : @Instantiation Tsymbol TsymbolD Esymbol simple_inst :=
   { Inst_lookup := @simple_inst_lookup
   ; Inst_set    := @simple_inst_set
+  ; Inst_fresh  := @simple_inst_fresh
   ; InstD       := @instD
   ; Inst_set_ok := simple_inst_set_ok }.
 
 End subst.
+
+Arguments Inst_lookup {_ _ _ _ _} [_] _ [_ _] _.
+Arguments Inst_set {_ _ _ _ _} [_ _ _] _ _ _.
+Arguments Inst_fresh {_ _ _ _ _} _ [_] _.
