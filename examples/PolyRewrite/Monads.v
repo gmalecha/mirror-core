@@ -36,36 +36,81 @@ Section Option.
       { simpl. reflexivity. } }
   Qed.
 End Option.
+
+Section MonadRewrite.
+  Variable M : Type -> Type.
+  Variable M_mon : Monad M.
+  Variable M_monOk : MonadLaws M M_mon.
+
+  Definition lem1 := @monad_left_id M M_mon M_monOk.
+  Definition lem2 := @monad_right_id M M_mon M_monOk.
+  Definition lem3 := @monad_assoc M M_mon M_monOk.
+
+  Create HintDb monads.
+
+  Hint Rewrite lem1 lem2 lem3 : monads.
+
+  Definition ex1 := @bind M M_mon _ _ (ret 5) (fun x => ret (x + 1))%nat.
+
+  Goal exists x, ex1 = x.
+  Proof.
+    unfold ex1.
+    autorewrite with monads.
+  Abort.
+
+  (* TODO: Applicative and stuff *)
+  Fixpoint makeLeftIdTest (n : nat) : M nat :=
+    match n with
+    | O => ret 1
+    | S n' => bind (makeLeftIdTest n') (fun x => ret (x + 1))
+    end.
+
+  Goal (exists x, makeLeftIdTest 80 = x).
+    compute.
+    Time autorewrite with monads. (* 2.293s for n = 80 *)
+  Abort.
+
+  Fixpoint makeRightIdTest (n : nat) : M nat :=
+    match n with
+    | O => ret 1
+    | S n' => bind (makeRightIdTest n') ret
+    end.
+
+  Goal (exists x, makeRightIdTest 80 = x).
+    compute.
+    Time autorewrite with monads. (* 1.454s for n = 80 *)
+  Abort.
+
+  Section AssocTest.
+
+    Variable frob : forall x, M x -> M x.
+
+    Fixpoint makeAssocTest (n : nat) : M nat :=
+      match n with
+      | 0 => @frob nat (ret 1)
+      | S n' => bind (makeAssocTest n') (fun x => ret (x + 1))
+      end.
+
+    Goal (exists x, makeAssocTest 10 = x).
+    Proof.
+      simpl.
+      Time (repeat (progress (try setoid_rewrite lem1;
+                               try setoid_rewrite lem2;
+                               try setoid_rewrite lem3
+           ))).
+    Abort.
+
+      (* TODO: it can't quite apply all of the laws because of some
+         kind of issue with properness of frob... *)
+      
+      (* TODO: once I get makeAssocTest working, I should have
+         makeLeftIdAssocTest and makeRightIdAssocTest that test both
+         assoc and id, ideally calling the assoc function.
+         will take two parameters.
+         n = depth of overall tree
+         k = depth of associations at each node *)
+  End AssocTest.
+ 
+End MonadRewrite.
   
-  (* From MonadLaws.v *)
-  (*
-  Class MonadLaws : Type :=
-  { bind_of_return : forall {A B : Type@{d}} (eA : type A) (eB : type B),
-    typeOk eA -> typeOk eB ->
-    forall (a:A) (f:A -> m B),
-    proper a -> proper f ->
-    equal (bind (ret a) f) (f a)
-  ; return_of_bind : forall {A : Type@{d}} (eA : type A),
-    typeOk eA ->
-    forall (aM:m A) (f:A -> m A),
-    (forall x, equal (f x) (ret x)) ->
-    proper aM ->
-    equal (bind aM f) aM
-  ; bind_associativity :
-    forall {A B C : Type@{d}} (eA : type A) (eB : type B) (eC : type C),
-      typeOk eA -> typeOk eB -> typeOk eC ->
-      forall (aM:m A) (f:A -> m B) (g:B -> m C),
-      proper aM ->
-      proper f ->
-      proper g ->
-      equal (bind (bind aM f) g) (bind aM (fun a => bind (f a) g))
-  ; ret_proper :> forall {A:Type@{d}} (eA : type A), typeOk eA ->
-    proper ret
-  ; bind_proper :> forall {A B:Type@{d}} (eA : type A) (eB : type B),
-    typeOk eA -> typeOk eB ->
-    proper (@bind m _ A B)
-  }.
 
-*)
-
-End Monad.
