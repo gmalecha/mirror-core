@@ -180,3 +180,5 @@ examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v
 examples/PolyRewrite/PolyQuantPullRtac.v
 examples/PolyRewrite/DemoPolyQuantPullRtac.v
+examples/PolyRewrite/Monads.v
+examples/PolyRewrite/MSimpleMonads.v

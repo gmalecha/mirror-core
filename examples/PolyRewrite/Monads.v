@@ -7,8 +7,6 @@ Require Import ExtLib.Structures.Monad.
 
 Section MonadLaws.
 
-  Print Monad.
-
   Variable M : Type -> Type.
   Variable M_mon : Monad M.
 
@@ -83,25 +81,78 @@ Section MonadRewrite.
 
   Section AssocTest.
 
-    Variable frob : forall x, M x -> M x.
+    Variable frob : forall x, x -> M x.
 
     Fixpoint makeAssocTest (n : nat) : M nat :=
       match n with
-      | 0 => @frob nat (ret 1)
+      | 0 => @frob nat 1
       | S n' => bind (makeAssocTest n') (fun x => ret (x + 1))
       end.
 
+    Require Import Coq.Classes.Morphisms.
+    Require Import Coq.Logic.FunctionalExtensionality.
+
+    (* Needed to setoid_rewrite monadic expressions *)
+    Instance bind_proper :
+      forall T U,
+        Proper (@eq (M T) ==> pointwise_relation T (@eq (M U)) ==> @eq (M U)) bind.
+          intros. red. red. intros; subst.
+          red. intros.
+          unfold pointwise_relation in H.
+          apply functional_extensionality in H.
+          subst.
+          reflexivity.
+    Qed.
+
+          (* change to repeat first *)
+          (* rtac - reify lemmas, write automation
+             will need a simple-ish monad language with bind and ret
+             use funext for now
+            *)
     Goal (exists x, makeAssocTest 10 = x).
     Proof.
       simpl.
-      Time (repeat (progress (try setoid_rewrite lem1;
-                               try setoid_rewrite lem2;
-                               try setoid_rewrite lem3
-           ))).
+      Time (repeat (first [setoid_rewrite lem1
+                          |setoid_rewrite lem2
+                          |setoid_rewrite lem3]
+           )).
     Abort.
 
-      (* TODO: it can't quite apply all of the laws because of some
-         kind of issue with properness of frob... *)
+    (*   n = depth of overall tree
+         k = depth of associations at each node *)
+    Fixpoint makeLeftIdAssocTest (n : nat) (k : nat) : M nat :=
+      match n with
+      | 0 => @frob nat 1
+      | S n' => @bind M _ _ nat (makeLeftIdAssocTest n' k) (fun _ => makeAssocTest k)
+      end.
+
+    Goal (exists x, makeLeftIdAssocTest 2 2 = x).
+      simpl.
+      repeat setoid_rewrite lem3.
+      setoid_rewrite lem1.
+      
+      Time (repeat (first [setoid_rewrite lem1
+                          |setoid_rewrite lem2
+                          |setoid_rewrite lem3]
+           )). (*14.111s for n=8, k=5 *)
+    Abort.
+
+    (* n = depth *)
+    Fixpoint makeRightIdAssocTest (n : nat) : M nat :=
+      match n with
+      | 0 => @bind M _ _ nat (@frob nat 1) ret
+      | S n' => bind (makeRightIdAssocTest n') (fun k => frob nat (k + 1))
+      end.
+
+    Goal (exists x, makeRightIdAssocTest 20 = x).
+    Proof.
+      simpl.
+      Time (repeat (first [setoid_rewrite lem1
+                          |setoid_rewrite lem2
+                          |setoid_rewrite lem3]
+           )). (*2.366s for k=20 *)
+    Abort.
+
       
       (* TODO: once I get makeAssocTest working, I should have
          makeLeftIdAssocTest and makeRightIdAssocTest that test both
