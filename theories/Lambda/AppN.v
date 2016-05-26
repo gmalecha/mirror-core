@@ -57,7 +57,8 @@ Section app_full_proofs.
   Section apps_type.
     Variables tus tvs : tenv typ.
 
-    Fixpoint type_of_applys (t : typ) (es : list (expr typ sym)) {struct es} : option typ :=
+    Fixpoint type_of_applys (t : typ) (es : list (expr typ sym)) {struct es}
+    : option typ :=
       match es with
         | nil => Some t
         | e :: es =>

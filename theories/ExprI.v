@@ -310,42 +310,7 @@ Section Expr.
     : forall u e,
         mentionsV u e = mentionsAny (fun _ => false) (fun u' => u ?[ eq ] u') e
   ; expr_subst_sound_ho
-    : forall substU substV n e e',
-      expr_subst substU substV n e = e' ->
-      forall _tvs tus tvs tus' tvs'
-             (P : exprT tus tvs (exprT tus' tvs' Prop) -> Prop)
-             (ExprTApR : ExprTApplicativeR P)
-             (H_substU : forall u t get,
-                 mentionsU u e = true ->
-                 nth_error_get_hlist_nth typD tus u = Some (@existT _ _ t get) ->
-                 match substU u with
-                   | Some eU =>
-                     exists eUD,
-                     exprD tus' tvs' t eU = Some eUD /\
-                     P (fun us vs us' vs' => get us = eUD us' vs')
-                   | None => exists get',
-                             nth_error_get_hlist_nth typD tus' u = Some (@existT _ _ t get')
-                             /\ P (fun us vs us' vs' => get us = get' us')
-                 end)
-             (H_substV : forall u t get,
-                 mentionsV (n+u) e = true ->
-                 nth_error_get_hlist_nth typD tvs u = Some (@existT _ _ t get) ->
-                 match substV u with
-                   | Some eV =>
-                     exists eVD,
-                     exprD tus' tvs' t eV = Some eVD /\
-                     P (fun us vs us' vs' => get vs = eVD us' vs')
-                   | None => exists get',
-                             nth_error_get_hlist_nth typD tvs' u = Some (@existT _ _ t get')
-                             /\ P (fun us vs us' vs' => get vs = get' vs')
-                 end),
-      forall t eD,
-        length _tvs = n ->
-        exprD tus (_tvs ++ tvs) t e = Some eD ->
-        exists eD',
-          exprD tus' (_tvs ++ tvs') t e' = Some eD' /\
-          P (fun us vs us' vs' => forall _vs,
-                 eD us (HList.hlist_app _vs vs) = eD' us' (HList.hlist_app _vs vs'))
+    : expr_subst_spec_ho exprD mentionsU mentionsV expr_subst
   ; expr_subst_noop : forall substU substV n e,
       (forall u, mentionsU u e = true -> substU u = None) ->
       (forall v, mentionsV (v+n) e = true -> substV v = None) ->
