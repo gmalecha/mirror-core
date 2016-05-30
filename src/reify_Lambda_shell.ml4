@@ -131,7 +131,7 @@ struct
   }
 
   type use_or_bind =
-    | Use of Term.constr
+    | Use
     | RBind
     | RSkip
 
@@ -180,6 +180,9 @@ struct
     fun gl ->
       k (c gl) gl
 
+  let reifier_fmap (f : 'a -> 'b) (c : 'a reifier) : 'b reifier =
+    fun gl -> f (c gl)
+
   let reifier_fail (t : Term.constr) : 'a reifier =
     fun gl -> raise (ReificationFailure (lazy t))
 
@@ -199,7 +202,7 @@ struct
   let reifier_local (f : reify_env -> reify_env) (c : 'a reifier) : 'a reifier =
     fun gl -> c (f gl)
 
-  let reifier_under_binder (b : use_or_bind) (t : Term.constr) (c : 'a reifier)
+  let reifier_under_binder ?name:(name=Names.Anonymous) (b : use_or_bind) (t : Term.constr) (c : 'a reifier)
   : 'a reifier =
     fun gl -> c { gl with
                   bindings = b :: gl.bindings
@@ -321,7 +324,7 @@ struct
       | RConst
       | RGet   of int * rpattern
       | RApp   of rpattern * rpattern
-      | RPi    of rpattern * rpattern
+      | RPi    of rpattern * use_or_bind * rpattern
       | RLam   of rpattern * rpattern
       | RImpl  of rpattern * rpattern
       | RExact of Term.constr
@@ -468,7 +471,7 @@ struct
 	   fun _ s ->
 	     let (f,mx1) = parse_pattern (Hashtbl.find s 0) in
 	     let (x,mx2) = parse_pattern (Hashtbl.find s 1) in
-	     (RPi (f, x), max mx1 mx2))
+	     (RPi (f, maybe_bind true, x), max mx1 mx2))
 	; (apps (Glob_no_univ ptrn_lam) [get 0; get 1],
 	   fun _ s ->
              let (f,mx1) = parse_pattern (Hashtbl.find s 0) in
@@ -548,7 +551,7 @@ struct
 	  in
 	  let p2 = compile_pattern p2 (Some new_effect) in
 	  Term_match.Impl (Term_match.As (p1,fresh),p2)
-	| RPi (p1, p2) ->
+	| RPi (p1, uob, p2) ->
 	  let p1 = compile_pattern p1 effect in
 	  let fresh =
 	    let r = !fresh in
@@ -559,7 +562,7 @@ struct
 	    match effect with
 	      None ->
 		fun s x ->
-		  let nbindings = maybe_bind true :: x.bindings in
+		  let nbindings = uob :: x.bindings in
 		  let nenv =
 		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
 		      x.env
@@ -568,7 +571,7 @@ struct
 	    | Some eft ->
 	      fun s x ->
 		let x = eft s x in
-		let nbindings = maybe_bind true :: x.bindings in
+		let nbindings = uob :: x.bindings in
 		let nenv =
 		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
 		    x.env
@@ -720,7 +723,7 @@ struct
         | RConst -> str "<constant>"
         | RGet (i, p) -> pr_paren (int i ++ str " <- " ++ print_pattern p)
         | RApp (l, r) -> pr_paren (print_pattern l ++ str " @ " ++ print_pattern r)
-        | RPi (l, r) -> pr_paren (str "forall _ : " ++ print_pattern l ++ str ", " ++ print_pattern r)
+        | RPi (l, _, r) -> pr_paren (str "forall _ : " ++ print_pattern l ++ str ", " ++ print_pattern r)
         | RLam (l, r) -> pr_paren (str "fun _ : " ++ print_pattern l ++ str " => " ++ print_pattern r)
         | RImpl (l,r) -> pr_paren (print_pattern l ++ str " -> " ++ print_pattern r)
         | RExact p -> pr_paren (str "! " ++ Printer.pr_constr p)))
@@ -822,17 +825,24 @@ struct
   module Syntax =
   struct
     type table_name = Term.constr
+
     type command =
-    | Patterns of Term.constr
-    | App of Term.constr
-    | Abs of command * Term.constr
-    | Var of Term.constr
-    | Map of Term.constr * command
-    | Table of table_name
-    | TypedTable of table_name * command
-    | Or of command * command
-    | Fail
-    | Call of Term.constr
+      | Rec of int
+      | Fix of command
+      | Or of command * command
+      | Fail
+      | Call of Term.constr
+      | Map of Term.constr * command
+
+      | App of Term.constr
+      | Abs of command * Term.constr
+      | Var of Term.constr
+      | PiMeta of Term.constr * command
+
+      | Patterns of Term.constr
+      | Pattern of Patterns.rule list Patterns.ptrn_tree
+      | Table of table_name
+      | TypedTable of table_name * command
 
     type syntax_data =
     { reify       : lazy_term -> Term.constr reifier
@@ -843,7 +853,7 @@ struct
       ref Cmap.empty
 
     let find for_var =
-      let rec find ls i acc =
+      let rec find ls i acc meta_offset =
 	match ls with
           [] -> assert false
         | l :: ls ->
@@ -852,27 +862,41 @@ struct
               match l with
                 RBind -> for_var acc
               | RSkip -> assert false
-              | Use t -> t
+              | Use -> Term.mkRel meta_offset
             end
           else
-	    find ls (i - 1) (if l = maybe_bind true then acc + 1 else acc)
+            match l with
+              RBind -> find ls (i - 1) (acc + 1) meta_offset
+            | RSkip -> find ls (i - 1) acc meta_offset
+            | Use -> find ls (i - 1) acc (meta_offset + 1)
       in
-      fun ls i -> find ls i 0
+      fun ls i -> find ls i 0 1
 
     let compile_command (ls : command)
     : lazy_term -> Term.constr reifier =
       let top = ref (fun _ _ -> assert false) in
-      let rec compile_command (l : command)
+      let rec compile_command
+          (stk : (lazy_term -> Term.constr reifier) ref list)
+          (l : command)
       : lazy_term -> Term.constr reifier =
 	match l with
+        | Rec n ->
+          let r = List.nth stk n in
+          fun trm gl -> !r trm gl
+        | Fix k ->
+          let z = ref (fun _ -> assert false) in
+          let k = compile_command (z :: stk) k in
+          z := k ;
+          k
         | Call f -> fun trm gl -> reify_term f trm gl
 	| Patterns i ->
 	  fun trm gl ->
 	  begin
 	      Patterns.reify_patterns i trm gl
 	  end
+        | Pattern rs -> Patterns.run_ptrn_tree rs
 	| Abs (ty_name,ctor) ->
-          let reify_type = compile_command ty_name in
+          let reify_type = compile_command stk ty_name in
 	  fun trm gl ->
 	    begin
 	      match Term.kind_of_term (get_term trm) with
@@ -886,6 +910,18 @@ struct
 		  in
 		  let body = reifier_run (!top (Term rhs)) new_gl in
 		  Term.mkApp (ctor, [| ty ; body |])
+	      | _ -> reifier_fail_lazy trm gl
+	    end
+        | PiMeta (ty,cmd) ->
+          let reify_body = compile_command stk cmd in
+	  fun trm gl ->
+	    begin
+	      match Term.kind_of_term (get_term trm) with
+		Term.Prod (name, lhs, rhs) ->
+                  reifier_under_binder ~name Use lhs
+                    (reifier_fmap
+                       (fun b -> Term.mkLambda (Names.Anonymous, ty, b))
+                       (reify_body (Term rhs))) gl
 	      | _ -> reifier_fail_lazy trm gl
 	    end
 	| Var ctor ->
@@ -959,7 +995,7 @@ struct
 	| TypedTable (tbl_name, cmd_type) ->
 	  begin
 	    let build = Std.Positive.to_positive in
-            let reify_type = compile_command cmd_type in
+            let reify_type = compile_command stk cmd_type in
 	    fun trm renv ->
 	      let tbls = !(renv.typed_tables) in
 	      let tbl =
@@ -1003,33 +1039,31 @@ struct
 		  | Some k -> build (fst k)
 	  end
 	| Map (f,n) ->
-	  let cmd = compile_command n in
+	  let cmd = compile_command stk n in
 	  begin
 	    fun trm ->
 	      reifier_bind (cmd trm) (fun t -> reifier_ret (Term.mkApp (f, [| t |])))
 	  end
 	| Or (a,b) ->
-          let l = compile_command a in
-          let k = compile_command b in
+          let l = compile_command stk a in
+          let k = compile_command stk b in
           begin
 	    fun t gl -> reifier_try (l t) (k t) gl
           end
-        | Fail -> reifier_fail_lazy
+        | Fail ->
+          reifier_fail_lazy
       in
-      let result = compile_command ls in
+      let result = compile_command [] ls in
       let result =
         fun trm gl ->
-          reifier_try (result trm)
+          reifier_try
 	    (fun gl ->
-               match Term.kind_of_term (get_term trm) with
+               let strm = get_term trm in
+               match Term.kind_of_term strm with
                  Term.Rel i ->
-                   begin
-                     try
-		       find (fun _ -> raise (Failure "")) gl.bindings (i-1)
-                     with
-                       Failure _ -> reifier_fail_lazy trm gl
-                   end
-               | _ -> reifier_fail_lazy trm gl) gl
+		 find (fun _ -> raise (ReificationFailure (Lazy.from_val strm))) gl.bindings (i-1)
+               | _ -> reifier_fail_lazy trm gl)
+            (result trm) gl
       in
       top := result ;
       result
@@ -1044,14 +1078,18 @@ struct
 
     let cmd_Command  = Std.resolve_symbol pattern_mod "Command"
     let cmd_patterns = Std.resolve_symbol pattern_mod "CPatterns"
+    let cmd_pattern  = Std.resolve_symbol pattern_mod "CPatternTr"
     let cmd_app      = Std.resolve_symbol pattern_mod "CApp"
     let cmd_abs      = Std.resolve_symbol pattern_mod "CAbs"
     let cmd_var      = Std.resolve_symbol pattern_mod "CVar"
+    let cmd_pi_meta  = Std.resolve_symbol pattern_mod "CPiMeta"
     let cmd_table    = Std.resolve_symbol pattern_mod "CTable"
     let cmd_typed_table = Std.resolve_symbol pattern_mod "CTypedTable"
     let cmd_map      = Std.resolve_symbol pattern_mod "CMap"
     let cmd_or       = Std.resolve_symbol pattern_mod "COr"
     let cmd_fail     = Std.resolve_symbol pattern_mod "CFail"
+    let cmd_rec      = Std.resolve_symbol pattern_mod "CRec"
+    let cmd_fix      = Std.resolve_symbol pattern_mod "CFix"
 
     let get_Command_type env evm cmd =
       try
@@ -1063,16 +1101,60 @@ struct
       with
         _ -> debug "get_Command_type raised an error" ; assert false
 
+    let c_mkRBranch = Std.resolve_symbol pattern_mod "mkRBranch"
+
     let parse_command env evm =
+      let parse_branch br =
+        try
+        Term_match.(matches ()
+        [ (apps (Glob_no_univ c_mkRBranch) [Ignore(*T*);Ignore(*ls*);get 0;get 1],
+           fun _ s ->
+             let ptrn = Hashtbl.find s 0 in
+             let template = Hashtbl.find s 1 in
+             let (rptrn, bindings) = Patterns.parse_pattern ptrn in
+             let template = Patterns.parse_template bindings template in
+             { Patterns.rule_pattern = rptrn
+             ; Patterns.rule_template = template
+             ; Patterns.rule_cache = CEphemeron.create (Patterns.compile_rule rptrn template) })
+        ]) br
+        with
+        | Term_match.Match_failure -> assert false
+      in
+      let rec parse_list_of_patterns ls =
+        try
+          Term_match.(matches ()
+          [ (apps (Glob_no_univ Std.List.c_cons) [Ignore(*T*);get 0;get 1],
+             fun _ s ->
+               let b = parse_branch (Hashtbl.find s 0) in
+               let r = Hashtbl.find s 1 in
+               let rest = parse_list_of_patterns r in
+               Patterns.ptrn_tree_add b.Patterns.rule_pattern
+                 (function None -> [b]
+                         | Some xs -> b :: xs)
+                 rest)
+          ; (apps (Glob_no_univ Std.List.c_nil) [Ignore(*T*)],
+             fun _ s -> Patterns.empty_ptrn_tree [])
+          ] ls)
+        with
+        | Term_match.Match_failure -> assert false
+      in
       let rec parse_command ?normalized:(normalized=false) cmd : command =
         try
           Term_match.(matches ()
-	  [ (apps (Glob_no_univ cmd_patterns) [Ignore(*T*);get 0],
+	  [ (apps (Glob_no_univ cmd_fix) [Ignore(*T*);get 0],
+             fun _ s -> Fix (parse_command (Hashtbl.find s 0)))
+          ; (apps (Glob_no_univ cmd_rec) [Ignore(*T*);get 0],
+             fun _ s -> Rec (Std.Nat.of_nat (Hashtbl.find s 0)))
+          ; (apps (Glob_no_univ cmd_patterns) [Ignore(*T*);get 0],
              fun _ s -> Patterns (Hashtbl.find s 0))
+          ; (apps (Glob_no_univ cmd_pattern) [Ignore(*T*);get 0],
+             fun _ s -> Pattern (parse_list_of_patterns (Hashtbl.find s 0)))
 	  ; (apps (Glob_no_univ cmd_app) [Ignore(*T*);get 0],
 	     fun _ s -> App (Hashtbl.find s 0))
 	  ; (apps (Glob_no_univ cmd_var) [Ignore(*T*);get 0],
 	     fun _ s -> Var (Hashtbl.find s 0))
+	  ; (apps (Glob_no_univ cmd_pi_meta) [Ignore(*T*);get 0;get 1],
+	     fun _ s -> PiMeta (Hashtbl.find s 0, parse_command (Hashtbl.find s 1)))
 	  ; (apps (Glob_no_univ cmd_abs) [Ignore(*T*);Ignore(*U*);get 1;get 0],
 	     fun _ s -> Abs (parse_command (Hashtbl.find s 1),Hashtbl.find s 0))
 	  ; (apps (Glob_no_univ cmd_table) [Ignore(*T*);get 0],
@@ -1197,7 +1279,7 @@ struct
                         let t = Hashtbl.find s 0 in
                         assert (Term.isSort t) ;
                         let b = Hashtbl.find s 1 in
-                        reifier_under_binder (Use (Term.mkRel (pargs - n))) t
+                        reifier_under_binder Use t
                           (polymorphically (n+1) b ts))
                    ; (Term_match.Ignore,
                       fun _ _ -> raise (ReificationFailure (lazy pred)))
