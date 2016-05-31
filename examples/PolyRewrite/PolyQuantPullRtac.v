@@ -3,7 +3,6 @@
  * quantifiers out of and'd expressions to the front.
  * Testbed for the second-class polymorphism mechanism.
  *)
-
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
@@ -19,7 +18,7 @@ Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.Lambda.Polymorphic.
+Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
 
@@ -312,48 +311,7 @@ Instance Reify_typ
 Theorem Proper_plus_eq : Proper (eq ==> eq ==> eq) plus.
 Proof. red. red. red. firstorder. Qed.
 
-Ltac get_poly_arity T :=
-  lazymatch T with
-  | forall x : Type, @?G' x =>
-    let G' := constr:(G' unit) in
-    let res := get_poly_arity G' in
-    constr:(S res)
-  | forall x : Set, @?G' x =>
-    let G' := constr:(G' unit) in
-    let res := get_poly_arity G' in
-    constr:(S res)
-  | _ => constr:(0)
-  end.
 
-Ltac reify_with_class X :=
-  lazymatch goal with
-  | |- polymorphic ?typ ?ar ?T =>
-    tryif is_evar ar
-    then let Z := type of X in
-         let ar' := get_poly_arity X in
-         unify ar ar' ;
-         let cls := constr:(@reify_scheme T _) in
-         let cls := eval red in cls in
-         let cls := eval red in cls in
-         let k x := exact x in
-         reify_poly_expr ar' typ (CCall cls) k [[ True ]] [[ X ]]
-    else let cls := constr:(@reify_scheme T _) in
-         let cls := eval red in cls in
-         let cls := eval red in cls in
-         let k x := exact x in
-         reify_poly_expr ar typ (CCall cls) k [[ True ]] [[ X ]]
-  | |- ?T =>
-    let ar := get_poly_arity T in
-    let cls := constr:(@reify_scheme T _) in
-    let cls := eval red in cls in
-    let cls := eval red in cls in
-    let k x := exact x in
-    reify_poly_expr ar T (* TODO: This is wrong *) (CCall cls) k [[ True ]] [[ X ]]
-  end.
-
-Ltac reify_type_with_class X :=
-  let x := type of X in
-  reify_with_class x.
 
 Section rpolymorphic.
   Context {T U : Type}.
@@ -361,9 +319,12 @@ Section rpolymorphic.
 
   Fixpoint rpolymorphic n : Command (polymorphic T n U) :=
     match n as n return Command (polymorphic T n U) with
-    | 0 => r
+    | 0 => CCall (reify_scheme r)
     | S n => Patterns.CPiMeta (rpolymorphic n)
     end.
+
+  Global Instance Reify_polymorphic n : Reify (polymorphic T n U) :=
+  { reify_scheme := CCall (rpolymorphic n) }.
 End rpolymorphic.
 
 Section rlemma.
@@ -387,22 +348,20 @@ Section rlemma.
     CFix
       (CFirst (   CPattern (ls:=pr::Lemma.lemma ty pr concl::nil)
                            (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
-                           (fun (x : function (CCall rU)) (y : function (CRec 0)) => add_prem x y)
+                           (fun (x : function (CCall (reify_scheme rU))) (y : function (CRec 0)) => add_prem x y)
                :: CPattern (ls:=ty::Lemma.lemma ty pr concl::nil)
                            (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
-                           (fun (x : function (CCall rT)) (y : function (CRec 0)) => add_var x y)
+                           (fun (x : function (CCall (reify_scheme rT))) (y : function (CRec 0)) => add_var x y)
                :: CMap (fun x => {| Lemma.vars := nil
                                   ; Lemma.premises := nil
-                                  ; Lemma.concl := x |}) rV
+                                  ; Lemma.concl := x |}) (reify_scheme rV)
                :: nil)).
 
   Global Instance Reify_rlemma : Reify (Lemma.lemma ty pr concl) :=
-    reify_lemma.
+  { reify_scheme := CCall reify_lemma }.
 
 End rlemma.
 
-Notation "'<<:' X ':>>'" := ltac:(reify_with_class X) (at level 0, only parsing).
-Notation "'<::' X '::>'" := ltac:(reify_type_with_class X) (at level 0, only parsing).
 
 Arguments PPr {_ _ _ n} _.
 
@@ -410,26 +369,28 @@ Goal Lemma.lemma typ (expr typ func) (expr typ func).
 refine (<<: forall x : nat, x = x -> x = x :>>).
 Defined.
 
+Goal polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)).
+refine (<<: forall T : Type, forall x : T, x = x -> x = x :>>).
+Defined.
+
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-    (PPr <:: @Proper_forall ::> ::
-     PPr <:: @Proper_exists ::> :: nil).
+    (PPr (n:=1) <:: @Proper_forall ::> ::
+     PPr (n:=1) <:: @Proper_exists ::> :: nil).
 
 Let tyBNat := tyBase0 tyNat.
 Definition get_respectful : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-    (PPr <:: @Proper_forall ::> ::
-     PPr <:: @Proper_exists ::> ::
+    (PPr (n:=1) <:: @Proper_forall ::> ::
+     PPr (n:=1) <:: @Proper_exists ::> ::
      Pr <:: Proper_and_flip_impl ::> ::
      Pr <:: Proper_or_flip_impl ::> ::
      Pr <:: Proper_plus_eq ::> :: nil).
-
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
 : forall a b : T, a ?[ rT ] b = true -> rT a b.
 Proof. intros. consider (a ?[ rT ] b); auto. Qed.
-
 
 Ltac prove_prespectful :=
   first [ simple eapply Pr_sound
@@ -460,7 +421,7 @@ Proof.
    **)
   eapply do_prespectful_sound; [eapply rel_dec_correct|].
   (** Encapsulate this into 'prove_ProperDb' tactic *)
-  red; repeat first [simple apply Forall_cons; [ prove_prespectful | ]
+  red; repeat first [ simple apply Forall_cons; [ prove_prespectful | ]
                     | simple apply Forall_nil ].
   all: try refine (@Proper_forall _).
   all: try refine (@Proper_exists _).

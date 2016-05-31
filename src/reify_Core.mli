@@ -64,3 +64,5 @@ val parse_command : Environ.env -> Evd.evar_map -> Term.constr -> command
 val parse_pattern : Environ.env -> Evd.evar_map -> Term.constr -> Term.constr -> rule
 
 val parse_tables : Term.constr -> map_type list
+
+val drop_calls : Term.constr -> Term.constr

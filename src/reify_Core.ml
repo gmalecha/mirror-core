@@ -238,7 +238,7 @@ and parse_command_ env_evm =
            App (f, x, Hashtbl.find s 2))
       ; (apps (Glob_no_univ cmd_var) [Ignore(*T*);get 0],
 	 fun _ s -> Var (Hashtbl.find s 0))
-      ; (apps (Glob_no_univ cmd_pi_meta) [Ignore(*T*);get 0;get 1],
+      ; (apps (Glob_no_univ cmd_pi_meta) [get 0;Ignore(*T*);get 1],
 	 fun env_evm s ->
            PiMeta (Hashtbl.find s 0, parse_command env_evm (Hashtbl.find s 1)))
       ; (apps (Glob_no_univ cmd_abs)
@@ -334,3 +334,12 @@ let rec parse_tables (tbls : Term.constr) : map_type list =
          :: parse_tables (Hashtbl.find s 1))
     ; (Ignore, fun _ s -> [])
     ] tbls
+
+let rec drop_calls trm =
+  let open Term_match in
+  trm_match
+      [ (apps (Glob_no_univ cmd_call) [Ignore; get 0],
+         fun env_evm s -> drop_calls (Hashtbl.find s 0))
+      ; (get 0,
+         fun env_evm s -> trm)
+      ] () trm

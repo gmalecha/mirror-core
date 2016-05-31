@@ -12,7 +12,7 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
-Require Import MirrorCore.Lambda.Polymorphic.
+Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.PolyInst.
 
 Set Implicit Arguments.

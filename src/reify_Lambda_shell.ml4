@@ -88,16 +88,16 @@ struct
       ()
 
   type all_tables =
-  { tables : (int * Term.constr) environment Cmap.t
-  }
+    { tables : (int * Term.constr) environment Cmap.t
+    }
 
   let get_by_conversion renv (tbl : 'a environment)
       (target : Term.constr) : 'a option =
     let unifies = Reductionops.is_conv renv.env renv.evm target in
     Cmap.fold (fun k v a ->
-      match a with
-	None -> if unifies k then Some v else None
-      | Some k -> Some k) tbl.mappings None
+        match a with
+	  None -> if unifies k then Some v else None
+        | Some k -> Some k) tbl.mappings None
 
   let decl_constant ?typ ?opaque:(opaque=false) (na : Names.identifier) evm (c : Term.constr) =
     (** TODO: This looks weird... **)
@@ -108,14 +108,7 @@ struct
     Declare.(Term.mkConst(declare_constant na
 			    (Entries.(DefinitionEntry
 					(definition_entry ~opaque:opaque
-                                                          ~univs:(Univ.ContextSet.to_context ctx) ~poly:false c))
-
-					(*
-
-					{ const_entry_body = Future.from_val c;
-					  const_entry_secctx = None;
-					  const_entry_type = typ;
-					  const_entry_opaque = false }) *),
+                                           ~univs:(Univ.ContextSet.to_context ctx) ~poly:false c)),
 			     Decl_kinds.(IsDefinition Definition))))
 
   let (reify_term, set_reify_term) =
@@ -137,20 +130,20 @@ struct
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
       Summary.(declare_summary "reify-lambda-shell-seed-table"
-	{ freeze_function = (fun _ -> !the_seed_table)
-	; unfreeze_function = (fun pt -> the_seed_table := pt)
-	; init_function = (fun () -> the_seed_table := Cmap.empty) })
+	         { freeze_function = (fun _ -> !the_seed_table)
+	         ; unfreeze_function = (fun pt -> the_seed_table := pt)
+	         ; init_function = (fun () -> the_seed_table := Cmap.empty) })
 
     let check_compatible env evm (e : (int * Term.constr) environment) (i : int)
 	(target_ty : Term.constr) (target_t : Term.constr) : bool =
       Cmap.for_all (fun k (id,ty) ->
-	if i = id then
-	  Reductionops.is_conv env evm k target_t &&
-	  Reductionops.is_conv env evm ty target_ty
-	else true) e.mappings
+	  if i = id then
+	    Reductionops.is_conv env evm k target_t &&
+	    Reductionops.is_conv env evm ty target_ty
+	  else true) e.mappings
 
     let seed_table (tbl_name : Term.constr) (k : int) (t : Term.constr) (v : Term.constr)
-    : bool =
+      : bool =
       let (evm,env) = Lemmas.get_current_context () in
       try
 	let tbl = Cmap.find tbl_name !the_seed_table in
@@ -162,24 +155,24 @@ struct
 	else
 	  let _ =
 	    Pp.(msg_warning (   (str "Table '")
-			     ++ (Printer.pr_constr tbl_name)
-			     ++ (str (Printf.sprintf "' already contains a mapping for %d.\n" k))
-	                     ++ (str "This mapping is incompatible with the given mapping.")))
+		         ++ (Printer.pr_constr tbl_name)
+			        ++ (str (Printf.sprintf "' already contains a mapping for %d.\n" k))
+	                        ++ (str "This mapping is incompatible with the given mapping.")))
 	  in false
       with
 	Not_found ->
-	  let _ = Pp.(msg_warning (   (str "Table '")
-				   ++ (Printer.pr_constr tbl_name)
-				   ++ (str "' does not exist."))) in
-	  false
+	let _ = Pp.(msg_warning (   (str "Table '")
+				    ++ (Printer.pr_constr tbl_name)
+				    ++ (str "' does not exist."))) in
+	false
 
 
     let declare_table (ls : Term.constr) (kt : key_type) =
       if Cmap.mem ls !the_seed_table then
 	let _ =
 	  Pp.(msg_warning (   (str "Table '")
-			   ++ (Printer.pr_constr ls)
-			   ++ (str "' already exists.")))
+			      ++ (Printer.pr_constr ls)
+			      ++ (str "' already exists.")))
 	in false
       else
 	let _ =
@@ -192,8 +185,8 @@ struct
       if Cmap.mem ls !the_seed_table then
 	let _ =
 	  Pp.(msg_warning (   (str "Table '")
-			   ++ (Printer.pr_constr ls)
-			   ++ (str "' already exists.")))
+			      ++ (Printer.pr_constr ls)
+			      ++ (str "' already exists.")))
 	in false
       else
 	let _ =
@@ -209,12 +202,12 @@ struct
 
     (** [rule]s implement the pattern feature **)
     type rule =
-    { rule_pattern : rpattern
-    ; rule_template : template
-    ; mutable rule_cache :
-      (((int,int,reify_env) Term_match.pattern) *
-       (reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)) CEphemeron.key
-    }
+      { rule_pattern : rpattern
+      ; rule_template : template
+      ; mutable rule_cache :
+          (((int,int,reify_env) Term_match.pattern) *
+           (reify_env -> (int, Term.constr) Hashtbl.t -> Term.constr reifier)) CEphemeron.key
+      }
 
     type 'a ptrn_tree =
       { if_app      : 'a IntMap.t
@@ -296,26 +289,26 @@ struct
               (List.map get_rule (Cmap.find trm tr.if_exact))
               trm gl
           with Not_found | Term_match.Match_failure ->
-            try
-              match Term.kind_of_term trm with
-              | Term.App (_,args) ->
-                Term_match.matches gl
-                  (List.map get_rule (IntMap.find (Array.length args) tr.if_app))
-                  trm gl
-              | _ -> raise Not_found
-            with Not_found | Term_match.Match_failure ->
-              try
-                if not (Cmap.is_empty tr.if_has_type) then
-                  (* get the type *)
-                  let (_,ty) = Typing.type_of gl.env gl.evm trm in
-                  Term_match.matches gl
-                    (List.map get_rule (Cmap.find ty tr.if_has_type)) trm gl
-                else raise Not_found
-              with Not_found | Term_match.Match_failure ->
-                try
-                  Term_match.matches gl (List.map get_rule tr.otherwise) trm gl
-                with
-                  _ -> reifier_fail trm gl
+          try
+            match Term.kind_of_term trm with
+            | Term.App (_,args) ->
+              Term_match.matches gl
+                (List.map get_rule (IntMap.find (Array.length args) tr.if_app))
+                trm gl
+            | _ -> raise Not_found
+          with Not_found | Term_match.Match_failure ->
+          try
+            if not (Cmap.is_empty tr.if_has_type) then
+              (* get the type *)
+              let (_,ty) = Typing.type_of gl.env gl.evm trm in
+              Term_match.matches gl
+                (List.map get_rule (Cmap.find ty tr.if_has_type)) trm gl
+            else raise Not_found
+          with Not_found | Term_match.Match_failure ->
+          try
+            Term_match.matches gl (List.map get_rule tr.otherwise) trm gl
+          with
+            _ -> reifier_fail trm gl
         end
       | App (trm, args, from) ->
         begin
@@ -329,17 +322,17 @@ struct
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
       Summary.(declare_summary "reify-lambda-shell-pattern-table"
-	{ freeze_function = (fun _ -> !pattern_table)
-	; unfreeze_function = (fun pt -> pattern_table := pt)
-	; init_function = (fun () -> pattern_table := Cmap.empty) })
+	         { freeze_function = (fun _ -> !pattern_table)
+	         ; unfreeze_function = (fun pt -> pattern_table := pt)
+	         ; init_function = (fun () -> pattern_table := Cmap.empty) })
 
     let empty_tree = empty_ptrn_tree []
     let add_empty_pattern name =
       if Cmap.mem name !pattern_table then
 	Pp.(
 	  msgnl (   (str "Pattern table '")
-		 ++ (Printer.pr_constr name)
-	         ++ (str "' already exists.")))
+		    ++ (Printer.pr_constr name)
+	            ++ (str "' already exists.")))
       else
 	pattern_table := Cmap.add name empty_tree !pattern_table
 
@@ -386,12 +379,12 @@ struct
                          [vals.otherwise]))
       with Not_found ->
         Pp.(msg_warning (   (str "Unknown pattern table '")
-  		         ++ (Printer.pr_constr name)
-                         ++ (str "'."))) ;
+  		            ++ (Printer.pr_constr name)
+                            ++ (str "'."))) ;
         Pp.mt ()
 
     let reify_patterns compile_rule (i : Term.constr) trm
-    : Term.constr reifier =
+      : Term.constr reifier =
       fun gl ->
 	try
           run_ptrn_tree compile_rule (Cmap.find i !pattern_table) trm gl
@@ -405,7 +398,7 @@ struct
 
     let add_pattern compile_rule env evd
         (name : Term.constr) (ptrn : Term.constr) (template : Term.constr)
-    : unit =
+      : unit =
       try
         let rule = Reify_Core.parse_pattern env evd ptrn template in
         let rptrn = rule.Reify_Core.rule_pattern in
@@ -424,9 +417,9 @@ struct
   struct
 
     type syntax_data =
-    { reify       : lazy_term -> Term.constr reifier
-    ; result_type : Term.constr
-    }
+      { reify       : lazy_term -> Term.constr reifier
+      ; result_type : Term.constr
+      }
 
     let reify_table : syntax_data CEphemeron.key Cmap.t ref =
       ref Cmap.empty
@@ -462,7 +455,7 @@ struct
 
     (* This function compiles an [rpattern] into a [Term_match.pattern] and
      * a set of bindings
-     *)
+    *)
     let rec compile_pattern p =
       let fresh = ref (-1) in
       let effects : (int, pattern_effect) Hashtbl.t =
@@ -470,7 +463,7 @@ struct
       in
       let rec compile_pattern (p : rpattern)
 	  (effect : pattern_effect option)
-	  : (int,int,reify_env) Term_match.pattern =
+	: (int,int,reify_env) Term_match.pattern =
 	match p with
 	  RExact g -> Term_match.EGlob_no_univ g
 	| RIgnore -> Term_match.Ignore
@@ -506,13 +499,13 @@ struct
 	  let new_effect =
 	    match effect with
 	      None ->
-		fun s x ->
-		  let nbindings = RSkip :: x.bindings in
-		  let nenv =
-		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
-		      x.env
-		  in
-		  { x with bindings = nbindings ; env = nenv }
+	      fun s x ->
+		let nbindings = RSkip :: x.bindings in
+		let nenv =
+		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		    x.env
+		in
+		{ x with bindings = nbindings ; env = nenv }
 	    | Some eft ->
 	      fun s x ->
 		let x = eft s x in
@@ -535,13 +528,13 @@ struct
 	  let new_effect =
 	    match effect with
 	      None ->
-		fun s x ->
-		  let nbindings = uob :: x.bindings in
-		  let nenv =
-		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
-		      x.env
-		  in
-		  { x with bindings = nbindings ; env = nenv }
+	      fun s x ->
+		let nbindings = uob :: x.bindings in
+		let nenv =
+		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		    x.env
+		in
+		{ x with bindings = nbindings ; env = nenv }
 	    | Some eft ->
 	      fun s x ->
 		let x = eft s x in
@@ -558,8 +551,8 @@ struct
 	  let p = compile_pattern p effect in
 	  Term_match.Filter
 	    ((fun env trm ->
-	      let (_,ty) = Typing.type_of env.env env.evm trm in
-	      Term.eq_constr ty t), p)
+	        let (_,ty) = Typing.type_of env.env env.evm trm in
+	        Term.eq_constr ty t), p)
         | RLam (a,b) -> assert false
       in
       let ptrn = compile_pattern p None in
@@ -569,8 +562,8 @@ struct
 	(effects : (int, pattern_effect) Hashtbl.t)
         tmp =
       let rec compile_template (tmp : template) (at : int)
-      : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t ->
-	Term.constr reifier =
+        : Term.constr list -> reify_env -> (int, Term.constr) Hashtbl.t ->
+	  Term.constr reifier =
         match tmp with
         | Return t -> fun ls _ _ -> reifier_ret (Vars.substnl ls 0 t)
         | Bind (act, rest) ->
@@ -619,9 +612,9 @@ struct
         (Patterns.empty_ptrn_tree []) ptrns
 
     and compile_command (stk : (lazy_term -> Term.constr reifier) ref list) (ls : command)
-    : lazy_term -> Term.constr reifier =
-      let rec compile_command stk (l : command)
       : lazy_term -> Term.constr reifier =
+      let rec compile_command stk (l : command)
+        : lazy_term -> Term.constr reifier =
 	match l with
         | Rec n ->
           let r = List.nth stk n in
@@ -633,7 +626,6 @@ struct
           k
         | Call f -> fun trm gl -> reify_term f trm gl
 	| Patterns i ->
-          Pp.(msg_debug (str "trying Patterns")) ;
           fun gl -> Patterns.reify_patterns (compile_rule []) i gl
         | Pattern ptrns ->
           let ptrns = compile_patterns stk ptrns in
@@ -645,15 +637,15 @@ struct
 	    begin
 	      match Term.kind_of_term (get_term trm) with
 		Term.Lambda (name, lhs, rhs) ->
-		  let ty = reify_type (Term lhs) gl in
-		  let new_gl =
-		    { gl with
-		      env = Environ.push_rel (name, None, lhs) gl.env
-		    ; bindings = RBind :: gl.bindings
-		    }
-		  in
-		  let body = reifier_run (reify_term (Term rhs)) new_gl in
-		  Term.mkApp (ctor, [| ty ; body |])
+		let ty = reify_type (Term lhs) gl in
+		let new_gl =
+		  { gl with
+		    env = Environ.push_rel (name, None, lhs) gl.env
+		  ; bindings = RBind :: gl.bindings
+		  }
+		in
+		let body = reifier_run (reify_term (Term rhs)) new_gl in
+		Term.mkApp (ctor, [| ty ; body |])
 	      | _ -> reifier_fail_lazy trm gl
 	    end
         | PiMeta (ty,cmd) ->
@@ -662,10 +654,10 @@ struct
 	    begin
 	      match Term.kind_of_term (get_term trm) with
 		Term.Prod (name, lhs, rhs) ->
-                  reifier_under_binder ~name Use lhs
-                    (reifier_fmap
-                       (fun b -> Term.mkLambda (Names.Anonymous, ty, b))
-                       (reify_body (Term rhs))) gl
+                reifier_under_binder ~name Use lhs
+                  (reifier_fmap
+                     (fun b -> Term.mkLambda (Names.Anonymous, ty, b))
+                     (reify_body (Term rhs))) gl
 	      | _ -> reifier_fail_lazy trm gl
 	    end
 	| Var ctor ->
@@ -674,7 +666,7 @@ struct
 	    begin
        	      match Term.kind_of_term (get_term trm) with
 		Term.Rel i ->
-		  find mkVar gl.bindings (i-1)
+		find mkVar gl.bindings (i-1)
 	      | _ -> reifier_fail_lazy trm gl
 	    end
 	| App (f,x,ctor) ->
@@ -704,18 +696,18 @@ struct
 		  Cmap.find tbl_name tbls
 		with
 		  Not_found ->
-		    let all_tables = List.map fst (Cmap.bindings tbls) in
-		    let _ =
-		      Pp.(msg_warning
-			    (   (str "Implicitly adding table '")
-			     ++ (Printer.pr_constr tbl_name)
-			     ++ (str "'. This will not be returned.\n")
-			     ++ (str "(available tables are: ")
-			     ++ (pr_constrs (str " , ") all_tables)
-			     ++ (str ")")))
-		    in
-		    { mappings = Cmap.empty
-		    ; next = 1 }
+		  let all_tables = List.map fst (Cmap.bindings tbls) in
+		  let _ =
+		    Pp.(msg_warning
+			  (   (str "Implicitly adding table '")
+			      ++ (Printer.pr_constr tbl_name)
+			      ++ (str "'. This will not be returned.\n")
+			      ++ (str "(available tables are: ")
+			      ++ (pr_constrs (str " , ") all_tables)
+			      ++ (str ")")))
+		  in
+		  { mappings = Cmap.empty
+		  ; next = 1 }
 	      in
 	      let full_term = get_term trm in
 	      try
@@ -723,19 +715,19 @@ struct
 		build (fst (Cmap.find full_term tbl.mappings))
 	      with
 		Not_found ->
-		  match get_by_conversion renv tbl full_term with
-		    None ->
-		      let (result, new_tbl) =
-			let result = tbl.next in
-			let value = (result, Lazy.force Std.Unit.tt) in
-			(result,
-			 { next = result + 1
-			 ; mappings = Cmap.add full_term value tbl.mappings })
-		      in
-		      renv.typed_tables :=
-			Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
-		      build result
-		  | Some k -> build (fst k)
+		match get_by_conversion renv tbl full_term with
+		  None ->
+		  let (result, new_tbl) =
+		    let result = tbl.next in
+		    let value = (result, Lazy.force Std.Unit.tt) in
+		    (result,
+		     { next = result + 1
+		     ; mappings = Cmap.add full_term value tbl.mappings })
+		  in
+		  renv.typed_tables :=
+		    Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
+		  build result
+		| Some k -> build (fst k)
 	  end
 	| TypedTable (tbl_name, cmd_type) ->
 	  begin
@@ -748,18 +740,18 @@ struct
 		  Cmap.find tbl_name tbls
 		with
 		  Not_found ->
-		    let all_tables = List.map fst (Cmap.bindings tbls) in
-		    let _ =
-		      Pp.(msg_warning
-			    (   (str "Implicitly adding table '")
-			     ++ (Printer.pr_constr tbl_name)
-			     ++ (str "'. This will not be returned.\n")
-			     ++ (str "(available tables are: ")
-			     ++ (pr_constrs (str " , ") all_tables)
-			     ++ (str ")")))
-		    in
-		    { mappings = Cmap.empty
-		    ; next = 1 }
+		  let all_tables = List.map fst (Cmap.bindings tbls) in
+		  let _ =
+		    Pp.(msg_warning
+			  (   (str "Implicitly adding table '")
+			      ++ (Printer.pr_constr tbl_name)
+			      ++ (str "'. This will not be returned.\n")
+			      ++ (str "(available tables are: ")
+			      ++ (pr_constrs (str " , ") all_tables)
+			      ++ (str ")")))
+		  in
+		  { mappings = Cmap.empty
+		  ; next = 1 }
 	      in
 	      let full_term = get_term trm in
 	      let (_,type_of) = Typing.type_of renv.env renv.evm full_term in
@@ -770,18 +762,18 @@ struct
 		build (fst x)
 	      with
 		Not_found ->
-		  match get_by_conversion renv tbl full_term with
-		    None ->
-		      let (result, new_tbl) =
-			let result = tbl.next in
-			let value = (result, rtyp) in
-			(result,
-			 { next = result + 1
-			 ; mappings = Cmap.add full_term value tbl.mappings })
-		      in
-		      renv.typed_tables := Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
-		      build result
-		  | Some k -> build (fst k)
+		match get_by_conversion renv tbl full_term with
+		  None ->
+		  let (result, new_tbl) =
+		    let result = tbl.next in
+		    let value = (result, rtyp) in
+		    (result,
+		     { next = result + 1
+		     ; mappings = Cmap.add full_term value tbl.mappings })
+		  in
+		  renv.typed_tables := Cmap.add tbl_name new_tbl !(renv.typed_tables) ;
+		  build result
+		| Some k -> build (fst k)
 	  end
 	| Map (f,n) ->
 	  let cmd = compile_command stk n in
@@ -807,8 +799,8 @@ struct
                match Term.kind_of_term strm with
                  Term.Rel i ->
 		 find (fun _ ->
-                         raise (ReificationFailure (Lazy.from_val strm)))
-                      gl.bindings (i-1)
+                     raise (ReificationFailure (Lazy.from_val strm)))
+                   gl.bindings (i-1)
                | _ -> reifier_fail_lazy trm gl)
             (result trm) gl
       in
@@ -817,20 +809,22 @@ struct
     (** Freezing and thawing of state (for backtracking) **)
     let _ =
       Summary.(declare_summary "reify-lambda-shell-syntax-table"
-	{ freeze_function   = (fun _ -> !reify_table);
-	  unfreeze_function = (fun pt -> reify_table := pt);
-	  init_function     = (fun () -> reify_table := Cmap.empty) })
+	         { freeze_function   = (fun _ -> !reify_table);
+	           unfreeze_function = (fun pt -> reify_table := pt);
+	           init_function     = (fun () -> reify_table := Cmap.empty) })
 
     let cmd_Command  = Std.resolve_symbol pattern_mod "Command"
     let get_Command_type env evm cmd =
       try
-      let (_,typ) = Typing.type_of env evm cmd in
-      Term_match.(matches ()
-                    [(apps (Glob_no_univ cmd_Command) [get 0],
-                      fun _ s -> Hashtbl.find s 0)]
-                    typ)
+        let (_,typ) = Typing.type_of env evm cmd in
+        Term_match.(matches ()
+                      [(apps (Glob_no_univ cmd_Command) [get 0],
+                        fun _ s -> Hashtbl.find s 0)]
+                      typ)
       with
-        _ -> debug "get_Command_type raised an error" ; assert false
+        _ ->
+        Pp.(msg_debug (str "this is the term: " ++ Printer.pr_constr cmd)) ;
+        debug "get_Command_type raised an error" ; assert false
 
     let compile_name (name : Term.constr) =
       let (evm,env) = Lemmas.get_current_context () in
@@ -850,6 +844,7 @@ struct
           data
       with
         Not_found ->
+        let name = drop_calls name in
         if not (Term.isConst name) then
           Pp.(msg_debug (str "compiling inline reify command:" ++ spc () ++ Printer.pr_constr name)) ;
         let data = compile_name name in
@@ -916,25 +911,25 @@ struct
   let polymorphically k pred =
     function [] -> k (Term pred)
            | all_ts ->
-      let pargs = List.length all_ts in
-      let rec polymorphically n pred =
-        function [] -> reifier_bind (k (Term pred))
-                         (fun t -> reifier_ret (wrap_lambdas t all_ts))
-               | t::ts ->
-                 Term_match.matches n
-                   [ (Term_match.Pi (Term_match.get 0, Term_match.get 1),
-                      fun n s ->
-                        let t = Hashtbl.find s 0 in
-                        assert (Term.isSort t) ;
-                        let b = Hashtbl.find s 1 in
-                        reifier_under_binder Use t
-                          (polymorphically (n+1) b ts))
-                   ; (Term_match.Ignore,
-                      fun _ _ -> raise (ReificationFailure (lazy pred)))
-                   ]
-                   pred
-      in
-      polymorphically 0 pred all_ts
+             let pargs = List.length all_ts in
+             let rec polymorphically n pred =
+               function [] -> reifier_bind (k (Term pred))
+                                (fun t -> reifier_ret (wrap_lambdas t all_ts))
+                      | t::ts ->
+                        Term_match.matches n
+                          [ (Term_match.Pi (Term_match.get 0, Term_match.get 1),
+                             fun n s ->
+                               let t = Hashtbl.find s 0 in
+                               assert (Term.isSort t) ;
+                               let b = Hashtbl.find s 1 in
+                               reifier_under_binder Use t
+                                 (polymorphically (n+1) b ts))
+                          ; (Term_match.Ignore,
+                             fun _ _ -> raise (ReificationFailure (lazy pred)))
+                          ]
+                          pred
+             in
+             polymorphically 0 pred all_ts
 
   let reify_all ?poly:(poly=[])(env : Environ.env) (evm : Evd.evar_map) tbls ns_e =
     let start_time = Sys.time () in
@@ -1010,8 +1005,8 @@ struct
     | Not_found -> assert false
 
   let declare_syntax_lemma
-    ~name:name ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
-    env evm pargs pred =
+      ~name:name ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
+      env evm pargs pred =
     let body =
       try
         reify_lemma ~type_fn:typ_rule ~prem_fn:prem_rule ~concl_fn:concl_rule
@@ -1028,25 +1023,25 @@ struct
       let rec insert_at n ls =
 	match ls with
 	| [] -> if n = 0 then [Some v]
-	        else None :: insert_at (n - 1) ls
+	  else None :: insert_at (n - 1) ls
 	| l :: ls -> if n = 0 then Some v :: ls
-	             else l :: insert_at (n - 1) ls
+	  else l :: insert_at (n - 1) ls
       in
       insert_at
     in
     let build tbl = Cmap.fold (fun trm (idx,typ) acc ->
-      insert_at (typ,trm) (idx - 1) acc) tbl []
+        insert_at (typ,trm) (idx - 1) acc) tbl []
     in
     let maker =
       match mt.table_scheme with
       | SimpleMap ->
-	 fun (_,tt) ->
+	fun (_,tt) ->
 	  Vars.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| tt |]))
       | TypedMap ->
-	 fun (ty,tt) ->
+	fun (ty,tt) ->
 	  Vars.substnl bindings 0 (Term.mkApp (mt.table_elem_ctor, [| ty ; tt |]))
       | TypedMapAbs abs_typ ->
-	 fun (ty,tt) ->
+	fun (ty,tt) ->
 	  let v =
 	    Term.mkApp (Vars.substnl bindings 0 mt.table_elem_ctor,
 			[| Vars.substnl bindings 0 ty
@@ -1057,7 +1052,7 @@ struct
 	  v
     in
     let typ = Vars.substnl bindings 0 mt.table_elem_type in
-(*    let ctor = Term.substnl bindings 0 mt.table_elem_ctor in *)
+    (*    let ctor = Term.substnl bindings 0 mt.table_elem_ctor in *)
     let ary_typ = [| typ |] in
     let leaf = Term.mkApp (Lazy.force Std.PosMap.c_leaf, ary_typ)  in
     let branch = Term.mkApp (Lazy.force Std.PosMap.c_node, ary_typ) in
@@ -1084,15 +1079,15 @@ struct
   let typed_table_value = Std.resolve_symbol pattern_mod "a_typed_table"
 
   let new_table
-      : Term.constr * Tables.key_type -> Libobject.obj =
+    : Term.constr * Tables.key_type -> Libobject.obj =
     Libobject.(declare_object
 		 { (default_object "REIFY_TABLE") with
 		   cache_function = (fun (_,_) ->
-		     (** TODO: I don't know what to do here. **)
-		     ())
+		       (** TODO: I don't know what to do here. **)
+		       ())
 		 ; load_function = (fun i (obj_name,value) ->
 		     (** TODO: What do I do about [i] and [obj_name]? **)
-       Printf.eprintf "Loading table\n" ;
+                     Printf.eprintf "Loading table\n" ;
 		     let (name,typ) = value in
 		     if Tables.declare_table name typ then
 		       ()
@@ -1105,16 +1100,16 @@ struct
 
 
   let new_table_entry
-  : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
+    : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
     Libobject.(declare_object
 		 { (default_object "REIFY_TABLE_ENTRY") with
 		   cache_function = (fun (_,_) ->
-		     (** TODO: I don't know what to do here. **)
-		     ())
+		       (** TODO: I don't know what to do here. **)
+		       ())
 		 ; load_function = (fun i (obj_name,value) ->
 		     (** TODO: What do I do about [i] and [obj_name]? **)
 		     let (tbl_name, key, (ty,value)) = value in
-       Printf.eprintf "Loading table entry %d\n" key ;
+                     Printf.eprintf "Loading table entry %d\n" key ;
 		     if Tables.seed_table tbl_name key ty value then
 		       ()
 		     else
@@ -1134,7 +1129,7 @@ struct
     in
     let key_ary = [| key |] in
     let obj = decl_constant ~typ:(Term.mkApp (Lazy.force table_type, key_ary))
-      id evm (Term.mkApp (Lazy.force table_value, key_ary))
+        id evm (Term.mkApp (Lazy.force table_value, key_ary))
     in
     if Tables.declare_table obj key_type then
       let _ = Lib.add_anonymous_leaf (new_table (obj, key_type))
@@ -1149,7 +1144,7 @@ struct
     in
     let key_ary = [| key ; typ |] in
     let obj = decl_constant ~typ:(Term.mkApp (Lazy.force typed_table_type, key_ary))
-      id evm (Term.mkApp (Lazy.force typed_table_value, key_ary))
+        id evm (Term.mkApp (Lazy.force typed_table_value, key_ary))
     in
     if Tables.declare_table obj key_type then
       let _ = Lib.add_anonymous_leaf (new_table (obj, key_type)) in
@@ -1165,7 +1160,7 @@ struct
       in true
     else
       (Pp.(msg_debug (str "failed to seed table: " ++ Printer.pr_constr name)) ;
-      false)
+       false)
 
   let seed_typed_table name key ty value =
     if Tables.seed_table name key ty value then
@@ -1174,35 +1169,35 @@ struct
       in true
     else
       (Pp.(msg_debug (str "failed to seed typed table: " ++ Printer.pr_constr name)) ;
-      false)
+       false)
 
   let a_pattern = Std.resolve_symbol pattern_mod "a_pattern"
 
   let declare_pattern (name : Names.identifier) evd (value : Term.constr) =
     let obj = decl_constant ~opaque:true name evd (Term.mkApp (Lazy.force a_pattern, [| value |])) in
-(*    let _ = Lib.add_anonymous_leaf (pattern_table_object obj) in *)
+    (*    let _ = Lib.add_anonymous_leaf (pattern_table_object obj) in *)
     Patterns.declare_pattern obj
 
   let print_patterns = Patterns.print_patterns
 
   let new_pattern_object
-  : Term.constr * Term.constr * Term.constr -> Libobject.obj =
+    : Term.constr * Term.constr * Term.constr -> Libobject.obj =
     Libobject.(declare_object
-      { (default_object "REIFY_ADD_PATTERN") with
-	cache_function = (fun (_,_) ->
-		    (** TODO: I don't know what to do here. **)
-		    ())
-      ; classify_function = (fun x -> Substitute x)
-      ; subst_function = (fun (subst, (collection, ptrn, rule)) ->
-          (Mod_subst.subst_mps subst collection,
-           Mod_subst.subst_mps subst ptrn,
-           Mod_subst.subst_mps subst rule))
-      ; load_function = (fun i (obj_name,value) ->
-	  let (collection, ptrn, rule) = value in
-          Patterns.add_pattern (Syntax.compile_rule [])
-            Environ.empty_env Evd.empty (** NOTE: neither should be necessary *)
-            collection ptrn rule)
-      })
+                 { (default_object "REIFY_ADD_PATTERN") with
+	           cache_function = (fun (_,_) ->
+		       (** TODO: I don't know what to do here. **)
+		       ())
+                 ; classify_function = (fun x -> Substitute x)
+                 ; subst_function = (fun (subst, (collection, ptrn, rule)) ->
+                     (Mod_subst.subst_mps subst collection,
+                      Mod_subst.subst_mps subst ptrn,
+                      Mod_subst.subst_mps subst rule))
+                 ; load_function = (fun i (obj_name,value) ->
+	             let (collection, ptrn, rule) = value in
+                     Patterns.add_pattern (Syntax.compile_rule [])
+                       Environ.empty_env Evd.empty (** NOTE: neither should be necessary *)
+                       collection ptrn rule)
+                 })
 
   let add_pattern (name : Term.constr)
       (ptrn : Term.constr) (template : Term.constr) evm : unit =
@@ -1223,30 +1218,30 @@ struct
 
   let parse_table (trm : Term.constr) : map_type =
     Term_match.(matches ()
-       [(apps (Glob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
-	 fun _ s -> { table_name = Hashtbl.find s 0
-	            ; table_elem_type = Hashtbl.find s 2
-	            ; table_elem_ctor = Hashtbl.find s 1
-	            ; table_scheme = SimpleMap })
-		    ;(apps (Glob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
-					      get 0;get 1],
-	fun _ s -> { table_name = Hashtbl.find s 0
-	           ; table_elem_type = Hashtbl.find s 2
-	           ; table_elem_ctor = Hashtbl.find s 1
-	           ; table_scheme = TypedMap })
-       ;(apps (Glob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
-					      Ignore;get 0;get 1],
-	 fun _ s -> { table_name = Hashtbl.find s 0
-		    ; table_elem_type = Hashtbl.find s 2
-		    ; table_elem_ctor = Hashtbl.find s 1
-		    ; table_scheme = TypedMapAbs (Hashtbl.find s 3) })
-       ]) trm
+                  [(apps (Glob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
+	            fun _ s -> { table_name = Hashtbl.find s 0
+	                       ; table_elem_type = Hashtbl.find s 2
+	                       ; table_elem_ctor = Hashtbl.find s 1
+	                       ; table_scheme = SimpleMap })
+		  ;(apps (Glob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
+					             get 0;get 1],
+	            fun _ s -> { table_name = Hashtbl.find s 0
+	                       ; table_elem_type = Hashtbl.find s 2
+	                       ; table_elem_ctor = Hashtbl.find s 1
+	                       ; table_scheme = TypedMap })
+                  ;(apps (Glob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
+					                 Ignore;get 0;get 1],
+	            fun _ s -> { table_name = Hashtbl.find s 0
+		               ; table_elem_type = Hashtbl.find s 2
+		               ; table_elem_ctor = Hashtbl.find s 1
+		               ; table_scheme = TypedMapAbs (Hashtbl.find s 3) })
+                  ]) trm
 
   let rec parse_tables (tbls : Term.constr) : map_type list =
     Term_match.(matches ()
 		  [(Lam (0,get 0,get 1),
 		    fun _ s ->
-		         parse_table (Hashtbl.find s 0)
+		      parse_table (Hashtbl.find s 0)
 		      :: parse_tables (Hashtbl.find s 1))
 		  ;(Ignore, fun _ s -> [])
 		  ]) tbls
@@ -1257,8 +1252,8 @@ struct
     match ls with
       [] -> k []
     | (s,trm) :: ls ->
-       Plugin_utils.Use_ltac.pose s trm
-         (fun var -> pose_each ls (fun vs -> k (var :: vs)))
+      Plugin_utils.Use_ltac.pose s trm
+        (fun var -> pose_each ls (fun vs -> k (var :: vs)))
 
   let ic ?env ?sigma c =
     let env =
@@ -1294,7 +1289,6 @@ struct
           (fun ls evm -> k (cc::ls) evm) cs
     in go sigma k ls
 end
-
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->

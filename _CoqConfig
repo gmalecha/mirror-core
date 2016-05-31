@@ -30,6 +30,7 @@ theories/VarsToUVars.v
 theories/Lemma.v
 theories/LemmaApply.v
 theories/Simple.v
+theories/Polymorphic.v
 
 theories/Lib/TypeVar.v
 
@@ -90,7 +91,6 @@ theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
 theories/Lambda/Reify.v
-theories/Lambda/Polymorphic.v
 theories/Lambda/PolyInst.v
 theories/Lambda/RewriteStrat.v
 theories/Lambda/Rewrite/Core.v
