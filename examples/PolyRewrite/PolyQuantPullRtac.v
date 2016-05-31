@@ -46,32 +46,32 @@ Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
 Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
 Reify Pattern patterns_concl += (?0 @ ?1 @ ?2) =>
-  (fun (a b c : function reify_simple) =>
+  (fun (a b c : function (CCall reify_simple)) =>
      @Build_rw_concl typ func Rbase b (@Rinj typ Rbase a) c).
 
 Reify Pattern patterns_concl += (!!Basics.impl @ ?0 @ ?1) =>
-  (fun (a b : function reify_simple) =>
+  (fun (a b : function (CCall reify_simple)) =>
      @Build_rw_concl typ func Rbase a (@Rinj typ Rbase (Inj Impl)) b).
 Reify Pattern patterns_concl += ((!!@Basics.flip @ # @ # @ # @ !!Basics.impl) @ ?0 @ ?1) =>
-  (fun (a b : function reify_simple) =>
+  (fun (a b : function (CCall reify_simple)) =>
      @Build_rw_concl typ func Rbase a (Rflip (@Rinj typ Rbase (Inj Impl))) b).
 
 Reify Declare Patterns patterns_R : (R typ Rbase).
 
 Reify Declare Syntax reify_R :=
   CFirst (  CPatterns patterns_R
-         :: CMap (@Rinj _ _) reify_simple
+         :: CMap (@Rinj _ _) (CCall reify_simple)
          :: nil).
 
 Reify Pattern patterns_R += (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1) =>
-  (fun a b : function reify_R => Rrespects a b).
+  (fun a b : function (CCall reify_R) => Rrespects a b).
 Reify Pattern patterns_R += (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1) =>
-  (fun (a : function reify_simple_typ) (b : function reify_R) => Rpointwise a b).
+  (fun (a : function (CCall reify_simple_typ)) (b : function (CCall reify_R)) => Rpointwise a b).
 Reify Pattern patterns_R += (!!@Basics.flip @ # @ # @ # @ ?0) =>
-  (fun a : function reify_R => Rflip a).
+  (fun a : function (CCall reify_R) => Rflip a).
 
 Reify Pattern patterns_proper += (!!@Morphisms.Proper @ # @ ?0 @ ?1) =>
-  (fun (a : function reify_R) (b : function reify_simple) => @MkProper _ _ _ a b).
+  (fun (a : function (CCall reify_R)) (b : function (CCall reify_simple)) => @MkProper _ _ _ a b).
 
 
 Existing Instance RType_typ.
@@ -216,10 +216,21 @@ Ltac get_num_arrs t :=
   | _ => constr:(0)
   end.
 
-Ltac prove_lem lem :=
-  red; intros;
+Ltac reduce_exprT :=
   repeat progress (red; simpl; repeat rewrite mtyp_cast_refl);
-  unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl;
+  unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl.
+
+Ltac polymorphicD_intro :=
+  try lazymatch goal with
+    | |- @polymorphicD _ _ _ O _ =>
+      red
+    | |- @polymorphicD _ _ _ (S _) _ => intro ; polymorphicD_intro
+    end.
+
+Ltac prove_lem lem :=
+  polymorphicD_intro ;
+  red; intros;
+  reduce_exprT ;
   try first [ exact lem
             | exact (lem _)
             | exact (lem _ _)
@@ -251,40 +262,6 @@ Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
 Existing Instance RelDec_eq_mtyp.
 
-(*
-Arguments fail_respectful {_ _ _} _ _ _ _ _.
-*)
-
-(*
-Require Import ExtLib.Data.Vector.
-*)
-
-(* copied from HintDbs.v *)
-(* Require Import MirrorCore.Lib.TypeVar. (** TODO: Eliminate *) *)
-(* Universe X. *)
-
-(* (** TODO: Eliminate **) *)
-(* Let local_view : (PartialView@{X} typ (VType 0)) := *)
-(*   {| f_insert := fun x => match x with *)
-(*                        | tVar p => tyVar p *)
-(*                        end *)
-(*      ; f_view := fun x => match x with *)
-(*                        | tyVar x => POption.pSome (tVar x) *)
-(*                        | _ => POption.pNone *)
-(*                        end |}. *)
-
-(*
-Arguments term {_ _ _} _.
-*)
-
-(*
-Definition PolymorphicD {T} (TD : T -> Prop) n x : Prop :=
-  forall (v : Vector.vector typ n),
-    TD (Polymorphic.inst x v).
-*)
-
-(* Arguments l {_ _ _} _ _. *)
-
 Require Import MirrorCore.Util.Forwardy.
 
 (*
@@ -292,11 +269,6 @@ Require Import MirrorCore.Util.Forwardy.
    figure out what arguments i want to_respectful/do_prespectful to have
    and then make it have them
  *)
-
-(*
-Definition mkProper {typ func Rbase} (r : R typ Rbase) (e : expr typ func) : Proper_concl Rbase :=
-  Build_Proper_concl r e.
-*)
 
 Require Import Coq.Classes.Morphisms.
 
@@ -323,21 +295,19 @@ Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
   lem_Proper_forall : @Proper_forall.
 
-Class Reify (T : Type) : Type :=
-  reify_scheme : Command T.
+Instance Reify_expr_simple : Reify (expr typ func) :=
+{ reify_scheme := reify_simple }.
 
-(*
-Instance Reify_Proper_lemma
-: Reify (Lemma.lemma typ (expr typ func) (Proper_concl (typ:=typ) (func:=func) Rbase)) :=
-{ reify_scheme := CPatterns patterns_proper }.
-*)
+Instance Reify_simple_type : Reify typ :=
+{ reify_scheme := reify_simple_typ }.
+
 Instance Reify_Proper_lemma
 : Reify (Proper_concl (typ:=typ) (func:=func) Rbase) :=
 { reify_scheme := CPatterns patterns_proper }.
 
 Instance Reify_typ
 : Reify typ :=
-{ reify_scheme := reify_simple_typ }.
+{ reify_scheme := CCall reify_simple_typ }.
 
 Theorem Proper_plus_eq : Proper (eq ==> eq ==> eq) plus.
 Proof. red. red. red. firstorder. Qed.
@@ -363,31 +333,83 @@ Ltac reify_with_class X :=
          let ar' := get_poly_arity X in
          unify ar ar' ;
          let cls := constr:(@reify_scheme T _) in
-         let cls := eval compute in cls in
+         let cls := eval red in cls in
+         let cls := eval red in cls in
          let k x := exact x in
-         reify_poly_expr ar' typ cls k [[ True ]] [[ X ]]
+         reify_poly_expr ar' typ (CCall cls) k [[ True ]] [[ X ]]
     else let cls := constr:(@reify_scheme T _) in
-         let cls := eval compute in cls in
+         let cls := eval red in cls in
+         let cls := eval red in cls in
          let k x := exact x in
-         reify_poly_expr ar typ cls k [[ True ]] [[ X ]]
+         reify_poly_expr ar typ (CCall cls) k [[ True ]] [[ X ]]
   | |- ?T =>
     let ar := get_poly_arity T in
     let cls := constr:(@reify_scheme T _) in
-    let cls := eval compute in cls in
+    let cls := eval red in cls in
+    let cls := eval red in cls in
     let k x := exact x in
-    reify_poly_expr ar T (* TODO: This is wrong *) cls k [[ True ]] [[ X ]]
+    reify_poly_expr ar T (* TODO: This is wrong *) (CCall cls) k [[ True ]] [[ X ]]
   end.
 
 Ltac reify_type_with_class X :=
   let x := type of X in
   reify_with_class x.
 
+Section rpolymorphic.
+  Context {T U : Type}.
+  Context {r : Reify U}.
+
+  Fixpoint rpolymorphic n : Command (polymorphic T n U) :=
+    match n as n return Command (polymorphic T n U) with
+    | 0 => r
+    | S n => Patterns.CPiMeta (rpolymorphic n)
+    end.
+End rpolymorphic.
+
+Section rlemma.
+  Context {ty pr concl : Type}.
+  Context {rT : Reify ty}.
+  Context {rU : Reify pr}.
+  Context {rV : Reify concl}.
+
+  Definition add_var (v : ty) (x : Lemma.lemma ty pr concl) : Lemma.lemma ty pr concl :=
+    {| Lemma.vars := v :: Lemma.vars x
+     ; Lemma.premises := Lemma.premises x
+     ; Lemma.concl := Lemma.concl x |}.
+
+  Definition add_prem (v : pr) (x : Lemma.lemma ty pr concl) : Lemma.lemma ty pr concl :=
+    {| Lemma.vars := Lemma.vars x
+     ; Lemma.premises := v :: Lemma.premises x
+     ; Lemma.concl := Lemma.concl x |}.
+
+  Definition reify_lemma : Command (Lemma.lemma ty pr concl) :=
+    Eval unfold CPattern in
+    CFix
+      (CFirst (   CPattern (ls:=pr::Lemma.lemma ty pr concl::nil)
+                           (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
+                           (fun (x : function (CCall rU)) (y : function (CRec 0)) => add_prem x y)
+               :: CPattern (ls:=ty::Lemma.lemma ty pr concl::nil)
+                           (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
+                           (fun (x : function (CCall rT)) (y : function (CRec 0)) => add_var x y)
+               :: CMap (fun x => {| Lemma.vars := nil
+                                  ; Lemma.premises := nil
+                                  ; Lemma.concl := x |}) rV
+               :: nil)).
+
+  Global Instance Reify_rlemma : Reify (Lemma.lemma ty pr concl) :=
+    reify_lemma.
+
+End rlemma.
+
 Notation "'<<:' X ':>>'" := ltac:(reify_with_class X) (at level 0, only parsing).
 Notation "'<::' X '::>'" := ltac:(reify_type_with_class X) (at level 0, only parsing).
 
 Arguments PPr {_ _ _ n} _.
 
-(* TODO: Use the new notations *)
+Goal Lemma.lemma typ (expr typ func) (expr typ func).
+refine (<<: forall x : nat, x = x -> x = x :>>).
+Defined.
+
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
     (PPr <:: @Proper_forall ::> ::
@@ -408,18 +430,27 @@ Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
 : forall a b : T, a ?[ rT ] b = true -> rT a b.
 Proof. intros. consider (a ?[ rT ] b); auto. Qed.
 
+
 Ltac prove_prespectful :=
+  first [ simple eapply Pr_sound
+        | simple eapply PPr_sound
+        | simple eapply PPr_tc_sound ] ; polymorphicD_intro;
+  reduce_exprT.
+(*
   repeat match goal with
-         | |- _ -> _ => intros
          | |- context[mtyp_cast _ _ _ _] => rewrite mtyp_cast_refl
          | _ => red; simpl
-         end; firstorder.
+         end.
+*)
 
 Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
   eapply do_prespectful_sound; [eapply rel_dec_correct|].
-  red; repeat first [ simple eapply Forall_cons; [ prove_prespectful | ] | simple eapply Forall_nil].
+  red; repeat first [ simple eapply Forall_cons; [ prove_prespectful | ]
+                    | simple eapply Forall_nil].
+  eapply Proper_forall.
+  eapply Proper_exists.
 Qed.
 
 Theorem get_respectful_sound : respectful_spec RbaseD get_respectful.
@@ -429,7 +460,13 @@ Proof.
    **)
   eapply do_prespectful_sound; [eapply rel_dec_correct|].
   (** Encapsulate this into 'prove_ProperDb' tactic *)
-  red; repeat first [simple apply Forall_cons; [ prove_prespectful | ] | simple apply Forall_nil ].
+  red; repeat first [simple apply Forall_cons; [ prove_prespectful | ]
+                    | simple apply Forall_nil ].
+  all: try refine (@Proper_forall _).
+  all: try refine (@Proper_exists _).
+  all: try eapply Proper_and_flip_impl.
+  all: try eapply Proper_or_flip_impl.
+  all: try eapply Proper_plus_eq.
 Qed.
 
 Require Import MirrorCore.Views.Ptrns.
@@ -525,10 +562,10 @@ Proof.
 Qed.
 
 Definition the_lemmas
-  : RewriteHintDb Rbase :=
+: RewriteHintDb Rbase :=
   @PRw _ _ _ 1 lem_pull_ex_and_left IDTACK ::
-     @PRw _ _ _ 1 lem_pull_ex_and_right IDTACK ::
-     nil.
+  @PRw _ _ _ 1 lem_pull_ex_and_right IDTACK ::
+  nil.
 
 Theorem the_lemmas_sound : RewriteHintDbOk RbaseD the_lemmas.
 Proof.

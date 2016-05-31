@@ -4,6 +4,9 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
+src/reify_Core.mli
+src/reify_Core.ml
+src/reify_Monad.ml
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 
