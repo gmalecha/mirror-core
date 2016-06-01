@@ -109,13 +109,14 @@ theories/Views/Ptrns.v
 theories/Views/Ptrns2.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
-theories/Views/ListView.v
-theories/Views/NatView.v
-theories/Views/StringView.v
-theories/Views/BoolView.v
-theories/Views/ProdView.v
-theories/Views/ApplicativeView.v
-theories/Views/EqView.v
+
+theories/Lib/ListView.v
+theories/Lib/NatView.v
+theories/Lib/StringView.v
+theories/Lib/BoolView.v
+theories/Lib/ProdView.v
+theories/Lib/ApplicativeView.v
+theories/Lib/EqView.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
