@@ -44,18 +44,6 @@ Module ImpVerify (I : ImpLang).
   := <:: pull_embed_hyp ::>.
   Definition pull_embed_last_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
   := <:: pull_embed_last_hyp ::>.
-(*
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    embed_ltrue_lemma : embed_ltrue.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    entails_exL_lemma : entails_exL.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    go_lower_raw_lemma : go_lower_raw.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    pull_embed_hyp_lemma : pull_embed_hyp.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    pull_embed_last_lemma : pull_embed_last_hyp.
-*)
 
   Local Existing Instance RType_typ.
   Local Existing Instance RTypeOk_typ.

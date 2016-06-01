@@ -27,72 +27,6 @@ Set Strict Implicit.
 
 Let Rbase := expr typ func.
 
-Instance Reify_expr_simple : Reify (expr typ func) :=
-{ reify_scheme := reify_simple }.
-
-Instance Reify_simple_type : Reify typ :=
-{ reify_scheme := reify_simple_typ }.
-
-(* Pattern language notations *)
-Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
-Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
-Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
-Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
-Local Notation "'#'" := RIgnore (only parsing, at level 0).
-
-(*
-Reify Pattern patterns_R += (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1) =>
-  (fun a b : function (CCall reify_R) => Rrespects a b).
-Reify Pattern patterns_R += (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1) =>
-  (fun (a : function (CCall reify_simple_typ)) (b : function (CCall reify_R)) => Rpointwise a b).
-Reify Pattern patterns_R += (!!@Basics.flip @ # @ # @ # @ ?0) =>
-  (fun a : function (CCall reify_R) => Rflip a).
-
-Reify Declare Patterns patterns_concl : (rw_concl typ func Rbase).
-
-Reify Declare Syntax reify_concl_base :=
-  (CPatterns patterns_concl).
-
-Reify Declare Patterns patterns_proper : (@Proper_concl typ func Rbase).
-
-Reify Declare Syntax reify_proper_concl :=
-  (CPatterns patterns_proper).
-
-
-Reify Pattern patterns_concl += (?0 @ ?1 @ ?2) =>
-  (fun (a b c : function (CCall reify_simple)) =>
-     @Build_rw_concl typ func Rbase b (@Rinj typ Rbase a) c).
-
-Instance Reify_Proper_lemma
-: Reify (Proper_concl (typ:=typ) (func:=func) Rbase) :=
-{ reify_scheme := CPatterns patterns_proper }.
-*)
-
-Instance Reify_typ
-: Reify typ :=
-{ reify_scheme := CCall reify_simple_typ }.
-
-
-
-
-(**
-Reify Pattern patterns_concl += (!!Basics.impl @ ?0 @ ?1) =>
-  (fun (a b : function (CCall reify_simple)) =>
-     @Build_rw_concl typ func Rbase a (@Rinj typ Rbase (Inj Impl)) b).
-Reify Pattern patterns_concl += ((!!@Basics.flip @ # @ # @ # @ !!Basics.impl) @ ?0 @ ?1) =>
-  (fun (a b : function (CCall reify_simple)) =>
-     @Build_rw_concl typ func Rbase a (Rflip (@Rinj typ Rbase (Inj Impl))) b).
-**)
-
-(**
-Reify Declare Patterns patterns_R : (R typ Rbase).
-
-
-Reify Pattern patterns_proper += (!!@Morphisms.Proper @ # @ ?0 @ ?1) =>
-  (fun (a : function (CCall reify_R)) (b : function (CCall reify_simple)) => @MkProper _ _ _ a b).
-**)
-
-
 Existing Instance RType_typ.
 Existing Instance Expr.Expr_expr.
 Existing Instance Typ2_Fun.
@@ -138,7 +72,6 @@ Definition is_refl : refl_dec Rbase :=
  *)
 Theorem is_refl_ok : refl_dec_ok RbaseD is_refl.
 Proof.
-(*
   red.
   destruct r; simpl; try congruence.
   destruct f; simpl; try congruence.
@@ -165,8 +98,6 @@ Proof.
     subst.
     rewrite (UIP_refl r). compute. intros; tauto. }
 Qed.
-*)
-Admitted.
 
 Definition is_trans : trans_dec Rbase :=
   fun r =>
@@ -179,7 +110,6 @@ Definition is_trans : trans_dec Rbase :=
 
 Theorem is_trans_ok : trans_dec_ok RbaseD is_trans.
 Proof.
-(*
   red.
   destruct r; simpl; try congruence.
   destruct f; simpl; try congruence.
@@ -213,8 +143,6 @@ Proof.
     rewrite (UIP_refl r).
     compute. tauto. }
 Qed.
-*)
-Admitted.
 
 (** This is the semantic lemma *)
 Theorem pull_ex_and_left
@@ -342,14 +270,6 @@ Theorem Proper_plus_eq : Proper (eq ==> eq ==> eq) plus.
 Proof. red. red. red. firstorder. Qed.
 
 Arguments PPr {_ _ _} n _ : clear implicits.
-
-Goal Lemma.lemma typ (expr typ func) (expr typ func).
-refine (<<: forall x : nat, x = x -> x = x :>>).
-Defined.
-
-Goal polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)).
-refine (<<: forall T : Type, forall x : T, x = x -> x = x :>>).
-Defined.
 
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')

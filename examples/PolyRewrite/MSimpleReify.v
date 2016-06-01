@@ -51,6 +51,12 @@ Reify Pattern patterns_simple += (!! and) => (Inj (typ:=typ) And).
 Reify Pattern patterns_simple += (!! or) => (Inj (typ:=typ) Or).
 Reify Pattern patterns_simple += (!! Basics.impl) => (Inj (typ:=typ) Impl).
 
+Instance Reify_expr_simple : Reify (expr typ func) :=
+{ reify_scheme := CCall reify_simple }.
+
+Instance Reify_simple_type : Reify typ :=
+{ reify_scheme := CCall reify_simple_typ }.
+
 Ltac reify_typ trm :=
   let k e :=
       refine e
