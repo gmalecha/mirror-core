@@ -162,14 +162,14 @@ examples/Cancel/MonoidSyntaxModular.v
 examples/Cancel/LtacDemo.v
 examples/Cancel/RtacDemo.v
 
-# examples/Hoare/ILogic.v
-# examples/Hoare/ILogicFunc.v
-# examples/Hoare/LogicTac.v
-# examples/Hoare/Imp.v
-# examples/Hoare/ImpMetaTheory.v
-# examples/Hoare/ImpSyntax.v
-# examples/Hoare/Verify.v
-# examples/Hoare/Tests.v
+examples/Hoare/ILogic.v
+examples/Hoare/ILogicFunc.v
+examples/Hoare/LogicTac.v
+examples/Hoare/Imp.v
+examples/Hoare/ImpMetaTheory.v
+examples/Hoare/ImpSyntax.v
+examples/Hoare/Verify.v
+examples/Hoare/Tests.v
 
 # examples/Simple/Simple.v
 # examples/Simple/SimpleReify.v

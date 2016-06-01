@@ -309,7 +309,7 @@ match u with
             end
           | _ => lNone
           end
-        
+
       | tyBase0 t =>
         match t as t in tsym 0
               return loption (ILogic.EmbedOp (tsymD _ t) (TypesI.typD u))
@@ -612,37 +612,45 @@ Definition test_lemma :=
 
 
   Reify Declare Syntax reify_imp :=
-    Patterns.CFirst (   Patterns.CVar (@ExprCore.Var typ func)
-                     :: Patterns.CMap mkLogic patterns_ilogic_func
-                     :: Patterns.CMap mkImp patterns_imp_func
-                     :: Patterns.CPatterns patterns_imp
-                     :: Patterns.CApp (@ExprCore.App typ func)
-                     :: Patterns.CAbs reify_imp_typ (@ExprCore.Abs typ func)
-                     :: Patterns.CMap mkExt (Patterns.CTypedTable reify_imp_typ term_table)
-                     :: nil).
+    CFix
+      (CFirst (   CVar (@ExprCore.Var typ func)
+               :: CMap mkLogic patterns_ilogic_func
+               :: CMap mkImp patterns_imp_func
+               :: CPatterns patterns_imp
+               :: CApp (CRec 0) (CRec 0) (@ExprCore.App typ func)
+               :: CAbs (CCall reify_imp_typ) (CRec 0) (@ExprCore.Abs typ func)
+               :: CMap mkExt (CTypedTable reify_imp_typ term_table)
+               :: nil)).
+
+  Global Instance Reify_imp_typ : Reify typ :=
+  { reify_scheme := CCall reify_imp_typ }.
+
+  Global Instance Reify_imp : Reify (expr typ func) :=
+  { reify_scheme := CCall reify_imp }.
+
 
   (** BEGIN LOGIC REIFY **)
   (** TODO: It would be nice to be able to put these elsewhere *)
   Reify Pattern patterns_ilogic_func += (!! @ILogic.lentails @ ?0 @ #) =>
-    fun (x : function reify_imp_typ) => @ILogicFunc.ilf_entails typ x.
+    fun (x : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_entails typ x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.ltrue @ ?0 @ #) =>
-    fun (x : function reify_imp_typ) => @ILogicFunc.ilf_true typ x.
+    fun (x : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_true typ x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.lfalse @ ?0 @ #) =>
-    fun (x : function reify_imp_typ) => @ILogicFunc.ilf_false typ x.
+    fun (x : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_false typ x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.land @ ?0 @ #) =>
-    fun (x : function reify_imp_typ) => @ILogicFunc.ilf_and typ x.
+    fun (x : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_and typ x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.lor @ ?0 @ #) =>
-    fun (x : function reify_imp_typ) => @ILogicFunc.ilf_or typ x.
+    fun (x : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_or typ x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.limpl @ ?0 @ #) =>
-    fun (x : function reify_imp_typ) => @ILogicFunc.ilf_impl typ x.
+    fun (x : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_impl typ x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.lexists @ ?0 @ # @ ?1) =>
-    fun (x y : function reify_imp_typ) => @ILogicFunc.ilf_exists typ y x.
+    fun (x y : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_exists typ y x.
   Reify Pattern patterns_ilogic_func += (!! @ILogic.lforall @ ?0 @ # @ ?1) =>
-    fun (x y : function reify_imp_typ) => @ILogicFunc.ilf_forall typ y x.
+    fun (x y : function (CCall reify_imp_typ)) => @ILogicFunc.ilf_forall typ y x.
 
   (** Embedding Operators **)
   Reify Pattern patterns_ilogic_func += (!! @ILogic.embed @ ?0 @ ?1 @ #) =>
-    fun (x y : function reify_imp_typ) => ILogicFunc.ilf_embed x y.
+    fun (x y : function (CCall reify_imp_typ)) => ILogicFunc.ilf_embed x y.
 
   (** Special cases for Coq's primitives **)
   Reify Pattern patterns_ilogic_func += (!!True) => ILogicFunc.ilf_true (@tyProp tsym).
@@ -651,11 +659,11 @@ Definition test_lemma :=
   Reify Pattern patterns_ilogic_func += (!! or) => ILogicFunc.ilf_or (@tyProp tsym).
 
   Reify Pattern patterns_imp += (RPi (?0) (?1)) =>
-    fun (x : function reify_imp_typ) (y : function reify_imp) =>
+    fun (x : function (CCall reify_imp_typ)) (y : function (CCall reify_imp)) =>
       ExprCore.App (mkLogic (@ILogicFunc.ilf_forall typ x (@tyProp tsym) ))
                    (@ExprCore.Abs typ func x y).
   Reify Pattern patterns_imp += (RImpl (?0) (?1)) =>
-    fun (x y : function reify_imp) =>
+    fun (x y : function (CCall reify_imp)) =>
       ExprCore.App (ExprCore.App (mkLogic (@ILogicFunc.ilf_impl typ (@tyProp tsym))) x) y.
   (** END LOGIC REIFY **)
 
@@ -663,7 +671,7 @@ Definition test_lemma :=
 
   (** BEGIN TYPE REIFY **)
   Reify Pattern patterns_imp_typ += (@RImpl (?0) (?1)) =>
-    fun (a b : function reify_imp_typ) => tyArr a b.
+    fun (a b : function (CCall reify_imp_typ)) => tyArr a b.
   Reify Pattern patterns_imp_typ += (!! I.locals)  => !tyLocals.
   Reify Pattern patterns_imp_typ += (!! I.lprop)  => tyArr !tyLocals !tyHProp.
   Reify Pattern patterns_imp_typ += (!! I.icmd) => !tyCmd.
@@ -675,9 +683,9 @@ Definition test_lemma :=
   Reify Pattern patterns_imp_typ += (!! nat)  => !tyValue.
   Reify Pattern patterns_imp_typ += (!! I.value)  => !tyValue.
   Reify Pattern patterns_imp_typ += (!! Fun @ ?0 @ ?1) =>
-    fun (a b : function reify_imp_typ) => tyArr a b.
+    fun (a b : function (CCall reify_imp_typ)) => tyArr a b.
   Reify Pattern patterns_imp_typ += (!! PreFun.Fun @ ?0 @ ?1) =>
-    fun (a b : function reify_imp_typ) => tyArr a b.
+    fun (a b : function (CCall reify_imp_typ)) => tyArr a b.
 
 
   (** BEGIN TERM REIFY **)
@@ -689,7 +697,7 @@ Definition test_lemma :=
   Reify Pattern patterns_imp_func += (RHasType nat (?!0)) =>
     fun (x : id nat) => pNat x.
   Reify Pattern patterns_imp_func += (!! (@eq) @ ?0) =>
-    fun (x : function reify_imp_typ) => pEq x.
+    fun (x : function (CCall reify_imp_typ)) => pEq x.
   Reify Pattern patterns_imp_func += (!! I.locals_get) =>
     pLocals_get.
   Reify Pattern patterns_imp_func += (!! I.locals_upd) =>
@@ -707,9 +715,9 @@ Definition test_lemma :=
 
   (** Applicative **)
   Reify Pattern patterns_imp_func += (!! @Applicative.ap @ !! (PreFun.Fun I.locals) @ # @ ?0 @ ?1) =>
-    fun (x y : function reify_imp_typ) => fAp x y.
+    fun (x y : function (CCall reify_imp_typ)) => fAp x y.
   Reify Pattern patterns_imp += (!! @Applicative.pure @ !! (PreFun.Fun I.locals) @ # @ ?0) =>
-    fun (x : function reify_imp_typ) => fPure x.
+    fun (x : function (CCall reify_imp_typ)) => fPure x.
 
 (*
   (** Commands **)
