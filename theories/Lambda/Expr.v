@@ -257,7 +257,7 @@ Section expr.
   { intros. eapply mentionsAny_complete. }
   { eapply _mentionsU_mentionsU. }
   { intros. eapply _mentionsV_mentionsV. }
-  { intros. eapply expr_subst_sound; eauto. exact H. }
+  { intros. eapply expr_subst_sound; eauto. }
   { intros; eapply _subst_noop; eauto. }
   { eapply mentionsU_subst. }
   { eapply mentionsV_subst. }

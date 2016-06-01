@@ -5,8 +5,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.View.
 Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Lambda.Polymorphic.
-Require Import MirrorCore.Lib.TypeVar.
+Require Import MirrorCore.Polymorphic.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -20,19 +19,12 @@ Section poly.
 
   Variable typ_unify : typ -> typ -> pmap typ -> option (pmap typ).
 
-  Definition type_remember (p : VType 0) (t : typ) (m : pmap typ)
-  : option (pmap typ) :=
-    match p with
-    | tVar p =>
-      Some (pmap_insert p t m)
-    end.
-
   (** NOTE: This function does not need to be complete
    ** TODO: We should really stop looking at the term as
    **       soon as we have instantiated everything
    **)
   Local Fixpoint get_types {T} (a b : expr typ sym) (s : pmap typ)
-           (ok : pmap typ -> T) (bad : T) {struct a}
+        (ok : pmap typ -> T) (bad : T) {struct a}
   : T :=
     match a , b with
     | App fa aa , App fb ab =>

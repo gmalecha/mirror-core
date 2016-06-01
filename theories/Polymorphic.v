@@ -84,3 +84,21 @@ Instance Functor_polymorphic Z n : Functor (polymorphic Z n) :=
 { fmap := fun T U f => @fmap_polymorphic Z T U f n }.
 
 Arguments inst {typ T n} p v : clear implicits, rename.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section rpolymorphic.
+  Context {T U : Type}.
+  Context {r : Reify U}.
+
+  Fixpoint rpolymorphic n : Command (polymorphic T n U) :=
+    match n as n return Command (polymorphic T n U) with
+    | 0 => CCall (reify_scheme U)
+    | S n => Patterns.CPiMeta (rpolymorphic n)
+    end.
+
+  Global Instance Reify_polymorphic n : Reify (polymorphic T n U) :=
+  { reify_scheme := CCall (rpolymorphic n) }.
+End rpolymorphic.
+
+Arguments rpolymorphic _ _ _ _ : clear implicits.

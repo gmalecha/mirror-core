@@ -65,6 +65,8 @@ Section instantiate.
     red. unfold instantiate.
     intros. remember (expr_subst f (fun _ : var => None) (length tvs') e).
     symmetry in Heqy.
+    generalize expr_subst_sound_ho; intro expr_subst_sound_ho.
+    red in expr_subst_sound_ho.
     eapply expr_subst_sound_ho
       with (tus:=tus) (tvs:=tvs) (tus':=tus) (tvs':=tvs) (_tvs:=tvs') (t:=t)
            (P:=fun Q => P (fun a b => Q a b a b)) (eD := eD) in Heqy;

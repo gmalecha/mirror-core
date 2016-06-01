@@ -26,28 +26,31 @@ Module MonoidCancel (M : Monoid).
   Module Syntax := MonoidSyntaxModular.Syntax M.
   Import Syntax.
 
-  (* The Core Monoid Lemmas *)
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_unit_c : M.plus_unit_c.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_assoc_c1 : M.plus_assoc_c1.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_assoc_c2 : M.plus_assoc_c2.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_comm_c : M.plus_comm_c.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_cancel : M.plus_cancel.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_unit_p : M.plus_unit_p.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_assoc_p1 : M.plus_assoc_p1.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_assoc_p2 : M.plus_assoc_p2.
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-     lem_plus_comm_p : M.plus_comm_p.
+Set Printing All.
 
-  Reify BuildLemma < reify_monoid_typ reify_monoid reify_monoid >
-      lem_refl : M.refl.
+  (* The Core Monoid Lemmas *)
+  Definition lem_plus_unit_c : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_unit_c ::>.
+  Definition lem_plus_assoc_c1 : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_assoc_c1 ::>.
+  Definition lem_plus_assoc_c2 : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_assoc_c2 ::>.
+  Definition lem_plus_comm_c : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_comm_c ::>.
+  Definition lem_plus_cancel : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_cancel ::>.
+  Definition lem_plus_unit_p : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_unit_p ::>.
+  Definition lem_plus_assoc_p1 : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_assoc_p1 ::>.
+  Definition lem_plus_assoc_p2 : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_assoc_p2 ::>.
+  Definition lem_plus_comm_p : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.plus_comm_p ::>.
+
+
+  Definition lem_refl : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: M.refl ::>.
 
   (* Write the automation *)
   Section with_solver.

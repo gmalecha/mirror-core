@@ -5,7 +5,7 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.Lambda.Polymorphic.
+Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.PolyInst.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.MTypes.MTypeUnify.

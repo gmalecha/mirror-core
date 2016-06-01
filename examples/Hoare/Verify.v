@@ -34,16 +34,16 @@ Module ImpVerify (I : ImpLang).
 
   Local Open Scope rtac_scope.
 
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    embed_ltrue_lemma : embed_ltrue.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    entails_exL_lemma : entails_exL.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    go_lower_raw_lemma : go_lower_raw.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    pull_embed_hyp_lemma : pull_embed_hyp.
-  Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    pull_embed_last_lemma : pull_embed_last_hyp.
+  Definition embed_ltrue_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: embed_ltrue ::>.
+  Definition entails_exL_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: entails_exL ::>.
+  Definition go_lower_raw_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: go_lower_raw ::>.
+  Definition pull_embed_hyp_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: pull_embed_hyp ::>.
+  Definition pull_embed_last_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+  := <:: pull_embed_last_hyp ::>.
 
   Local Existing Instance RType_typ.
   Local Existing Instance RTypeOk_typ.
@@ -146,22 +146,22 @@ Module ImpVerify (I : ImpLang).
                                 | _ => IDTAC
                                 end))).
 
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      Assert_tail_lemma : Assert_tail_rule.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      Assign_tail_lemma : Assign_tail_rule.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      Skip_tail_lemma : Skip_tail_rule.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      Assert_seq_lemma : Assert_seq_rule.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      Skip_seq_lemma : Skip_seq_rule.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      Assign_seq_lemma : Assign_seq_rule.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      triple_exL_lemma : I.triple_exL.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      SeqA_lemma : I.SeqA_rule.
+    Definition Assert_tail_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: Assert_tail_rule ::>.
+    Definition Assign_tail_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: Assign_tail_rule ::>.
+    Definition Skip_tail_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: Skip_tail_rule ::>.
+    Definition Assert_seq_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: Assert_seq_rule ::>.
+    Definition Skip_seq_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: Skip_seq_rule ::>.
+    Definition Assign_seq_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: Assign_seq_rule ::>.
+    Definition triple_exL_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: I.triple_exL ::>.
+    Definition SeqA_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: I.SeqA_rule ::>.
 
     Definition sym_eval_no_mem (n : nat) (rest : imp_tac) : imp_tac :=
       REC n (fun rec : imp_tac =>
@@ -337,12 +337,12 @@ Module ImpVerify (I : ImpLang).
         a = b.
     Proof. intros; subst. reflexivity. Qed.
 
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      andI_lemma : and_split.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      eq_trans_hyp_lemma : eq_trans_hyp.
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-      prove_Prop_lemma : prove_Prop.
+    Definition andI_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: and_split ::>.
+    Definition eq_trans_hyp_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: eq_trans_hyp ::>.
+    Definition prove_Prop_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: prove_Prop ::>.
 
     Definition ptrn_plus : Ptrns.ptrn imp_func unit :=
       fun e X yes no =>
@@ -463,8 +463,10 @@ Module ImpVerify (I : ImpLang).
     Lemma refl_eq_nat : forall a : nat, a = a.
     Proof. reflexivity. Qed.
 
-    Reify BuildLemma < reify_imp_typ reify_imp reify_imp >
-    eq_nat_refl_lemma : refl_eq_nat.
+
+
+    Definition eq_nat_refl_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
+    := <:: refl_eq_nat ::>.
     Instance RL_eq_nat_refl_lemma : ReifiedLemma eq_nat_refl_lemma :=
       mkRL eq_nat_refl_lemma refl_eq_nat.
 

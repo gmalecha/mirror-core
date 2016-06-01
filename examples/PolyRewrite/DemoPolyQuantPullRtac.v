@@ -170,6 +170,54 @@ Arguments Typ0_Prop {_ _}.
 
 Goal goal2_D' 2 4 5 0.
   simpl.
+(*
+  Check ex.
+
+  Ltac reify_term e :=
+    lazymatch e with
+    | fun ctx => fst ctx => uconstr:(Var 0)
+    | fun ctx => snd (@?V ctx) => get_var V uconstr:(1)
+    | fun ctx => @?X ctx /\ @?Y ctx =>
+      let x := reify_term X in
+      let y := reify_term Y in
+      uconstr:(fAnd x y)
+    | fun ctx => @eq ?ty (@?l ctx) (@?r ctx) =>
+      let ty := reify_type ty in
+      let l := reify_term l in
+      let r := reify_term r in
+      uconstr:(App (App (fEq ty) l) r)
+    | fun ctx => @ex ?ty (@?P ctx) =>
+      let ty := reify_type ty in
+      let P := reify_term P in
+      uconstr:(fEx ty P)
+    | fun ctx => (fun x : ?ty => @?P ctx x) =>
+      let ty := reify_type ty in
+      let P := constr:(fun ctx => P (snd ctx) (fst ctx)) in
+      let P := reify_term P in
+      uconstr:(Abs ty P)
+    | fun ctx => O =>
+      uconstr:(fN 0)
+    end
+  with get_var v acc :=
+    lazymatch v with
+    | fun ctx => fst ctx => uconstr:(Var acc)
+    | fun ctx => snd (@?X ctx) => let acc' := uconstr:(S acc) in
+                                  get_var X acc'
+    end
+  with reify_type t :=
+    lazymatch t with
+    | nat => tyBNat
+    end.
+
+  Goal (fun x : nat => x) = fun x => x.
+    match goal with
+    | |- ?X => let x := reify_term (fun ctx : unit => (fun x : nat => x)) in
+               pose x
+    end.
+*)
+
+
+
 Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0.
 repeat exists true. tauto.

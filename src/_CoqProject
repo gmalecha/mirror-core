@@ -1,8 +1,0 @@
--I .
--I $(COQLIB)/user-contrib/PluginUtils
-
-reify_gen.ml
-reify_gen.mli
-reify_lambda.ml
-reify_Lambda_shell.ml4
-reify_Lambda_plugin.mllib

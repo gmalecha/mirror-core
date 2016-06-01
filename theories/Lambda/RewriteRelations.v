@@ -554,3 +554,58 @@ Arguments Rflip {_ _} _.
 Arguments Rinj {_ _} _.
 Arguments refl_dec _ : clear implicits.
 Arguments trans_dec _ : clear implicits.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section reify_R.
+  Variables Ty Rbase : Type.
+  Context {Reify_Ty : Reify Ty}.
+  Context {Reify_Rbase : Reify Rbase}.
+
+  Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+  Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+  Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+  Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+  Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+  Definition reify_R : Command (R Ty Rbase) :=
+    CFix
+      (CFirst (   CPattern (ls:=_::_::nil)
+                           (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1)
+                           (fun a b : function (CRec 0) => Rrespects a b)
+               :: CPattern (ls:=_::_::nil)
+                           (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1)
+                           (fun (a : function (CCall (reify_scheme Ty))) (b : function (CRec 0)) =>
+                              Rpointwise a b)
+               :: CPattern (ls:=_::nil)
+                           (!!@Basics.flip @ # @ # @ # @ ?0)
+                           (fun a : function (CRec 0) => Rflip a)
+               :: CMap (@Rinj Ty _) (reify_scheme Rbase)
+               :: nil)).
+
+  Global Instance Reify_R : Reify (R Ty Rbase) :=
+  { reify_scheme := CCall reify_R }.
+End reify_R.
+
+Section Reify_Proper_concl.
+  Variables Ty func Rbase : Type.
+  Context {Reify_Ty : Reify Ty}.
+  Context {Reify_expr_typ_func : Reify (expr Ty func)}.
+  Context {Reify_Rbase : Reify Rbase}.
+
+  Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+  Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+  Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+  Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+  Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+  Definition reify_rw_concl :=
+    CPattern (ls:=_::_::_::nil)
+             (?0 @ ?1 @ ?2)
+             (fun (a : function (reify_scheme (R Ty Rbase))) (b c : function (CCall (reify_scheme (expr Ty func)))) =>
+                @Build_rw_concl Ty func Rbase b a c).
+
+  Global Instance Reify_rw_concl : Reify (rw_concl Ty func Rbase) :=
+  { reify_scheme := CCall reify_rw_concl }.
+
+End Reify_Proper_concl.

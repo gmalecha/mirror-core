@@ -4,6 +4,9 @@
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
 
+src/reify_Core.mli
+src/reify_Core.ml
+src/reify_Monad.ml
 src/reify_Lambda_shell.ml4
 src/reify_Lambda_plugin.mllib
 
@@ -27,6 +30,7 @@ theories/VarsToUVars.v
 theories/Lemma.v
 theories/LemmaApply.v
 theories/Simple.v
+theories/Polymorphic.v
 
 theories/Lib/TypeVar.v
 
@@ -87,7 +91,6 @@ theories/Lambda/RewriteRelations.v
 theories/Lambda/Ptrns.v
 theories/Lambda/Rtac.v
 theories/Lambda/Reify.v
-theories/Lambda/Polymorphic.v
 theories/Lambda/PolyInst.v
 theories/Lambda/RewriteStrat.v
 theories/Lambda/Rewrite/Core.v
@@ -106,13 +109,14 @@ theories/Views/Ptrns.v
 theories/Views/Ptrns2.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
-theories/Views/ListView.v
-theories/Views/NatView.v
-theories/Views/StringView.v
-theories/Views/BoolView.v
-theories/Views/ProdView.v
-theories/Views/ApplicativeView.v
-theories/Views/EqView.v
+
+theories/Lib/ListView.v
+theories/Lib/NatView.v
+theories/Lib/StringView.v
+theories/Lib/BoolView.v
+theories/Lib/ProdView.v
+theories/Lib/ApplicativeView.v
+theories/Lib/EqView.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
@@ -149,6 +153,7 @@ theories/RTac/RTac.v
 
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
+theories/Reify/ReifyClass.v
 
 examples/Cancel/Monoid.v
 examples/Cancel/MonoidSyntaxSimple.v
@@ -167,14 +172,14 @@ examples/Hoare/ImpSyntax.v
 examples/Hoare/Verify.v
 examples/Hoare/Tests.v
 
-examples/Simple/Simple.v
-examples/Simple/SimpleReify.v
-examples/Simple/SimpleExt.v
-examples/Simple/FoldTest.v
+# examples/Simple/Simple.v
+# examples/Simple/SimpleReify.v
+# examples/Simple/SimpleExt.v
+# examples/Simple/FoldTest.v
 
-examples/Reify/ModularReify.v
+# examples/Reify/ModularReify.v
 
-examples/RTac/Demo.v
+# examples/RTac/Demo.v
 
 examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v
