@@ -68,8 +68,6 @@ Section Monad.
 
     Local Notation "! x" := (@tyBase0 _ x) (at level 0).
 
-    Print mtyp.
-
     Definition typeof_func (f : func) : option typ :=
       Some match f with
            | Lt => tyArr !tyNat (tyArr !tyNat !tyBool)

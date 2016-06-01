@@ -4,6 +4,7 @@
  *)
 
 Require Import ExtLib.Structures.Monad.
+Require Import MirrorCore.Examples.PolyRewrite.
 
 Section MonadLaws.
 
@@ -40,6 +41,7 @@ Section MonadRewrite.
   Variable M_mon : Monad M.
   Variable M_monOk : MonadLaws M M_mon.
 
+  (* Set-up for Ltac-based rewriter *)
   Definition lem1 := @monad_left_id M M_mon M_monOk.
   Definition lem2 := @monad_right_id M M_mon M_monOk.
   Definition lem3 := @monad_assoc M M_mon M_monOk.
@@ -50,6 +52,7 @@ Section MonadRewrite.
 
   Definition ex1 := @bind M M_mon _ _ (ret 5) (fun x => ret (x + 1))%nat.
 
+  (* tests *)
   Goal exists x, ex1 = x.
   Proof.
     unfold ex1.
@@ -153,13 +156,6 @@ Section MonadRewrite.
            )). (*2.366s for k=20 *)
     Abort.
 
-      
-      (* TODO: once I get makeAssocTest working, I should have
-         makeLeftIdAssocTest and makeRightIdAssocTest that test both
-         assoc and id, ideally calling the assoc function.
-         will take two parameters.
-         n = depth of overall tree
-         k = depth of associations at each node *)
   End AssocTest.
  
 End MonadRewrite.
