@@ -33,16 +33,18 @@ sig
   (** Reification **)
   val reify     : Environ.env -> Evd.evar_map -> map_type list (* tables *) ->
     Term.constr -> Term.constr -> Term.constr * all_tables
-  val reify_all : ?poly:Term.types list -> Environ.env -> Evd.evar_map -> map_type list (* tables *) ->
+  val reify_all : Environ.env -> Evd.evar_map -> map_type list (* tables *) ->
     (Term.constr * Term.constr) list -> Term.constr list * all_tables
   val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
 
+(**
   val reify_lemma : type_fn:Term.constr -> prem_fn:Term.constr -> concl_fn:Term.constr ->
     Environ.env -> Evd.evar_map -> int -> Term.types -> Term.constr
   val declare_syntax_lemma :
     name:Names.identifier ->
     type_fn:Term.constr -> prem_fn:Term.constr -> concl_fn:Term.constr ->
     Environ.env -> Evd.evar_map -> int -> Term.constr -> unit
+ **)
 
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 
@@ -409,7 +411,8 @@ struct
           ; rule_cache = CEphemeron.create (compile_rule rptrn rtemplate)
           }
       with
-	Term_match.Match_failure -> raise (Failure "match failed, please report")
+	Term_match.Match_failure ->
+        raise (Failure "match failed, please report")
 
   end
 
@@ -455,7 +458,7 @@ struct
 
     (* This function compiles an [rpattern] into a [Term_match.pattern] and
      * a set of bindings
-    *)
+     *)
     let rec compile_pattern p =
       let fresh = ref (-1) in
       let effects : (int, pattern_effect) Hashtbl.t =
@@ -603,7 +606,8 @@ struct
           let cptrn =
             { Patterns.rule_pattern = rptrn
             ; Patterns.rule_template = template
-            ; Patterns.rule_cache = CEphemeron.create (compile_rule stk rptrn template)
+            ; Patterns.rule_cache =
+                CEphemeron.create (compile_rule stk rptrn template)
             }
           in
           Patterns.ptrn_tree_add ptrn.rule_pattern
@@ -611,7 +615,8 @@ struct
                     | Some xs -> cptrn :: xs) acc)
         (Patterns.empty_ptrn_tree []) ptrns
 
-    and compile_command (stk : (lazy_term -> Term.constr reifier) ref list) (ls : command)
+    and compile_command (stk : (lazy_term -> Term.constr reifier) ref list)
+        (ls : command)
       : lazy_term -> Term.constr reifier =
       let rec compile_command stk (l : command)
         : lazy_term -> Term.constr reifier =
@@ -700,11 +705,11 @@ struct
 		  let _ =
 		    Pp.(msg_warning
 			  (   (str "Implicitly adding table '")
-			      ++ (Printer.pr_constr tbl_name)
-			      ++ (str "'. This will not be returned.\n")
-			      ++ (str "(available tables are: ")
-			      ++ (pr_constrs (str " , ") all_tables)
-			      ++ (str ")")))
+	                   ++ (Printer.pr_constr tbl_name)
+		           ++ (str "'. This will not be returned.\n")
+			   ++ (str "(available tables are: ")
+			   ++ (pr_constrs (str " , ") all_tables)
+			   ++ (str ")")))
 		  in
 		  { mappings = Cmap.empty
 		  ; next = 1 }
@@ -880,7 +885,8 @@ struct
       reify_table := Cmap.add obj (CEphemeron.create data) !reify_table
   end
 
-  let initial_env (env : Environ.env) (evar_map : Evd.evar_map) (tbls : map_type list) =
+  let initial_env (env : Environ.env) (evar_map : Evd.evar_map)
+      (tbls : map_type list) =
     let init_table =
       let seed_table = !Tables.the_seed_table in
       let find_default x =
@@ -898,11 +904,13 @@ struct
     ; bindings = []
     ; typed_tables = ref !Tables.the_seed_table }
 
-  let reify (env : Environ.env) (evm : Evd.evar_map) tbls (name : Term.constr) trm =
+  let reify (env : Environ.env) (evm : Evd.evar_map) tbls (name : Term.constr)
+      trm =
     let env = initial_env env evm tbls in
     let result = Syntax.reify_term name (Term trm) env in
     (result, { tables = !(env.typed_tables) })
 
+(*
   let rec wrap_lambdas t =
     function [] -> t
            | typ :: typs ->
@@ -930,16 +938,6 @@ struct
                           pred
              in
              polymorphically 0 pred all_ts
-
-  let reify_all ?poly:(poly=[])(env : Environ.env) (evm : Evd.evar_map) tbls ns_e =
-    let start_time = Sys.time () in
-    let st = initial_env env evm tbls in
-    let result =
-      List.map (fun (ns,e) -> polymorphically (Syntax.reify_term ns) e poly st) ns_e
-    in
-    let end_time = Sys.time () in
-    Pp.(msg_info (str "Total reification time = " ++ real (end_time -. start_time) ++ fnl ())) ;
-    (result, { tables = !(st.typed_tables) })
 
   let lemma_mod = ["MirrorCore";"Lemma"]
 
@@ -1017,6 +1015,18 @@ struct
     in
     let _ = decl_constant name evm body in
     ()
+*)
+
+  let reify_all (env : Environ.env) (evm : Evd.evar_map) tbls ns_e =
+    let start_time = Sys.time () in
+    let st = initial_env env evm tbls in
+    let result =
+      List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e
+    in
+    let end_time = Sys.time () in
+    Pp.(msg_info (str "Total reification time = " ++ real (end_time -. start_time) ++ fnl ())) ;
+    (result, { tables = !(st.typed_tables) })
+
 
   let export_table bindings mt tbls =
     let insert_at v =
@@ -1151,7 +1161,6 @@ struct
       true
     else false
 
-
   let seed_table name key value =
     let ty = Lazy.force Std.Unit.tt in
     if Tables.seed_table name key ty value then
@@ -1217,34 +1226,36 @@ struct
   let mk_dvar_map_abs = Std.resolve_symbol pattern_mod "mk_dvar_map_abs"
 
   let parse_table (trm : Term.constr) : map_type =
-    Term_match.(matches ()
-                  [(apps (Glob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
-	            fun _ s -> { table_name = Hashtbl.find s 0
-	                       ; table_elem_type = Hashtbl.find s 2
-	                       ; table_elem_ctor = Hashtbl.find s 1
-	                       ; table_scheme = SimpleMap })
-		  ;(apps (Glob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
-					             get 0;get 1],
-	            fun _ s -> { table_name = Hashtbl.find s 0
-	                       ; table_elem_type = Hashtbl.find s 2
-	                       ; table_elem_ctor = Hashtbl.find s 1
-	                       ; table_scheme = TypedMap })
-                  ;(apps (Glob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
-					                 Ignore;get 0;get 1],
-	            fun _ s -> { table_name = Hashtbl.find s 0
-		               ; table_elem_type = Hashtbl.find s 2
-		               ; table_elem_ctor = Hashtbl.find s 1
-		               ; table_scheme = TypedMapAbs (Hashtbl.find s 3) })
-                  ]) trm
+    let open Term_match in
+    matches ()
+      [ (apps (Glob_no_univ mk_var_map) [Ignore;Ignore;get 2;get 0;get 1],
+	 fun _ s -> { table_name = Hashtbl.find s 0
+	            ; table_elem_type = Hashtbl.find s 2
+	            ; table_elem_ctor = Hashtbl.find s 1
+	            ; table_scheme = SimpleMap })
+      ; (apps (Glob_no_univ mk_dvar_map) [Ignore;Ignore;get 2;Ignore;
+					  get 0;get 1],
+	 fun _ s -> { table_name = Hashtbl.find s 0
+	            ; table_elem_type = Hashtbl.find s 2
+	            ; table_elem_ctor = Hashtbl.find s 1
+	            ; table_scheme = TypedMap })
+      ; (apps (Glob_no_univ mk_dvar_map_abs) [Ignore;Ignore;get 2;get 3;
+					      Ignore;get 0;get 1],
+	 fun _ s -> { table_name = Hashtbl.find s 0
+	            ; table_elem_type = Hashtbl.find s 2
+	            ; table_elem_ctor = Hashtbl.find s 1
+	            ; table_scheme = TypedMapAbs (Hashtbl.find s 3) })
+      ] trm
 
   let rec parse_tables (tbls : Term.constr) : map_type list =
-    Term_match.(matches ()
-		  [(Lam (0,get 0,get 1),
-		    fun _ s ->
-		      parse_table (Hashtbl.find s 0)
-		      :: parse_tables (Hashtbl.find s 1))
-		  ;(Ignore, fun _ s -> [])
-		  ]) tbls
+    let open Term_match in
+    matches ()
+      [ (Lam (0,get 0,get 1),
+	 fun _ s ->
+             parse_table (Hashtbl.find s 0)
+          :: parse_tables (Hashtbl.find s 1))
+      ; (Ignore, fun _ s -> [])
+      ] tbls
 
 
   let rec pose_each (ls : (string * Term.constr) list)
@@ -1371,51 +1382,6 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
               ++ str " table.") ]
 END
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
-  | [ "Reify" "BuildLemma" "<" constr(typ) constr(term) constr(concl) ">"
-        ident(name) ":" lconstr(lem) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
-      let (evm,[lem;typ;term;concl])   =
-        Reification.ics ~env:env ~sigma:evm [lem;typ;term;concl] in
-      let (evm,lem_type) = Typing.type_of env evm lem in
-      try
-        Reification.declare_syntax_lemma
-          ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
-          env evm 0 lem_type
-      with
-        (ReificationFailure trm) ->
-          Errors.errorlabstrm "Reify"
-            Pp.(   str "Failed to reify term '"
-		++ Printer.pr_constr (Lazy.force trm)
-                ++ str "'.")
-    ]
-END
-
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Poly_Lemma
-  | [ "Reify" "BuildPolyLemma" integer(pargs) "<" constr(typ) constr(term) constr(concl) ">"
-        ident(name) ":" lconstr(lem) ] ->
-    [ if pargs < 0 then
-        Errors.errorlabstrm "Reify"
-          Pp.(   str "Polymorphic lemmas can not have a negative number"
-              ++ str " of polymorphic arguments")
-      else
-        let (evm,env) = Lemmas.get_current_context () in
-        let (evm,[lem;typ;term;concl])   =
-          Reification.ics ~env:env ~sigma:evm [lem;typ;term;concl] in
-        let (evm,lem_type) = Typing.type_of env evm lem in
-        try
-          Reification.declare_syntax_lemma
-            ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
-            env evm pargs lem_type
-        with
-          (ReificationFailure trm) ->
-          Errors.errorlabstrm "Reify"
-            Pp.(   str "Failed to reify term '"
-		++ Printer.pr_constr (Lazy.force trm)
-                ++ str "'.")
-    ]
-END
-
 TACTIC EXTEND Reify_Lambda_Shell_reify
   | ["reify_expr" constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
     [ let tbls = Reification.parse_tables tbls in
@@ -1423,44 +1389,6 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 	try
 	  let (res,tbl_data) =
 	    Reification.reify_all (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)
-              tbls (List.map (fun e -> (name,e)) es)
-	  in
-	  let rec generate tbls acc =
-	    match tbls with
-	      [] ->
-		let ltac_args =
-		  List.map
-		    Plugin_utils.Use_ltac.to_ltac_val
-		    (List.rev_append acc res)
-		in
-		Plugin_utils.Use_ltac.ltac_apply k ltac_args
-	    | tbl :: tbls ->
-	      let mp = Reification.export_table acc tbl tbl_data in
-	      Plugin_utils.Use_ltac.pose "tbl" mp
-		(fun var -> generate tbls (var :: acc))
-	  in
-	  generate tbls []
-        with
-          ReificationFailure trm ->
-	    let pr = Pp.(   (str "Failed to reify term '")
-		         ++ (Printer.pr_constr (Lazy.force trm))
-                         ++ (str "'.")) in
-	    Tacticals.New.tclZEROMSG pr
-      end
-    ]
-END
-
-TACTIC EXTEND Reify_Lambda_Shell_poly_reify_constr
-  | ["reify_poly_expr" constr(n) constr(typ) constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
-    [ let n = Reification.nat_to_int n in
-      let rec dup n =
-        if n <= 0 then [] else typ :: dup (n-1)
-      in
-      let tbls = Reification.parse_tables tbls in
-      Proofview.Goal.enter begin fun gl ->
-	try
-	  let (res,tbl_data) =
-	    Reification.reify_all ~poly:(dup n) (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)
               tbls (List.map (fun e -> (name,e)) es)
 	  in
 	  let rec generate tbls acc =
@@ -1523,3 +1451,89 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
       end
     ]
 END
+
+
+(**
+TACTIC EXTEND Reify_Lambda_Shell_poly_reify_constr
+  | ["reify_poly_expr" constr(n) constr(typ) constr(name) tactic(k) "[[" constr(tbls) "]]" "[[" ne_constr_list(es) "]]" ] ->
+    [ let n = Reification.nat_to_int n in
+      let rec dup n =
+        if n <= 0 then [] else typ :: dup (n-1)
+      in
+      let tbls = Reification.parse_tables tbls in
+      Proofview.Goal.enter begin fun gl ->
+	try
+	  let (res,tbl_data) =
+	    Reification.reify_all ~poly:(dup n) (Proofview.Goal.env gl) (Proofview.Goal.sigma gl)
+              tbls (List.map (fun e -> (name,e)) es)
+	  in
+	  let rec generate tbls acc =
+	    match tbls with
+	      [] ->
+		let ltac_args =
+		  List.map
+		    Plugin_utils.Use_ltac.to_ltac_val
+		    (List.rev_append acc res)
+		in
+		Plugin_utils.Use_ltac.ltac_apply k ltac_args
+	    | tbl :: tbls ->
+	      let mp = Reification.export_table acc tbl tbl_data in
+	      Plugin_utils.Use_ltac.pose "tbl" mp
+		(fun var -> generate tbls (var :: acc))
+	  in
+	  generate tbls []
+        with
+          ReificationFailure trm ->
+	    let pr = Pp.(   (str "Failed to reify term '")
+		         ++ (Printer.pr_constr (Lazy.force trm))
+                         ++ (str "'.")) in
+	    Tacticals.New.tclZEROMSG pr
+      end
+    ]
+END
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
+  | [ "Reify" "BuildLemma" "<" constr(typ) constr(term) constr(concl) ">"
+        ident(name) ":" lconstr(lem) ] ->
+    [ let (evm,env) = Lemmas.get_current_context () in
+      let (evm,[lem;typ;term;concl])   =
+        Reification.ics ~env:env ~sigma:evm [lem;typ;term;concl] in
+      let (evm,lem_type) = Typing.type_of env evm lem in
+      try
+        Reification.declare_syntax_lemma
+          ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
+          env evm 0 lem_type
+      with
+        (ReificationFailure trm) ->
+          Errors.errorlabstrm "Reify"
+            Pp.(   str "Failed to reify term '"
+		++ Printer.pr_constr (Lazy.force trm)
+                ++ str "'.")
+    ]
+END
+
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Poly_Lemma
+  | [ "Reify" "BuildPolyLemma" integer(pargs) "<" constr(typ) constr(term) constr(concl) ">"
+        ident(name) ":" lconstr(lem) ] ->
+    [ if pargs < 0 then
+        Errors.errorlabstrm "Reify"
+          Pp.(   str "Polymorphic lemmas can not have a negative number"
+              ++ str " of polymorphic arguments")
+      else
+        let (evm,env) = Lemmas.get_current_context () in
+        let (evm,[lem;typ;term;concl])   =
+          Reification.ics ~env:env ~sigma:evm [lem;typ;term;concl] in
+        let (evm,lem_type) = Typing.type_of env evm lem in
+        try
+          Reification.declare_syntax_lemma
+            ~name:name ~type_fn:typ ~prem_fn:term ~concl_fn:concl
+            env evm pargs lem_type
+        with
+          (ReificationFailure trm) ->
+          Errors.errorlabstrm "Reify"
+            Pp.(   str "Failed to reify term '"
+		++ Printer.pr_constr (Lazy.force trm)
+                ++ str "'.")
+    ]
+END
+**)

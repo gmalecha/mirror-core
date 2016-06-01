@@ -80,7 +80,7 @@ Section setoid.
   Qed.
 
   (* This is just a "special" version of the rewriting lemma *)
-  Record Proper_concl : Type := MkProper
+  Record Proper_concl : Type := mkProper
   { relation : R
   ; term     : expr typ func
   }.
@@ -102,7 +102,7 @@ Section setoid.
 
   Definition Proper_conclP (pc : Proper_concl) : Prop :=
     match pc with
-    | MkProper r e =>
+    | mkProper r e =>
       match typeof_expr nil nil e with
       | Some t =>
         match RD RbaseD r t with
@@ -181,7 +181,7 @@ Section setoid.
 
   (* Convenience for building monomorphic proper hints *)
   Definition Pr' (r : R) (t : expr typ func) :=
-    Pr (MkProper r t).
+    Pr (mkProper r t).
 
   (** polymorphic proper hint without typeclass constraints *)
   Definition PPr {n : nat} (pc : polymorphic typ n Proper_concl) :=
@@ -446,3 +446,31 @@ Notation "a ===> b" := (Rrespects a b) (right associativity, at level 55) : Rres
 Notation "a +++> b" := (Rrespects a b) (right associativity, at level 55) : Rrespects_scope.
 Notation "a ---> b" := (Rrespects (Rflip a) b) (right associativity, at level 55) : Rrespects_scope.
 Notation "t ***> b" := (Rpointwise t b) (right associativity, at level 55) : Rrespects_scope.
+
+Arguments Proper_concl _ _ _ : clear implicits.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section Reify_Proper_concl.
+  Variables Ty func Rbase : Type.
+  Context {Reify_Ty : Reify Ty}.
+  Context {Reify_expr_typ_func : Reify (expr Ty func)}.
+  Context {Reify_Rbase : Reify Rbase}.
+
+  Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+  Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+  Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+  Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+  Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+  Definition reify_Proper_concl :=
+    CPattern (ls:=_::_::nil)
+             (!!@Morphisms.Proper @ # @ ?0 @ ?1)
+             (fun (a : function (CCall (reify_scheme (R Ty Rbase))))
+                  (b : function (CCall (reify_scheme (expr Ty func)))) =>
+                @mkProper _ _ _ a b).
+
+  Global Instance Reify_Proper_concl : Reify (Proper_concl Ty func Rbase) :=
+  { reify_scheme := CCall reify_Proper_concl }.
+
+End Reify_Proper_concl.

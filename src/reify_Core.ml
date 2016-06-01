@@ -273,10 +273,8 @@ and parse_command_ env_evm =
            if not normalized then
              begin
                let (env,evm) = env_evm in
-               Pp.(msg_debug (str "trying to reduce in empty environment")) ;
                let reduced = Reductionops.whd_betadeltaiota
                    env evm cmd in
-               Pp.(msg_debug (str "success")) ;
                parse_command ~normalized:true env_evm reduced
              end
            else raise (ParseFailure (cmd, "command")))

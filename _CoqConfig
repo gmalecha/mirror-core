@@ -152,6 +152,7 @@ theories/RTac/RTac.v
 
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
+theories/Reify/ReifyClass.v
 
 # examples/Cancel/Monoid.v
 # examples/Cancel/MonoidSyntaxSimple.v

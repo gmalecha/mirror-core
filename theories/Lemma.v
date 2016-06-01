@@ -7,6 +7,7 @@ Require Import MirrorCore.Util.ListMapT.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Primitive Projections.
 
 Section lem.
   Variable typ : Type.
@@ -16,7 +17,7 @@ Section lem.
   Context {ExprOk_expr : ExprOk Expr_expr}.
   Variable conclusion : Type.
 
-  Record lemma : Type := Build_lemma
+  Record lemma : Type := mkLemma
   { vars : list typ
   ; premises : list expr
   ; concl : conclusion
@@ -367,3 +368,40 @@ Section lem.
   Qed.
 
 End lem.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section rlemma.
+  Context {ty pr c : Type}.
+  Context {rT : Reify ty}.
+  Context {rU : Reify pr}.
+  Context {rV : Reify c}.
+
+  Definition add_var (v : ty) (x : lemma ty pr c) : lemma ty pr c :=
+    {| vars := vars x ++ v :: nil
+     ; premises := premises x
+     ; concl := concl x |}.
+
+  Definition add_prem (v : pr) (x : lemma ty pr c) : lemma ty pr c :=
+    {| vars := vars x
+     ; premises := v :: premises x
+     ; concl := concl x |}.
+
+  Definition reify_lemma : Command (lemma ty pr c) :=
+    Eval unfold CPattern in
+    CFix
+      (CFirst (   CPattern (ls:=pr::lemma ty pr c::nil)
+                           (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
+                           (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_prem x y)
+               :: CPattern (ls:=ty::lemma ty pr c::nil)
+                           (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
+                           (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_var x y)
+               :: CMap (fun x => {| vars := nil
+                                  ; premises := nil
+                                  ; concl := x |}) (reify_scheme _)
+               :: nil)).
+
+  Global Instance Reify_rlemma : Reify (lemma ty pr c) :=
+  { reify_scheme := CCall reify_lemma }.
+
+End rlemma.

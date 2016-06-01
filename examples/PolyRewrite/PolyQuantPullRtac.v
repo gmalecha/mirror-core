@@ -27,6 +27,27 @@ Set Strict Implicit.
 
 Let Rbase := expr typ func.
 
+Instance Reify_expr_simple : Reify (expr typ func) :=
+{ reify_scheme := reify_simple }.
+
+Instance Reify_simple_type : Reify typ :=
+{ reify_scheme := reify_simple_typ }.
+
+(* Pattern language notations *)
+Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+(*
+Reify Pattern patterns_R += (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1) =>
+  (fun a b : function (CCall reify_R) => Rrespects a b).
+Reify Pattern patterns_R += (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1) =>
+  (fun (a : function (CCall reify_simple_typ)) (b : function (CCall reify_R)) => Rpointwise a b).
+Reify Pattern patterns_R += (!!@Basics.flip @ # @ # @ # @ ?0) =>
+  (fun a : function (CCall reify_R) => Rflip a).
+
 Reify Declare Patterns patterns_concl : (rw_concl typ func Rbase).
 
 Reify Declare Syntax reify_concl_base :=
@@ -37,40 +58,39 @@ Reify Declare Patterns patterns_proper : (@Proper_concl typ func Rbase).
 Reify Declare Syntax reify_proper_concl :=
   (CPatterns patterns_proper).
 
-(* Pattern language notations *)
-Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
-Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
-Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
-Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
-Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
 Reify Pattern patterns_concl += (?0 @ ?1 @ ?2) =>
   (fun (a b c : function (CCall reify_simple)) =>
      @Build_rw_concl typ func Rbase b (@Rinj typ Rbase a) c).
 
+Instance Reify_Proper_lemma
+: Reify (Proper_concl (typ:=typ) (func:=func) Rbase) :=
+{ reify_scheme := CPatterns patterns_proper }.
+*)
+
+Instance Reify_typ
+: Reify typ :=
+{ reify_scheme := CCall reify_simple_typ }.
+
+
+
+
+(**
 Reify Pattern patterns_concl += (!!Basics.impl @ ?0 @ ?1) =>
   (fun (a b : function (CCall reify_simple)) =>
      @Build_rw_concl typ func Rbase a (@Rinj typ Rbase (Inj Impl)) b).
 Reify Pattern patterns_concl += ((!!@Basics.flip @ # @ # @ # @ !!Basics.impl) @ ?0 @ ?1) =>
   (fun (a b : function (CCall reify_simple)) =>
      @Build_rw_concl typ func Rbase a (Rflip (@Rinj typ Rbase (Inj Impl))) b).
+**)
 
+(**
 Reify Declare Patterns patterns_R : (R typ Rbase).
 
-Reify Declare Syntax reify_R :=
-  CFirst (  CPatterns patterns_R
-         :: CMap (@Rinj _ _) (CCall reify_simple)
-         :: nil).
-
-Reify Pattern patterns_R += (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1) =>
-  (fun a b : function (CCall reify_R) => Rrespects a b).
-Reify Pattern patterns_R += (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1) =>
-  (fun (a : function (CCall reify_simple_typ)) (b : function (CCall reify_R)) => Rpointwise a b).
-Reify Pattern patterns_R += (!!@Basics.flip @ # @ # @ # @ ?0) =>
-  (fun a : function (CCall reify_R) => Rflip a).
 
 Reify Pattern patterns_proper += (!!@Morphisms.Proper @ # @ ?0 @ ?1) =>
   (fun (a : function (CCall reify_R)) (b : function (CCall reify_simple)) => @MkProper _ _ _ a b).
+**)
 
 
 Existing Instance RType_typ.
@@ -205,8 +225,14 @@ Proof.
 Qed.
 
 (** Reify it *)
+Definition lem_pull_ex_and_left : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+  <:: @pull_ex_and_left ::>.
+
+(*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
   lem_pull_ex_and_left : @pull_ex_and_left.
+*)
 
 Ltac get_num_arrs t :=
   lazymatch t with
@@ -250,8 +276,14 @@ Proof.
   split; eauto.
 Qed.
 
+Definition lem_pull_ex_and_right : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+  <:: @pull_ex_and_right ::>.
+
+(*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
   lem_pull_ex_and_right : @pull_ex_and_right.
+*)
 
 Lemma lem_pull_ex_and_right_sound
 : polymorphicD (Lemma.lemmaD (rw_conclD RbaseD) nil nil) (n:=1) lem_pull_ex_and_right.
@@ -272,11 +304,12 @@ Require Import MirrorCore.Util.Forwardy.
 Require Import Coq.Classes.Morphisms.
 
 Lemma Proper_exists T
-: Proper (pointwise_relation _ (Basics.flip Basics.impl) ==> Basics.flip Basics.impl) (@ex T).
+: Proper (Morphisms.pointwise_relation T (Basics.flip Basics.impl) ==> Basics.flip Basics.impl) (@ex T).
 Proof. compute. destruct 2; eauto. Qed.
 
 Lemma Proper_forall (T : Type)
-: Proper (pointwise_relation T (Basics.flip Basics.impl) ==> Basics.flip Basics.impl) (fun P => forall x, P x).
+: Proper (Morphisms.pointwise_relation T (Basics.flip Basics.impl) ==> Basics.flip Basics.impl)
+         (fun P => forall x, P x).
 Proof. compute. eauto. Qed.
 
 Lemma Proper_or_flip_impl
@@ -287,83 +320,28 @@ Lemma Proper_and_flip_impl
 : Proper (Basics.flip Basics.impl ==> Basics.flip Basics.impl ==> Basics.flip Basics.impl) and.
 Proof. compute. tauto. Qed.
 
+Definition lem_Proper_exists
+: polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+  <:: @Proper_exists ::>.
 
+Definition lem_Proper_forall
+: polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+  <:: @Proper_forall ::>.
+
+(*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
   lem_Proper_exists : @Proper_exists.
 
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
   lem_Proper_forall : @Proper_forall.
-
-Instance Reify_expr_simple : Reify (expr typ func) :=
-{ reify_scheme := reify_simple }.
-
-Instance Reify_simple_type : Reify typ :=
-{ reify_scheme := reify_simple_typ }.
-
-Instance Reify_Proper_lemma
-: Reify (Proper_concl (typ:=typ) (func:=func) Rbase) :=
-{ reify_scheme := CPatterns patterns_proper }.
-
-Instance Reify_typ
-: Reify typ :=
-{ reify_scheme := CCall reify_simple_typ }.
+*)
 
 Theorem Proper_plus_eq : Proper (eq ==> eq ==> eq) plus.
 Proof. red. red. red. firstorder. Qed.
 
-
-
-Section rpolymorphic.
-  Context {T U : Type}.
-  Context {r : Reify U}.
-
-  Fixpoint rpolymorphic n : Command (polymorphic T n U) :=
-    match n as n return Command (polymorphic T n U) with
-    | 0 => CCall (reify_scheme r)
-    | S n => Patterns.CPiMeta (rpolymorphic n)
-    end.
-
-  Global Instance Reify_polymorphic n : Reify (polymorphic T n U) :=
-  { reify_scheme := CCall (rpolymorphic n) }.
-End rpolymorphic.
-
-Section rlemma.
-  Context {ty pr concl : Type}.
-  Context {rT : Reify ty}.
-  Context {rU : Reify pr}.
-  Context {rV : Reify concl}.
-
-  Definition add_var (v : ty) (x : Lemma.lemma ty pr concl) : Lemma.lemma ty pr concl :=
-    {| Lemma.vars := v :: Lemma.vars x
-     ; Lemma.premises := Lemma.premises x
-     ; Lemma.concl := Lemma.concl x |}.
-
-  Definition add_prem (v : pr) (x : Lemma.lemma ty pr concl) : Lemma.lemma ty pr concl :=
-    {| Lemma.vars := Lemma.vars x
-     ; Lemma.premises := v :: Lemma.premises x
-     ; Lemma.concl := Lemma.concl x |}.
-
-  Definition reify_lemma : Command (Lemma.lemma ty pr concl) :=
-    Eval unfold CPattern in
-    CFix
-      (CFirst (   CPattern (ls:=pr::Lemma.lemma ty pr concl::nil)
-                           (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
-                           (fun (x : function (CCall (reify_scheme rU))) (y : function (CRec 0)) => add_prem x y)
-               :: CPattern (ls:=ty::Lemma.lemma ty pr concl::nil)
-                           (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
-                           (fun (x : function (CCall (reify_scheme rT))) (y : function (CRec 0)) => add_var x y)
-               :: CMap (fun x => {| Lemma.vars := nil
-                                  ; Lemma.premises := nil
-                                  ; Lemma.concl := x |}) (reify_scheme rV)
-               :: nil)).
-
-  Global Instance Reify_rlemma : Reify (Lemma.lemma ty pr concl) :=
-  { reify_scheme := CCall reify_lemma }.
-
-End rlemma.
-
-
-Arguments PPr {_ _ _ n} _.
+Arguments PPr {_ _ _} n _ : clear implicits.
 
 Goal Lemma.lemma typ (expr typ func) (expr typ func).
 refine (<<: forall x : nat, x = x -> x = x :>>).
@@ -375,17 +353,17 @@ Defined.
 
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-    (PPr (n:=1) <:: @Proper_forall ::> ::
-     PPr (n:=1) <:: @Proper_exists ::> :: nil).
+    (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
+     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> :: nil).
 
 Let tyBNat := tyBase0 tyNat.
 Definition get_respectful : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-    (PPr (n:=1) <:: @Proper_forall ::> ::
-     PPr (n:=1) <:: @Proper_exists ::> ::
-     Pr <:: Proper_and_flip_impl ::> ::
-     Pr <:: Proper_or_flip_impl ::> ::
-     Pr <:: Proper_plus_eq ::> :: nil).
+    (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
+     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> ::
+     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_and_flip_impl ::> ::
+     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_or_flip_impl ::> ::
+     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_plus_eq ::> :: nil).
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)

@@ -1,16 +1,10 @@
 Require PluginUtils.PluginUtils.
 Require Import MirrorCore.Reify.Patterns.
-Require MirrorCore.Lemma.
-Require MirrorCore.Polymorphic.
 
 Declare ML Module "reify_Lambda_plugin".
 
 Export MirrorCore.Reify.Patterns.
-
-Class Reify (T : Type) : Type :=
-{ reify_scheme : Command T }.
-
-Arguments reify_scheme [_] _.
+Require Import MirrorCore.Reify.ReifyClass.
 
 Ltac reify_with_class X :=
   lazymatch goal with
@@ -29,5 +23,9 @@ Ltac reify_type_with_class X :=
   reify_with_class x.
 
 (** These are the notations for inline reification *)
-Notation "'<<:' X ':>>'" := ltac:(reify_with_class X) (at level 0, only parsing).
-Notation "'<::' X '::>'" := ltac:(reify_type_with_class X) (at level 0, only parsing).
+Notation "'<<:' X ':>>'" :=
+  ltac:(reify_with_class X) (at level 0, only parsing).
+Notation "'<::' X '::>'" :=
+  ltac:(reify_type_with_class X) (at level 0, only parsing).
+
+Require Export MirrorCore.Reify.ReifyClass.
