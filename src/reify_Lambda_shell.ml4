@@ -51,18 +51,12 @@ sig
   val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
   val ics : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr list -> Evd.evar_map * Term.constr list
 
-  (** TODO(gmalecha): This should move *)
-  val nat_to_int : Term.constr -> int
 end
 
 module Reification : REIFICATION =
 struct
 
-  module Std = Plugin_utils.Coqstd.Std
-      (struct
-        let contrib_name = contrib_name
-      end)
-  let nat_to_int = Std.Nat.of_nat
+  module Std = Reify_Core.Std
 
   let do_debug = true
 

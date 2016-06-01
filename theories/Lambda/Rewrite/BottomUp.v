@@ -1,32 +1,17 @@
 (** This file implements a bottom-up rewriting traversal.
  **)
-Require Import Coq.omega.Omega.
 Require Import Coq.Classes.Morphisms.
-Require Import Coq.PArith.BinPos.
 Require Import Coq.Relations.Relations.
-Require Import Coq.FSets.FMapPositive.
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Positive.
-Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.HList.
-Require Import ExtLib.Data.Option.
-Require Import ExtLib.Data.Pair.
 Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Recur.Facts.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI.
-Require Import MirrorCore.Lemma.
-Require Import MirrorCore.VarsToUVars.
-Require Import MirrorCore.Instantiate.
 Require Import MirrorCore.Util.Forwardy.
 Require Import MirrorCore.Util.Compat.
-Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.RTac.Core.
-Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
-Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.

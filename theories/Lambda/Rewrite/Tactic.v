@@ -4,7 +4,6 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
-Require Import MirrorCore.Util.Iteration.
 Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Rewrite.Core.

@@ -1,3 +1,5 @@
+module Std : Plugin_utils.Coqstd.STD
+
 type map_sort =
     SimpleMap
   | TypedMap

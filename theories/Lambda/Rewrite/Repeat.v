@@ -1,11 +1,5 @@
-Require Import Coq.Classes.Morphisms.
-Require Import Coq.Relations.Relations.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.SubstI.
-Require Import MirrorCore.Util.Forwardy.
-Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
 
 Set Implicit Arguments.

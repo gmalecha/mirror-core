@@ -21,7 +21,7 @@ Require Import MirrorCore.Util.Forwardy.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** TODO: Move to Data.HList **)
+(** TODO: Move to Data.List **)
 Theorem rev_app_distr_trans
 : forall (A : Type) (x y : list A), rev (x ++ y) = rev y ++ rev x.
 Proof using.
@@ -58,12 +58,6 @@ Section parameterized.
   Context {Typ0_Prop : Typ0 _ Prop}.
   Context {Expr_expr : Expr typ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-(*
-  Context {ExprVar_expr : ExprVar expr}.
-  Context {ExprVarOk_expr : ExprVarOk _}.
-  Context {ExprUVar_expr : ExprUVar expr}.
-  Context {ExprUVarOk_expr : ExprUVarOk _}.
-*)
 
   Inductive Goal :=
   | GAll    : typ -> Goal -> Goal
