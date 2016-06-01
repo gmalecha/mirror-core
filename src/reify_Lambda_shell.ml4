@@ -840,6 +840,7 @@ struct
       ; reify = compile_command [] program }
 
     let get_entry (name : Term.constr) =
+      let name = drop_calls name in
       try
         let key = Cmap.find name !reify_table in
         try CEphemeron.get key
@@ -849,7 +850,6 @@ struct
           data
       with
         Not_found ->
-        let name = drop_calls name in
         if not (Term.isConst name) then
           Pp.(msg_debug (str "compiling inline reify command:" ++ spc () ++ Printer.pr_constr name)) ;
         let data = compile_name name in

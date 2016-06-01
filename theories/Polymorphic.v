@@ -100,3 +100,5 @@ Section rpolymorphic.
   Global Instance Reify_polymorphic n : Reify (polymorphic T n U) :=
   { reify_scheme := CCall (rpolymorphic n) }.
 End rpolymorphic.
+
+Arguments rpolymorphic _ _ _ _ : clear implicits.

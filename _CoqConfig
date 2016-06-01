@@ -154,13 +154,13 @@ theories/Reify/Patterns.v
 theories/Reify/Reify.v
 theories/Reify/ReifyClass.v
 
-# examples/Cancel/Monoid.v
-# examples/Cancel/MonoidSyntaxSimple.v
-# examples/Cancel/MonoidSyntaxNoDec.v
-# examples/Cancel/MonoidSyntaxWithConst.v
-# examples/Cancel/MonoidSyntaxModular.v
-# examples/Cancel/LtacDemo.v
-# examples/Cancel/RtacDemo.v
+examples/Cancel/Monoid.v
+examples/Cancel/MonoidSyntaxSimple.v
+examples/Cancel/MonoidSyntaxNoDec.v
+examples/Cancel/MonoidSyntaxWithConst.v
+examples/Cancel/MonoidSyntaxModular.v
+examples/Cancel/LtacDemo.v
+examples/Cancel/RtacDemo.v
 
 # examples/Hoare/ILogic.v
 # examples/Hoare/ILogicFunc.v
