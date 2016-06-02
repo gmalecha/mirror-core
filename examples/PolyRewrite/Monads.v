@@ -4,7 +4,6 @@
  *)
 
 Require Import ExtLib.Structures.Monad.
-Require Import MirrorCore.Examples.PolyRewrite.
 
 Section MonadLaws.
 
