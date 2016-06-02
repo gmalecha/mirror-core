@@ -641,7 +641,7 @@ Section simple_dep_types.
                  (fun _ _ _ mig e => migrate_expr mig e)
                  (List.map (fun t => (tvs,t)) lem.(vars)))
           (_)).
-    eapply composeA; eauto.
+    Abort.
 
 
 
@@ -679,7 +679,7 @@ Section simple_dep_types.
     Admitted.
   End under_tactic.
 
-
+(*
   Section assumption_tactic.
     Variable m : Type -> Type.
     Context {Monad_m : Monad m}.
@@ -817,8 +817,8 @@ Section simple_dep_types.
         charge_tauto. }
     Qed.
   End assumption_tactic.
-
-
+*)
+(*
   Section cut_tactic.
     Variable m : Type -> Type.
     Context {Monad_m : Monad m}.
@@ -861,6 +861,7 @@ Section simple_dep_types.
     Qed.
 
   End cut_tactic.
+*)
 
 End simple_dep_types.
 

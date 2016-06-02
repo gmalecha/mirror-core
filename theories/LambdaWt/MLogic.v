@@ -28,8 +28,8 @@ Section MLogic.
   ; fmodels_ret : forall T (P : T -> Prop) x,
       P x -> fmodels P (ret x)
   ; fmodels_conseq : forall T (P Q : T -> Prop) x,
-      fmodels Q x ->
       (forall x, Q x -> P x) ->
+      fmodels Q x ->
       fmodels P x
   }.
 

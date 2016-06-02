@@ -24,3 +24,4 @@ theories/LambdaWt/SubstWt.v
 theories/LambdaWt/MLogic.v
 theories/LambdaWt/WtCtx.v
 theories/LambdaWt/WtTactic.v
+theories/LambdaWt/WtInContext.v

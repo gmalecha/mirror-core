@@ -80,8 +80,10 @@ Section simple_dep_types.
     | ctx_All : forall t {ts}, wtctx tus ts -> wtctx tus (t :: ts)
     | ctx_Hyp : forall {ts}, wtexpr Esymbol tus ts tyProp ->
                              wtctx tus ts -> wtctx tus ts
+(*
     | ctx_Left : forall {ts}, wtgoal tus ts -> wtctx tus ts -> wtctx tus ts
     | ctx_Right : forall {ts}, wtgoal tus ts -> wtctx tus ts -> wtctx tus ts
+*)
 (*
     | ctx_MDelay : forall {tus' tvs},
         migrator Esymbol tus' tus ->
@@ -91,8 +93,10 @@ Section simple_dep_types.
     Arguments ctx_Top {_}.
     Arguments ctx_All {_} _ {_} _.
     Arguments ctx_Hyp {_ _} _ _.
+(*
     Arguments ctx_Left {_ _} _ _.
     Arguments ctx_Right {_ _} _ _.
+*)
 (*
     Arguments ctx_MDelay {_ _ _} _ _.
 *)
@@ -105,10 +109,12 @@ Section simple_dep_types.
       | ctx_Top => ctx_Top
       | ctx_All t c => ctx_All t (force_ctx mig c)
       | ctx_Hyp p c => ctx_Hyp (migrate_expr mig p) (force_ctx mig c)
+(*
       | ctx_Left g c =>
         ctx_Left (wtgoal_subst mig WtMigrator.vars_id g) (force_ctx mig c)
       | ctx_Right g c =>
         ctx_Right (wtgoal_subst mig WtMigrator.vars_id g) (force_ctx mig c)
+*)
 (*
       | ctx_MDelay m c => force_ctx (migrator_compose m mig) c
 *)
@@ -128,13 +134,14 @@ Section simple_dep_types.
       | ctx_Hyp t ctx' => fun K =>
         wtctxD ctx'
                (fun us vs => wtexprD EsymbolD t us vs -->> K us vs)
+(*
       | ctx_Left g ctx' => fun K =>
         wtctxD ctx'
                (fun us vs => wtgoalD g us vs //\\ K us vs)
       | ctx_Right g ctx' => fun K =>
         wtctxD ctx'
                (fun us vs => K us vs //\\ wtgoalD g us vs)
-
+*)
 (*
       | ctx_MDelay mig ctx' => fun K us vs =>
         wtctxD _ _ ctx' _ _ vs
@@ -154,6 +161,8 @@ Arguments wtConj {_ _ _ _ _} _ _.
 Arguments ctx_Top {_ _ _ _}.
 Arguments ctx_All {_ _ _ _} _ {_} _.
 Arguments ctx_Hyp {_ _ _ _ _} _ _.
+(*
 Arguments ctx_Left {_ _ _ _ _} _ _.
 Arguments ctx_Right {_ _ _ _ _} _ _.
+*)
 Arguments wtgoalD {_ _ _} EsymbolD [tyProp] {_} [_ _] _ _ _.

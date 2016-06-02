@@ -102,8 +102,8 @@ Section member_eq_dec.
 
   Section with_t.
     Context {t : T}.
-    Fixpoint member_weaken {ls} ls'
-      : member t ls -> member t (ls' ++ ls) :=
+    Fixpoint member_weaken ls' {ls}
+    : member t ls -> member t (ls' ++ ls) :=
       match ls' as ls'
             return member t ls -> member t (ls' ++ ls)
       with
