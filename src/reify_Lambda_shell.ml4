@@ -51,6 +51,7 @@ sig
   val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
   val ics : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr list -> Evd.evar_map * Term.constr list
 
+  val check_inside_section : string -> unit
 end
 
 module Reification : REIFICATION =
@@ -150,25 +151,26 @@ struct
 	  true
 	else
 	  let _ =
-	    Pp.(msg_warning (   (str "Table '")
-		         ++ (Printer.pr_constr tbl_name)
-			        ++ (str (Printf.sprintf "' already contains a mapping for %d.\n" k))
-	                        ++ (str "This mapping is incompatible with the given mapping.")))
+	    Pp.(msg_warning (   str "Table '"
+		             ++ Printer.pr_constr tbl_name
+	                     ++ str "' already contains a mapping for "
+                             ++ int k ++ str "." ++ fnl ()
+	                     ++ str "This mapping is incompatible with the given mapping."))
 	  in false
       with
 	Not_found ->
-	let _ = Pp.(msg_warning (   (str "Table '")
-				    ++ (Printer.pr_constr tbl_name)
-				    ++ (str "' does not exist."))) in
+	let _ = Pp.(msg_warning (   str "Table '"
+			         ++ Printer.pr_constr tbl_name
+	                         ++ str "' does not exist.")) in
 	false
 
 
     let declare_table (ls : Term.constr) (kt : key_type) =
       if Cmap.mem ls !the_seed_table then
 	let _ =
-	  Pp.(msg_warning (   (str "Table '")
-			      ++ (Printer.pr_constr ls)
-			      ++ (str "' already exists.")))
+	  Pp.(msg_warning (   str "Table '"
+	                   ++ Printer.pr_constr ls
+		           ++ str "' already exists."))
 	in false
       else
 	let _ =
@@ -180,9 +182,9 @@ struct
     let declare_typed_table (ls : Term.constr) (kt : key_type) =
       if Cmap.mem ls !the_seed_table then
 	let _ =
-	  Pp.(msg_warning (   (str "Table '")
-			      ++ (Printer.pr_constr ls)
-			      ++ (str "' already exists.")))
+	  Pp.(msg_warning (   str "Table '"
+			   ++ Printer.pr_constr ls
+			   ++ str "' already exists."))
 	in false
       else
 	let _ =
@@ -304,7 +306,7 @@ struct
           try
             Term_match.matches gl (List.map get_rule tr.otherwise) trm gl
           with
-            _ -> reifier_fail trm gl
+            Term_match.Match_failure -> reifier_fail trm gl
         end
       | App (trm, args, from) ->
         begin
@@ -380,21 +382,21 @@ struct
         Pp.mt ()
 
     let reify_patterns compile_rule (i : Term.constr) trm
-      : Term.constr reifier =
+    : Term.constr reifier =
       fun gl ->
-	try
-          run_ptrn_tree compile_rule (Cmap.find i !pattern_table) trm gl
-	with
-        | Term_match.Match_failure ->
-          begin
-            Pp.(msg_warning (str "unknown pattern table " ++
-                             Printer.pr_constr i)) ;
-	    reifier_fail_lazy trm gl
-          end
+        let tbl =
+          try Cmap.find i !pattern_table
+          with Not_found ->
+            Errors.anomaly Pp.(str "Invariant violation, please report!" ++
+                               fnl () ++
+                               str "pattern table not found:" ++ spc () ++
+                               Printer.pr_constr i)
+        in
+        run_ptrn_tree compile_rule tbl trm gl
 
     let add_pattern compile_rule env evd
         (name : Term.constr) (ptrn : Term.constr) (template : Term.constr)
-      : unit =
+    : unit =
       try
         let rule = Reify_Core.parse_pattern env evd ptrn template in
         let rptrn = rule.Reify_Core.rule_pattern in
@@ -611,7 +613,7 @@ struct
 
     and compile_command (stk : (lazy_term -> Term.constr reifier) ref list)
         (ls : command)
-      : lazy_term -> Term.constr reifier =
+    : lazy_term -> Term.constr reifier =
       let rec compile_command stk (l : command)
         : lazy_term -> Term.constr reifier =
 	match l with
@@ -623,12 +625,14 @@ struct
           let k = compile_command (z :: stk) k in
           z := k ;
           k
-        | Call f -> fun trm gl -> reify_term f trm gl
+        | Call f ->
+          fun trm gl -> reify_term f trm gl
 	| Patterns i ->
-          fun gl -> Patterns.reify_patterns (compile_rule []) i gl
+          fun trm gl ->
+            Patterns.reify_patterns (fun c -> compile_rule [] c) i trm gl
         | Pattern ptrns ->
           let ptrns = compile_patterns stk ptrns in
-          fun trm -> Patterns.run_ptrn_tree (compile_rule stk) ptrns trm
+          fun trm gl -> Patterns.run_ptrn_tree (compile_rule stk) ptrns trm gl
 	| Abs (ty,body,ctor) ->
           let reify_type = compile_command stk ty in
           let reify_term = compile_command stk body in
@@ -698,12 +702,12 @@ struct
 		  let all_tables = List.map fst (Cmap.bindings tbls) in
 		  let _ =
 		    Pp.(msg_warning
-			  (   (str "Implicitly adding table '")
-	                   ++ (Printer.pr_constr tbl_name)
-		           ++ (str "'. This will not be returned.\n")
-			   ++ (str "(available tables are: ")
-			   ++ (pr_constrs (str " , ") all_tables)
-			   ++ (str ")")))
+			  (   str "Implicitly adding table '"
+	                   ++ Printer.pr_constr tbl_name
+		           ++ str "'. This will not be returned.\n"
+			   ++ str "(available tables are: "
+			   ++ pr_constrs (str " , ") all_tables
+			   ++ str ")"))
 		  in
 		  { mappings = Cmap.empty
 		  ; next = 1 }
@@ -742,12 +746,12 @@ struct
 		  let all_tables = List.map fst (Cmap.bindings tbls) in
 		  let _ =
 		    Pp.(msg_warning
-			  (   (str "Implicitly adding table '")
-			      ++ (Printer.pr_constr tbl_name)
-			      ++ (str "'. This will not be returned.\n")
-			      ++ (str "(available tables are: ")
-			      ++ (pr_constrs (str " , ") all_tables)
-			      ++ (str ")")))
+			  (   str "Implicitly adding table '"
+			   ++ Printer.pr_constr tbl_name
+			   ++ str "'. This will not be returned.\n"
+			   ++ str "(available tables are: "
+			   ++ pr_constrs (str " , ") all_tables
+			   ++ str ")"))
 		  in
 		  { mappings = Cmap.empty
 		  ; next = 1 }
@@ -814,24 +818,42 @@ struct
 
     let cmd_Command  = Std.resolve_symbol pattern_mod "Command"
     let get_Command_type env evm cmd =
+      let (_,typ) =
+        try Typing.type_of env evm cmd
+        with _ ->
+          Errors.errorlabstrm "Type-error"
+            Pp.(   str "Reification command is ill-typed"
+                ++ fnl ()
+                ++ Printer.pr_constr_env env evm cmd)
+      in
       try
-        let (_,typ) = Typing.type_of env evm cmd in
         Term_match.(matches ()
                       [(apps (Glob_no_univ cmd_Command) [get 0],
                         fun _ s -> Hashtbl.find s 0)]
                       typ)
       with
-        _ ->
-        Pp.(msg_debug (str "this is the term: " ++ Printer.pr_constr cmd)) ;
-        debug "get_Command_type raised an error" ; assert false
+        Term_match.Match_failure ->
+        Errors.anomaly Pp.(   str "Reification got non-Command"
+                           ++ fnl ()
+                           ++ Printer.pr_constr_env env evm cmd
+                           ++ fnl ()
+                           ++ str "has type" ++ fnl ()
+                           ++ Printer.pr_constr_env env evm typ)
 
-    let compile_name (name : Term.constr) =
+    let compile_name (prg : Term.constr) =
       let (evm,env) = Lemmas.get_current_context () in
-      let typ = get_Command_type env evm name in
-      let reduced = Reductionops.whd_betadeltaiota env evm name in
+      let typ = get_Command_type env evm prg in
+      let reduced = Reductionops.whd_betadeltaiota env evm prg in
       let program = parse_command env evm reduced in
-      { result_type = typ
-      ; reify = compile_command [] program }
+      try
+        { result_type = typ
+        ; reify = compile_command [] program }
+      with
+      | _ ->
+        Errors.anomaly
+          Pp.(   str "Failed to compile" ++ fnl ()
+              ++ Printer.pr_constr prg
+              ++ fnl ())
 
     let get_entry (name : Term.constr) =
       let name = drop_calls name in
@@ -845,7 +867,8 @@ struct
       with
         Not_found ->
         if not (Term.isConst name) then
-          Pp.(msg_debug (str "compiling inline reify command:" ++ spc () ++ Printer.pr_constr name)) ;
+          Pp.(msg_debug (   str "compiling inline reify command (this may impact performance):"
+                         ++ spc () ++ Printer.pr_constr name)) ;
         let data = compile_name name in
         reify_table := Cmap.add name (CEphemeron.create data) !reify_table ;
         data
@@ -854,7 +877,7 @@ struct
       let data = get_entry name in
       data.reify
 
-    let _ = set_reify_term  reify_term
+    let _ = set_reify_term reify_term
 
     let reify_type (name : Term.constr) =
       let data = get_entry name in
@@ -862,17 +885,20 @@ struct
 
     let declare_syntax (name : Names.identifier) env evm
 	(cmd : Term.constr) : unit =
-      let program = parse_command env evm cmd in
-      let _meta_reifier = compile_command [] program in
       let typ =
         let (_,typ) = Typing.type_of env evm cmd in
-        Term_match.(matches ()
-                      [(apps (Glob_no_univ cmd_Command) [get 0],
-                        fun _ s -> Hashtbl.find s 0)
-                      ; (get 0,
-                         fun _ s -> assert false) ]
-                      typ)
+        let open Term_match in
+        matches ()
+          [ (apps (Glob_no_univ cmd_Command) [get 0],
+             fun _ s -> Hashtbl.find s 0)
+          ; (get 0,
+             fun _ s -> Errors.errorlabstrm "type-error"
+                 Pp.(   str "Syntax must have type"
+                     ++ Printer.pr_constr (Lazy.force cmd_Command))) ]
+          typ
       in
+      let program = parse_command env evm cmd in
+      let _meta_reifier = compile_command [] program in
       let data = { result_type = typ
                  ; reify = _meta_reifier } in
       let obj = decl_constant name evm cmd in
@@ -1083,47 +1109,36 @@ struct
   let typed_table_value = Std.resolve_symbol pattern_mod "a_typed_table"
 
   let new_table
-    : Term.constr * Tables.key_type -> Libobject.obj =
-    Libobject.(declare_object
-		 { (default_object "REIFY_TABLE") with
-		   cache_function = (fun (_,_) ->
-		       (** TODO: I don't know what to do here. **)
-		       ())
-		 ; load_function = (fun i (obj_name,value) ->
-		     (** TODO: What do I do about [i] and [obj_name]? **)
-                     Printf.eprintf "Loading table\n" ;
-		     let (name,typ) = value in
-		     if Tables.declare_table name typ then
-		       ()
-		     else
-		       Printf.fprintf stderr "error declaring table")
-                 ; classify_function = (fun a -> Substitute a)
-                 ; subst_function = (fun (sub, (c,kt)) ->
-                     (Mod_subst.subst_mps sub c, kt))
-		 })
-
+  : Term.constr * Tables.key_type -> Libobject.obj =
+    let open Libobject in
+    declare_object
+      { (default_object "REIFY_TABLE") with
+	load_function = (fun i (obj_name,value) ->
+	    let (name,typ) = value in
+            if Tables.declare_table name typ then ()
+            else Printf.fprintf stderr "error declaring table")
+      ; classify_function = (fun a -> Substitute a)
+      ; discharge_function = (fun (_,value) -> Some value)
+      ; subst_function = (fun (sub, (c,kt)) ->
+          (Mod_subst.subst_mps sub c, kt))
+      }
 
   let new_table_entry
-    : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
-    Libobject.(declare_object
-		 { (default_object "REIFY_TABLE_ENTRY") with
-		   cache_function = (fun (_,_) ->
-		       (** TODO: I don't know what to do here. **)
-		       ())
-		 ; load_function = (fun i (obj_name,value) ->
-		     (** TODO: What do I do about [i] and [obj_name]? **)
-		     let (tbl_name, key, (ty,value)) = value in
-                     Printf.eprintf "Loading table entry %d\n" key ;
-		     if Tables.seed_table tbl_name key ty value then
-		       ()
-		     else
-		       Printf.fprintf stderr "non-existant table")
-                 ; classify_function = (fun a -> Substitute a)
-                 ; subst_function = (fun (sub, (nm, i, (ty, trm))) ->
-                     (Mod_subst.subst_mps sub nm, i,
-                      (Mod_subst.subst_mps sub ty, Mod_subst.subst_mps sub trm)))
-		 })
-
+  : Term.constr * int * (Term.constr * Term.constr) -> Libobject.obj =
+    let open Libobject in
+    declare_object
+      { (default_object "REIFY_TABLE_ENTRY") with
+        load_function = (fun i (obj_name,value) ->
+	    (** TODO: What do I do about [i] and [obj_name]? **)
+	    let (tbl_name, key, (ty,value)) = value in
+            Printf.eprintf "Loading table entry %d\n" key ;
+	    if Tables.seed_table tbl_name key ty value then ()
+            else Printf.fprintf stderr "non-existant table")
+      ; classify_function = (fun a -> Substitute a)
+      ; subst_function = (fun (sub, (nm, i, (ty, trm))) ->
+          (Mod_subst.subst_mps sub nm, i,
+           (Mod_subst.subst_mps sub ty, Mod_subst.subst_mps sub trm)))
+      }
 
   let declare_table id evm key =
     let key_type =
@@ -1187,19 +1202,25 @@ struct
     : Term.constr * Term.constr * Term.constr -> Libobject.obj =
     Libobject.(declare_object
                  { (default_object "REIFY_ADD_PATTERN") with
-	           cache_function = (fun (_,_) ->
-		       (** TODO: I don't know what to do here. **)
-		       ())
-                 ; classify_function = (fun x -> Substitute x)
+                   classify_function = (fun x -> Substitute x)
                  ; subst_function = (fun (subst, (collection, ptrn, rule)) ->
                      (Mod_subst.subst_mps subst collection,
                       Mod_subst.subst_mps subst ptrn,
                       Mod_subst.subst_mps subst rule))
+                 ; discharge_function = (fun (obj_name,value) ->
+                     Some value)
                  ; load_function = (fun i (obj_name,value) ->
+                     Pp.(msg_debug (str "loading...")) ;
 	             let (collection, ptrn, rule) = value in
                      Patterns.add_pattern (Syntax.compile_rule [])
                        Environ.empty_env Evd.empty (** NOTE: neither should be necessary *)
                        collection ptrn rule)
+                 ; rebuild_function = (fun value ->
+                     let (collection, ptrn, rule) = value in
+                     let _ =
+                       Patterns.add_pattern (Syntax.compile_rule [])
+                         Environ.empty_env Evd.empty collection ptrn rule in
+                     value)
                  })
 
   let add_pattern (name : Term.constr)
@@ -1293,6 +1314,14 @@ struct
         go (Evd.merge_universe_context evm uevm)
           (fun ls evm -> k (cc::ls) evm) cs
     in go sigma k ls
+
+  let check_inside_section the_msg =
+    if Lib.sections_are_opened () then
+      (** In trunk this seems to be moved to Errors **)
+      Errors.errorlabstrm contrib_name Pp.(   str "You can not" ++ spc ()
+                                           ++ str the_msg ++ spc ()
+                                           ++ str "in a section.")
+    else ()
 end
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
@@ -1305,14 +1334,16 @@ END
 (** Patterns **)
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
   | [ "Reify" "Declare" "Patterns" ident(name) ":" lconstr(value) ] ->
-    [ let (evd,value) = Reification.ic value in
+    [ Reification.check_inside_section "declare patterns" ;
+      let (evd,value) = Reification.ic value in
       Reification.declare_pattern name evd value
     ]
 END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
   | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" lconstr(template) ] ->
-    [ try
+    [ Reification.check_inside_section "add patterns" ;
+      try
         let (evm, [pattern;template;rule]) =
           Reification.ics [pattern;template;rule] in
 	Reification.add_pattern rule pattern template evm
@@ -1334,7 +1365,8 @@ END
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
-    [ let (evm,key) = Reification.ic key in
+    [ Reification.check_inside_section "declare tables" ;
+      let (evm,key) = Reification.ic key in
       if Reification.declare_table name evm key then
 	()
       else
@@ -1344,7 +1376,8 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
               ++ str "'.")
     ]
   | [ "Reify" "Declare" "Typed" "Table" ident(name) ":" constr(key) "=>" lconstr(typ) ] ->
-    [ let (evm,env) = Lemmas.get_current_context () in
+    [ Reification.check_inside_section "declare typed tables" ;
+      let (evm,env) = Lemmas.get_current_context () in
       let (evm,[key;typ]) = Reification.ics [key;typ] in
       if Reification.declare_typed_table name evm key typ then
 	()
@@ -1361,7 +1394,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
 	()
       else
 	Errors.errorlabstrm "Reify"
-          Pp.(   str "Failed to sed the table "
+          Pp.(   str "Failed to seed the table "
               ++ Printer.pr_constr tbl
               ++ str " table.") ]
   | [ "Reify" "Seed" "Typed" "Table" constr(tbl) "+=" integer(key) "=>"
@@ -1371,7 +1404,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
 	()
       else
 	Errors.errorlabstrm "Reify"
-          Pp.(   str "Failed to sed the typed table "
+          Pp.(   str "Failed to seed the typed table "
               ++ Printer.pr_constr tbl
               ++ str " table.") ]
 END
@@ -1402,9 +1435,9 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 	  generate tbls []
         with
           ReificationFailure trm ->
-	    let pr = Pp.(   (str "Failed to reify term '")
-		         ++ (Printer.pr_constr (Lazy.force trm))
-                         ++ (str "'.")) in
+	    let pr = Pp.(   str "Failed to reify term '"
+		         ++ Printer.pr_constr (Lazy.force trm)
+                         ++ str "'.") in
 	    Tacticals.New.tclZEROMSG pr
       end
     ]
