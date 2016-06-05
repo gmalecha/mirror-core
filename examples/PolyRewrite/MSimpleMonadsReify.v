@@ -14,6 +14,7 @@ Local Notation "'#'" := RIgnore (only parsing, at level 0).
 (** Declare patterns (cannot be done inside section) **)
 Reify Declare Patterns patterns_simplemon_typ : typ.
 Reify Declare Patterns patterns_simplemon : (expr typ func).
+Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
 (* These also can't go in section *)
 Reify Pattern patterns_simplemon_typ += (!! nat)  => (tyBase0 tyNat).
@@ -39,8 +40,6 @@ Section Monad.
       ).
               
   Axiom otherFunc : BinNums.positive -> expr typ func.
-
-  Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
   (** Declare syntax **)
   Reify Declare Syntax reify_simplemon :=
@@ -159,7 +158,8 @@ Defined.
 Print test_fail.
 
 Definition foo : nat := 6.
-Reify Seed Typed Table table_terms += 1 => [[ MSimple.tyNat , foo ]].
+
+Reify Seed Typed Table table_terms += 1 => [[ MSimpleMonads.tyNat , foo ]].
 
 Definition test_table : expr typ func.
                           reify (foo).

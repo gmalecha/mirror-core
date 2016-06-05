@@ -4,6 +4,8 @@
  *)
 
 Require Import ExtLib.Structures.Monad.
+Require Import McExamples.PolyRewrite.MSimpleMonads.
+Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
 
 Section MonadLaws.
 
@@ -50,7 +52,6 @@ Section MonadRewrite.
   Hint Rewrite lem1 lem2 lem3 : monads.
 
   Definition ex1 := @bind M M_mon _ _ (ret 5) (fun x => ret (x + 1))%nat.
-
   (* tests *)
   Goal exists x, ex1 = x.
   Proof.

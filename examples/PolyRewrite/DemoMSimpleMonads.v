@@ -1,6 +1,6 @@
 (* DemoPolyQuantPullRtac.v
- * Contains a demonstration of the quantifier-puller's funcionality,
- * As well as some supporting infrastructure/automation.
+ * Contains some supporting infrastructure/automation for MSimple
+ * Similar to DemoPolyQuantPullRtac; generic things need to be factored out
  *)
 
 Require Import ExtLib.Core.RelDec.
@@ -15,9 +15,8 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import McExamples.PolyRewrite.MSimple.
-Require Import McExamples.PolyRewrite.MSimpleReify.
-Require Import McExamples.PolyRewrite.PolyQuantPullRtac.
+Require Import McExamples.PolyRewrite.MSimpleMonads.
+Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -25,15 +24,16 @@ Set Strict Implicit.
 (* Convenient abbreviation for modular type *)
 Let tyBNat := ModularTypes.tyBase0 tyNat.
 
-Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
-Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.
-Definition fAll t P : expr typ func := App (Inj (MSimple.All t)) (Abs t P).
-Definition fEx t P : expr typ func := App (Inj (MSimple.Ex t)) (Abs t P).
-Definition fEq t : expr typ func := (Inj (MSimple.Eq t)).
-Definition fImpl : expr typ func := (Inj MSimple.Impl).
+Definition fAnd a b : expr typ func := App (App (Inj MSimpleMonads.And) a) b.
+Definition fOr a b : expr typ func := App (App (Inj MSimpleMonads.And) a) b.
+Definition fAll t P : expr typ func := App (Inj (MSimpleMonads.All t)) (Abs t P).
+Definition fEx t P : expr typ func := App (Inj (MSimpleMonads.Ex t)) (Abs t P).
+Definition fEq t : expr typ func := (Inj (MSimpleMonads.Eq t)).
+Definition fImpl : expr typ func := (Inj MSimpleMonads.Impl).
 Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
-Definition fN n : expr typ func := Inj (MSimple.N n).
+Definition fN n : expr typ func := Inj (MSimpleMonads.N n).
 
+(* generate examples *)
 Fixpoint goal n : expr typ func :=
   match n with
   | 0 => fEq_nat (fN 0) (fN 0)
@@ -78,19 +78,13 @@ Fixpoint goal2_D' mx mx2 n (acc : nat) : Prop :=
   end.
 
 
-
+(*A lot of this is not useful for this example *)
 Fixpoint count_quant (e : expr typ func) : nat :=
   match e with
   | App (Inj (Ex _)) (Abs _ e') => S (count_quant e')
   | _ => 0
   end.
 
-Definition benchmark (n m : nat) : bool :=
-  match quant_pull (goal2 m n 0) (Rinj fImpl) nil (TopSubst _ nil nil)
-  with
-  | Some _ => true
-  | _ => false
-  end.
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
@@ -223,3 +217,9 @@ Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0.
 repeat exists true. tauto.
 Qed.
+
+Require Import MirrorCore.Lambda.ExprCore.
+Definition rei_ex1 : expr typ func.
+                       let k := eval red in ex1 in
+                           reify k.
+Defined.
