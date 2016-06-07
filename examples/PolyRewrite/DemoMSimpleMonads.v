@@ -15,6 +15,8 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
+Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimpleMonads.
 Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
 
@@ -44,30 +46,118 @@ Proof.
   destruct (f a); reflexivity.
 Qed.
 
-Require Import MirrorCore.Lambda.Polymorphic.
-
 Let Rbase := expr typ func.
-
-SearchAbout Monad.Monad option.
 
 Definition law1 := lem1 option _ OptionOk.
 Definition law2 := lem2 option _ OptionOk.
 Definition law3 := lem3 option _ OptionOk.
 
-Check law1.
-Print Lemma.
+Existing Instance Reify_polymorphic.
+
+Instance RType_typ_opt : RType typ := RType_typ option.
+Existing Instance Expr.Expr_expr.
+Existing Instance Typ2_Fun.
+Existing Instance Typ2Ok_Fun.
+
+Instance Reify_simple_type_opt : Reify typ := Reify_simple_type option.
+Instance Reify_expr_simple_opt : Reify (expr typ func) := Reify_expr_simple option.
+
+Instance RSym_func_opt : RSym func := @RSym_func option OptionMonad.Monad_option.
+Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func option OptionMonad.Monad_option.
 
 Definition rlaw1 : polymorphic typ 2 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
     <:: @law1 ::>.
 
-Definition law2 := lem2 option _ OptionOk.
-Definition law3 := lem3 option _ OptionOk.
+Definition rlaw2 : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
+    <:: @law2 ::>.
+
+Definition rlaw3 : polymorphic typ 3 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
+    <:: @law3 ::>.
+
+Definition the_lemmas : RewriteHintDb Rbase :=
+  @PRw _ _ _ 2 rlaw1 IDTACK ::
+       @PRw _ _ _ 1 rlaw2 IDTACK ::
+       @PRw _ _ _ 3 rlaw3 IDTACK ::
+       nil.
+
+(* Copied from PolyQuantPullRtac; they really should be abstracted to minimize this repetition. *)
+Definition RbaseD (e : expr typ func) (t : typ)
+  : option (TypesI.typD t -> TypesI.typD t -> Prop) :=
+  @env_exprD typ RType_typ_opt (expr typ func) Expr.Expr_expr nil nil (tyArr t (tyArr t tyProp)) e.
+
+Theorem RbaseD_single_type
+: forall (r : expr typ func) (t1 t2 : typ)
+         (rD1 : TypesI.typD t1 -> TypesI.typD t1 -> Prop)
+         (rD2 : TypesI.typD t2 -> TypesI.typD t2 -> Prop),
+    RbaseD r t1 = Some rD1 -> RbaseD r t2 = Some rD2 -> t1 = t2.
+Proof.
+  unfold RbaseD, env_exprD. simpl; intros.
+  forward.
+  generalize (lambda_exprD_deterministic _ _ _ H0 H). unfold Rty.
+  intros. inversion H3. reflexivity.
+Qed.
+
+Ltac polymorphicD_intro :=
+  try lazymatch goal with
+    | |- @polymorphicD _ _ _ O _ =>
+      red
+    | |- @polymorphicD _ _ _ (S _) _ => intro ; polymorphicD_intro
+    end.
+
+Ltac get_num_arrs t :=
+  lazymatch t with
+  | _ -> ?T => let x := get_num_arrs T in
+               constr:(S x)
+  | _ => constr:(0)
+  end.
+
+Ltac reduce_exprT :=
+  repeat progress (red; simpl; repeat rewrite mtyp_cast_refl);
+  unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl.
+
+Ltac prove_lem lem :=
+  polymorphicD_intro ;
+  red; intros;
+  reduce_exprT ;
+  try first [ exact lem
+            | exact (lem _)
+            | exact (lem _ _)
+            | exact (lem _ _ _)
+            | exact (lem _ _ _ _)
+            | exact (lem _ _ _ _ _)
+            | exact (lem _ _ _ _ _ _)
+            ].
+
+Lemma rlaw1_sound
+: polymorphicD (Lemma.lemmaD (rw_conclD RbaseD) nil nil) (n:=2) rlaw1.
+Proof. prove_lem law1. Defined.
+
+Lemma rlaw2_sound
+: polymorphicD (Lemma.lemmaD (rw_conclD RbaseD) nil nil) (n:=1) rlaw2.
+Proof. prove_lem law2. Defined.
+
+Lemma rlaw3_sound
+: polymorphicD (Lemma.lemmaD (rw_conclD RbaseD) nil nil) (n:=3) rlaw3.
+Proof. prove_lem law3. Defined.
+
+Theorem the_lemmas_sound : RewriteHintDbOk RbaseD the_lemmas.
+Proof.
+  repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply IDTACK_sound.
+  { unfold polymorphicD. intros.
+    apply rlaw1_sound. }
+  { unfold polymorphicD. intros. apply rlaw2_sound. }
+  { unfold polymorphicD. intros. apply rlaw3_sound. }
+Qed.
 
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 
 Definition get_respectful : ResolveProper typ func Rbase :=
-  do_prespectful
+  @do_prespectful typ func RType_typ_opt RSym_func_opt (@RelDec_eq_typ) (MTypeUnify.mtype_unify _) (@tyVar typ') nil.
+                 (@PPr typ func Rbase 2 rlaw1  :: nil).
+                      @PPr typ func Rbase 1 <:: @law2 ::> :: nil).
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
