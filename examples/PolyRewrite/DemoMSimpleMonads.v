@@ -18,6 +18,9 @@ Require Import MirrorCore.RTac.IdtacK.
 Require Import McExamples.PolyRewrite.MSimpleMonads.
 Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
 
+(* for examples *)
+Require Import McExamples.PolyRewrite.Monads.
+
 Set Implicit Arguments.
 Set Strict Implicit.
 
@@ -33,58 +36,38 @@ Definition fImpl : expr typ func := (Inj MSimpleMonads.Impl).
 Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
 Definition fN n : expr typ func := Inj (MSimpleMonads.N n).
 
-(* generate examples *)
-Fixpoint goal n : expr typ func :=
-  match n with
-  | 0 => fEq_nat (fN 0) (fN 0)
-  | S n =>
-    fAnd (fEx tyBNat (goal n)) (fEx tyBNat (goal n))
-  end.
+Lemma OptionOk : MonadLaws option OptionMonad.Monad_option.
+Proof.
+  constructor; simpl; [reflexivity| intros m m'; destruct m'; reflexivity |].
+  intros.
+  destruct m; [|reflexivity].
+  destruct (f a); reflexivity.
+Qed.
 
+Require Import MirrorCore.Lambda.Polymorphic.
 
-Fixpoint goal2 mx n (acc : nat) : expr typ func :=
-  match n with
-  | 0 =>
-    if acc ?[ lt ] mx then
-      fEx tyBNat (fEq_nat (fN 0) (fN 0))
-    else
-      fEq_nat (fN 0) (fN 0)
-  | S n =>
-    fAnd (goal2 mx n (acc * 2)) (goal2 mx n (acc * 2 + 1)) (*
-    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
-  end.
+Let Rbase := expr typ func.
 
-Fixpoint goal2_D mx n (acc : nat) : Prop :=
-  match n with
-  | 0 =>
-    if acc ?[ lt ] mx then
-      exists x : nat, 0 = 0
-    else
-      0 = 0
-  | S n =>
-    goal2_D mx n (acc * 2) /\ goal2_D mx n (acc * 2 + 1)
-  end.
+SearchAbout Monad.Monad option.
 
-Fixpoint goal2_D' mx mx2 n (acc : nat) : Prop :=
-  match n with
-  | 0 =>
-    if acc ?[ lt ] mx then
-      exists x : nat, 0 = 0
-    else if acc ?[lt] mx2 then
-           exists b : bool, 0 = 0 else
-           0 = 0
-  | S n =>
-    goal2_D' mx mx2 n (acc * 2) /\ goal2_D' mx mx2 n (acc * 2 + 1)
-  end.
+Definition law1 := lem1 option _ OptionOk.
+Definition law2 := lem2 option _ OptionOk.
+Definition law3 := lem3 option _ OptionOk.
 
+Check law1.
+Print Lemma.
 
-(*A lot of this is not useful for this example *)
-Fixpoint count_quant (e : expr typ func) : nat :=
-  match e with
-  | App (Inj (Ex _)) (Abs _ e') => S (count_quant e')
-  | _ => 0
-  end.
+Definition rlaw1 : polymorphic typ 2 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
+    <:: @law1 ::>.
 
+Definition law2 := lem2 option _ OptionOk.
+Definition law3 := lem3 option _ OptionOk.
+
+Require Import MirrorCore.Lambda.Rewrite.HintDbs.
+
+Definition get_respectful : ResolveProper typ func Rbase :=
+  do_prespectful
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
