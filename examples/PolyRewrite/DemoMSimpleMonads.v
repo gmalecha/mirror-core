@@ -10,11 +10,13 @@ Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.RedAll.
+Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.RewriteStrat.
 Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
+Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimpleMonads.
@@ -154,19 +156,19 @@ Qed.
 
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 
-Check @do_prespectful.
-Print do_prespectful.
-SearchAbout (RelDec eq).
-SearchAbout (Rbase).
 Existing Instance RelDec_eq_mtyp.
-Check RelDec_eq_mtyp.
-Check @do_prespectful.
 
-Check @do_prespectful.
-(* need RelDec eq instance for expr typ func aka Rbase*)
+Definition my_expr_acc := @expr_acc typ func.
+Instance TSym_typ'_opt : TSym typ':= TSym_typ' option.
+
+Check RelDec_eq_func.
+
+Instance RelDec_eq_func_opt : RelDec eq := RelDec_eq_func option.
+
+
 
 Definition get_respectful : ResolveProper typ func Rbase :=
-  @do_prespectful typ func RType_typ_opt RSym_func_opt (RelDec_eq_mtyp typ' (TSym_typ' option)) Rbase rel_dec (MTypeUnify.mtype_unify typ') (@tyVar typ') nil.
+  @do_prespectful typ func RType_typ_opt RSym_func_opt (RelDec_eq_mtyp typ' (TSym_typ' option)) Rbase (rel_dec (equ := eq) (RelDec := RelDec_eq_expr (RelDec_eq_mtyp typ' _) (RelDec_eq_func_opt))) (MTypeUnify.mtype_unify typ') (@tyVar typ') nil.
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
