@@ -165,18 +165,221 @@ Check RelDec_eq_func.
 
 Instance RelDec_eq_func_opt : RelDec eq := RelDec_eq_func option.
 
-
-
 Definition get_respectful : ResolveProper typ func Rbase :=
   @do_prespectful typ func RType_typ_opt RSym_func_opt (RelDec_eq_mtyp typ' (TSym_typ' option)) Rbase (rel_dec (equ := eq) (RelDec := RelDec_eq_expr (RelDec_eq_mtyp typ' _) (RelDec_eq_func_opt))) (MTypeUnify.mtype_unify typ') (@tyVar typ') nil.
+
+Definition is_trans : trans_dec Rbase :=
+  fun r =>
+    match r with
+    | Inj (Eq _)
+    | Inj Lt
+    | Inj Impl => true
+    | _ => false
+    end.
+
+Definition is_refl : refl_dec Rbase :=
+  fun (r : Rbase) =>
+    match r with
+    | Inj (Eq _)
+    | Inj Impl => true
+    | _ => false
+    end.
+
+Definition simple_reduce (e : expr typ func) : expr typ func :=
+  run_ptrn
+    (pmap (fun abcd => let '(a,(b,(c,d),e)) := abcd in
+                       App a (Abs c (App (App b d) e)))
+          (app get (abs get (fun t =>
+                               app (app get
+                                        (pmap (fun x => (t,Red.beta x)) get))
+                                   (pmap Red.beta get)))))
+    e e.
+
+Theorem is_refl_ok : refl_dec_ok RbaseD is_refl.
+Proof.
+  red.
+  destruct r; simpl; try congruence.
+  destruct f; simpl; try congruence.
+  { unfold RbaseD; simpl.
+    unfold env_exprD. simpl. intros.
+    autorewrite with exprD_rw in H0.
+    forward. inv_all; subst.
+    unfold symAs in H0. unfold typeof_sym in H0.
+    unfold RSym_func_opt, RSym_func in H0.
+    unfold typeof_func in H0.
+    forward. inv_all. subst. simpl.
+    clear. red in r. inversion r.
+    subst.
+    rewrite (UIP_refl r). compute. reflexivity. }
+  { unfold RbaseD; simpl.
+    unfold env_exprD. simpl. intros.
+    autorewrite with exprD_rw in H0.
+    forward. inv_all; subst.
+    unfold symAs in H0. unfold typeof_sym in H0.
+    unfold RSym_func_opt, RSym_func in H0.
+    unfold typeof_func in H0.
+    forward. inv_all. subst. simpl.
+    clear. red in r. inversion r.
+    subst.
+    rewrite (UIP_refl r). compute. intros; tauto. }
+  Unshelve.
+  exact option.
+  exact option.
+Qed.
+
+Theorem is_trans_ok : trans_dec_ok RbaseD is_trans.
+Proof.
+  red.
+  destruct r; simpl; try congruence.
+  destruct f; simpl; try congruence.
+  { unfold RbaseD; simpl.
+    unfold env_exprD. simpl. intros.
+    autorewrite with exprD_rw in H0.
+    forward. inv_all; subst.
+    unfold symAs in H0. unfold typeof_sym in H0.
+    unfold RSym_func_opt, RSym_func in H0.
+    unfold typeof_func in H0.
+    forward. }
+  { unfold RbaseD; simpl.
+    unfold env_exprD. simpl. intros.
+    autorewrite with exprD_rw in H0.
+    forward. inv_all; subst.
+    unfold symAs in H0. unfold typeof_sym in H0.
+    unfold RSym_func_opt, RSym_func in H0.
+    unfold typeof_func in H0.
+    forward. inv_all. subst.
+    simpl. clear. inversion r.
+    subst. rewrite (UIP_refl r). compute. congruence. }
+  { unfold RbaseD; simpl.
+    unfold env_exprD. simpl. intros.
+    autorewrite with exprD_rw in H0.
+    forward. inv_all; subst.
+    unfold symAs in H0. unfold typeof_sym in H0.
+    unfold RSym_func_opt, RSym_func in H0.
+    unfold typeof_func in H0.
+    forward. inv_all. subst.
+    clear. inversion r. subst.
+    rewrite (UIP_refl r).
+    compute. tauto. }
+  Unshelve.
+  exact option.
+  exact option.
+Qed.
+
+Definition the_rewrites (lems : RewriteHintDb Rbase)
+  : RwAction typ func Rbase :=
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
+
+Definition monad_simplify : RwAction typ func Rbase :=
+  repeat_rewrite (fun e r =>
+                    bottom_up (is_reflR is_refl) (is_transR is_trans) (the_rewrites the_lemmas)
+                              get_respectful e r)
+                 (is_reflR is_refl) (is_transR is_trans) false 300.
+
+Lemma simple_reduce_sound :
+  forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
+         (eD : exprT tus tvs (TypesI.typD t)),
+    ExprDsimul.ExprDenote.lambda_exprD tus tvs t e = Some eD ->
+    exists eD' : exprT tus tvs (TypesI.typD t),
+      ExprDsimul.ExprDenote.lambda_exprD tus tvs t (simple_reduce e) = Some eD' /\
+      (forall (us : HList.hlist TypesI.typD tus)
+              (vs : HList.hlist TypesI.typD tvs), eD us vs = eD' us vs).
+Proof.
+  unfold simple_reduce.
+  intros.
+  revert H.
+  eapply Ptrns.run_ptrn_sound.
+  { repeat first [ simple eapply ptrn_ok_pmap
+                 | simple eapply ptrn_ok_app
+                 | simple eapply ptrn_ok_abs; intros
+                 | simple eapply ptrn_ok_get
+                 ]. }
+  { do 3 red. intros; subst.
+    reflexivity. }
+  { intros. ptrnE.
+    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+    inv_all. subst.
+    generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
+    generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
+    simpl.
+    change_rewrite H1. change_rewrite H2.
+    intros; forward.
+    erewrite lambda_exprD_App; try eassumption.
+    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
+    2: rewrite typ2_match_iota; eauto with typeclass_instances.
+    2: rewrite type_cast_refl; eauto with typeclass_instances.
+    2: erewrite lambda_exprD_App; try eassumption.
+    3: erewrite lambda_exprD_App; try eassumption; eauto.
+    2: autorewrite_with_eq_rw; reflexivity.
+    simpl. eexists; split; eauto.
+    unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
+    intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
+    f_equal.
+    apply FunctionalExtensionality.functional_extensionality.
+    intros. rewrite H5. rewrite H6. reflexivity. }
+  { eauto. }
+Qed.
+
+
+Theorem the_rewrites_sound
+: forall hints, RewriteHintDbOk RbaseD hints ->
+    setoid_rewrite_spec RbaseD (the_rewrites hints).
+Proof.
+  unfold the_rewrites. intros.
+  eapply rw_post_simplify_sound.
+  { eapply simple_reduce_sound. }
+  eapply rw_simplify_sound.
+  (** This type should be named
+     ** It might already be named but it should have a better name.
+     ** Probably the code from RTac/Simplify.v or something that is pretty close to it
+     ** And then, Red and RedAll should export functions that have this type.
+     **)
+  { intros.
+    generalize (Red.beta_sound tus tvs e t). rewrite H0.
+    intros; forward. eauto. }
+  eapply using_prewrite_db_sound; eauto with typeclass_instances.
+  { eapply RelDec_semidec; eauto with typeclass_instances. }
+  { eapply RbaseD_single_type. }
+  { eapply CompileHints_sound.
+    auto. }
+Qed.
+
+
+Theorem monad_simplify_sound : setoid_rewrite_spec RbaseD monad_simplify.
+Proof.
+Admitted.
+(*
+  eapply repeat_rewrite_sound.
+  + eapply bottom_up_sound.
+    - eapply RbaseD_single_type.
+    - eapply is_reflROk. eapply is_refl_ok.
+    - eapply is_transROk. eapply is_trans_ok.
+    - eapply the_rewrites_sound. eapply the_lemmas_sound.
+    - eapply get_respectful_only_all_ex_sound.
+  + eapply is_reflROk. eapply is_refl_ok.
+  + eapply is_transROk. eapply is_trans_ok.
+Qed.
+*)
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
                           (Rflip (Rinj fImpl))
-                          (is_reflR is_refl) (is_transR is_trans) pull_all_quant get_respectful.
+                          (is_reflR is_refl) (is_transR is_trans) monad_simplify get_respectful.
 
 Theorem rewrite_it_sound : rtac_sound rewrite_it.
 Proof.
+  eapply auto_setoid_rewrite_bu_sound with (RbaseD := RbaseD).
+  - eapply RbaseD_single_type.
+  - reflexivity.
+  - eapply is_reflROk; eapply is_refl_ok.
+  - eapply is_transROk; eapply is_trans_ok.
+  - eapply pull_all_quant_sound.
+  - eapply get_respectful_sound.
+Qed.
+
+  -
+Admitted.
+(*
   eapply auto_setoid_rewrite_bu_sound with (RbaseD:=RbaseD).
   - eapply RbaseD_single_type.
   - reflexivity.
@@ -185,6 +388,7 @@ Proof.
   - eapply pull_all_quant_sound.
   - eapply get_respectful_sound.
 Qed.
+*)
 
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
@@ -247,6 +451,14 @@ Arguments Typ0_Prop {_ _}.
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
 
+  (* Examples from examples/PolyRewrite/Monad.v *)
+  Check ex1.
+
+  Goal (exists x, ex1 = x).
+    unfold ex1.
+    Time run_tactic reify_simple rewrite_it rewrite_it_sound.
+
+  
 Goal goal2_D' 2 4 5 0.
   simpl.
 (*
