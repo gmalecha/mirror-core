@@ -154,10 +154,19 @@ Qed.
 
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 
+Check @do_prespectful.
+Print do_prespectful.
+SearchAbout (RelDec eq).
+SearchAbout (Rbase).
+Existing Instance RelDec_eq_mtyp.
+Check RelDec_eq_mtyp.
+Check @do_prespectful.
+
+Check @do_prespectful.
+(* need RelDec eq instance for expr typ func aka Rbase*)
+
 Definition get_respectful : ResolveProper typ func Rbase :=
-  @do_prespectful typ func RType_typ_opt RSym_func_opt (@RelDec_eq_typ) (MTypeUnify.mtype_unify _) (@tyVar typ') nil.
-                 (@PPr typ func Rbase 2 rlaw1  :: nil).
-                      @PPr typ func Rbase 1 <:: @law2 ::> :: nil).
+  @do_prespectful typ func RType_typ_opt RSym_func_opt (RelDec_eq_mtyp typ' (TSym_typ' option)) Rbase rel_dec (MTypeUnify.mtype_unify typ') (@tyVar typ') nil.
 
 Definition rewrite_it : rtac typ (expr typ func) :=
   @auto_setoid_rewrite_bu typ func (expr typ func)
