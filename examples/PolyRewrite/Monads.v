@@ -129,16 +129,27 @@ Section MonadRewrite.
       | S n' => @bind M _ _ nat (makeLeftIdAssocTest n' k) (fun _ => makeAssocTest k)
       end.
 
+    (* 2 2 is another common test *)
     Goal (exists x, makeLeftIdAssocTest 2 2 = x).
       simpl.
-      repeat setoid_rewrite lem3.
-      setoid_rewrite lem1.
+(*      repeat setoid_rewrite lem3.
+      setoid_rewrite lem1. *)
       
       Time (repeat (first [setoid_rewrite lem1
                           |setoid_rewrite lem2
                           |setoid_rewrite lem3]
            )). (*14.111s for n=8, k=5 *)
     Abort.
+
+    Goal (exists x, makeLeftIdAssocTest 8 5 = x).
+      simpl.
+      
+      Time (repeat (first [setoid_rewrite lem1
+                          |setoid_rewrite lem2
+                          |setoid_rewrite lem3]
+           )). (*14.111s for n=8, k=5 *)
+    Abort.
+
 
     (* n = depth *)
     Fixpoint makeRightIdAssocTest (n : nat) : M nat :=

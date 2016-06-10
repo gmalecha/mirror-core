@@ -54,7 +54,7 @@ Section Monad.
 
                          CPattern (ls := _ :: _ :: nil) (RPi (?0) (?1))
                          (fun (t : function (CCall reify_simplemon_typ)) (b : function (CRec 0)) =>
-                            (App (Inj (All t)) (Abs t b))) ::
+                            (App (Inj (All t)) (Abs (func:=func) t b))) ::
 
                          CPattern (ls :=  _ :: nil) (!! (@ex) @ ?0)
                          (fun (t : function (CCall reify_simplemon_typ)) => Inj (typ := typ) (Ex t)) ::
