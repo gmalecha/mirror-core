@@ -2,7 +2,7 @@ Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.LambdaWt.DepUtil.
+Require Import MirrorCore.Util.DepUtil.
 Require Import MirrorCore.LambdaWt.WtType.
 
 Set Implicit Arguments.

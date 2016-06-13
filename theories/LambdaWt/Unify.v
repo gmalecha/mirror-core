@@ -2,7 +2,7 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
-Require Import MirrorCore.LambdaWt.DepUtil.
+Require Import MirrorCore.Util.DepUtil.
 Require Import MirrorCore.LambdaWt.WtExpr.
 Require Import MirrorCore.LambdaWt.WtMigrator.
 Require Import MirrorCore.LambdaWt.SubstWt.
