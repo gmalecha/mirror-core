@@ -106,7 +106,7 @@ Section RSym.
 
 End RSym.
 
-Arguments functions _ _ : clear implicits.
-Arguments function _ _ : clear implicits.
+Arguments functions _ {_} : clear implicits.
+Arguments function _ {_} : clear implicits.
 Arguments F {_ _} _ _ : clear implicits.
 Arguments join_functions {_ _} _ _ : clear implicits.

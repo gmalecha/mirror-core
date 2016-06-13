@@ -181,7 +181,10 @@ examples/Hoare/Tests.v
 
 # examples/RTac/Demo.v
 
-examples/PolyRewrite/MSimple.v
-examples/PolyRewrite/MSimpleReify.v
+examples/MSimple/MSimple.v
+examples/MSimple/MSimpleReify.v
+
+# examples/Auto/Demo.v
+
 examples/PolyRewrite/PolyQuantPullRtac.v
 examples/PolyRewrite/DemoPolyQuantPullRtac.v

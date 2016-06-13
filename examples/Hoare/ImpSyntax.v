@@ -452,7 +452,7 @@ match u with
   Local Instance RSym_ilfunc : SymI.RSym (ilfunc typ) :=
     @ILogicFunc.RSym_ilfunc typ _ _ lops eops _ _.
 
-  Definition RS (fs' : functions typ RType_typ): SymI.RSym func :=
+  Definition RS (fs' : functions typ): SymI.RSym func :=
     SymSum.RSym_sum (SymSum.RSym_sum (SymEnv.RSym_func (join_functions fs fs')) _) _.
 (*  Local Existing Instance RS. *)
 
@@ -461,7 +461,7 @@ match u with
   eapply RSymOk_sum; eauto with typeclass_instances.
   Defined.
 
-  Definition Expr_expr (fs' : functions typ RType_typ)
+  Definition Expr_expr (fs' : functions typ)
   : ExprI.Expr _ (expr typ func) := @Expr_expr typ func _ _ (RS fs').
   Local Existing Instance Expr_expr.
 
@@ -785,7 +785,7 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
   Definition assert_at {T} (p : BinNums.positive) (a b : T) : Prop :=
     a = b.
 
-  Fixpoint check_compat (p : BinNums.positive) (a b : SymEnv.functions _ _) : Prop :=
+  Fixpoint check_compat (p : BinNums.positive) (a b : SymEnv.functions _) : Prop :=
     match a , b with
     | FMapPositive.PositiveMap.Node l v r , FMapPositive.PositiveMap.Node l' v' r' =>
       match v , v' with

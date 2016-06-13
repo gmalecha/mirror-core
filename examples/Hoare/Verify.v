@@ -53,7 +53,7 @@ Module ImpVerify (I : ImpLang).
   Local Existing Instance ModularTypes.Typ0Ok_Prop.
 
   Section with_fs.
-    Variable fs' : SymEnv.functions typ _.
+    Variable fs' : SymEnv.functions typ.
 
     Let RS := RS fs'.
     Local Existing Instance RS.

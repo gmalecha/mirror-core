@@ -12,9 +12,6 @@ Require Import MirrorCore.Lambda.Rtac.
 Require Import MirrorCore.Reify.Reify.
 
 Require Import McExamples.Cancel.Monoid.
-Require McExamples.Cancel.MonoidSyntaxSimple.
-Require McExamples.Cancel.MonoidSyntaxNoDec.
-Require McExamples.Cancel.MonoidSyntaxWithConst.
 Require McExamples.Cancel.MonoidSyntaxModular.
 
 Set Implicit Arguments.
@@ -22,99 +19,70 @@ Set Strict Implicit.
 
 Module MonoidCancel (M : Monoid).
 
+  Local Infix "&" := M.P (at level 50).
+  Local Infix "%is" := M.R (at level 70).
+
   (* Import the syntactic language *)
   Module Syntax := MonoidSyntaxModular.Syntax M.
   Import Syntax.
 
-Set Printing All.
-
-  (* The Core Monoid Lemmas *)
-  Definition lem_plus_unit_c : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_unit_c ::>.
-  Definition lem_plus_assoc_c1 : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_assoc_c1 ::>.
-  Definition lem_plus_assoc_c2 : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_assoc_c2 ::>.
-  Definition lem_plus_comm_c : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_comm_c ::>.
-  Definition lem_plus_cancel : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_cancel ::>.
-  Definition lem_plus_unit_p : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_unit_p ::>.
-  Definition lem_plus_assoc_p1 : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_assoc_p1 ::>.
-  Definition lem_plus_assoc_p2 : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_assoc_p2 ::>.
-  Definition lem_plus_comm_p : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.plus_comm_p ::>.
-
-
-  Definition lem_refl : Lemma.lemma typ (expr typ func) (expr typ func)
-  := <:: M.refl ::>.
+  (* A little bit of verification magic *)
+  Hint Extern 0 (ReifiedLemma _) =>
+  (constructor;
+  solve [ exact M.plus_unit_c
+        | exact M.plus_assoc_c1
+        | exact M.plus_assoc_c2
+        | exact M.plus_comm_c
+        | exact M.plus_cancel
+        | exact M.plus_unit_p
+        | exact M.plus_assoc_p1
+        | exact M.plus_assoc_p2
+        | exact M.plus_comm_p
+        | exact M.refl ]) : typeclass_instances.
 
   (* Write the automation *)
   Section with_solver.
-    Variable fs : @SymEnv.functions typ _.
+    Variable fs : SymEnv.functions typ.
     Let RSym_func := RSym_func fs.
     Local Existing Instance RSym_func.
-    Let Expr_expr := @Expr.Expr_expr typ func RType_typ _ _.
+    Let Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
     Local Existing Instance Expr_expr.
 
-    Let ExprOk_expr : ExprOk Expr_expr :=
-      @ExprOk_expr typ func _ _ _ _ Typ2Ok_tyArr _.
+    Let ExprOk_expr : ExprOk Expr_expr := ExprOk_expr.
     Local Existing Instance ExprOk_expr.
 
-    Instance RL_lem_plus_unit_c : ReifiedLemma lem_plus_unit_c :=
-    { ReifiedLemma_proof := M.plus_unit_c }.
-    Instance RL_lem_plus_assoc_c1 : ReifiedLemma lem_plus_assoc_c1 :=
-    { ReifiedLemma_proof := M.plus_assoc_c1 }.
-    Instance RL_lem_plus_assoc_c2 : ReifiedLemma lem_plus_assoc_c2 :=
-    { ReifiedLemma_proof := M.plus_assoc_c2 }.
-    Instance RL_lem_plus_comm_c : ReifiedLemma lem_plus_comm_c :=
-    { ReifiedLemma_proof := M.plus_comm_c }.
-    Instance RL_lem_plus_cancel : ReifiedLemma lem_plus_cancel :=
-    { ReifiedLemma_proof := M.plus_cancel }.
-    Instance RL_lem_plus_unit_p : ReifiedLemma lem_plus_unit_p :=
-    { ReifiedLemma_proof := M.plus_unit_p }.
-    Instance RL_lem_plus_assoc_p1 : ReifiedLemma lem_plus_assoc_p1 :=
-    { ReifiedLemma_proof := M.plus_assoc_p1 }.
-    Instance RL_lem_plus_assoc_p2 : ReifiedLemma lem_plus_assoc_p2 :=
-    { ReifiedLemma_proof := M.plus_assoc_p2 }.
-    Instance RL_lem_plus_comm_p : ReifiedLemma lem_plus_comm_p :=
-    { ReifiedLemma_proof := M.plus_comm_p }.
-    Instance RL_lem_refl : ReifiedLemma lem_refl :=
-    { ReifiedLemma_proof := M.refl }.
-
+    (** The Automation, parameterized by a sound solver.
+     **)
     Variable solver : rtac typ (expr typ func).
     Hypothesis solver_ok : RtacSound solver.
 
     Definition iter_right (n : nat) : rtac typ (expr typ func) :=
       REC n (fun rec =>
-               FIRST [ EAPPLY lem_plus_unit_c
-                     | EAPPLY lem_plus_assoc_c1 ;; ON_ALL rec
-                     | EAPPLY lem_plus_assoc_c2 ;; ON_ALL rec
-                     | EAPPLY lem_plus_cancel ;;
+               FIRST [ EAPPLY <:: M.plus_unit_c ::>
+                     | EAPPLY <:: M.plus_assoc_c1 ::> ;; ON_ALL rec
+                     | EAPPLY <:: M.plus_assoc_c2 ::> ;; ON_ALL rec
+                     | EAPPLY <:: M.plus_cancel ::> ;;
                               ON_EACH [ SOLVE solver | IDTAC ]
-            ])
+                     ])
           IDTAC.
 
     Instance iter_right_sound {Q} : RtacSound (iter_right Q).
-    Proof.
-      unfold iter_right; rtac_derive_soundness_default.
-    Qed.
+    Proof. unfold iter_right; rtac_derive_soundness_default. Qed.
 
     Section afterwards.
       Variable k : rtac typ (expr typ func).
       Definition iter_left (n : nat) : rtac typ (expr typ func) :=
         REC n (fun rec =>
-                 FIRST [ EAPPLY lem_plus_unit_p
-                       | EAPPLY lem_plus_assoc_p1 ;; ON_ALL rec
-                       | EAPPLY lem_plus_assoc_p2 ;; ON_ALL rec
+                 FIRST [ EAPPLY <:: M.plus_unit_p ::>
+                       | EAPPLY <:: M.plus_assoc_p1 ::> ;; ON_ALL rec
+                       | EAPPLY <:: M.plus_assoc_p2 ::> ;; ON_ALL rec
                        | k
-              ])
+                       ])
             IDTAC.
 
       Hypothesis k_sound : RtacSound k.
+
+
 
       Lemma iter_left_sound : forall Q, RtacSound (iter_left Q).
       Proof. unfold iter_left; rtac_derive_soundness_default. Qed.
@@ -123,18 +91,16 @@ Set Printing All.
 
     Definition cancel' (n m : nat) : rtac typ (expr typ func) :=
       let k :=
-          FIRST [ EAPPLY lem_plus_comm_c ;; ON_ALL (iter_right m)
+          FIRST [ EAPPLY <:: M.plus_comm_c ::> ;; ON_ALL (iter_right m)
                 | iter_right m
                 ]
       in
       FIRST [ iter_left k n
-            | EAPPLY lem_plus_comm_p ;; ON_ALL (iter_left k n)
+            | EAPPLY <:: M.plus_comm_p ::> ;; ON_ALL (iter_left k n)
             ].
 
     Local Instance cancel'_sound : forall P Q, RtacSound (cancel' P Q).
-    Proof.
-      cbv beta delta [ cancel' ]; rtac_derive_soundness_default.
-    Qed.
+    Proof. cbv beta delta [ cancel' ]; rtac_derive_soundness_default. Qed.
 
     Fixpoint size (e : expr typ func) : nat :=
       match e with
@@ -147,8 +113,9 @@ Set Printing All.
                  let fuel := size e in
                  REPEAT fuel
                         (FIRST [ SOLVE solver
-                               | (cancel' fuel fuel ;; ON_ALL (TRY solver)) ;; MINIFY
-              ])).
+                               | (cancel' fuel fuel ;; ON_ALL (TRY solver)) ;;
+                                 MINIFY
+                               ])).
 
     Theorem cancel_sound : RtacSound cancel.
     Proof.
@@ -158,42 +125,17 @@ Set Printing All.
 
   End with_solver.
 
-  Local Existing Instance cancel_sound.
-  Local Existing Instance RL_lem_refl.
-
-  Definition the_Expr fs := (@Expr.Expr_expr typ func _ _ (RSym_func fs)).
-
   Definition the_tactic fs :=
-    @cancel fs (EAPPLY (RSym_sym:=RSym_func fs) lem_refl).
+    @cancel fs (EAPPLY (RSym_sym:=RSym_func fs) <:: M.refl ::>).
 
-  Theorem the_tactic_sound fs : rtac_sound (Expr_expr:=the_Expr fs) (the_tactic fs).
+  Theorem the_tactic_sound fs
+  : rtac_sound (Expr_expr:=the_Expr fs) (the_tactic fs).
   Proof.
     unfold the_tactic.
     intros. eapply cancel_sound; eauto with typeclass_instances.
   Qed.
 
-  Ltac rtac_canceler :=
-    lazymatch goal with
-    | |- ?trm =>
-      let k tbl e :=
-          let result := constr:(@Interface.runRtac typ (expr typ func) nil nil e (the_tactic tbl)) in
-          let resultV := eval vm_compute in result in
-          match resultV with
-          | Solved _ =>
-            change (@env_propD _ _ _ Typ0_tyProp (the_Expr tbl) nil nil e) ;
-              cut (result = resultV) ;
-              [ set (pf := @Interface.rtac_Solved_closed_soundness
-                             _ _ _ _ _ _ (the_tactic_sound tbl)
-                             nil nil e) ;
-                exact pf
-              | vm_cast_no_check (@eq_refl _ resultV) ]
-          end
-      in
-      reify_expr_bind reify_monoid k
-                      [[ (fun x : @mk_dvar_map _ _ _ typD table_terms (@SymEnv.F typ _) => True) ]]
-                      [[ trm ]]
-  end.
-
+  (** The example *)
   Module Demo.
     Axiom N : nat -> M.M.
 
@@ -213,7 +155,10 @@ Set Printing All.
 
     Ltac prep := unfold goal, build_plusL, build_plusR.
 
-    Theorem test1 : goal 120.
+    Ltac rtac_canceler :=
+      run_tbl_rtac the_Expr the_tactic the_tactic_sound.
+
+    Theorem test1 : goal 100.
       prep.
       Time rtac_canceler.
     Time Qed.

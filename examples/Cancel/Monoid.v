@@ -24,19 +24,4 @@ Module Type Monoid.
 
   Axiom refl : forall a, a %is a.
 
-  (* Fixpoint build_plusL n : M := *)
-  (*   match n with *)
-  (*   | 0 => N 0 *)
-  (*   | S n' => N n & (build_plusL n') *)
-  (*   end. *)
-
-  (* Fixpoint build_plusR n : M := *)
-  (*   match n with *)
-  (*   | 0 => N 0 *)
-  (*   | S n' => (build_plusR n') & N n *)
-  (*   end. *)
-
-  (* Definition goal n := (build_plusL n) %is (build_plusR n). *)
-
-  (* Ltac prep := unfold goal, build_plusL, build_plusR. *)
 End Monoid.

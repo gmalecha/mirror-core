@@ -1,7 +1,8 @@
+(** Simple use of AUTO
+ **)
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.EProverI.
 Require Import MirrorCore.Lemma.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
@@ -9,8 +10,9 @@ Require MirrorCore.Lambda.ExprUnify_simul.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.Subst.FMapSubst.
 Require Import MirrorCore.RTac.Auto.
-Require Import McExamples.Simple.Simple.
-Require Import McExamples.Simple.SimpleReify.
+Require Import MirrorCore.MTypes.ModularTypes.
+Require Import McExamples.MSimple.MSimple.
+Require Import McExamples.MSimple.MSimpleReify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -42,21 +44,24 @@ Qed.
 
 Definition fs : @functions typ _ :=
   Eval simpl in from_list
-                  ((@F typ _ (tyArr tyNat tyProp) (Even)) ::
-                   (@F typ _ tyNat (O)) ::
-                   (@F typ _  (tyArr tyNat tyNat) (S)) ::
-                   (@F typ _  (tyArr tyNat (tyArr tyNat tyNat)) (plus)) ::
-                   (@F typ _  (tyArr tyNat (tyArr tyNat tyNat)) (minus)) ::
+                  ((@F typ _ (tyArr (tyBase0 tyNat) tyProp) (Even)) ::
+                   (@F typ _ (tyBase0 tyNat) (O)) ::
+                   (@F typ _  (tyArr (tyBase0 tyNat) (tyBase0 tyNat)) (S)) ::
+                   (@F typ _  (tyArr (tyBase0 tyNat) (tyArr (tyBase0 tyNat) (tyBase0 tyNat))) (plus)) ::
+                   (@F typ _  (tyArr (tyBase0 tyNat) (tyArr (tyBase0 tyNat) (tyBase0 tyNat))) (minus)) ::
                    nil).
 
 Let func := SymEnv.func.
 
+Print MSimple.
+
 Reify Declare Patterns patterns_even : (expr typ func).
 Reify Declare Syntax reify_even :=
-  (Patterns.CFirst ((Patterns.CPatterns patterns_even) ::
-                    (Patterns.CApp (@ExprCore.App typ func)) ::
-                    (Patterns.CAbs reify_simple_typ (@ExprCore.Abs typ func)) ::
-                    (Patterns.CVar (@ExprCore.Var typ func)) :: nil)).
+  CFix
+    (CFirst (CPatterns patterns_even ::
+             CApp (CRec 0) (@ExprCore.App typ func) ::
+                    (CAbs reify_simple_typ (@ExprCore.Abs typ func)) ::
+                    (CVar (@ExprCore.Var typ func)) :: nil)).
 
 
 

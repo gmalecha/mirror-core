@@ -15,8 +15,8 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import McExamples.PolyRewrite.MSimple.
-Require Import McExamples.PolyRewrite.MSimpleReify.
+Require Import McExamples.MSimple.MSimple.
+Require Import McExamples.MSimple.MSimpleReify.
 Require Import McExamples.PolyRewrite.PolyQuantPullRtac.
 
 Set Implicit Arguments.
@@ -50,8 +50,7 @@ Fixpoint goal2 mx n (acc : nat) : expr typ func :=
     else
       fEq_nat (fN 0) (fN 0)
   | S n =>
-    fAnd (goal2 mx n (acc * 2)) (goal2 mx n (acc * 2 + 1)) (*
-    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
+    fAnd (goal2 mx n (acc * 2)) (goal2 mx n (acc * 2 + 1))
   end.
 
 Fixpoint goal2_D mx n (acc : nat) : Prop :=
@@ -76,8 +75,6 @@ Fixpoint goal2_D' mx mx2 n (acc : nat) : Prop :=
   | S n =>
     goal2_D' mx mx2 n (acc * 2) /\ goal2_D' mx mx2 n (acc * 2 + 1)
   end.
-
-
 
 Fixpoint count_quant (e : expr typ func) : nat :=
   match e with
@@ -134,7 +131,7 @@ Arguments Typ0_Prop {_ _}.
 
 
   Ltac run_tactic reify tac tac_sound :=
-    match goal with
+    lazymatch goal with
     | |- ?goal =>
       let k g :=
           let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
@@ -168,56 +165,8 @@ Arguments Typ0_Prop {_ _}.
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
 
-Goal goal2_D' 2 4 5 0.
+Goal goal2_D' 10 12 5 0.
   simpl.
-(*
-  Check ex.
-
-  Ltac reify_term e :=
-    lazymatch e with
-    | fun ctx => fst ctx => uconstr:(Var 0)
-    | fun ctx => snd (@?V ctx) => get_var V uconstr:(1)
-    | fun ctx => @?X ctx /\ @?Y ctx =>
-      let x := reify_term X in
-      let y := reify_term Y in
-      uconstr:(fAnd x y)
-    | fun ctx => @eq ?ty (@?l ctx) (@?r ctx) =>
-      let ty := reify_type ty in
-      let l := reify_term l in
-      let r := reify_term r in
-      uconstr:(App (App (fEq ty) l) r)
-    | fun ctx => @ex ?ty (@?P ctx) =>
-      let ty := reify_type ty in
-      let P := reify_term P in
-      uconstr:(fEx ty P)
-    | fun ctx => (fun x : ?ty => @?P ctx x) =>
-      let ty := reify_type ty in
-      let P := constr:(fun ctx => P (snd ctx) (fst ctx)) in
-      let P := reify_term P in
-      uconstr:(Abs ty P)
-    | fun ctx => O =>
-      uconstr:(fN 0)
-    end
-  with get_var v acc :=
-    lazymatch v with
-    | fun ctx => fst ctx => uconstr:(Var acc)
-    | fun ctx => snd (@?X ctx) => let acc' := uconstr:(S acc) in
-                                  get_var X acc'
-    end
-  with reify_type t :=
-    lazymatch t with
-    | nat => tyBNat
-    end.
-
-  Goal (fun x : nat => x) = fun x => x.
-    match goal with
-    | |- ?X => let x := reify_term (fun ctx : unit => (fun x : nat => x)) in
-               pose x
-    end.
-*)
-
-
-
 Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0.
 repeat exists true. tauto.

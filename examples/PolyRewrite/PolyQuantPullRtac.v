@@ -19,8 +19,8 @@ Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Polymorphic.
-Require Import McExamples.PolyRewrite.MSimple.
-Require Import McExamples.PolyRewrite.MSimpleReify.
+Require Import McExamples.MSimple.MSimple.
+Require Import McExamples.MSimple.MSimpleReify.
 
 Set Implicit Arguments.
 Set Strict Implicit.

@@ -9,7 +9,7 @@ Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Simple.
 Require Import MirrorCore.Reify.Reify.
-
+Require Import MirrorCore.RTac.Interface.
 Require Import McExamples.Cancel.Monoid.
 
 Set Implicit Arguments.
@@ -173,5 +173,30 @@ Module Syntax (M : Monoid).
 
   Global Instance Reify_expr_typ_func : Reify (expr typ func) :=
   { reify_scheme := CCall reify_monoid }.
+
+  Ltac run_tbl_rtac the_Expr the_tactic the_tactic_sound :=
+    lazymatch goal with
+    | |- ?trm =>
+      let k tbl e :=
+          let result :=
+              constr:(@Interface.runRtac typ (expr typ func) nil nil e (the_tactic tbl)) in
+          let resultV := eval vm_compute in result in
+          match resultV with
+          | Solved _ =>
+            change (@env_propD _ _ _ Typ0_tyProp (the_Expr tbl) nil nil e) ;
+              cut (result = resultV) ;
+              [ set (pf := @Interface.rtac_Solved_closed_soundness
+                             _ _ _ _ _ _ (the_tactic_sound tbl)
+                             nil nil e) ;
+                exact pf
+              | vm_cast_no_check (@eq_refl _ resultV) ]
+          end
+      in
+      reify_expr_bind reify_monoid k
+                      [[ (fun x : @mk_dvar_map _ _ _ typD table_terms (@SymEnv.F typ _) => True) ]]
+                      [[ trm ]]
+  end.
+
+  Definition the_Expr fs := (@Expr.Expr_expr typ func _ _ (RSym_func fs)).
 
 End Syntax.
