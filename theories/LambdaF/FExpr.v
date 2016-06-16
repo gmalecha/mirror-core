@@ -34,6 +34,9 @@ Polymorphic Definition path_arrow@{u v} {a b : Type@{u}} {c d : Type@{v}}
  ; outof := fun f x => p2.(outof) (f (p1.(into) x))
  |}.
 
+(** NOTE: When these definitions are not in a section, they get the wrong
+ ** universe constraints.
+ **)
 Section pii.
   Polymorphic Universes u0 u1.
   Polymorphic Constraint u0 <= u1.
@@ -54,8 +57,8 @@ End pii.
 
 (* This is the universe of the reified language *)
 Universe Urefl.
+(* These are the universes of the denotation *)
 Universe Uhuge Ularge Usmall Utiny.
-
 
 (** Universes **)
 Inductive univ : Type@{Urefl} :=
@@ -81,40 +84,12 @@ Inductive kind : univ -> Type@{Urefl} :=
 | Karr : kind U0 -> kind U0 -> kind U0
 | Kstar : forall n, kind n.
 
-Polymorphic Record KSigT'@{a b} : Type@{a} := mkKSigT'
-{ ksigT : Type@{b}
-}.
-
-Definition KSigT (u : univ) : Type@{Uhuge} :=
-  match u as u return Type@{Uhuge} with
-  | U0 => KSigT'@{Ularge Usmall}
-  | U1 => KSigT'@{Uhuge Ularge}
+Fixpoint kindD {u} (k : kind u) : univD u :=
+  match k in kind u return univD u with
+  | Karr a b => kindD a -> kindD b
+  | Kstar U0 => Type@{Utiny}
+  | Kstar U1 => Type@{Usmall}
   end.
-
-Fixpoint kindD {u} (k : kind u) : KSigT u :=
-  match k in kind u return KSigT u with
-  | Karr a b =>
-    let a := kindD a in
-    let b := kindD b in
-    @mkKSigT'
-             (a.(ksigT) -> b.(ksigT))
-  | Kstar U0 =>
-    @mkKSigT' Type@{Utiny}
-  | Kstar U1 =>
-    @mkKSigT' Type@{Usmall}
-  end.
-
-(*
-Definition karr {a b : univ} : kind a -> kind b -> Type@{Uhuge} :=
-  match a as a , b as b
-        return kind a -> kind b -> Type@{Uhuge}
-  with
-  | U0 , U0 => fun k1 k2 => kindD k1 -> kindD k2
-  | U1 , U0 => fun k1 k2 => kindD k1 -> kindD k2
-  | U0 , U1 => fun k1 k2 => kindD k1 -> kindD k2
-  | U1 , U1 => fun k1 k2 => kindD k1 -> kindD k2
-  end.
-*)
 
 Section simple_dep_types.
   Variable Tsymbol : forall u, kind u -> Type@{Urefl}.
@@ -130,40 +105,32 @@ Section simple_dep_types.
   Definition mx (a b : univ) : univ :=
     match a with
     | U1 => U1
-    | _ => b
+    | U0 => b
     end.
 
-  Definition ksigTu {u : univ} (K : KSigT u) : univD u.
-  destruct u; apply K.(ksigT).
-  Defined.
-
   Fixpoint tmorphism (u : univ) (k : kind u) {struct k}
-  : ksigTu (kindD k) -> ksigTu (kindD k) ->
-    univD u.
-  refine
+  : kindD k -> kindD k -> univD u :=
     match k  as k in kind u
-          return ksigTu (kindD k) -> ksigTu (kindD k) ->
-                 univD u
+          return kindD k -> kindD k -> univD u
     with
     | Karr k1 k2 => fun f g =>
-      forall x y : ksigTu (kindD k1),
-        tmorphism _ k1 x x ->
-        tmorphism _ k1 y y ->
-        tmorphism _ k1 x y ->
-        tmorphism _ k2 (f x) (g y)
+      forall x y : kindD k1,
+        tmorphism k1 x x ->
+        tmorphism k1 y y ->
+        tmorphism k1 x y ->
+        tmorphism k2 (f x) (g y)
     | Kstar U0 => path
     | Kstar U1 => path
     end.
-  Defined.
   Arguments tmorphism [_] _ _ _.
 
   Record TSigT0 (k : kind U0) : Type@{Usmall} := mkTSigT0
-  { tsigT0      : (kindD k).(ksigT)
+  { tsigT0      : kindD k
   ; tsigProper0 : tmorphism k tsigT0 tsigT0
   }.
 
   Record TSigT1 (k : kind U1) : Type@{Ularge} := mkTSigT1
-  { tsigT1      : (kindD k).(ksigT)
+  { tsigT1      : kindD k
   ; tsigProper1 : tmorphism k tsigT1 tsigT1
   }.
 
@@ -196,32 +163,26 @@ Section simple_dep_types.
   Defined.
 
   Definition tapp {a b}
-  : TSigT (Karr a b) -> TSigT a -> TSigT b.
-  simpl. intros.
-  exists (X.(tsigT0) X0.(tsigT0)).
-  eapply X.(tsigProper0). eapply X0.(tsigProper0).
-  eapply X0.(tsigProper0).
-  eapply X0.(tsigProper0).
-  Defined.
+  : TSigT (Karr a b) -> TSigT a -> TSigT b :=
+    fun (X : TSigT0 (Karr a b)) (X0 : TSigT0 a) =>
+      {| tsigT0 := X.(tsigT0) X0.(tsigT0)
+       ; tsigProper0 := X.(tsigProper0) X0.(tsigT0) X0.(tsigT0)
+                         X0.(tsigProper0) X0.(tsigProper0) X0.(tsigProper0) |}.
 
   Definition tpi {a} {k : kind U0}
-  : (TSigT k -> TSigT (Kstar a)) ->
-    TSigT (Kstar U1).
-  refine
+  : (TSigT k -> TSigT (Kstar a)) -> TSigT (Kstar U1) :=
     match a as a
-          return (TSigT k -> TSigT (Kstar a)) ->
-                 TSigT (Kstar U1)
+          return (TSigT k -> TSigT (Kstar a)) -> TSigT (Kstar U1)
     with
-    | U0 => fun X => _
-    | U1 => fun X => _
+    | U0 => fun X =>
+      @mkTSigT1 (Kstar U1)
+                (forall x : TSigT0 k, (X x).(tsigT0))
+                (path_refl@{Usmall Usmall} (forall x : TSigT0 k, (X x).(tsigT0)))
+    | U1 => fun X =>
+      @mkTSigT1 (Kstar U1)
+                (forall x : TSigT0 k, (X x).(tsigT1))
+                (path_refl@{Usmall Usmall} (forall x : TSigT0 k, (X x).(tsigT1)))
     end.
-  { simpl.
-    exists (forall x : TSigT0 k, (X x).(tsigT1)).
-    apply path_refl. }
-  { simpl.
-    exists (forall x : TSigT0 k, (X x).(tsigT0)).
-    apply path_refl. }
-  Defined.
 
   Variable TsymbolD : forall u (k : kind u),
       Tsymbol k -> TSigT k.
@@ -250,7 +211,6 @@ Section simple_dep_types.
   ; Utype : type ks (Kstar U0)
   }.
 
-
   Definition Venv (ks : list (kind U0)) (tvs : list (type ks (Kstar U0)))
              (Ks : Kenv ks) : Type@{Uhuge} :=
     hlist@{Urefl Uhuge} (fun t : type ks (Kstar U0) =>
@@ -270,24 +230,12 @@ Section simple_dep_types.
     match t in @type _ u k
           return @type (ks ++ ks' ++ ks'') u k
     with
-    | TArr a b => TArr (@type_lift _ _ _ _ _ a) (@type_lift _ _ _ _ _ b)
-    | TApp f x => TApp (@type_lift _ _ _ _ _ f) (@type_lift _ _ _ _ _ x)
+    | TArr a b => TArr (type_lift _ _ _ a) (type_lift _ _ _ b)
+    | TApp f x => TApp (type_lift _ _ _ f) (type_lift _ _ _ x)
     | TVar v => TVar (member_lift _ _ _ v)
-    | TPi t => TPi (@type_lift (_::_) _ _ _ _ t)
+    | TPi t => TPi (type_lift (_::_) _ _ t)
     | TInj x => TInj x
     end.
-
-
-(*
-  Definition type_weaken ks' {ks} {u} {k : kind u} (t : type ks k)
-  : type (ks ++ ks') k :=
-    match app_nil_r_trans ks in _ = X
-        , app_nil_r_trans ks' in _ = Y
-          return (type X _ -> type (_ ++ Y) _)
-    with
-    | eq_refl , eq_refl => @type_lift ks ks' nil u k
-    end t.
-*)
 
   Fixpoint type_subst {ks ks' u} {ku : kind u}
            (xs : hlist (@type ks' U0) ks)
@@ -296,8 +244,8 @@ Section simple_dep_types.
     match t in type _ Z
           return type ks' Z
     with
-    | TArr a b => TArr (@type_subst _ _ _ _ xs a) (@type_subst _ _ _ _ xs b)
-    | TApp a b => TApp (@type_subst _ _ _ _ xs a) (@type_subst _ _ _ _ xs b)
+    | TArr a b => TArr (type_subst xs a) (type_subst xs b)
+    | TApp a b => TApp (type_subst xs a) (type_subst xs b)
     | TPi t =>
       let xs' := hlist_map (fun k t => @type_lift nil (_::nil) ks' _ k t) xs in
       TPi (@type_subst (_::ks) _ _ _ (Hcons (TVar (@MZ _ _ _)) xs') t)
@@ -305,6 +253,7 @@ Section simple_dep_types.
     | TInj x => TInj x
     end.
 
+  (** TODO: This is generic *)
   Fixpoint members {T} (ls : list T) : hlist (fun x => member x ls) ls :=
     match ls as ls
           return hlist (fun x => member x ls) ls
@@ -313,6 +262,7 @@ Section simple_dep_types.
     | l :: ls => Hcons (MZ _ _) (hlist_map (fun t m => @MN _ _ _ _ m) (@members _ ls))
     end.
 
+  (** TODO: This is generic *)
   Fixpoint member_post_weaken {T} (ls ls' : list T) {t} (m : member t ls)
   : member t (ls ++ ls') :=
     match m in member _ ls return member t (ls ++ ls') with
@@ -374,7 +324,7 @@ Section simple_dep_types.
     | U1 => fun x => x.(tsigT1)
     end.
 
-  Definition tsigT (u : univ) (k : kind u) : TSigT k -> ksigTu (kindD k).
+  Definition tsigT (u : univ) (k : kind u) : TSigT k -> kindD k.
   destruct u.
   { refine (fun x => x.(tsigT1)). }
   { refine (fun x => x.(tsigT0)). }
@@ -389,15 +339,16 @@ Section simple_dep_types.
   : tsigT_star (typeD (TArr t0 t1) Ts) ->
     tsigT_star (typeD t0 Ts) ->
     tsigT_star (typeD t1 Ts).
-  { simpl in *.
-    destruct u0; refine (fun x => x). }
+  Proof using.
+  { simpl in *. destruct u0; refine (fun x => x). }
   Defined.
 
   Definition exprAbs {ks : list (kind U0)}
              {u0 : univ} {t0 : type ks (Kstar U0)} {t1 : type ks (Kstar u0)}
              {Ts : Kenv ks}
-    : (tsigT (typeD t0 Ts) -> tsigT_star (typeD t1 Ts)) ->
-      tsigT_star (typeD (TArr t0 t1) Ts).
+  : (tsigT (typeD t0 Ts) -> tsigT_star (typeD t1 Ts)) ->
+    tsigT_star (typeD (TArr t0 t1) Ts).
+  Proof using.
     destruct u0; simpl; refine (fun f x => f x).
   Defined.
 
@@ -407,39 +358,16 @@ Section simple_dep_types.
   : tsigT_star (typeD (TPi t0) Ts) ->
     forall x : TSigT0 k,
       tsigT_star (typeD t0 (Hcons@{Urefl Usmall} x Ts)).
-  Proof.
-    clear. simpl in *. unfold tpi.
+  Proof using.
+    simpl in *. unfold tpi.
     destruct u0; exact (fun x => x).
-  Defined.
-
-  (** TODO(gmalecha): Move this *)
-  Definition member_caseT
-    : forall {T : Type} (x y : T) xs (m : member y (x :: xs)),
-      { pf : x = y & m = match pf in _ = Z return member Z _ with
-                         | eq_refl => MZ _ _
-                         end } +
-      { m' : member y xs & m = MN x m' }.
-  Proof.
-    clear.
-    intros T x y xs m.
-    refine
-      match m as m in member _ (x :: xs)
-            return {pf : x = y &
-                         m =
-                         match pf in (_ = Z) return (member Z (x :: xs)) with
-                         | eq_refl => MZ x xs
-                         end} + {m' : member y xs & m = MN x m'}
-      with
-      | MZ _ _ => inl (@existT _ _ eq_refl eq_refl)
-      | MN _ _ => inr (@existT _ _ _ eq_refl)
-      end.
   Defined.
 
   Variable EsymbolD : forall u t, @Esymbol u t -> tsigT_star (@typeD _ _ _ t Hnil).
 
   Lemma tmorphism_TSigT_refl:
     forall u (k : kind u) (t : TSigT k), tmorphism k (tsigT t) (tsigT t).
-  Proof.
+  Proof using.
     destruct k; simpl.
     { intros. eapply t.(tsigProper0); assumption. }
     { destruct n; intros; apply path_refl. }
@@ -595,6 +523,13 @@ Section simple_dep_types.
       reflexivity. }
   Defined.
 
+  Definition tmorphism_into u (X Y : _)
+             (mor : tmorphism (Kstar u) (tsigT X) (tsigT Y))
+    : tsigT_star X -> tsigT_star Y.
+  Proof using .
+    destruct u; simpl in *; eapply mor.
+  Defined.
+
   Fixpoint wtexprD ks tus tvs u t (e : @wtexpr ks tus tvs u t)
   : forall Ts, Uenv tus Ts -> Venv tvs Ts -> tsigT_star (@typeD _ _ _ t Ts).
   refine
@@ -614,7 +549,7 @@ Section simple_dep_types.
       let T := @typeD _ _ _ t Ts in
       _ (@wtexprD _ _ _ _ _ f Ts Us Vs)
     | wtUVar u xs => fun Ts Us Vs =>
-      _ (hlist_get u Us)
+      (hlist_get u Us)
         (hlist_map
            (fun t e => @wtexprD _ _ _ _ t e Ts Us Vs)
            xs)
@@ -624,18 +559,14 @@ Section simple_dep_types.
     unfold type_weaken.
     generalize (@type_subst_mor nil _ _ t0 ks k Hnil Hnil).
     simpl members. simpl hlist_map.
-    Definition tmorphism_into u (X Y : _)
-               (mor : tmorphism (Kstar u) (tsigT X) (tsigT Y))
-      : tsigT_star X -> tsigT_star Y.
-    Proof using .
-    destruct u; simpl in *; eapply mor.
-    Defined.
     intro.
     eapply tmorphism_into.
     eapply tmorphism_TSigT_sym. eapply X.
     clear. intros.
     exfalso. clear - m.
-    eapply (member_case m). }
+    refine
+      match m in member _ nil return False with
+      end. }
   { (* Pi *)
     simpl in *.
     unfold tpi. destruct u0; simpl; refine (fun f => _ (f T)).
@@ -654,8 +585,11 @@ Section simple_dep_types.
         rewrite hlist_get_tvars_id.
         eapply (@tmorphism_TSigT_refl U0). } } }
   { eapply x. }
-  { (* UVar *)
-    eapply todo. (* admit. *) }
   Defined.
 
 End simple_dep_types.
+
+(** NOTE: For this to be a proper denotation function, it must be completely
+ ** transparent.
+ **)
+Print Opaque Dependencies hlist_eta.

@@ -208,7 +208,29 @@ Proof.
   induction tvs'; simpl; intros.
   { rewrite (hlist_eta vs'). reflexivity. }
   { rewrite (hlist_eta vs'). simpl. eauto. }
-Qed.
+Defined.
+
+Definition member_caseT
+: forall {T : Type} (x y : T) xs (m : member y (x :: xs)),
+    { pf : x = y & m = match pf in _ = Z return member Z _ with
+                       | eq_refl => MZ _ _
+                       end } +
+    { m' : member y xs & m = MN x m' }.
+Proof.
+  clear.
+  intros T x y xs m.
+  refine
+    match m as m in member _ (x :: xs)
+          return {pf : x = y &
+                       m =
+                       match pf in (_ = Z) return (member Z (x :: xs)) with
+                       | eq_refl => MZ x xs
+                       end} + {m' : member y xs & m = MN x m'}
+    with
+    | MZ _ _ => inl (@existT _ _ eq_refl eq_refl)
+    | MN _ _ => inr (@existT _ _ _ eq_refl)
+    end.
+Defined.
 
 Lemma hlist_get_member_lift
 : forall T (F : T -> Type) (tvs tvs' tvs0 : list T) (t0 : T) (m : member t0 (tvs0 ++ tvs)) (vs : hlist F tvs)
@@ -220,10 +242,10 @@ Proof.
   induction vs''.
   { simpl in *.
     eapply hlist_get_member_weaken. }
-  { destruct (member_case m).
-    { destruct H. subst. reflexivity. }
-    { destruct H. subst. eapply IHvs''. } }
-Qed.
+  { destruct (member_caseT m).
+    { destruct s. subst. reflexivity. }
+    { destruct s. subst. eapply IHvs''. } }
+Defined.
 
 (*
 Lemma hlist_get_member_lift'
@@ -256,7 +278,7 @@ Proof using.
     { destruct H. subst. simpl. rewrite (hlist_eta xs''). simpl.
       specialize (IHtvs'' xs xs' (hlist_tl xs'') t _ eq_refl).
       simpl in *. eauto. } }
-Qed.
+Defined.
 
 Lemma hlist_get_member_lift
   : forall tus tvsX tvs tvs' tvs''
@@ -269,5 +291,5 @@ Lemma hlist_get_member_lift
     hlist_get m (hlist_app xs'' xs).
 Proof using.
   intros. eapply hlist_get_member_lift' with (pf:=eq_refl).
-Qed.
+Defined.
 *)
