@@ -4,6 +4,7 @@ Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Universe Polymorphism.
 
 Section hlist_Forall.
   Context {T : Type} {F G : T -> Type}.
