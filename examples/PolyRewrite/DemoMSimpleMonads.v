@@ -61,11 +61,29 @@ Existing Instance Expr.Expr_expr.
 Existing Instance Typ2_Fun.
 Existing Instance Typ2Ok_Fun.
 
-Instance Reify_simple_type_opt : Reify typ := Reify_simple_type option.
-Instance Reify_expr_simple_opt : Reify (expr typ func) := Reify_expr_simple option.
+(* Option monad *)
+(* using Option as our monad *)
+Module MonadOption <: Monad.
+                       Definition M := option.
+End MonadOption.
+
+Module RMonadOption := RMonad MonadOption.
+Import RMonadOption.
+
+Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+Local Notation "'#'" := RIgnore (only parsing, at level 0).
+
+Reify Pattern patterns_simplemon_typ_special += (!! (@option) @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x).
+
+
+(*Instance Reify_simple_type_opt : Reify typ := Reify_simple_type.
+Instance Reify_expr_simple_opt : Reify (expr typ func) := Reify_expr_simple option. *)
 
 Instance RSym_func_opt : RSym func := @RSym_func option OptionMonad.Monad_option.
-Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func option OptionMonad.Monad_option.
+Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func option OptionMonad.Monad_option. 
 
 Definition rlaw1 : polymorphic typ 2 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
@@ -284,8 +302,11 @@ Proof.
     subst.
     rewrite (UIP_refl r). compute. intros; tauto. }
   Unshelve.
+  (*
   exact option.
-  exact option.
+  exact option. *)
+  exact (@id Type).
+  exact (@id Type).
 Qed.
 
 Theorem is_trans_ok : trans_dec_ok RbaseD is_trans.
@@ -323,8 +344,10 @@ Proof.
     rewrite (UIP_refl r).
     compute. tauto. }
   Unshelve.
-  exact option.
-  exact option.
+  (*exact option.
+  exact option.*)
+  exact (@id Type).
+  exact (@id Type).
 Qed.
 
 (* Q: simple_reduce or reduce? *)
@@ -381,8 +404,11 @@ Proof.
     intros. rewrite H5. rewrite H6. reflexivity. }
   { eauto. }
   Unshelve.
+  (*
   exact option.
-  exact option.
+  exact option. *)
+  exact (@id Type).
+  exact (@id Type).
 Qed.
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
@@ -456,7 +482,8 @@ Proof.
   { eapply CompileHints_sound.
     auto. }
   Unshelve.
-  exact option.
+  (*exact option.*)  
+  exact (@id Type).
 Qed.
 
 Theorem monad_simplify_sound : setoid_rewrite_spec RbaseD monad_simplify.
@@ -495,8 +522,6 @@ Require Import MirrorCore.MTypes.ModularTypes.
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 Locate Typ2_tyArr.
-
-SearchAbout RelDec_Correct func.
 
 Ltac reduce_propD g e :=
   eval cbv beta iota zeta delta
@@ -574,7 +599,6 @@ Arguments Typ0_Prop {_ _}.
 
 
   Definition ex1' := ex1 option OptionMonad.Monad_option.
-  Definition test := reify_simplemon option.
 
   Definition ex0 := Monad.bind (Monad.ret 5) (fun x => Monad.ret x).
 
@@ -583,7 +607,7 @@ Arguments Typ0_Prop {_ _}.
   Goal ex0 = ex0.
     unfold ex0.
 
-    Time run_tactic test rewrite_it rewrite_it_sound.
+    Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
     Abort.
 
     (* Debugging code; may be unused now; perhaps should be moved *)
@@ -601,52 +625,6 @@ Arguments Typ0_Prop {_ _}.
         doNRed' n k
       end.
     
-(*
-  Check ex.
-
-  Ltac reify_term e :=
-    lazymatch e with
-    | fun ctx => fst ctx => uconstr:(Var 0)
-    | fun ctx => snd (@?V ctx) => get_var V uconstr:(1)
-    | fun ctx => @?X ctx /\ @?Y ctx =>
-      let x := reify_term X in
-      let y := reify_term Y in
-      uconstr:(fAnd x y)
-    | fun ctx => @eq ?ty (@?l ctx) (@?r ctx) =>
-      let ty := reify_type ty in
-      let l := reify_term l in
-      let r := reify_term r in
-      uconstr:(App (App (fEq ty) l) r)
-    | fun ctx => @ex ?ty (@?P ctx) =>
-      let ty := reify_type ty in
-      let P := reify_term P in
-      uconstr:(fEx ty P)
-    | fun ctx => (fun x : ?ty => @?P ctx x) =>
-      let ty := reify_type ty in
-      let P := constr:(fun ctx => P (snd ctx) (fst ctx)) in
-      let P := reify_term P in
-      uconstr:(Abs ty P)
-    | fun ctx => O =>
-      uconstr:(fN 0)
-    end
-  with get_var v acc :=
-    lazymatch v with
-    | fun ctx => fst ctx => uconstr:(Var acc)
-    | fun ctx => snd (@?X ctx) => let acc' := uconstr:(S acc) in
-                                  get_var X acc'
-    end
-  with reify_type t :=
-    lazymatch t with
-    | nat => tyBNat
-    end.
-
-  Goal (fun x : nat => x) = fun x => x.
-    match goal with
-    | |- ?X => let x := reify_term (fun ctx : unit => (fun x : nat => x)) in
-               pose x
-    end.
- *)
-
     (* testing on larger examples *)
     (* We need an opaque symbol *)
     Section AssocTest.
@@ -660,13 +638,12 @@ Arguments Typ0_Prop {_ _}.
         end.
 
       Definition MAT1 := Eval cbv beta zeta iota delta [makeAssocTest] in (makeAssocTest 1).
-      Print MAT1.
     
       Goal (MAT1 = MAT1).
         unfold MAT1.
 
         
-        Time run_tactic test rewrite_it rewrite_it_sound.
+        Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
       Abort.
 
       (*   n = depth of overall tree
@@ -681,7 +658,7 @@ Arguments Typ0_Prop {_ _}.
 
       Goal (MLIA1 = MLIA1).
         unfold MLIA1.
-        Time run_tactic test rewrite_it rewrite_it_sound.
+        Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
 
       Abort.
         (*Rejoice! 0.079s *)
@@ -690,4 +667,6 @@ Arguments Typ0_Prop {_ _}.
 
       Goal (exists x, MLIA2 = x).
         unfold MLIA2.
-        Time run_tactic test rewrite_it rewrite_it_sound.
+        Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
+      Abort.
+End AssocTest.

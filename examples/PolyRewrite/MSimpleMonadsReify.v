@@ -5,41 +5,56 @@ Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.PolyRewrite.MSimpleMonads.
 Require Import ExtLib.Structures.Monad.
 
+(* Notes from Greg
+   "OnGoal" tactic. Inspect goal, and use same functions from rewriter *)
+
+(* Catch-all for things that fail to reify *)
+Definition otherFunc : BinNums.positive -> expr typ func :=
+  fun _ => Inj (N 0).
+Opaque otherFunc.
+
+Module Type Monad.
+  Parameter M : Type -> Type.
+End Monad.
+
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
 Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
 Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
 Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
-(** Declare patterns (cannot be done inside section) **)
-Reify Declare Patterns patterns_simplemon_typ : typ.
-Reify Declare Patterns patterns_simplemon : (expr typ func).
-Reify Declare Typed Table table_terms : BinNums.positive => typ.
+Module RMonad (MM : Monad).
 
-(* These also can't go in section *)
-Reify Pattern patterns_simplemon_typ += (!! nat)  => (tyBase0 tyNat).
-Reify Pattern patterns_simplemon_typ += (!! bool) => (tyBase0 tyBool).
-Reify Pattern patterns_simplemon_typ += (!! Prop) => (@tyProp typ').
-Reify Pattern patterns_simplemon += (@RGet 0 RConst) => (fun (n : @id nat) => @Inj typ func (N n)).
-Reify Pattern patterns_simplemon += (!! plus) => (Inj (typ:=typ) Plus).
-Reify Pattern patterns_simplemon += (!! NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
-Reify Pattern patterns_simplemon += (!! and) => (Inj (typ:=typ) And).
-Reify Pattern patterns_simplemon += (!! or) => (Inj (typ:=typ) Or).
-Reify Pattern patterns_simplemon += (!! Basics.impl) => (Inj (typ:=typ) Impl).
+  (** Declare patterns (cannot be done inside section) **)
+  Reify Declare Patterns patterns_simplemon_typ : typ.
+  Reify Declare Patterns patterns_simplemon : (expr typ func).
+  Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
+  (* We should see if they can go in module *)
+  Reify Pattern patterns_simplemon_typ += (!! nat)  => (tyBase0 tyNat).
+  Reify Pattern patterns_simplemon_typ += (!! bool) => (tyBase0 tyBool).
+  Reify Pattern patterns_simplemon_typ += (!! Prop) => (@tyProp typ').
+  Reify Pattern patterns_simplemon += (@RGet 0 RConst) => (fun (n : @id nat) => @Inj typ func (N n)).
+  Reify Pattern patterns_simplemon += (!! plus) => (Inj (typ:=typ) Plus).
+  Reify Pattern patterns_simplemon += (!! NPeano.Nat.ltb) => (Inj (typ:=typ) Lt).
+  Reify Pattern patterns_simplemon += (!! and) => (Inj (typ:=typ) And).
+  Reify Pattern patterns_simplemon += (!! or) => (Inj (typ:=typ) Or).
+  Reify Pattern patterns_simplemon += (!! Basics.impl) => (Inj (typ:=typ) Impl).
 
-Section Monad.
-  Variable M : Type -> Type.
+  (* += doesn't restrict. but the pattern you're matching on must be closed... *)
+  Import MM.
 
+  (* Used so the user can reify the specific monad she wants *)
+  Reify Declare Patterns patterns_simplemon_typ_special : typ.
+
+  (* exactly option applied to ?0 goes to function reify_typ -> *)
   Reify Declare Syntax reify_simplemon_typ :=
     CFix
       (CFirst
-         (CPattern (ls := _ :: nil) (!! M @ ?0) (fun x : function (CRec 0) => tyBase1 tyMonad x) ::
-                   CPattern (ls := _ :: _ :: nil) (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) (fun (a b : function (CRec 0)) => tyArr a b) ::
-                   CPatterns patterns_simplemon_typ :: nil)
-      ).
-              
-  Axiom otherFunc : BinNums.positive -> expr typ func.
+         (CPattern (ls := _ :: _ :: nil) (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) (fun (a b : function (CRec 0)) => tyArr a b) ::
+         @CPatterns typ patterns_simplemon_typ ::
+         @CPatterns typ patterns_simplemon_typ_special ::
+         nil)).
 
   (** Declare syntax **)
   Reify Declare Syntax reify_simplemon :=
@@ -75,34 +90,50 @@ Section Monad.
 
   Instance Reify_simple_type : Reify typ :=
     { reify_scheme := CCall reify_simplemon_typ }.
+End RMonad.
 
-End Monad.
-
-Print reify_simplemon_typ.
 
 (* using Option as our monad *)
+Module MonadOption <: Monad.
+                       Definition M := option.
+End MonadOption.
 
+Module RMonadOption := RMonad MonadOption.
+Import RMonadOption.
+
+Reify Pattern patterns_simplemon_typ_special += (!! (@option) @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x).
+
+(*
+Definition reify_option_typ : Command (mtyp typ') :=
+  CFix
+    (CFirst
+       ((CPattern (ls := _ :: nil) (!! option @ ?0) (fun x : function (CRec 0) => tyBase1 tyMonad x)) ::
+        (CCall reify_simplemon_typ) ::
+         nil)).
+*)                              
 
 Ltac reify_typ trm :=
   let k e :=
       refine e
   in
-  reify_expr (CCall (reify_simplemon_typ option)) k [[ True ]] [[ trm ]].
+  (* originally reify_simplemon_typ *)
+  reify_expr (CCall reify_simplemon_typ) k [[ True ]] [[ trm ]].
 
-(* TODO fix these like the one above *)
 Ltac reify trm :=
   let k e :=
       refine e
   in
-  reify_expr (CCall (reify_simplemon option)) k [[ True ]] [[ trm ]].
+  reify_expr (CCall reify_simplemon) k [[ True ]] [[ trm ]].
 
 Ltac reify_simple trm k :=
-  reify_expr (CCall (reify_simplemon option)) k [[ True ]] [[ trm ]].
+  reify_expr (CCall reify_simplemon) k [[ True ]] [[ trm ]].
 
 Definition test_typ : typ.
                           reify_typ (nat -> nat).
-  Defined.
+Defined.
 Print test_typ.
+
+(* Order tables *)
 
 Definition test_montyp : typ.
                            reify_typ (nat -> option nat).
