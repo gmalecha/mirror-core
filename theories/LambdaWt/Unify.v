@@ -134,30 +134,30 @@ Section unify.
     eapply subst_lift' with (pf:=eq_refl).
   Qed.
 
-  Lemma find_in_hlist_ok : forall tus R tvs ts t e xs e',
-      @find_in_hlist Tsymbol Tsymbol_eq_dec _ Esymbol_eq_dec
-                     tus tvs ts t xs e = Some e' ->
+  Lemma find_in_hlist_ok'
+  : forall tus R tvs ts t (e : WtExpr.wtexpr Esymbol tus tvs t)
+      (xs : hlist (WtExpr.wtexpr Esymbol tus tvs) ts)
+      (e' : WtExpr.wtexpr Esymbol tus _ t),
+      find_in_hlist (fun t0 e' =>
+                       match wtexpr_jeq_dec Tsymbol_eq_dec Esymbol_eq_dec e e' with
+                       | left pf => Some match pf with
+                                        | ex_intro _ y _ => y
+                                        end
+                       | right _ => None
+                       end) xs (@wtVar _ _ _ _ _) = Some e' ->
       wtexpr_equiv R e (subst xs e').
   Proof.
-    induction xs; simpl; intros; try congruence.
-    destruct (type_eq_dec Tsymbol_eq_dec l t); try congruence.
-    subst.
-    destruct (wtexpr_eq_dec Tsymbol_eq_dec Esymbol_eq_dec e f).
-    - inv_all; subst.
-      simpl. reflexivity.
-    - destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs e);
-        try congruence.
-      inv_all. subst.
-      specialize (IHxs _ eq_refl).
-      generalize (@subst_lift _ _ _ _ _ nil w xs (Hcons f Hnil) Hnil).
-      simpl.
-      intro X; change_rewrite X. eassumption.
-    - destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs e); try congruence.
-      inv_all. subst.
-      specialize (IHxs _ eq_refl).
-      generalize (@subst_lift _ _ _ _ _ nil w xs (Hcons f Hnil) Hnil).
-      simpl.
-      intro X; change_rewrite X. eassumption.
+    intros. revert H.
+    refine (@find_in_hlist_ok _ _ _ _ _ _ _ _ _ (fun e' => wtexpr_equiv R e (subst xs e')) _).
+    simpl.
+    intro.
+    lazymatch goal with
+    | |- match wtexpr_jeq_dec _ _ _ ?X with
+        | _ => _
+        end = _ -> wtexpr_equiv _ _ ?Y =>
+      change X with Y ; generalize Y ; intro
+    end.
+    forward. subst. inv_all. subst. reflexivity.
   Qed.
 
   Lemma pattern_expr_ok : forall tus R tvs t e ts xs e',
@@ -167,20 +167,20 @@ Section unify.
   Proof.
     induction e; simpl in *.
     { intros.
-      generalize (find_in_hlist_ok R (wtVar m) xs).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtVar m)); try congruence.
-      intros. eapply H0 in H; clear H0.
-      auto. }
+      generalize (find_in_hlist_ok' R (wtVar m) xs).
+      forward. inv_all. subst. eauto. }
     { intros.
-      generalize (find_in_hlist_ok R (wtInj m) xs).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtInj m));
-        try congruence.
+      generalize (find_in_hlist_ok' R (wtInj m) xs).
+      lazymatch goal with
+      | H : match ?X with _ => _ end = _ |- _ => destruct X
+      end.
       { intro. apply H0 in H; clear H0. auto. }
       { inv_all. subst. intros. reflexivity. } }
     { intros.
-      generalize (find_in_hlist_ok R (wtApp e1 e2) xs).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtApp e1 e2));
-        try congruence; eauto.
+      generalize (find_in_hlist_ok' R (wtApp e1 e2) xs).
+      lazymatch goal with
+      | H : match ?X with _ => _ end = _ |- _ => destruct X
+      end; try congruence; eauto.
       specialize (IHe1 _ xs).
       specialize (IHe2 _ xs).
       destruct (pattern_expr Tsymbol_eq_dec Esymbol_eq_dec e1 xs); try congruence.
@@ -191,8 +191,10 @@ Section unify.
       simpl. intro.
       eapply eqApp; eauto. }
     { intros.
-      generalize (find_in_hlist_ok R (wtAbs e) xs).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs (wtAbs e)); eauto.
+      generalize (find_in_hlist_ok' R (wtAbs e) xs).
+      lazymatch goal with
+      | H : match ?X with _ => _ end = _ |- _ => destruct X
+      end; eauto.
       intro X; clear X.
       match goal with
       | _ : match pattern_expr _ _ ?e ?X with _ => _ end = _ |- _ =>
@@ -204,9 +206,10 @@ Section unify.
       specialize (IHe _ eq_refl).
       eapply eqAbs. eauto. }
     { intros.
-      generalize (find_in_hlist_ok R (wtUVar u xs) xs0).
-      destruct (find_in_hlist Tsymbol_eq_dec Esymbol_eq_dec xs0 (wtUVar u xs)); try congruence.
-      intros. apply H1 in H0; clear H1. eauto. }
+      generalize (find_in_hlist_ok' R (wtUVar u xs) xs0).
+      lazymatch goal with
+      | H : match ?X with _ => _ end = _ |- _ => destruct X
+      end; eauto. }
   Qed.
 
   Lemma wtexpr_equiv_Unifiable_eq_Inst_evolves:

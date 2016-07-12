@@ -500,37 +500,34 @@ Section simple_dep_types.
       wtUVar u (hlist_map (fun t x => wtexpr_lift tvs' tvs'' x) xs)
     end.
 
-
-  Fixpoint find_in_hlist {tus tvs ts t} (xs : hlist (wtexpr tus tvs) ts)
-           (x : wtexpr tus tvs t) : option (wtexpr tus ts t) :=
-    match xs in hlist _ ts
-          return option (wtexpr tus ts t)
-    with
-    | Hnil => None
-    | @Hcons _ _ t' _ x' xs =>
-      match type_eq_dec Tsymbol_eq_dec t' t with
-      | left pf =>
-        if wtexpr_eq_dec x match pf with
-                           | eq_refl => x'
-                           end
-        then Some match pf with
-                  | eq_refl => wtVar (MZ _ _)
-                  end
-        else match find_in_hlist xs x with
-             | Some e => Some (wtexpr_lift (_ :: nil) nil e)
-             | None => None
-             end
-      | _ => match find_in_hlist xs x with
-             | Some e => Some (wtexpr_lift (_ :: nil) nil e)
-             | None => None
-             end
-      end
+  Definition wtexpr_jeq_dec {us vs} {a b : type Tsymbol}
+             (t1 : wtexpr us vs a) (t2 : wtexpr us vs b)
+  : { exists pf : a = b , match pf with
+                     | eq_refl => t1
+                     end = t2 } + { True }.
+  refine
+    match type_eq_dec Tsymbol_eq_dec a b with
+    | left pf => match wtexpr_eq_dec match pf with
+                                    | eq_refl => t1
+                                    end t2 with
+                | left pf' => left (@ex_intro _ _ pf pf')
+                | _ => right I
+                end
+    | right pf => right I
     end.
+  Defined.
 
   Fixpoint pattern_expr {tus tvs t} (e : wtexpr tus tvs t)
            ts (xs : hlist (wtexpr tus tvs) ts)
   : option (wtexpr tus ts t) :=
-    match find_in_hlist xs e with
+    match find_in_hlist (fun t (e' : wtexpr _ _ t) =>
+                           match wtexpr_jeq_dec e e' with
+                           | left pf => Some match pf with
+                                            | ex_intro _ y _ => y
+                                            end
+                           | right _ => None
+                           end) xs (wtVar)
+    with
     | Some res => Some res
     | None =>
       match e in wtexpr _ _ t

@@ -247,6 +247,54 @@ Proof.
     { destruct s. subst. eapply IHvs''. } }
 Defined.
 
+(** **)
+Section find_in_hlist.
+  Context {T : Type} {F : T -> Type}.
+  Context {t : T}.
+  Variable check_dec : forall {u}, F u -> option (t = u).
+
+  Fixpoint find_in_hlist {Z ts} (xs : hlist F ts)
+  : (member t ts -> Z) -> option Z :=
+    match xs in hlist _ ts
+          return (member t ts -> Z) -> option Z
+    with
+    | Hnil => fun _ => None
+    | @Hcons _ _ t' _ x' xs =>
+      match check_dec x' with
+      | Some pf => fun k =>
+        Some (k match pf with
+                | eq_refl => MZ _ _
+                end)
+      | _ => fun k => find_in_hlist xs (fun z => k (MN _ z))
+      end
+    end.
+
+(*
+  Variable P : forall ts, member t ts -> Prop.
+  Hypothesis eq_dec_ok : forall u b pf,
+      @check_dec u b = Some pf ->
+      P match eq_sym pf in _ = X return F X with
+        | eq_refl => b
+        end.
+*)
+
+  Lemma find_in_hlist_ok : forall ts xs Z k e' Q,
+      (forall (x : member t ts), check_dec (hlist_get x xs) = Some eq_refl -> Q (k x)) ->
+      @find_in_hlist Z ts xs k = Some e' ->
+      Q e'.
+  Proof.
+    induction xs; simpl; intros; try congruence.
+    { destruct (check_dec f) eqn:?.
+      { inv_all. clear IHxs.
+        subst. eapply X. assumption. }
+      { eapply IHxs; [ | eassumption ].
+        simpl. eauto. } }
+  Defined.
+
+End find_in_hlist.
+
+
+
 (*
 Lemma hlist_get_member_lift'
   : forall tus tvsX tvs tvs' tvs''
