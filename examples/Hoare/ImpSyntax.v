@@ -388,8 +388,7 @@ Module ImpSyntax (I : ImpLang).
     { destruct (tsym0_case t);
       repeat match goal with
              | H : _ \/ _ |- _ => destruct H
-             end; subst; eauto with typeclass_instances; simpl.
-      eapply ILogic.ILogic_Prop. }
+             end; subst; eauto with typeclass_instances; simpl. }
   Qed.
 
   Theorem eops_ok : ILogicFunc.embed_opsOk lops eops.
