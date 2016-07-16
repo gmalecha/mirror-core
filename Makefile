@@ -20,13 +20,13 @@ init:
 universes: universes.txt
 
 universes.txt: coq tests/universes.v
-	coqc `grep '\-Q' _CoqProject` `grep '\-I' _CoqProject` tests/universes
+	$(COQBIN)coqc `grep '\-Q' _CoqProject` `grep '\-I' _CoqProject` tests/universes
 
 check-imports:
 	./tools/opt-import.py -p _CoqProject
 
 deps.pdf:
-	@ coqdep -dumpgraph deps.dot `sed '/COQLIB/d' _CoqProject` > /dev/null
+	@ $(COQBIN)coqdep -dumpgraph deps.dot `sed '/COQLIB/d' _CoqProject` > /dev/null
 	@ sed -i '/ext-lib/d' deps.dot
 	@ dot -Tpdf deps.dot -o deps.pdf
 
