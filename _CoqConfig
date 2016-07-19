@@ -1,5 +1,16 @@
 -Q theories MirrorCore
 -Q examples McExamples
+-Q ../bedrock-trunk/Bedrock Bedrock
+
+# VST imports
+-Q ../VST/msl msl
+-Q ../VST/sepcomp sepcomp
+-Q ../VST/veric veric
+-Q ../VST/floyd floyd
+-Q ../VST/progs progs
+-Q ../VST/compcert compcert
+-Q ../VST/mc_reify mc_reify
+# -R ../sha sha
 
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
