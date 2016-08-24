@@ -32,28 +32,51 @@ Record RBranch (T : Type) : Prop := mkRBranch
 }.
 
 (** Commands **)
-(* Command T parses a constr into a T *)
-Inductive Command : Type -> Prop :=
-  (* Structural combinators *)
-| CFix        : forall {T}, Command T -> Command T
-| CRec        : forall {T}, nat -> Command T
-| CCall       : forall {T}, Command T -> Command T
-| CMap        : forall {T F : Type} (f : F -> T) (c : Command F), Command T
-| COr         : forall {T} (a b : Command T), Command T
-| CFail       : forall {T}, Command T
-  (* Simple schemes *)
-| CApp        : forall {T U V} (_ : Command T) (_ : Command U)
-                       (app : T -> U -> V), Command V
-| CAbs        : forall {T U V : Type} (_ : Command U) (_ : Command V)
-                       (lam : U -> V -> T), Command T
-| CVar        : forall {T} (var : nat -> T), Command T
-| CPiMeta     : forall {T U} (a : Command U), Command (T -> U)
+Polymorphic Parameter Command@{U} : Type@{U} -> Prop.
+Polymorphic Parameter CFix : forall {T : Type}, Command T -> Command T.
+Polymorphic Parameter CRec : forall {T : Type}, nat -> Command T.
+Polymorphic Parameter CCall : forall {T : Type}, Command T -> Command T.
+Polymorphic Parameter CMap : forall {T F : Type}, (F -> T) -> Command F -> Command T.
+Polymorphic Parameter COr : forall {T : Type}, Command T -> Command T -> Command T.
+Polymorphic Parameter CFail : forall {T : Type}, Command T.
+Polymorphic Parameter CApp        : forall {T : Type} {U : Type} {V : Type} (_ : Command T) (_ : Command U)
+                       (app : T -> U -> V), Command V.
+Polymorphic Parameter CAbs        : forall {T : Type} {U : Type} {V : Type} (_ : Command U) (_ : Command V)
+                       (lam : U -> V -> T), Command T.
+Polymorphic Parameter CVar        : forall {T : Type} (var : nat -> T), Command T.
+Polymorphic Parameter CPiMeta     : forall {T U : Type} (a : Command U), Command (T -> U).
   (* Patterns *)
-| CPatternTr  : forall {T}, list (RBranch T) -> Command T
-| CPatterns   : forall {T} (f : patterns T), Command T
+Polymorphic Parameter CPatternTr  : forall {T : Type}, list (RBranch T) -> Command T.
+Polymorphic Parameter CPatterns   : forall {T : Type} (f : patterns T), Command T.
   (* Tables *)
-| CTable      : forall {T} (t : table T), Command T
-| CTypedTable : forall {T Ty : Type} (cTy : Command Ty) (t : typed_table T Ty), Command T.
+Polymorphic Parameter CTable      : forall {T : Type} (t : table T), Command T.
+Polymorphic Parameter CTypedTable : forall {T Ty : Type} (cTy : Command Ty) (t : typed_table T Ty), Command T.
+
+(*
+(** TODO: Try axiomatizing this? *)
+(* Command T parses a constr into a T *)
+Polymorphic Inductive Command@{U} : Type@{U} -> Prop :=
+  (* Structural combinators *)
+| CFix        : forall {T : Type@{U}}, Command T -> Command T
+| CRec        : forall {T : Type@{U}}, nat -> Command T
+| CCall       : forall {T : Type@{U}}, Command T -> Command T
+| CMap        : forall {T F : Type@{U}} (f : F -> T) (c : Command F), Command T
+| COr         : forall {T : Type@{U}} (a b : Command T), Command T
+| CFail       : forall {T : Type@{U}}, Command T
+  (* Simple schemes *)
+| CApp        : forall {T U V : Type@{U}} (_ : Command T) (_ : Command U)
+                       (app : T -> U -> V), Command V
+| CAbs        : forall {T U V : Type@{U}} (_ : Command U) (_ : Command V)
+                       (lam : U -> V -> T), Command T
+| CVar        : forall {T : Type@{U}} (var : nat -> T), Command T
+| CPiMeta     : forall {T U : Type@{U}} (a : Command U), Command (T -> U)
+  (* Patterns *)
+| CPatternTr  : forall {T : Type@{U}}, list (RBranch T) -> Command T
+| CPatterns   : forall {T : Type@{U}} (f : patterns T), Command T
+  (* Tables *)
+| CTable      : forall {T : Type@{U}} (t : table T), Command T
+| CTypedTable : forall {T Ty : Type@{U}} (cTy : Command Ty) (t : typed_table T Ty), Command T.
+*)
 
 (*
 Notation "'CApp_' x" := (@CApp _ _ _ (CRec 0) (CRec 0) x) (at level 0).
@@ -71,8 +94,8 @@ Arguments CPattern {_} [_] _ _.
 
 
 (** Actions **)
-Definition function  {T} (f : Command T) : Type := T.
-Definition id        (T : Type) : Type := T.
+Polymorphic Definition function@{U}  {T : Type@{U}} (f : Command T) : Type@{U} := T.
+Polymorphic Definition id@{U}        (T : Type@{U}) : Type@{U} := T.
 
 Arguments CPatterns {_} _.
 Arguments CApp {_ _ _} _ _ _.
@@ -88,7 +111,7 @@ Arguments CPatternTr {T} _.
 Arguments CRec {_} _.
 Arguments CFix {_} _.
 
-Fixpoint CFirst_ {T} (ls : list (Command T)) : Command T :=
+Polymorphic Fixpoint CFirst_@{U} {T : Type@{U}} (ls : list (Command@{U} T)) : Command@{U} T :=
   match ls with
   | nil => CFail
   | cons l nil => l

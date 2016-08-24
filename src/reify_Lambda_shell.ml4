@@ -84,6 +84,11 @@ struct
     else
       ()
 
+  let resolve_poly_symbol_no_univs path tm =
+    lazy (
+      let re = Coqlib.find_reference contrib_name path tm in
+      fst (Universes.unsafe_constr_of_global re))
+
   type all_tables =
     { tables : (int * Term.constr) environment Cmap.t
     }
@@ -816,7 +821,7 @@ struct
 	           unfreeze_function = (fun pt -> reify_table := pt);
 	           init_function     = (fun () -> reify_table := Cmap.empty) })
 
-    let cmd_Command  = Std.resolve_symbol pattern_mod "Command"
+    let cmd_Command  = resolve_poly_symbol_no_univs pattern_mod "Command"
     let get_Command_type env evm cmd =
       let (_,typ) =
         try Typing.type_of env evm cmd
@@ -1103,10 +1108,10 @@ struct
     in
     Std.PosMap.to_posmap leaf branch (fun x -> x) (build tbl)
 
-  let table_type = Std.resolve_symbol pattern_mod "table"
-  let table_value = Std.resolve_symbol pattern_mod "a_table"
-  let typed_table_type = Std.resolve_symbol pattern_mod "typed_table"
-  let typed_table_value = Std.resolve_symbol pattern_mod "a_typed_table"
+  let table_type = resolve_poly_symbol_no_univs pattern_mod "table"
+  let table_value = resolve_poly_symbol_no_univs pattern_mod "a_table"
+  let typed_table_type = resolve_poly_symbol_no_univs pattern_mod "typed_table"
+  let typed_table_value = resolve_poly_symbol_no_univs pattern_mod "a_typed_table"
 
   let new_table
   : Term.constr * Tables.key_type -> Libobject.obj =
@@ -1189,7 +1194,7 @@ struct
       (Pp.(msg_debug (str "failed to seed typed table: " ++ Printer.pr_constr name)) ;
        false)
 
-  let a_pattern = Std.resolve_symbol pattern_mod "a_pattern"
+  let a_pattern = resolve_poly_symbol_no_univs pattern_mod "a_pattern"
 
   let declare_pattern (name : Names.identifier) evd (value : Term.constr) =
     let obj = decl_constant ~opaque:true name evd (Term.mkApp (Lazy.force a_pattern, [| value |])) in
@@ -1236,9 +1241,9 @@ struct
 
   let declare_syntax = Syntax.declare_syntax
 
-  let mk_var_map = Std.resolve_symbol pattern_mod "mk_var_map"
-  let mk_dvar_map = Std.resolve_symbol pattern_mod "mk_dvar_map"
-  let mk_dvar_map_abs = Std.resolve_symbol pattern_mod "mk_dvar_map_abs"
+  let mk_var_map = resolve_poly_symbol_no_univs pattern_mod "mk_var_map"
+  let mk_dvar_map = resolve_poly_symbol_no_univs pattern_mod "mk_dvar_map"
+  let mk_dvar_map_abs = resolve_poly_symbol_no_univs pattern_mod "mk_dvar_map_abs"
 
   let parse_table (trm : Term.constr) : map_type =
     let open Term_match in

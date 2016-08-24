@@ -72,38 +72,43 @@ and rule =
 (** Parsing functions *)
 let pattern_mod = ["MirrorCore";"Reify";"Patterns"]
 
+let resolve_poly_symbol_no_univs path tm =
+  lazy (
+    let re = Coqlib.find_reference "MirrorCore.Reify" path tm in
+    fst (Universes.unsafe_constr_of_global re))
+
 (* Patterns *)
-let ptrn_exact    = Std.resolve_symbol pattern_mod "RExact"
-let ptrn_const    = Std.resolve_symbol pattern_mod "RConst"
-let ptrn_ignore   = Std.resolve_symbol pattern_mod "RIgnore"
-let ptrn_get      = Std.resolve_symbol pattern_mod "RGet"
-let ptrn_app      = Std.resolve_symbol pattern_mod "RApp"
-let ptrn_pi       = Std.resolve_symbol pattern_mod "RPi"
-let ptrn_lam      = Std.resolve_symbol pattern_mod "RLam"
-let ptrn_impl     = Std.resolve_symbol pattern_mod "RImpl"
-let ptrn_has_type = Std.resolve_symbol pattern_mod "RHasType"
+let ptrn_exact    = resolve_poly_symbol_no_univs pattern_mod "RExact"
+let ptrn_const    = resolve_poly_symbol_no_univs pattern_mod "RConst"
+let ptrn_ignore   = resolve_poly_symbol_no_univs pattern_mod "RIgnore"
+let ptrn_get      = resolve_poly_symbol_no_univs pattern_mod "RGet"
+let ptrn_app      = resolve_poly_symbol_no_univs pattern_mod "RApp"
+let ptrn_pi       = resolve_poly_symbol_no_univs pattern_mod "RPi"
+let ptrn_lam      = resolve_poly_symbol_no_univs pattern_mod "RLam"
+let ptrn_impl     = resolve_poly_symbol_no_univs pattern_mod "RImpl"
+let ptrn_has_type = resolve_poly_symbol_no_univs pattern_mod "RHasType"
 
 (* Actions *)
-let action_function  = Std.resolve_symbol pattern_mod "function"
-let action_id        = Std.resolve_symbol pattern_mod "id"
+let action_function  = resolve_poly_symbol_no_univs pattern_mod "function"
+let action_id        = resolve_poly_symbol_no_univs pattern_mod "id"
 
 (* Commands *)
-let cmd_patterns = Std.resolve_symbol pattern_mod "CPatterns"
-let cmd_pattern  = Std.resolve_symbol pattern_mod "CPatternTr"
-let cmd_app      = Std.resolve_symbol pattern_mod "CApp"
-let cmd_abs      = Std.resolve_symbol pattern_mod "CAbs"
-let cmd_var      = Std.resolve_symbol pattern_mod "CVar"
-let cmd_pi_meta  = Std.resolve_symbol pattern_mod "CPiMeta"
-let cmd_table    = Std.resolve_symbol pattern_mod "CTable"
-let cmd_typed_table = Std.resolve_symbol pattern_mod "CTypedTable"
-let cmd_map      = Std.resolve_symbol pattern_mod "CMap"
-let cmd_or       = Std.resolve_symbol pattern_mod "COr"
-let cmd_fail     = Std.resolve_symbol pattern_mod "CFail"
-let cmd_rec      = Std.resolve_symbol pattern_mod "CRec"
-let cmd_fix      = Std.resolve_symbol pattern_mod "CFix"
-let cmd_call     = Std.resolve_symbol pattern_mod "CCall"
+let cmd_patterns = resolve_poly_symbol_no_univs pattern_mod "CPatterns"
+let cmd_pattern  = resolve_poly_symbol_no_univs pattern_mod "CPatternTr"
+let cmd_app      = resolve_poly_symbol_no_univs pattern_mod "CApp"
+let cmd_abs      = resolve_poly_symbol_no_univs pattern_mod "CAbs"
+let cmd_var      = resolve_poly_symbol_no_univs pattern_mod "CVar"
+let cmd_pi_meta  = resolve_poly_symbol_no_univs pattern_mod "CPiMeta"
+let cmd_table    = resolve_poly_symbol_no_univs pattern_mod "CTable"
+let cmd_typed_table = resolve_poly_symbol_no_univs pattern_mod "CTypedTable"
+let cmd_map      = resolve_poly_symbol_no_univs pattern_mod "CMap"
+let cmd_or       = resolve_poly_symbol_no_univs pattern_mod "COr"
+let cmd_fail     = resolve_poly_symbol_no_univs pattern_mod "CFail"
+let cmd_rec      = resolve_poly_symbol_no_univs pattern_mod "CRec"
+let cmd_fix      = resolve_poly_symbol_no_univs pattern_mod "CFix"
+let cmd_call     = resolve_poly_symbol_no_univs pattern_mod "CCall"
 
-let c_mkRBranch = Std.resolve_symbol pattern_mod "mkRBranch"
+let c_mkRBranch = resolve_poly_symbol_no_univs pattern_mod "mkRBranch"
 
 let trm_match branches env trm =
   Term_match.matches env branches trm
@@ -289,14 +294,14 @@ let parse_pattern env evd ptrn template =
   { rule_pattern = rptrn
   ; rule_template = template }
 
-let table_type = Std.resolve_symbol pattern_mod "table"
-let table_value = Std.resolve_symbol pattern_mod "a_table"
-let typed_table_type = Std.resolve_symbol pattern_mod "typed_table"
-let typed_table_value = Std.resolve_symbol pattern_mod "a_typed_table"
+let table_type = resolve_poly_symbol_no_univs pattern_mod "table"
+let table_value = resolve_poly_symbol_no_univs pattern_mod "a_table"
+let typed_table_type = resolve_poly_symbol_no_univs pattern_mod "typed_table"
+let typed_table_value = resolve_poly_symbol_no_univs pattern_mod "a_typed_table"
 
-let mk_var_map = Std.resolve_symbol pattern_mod "mk_var_map"
-let mk_dvar_map = Std.resolve_symbol pattern_mod "mk_dvar_map"
-let mk_dvar_map_abs = Std.resolve_symbol pattern_mod "mk_dvar_map_abs"
+let mk_var_map = resolve_poly_symbol_no_univs pattern_mod "mk_var_map"
+let mk_dvar_map = resolve_poly_symbol_no_univs pattern_mod "mk_dvar_map"
+let mk_dvar_map_abs = resolve_poly_symbol_no_univs pattern_mod "mk_dvar_map_abs"
 
 let parse_table : Term.constr -> map_type =
   let open Term_match in
