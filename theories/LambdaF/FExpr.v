@@ -4,41 +4,19 @@ Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.DepUtil.
+Require Import MirrorCore.LambdaF.Paths.
 
 Set Primitive Projections.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Printing Universes.
 
-Polymorphic Record path@{t} (x y : Type@{t}) : Type :=
-{ into : x -> y
-; outof : y -> x }.
 
-Polymorphic Definition path_refl@{t u} (x : Type@{t}) : path@{t} x x :=
-  {| into := fun x => x
-   ; outof := fun x => x |}.
-
-Polymorphic Definition path_sym@{t u} (x y : Type@{t}) (p : path@{t} x y)
-: path@{t} y x :=
-  {| into := p.(outof)
-   ; outof := p.(into) |}.
-
-Polymorphic Definition path_trans@{t u} (x y z : Type@{t})
-            (p1 : path@{t} x y) (p2 : path@{t} y z)
-: path@{t} x z :=
-  {| into  := fun x => p2.(into) (p1.(into) x)
-   ; outof := fun x => p1.(outof) (p2.(outof) x) |}.
-
-Polymorphic Definition path_arrow@{u v} {a b : Type@{u}} {c d : Type@{v}}
-            (p1 : path@{u} a b) (p2 : path@{v} c d) : path@{v} (a -> c) (b -> d) :=
-{| into := fun f x => p2.(into) (f (p1.(outof) x))
- ; outof := fun f x => p2.(outof) (f (p1.(into) x))
- |}.
-
+(** Generic definitions **)
 Section ForallT_hlist.
   Polymorphic Context {T} {F : T -> Type} {G : forall x, F x -> Type}.
   Polymorphic Inductive ForallT_hlist : forall ts : list T, hlist F ts -> Type :=
-  | ForallT_Hnil : ForallT_hlist Hnil
+   | ForallT_Hnil : ForallT_hlist Hnil
   | ForallT_Hcons : forall t ts h hs,
       G h ->
       ForallT_hlist hs ->
@@ -58,30 +36,9 @@ End ForallT2_hlist.
 Arguments ForallT2_hlist [_ _ _] _ [_] _ _.
 Arguments ForallT_hlist [_ _] _ [_] _.
 
-(** NOTE: When these definitions are not in a section, they get the wrong
- ** universe constraints.
- **)
-Section pii.
-  Polymorphic Universes u0 u1.
-  Polymorphic Constraint u0 <= u1.
-
-  Polymorphic Definition pii (t : Type@{u1}) (x : t -> Type@{u0}) : Type@{u1} :=
-    forall y : t, x y.
-
-  Polymorphic Definition path_all (T : Type@{u1}) (a b : T -> Type@{u0})
-              (p : forall x : T, path (a x) (b x))
-    : path (@pii T a) (@pii T b).
-  Proof.
-    unfold pii.
-    constructor.
-    { intros. eapply (p y).(into). apply X. }
-    { intros. eapply (p y).(outof). apply X. }
-  Defined.
-End pii.
-
-
 Section ForallT_hlist_lems.
-  Polymorphic Context {T} {F G : T -> Type} (f : forall x, F x -> G x) (P : forall t, G t -> Type).
+  Polymorphic Context {T} {F G : T -> Type} (f : forall x, F x -> G x)
+              (P : forall t, G t -> Type).
 
   Polymorphic Lemma ForallT_hlist_map
     : forall ls hs,
@@ -98,21 +55,23 @@ Section ForallT_hlist_lems.
                induction hs; constructor; eauto.
   Defined.
 
-  Polymorphic Definition ForallT_hlist_hd {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
+  Polymorphic Definition ForallT_hlist_hd
+              {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
     : P (hlist_hd hs) :=
     match Fhs in @ForallT_hlist _ _ _ (_ :: _)  hs
           return P (hlist_hd hs)
     with
     | ForallT_Hcons _ _ pf _ => pf
     end.
-  Polymorphic Definition ForallT_hlist_tl {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
+
+  Polymorphic Definition ForallT_hlist_tl
+              {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
     : ForallT_hlist P (hlist_tl hs) :=
     match Fhs in @ForallT_hlist _ _ _ (_ :: _)  hs
           return ForallT_hlist P (hlist_tl hs)
     with
     | ForallT_Hcons _ _ _ pf => pf
     end.
-
 
   Polymorphic Lemma ForallT_hlist_ap (Q : forall t, G t -> Type)
     : forall ls hs,
@@ -226,9 +185,9 @@ Section simple_dep_types.
   | TApp : forall k1 k2, type kus ks (Karr k1 k2) -> type kus ks k1 -> type kus ks k2
   | TPi  : forall (k : kind U0) u, type kus (k :: ks) (Kstar u) -> type kus ks (Kstar U1)
   | TVar : forall k, member k ks -> type kus ks k
-  | TInj : forall (k : kind U0), Tsymbol k -> type kus ks k
+  | TInj : forall u (k : kind u), Tsymbol k -> type kus ks k
   | TUVar : forall ku, member ku kus -> hlist (@type kus ks U0) ku.(Tuctx) -> type kus ks ku.(Tukind).
-  Arguments TInj [_ _ _] _.
+  Arguments TInj [_ _ _ _] _.
   Arguments TVar [_ _ _] _.
   Arguments TUVar [_ _ _] _ _.
   Set Elimination Schemes.
@@ -245,9 +204,9 @@ Section simple_dep_types.
     Hypothesis Hpi : forall ks' (k : kind U0) u t,
         @P (k :: ks') u _ t -> @P ks' U1 _ (@TPi kus _ k _ t).
     Hypothesis Hvar : forall ks' k m, @P ks' U0 k (TVar m).
-    Hypothesis Hinj : forall ks' k m, @P ks' U0 k (TInj m).
+    Hypothesis Hinj : forall u ks' k m, @P ks' u k (TInj m).
     Hypothesis Huvar : forall ks' ku (m : member ku kus)
-                                     (xs : hlist (@type kus (ks' ++ ks) U0) ku.(Tuctx)),
+                         (xs : hlist (@type kus (ks' ++ ks) U0) ku.(Tuctx)),
         ForallT_hlist (@P ks' U0) xs ->
         @P ks' U0 _ (TUVar m xs).
 
@@ -283,7 +242,7 @@ Section simple_dep_types.
     Hypothesis Hpi : forall ks' (k : kind U0) u t,
         @P (k :: ks') u _ t -> @P ks' U1 _ (@TPi kus _ k _ t).
     Hypothesis Hvar : forall ks' k m, @P ks' U0 k (TVar m).
-    Hypothesis Hinj : forall ks' k m, @P ks' U0 k (TInj m).
+    Hypothesis Hinj : forall u ks' k m, @P ks' u k (TInj m).
     Hypothesis Huvar : forall ks' ku (m : member ku kus)
                                      (xs : hlist (@type kus ks' U0) ku.(Tuctx)),
         ForallT_hlist (@P ks' U0) xs ->
@@ -716,7 +675,7 @@ Section simple_dep_types.
     { simpl.
       rewrite hlist_get_member_lift.
       eapply (@tmorphism_TSigT_refl U0). }
-    { simpl. eapply (@tmorphism_TSigT_refl U0). }
+    { simpl. eapply (@tmorphism_TSigT_refl _). }
     { simpl. rewrite hlist_map_hlist_map.
       eapply tmorphism_apply_Karrs; [ | solve [ eauto ] ].
       induction xs; simpl; constructor.
