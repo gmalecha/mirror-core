@@ -121,3 +121,18 @@ Section PtrnBool.
     inj (ptrn_view FV (fptrnBool p)).
 
 End PtrnBool.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section ReifyBool.
+  Context {typ func : Type} {FV : PartialView func boolFunc}.
+
+  Definition reify_cbool : Command (expr typ func) :=
+    CPattern (ls := (bool:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fBool x)).
+
+  Definition reify_bool : Command (expr typ func) :=
+    CFirst (reify_cbool :: nil).
+
+End ReifyBool.
+
+Arguments reify_bool _ _ {_}.

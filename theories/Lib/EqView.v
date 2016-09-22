@@ -9,6 +9,7 @@ Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Reify.ReifyClass.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -133,3 +134,19 @@ Section PtrnEq.
     app (app (inj (ptrn_view _ (fptrnEq p))) a) b.
 
 End PtrnEq.
+
+Section ReifyEq.
+  Context {typ func : Type} {FV : PartialView func (eq_func typ)}.
+  Context {t : Reify typ}.
+
+  Definition reify_equiv : Command (expr typ func) :=
+    CPattern (ls := typ::nil) 
+             (RApp (RExact (@eq)) (RGet 0 RIgnore))
+             (fun (x : function (CCall (reify_scheme typ))) => Inj (fEq x)).
+
+  Definition reify_eq : Command (expr typ func) :=
+    CFirst (reify_equiv :: nil).
+
+End ReifyEq.
+
+Arguments reify_eq _ _ {_ _}.

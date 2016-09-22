@@ -12,6 +12,7 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Reify.ReifyClass.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -206,7 +207,7 @@ Definition applicative_cases {T : Type}
 
 End MakeApplicative.
 
-Section PtrnString.
+Section PtrnApplicative.
   Context {typ func : Type} {RType_typ : RType typ}.
   Context {FV : PartialView func (ap_func typ)}.
 
@@ -224,4 +225,26 @@ Section PtrnString.
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnAp p))) a) b.
 
-End PtrnString.
+End PtrnApplicative.
+
+Section ReifyApplicative.
+  Context {typ func : Type} {FV : PartialView func (ap_func typ)}.
+  Context {T : Type -> Type} {IH : Applicative T}.
+  Context {t : Reify typ}.
+
+  Definition reify_pure : Command (expr typ func) :=
+    CPattern (ls := typ::nil) 
+             (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore))
+             (fun (x : function (CCall (reify_scheme typ))) => Inj (fPure x)).
+
+  Definition reify_ap : Command (expr typ func) :=
+    CPattern (ls := typ::typ::nil) 
+             (RApp (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fAp x y)).
+
+  Definition reify_applicative : Command (expr typ func) :=
+    CFirst (reify_pure :: reify_ap :: nil).
+
+End ReifyApplicative.
+
+Arguments reify_applicative _ _ {_} _ {_}.

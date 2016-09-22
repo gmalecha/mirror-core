@@ -379,3 +379,31 @@ Section Tactics.
   Qed.
 
 End Tactics.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section ReifyProd.
+  Context {typ func : Type} {FV : PartialView func (prod_func typ)}.
+  Context {t : Reify typ}.
+
+  Definition reify_pair : Command (expr typ func) :=
+    CPattern (ls := typ::typ::nil) 
+             (RApp (RApp (RExact (@pair)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fPair x y)).
+
+  Definition reify_fst : Command (expr typ func) :=
+    CPattern (ls := typ::typ::nil) 
+             (RApp (RApp (RExact (@fst)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFst x y)).
+
+  Definition reify_snd : Command (expr typ func) :=
+    CPattern (ls := typ::typ::nil) 
+             (RApp (RApp (RExact (@snd)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fSnd x y)).
+
+  Definition reify_prod : Command (expr typ func) :=
+    CFirst (reify_pair :: reify_fst :: reify_snd :: nil).
+
+End ReifyProd.
+
+Arguments reify_prod _ _ {_ _}.

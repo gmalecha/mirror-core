@@ -1,7 +1,10 @@
+Require Import Coq.Lists.List.
+
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
 
@@ -90,3 +93,19 @@ Section TSym_prod_type.
   }.
 
 End TSym_prod_type.
+
+Section ProdTypeReify.
+  Context {typ : Type} {FV : PartialView typ (prod_typ 2 * (typ * typ))}.
+  Context {t : Reify typ}.
+
+  Definition reify_tyProd : Command typ :=
+    CPattern (ls := typ::typ::nil) 
+             (RApp (RApp (RExact (@prod)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (fun (x y : function (CCall (reify_scheme typ))) => tyProd x y).
+
+    Definition reify_prod_typ : Command typ :=
+      CFirst (reify_tyProd :: nil).
+
+End ProdTypeReify.
+
+Arguments reify_prod_typ _ {_ _}.

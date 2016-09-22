@@ -1,8 +1,11 @@
+Require Import Coq.Lists.List.
+
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.TypeView.
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.POption.
@@ -118,77 +121,82 @@ Section TypeView_base_type.
   Definition tyString := f_insert tString.
   Definition tyProp := f_insert tProp.
 
-  Definition ptrn_tyNat : ptrn (base_typ 0) (base_typ 0) :=
+  Definition fptrn_tyNat : ptrn (base_typ 0) unit :=
     fun f U good bad =>
       match f with
-      | tNat => good f
+      | tNat => good tt
       | _ => bad f
       end.
 
-  Definition ptrn_tyBool : ptrn (base_typ 0) (base_typ 0) :=
+  Definition fptrn_tyBool : ptrn (base_typ 0) unit :=
     fun f U good bad =>
       match f with
-      | tBool => good f
+      | tBool => good tt
       | _ => bad f
       end.
 
-  Definition ptrn_tyString : ptrn (base_typ 0) (base_typ 0) :=
+  Definition fptrn_tyString : ptrn (base_typ 0) unit :=
     fun f U good bad =>
       match f with
-      | tString => good f
+      | tString => good tt
       | _ => bad f
       end.
 
-  Definition ptrn_tyProp : ptrn (base_typ 0) (base_typ 0) :=
+  Definition fptrn_tyProp : ptrn (base_typ 0) unit :=
     fun f U good bad =>
       match f with
-      | tProp => good f
+      | tProp => good tt
       | _ => bad f
       end.
 
-  Global Instance ptrn_tyNat_ok  : ptrn_ok ptrn_tyNat.
+  Global Instance fptrn_tyNat_ok  : ptrn_ok fptrn_tyNat.
   Proof.
     red; intros.
-    unfold ptrn_tyNat.
+    unfold fptrn_tyNat.
     destruct x; simpl.
-    { left. exists tNat. unfold Succeeds. reflexivity. }
+    { left. exists tt. unfold Succeeds. reflexivity. }
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
   Qed.
 
-  Global Instance ptrn_tyBool_ok  : ptrn_ok ptrn_tyBool.
+  Global Instance ptrn_tyBool_ok  : ptrn_ok fptrn_tyBool.
   Proof.
     red; intros.
-    unfold ptrn_tyBool.
+    unfold fptrn_tyBool.
     destruct x; simpl.
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
-    { left. exists tBool. unfold Succeeds. reflexivity. }
+    { left. exists tt. unfold Succeeds. reflexivity. }
     { right; unfold Fails; reflexivity. }
   Qed.
 
-  Global Instance ptrn_tyString_ok  : ptrn_ok ptrn_tyString.
+  Global Instance ptrn_tyString_ok  : ptrn_ok fptrn_tyString.
   Proof.
     red; intros.
-    unfold ptrn_tyString.
+    unfold fptrn_tyString.
     destruct x; simpl.
     { right; unfold Fails; reflexivity. }
-    { left. exists tString. unfold Succeeds. reflexivity. }
+    { left. exists tt. unfold Succeeds. reflexivity. }
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
   Qed.
 
-  Global Instance ptrn_tyProp_ok  : ptrn_ok ptrn_tyProp.
+  Global Instance ptrn_tyProp_ok  : ptrn_ok fptrn_tyProp.
   Proof.
     red; intros.
-    unfold ptrn_tyProp.
+    unfold fptrn_tyProp.
     destruct x; simpl.
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
     { right; unfold Fails; reflexivity. }
-    { left. exists tProp. unfold Succeeds. reflexivity. }
+    { left. exists tt. unfold Succeeds. reflexivity. }
   Qed.
+
+  Definition ptrn_tyNat : ptrn typ unit := ptrn_view FV fptrn_tyNat.
+  Definition ptrn_tyBool : ptrn typ unit := ptrn_view FV fptrn_tyBool.
+  Definition ptrn_tyString : ptrn typ unit := ptrn_view FV fptrn_tyString.
+  Definition ptrn_tyProp : ptrn typ unit := ptrn_view FV fptrn_tyProp.
 
 End TypeView_base_type.
 
@@ -220,3 +228,23 @@ Section TSym_base_type.
   }.
 
 End TSym_base_type.
+
+Section BaseTypeReify.
+  Context {typ : Type} {FV : PartialView typ (base_typ 0)}.
+
+  Definition reify_tyProp : Command typ :=
+    CPattern (ls := nil) (RExact Prop) tyProp.
+
+  Definition reify_tyNat : Command typ :=
+    CPattern (ls := nil) (RExact nat) tyNat.
+
+  Definition reify_tyBool : Command typ :=
+    CPattern (ls := nil) (RExact bool) tyBool.
+
+  Definition reify_tyString : Command typ :=
+    CPattern (ls := nil) (RExact string) tyString.
+
+    Definition reify_base_typ : Command typ :=
+      CFirst (reify_tyProp :: reify_tyNat :: reify_tyBool :: reify_tyString :: nil).
+
+End BaseTypeReify.

@@ -1,7 +1,11 @@
+Require Import Coq.Lists.List.
+
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Reify.ReifyClass.
+
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.PList.
 
@@ -88,3 +92,21 @@ Section TSym_list_type.
   }.
 
 End TSym_list_type.
+
+Section ListTypeReify.
+  Context {typ : Type} {FV : PartialView typ (list_typ 1 * typ)}.
+  Context {t : Reify typ}.
+
+  Definition reify_tyList : Command typ :=
+    CPattern (ls := typ::nil) 
+             (RApp (RExact (@list)) (RGet 0 RIgnore))
+             (fun (x : function (CCall (reify_scheme typ))) => tyList x).
+
+    Definition reify_list_typ : Command typ :=
+      CFirst (reify_tyList :: nil).
+
+End ListTypeReify.
+
+Arguments reify_list_typ _ {_ _}.
+
+

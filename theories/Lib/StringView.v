@@ -129,3 +129,18 @@ Section PtrnString.
     inj (ptrn_view _ (fptrnString p)).
 
 End PtrnString.
+
+Require Import MirrorCore.Reify.ReifyClass.
+
+Section ReifyString.
+  Context {typ func : Type} {FV : PartialView func stringFunc}.
+
+  Definition reify_cstring : Command (expr typ func) :=
+    CPattern (ls := (string:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fString x)).
+
+  Definition reify_string : Command (expr typ func) :=
+    CFirst (reify_cstring :: nil).
+
+End ReifyString.
+
+Arguments reify_string _ _ {_}.

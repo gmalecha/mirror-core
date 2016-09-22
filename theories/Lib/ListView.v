@@ -7,6 +7,7 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
+Require Import MirrorCore.Reify.ReifyClass.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -202,3 +203,26 @@ Section PtrnList.
       do_default.
 
 End PtrnList.
+
+Section ReifyList.
+
+  Context {typ func : Type} {FV : PartialView func (list_func typ)}.
+  Context {t : Reify typ}.
+
+  Definition reify_nil : Command (expr typ func) :=
+    CPattern (ls := typ::nil) 
+             (RApp (RExact (@nil)) (RGet 0 RIgnore))
+             (fun (x : function (CCall (reify_scheme typ))) => mkNil x).
+
+  Definition reify_cons : Command (expr typ func) :=
+    CPattern (ls := typ::nil) 
+             (RApp (RExact (@cons)) (RGet 0 RIgnore))
+             (fun (x : function (CCall (reify_scheme typ))) => Inj (fCons x)).
+
+  Definition reify_list : Command (expr typ func) :=
+    CFirst (reify_nil :: reify_cons :: nil).
+
+End ReifyList.
+
+Arguments reify_list _ _ {_ _}.
+
