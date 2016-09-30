@@ -1,3 +1,5 @@
+-Q ../coq-ext-lib/theories ExtLib
+
 -Q theories MirrorCore
 -Q examples McExamples
 
@@ -185,3 +187,6 @@ examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v
 examples/PolyRewrite/PolyQuantPullRtac.v
 examples/PolyRewrite/DemoPolyQuantPullRtac.v
+
+examples/PolyApply/MSimpleType.v
+examples/PolyApply/MSimpleFunc.v
