@@ -55,6 +55,7 @@ theories/Util/Nat.v
 theories/Util/HListBuild.v
 theories/Util/Compat.v
 theories/Util/SemiDec.v
+theories/Util/PositivePolyMap.v
 
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
