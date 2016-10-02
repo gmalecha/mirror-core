@@ -248,3 +248,5 @@ Section BaseTypeReify.
       CFirst (reify_tyProp :: reify_tyNat :: reify_tyBool :: reify_tyString :: nil).
 
 End BaseTypeReify.
+
+Arguments reify_base_typ _ {_}.

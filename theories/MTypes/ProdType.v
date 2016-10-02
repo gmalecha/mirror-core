@@ -96,16 +96,17 @@ End TSym_prod_type.
 
 Section ProdTypeReify.
   Context {typ : Type} {FV : PartialView typ (prod_typ 2 * (typ * typ))}.
-  Context {t : Reify typ}.
 
-  Definition reify_tyProd : Command typ :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@prod)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => tyProd x y).
+  Definition reify_tyProd : Command typ := 
+    CApp (CApp (CPattern (ls := nil) (RExact (@prod)) tyProd) 
+               (CRec 0) 
+               (fun _ x => tyProd x))
+         (CRec 0) 
+         (fun f y => f y).
 
     Definition reify_prod_typ : Command typ :=
       CFirst (reify_tyProd :: nil).
 
 End ProdTypeReify.
 
-Arguments reify_prod_typ _ {_ _}.
+Arguments reify_prod_typ _ {_}.

@@ -95,18 +95,15 @@ End TSym_list_type.
 
 Section ListTypeReify.
   Context {typ : Type} {FV : PartialView typ (list_typ 1 * typ)}.
-  Context {t : Reify typ}.
 
-  Definition reify_tyList : Command typ :=
-    CPattern (ls := typ::nil) 
-             (RApp (RExact (@list)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => tyList x).
+  Definition reify_tyList : Command typ := 
+    CApp (CPattern (ls := nil) (RExact (@list)) tyList) (CRec 0) (fun f x => tyList x).
 
-    Definition reify_list_typ : Command typ :=
-      CFirst (reify_tyList :: nil).
+  Definition reify_list_typ : Command typ :=
+    CFirst (reify_tyList :: nil).
 
 End ListTypeReify.
 
-Arguments reify_list_typ _ {_ _}.
+Arguments reify_list_typ _ {_}.
 
 
