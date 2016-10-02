@@ -535,7 +535,7 @@ Ltac reduce_propD g e :=
                typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
                RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
                typD mtypD symbolD
-               (* I added these next 2 lines to the whitelist --Mario *)
+               (* I added everything after this point to the whitelist --Mario *)
                RType_typ_opt RType_mtyp Expr_expr TSym_typ'_opt RSym_func_opt
                RelDec_eq_func_opt RelDec_eq_func RType_typ (*RTypeOk_typ*)
                RelDec_eq_typ exprT_GetVAs
