@@ -37,6 +37,7 @@ theories/Lib/TypeVar.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
+theories/MTypes/ModularTypes2.v
 theories/MTypes/ModularTypes.v
 theories/MTypes/GenericTypes.v
 theories/MTypes/TSyms.v
@@ -45,6 +46,9 @@ theories/MTypes/ProdType.v
 theories/MTypes/ListType.v
 theories/MTypes/BaseType.v
 theories/MTypes/MTypeUnify.v
+
+theories/MTypes/ModularTypes2.v
+theories/MTypes/MTypeUnify2.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v
