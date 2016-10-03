@@ -3,7 +3,7 @@ Require Import MirrorCore.Util.PositivePolyMap.
 
 Section parametric.
   Variable tsym : nat -> Type.
-  Variable TSym_tsym : TSym tsym.
+(*  Variable TSym_tsym : TSym tsym. *)
 
   Let Sub := pmap { n : nat & mtyp tsym n}.
   Definition add : forall n, positive -> mtyp tsym n -> Sub -> option Sub.
@@ -45,10 +45,7 @@ Section parametric.
      | @tyInj _ n sy => fun b =>
        match b in mtyp _ n' return tsym n' -> option Sub with
        | tyInj _ sy' => fun sy =>
-         match symbol_dec sy sy' with
-         | left _ => Some s
-         | _ => None
-         end
+         Some s
        | _ => fun _ => None
        end sy
      | tyProp => fun b =>

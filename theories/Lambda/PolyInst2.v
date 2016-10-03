@@ -1,6 +1,7 @@
 Require Import ExtLib.Core.RelDec.
-Require Import ExtLib.Data.Map.FMapPositive.
+Require Import ExtLib.Data.POption.
 Require Import ExtLib.Data.HList.
+Require Import MirrorCore.Util.PositivePolyMap.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.View.
@@ -57,9 +58,9 @@ Section poly.
     match n as n return (hlist typ n -> T) -> T -> pmap { n : nat & typ n } -> T with
     | nil => fun ok _ _ => ok Hnil
     | n :: ns => fun ok bad m =>
-               match pmap_lookup p m with
-               | None => bad
-               | Some (existT _ n' z) =>
+               match pmap_lookup m p with
+               | pNone => bad
+               | pSome (existT _ n' z) =>
                  match NPeano.Nat.eq_dec n' n with
                  | right _ => bad
                  | left pf =>

@@ -3,7 +3,6 @@ Require Import ExtLib.Data.Map.FMapPositive.
 
 Section parametric.
   Variable tsym : nat -> Type.
-  Variable TSym_tsym : TSym tsym.
 
   Let S := FMapPositive.pmap (mtyp tsym).
   Let add : positive -> mtyp tsym -> S -> option S := (fun a b c => Some (FMapPositive.pmap_insert a b c)).
