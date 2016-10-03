@@ -15,6 +15,7 @@ Require Import MirrorCore.MTypes.TSymOneOf.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.MTypes.ListType.
 Require Import MirrorCore.MTypes.BaseType.
+Require Import MirrorCore.MTypes.ProdType.
 Require Import MirrorCore.Views.ViewSumN.
 Require Import MirrorCore.Reify.ReifyClass.
 Require Import MirrorCore.Reify.ReifyView.
@@ -28,7 +29,8 @@ Definition typ_map :=
   list_to_pmap
     (pcons base_typ
            (pcons list_typ
-                  pnil)).
+                  (pcons prod_typ
+                         pnil))).
 
 Definition typ' := OneOfF typ_map.
 
@@ -54,6 +56,10 @@ Proof.
   destruct b as [a2 v2].
   unfold typ_map, list_to_pmap, type_nth in *; simpl in *.
   pmap_lookup'_simpl; try eq_dec_right.  
+  pose proof (prod_typ_dec v1 v2).
+  destruct H; [left; subst; reflexivity|].
+  right; intros H; apply n0; inv_all; subst.
+  assert (x = eq_refl) by (apply UIP_refl); subst. reflexivity.
   pose proof (list_typ_dec v1 v2).
   destruct H; [left; subst; reflexivity|].
   right; intros H; apply n0; inv_all; subst.
@@ -70,6 +76,7 @@ Proof.
   destruct t as [p v].
   unfold type_nth in v.
   pmap_lookup'_simpl.
+  apply prod_typD; assumption.
   apply list_typD; assumption.
   apply base_typD; assumption.
 Defined.
@@ -80,13 +87,22 @@ Global Instance TypeView_list_typ' : PartialView (typ' 1) (list_typ 1) :=
 Global Instance TypeView_base_typ' : PartialView (typ' 0) (base_typ 0) :=
   PartialViewPMap_Type 1 typ_map eq_refl 0.
   
-Instance TypeView_list_typ : PartialView typ (list_typ 1 * typ).
+Global Instance TypeView_prod_typ' : PartialView (typ' 2) (prod_typ 2) :=
+  PartialViewPMap_Type 3 typ_map eq_refl 2.
+  
+Global Instance TypeView_list_typ : PartialView typ (list_typ 1 * typ).
 eapply PartialView_trans. 
 apply TypeView_sym1.
 eapply (@PartialView_prod _ _ _ _ _ PartialView_id). 
 Defined.
 
-Instance TypeView_base_typ : PartialView typ (base_typ 0).
+Global Instance TypeView_prod_typ : PartialView typ (prod_typ 2 * (typ * typ)).
+eapply PartialView_trans.
+apply TypeView_sym2.
+eapply (@PartialView_prod _ _ _ _ _ PartialView_id). 
+Defined.
+
+Global Instance TypeView_base_typ : PartialView typ (base_typ 0).
 eapply PartialView_trans. 
 eapply TypeView_sym0.
 apply TypeView_base_typ'.
@@ -115,6 +131,9 @@ Defined.
 Global Instance Typ2_tyArr : Typ2 RType_typ Fun := Typ2_Fun.
 Global Instance Typ2Ok_tyArr : Typ2Ok Typ2_tyArr := Typ2Ok_Fun.
 
+Global Instance Typ2_tyProd : Typ2 RType_typ prod := Typ2_sym (f_insert tProd).
+Global Instance Typ2Ok_tyProd : Typ2Ok Typ2_tyProd := Typ2Ok_sym (f_insert tProd).
+
 Global Instance Typ0_tyProp : Typ0 RType_typ Prop := Typ0_sym tyProp.
 Global Instance Typ0Ok_tyProp : Typ0Ok Typ0_tyProp := Typ0Ok_sym tyProp.
 
@@ -134,7 +153,8 @@ Section ReifyType.
 
 Global Instance Reify_typ : Reify typ := 
   Reify_typ typ (reify_base_typ typ ::
-                 reify_list_typ typ :: nil).
+                 reify_list_typ typ :: 
+                 reify_prod_typ typ :: nil).
 
 End ReifyType.
 

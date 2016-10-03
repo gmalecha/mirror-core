@@ -3,6 +3,7 @@ Require Import ExtLib.Data.PList.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Simple.
 Require Import MirrorCore.Lib.ListView.
+Require Import MirrorCore.Lib.ListOpView.
 Require Import MirrorCore.Lib.NatView.
 Require Import MirrorCore.Views.ViewSumN.
 Require Import MirrorCore.syms.SymOneOf.
@@ -19,18 +20,22 @@ Import OneOfType.
 Definition func_map : 
   OneOfType.pmap :=
   list_to_pmap
-    (pcons SymEnv.func
-           (pcons (natFunc:Type)
-                  (pcons (list_func typ) pnil))).
+    (pcons (listOp_func typ)
+           (pcons (list_func typ) 
+                  (pcons SymEnv.func
+                         (pcons (natFunc:Type)
+                                pnil)))).
 
-Definition func := OneOfType.OneOf func_map.
+Definition func := OneOf func_map.
 
 Global Instance TableView_func : PartialView func SymEnv.func :=
-  PartialViewPMap 1 func_map eq_refl.
-Global Instance NatView_func : PartialView func natFunc :=
-  PartialViewPMap 2 func_map eq_refl.
-Global Instance ListView_func : PartialView func (list_func typ) :=
   PartialViewPMap 3 func_map eq_refl.
+Global Instance NatView_func : PartialView func natFunc :=
+  PartialViewPMap 4 func_map eq_refl.
+Global Instance ListView_func : PartialView func (list_func typ) :=
+  PartialViewPMap 2 func_map eq_refl.
+Global Instance ListOpView_func : PartialView func (listOp_func typ) :=
+  PartialViewPMap 1 func_map eq_refl.
 
 Class Environment := { simple_env :> @SymEnv.functions typ _}.
 
@@ -47,9 +52,10 @@ Section SimpleFunc.
                   eapply RSym_All_Branch_Some |
                   eapply RSym_All_Empty].
     
-    apply RSym_func; apply fs.
-    apply RSym_NatFunc.
+    apply RSym_ListOpFunc.
     apply RSym_ListFunc.
+    apply RSym_NatFunc.
+    apply RSym_func; apply fs.
   Defined.
 
   Global Instance RSymOk_func : RSymOk RSym_func.
@@ -88,7 +94,7 @@ End SimpleFunc.
 Section ReifyFunc.
 
   Global Instance Reify_func : Reify (expr typ func) :=
-    Reify_func typ func (reify_nat typ func :: reify_list typ func :: nil).
+    Reify_func typ func (reify_nat typ func :: reify_list typ func :: reify_listOp typ func :: nil).
 
 End ReifyFunc.
 
@@ -104,12 +110,32 @@ Ltac reify trm :=
   let t := fresh "t" in
   let k e := pose e as t
   in
-  reify_expr patterns_simple_typ k [[ True ]] [[ trm ]]; cbv beta iota in t.
+  reify_expr patterns_simple_expr k [[ True ]] [[ trm ]]; cbv beta iota in t.
 
 Goal True.
-  reify nat.
-  reify (list nat).
-  reify (list (list nat)).
+  reify (In 5 (5::4::3::nil)).
   
   apply I.
 Qed.
+(*
+SearchAbout In.
+Require Import MirrorCore.Lemma.
+Require Import MirrorCore.Polymorphic.
+
+Instance Reify_lemma : Reify (lemma typ (expr typ func) (expr typ func)).
+Check @Reify_rlemma typ (expr typ func).
+Admitted.
+
+Definition lem_in_eq : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)) :=
+Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises in
+  <:: @in_eq ::>.
+
+SearchAbout Reify Lemma.lemma.
+
+
+
+
+unfold Lemma.mkLemma.
+ :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+*)

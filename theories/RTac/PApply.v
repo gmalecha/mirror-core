@@ -65,22 +65,24 @@ Check @get_inst.
 
   Local Definition get_lemma {n : nat}
         (plem : polymorphic typ n (Lemma.lemma typ (expr typ func) (expr typ func)))
-        (tc : polymorphic typ n bool)
+(*        (tc : polymorphic typ n bool)*)
         (e : expr typ func)
   : option (lemma typ (expr typ func) (expr typ func)) :=
     match
       get_inst tyVar view_update (fmap (fun x => x.(concl)) plem) e
     with
     | None => None
-    | Some args =>
-      if (inst tc args)
+    | Some args => Some (inst plem args)
+(*      if (inst tc args)
       then Some (inst plem args)
-      else None
+      else None*)
     end.
 
-  Definition PAPPLY plem : rtac typ (expr typ func) :=
+  Definition PAPPLY {n : nat} 
+             (plem : polymorphic typ n (Lemma.lemma typ (expr typ func) (expr typ func))) : 
+    rtac typ (expr typ func) :=
     AT_GOAL (fun _ c gl =>
-               match get_lemma (n := 0) plem true gl with
+               match get_lemma plem gl with
                | None => FAIL
                | Some lem => APPLY exprUnify lem
                end).
@@ -97,4 +99,4 @@ End parameterized.
 
 Hint Opaque PAPPLY : typeclass_instances.
 
-Arguments PAPPLY {typ expr _ _ _ _} unify lem _ _ _ : rename.
+Arguments PAPPLY {typ expr _ _ _ _} unify {_} lem _ _ _ : rename.

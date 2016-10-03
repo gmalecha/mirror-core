@@ -49,10 +49,11 @@ Section ReifyFunc.
   Polymorphic Definition reify_func (rf : list (Command (expr typ func))) : Command (expr typ func) :=
   @Patterns.CFix (expr typ func)
     (@Patterns.CFirst_ _
+        (rf ++
        ((Patterns.CVar (@ExprCore.Var typ func)) ::
         (Patterns.CApp (Patterns.CRec 0) (Patterns.CRec 0) (@ExprCore.App typ func)) ::
 	(Patterns.CAbs (CCall (reify_scheme typ)) (CRec 0) (@ExprCore.Abs typ func)) ::
-	(Patterns.CMap Ext (Patterns.CTypedTable (reify_scheme typ) term_table) :: rf))).
+	(Patterns.CMap Ext (Patterns.CTypedTable (reify_scheme typ) term_table))::nil))).
 
   Polymorphic Instance Reify_func (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
     reify_scheme := reify_func rf

@@ -136,6 +136,7 @@ theories/RTac/Ctx.v
 theories/RTac/Core.v
 theories/RTac/CoreK.v
 theories/RTac/IsSolved.v
+theories/RTac/PApply.v
 theories/RTac/SpecLemmas.v
 theories/RTac/RunOnGoals.v
 theories/RTac/RunOnGoals_list.v
@@ -202,6 +203,7 @@ examples/PolyRewrite/DemoPolyQuantPullRtac.v
 
 examples/PolyApply/MSimpleType.v
 examples/PolyApply/MSimpleFunc.v
+examples/PolyApply/DemoPolyApply.v
 
 examples/PolyRewrite/Monads.v
 examples/PolyRewrite/MSimpleMonads.v
