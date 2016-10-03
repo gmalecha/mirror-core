@@ -427,8 +427,7 @@ Section parametric.
          split; intros; congruence.
   Defined.
 
-
-
+  (** TODO(gmalecha): This is generic *)
   Section Pwf.
     Variable T : Type.
     Variable F : T -> Type.
@@ -465,7 +464,27 @@ Section parametric.
       eauto.
     Defined.
 
+    Inductive PleftTrans : forall a b, F a -> F b -> Prop :=
+    | Pstep : forall a b (x : F a) (y : F b), R _ _ x y -> PleftTrans _ _ x y
+    | Ptrans : forall a b c (x : F a) (y : F b) (z : F c),
+        R _ _ x y -> PleftTrans _ _ y z -> PleftTrans _ _ x z.
+
   End Pwf.
+
+  Theorem Pwell_founded_PleftTrans : forall {T} {F : T -> Type} (R : forall a b : T, F a -> F b -> Prop),
+      Pwell_founded _ _ R -> Pwell_founded _ _ (PleftTrans _ _ R).
+  Proof.
+    clear.
+    do 3 intro.
+    refine (fun f => @PFix _ _ _ _ f _).
+    clear.
+    intros; constructor; intros.
+    revert H.
+    induction H0.
+    { eauto. }
+    { intros. eapply IHPleftTrans; [ eapply H1 | eapply Pstep; auto ]. }
+  Qed.
+
 
   Inductive mtyp_acc : forall a b (x : mtyp a) (y : mtyp b), Prop :=
   | tyAcc_tyArrL   : forall x y, mtyp_acc _ _ x (tyArr x y)
@@ -508,7 +527,7 @@ Section parametric.
   Instance RType_mtyp : RType (mtyp 0) :=
   { typD := mtypD
   ; type_cast := mtyp_cast
-  ; tyAcc := mtyp_acc 0 0 }.
+  ; tyAcc := (PleftTrans _ _ (@mtyp_acc)) 0 0 }.
 
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.
@@ -559,7 +578,8 @@ Section parametric.
   Proof.
     constructor.
     - reflexivity.
-    - simpl. eapply Pwell_founded_well_founded. eapply Pwf_mtyp_acc.
+    - simpl. eapply Pwell_founded_well_founded.
+      eapply Pwell_founded_PleftTrans. eapply Pwf_mtyp_acc.
     - destruct pf; reflexivity.
     - destruct pf1; destruct pf2; reflexivity.
     - apply mtyp_cast_refl.
@@ -602,6 +622,47 @@ Section parametric.
       end; destruct n; try solve [ exact idProp ]; eauto.
     Defined.
   End elim_mtyp0.
+
+  Section elim_mtyp1.
+    Variable P : mtyp 1 -> Type.
+    Variables (Happ : forall (a : mtyp 2) b, P (tyApp a b))
+              (Hinj : forall s : symbol 1, P (tyInj 1 s))
+              (Hvar : forall p, P (tyVar 1 p)).
+    Definition elim_mtyp1 (m : mtyp 1) : P m.
+    refine
+      match m as m in mtyp 1 return P m with
+      | tyArr a b => idProp
+      | @tyApp n a b => _
+      | tyProp => idProp
+      | @tyInj n s => _
+      | @tyVar n p => _
+      end; destruct n; try apply idProp; destruct n; try apply idProp.
+    { apply Happ. }
+    { apply Hinj. }
+    { apply Hvar. }
+    Defined.
+  End elim_mtyp1.
+
+  Section elim_mtyp2.
+    Variable P : mtyp 2 -> Type.
+    Variables (Happ : forall (a : mtyp 3) b, P (tyApp a b))
+              (Hinj : forall s : symbol 2, P (tyInj 2 s))
+              (Hvar : forall p, P (tyVar 2 p)).
+    Definition elim_mtyp2 (m : mtyp 2) : P m.
+    refine
+      match m as m in mtyp 2 return P m with
+      | tyArr a b => idProp
+      | @tyApp n a b => _
+      | tyProp => idProp
+      | @tyInj n s => _
+      | @tyVar n p => _
+      end; repeat (destruct n; try apply idProp).
+    { apply Happ. }
+    { apply Hinj. }
+    { apply Hvar. }
+    Defined.
+  End elim_mtyp2.
+
 
   Global Instance Typ0Ok_Prop : Typ0Ok Typ0_Prop.
   Proof using.
@@ -650,17 +711,38 @@ Section parametric.
     { destruct pf. reflexivity. }
   Qed.
 
-(*
   Instance Typ1_sym (s : symbol 1) : Typ1 _ (symbolD s) :=
   { typ1 := tyApp (@tyInj 1 s)
   ; typ1_cast := fun _ => eq_refl
-  ; typ1_match := fun T (t : mtyp) tr =>
-      match t as t return T (mtypD t) -> T (mtypD t) with
-      | tyInj1 s' m =>
-        match symbol_dec s s' with
-        | left pf => fun _ => match pf with
-                              | eq_refl => tr m
-                              end
+  ; typ1_match := fun T (t : mtyp 0) tr =>
+      match t as t in mtyp n'
+            return match n' as n' return mtyp n' -> Type with
+                   | 0 => fun t => T (mtypD t)
+                   | _ => fun _ => unit
+                   end t ->
+                   match n' as n' return mtyp n' -> Type with
+                   | 0 => fun t => T (mtypD t)
+                   | _ => fun _ => unit
+                   end t
+      with
+      | @tyApp 0 f x =>
+        match f as f in mtyp n'
+              return match n' as n' return mtyp n' -> Type with
+                     | 1 => fun f => T (mtypD (tyApp f x))
+                     | _ => fun _ => unit
+                     end f ->
+                     match n' as n' return mtyp n' -> Type with
+                     | 1 => fun f => T (mtypD (tyApp f x))
+                     | _ => fun _ => unit
+                     end f
+        with
+        | tyInj 1 s' =>
+          match symbol_dec s s' with
+          | left pf => fun _ => match pf with
+                            | eq_refl => tr x
+                            end
+          | right _ => fun fa => fa
+          end
         | _ => fun fa => fa
         end
       | _ => fun fa => fa
@@ -671,24 +753,60 @@ Section parametric.
     constructor.
     { simpl. intros.
       rewrite dec_refl. reflexivity. }
-    { intros. constructor. }
+    { intros. simpl. eapply Pstep. constructor. }
     { compute. inversion 1. reflexivity. }
-    { destruct x; try solve [ right ; eauto ].
-      simpl. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+    { refine (@elim_mtyp0 _ _ _ _ _ _); try solve [ right ; reflexivity ].
+      refine (@elim_mtyp1 _ _ _ _); try solve [ right; reflexivity ].
+      simpl. intros. destruct (symbol_dec s s0); try solve [ right ; reflexivity ].
       subst. left. eexists. exists eq_refl. reflexivity. }
     { destruct pf. reflexivity. }
   Qed.
 
   Instance Typ2_sym (s : symbol 2) : Typ2 _ (symbolD s) :=
-  { typ2 := tyInj2 s
+  { typ2 := fun x y => tyApp (tyApp (tyInj _ s) x) y
   ; typ2_cast := fun _ _ => eq_refl
-  ; typ2_match := fun T (t : mtyp) tr =>
-      match t as t return T (mtypD t) -> T (mtypD t) with
-      | tyInj2 s' m m' =>
-        match symbol_dec s s' with
-        | left pf => fun _ => match pf with
-                              | eq_refl => tr m m'
+  ; typ2_match := fun T (t : mtyp 0) tr =>
+     match t as t in mtyp n'
+            return match n' as n' return mtyp n' -> Type with
+                   | 0 => fun t => T (mtypD t)
+                   | _ => fun _ => unit
+                   end t ->
+                   match n' as n' return mtyp n' -> Type with
+                   | 0 => fun t => T (mtypD t)
+                   | _ => fun _ => unit
+                   end t
+      with
+      | @tyApp 0 f x =>
+        match f as f in mtyp n'
+              return match n' as n' return mtyp n' -> Type with
+                     | 1 => fun f => T (mtypD (tyApp f x))
+                     | _ => fun _ => unit
+                     end f ->
+                     match n' as n' return mtyp n' -> Type with
+                     | 1 => fun f => T (mtypD (tyApp f x))
+                     | _ => fun _ => unit
+                     end f
+        with
+        | @tyApp 1 f y =>
+          match f as f in mtyp n'
+                return match n' as n' return mtyp n' -> Type with
+                       | 2 => fun f => T (mtypD (tyApp (tyApp f y) x))
+                       | _ => fun _ => unit
+                       end f ->
+                       match n' as n' return mtyp n' -> Type with
+                       | 2 => fun f => T (mtypD (tyApp (tyApp f y) x))
+                       | _ => fun _ => unit
+                       end f
+          with
+          | @tyInj 2 s' =>
+            match symbol_dec s s' with
+            | left pf => fun _ => match pf with
+                              | eq_refl => tr y x
                               end
+            | right _ => fun fa => fa
+            end
+          | _ => fun fa => fa
+          end
         | _ => fun fa => fa
         end
       | _ => fun fa => fa
@@ -699,15 +817,17 @@ Section parametric.
     constructor.
     { simpl. intros.
       rewrite dec_refl. reflexivity. }
-    { constructor. }
-    { constructor. }
+    { intros. simpl. eapply Ptrans; [ | eapply Pstep; econstructor ].
+      econstructor. }
+    { constructor. constructor. }
     { compute. inversion 1. tauto. }
-    { destruct x; try solve [ right ; eauto ].
-      simpl. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+    { refine (@elim_mtyp0 _ _ _ _ _ _); try solve [ right; reflexivity ].
+      refine (@elim_mtyp1 _ _ _ _); try solve [ right; reflexivity ].
+      refine (@elim_mtyp2 _ _ _ _); try solve [ right; reflexivity ].
+      simpl. intros. destruct (symbol_dec s s0); try solve [ right ; eauto ].
       subst. left. do 2 eexists. exists eq_refl. reflexivity. }
     { destruct pf. reflexivity. }
   Qed.
-*)
 
   Instance Typ2_Fun : Typ2 _ RFun :=
   { typ2 := tyArr
@@ -731,8 +851,8 @@ Section parametric.
   Proof using.
     constructor.
     { reflexivity. }
-    { constructor. }
-    { constructor. }
+    { constructor. constructor. }
+    { constructor. constructor. }
     { inversion 1. split; reflexivity. }
     { refine (@elim_mtyp0 _ _ _ _ _ _); try solve [ right ; eauto ].
       simpl. left; do 2 eexists; exists eq_refl; reflexivity. }
