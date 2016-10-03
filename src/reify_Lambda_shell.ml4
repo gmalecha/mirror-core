@@ -37,21 +37,13 @@ sig
     (Term.constr * Term.constr) list -> Term.constr list * all_tables
   val export_table : Term.constr list -> map_type -> all_tables -> Term.constr
 
-(**
-  val reify_lemma : type_fn:Term.constr -> prem_fn:Term.constr -> concl_fn:Term.constr ->
-    Environ.env -> Evd.evar_map -> int -> Term.types -> Term.constr
-  val declare_syntax_lemma :
-    name:Names.identifier ->
-    type_fn:Term.constr -> prem_fn:Term.constr -> concl_fn:Term.constr ->
-    Environ.env -> Evd.evar_map -> int -> Term.constr -> unit
- **)
-
   val pose_each : (string * Term.constr) list -> (Term.constr list -> unit Proofview.tactic) -> unit Proofview.tactic
 
   val ic : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr -> Evd.evar_map * Term.constr
   val ics : ?env:Environ.env -> ?sigma:Evd.evar_map -> Constrexpr.constr_expr list -> Evd.evar_map * Term.constr list
 
   val check_inside_section : string -> unit
+  val error_parse : Term.constr -> string -> 'a
 end
 
 module Reification : REIFICATION =
@@ -1327,13 +1319,27 @@ struct
                                            ++ str the_msg ++ spc ()
                                            ++ str "in a section.")
     else ()
+
+  let error_parse trm typ =
+    Errors.errorlabstrm contrib_name
+      Pp.(   str "Failed to parse "
+          ++ str typ
+          ++ str " from '"
+          ++ Printer.pr_constr trm
+          ++ str "'.")
+
 end
 
 VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->
-    [ let (evm,cmd) = Reification.ic cmd in
+    [ Reification.check_inside_section "declare patterns" ;
+      let (evm,cmd) = Reification.ic cmd in
       let env = snd (Lemmas.get_current_context ()) in
-      Reification.declare_syntax name env evm cmd ]
+      try
+        Reification.declare_syntax name env evm cmd
+      with
+        ParseFailure (trm, typ) -> Reification.error_parse trm typ
+    ]
 END
 
 (** Patterns **)
@@ -1341,7 +1347,10 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
   | [ "Reify" "Declare" "Patterns" ident(name) ":" lconstr(value) ] ->
     [ Reification.check_inside_section "declare patterns" ;
       let (evd,value) = Reification.ic value in
-      Reification.declare_pattern name evd value
+      try
+        Reification.declare_pattern name evd value
+      with
+        ParseFailure (trm, typ) -> Reification.error_parse trm typ
     ]
 END
 
@@ -1354,6 +1363,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
 	Reification.add_pattern rule pattern template evm
       with
 	Failure msg -> Errors.errorlabstrm "Reify" (Pp.str msg)
+      | ParseFailure (trm, typ) -> Reification.error_parse trm typ
     ]
 END
 
