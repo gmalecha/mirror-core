@@ -277,7 +277,7 @@ Section ReifyNat.
   Polymorphic Context {typ : Type@{U}} {func : Type@{V}} {FV : PartialView func natFunc}.
 
   Polymorphic Definition reify_cnat : Command (expr typ func) :=
-    CPattern (ls := (nat:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fNat x)).
+    CPattern (ls := (nat:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun (x : id nat) => Inj (fNat x)).
 
   Polymorphic Definition reify_plus : Command (expr typ func) :=
     CPattern (ls := nil) (RExact plus) (Inj fPlus).

@@ -96,11 +96,8 @@ Definition rt := reify_scheme typ.
 Definition re := reify_scheme (expr typ func).
 
 Reify Declare Syntax patterns_simple_typ := rt.
-(*
-Gregory, the next line does not work.
-
 Reify Declare Syntax patterns_simple_expr := re.
-*)
+
 
 
 Ltac reify trm :=
