@@ -168,8 +168,44 @@ Arguments Typ0_Prop {_ _}.
       in
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
+  
+  Definition goal2_D'' n : Prop :=
+  let thirdn := Nat.div n 3 in
+  goal2_D' thirdn (2 * thirdn) n 0.
 
-Goal goal2_D' 2 4 5 0.
+Set Printing Depth 5. (* To avoid printing large terms *)
+
+Ltac the_tac := run_tactic reify_simple rewrite_it rewrite_it_sound.
+
+Goal goal2_D'' 14.
+  vm_compute. Time the_tac.
+
+(* Data: keeping track of values for runs for different n
+   we report time-out if any runs time out
+
+   we report (total, reification) times as pairs
+
+   TODO: we should also report QED times
+
+   we need at least 3-14
+   3: .034, .032, .032, .032, .032 (reif 0 for all)
+   4: .042, .043, .043, .043, .043 (reif 0 for all)
+   5: (.062, 0), (.069, .004), (.062, 0), (.062, 0), (.063, 0)
+   6: (.111, .004), (.115, .004), (.113, 0), (.113, 0), (.115, 0)
+   7: ?
+   8: (.371, .004), (.372, .004), (.372, .004), (.372, .004), (.373, .008)
+   9: ?
+   10: (1.602, .016), (1.749, .012), (1.651, .016), (1.633, .016), (1.65, .016)
+   12: (7.123, .06), (7.08, .052), (7.02, .056), (6.977, .056), (6.98, .056)
+   13: ?
+   14: (28.662, .276), (30.69, .264), (28.595, .272), (,), (,)
+   16: 
+*)
+
+
+(* original goal *)
+  Goal goal2_D' 2 4 (* n = *) 5 0.
+    Print goal2_D'.
   simpl.
 (*
   Check ex.
