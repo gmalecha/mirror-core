@@ -49,6 +49,7 @@ theories/MTypes/MTypeUnify2.v
 theories/Polymorphic2.v
 theories/Lambda/PolyInst2.v
 theories/Lambda/Rewrite/HintDbs2.v
+theories/Lambda/Rewrite/Respectful2.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v

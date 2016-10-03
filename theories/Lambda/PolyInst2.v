@@ -18,7 +18,7 @@ Section poly.
 
   Variable mkVar : forall n, positive -> typ n.
 
-  Variable typ_unify : forall n, typ n -> typ n -> pmap { n : nat & typ n }
+  Variable typ_unify : typ 0 -> typ 0 -> pmap { n : nat & typ n }
                             -> option (pmap { n : nat & typ n }).
 
   (** NOTE: This function does not need to be complete

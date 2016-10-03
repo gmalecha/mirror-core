@@ -140,7 +140,7 @@ Section setoid.
   Qed.
 
   Local Definition view_update :=
-    (@mtype_unify tsym).
+    (@mtype_unify tsym 0).
 
   Local Definition get_lemma {n : list nat}
         (plem : polymorphic typ n (rw_lemma (typ 0) func Rbase))
