@@ -14,6 +14,7 @@ Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
 Require Import MirrorCore.MTypes.ModularTypes2.
+Require Import MirrorCore.MTypes.MTypeUnify2.
 Require Import MirrorCore.Polymorphic2.
 Require Import MirrorCore.Lambda.PolyInst2.
 
@@ -332,19 +333,13 @@ Section setoid.
     red. intros. inversion H.
   Qed.
 
-  Section for_polymorphism.
-
-  Variable unify_function : typ 0 -> typ 0
-                            -> pmap {n : nat & typ n} -> option (pmap { n : nat & typ n}).
-  Variable mkVar : forall n, BinNums.positive -> typ n.
-
   Local Definition get_Proper {n : list nat}
              (p : polymorphic typ n Proper_concl)
              (tc : polymorphic typ n bool)
              (e : expr (typ 0) func)
   : option Proper_concl :=
     let p' := Functor.fmap term p in
-    match @get_inst _ _ _ _ mkVar unify_function n p' e with
+    match @get_inst _ _ _ _ tyVar (@mtype_unify tsym 0) n p' e with
     | Some args =>
       if inst tc args
       then Some (inst p args)
@@ -423,11 +418,9 @@ Section setoid.
     { simpl. eapply or_respectful_sound; eauto using do_one_prespectful_sound. }
   Qed.
 
-  End for_polymorphism.
-
   (** This is the non-polymorphic entry point *)
   Definition do_respectful : ProperDb -> ResolveProper (typ 0) func Rbase :=
-    do_prespectful (fun _ _ => Some) tyVar.
+    do_prespectful.
 
   Theorem do_respectful_sound
   : forall propers,
