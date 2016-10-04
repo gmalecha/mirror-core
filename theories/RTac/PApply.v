@@ -6,6 +6,7 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.ExprDAs.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lemma.
+Require Import MirrorCore.PLemma.
 Require Import MirrorCore.LemmaApply.
 Require Import MirrorCore.UnifyI.
 Require Import MirrorCore.RTac.Core.
@@ -63,23 +64,22 @@ Check @get_inst.
   Local Definition view_update :=
     (mtype_unify tsym).
 
-  Local Definition get_lemma {n : nat}
-        (plem : polymorphic typ n (Lemma.lemma typ (expr typ func) (expr typ func)))
-(*        (tc : polymorphic typ n bool)*)
+  Local Definition get_lemma 
+        (plem : PolyLemma typ (expr typ func) (expr typ func))
         (e : expr typ func)
   : option (lemma typ (expr typ func) (expr typ func)) :=
     match
-      get_inst tyVar view_update (fmap (fun x => x.(concl)) plem) e
+      get_inst tyVar view_update (fmap (fun x => x.(concl)) (p_lem plem)) e
     with
     | None => None
-    | Some args => Some (inst plem args)
-(*      if (inst tc args)
-      then Some (inst plem args)
-      else None*)
+    | Some args => 
+      if (inst (p_tc plem) args)
+      then Some (inst (p_lem plem) args)
+      else None
     end.
 
-  Definition PAPPLY {n : nat} 
-             (plem : polymorphic typ n (Lemma.lemma typ (expr typ func) (expr typ func))) : 
+  Definition PAPPLY 
+             (plem : PolyLemma typ (expr typ func) (expr typ func)) :
     rtac typ (expr typ func) :=
     AT_GOAL (fun _ c gl =>
                match get_lemma plem gl with
@@ -99,4 +99,4 @@ End parameterized.
 
 Hint Opaque PAPPLY : typeclass_instances.
 
-Arguments PAPPLY {typ expr _ _ _ _} unify {_} lem _ _ _ : rename.
+Arguments PAPPLY {typ expr _ _ _ _} unify lem _ _ _ : rename.

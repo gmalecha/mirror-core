@@ -41,6 +41,7 @@ theories/SubstI.v
 theories/Instantiate.v
 theories/VarsToUVars.v
 theories/Lemma.v
+theories/PLemma.v
 theories/LemmaApply.v
 theories/Simple.v
 theories/Polymorphic.v
@@ -169,6 +170,12 @@ theories/Reify/Patterns.v
 theories/Reify/Reify.v
 theories/Reify/ReifyClass.v
 theories/Reify/ReifyView.v
+
+examples/Tauto/MSimpleTyp.v
+examples/Tauto/ILogic.v
+examples/Tauto/ILogicFunc.v
+examples/Tauto/ILogicReify.v
+examples/Tauto/Tauto.v
 
 examples/Cancel/Monoid.v
 examples/Cancel/MonoidSyntaxSimple.v
