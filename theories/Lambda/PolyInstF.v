@@ -6,27 +6,30 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.View.
 Require Import MirrorCore.Lambda.ExprCore.
-Require Import MirrorCore.Polymorphic2.
+Require Import MirrorCore.PolymorphicF.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Section poly.
-  Context {typ : nat -> Type} {sym : Type}.
-  Context {RT : RType (typ 0)}
+  Context {kind : Type}.
+  Variable kind_eq_dec : forall a b : kind, {a = b} + {a <> b}.
+  Variable Kstar : kind.
+  Context {typ : kind -> Type} {sym : Type}.
+  Context {RT : RType (typ Kstar)}
           {RS : RSym sym}.
 
   Variable mkVar : forall n, positive -> typ n.
 
-  Variable typ_unify : typ 0 -> typ 0 -> pmap { n : nat & typ n }
-                            -> option (pmap { n : nat & typ n }).
+  Variable typ_unify : typ Kstar -> typ Kstar -> pmap { n : kind & typ n }
+                            -> option (pmap { n : kind & typ n }).
 
   (** NOTE: This function does not need to be complete
    ** TODO: We should really stop looking at the term as
    **       soon as we have instantiated everything
    **)
-  Local Fixpoint get_types {T} (a b : expr (typ 0) sym) (s : pmap { n : nat & typ n })
-        (ok : pmap { n : nat & typ n } -> T) (bad : T) {struct a}
+  Local Fixpoint get_types {T} (a b : expr (typ Kstar) sym) (s : pmap { n : kind & typ n })
+        (ok : pmap { n : kind & typ n } -> T) (bad : T) {struct a}
   : T :=
     match a , b with
     | App fa aa , App fb ab =>
@@ -47,21 +50,21 @@ Section poly.
     | _ , _ => ok s
     end.
 
-  Local Fixpoint build_vars p (n : list nat) : hlist typ n :=
+  Local Fixpoint build_vars p (n : list kind) : hlist typ n :=
     match n with
     | nil => Hnil
     | n :: ns => Hcons (mkVar n p) (build_vars (Pos.succ p) ns)
     end.
 
   Local Fixpoint get_vars {T} n p
-  : forall (ok : hlist typ n -> T) (bad : T) (m : pmap { n : nat & typ n }), T :=
-    match n as n return (hlist typ n -> T) -> T -> pmap { n : nat & typ n } -> T with
+  : forall (ok : hlist typ n -> T) (bad : T) (m : pmap { n : kind & typ n }), T :=
+    match n as n return (hlist typ n -> T) -> T -> pmap { n : kind & typ n } -> T with
     | nil => fun ok _ _ => ok Hnil
     | n :: ns => fun ok bad m =>
                match pmap_lookup m p with
                | pNone => bad
                | pSome (existT _ n' z) =>
-                 match NPeano.Nat.eq_dec n' n with
+                 match kind_eq_dec n' n with
                  | right _ => bad
                  | left pf =>
                    get_vars (Pos.succ p)
@@ -72,8 +75,8 @@ Section poly.
                end
     end.
 
-  Definition get_inst {n} (t : polymorphic typ n (expr (typ 0) sym))
-             (w : expr (typ 0) sym)
+  Definition get_inst {n} (t : polymorphic typ n (expr (typ Kstar) sym))
+             (w : expr (typ Kstar) sym)
   : option (hlist typ n) :=
     let t' := inst t (build_vars 1 n) in
     get_types t' w (pmap_empty _)

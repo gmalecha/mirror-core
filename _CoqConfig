@@ -44,12 +44,18 @@ theories/MTypes/ListType.v
 theories/MTypes/BaseType.v
 theories/MTypes/MTypeUnify.v
 
-theories/MTypes/ModularTypes2.v
-theories/MTypes/MTypeUnify2.v
-theories/Polymorphic2.v
-theories/Lambda/PolyInst2.v
-theories/Lambda/Rewrite/HintDbs2.v
-theories/Lambda/Rewrite/Respectful2.v
+theories/MTypes/ModularTypesT.v
+theories/MTypes/MTypeUnifyT.v
+theories/Lambda/PolyInstT.v
+theories/PolymorphicF.v
+theories/Lambda/Rewrite/HintDbsT.v
+theories/Lambda/Rewrite/RespectfulT.v
+
+# theories/MTypes/ModularTypesF.v
+# theories/MTypes/MTypeUnifyF.v
+# theories/Lambda/PolyInstF.v
+# theories/Lambda/Rewrite/HintDbs2.v
+# theories/Lambda/Rewrite/Respectful2.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v

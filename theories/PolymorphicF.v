@@ -6,9 +6,10 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section poly.
-  Variable typ : nat -> Type.
+  Variable kind : Type.
+  Variable typ : kind -> Type.
 
-  Fixpoint polymorphic (n : list nat) T : Type :=
+  Fixpoint polymorphic (n : list kind) T : Type :=
     match n with
     | nil => T
     | n :: ns => typ n -> polymorphic ns T
@@ -24,7 +25,7 @@ Section poly.
       end.
   End polymorphicD.
 
-  Fixpoint inst {T} (n : list nat)
+  Fixpoint inst {T} (n : list kind)
   : polymorphic n T -> hlist typ n -> T :=
     match n as n return polymorphic n T -> hlist typ n -> T with
     | nil => fun p _ => p
@@ -67,14 +68,15 @@ Section poly.
   End make.
 End poly.
 
-Arguments make_polymorphic {_ _ n} _.
-Arguments polymorphicD {_ _} _ {n} _.
+Arguments make_polymorphic {_ _ _ n} _.
+Arguments polymorphicD {_ _ _} _ {n} _.
 
 Section fmap_polymorphic.
-  Context {Z : nat -> Type}.
+  Context {kind : Type}.
+  Context {Z : kind -> Type}.
   Context {T U : Type}.
   Variable f : T -> U.
-  Fixpoint fmap_polymorphic (n : list nat)
+  Fixpoint fmap_polymorphic (n : list kind)
   : polymorphic Z n T -> polymorphic Z n U :=
     match n with
     | nil => f
@@ -82,15 +84,16 @@ Section fmap_polymorphic.
     end.
 End fmap_polymorphic.
 
-Instance Functor_polymorphic Z n : Functor (polymorphic Z n) :=
-{ fmap := fun T U f => @fmap_polymorphic Z T U f n }.
+Instance Functor_polymorphic {k} Z n : Functor (polymorphic Z n) :=
+{ fmap := fun T U f => @fmap_polymorphic k Z T U f n }.
 
-Arguments inst {typ T n} p v : clear implicits, rename.
+Arguments inst {kind typ T n} p v : clear implicits, rename.
 
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section rpolymorphic.
-  Context {T : nat -> Type}.
+  Context {k : Type}.
+  Context {T : k -> Type}.
   Context {U : Type}.
   Context {r : Reify U}.
 
@@ -104,4 +107,4 @@ Section rpolymorphic.
   { reify_scheme := CCall (rpolymorphic n) }.
 End rpolymorphic.
 
-Arguments rpolymorphic _ _ _ _ : clear implicits.
+Arguments rpolymorphic _ _ _ _ _ : clear implicits.
