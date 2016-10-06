@@ -131,6 +131,7 @@ theories/Lib/BoolView.v
 theories/Lib/ProdView.v
 theories/Lib/ApplicativeView.v
 theories/Lib/EqView.v
+theories/Lib/ListOpView.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
