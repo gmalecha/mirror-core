@@ -29,7 +29,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 
   Section with_symbols.
     Variable tsym : kind -> Type.
-    Variable TSym_tsym : TSym tsym.
+    Variable TSym_tsym : TSym kindD tsym.
     Let typ := type tsym Kstar.
     Context {func : Type}.
     Let RType_typD : RType typ := RT.RType_type _ _.

@@ -23,6 +23,14 @@ Proof using.
     Unshelve. assumption.
 Qed.
 
+Class TSym {k : Type} (kindD : k -> Type@{Ukind}) (symbol : k -> Type) : Type :=
+{ symbolD : forall {k}, symbol k -> kindD k
+; symbol_dec : forall {k} (a b : symbol k), {a = b} + {a <> b}
+}.
+
+Arguments symbolD {_} _ {_ _ _} _.
+Arguments symbol_dec {_} _ {_ _ _} _ _.
+
 Module Type TypeLang.
   Parameter kind : Type.
   Parameter Kstar : kind.
@@ -36,20 +44,13 @@ Module Type TypeLang.
   Section with_symbols.
     Variable symbol : kind -> Type.
 
-    Class TSym : Type :=
-    { symbolD : forall {k}, symbol k -> kindD k
-    ; symbol_dec : forall {k} (a b : symbol k), {a = b} + {a <> b}
-    }.
+    Parameter RType_type : TSym kindD symbol -> RType (type symbol Kstar).
+    Parameter RTypeOk_type : forall ts : TSym kindD symbol, @RTypeOk _ (RType_type ts).
 
-    Parameter RType_type : TSym -> RType (type symbol Kstar).
-    Parameter RTypeOk_type : forall ts : TSym, @RTypeOk _ (RType_type ts).
-
-    Parameter type_eq_dec : TSym -> forall {k} (a b : type symbol k), {a = b} + {a <> b}.
+    Parameter type_eq_dec : TSym kindD symbol -> forall {k} (a b : type symbol k),
+          {a = b} + {a <> b}.
 
   End with_symbols.
-
-  Arguments symbolD {_ _ _} _.
-  Arguments symbol_dec {_ _ _} _ _.
 
 End TypeLang.
 
@@ -80,11 +81,6 @@ Module TypeLang_mtyp <: TypeLang.
   Section with_symbols.
 
     Variable symbol : kind -> Type.
-
-    Class TSym : Type :=
-    { symbolD : forall {k}, symbol k -> kindD k
-    ; symbol_dec : forall {k} (a b : symbol k), {a = b} + {a <> b}
-    }.
 
     Unset Elimination Schemes.
 
@@ -127,7 +123,7 @@ Module TypeLang_mtyp <: TypeLang.
         end.
     End type_ind.
 
-    Variable ts : TSym.
+    Variable ts : TSym kindD symbol.
 
     Fixpoint default_type_for_kind n : kindD n :=
       match n as n return kindD n with
@@ -139,10 +135,10 @@ Module TypeLang_mtyp <: TypeLang.
     Fixpoint typeD {k} (t : type k) : kindD k :=
       match t in type' k return kindD k with
       | tyArr a b => typeD a -> typeD b
-      | tyBase0 s => symbolD s
-      | tyBase1 s m => symbolD s (typeD m)
-      | tyBase2 s m1 m2 => symbolD s (typeD m1) (typeD m2)
-      | tyApp s ms => applyn (symbolD s) (vector_map typeD ms)
+      | tyBase0 s => symbolD kindD s
+      | tyBase1 s m => symbolD kindD s (typeD m)
+      | tyBase2 s m1 m2 => symbolD kindD s (typeD m1) (typeD m2)
+      | tyApp s ms => applyn (symbolD kindD s) (vector_map typeD ms)
       | tyProp => Prop
       | tyVar' n _ => default_type_for_kind n
       end.
@@ -287,12 +283,6 @@ Module TypeLang_mtypF <: TypeLang.
 
     Variable symbol : kind -> Type.
 
-    Class TSym : Type :=
-    { symbolD : forall {k}, symbol k -> kindD k
-    ; symbol_dec : forall {k} (a b : symbol k), {a = b} + {a <> b}
-    }.
-
-
     Unset Elimination Schemes.
 
     Inductive mtyp : kind -> Type :=
@@ -343,12 +333,12 @@ Module TypeLang_mtypF <: TypeLang.
       | Karr a b => fun _ => default_type_for_kind b
       end.
 
-    Variable ts : TSym.
+    Variable ts : TSym kindD symbol.
 
     Fixpoint typeD {n} (t : mtyp n) : kindD n :=
       match t in mtyp n return kindD n with
       | tyArr a b => typeD a -> typeD b
-      | tyInj _ s => symbolD s
+      | tyInj _ s => symbolD kindD s
       | tyApp s ms => (typeD s) (typeD ms)
       | tyProp => Prop
       | tyVar' n _ => default_type_for_kind n
@@ -489,7 +479,7 @@ Module TypeLang_mtypF <: TypeLang.
                 return forall s : symbol n, {tyInj n s = b} + {tyInj n s <> b}
           with
           | tyInj _ s' => fun s =>
-                           match symbol_dec s s' with
+                           match symbol_dec kindD s s' with
                            | left pf => left match pf with
                                             | eq_refl => eq_refl
                                             end
@@ -579,7 +569,7 @@ Module TypeLang_mtypF <: TypeLang.
     Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
     Proof.
       red. intros.
-      destruct (symbol_dec x y); (left + right); assumption.
+      destruct (symbol_dec kindD x y); (left + right); assumption.
     Defined.
 
     Local Instance EqDec_mtyp {n} : EqDec (mtyp n) (@eq (mtyp n)).
@@ -589,7 +579,7 @@ Module TypeLang_mtypF <: TypeLang.
     Defined.
 
     Lemma symbol_dec_refl
-      : forall n (a : symbol n), symbol_dec a a = left eq_refl.
+      : forall n (a : symbol n), symbol_dec kindD a a = left eq_refl.
     Proof using.
       intro. apply dec_refl.
     Qed.
@@ -713,7 +703,7 @@ Module TypeLang_mtypF <: TypeLang.
       { destruct pf; reflexivity. }
     Qed.
 
-    Instance Typ0_sym (s : symbol Kstar) : Typ0 _ (symbolD s) :=
+    Instance Typ0_sym (s : symbol Kstar) : Typ0 _ (symbolD kindD s) :=
     { typ0 := tyInj Kstar s
     ; typ0_cast := eq_refl
     ; typ0_match := fun T (t : mtyp _) tr =>
@@ -728,7 +718,7 @@ Module TypeLang_mtypF <: TypeLang.
                    end t'
       with
       | @tyInj Kstar' s' =>
-        match symbol_dec s s' with
+        match symbol_dec kindD s s' with
         | left pf => fun _ => match pf with
                           | eq_refl => tr
                           end
@@ -741,17 +731,17 @@ Module TypeLang_mtypF <: TypeLang.
     Proof using.
       constructor.
       { simpl. intros.
-        destruct (symbol_dec s s) eqn:?; try reflexivity.
+        destruct (symbol_dec kindD s s) eqn:?; try reflexivity.
         - uip_all. reflexivity.
         - exfalso; clear - n. congruence. }
       { refine (@elim_mtyp0 _ _ _ _ _ _); simpl;
           try solve [ right; reflexivity ].
-        intros. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+        intros. destruct (symbol_dec kindD s s0); try solve [ right ; eauto ].
         left. subst. exists eq_refl. reflexivity. }
       { destruct pf. reflexivity. }
     Qed.
 
-    Instance Typ1_sym (s : symbol (Karr Kstar Kstar)) : Typ1 _ (symbolD s) :=
+    Instance Typ1_sym (s : symbol (Karr Kstar Kstar)) : Typ1 _ (symbolD kindD s) :=
     { typ1 := tyApp (@tyInj _ s)
     ; typ1_cast := fun _ => eq_refl
     ; typ1_match := fun T (t : mtyp _) tr =>
@@ -777,7 +767,7 @@ Module TypeLang_mtypF <: TypeLang.
                      end f
         with
         | tyInj (Karr Kstar' Kstar') s' =>
-          match symbol_dec s s' with
+          match symbol_dec kindD s s' with
           | left pf => fun _ => match pf with
                             | eq_refl => tr x
                             end
@@ -800,14 +790,14 @@ Module TypeLang_mtypF <: TypeLang.
         intro. refine (@elim_mtyp1 _ _ _ _ _ _); try solve [ right; destruct d; reflexivity ].
         simpl. intros. destruct d; try solve [ right; reflexivity ].
         simpl.
-        destruct (symbol_dec s s0); try solve [ right ; reflexivity ].
+        destruct (symbol_dec kindD s s0); try solve [ right ; reflexivity ].
         subst. left. eexists. exists eq_refl. reflexivity. }
       { destruct pf. reflexivity. }
       Unshelve.
       apply kind_eq_dec.
     Qed.
 
-    Instance Typ2_sym (s : symbol (Karr Kstar (Karr Kstar Kstar))) : Typ2 _ (symbolD s) :=
+    Instance Typ2_sym (s : symbol (Karr Kstar (Karr Kstar Kstar))) : Typ2 _ (symbolD kindD s) :=
     { typ2 := fun x y => tyApp (tyApp (tyInj _ s) x) y
     ; typ2_cast := fun _ _ => eq_refl
     ; typ2_match := fun T (t : mtyp _) tr =>
@@ -846,7 +836,7 @@ Module TypeLang_mtypF <: TypeLang.
                          end f
             with
             | @tyInj (Karr Kstar' (Karr Kstar' Kstar')) s' =>
-              match symbol_dec s s' with
+              match symbol_dec kindD s s' with
               | left pf => fun _ => match pf with
                                 | eq_refl => tr y x
                                 end
@@ -872,7 +862,7 @@ Module TypeLang_mtypF <: TypeLang.
         intro. refine (@elim_mtyp1 _ _ _ _ _ _); try solve [ right; destruct d; reflexivity ].
         intro. refine (@elim_mtyp2 _ _ _ _ _ _ _); try solve [ right; destruct d; destruct d'; reflexivity ].
         destruct d; destruct d'; simpl; try solve [right ; reflexivity ].
-        intros. destruct (symbol_dec s s0); try solve [ right ; eauto ].
+        intros. destruct (symbol_dec kindD s s0); try solve [ right ; eauto ].
         subst. left. do 2 eexists. exists eq_refl. reflexivity. }
       { destruct pf. reflexivity. }
       Unshelve.
