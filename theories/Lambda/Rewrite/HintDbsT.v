@@ -10,12 +10,14 @@ Require Import MirrorCore.MTypes.MTypeUnifyT.
 Require Import MirrorCore.PolymorphicF.
 Require Import MirrorCore.Lambda.PolyInstT.
 
+Require Import MirrorCore.Util.Forwardy.
+
 Set Implicit Arguments.
 Set Strict Implicit.
 
 Set Suggest Proof Using.
 
-Module HintDbs (Import RT : RType) (RTU : RTypeUnify with Module RT := RT).
+Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT).
   Module PI := PolyInst RT RTU.
 
   Section with_symbols.
@@ -203,7 +205,7 @@ Module HintDbs (Import RT : RType) (RTU : RTypeUnify with Module RT := RT).
         split; [|eauto].
         intros.
         unfold get_lemma in *.
-        Require Import MirrorCore.Util.Forwardy.
+        Import MirrorCore.Util.Forwardy.
         forwardy.
         eapply inst_sound with (v:=y) in H.
         unfold with_typeclasses in H.

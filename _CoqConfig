@@ -36,13 +36,9 @@ theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
 theories/MTypes/ModularTypes.v
-theories/MTypes/GenericTypes.v
+theories/MTypes/MTypeUnify.v
 theories/MTypes/TSyms.v
 theories/MTypes/TSymOneOf.v
-theories/MTypes/ProdType.v
-theories/MTypes/ListType.v
-theories/MTypes/BaseType.v
-theories/MTypes/MTypeUnify.v
 
 theories/MTypes/ModularTypesT.v
 theories/MTypes/MTypeUnifyT.v
@@ -67,6 +63,7 @@ theories/Util/HListBuild.v
 theories/Util/Compat.v
 theories/Util/SemiDec.v
 theories/Util/PositivePolyMap.v
+theories/Util/PolyAcc.v
 
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
@@ -121,6 +118,11 @@ theories/Views/Ptrns.v
 theories/Views/Ptrns2.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
+
+theories/Lib/GenericTypes.v
+theories/Lib/ProdType.v
+theories/Lib/ListType.v
+theories/Lib/BaseType.v
 
 theories/Lib/ListView.v
 theories/Lib/NatView.v

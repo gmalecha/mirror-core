@@ -13,7 +13,7 @@ Require Import MirrorCore.MTypes.MTypeUnifyT.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Module PolyInst (Import RT : RType) (Import RU : RTypeUnify with Module RT := RT).
+Module PolyInst (Import RT : TypeLang) (Import RU : TypeLangUnify with Module RT := RT).
   Section with_symbols.
     Context {tsym : kind -> Type}
             {TS : TSym tsym}.

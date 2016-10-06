@@ -6,13 +6,24 @@ Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Tactics.
 Require Import ExtLib.Data.Eq.
 
+Require Import MirrorCore.Util.PolyAcc.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.TypeView.
 
 Universes Ukind.
 Universes Usmall Ularge.
 
-Module Type RType.
+Lemma dec_refl
+  : forall T (dec : forall a b : T, {a = b} + {a <> b}) (a : T),
+    dec a a = left eq_refl.
+Proof using.
+  intros. destruct (dec a a).
+  - uip_all. reflexivity.
+  - exfalso; tauto.
+    Unshelve. assumption.
+Qed.
+
+Module Type TypeLang.
   Parameter kind : Type.
   Parameter Kstar : kind.
   Parameter kind_eq_dec : forall a b : kind, {a = b} + {a <> b}.
@@ -29,10 +40,9 @@ Module Type RType.
     { symbolD : forall {k}, symbol k -> kindD k
     ; symbol_dec : forall {k} (a b : symbol k), {a = b} + {a <> b}
     }.
-(*
-    Parameter typeD : TSym -> forall k, type symbol k -> kindD k.
-*)
+
     Parameter RType_type : TSym -> RType (type symbol Kstar).
+    Parameter RTypeOk_type : forall ts : TSym, @RTypeOk _ (RType_type ts).
 
     Parameter type_eq_dec : TSym -> forall {k} (a b : type symbol k), {a = b} + {a <> b}.
 
@@ -41,10 +51,10 @@ Module Type RType.
   Arguments symbolD {_ _ _} _.
   Arguments symbol_dec {_ _ _} _ _.
 
-End RType.
+End TypeLang.
 
 
-Module RType_mtyp <: RType.
+Module TypeLang_mtyp <: TypeLang.
   Definition kind := nat.
   Definition Kstar := 0.
   Definition kind_eq_dec (a b : kind) : {a = b} + {a <> b}.
@@ -146,6 +156,13 @@ Module RType_mtyp <: RType.
     | tyAcc_tyApp    : forall n s ms, vector_In a ms -> mtyp_acc a (@tyApp n s ms).
 
 
+    Theorem wf_mtyp_acc : well_founded mtyp_acc.
+    Proof.
+      red. eapply type_ind; constructor; inversion 1; subst; auto.
+      - apply inj_pair2 in H4.
+        subst. eapply ForallV_vector_In; eauto.
+    Defined.
+
     Fixpoint type_eq_dec {k} (a b : type k) : {a = b} + {a <> b}.
 (*
       refine
@@ -224,6 +241,17 @@ Module RType_mtyp <: RType.
     ; type_cast := mtyp_cast
     ; tyAcc := mtyp_acc }.
 
+    Instance RTypeOk_type : RTypeOk.
+    refine
+      {| Relim_refl := fun _ _ _ => eq_refl
+       ; wf_tyAcc := wf_mtyp_acc
+       ; Relim_sym := ltac:(destruct pf; reflexivity)
+       ; Relim_trans := ltac:(destruct pf1; destruct pf2; reflexivity)
+       ; type_cast_refl := _
+       ; EquivDec_typ := type_eq_dec
+       |}.
+    simpl. unfold mtyp_cast. intros. rewrite dec_refl. reflexivity.
+    Defined.
   End with_symbols.
 
   Arguments tyBase0 {_} _.
@@ -235,77 +263,10 @@ Module RType_mtyp <: RType.
   Arguments tyVar {_} _ _.
   Arguments tyVar' {_} _ _.
 
-End RType_mtyp.
+End TypeLang_mtyp.
 
-(** Polymorphic accesibility relation *)
-Section Pwf.
-  Variable T : Type.
-  Variable F : T -> Type.
-  Variable R : forall a b, F a -> F b -> Prop.
 
-  Inductive PAcc a (x : F a) : Prop :=
-  | PAcc_intro : (forall b (y : F b), R _ _ y x -> PAcc _ y) -> PAcc _ x.
-
-  Definition Pwell_founded : Prop :=
-    forall a x, PAcc a x.
-
-  Section PFix.
-    Variable P : forall t, F t -> Type.
-    Variable Pwf_R : Pwell_founded.
-    Variable (rec : forall a (x : F a), (forall b (y : F b), R _ _ y x -> P _ y) -> P _ x).
-    Definition PFix (a : T) (x : F a) : P a x.
-      refine
-        ((fix recurse (a : T) (x : F a) (acc : PAcc _ x) {struct acc} : P a x :=
-            match acc with
-            | @PAcc_intro _ _ rec' => rec _ _ (fun b y pf => recurse b y (rec' _ _ pf))
-            end) a x (Pwf_R _ _)).
-    Defined.
-
-  End PFix.
-
-  Theorem Pwell_founded_well_founded
-    : Pwell_founded -> forall t, well_founded (R t t).
-  Proof.
-    unfold Pwell_founded, well_founded.
-    intros.
-    specialize (H _ a).
-    induction H.
-    constructor.
-    eauto.
-  Defined.
-
-  Inductive PleftTrans : forall a b, F a -> F b -> Prop :=
-  | Pstep : forall a b (x : F a) (y : F b), R _ _ x y -> PleftTrans _ _ x y
-  | Ptrans : forall a b c (x : F a) (y : F b) (z : F c),
-      R _ _ x y -> PleftTrans _ _ y z -> PleftTrans _ _ x z.
-
-End Pwf.
-
-Theorem Pwell_founded_PleftTrans : forall {T} {F : T -> Type} (R : forall a b : T, F a -> F b -> Prop),
-    Pwell_founded _ _ R -> Pwell_founded _ _ (PleftTrans _ _ R).
-Proof.
-  clear.
-  do 3 intro.
-  refine (fun f => @PFix _ _ _ _ f _).
-  clear.
-  intros; constructor; intros.
-  revert H.
-  induction H0.
-  { eauto. }
-  { intros. eapply IHPleftTrans; [ eapply H1 | eapply Pstep; auto ]. }
-Qed.
-
-Lemma dec_refl
-  : forall T (dec : forall a b : T, {a = b} + {a <> b}) (a : T),
-    dec a a = left eq_refl.
-Proof using.
-  intros. destruct (dec a a).
-  - uip_all. reflexivity.
-  - exfalso; tauto.
-    Unshelve. assumption.
-Qed.
-
-Module RType_mtypF <: RType.
+Module TypeLang_mtypF <: TypeLang.
   Inductive kind' :=
   | Kstar' : kind'
   | Karr : kind' -> kind' -> kind'.
@@ -610,7 +571,7 @@ Module RType_mtypF <: RType.
     Admitted.
 
 
-    Instance RType_mtyp : RType (mtyp Kstar) :=
+    Instance RType_type : RType (mtyp Kstar) :=
     { typD := typeD
     ; type_cast := mtyp_cast
     ; tyAcc := (PleftTrans _ _ (@mtyp_acc)) Kstar Kstar }.
@@ -640,7 +601,7 @@ Module RType_mtypF <: RType.
       rewrite dec_refl. reflexivity.
     Defined.
 
-    Instance RTypeOk_mtyp : RTypeOk.
+    Instance RTypeOk_type : RTypeOk.
     Proof.
       constructor.
       - reflexivity.
@@ -948,11 +909,6 @@ Module RType_mtypF <: RType.
       { destruct pf. reflexivity. }
     Qed.
 
-    Instance RType_type : RType (type Kstar) :=
-    { typD := typeD
-    ; type_cast := mtyp_cast
-    ; tyAcc := @mtyp_acc Kstar Kstar }.
-
   End with_symbols.
 
   Arguments tyInj {_} _ _.
@@ -962,4 +918,4 @@ Module RType_mtypF <: RType.
   Arguments tyVar' {_} _ _.
   Arguments tyVar {_} _ _.
 
-End RType_mtypF.
+End TypeLang_mtypF.

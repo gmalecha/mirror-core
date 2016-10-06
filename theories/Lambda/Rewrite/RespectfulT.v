@@ -24,7 +24,7 @@ Set Strict Implicit.
 
 Set Suggest Proof Using.
 
-Module HintDbs (Import RT : RType) (RTU : RTypeUnify with Module RT := RT).
+Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT).
   Module PI := PolyInst RT RTU.
 
   Section with_symbols.

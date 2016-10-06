@@ -2,8 +2,8 @@ Require Import MirrorCore.MTypes.ModularTypesT.
 Require Import MirrorCore.Util.PositivePolyMap.
 
 
-Module Type RTypeUnify.
-  Declare Module RT : RType.
+Module Type TypeLangUnify.
+  Declare Module RT : TypeLang.
   Import RT.
 
   Section with_symbols.
@@ -13,10 +13,10 @@ Module Type RTypeUnify.
                            pmap { k : kind & type symbol k } ->
                            option (pmap { k : kind & type symbol k }).
   End with_symbols.
-End RTypeUnify.
+End TypeLangUnify.
 
-Module RTypeUnify_mtyp <: RTypeUnify with Module RT := RType_mtyp.
-  Module RT := RType_mtyp.
+Module TypeLangUnify_mtyp <: TypeLangUnify with Module RT := TypeLang_mtyp.
+  Module RT := TypeLang_mtyp.
   Import RT.
 
   Section with_symbols.
@@ -92,10 +92,10 @@ Module RTypeUnify_mtyp <: RTypeUnify with Module RT := RType_mtyp.
 
   End with_symbols.
 
-End RTypeUnify_mtyp.
+End TypeLangUnify_mtyp.
 
-Module RTypeUnify_mtypF <: RTypeUnify with Module RT := RType_mtypF.
-  Module RT := RType_mtypF.
+Module TypeLangUnify_mtypF <: TypeLangUnify with Module RT := TypeLang_mtypF.
+  Module RT := TypeLang_mtypF.
   Import RT.
 
   Section with_symbols.
@@ -159,4 +159,4 @@ Module RTypeUnify_mtypF <: RTypeUnify with Module RT := RType_mtypF.
 
   End with_symbols.
 
-End RTypeUnify_mtypF.
+End TypeLangUnify_mtypF.
