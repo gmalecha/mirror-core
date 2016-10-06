@@ -87,14 +87,30 @@ Check @get_inst.
                | Some lem => APPLY exprUnify lem
                end).
 
-(*
-  Hypothesis lemD : ReifiedLemma lem.
+  Class ReifiedPLemma (L : PolyLemma typ (expr typ func) (expr typ func)) : Prop := mkRPL
+  { ReifiedPLemma_proof : PolyLemmaD (@exprD_typ0 _ _ _ _ Prop _) L }.
 
-  Theorem APPLY_sound : rtac_sound APPLY.
+
+  Variable plem : PolyLemma typ (expr typ func) (expr typ func).
+  Hypothesis plemD : ReifiedPLemma plem.
+
+  Theorem PAPPLY_sound : rtac_sound (PAPPLY plem).
   Proof.
-    eapply EAPPLY_sound; eauto.
+    unfold PAPPLY.
+    apply AT_GOAL_sound; intros.
+    remember (get_lemma plem e).
+    destruct o; [apply APPLY_sound; try apply _; try assumption |apply FAIL_sound].
+    split; destruct plemD as [H].
+    unfold PolyLemmaD in H; simpl in H.
+    unfold get_lemma in Heqo.
+    forward; inv_all; subst.
+    unfold with_typeclasses in H.
+    apply inst_sound with (v := v) in H.
+    rewrite inst_make_polymorphic in H.
+    rewrite H1 in H.
+    apply H.
   Qed.
-*)
+
 End parameterized.
 
 Hint Opaque PAPPLY : typeclass_instances.
