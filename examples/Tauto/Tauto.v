@@ -203,6 +203,7 @@ Definition fintro (e : expr typ ilfunc) : option (@OpenAs typ (expr typ ilfunc))
 
 Definition INTRO := @INTRO typ (expr typ ilfunc) ExprVar_expr ExprUVar_expr fintro.
 
+
 Definition TAUTO : rtac typ (expr typ ilfunc) :=
   REC 10
       (fun r =>
@@ -220,8 +221,21 @@ Definition TAUTO : rtac typ (expr typ ilfunc) :=
                      SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))) FAIL.
 
 Goal True.
+  
 pose (PApply.get_lemma r_trueR
-           (mkEntails tyProp (mkTrue tyProp) (mkTrue tyProp))).
+                       (mkEntails tyProp (mkTrue tyProp) (mkTrue tyProp))).
+
+cbv beta zeta iota delta [PApply.get_lemma PolyInst.get_inst PolyInst.get_types PolyInst.get_vector PolyInst.build_vector PApply.view_update p_n p_lem p_tc Functor.fmap Functor_polymorphic fmap_polymorphic] in o.
+
+cbv beta zeta iota delta [r_trueR inst concl Functor.fmap Functor_polymorphic fmap_polymorphic mkTrue mkEntails Vector.vector_hd tc mkTrue mkEntails fTrue fEntails typeof_sym RSym_ilfunc typeof_ilfunc] in o.
+
+(* looks like maybe we are calling typeclass on
+   an uninstantiated thing? *)
+
+(* note that gs (tyVar 1) is what is failing. *)
+
+(* problem - tyVars aren't instantiated! *)
+
 compute in o.
 (* Gregory, I'm pretty sure this should be evaluate to Some *)
 
