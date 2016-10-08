@@ -20,32 +20,6 @@ Module PolyInst (Import RT : TypeLang) (Import RU : TypeLangUnify with Module RT
     Context {sym : Type}
             {RS : @RSym _ (@RT.RType_type tsym TS) sym}.
 
-    (** NOTE: This function does not need to be complete
-     ** TODO: We should really stop looking at the term as
-     **       soon as we have instantiated everything
-     **)
-    Local Fixpoint get_types {T} (a b : expr (type tsym Kstar) sym) (s : pmap { n : kind & type tsym n })
-          (ok : pmap { n : kind & type tsym n } -> T) (bad : T) {struct a}
-    : T :=
-      match a , b with
-      | App fa aa , App fb ab =>
-        get_types fa fb s
-                  (fun s' => get_types aa ab s' ok bad)
-                  bad
-      | Inj a , Inj b =>
-        match typeof_sym a
-              , typeof_sym b
-        with
-        | Some ta , Some tb =>
-          match type_unify _ _ ta tb s with
-          | Some s' => ok s'
-          | None => bad
-          end
-        | _ , _ => bad
-        end
-      | _ , _ => ok s
-      end.
-
     Local Fixpoint build_vars p (n : list kind) : hlist (type tsym) n :=
       match n with
       | nil => Hnil
@@ -71,16 +45,61 @@ Module PolyInst (Import RT : TypeLang) (Import RU : TypeLangUnify with Module RT
                     end
       end.
 
-    Variable T : Type.
-    Variable getE : T -> expr (type tsym Kstar) sym.
+    Definition sym_unifier : Type :=
+      forall {T} (a b : sym),
+        pmap { n : kind & type tsym n } ->
+        (pmap { n : kind & type tsym n } -> T) ->
+        T -> T.
 
-    Definition get_inst {n} (t : polymorphic (type tsym) n T)
-               (w : expr (type tsym Kstar) sym)
+    Section with_symbol_unify.
+      Variable sym_unify : sym_unifier.
+
+      (** NOTE: This function does not need to be complete
+       ** TODO: We should really stop looking at the term as
+       **       soon as we have instantiated everything
+       **)
+      Local Fixpoint get_types {T} (a b : expr (type tsym Kstar) sym)
+            (s : pmap { n : kind & type tsym n })
+            (ok : pmap { n : kind & type tsym n } -> T) (bad : T) {struct a}
+        : T :=
+        match a , b with
+        | App fa aa , App fb ab =>
+          get_types fa fb s
+                    (fun s' => get_types aa ab s' ok bad)
+                    bad
+        | Inj a , Inj b =>
+          @sym_unify _ a b s ok bad
+        | _ , _ => ok s
+        end.
+
+      Variable T : Type.
+      Variable getE : T -> expr (type tsym Kstar) sym.
+
+      Definition get_inst {n} (t : polymorphic (type tsym) n T)
+                 (w : expr (type tsym Kstar) sym)
       : option (hlist (type tsym) n) :=
-      let t' := inst t (build_vars 1 n) in
-      get_types (getE t') w (pmap_empty _)
-                (get_vars 1 Some None)
-                None.
+        let t' := inst t (build_vars 1 n) in
+        get_types (getE t') w (pmap_empty _)
+                  (get_vars 1 Some None)
+                  None.
+
+    End with_symbol_unify.
+
+    Definition unify_sym_by_type {T} (a b : sym)
+               (s : pmap { n : kind & type tsym n })
+               (ok : pmap { n : kind & type tsym n } -> T)
+               (bad : T) : T :=
+      match typeof_sym a
+          , typeof_sym b
+      with
+      | Some ta , Some tb =>
+        match type_unify _ _ ta tb s with
+        | Some s' => ok s'
+        | None => bad
+        end
+      | _ , _ => bad
+      end.
+
   End with_symbols.
 
 End PolyInst.

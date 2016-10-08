@@ -24,7 +24,9 @@ Set Strict Implicit.
 
 Set Suggest Proof Using.
 
-Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT).
+Module HintDbs
+       (Import RT : TypeLang)
+       (RTU : TypeLangUnify with Module RT := RT).
   Module PI := PolyInst RT RTU.
 
   Section with_symbols.
@@ -83,7 +85,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
       @expr_eq_sdec typ func _ func_sdec.
 
     Lemma expr_sdec_sound
-      : forall a b : expr typ func, expr_sdec a b = true -> a = b.
+    : forall a b : expr typ func, expr_sdec a b = true -> a = b.
     Proof using RSymOk_func RelDec_Correct_eq_typ.
       eapply expr_eq_sdec_ok; eauto.
       unfold func_sdec.
@@ -100,11 +102,11 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 
     (* TODO(mario): explain the difference between the following two functions *)
     Definition Proper_conclD (tus tvs : tenv typ) (p : Proper_concl)
-      : option (exprT tus tvs Prop) :=
+    : option (exprT tus tvs Prop) :=
       match typeof_expr tus tvs p.(term) with
       | Some t =>
         match RD RbaseD p.(relation) t
-              , lambda_exprD tus tvs t p.(term)
+            , lambda_exprD tus tvs t p.(term)
         with
         | Some rD , Some eD =>
           Some (fun us vs => rD (eD us vs) (eD us vs))
@@ -164,7 +166,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 
     Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
                (tc : polymorphic (type tsym) n bool) (pc : polymorphic (type tsym) n T)
-      : polymorphic (type tsym) n Prop :=
+    : polymorphic (type tsym) n Prop :=
       make_polymorphic (fun args =>
                           if inst tc args
                           then TD (inst pc args)
@@ -184,8 +186,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
       PPr_tc (n:=nil) pc true.
 
     Theorem Pr_sound (pc : Proper_concl)
-      : Proper_conclP pc ->
-        ProperHintOk (Pr pc).
+    : Proper_conclP pc -> ProperHintOk (Pr pc).
     Proof using.
       clear. destruct pc; simpl.
       unfold polymorphicD, with_typeclasses. simpl.
@@ -248,7 +249,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 
     Local Definition apply_respectful (lem : Proper_lemma)
           (tacK : rtacK typ (expr typ func))
-      : ResolveProper _ _ _ :=
+    : ResolveProper _ _ _ :=
       let (rs,r_final) := split_R lem.(Lemma.concl).(relation) in
       match lem.(Lemma.vars) with
       | nil => match lem.(Lemma.premises) with
@@ -320,7 +321,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 
     Definition or_respectful
                (a b : expr typ func -> R -> mrw typ func (list R))
-      : ResolveProper _ _ _ :=
+    : ResolveProper _ _ _ :=
       fun e r => rw_orelse (a e r) (b e r).
 
     Theorem or_respectful_sound : forall a b,
@@ -342,12 +343,12 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
       red. intros. inversion H.
     Qed.
 
-    Local Definition get_Proper {n : list kind}
+    Local Definition get_Proper (su : PI.sym_unifier) {n : list kind}
           (p : polymorphic (type tsym) n Proper_concl)
           (tc : polymorphic (type tsym) n bool)
           (e : expr typ func)
       : option Proper_concl :=
-      match PI.get_inst term (n:=n) p e with
+      match PI.get_inst su term (n:=n) p e with
       | Some args =>
         if inst tc args
         then Some (inst p args)
@@ -356,8 +357,8 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
       end.
 
     Local Lemma get_Proper_sound :
-      forall n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
-        get_Proper p tc e  = Some x ->
+      forall su n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
+        get_Proper su p tc e  = Some x ->
         polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc p) ->
         Proper_conclP x.
     Proof using.
@@ -373,11 +374,11 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
     Qed.
 
 
-    Local Definition do_one_prespectful (h : HintProper) : ResolveProper typ func Rbase :=
+    Local Definition do_one_prespectful su (h : HintProper) : ResolveProper typ func Rbase :=
       match h with
       | PPr_tc pc tc =>
         (fun (e : expr typ func) =>
-           match get_Proper pc tc e with
+           match get_Proper su pc tc e with
            | Some lem =>
              apply_respectful {| vars := nil
                                  ; premises := nil
@@ -387,17 +388,17 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
       end.
 
     Local Lemma do_one_prespectful_sound :
-      forall hp : HintProper,
+      forall su (hp : HintProper),
         ProperHintOk hp ->
-        respectful_spec RbaseD (do_one_prespectful hp).
+        respectful_spec RbaseD (do_one_prespectful su hp).
     Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
           Typ2Ok_Fun.
       intros.
       unfold do_one_prespectful.
       destruct hp.
       red. intros.
-      generalize (@get_Proper_sound n p p0 e).
-      destruct (get_Proper p p0 e).
+      generalize (@get_Proper_sound su n p p0 e).
+      destruct (get_Proper su p p0 e).
       { intros.
         eapply apply_respectful_sound; eauto using IDTACK_sound.
         red. simpl.
@@ -409,17 +410,17 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
     Qed.
 
     (** This is the main entry point for the file *)
-    Fixpoint do_prespectful (pdb : ProperDb) : ResolveProper typ func Rbase :=
+    Fixpoint do_prespectful (su : PI.sym_unifier) (pdb : ProperDb) : ResolveProper typ func Rbase :=
       match pdb with
       | nil => fail_respectful
       | p :: pdb' =>
-        or_respectful (do_one_prespectful p) (fun e => do_prespectful pdb' e)
+        or_respectful (do_one_prespectful su p) (fun e => do_prespectful su pdb' e)
       end.
 
     Theorem do_prespectful_sound
-      : forall propers,
+    : forall su propers,
         ProperDbOk propers ->
-        respectful_spec RbaseD (do_prespectful propers).
+        respectful_spec RbaseD (do_prespectful su propers).
     Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
       induction 1.
       { eapply fail_respectful_sound. }
@@ -427,17 +428,17 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
     Qed.
 
     (** This is the non-polymorphic entry point *)
-    Definition do_respectful : ProperDb -> ResolveProper typ func Rbase :=
+    Definition do_respectful
+    : PI.sym_unifier -> ProperDb -> ResolveProper typ func Rbase :=
       do_prespectful.
 
     Theorem do_respectful_sound
-      : forall propers,
+    : forall su propers,
         ProperDbOk propers ->
-        respectful_spec RbaseD (do_respectful propers).
+        respectful_spec RbaseD (do_respectful su propers).
     Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
       eapply do_prespectful_sound.
     Qed.
-
 
     Import MirrorCore.Reify.ReifyClass.
 
@@ -471,9 +472,9 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 End HintDbs.
 
 (**
-      Helpful notations for working with Respectfulness,
-      based on the ones in Coq's standard library.
- *)
+ Helpful notations for working with Respectfulness,
+ based on the ones in Coq's standard library.
+ **)
 Delimit Scope Rrespects_scope with Rresp.
 (** These are the same associativities and precedences as the respectfulness
    notations in the standard library *)

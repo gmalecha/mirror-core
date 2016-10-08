@@ -145,13 +145,13 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
 
     Require Import Coq.NArith.BinNat.
 
-    Local Definition get_lemma {n : list kind}
+    Local Definition get_lemma (su : PI.sym_unifier) {n : list kind}
           (plem : polymorphic (type tsym) n (rw_lemma typ func Rbase))
           (tc : polymorphic (type tsym) n bool)
           (e : expr typ func)
-      : option (rw_lemma typ func Rbase) :=
+    : option (rw_lemma typ func Rbase) :=
       match
-        PI.get_inst (fun x => x.(concl).(lhs)) plem e
+        PI.get_inst su (fun x => x.(concl).(lhs)) plem e
       with
       | None => None
       | Some args =>
@@ -160,16 +160,16 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
         else None
       end.
 
-    Fixpoint CompileHints (hints : RewriteHintDb)
+    Fixpoint CompileHints (su : PI.sym_unifier) (hints : RewriteHintDb)
              (e : expr typ func)
              (r : R)
-      : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
+    : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
       match hints with
       | nil => nil
       | PRw_tc plem tc tac :: hints =>
-        match get_lemma plem tc e with
-        | None => CompileHints hints e r
-        | Some lem => (lem, tac) :: CompileHints hints e r
+        match get_lemma su plem tc e with
+        | None => CompileHints su hints e r
+        | Some lem => (lem, tac) :: CompileHints su hints e r
         end
       end.
 
@@ -189,9 +189,8 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
       Forall RewriteHintOk db.
 
     Theorem CompileHints_sound
-      : forall db,
-        RewriteHintDbOk db ->
-        hints_sound (CompileHints db).
+    : forall su db, RewriteHintDbOk db ->
+            hints_sound (CompileHints su db).
     Proof using.
       induction db; intros; simpl.
       { unfold hints_sound. intros. constructor. }
@@ -199,7 +198,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
         specialize (IHdb H3). clear H3.
         unfold hints_sound. intros.
         destruct a.
-        destruct (get_lemma p p0) eqn:Hgl; [|eapply IHdb].
+        destruct (get_lemma su p p0) eqn:Hgl; [|eapply IHdb].
         constructor; [|eauto].
         unfold RewriteHintOk in *. destruct H2.
         split; [|eauto].
