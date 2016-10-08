@@ -13,9 +13,9 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.MTypes.TSymOneOf.
 Require Import MirrorCore.Lambda.Ptrns.
-Require Import MirrorCore.MTypes.ListType.
-Require Import MirrorCore.MTypes.BaseType.
-Require Import MirrorCore.MTypes.ProdType.
+Require Import MirrorCore.Lib.ListType.
+Require Import MirrorCore.Lib.BaseType.
+Require Import MirrorCore.Lib.ProdType.
 Require Import MirrorCore.Views.ViewSumN.
 Require Import MirrorCore.Reify.ReifyClass.
 Require Import MirrorCore.Reify.ReifyView.
