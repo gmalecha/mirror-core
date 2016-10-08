@@ -49,6 +49,7 @@ theories/Polymorphic.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
+theories/PLemmaT.v
 theories/MTypes/ModularTypes.v
 theories/MTypes/MTypeUnify.v
 theories/MTypes/TSyms.v

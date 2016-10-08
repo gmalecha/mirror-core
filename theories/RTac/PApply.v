@@ -29,7 +29,6 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-Check @get_inst.
   Context {tsym : nat -> Type} {func : Type}.
   Let typ := mtyp tsym.
 
@@ -64,7 +63,7 @@ Check @get_inst.
   Local Definition view_update :=
     (mtype_unify tsym).
 
-  Local Definition get_lemma 
+  Local Definition get_lemma
         (plem : PolyLemma typ (expr typ func) (expr typ func))
         (e : expr typ func)
   : option (lemma typ (expr typ func) (expr typ func)) :=
@@ -72,13 +71,13 @@ Check @get_inst.
       get_inst tyVar view_update (fmap (fun x => x.(concl)) (p_lem plem)) e
     with
     | None => None
-    | Some args => 
+    | Some args =>
       if (inst (p_tc plem) args)
       then Some (inst (p_lem plem) args)
       else None
     end.
 
-  Definition PAPPLY 
+  Definition PAPPLY
              (plem : PolyLemma typ (expr typ func) (expr typ func)) :
     rtac typ (expr typ func) :=
     AT_GOAL (fun _ c gl =>
