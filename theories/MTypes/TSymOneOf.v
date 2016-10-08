@@ -364,4 +364,11 @@ Section TSym_OneOf.
       destruct pf. reflexivity. }
   Defined.
 
+  Fixpoint pmap_lookup'_Empty (p : positive) : pmap_lookup' Empty p = _None :=
+    match p with
+    | xH => eq_refl
+    | xO p => pmap_lookup'_Empty p
+    | xI p => pmap_lookup'_Empty p
+    end.
+
 End TSym_OneOf.

@@ -272,21 +272,23 @@ End PtrnNat.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyNat.
-  Context {typ func : Type} {FV : PartialView func natFunc}.
+  Universe U V.
 
-  Definition reify_cnat : Command (expr typ func) :=
-    CPattern (ls := (nat:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fNat x)).
+  Polymorphic Context {typ : Type@{U}} {func : Type@{V}} {FV : PartialView func natFunc}.
 
-  Definition reify_plus : Command (expr typ func) :=
+  Polymorphic Definition reify_cnat : Command (expr typ func) :=
+    CPattern (ls := (nat:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun (x : id nat) => Inj (fNat x)).
+
+  Polymorphic Definition reify_plus : Command (expr typ func) :=
     CPattern (ls := nil) (RExact plus) (Inj fPlus).
 
-  Definition reify_minus : Command (expr typ func) :=
+  Polymorphic Definition reify_minus : Command (expr typ func) :=
     CPattern (ls := nil) (RExact minus) (Inj fMinus).
 
-  Definition reify_mult : Command (expr typ func) :=
+  Polymorphic Definition reify_mult : Command (expr typ func) :=
     CPattern (ls := nil) (RExact mult) (Inj fMult).
 
-  Definition reify_nat : Command (expr typ func) :=
+  Polymorphic Definition reify_nat : Command (expr typ func) :=
     CFirst (reify_cnat :: reify_plus :: reify_minus :: reify_mult :: nil).
 
 End ReifyNat.

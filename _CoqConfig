@@ -1,5 +1,18 @@
+-Q ../coq-ext-lib/theories ExtLib
+
 -Q theories MirrorCore
 -Q examples McExamples
+-Q ../bedrock-trunk/Bedrock Bedrock
+
+# VST imports
+-Q ../VST/msl msl
+-Q ../VST/sepcomp sepcomp
+-Q ../VST/veric veric
+-Q ../VST/floyd floyd
+-Q ../VST/progs progs
+-Q ../VST/compcert compcert
+-Q ../VST/mc_reify mc_reify
+# -R ../sha sha
 
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
@@ -28,6 +41,7 @@ theories/SubstI.v
 theories/Instantiate.v
 theories/VarsToUVars.v
 theories/Lemma.v
+theories/PLemma.v
 theories/LemmaApply.v
 theories/Simple.v
 theories/Polymorphic.v
@@ -131,12 +145,14 @@ theories/Lib/BoolView.v
 theories/Lib/ProdView.v
 theories/Lib/ApplicativeView.v
 theories/Lib/EqView.v
+theories/Lib/ListOpView.v
 
 theories/RTac/BIMap.v
 theories/RTac/Ctx.v
 theories/RTac/Core.v
 theories/RTac/CoreK.v
 theories/RTac/IsSolved.v
+theories/RTac/PApply.v
 theories/RTac/SpecLemmas.v
 theories/RTac/RunOnGoals.v
 theories/RTac/RunOnGoals_list.v
@@ -168,6 +184,13 @@ theories/RTac/RTac.v
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 theories/Reify/ReifyClass.v
+theories/Reify/ReifyView.v
+
+examples/Tauto/MSimpleTyp.v
+examples/Tauto/ILogic.v
+examples/Tauto/ILogicFunc.v
+examples/Tauto/ILogicReify.v
+examples/Tauto/Tauto.v
 
 examples/Cancel/Monoid.v
 examples/Cancel/MonoidSyntaxSimple.v
@@ -199,3 +222,13 @@ examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v
 examples/PolyRewrite/PolyQuantPullRtac.v
 examples/PolyRewrite/DemoPolyQuantPullRtac.v
+
+examples/PolyApply/MSimpleType.v
+examples/PolyApply/MSimpleFunc.v
+examples/PolyApply/DemoPolyApply.v
+
+examples/PolyRewrite/Monads.v
+examples/PolyRewrite/MSimpleMonads.v
+examples/PolyRewrite/MSimpleMonadsReify.v
+examples/PolyRewrite/DemoMSimpleMonads.v
+

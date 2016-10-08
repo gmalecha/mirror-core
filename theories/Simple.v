@@ -42,6 +42,13 @@ Instance RelDec_from_RType {T} (R : RType T) : RelDec (@eq T) | 900 :=
                  | None => false
                  end }.
 
+Instance RelDec_Correct_from_RTypeOk {T} (R : RType T) (ROK : @RTypeOk _ R) : RelDec_Correct (RelDec_from_RType R) | 900.
+Proof.
+  split; unfold rel_dec; simpl; split; intros; subst; [|rewrite type_cast_refl; [reflexivity | apply ROK]].
+  remember (type_cast x y).
+  destruct o; [|congruence].
+  apply r.
+Defined.
 
 Arguments RTypeOk_simple {_ _ _ _} _.
 
