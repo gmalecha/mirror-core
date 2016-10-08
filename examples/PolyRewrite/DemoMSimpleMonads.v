@@ -17,7 +17,7 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimpleMonads.
 Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
@@ -518,7 +518,7 @@ Defined. (*Does this need to be Denfined? *)
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 Locate Typ2_tyArr.

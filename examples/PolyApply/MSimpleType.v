@@ -10,8 +10,8 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.TSymOneOf.
+Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.TSymOneOf.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Lib.ListType.
 Require Import MirrorCore.Lib.BaseType.

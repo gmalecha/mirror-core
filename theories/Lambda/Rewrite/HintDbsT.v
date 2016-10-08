@@ -5,8 +5,8 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.RTac.CoreK.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.RewriteRelations.
-Require Import MirrorCore.MTypes.ModularTypesT.
-Require Import MirrorCore.MTypes.MTypeUnifyT.
+Require Import MirrorCore.Types.ModularTypesT.
+Require Import MirrorCore.Types.MTypeUnifyT.
 Require Import MirrorCore.PolymorphicF.
 Require Import MirrorCore.Lambda.PolyInstT.
 

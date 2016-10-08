@@ -7,8 +7,8 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.PolyInst.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.MTypeUnify.
+Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.MTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.

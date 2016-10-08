@@ -8,8 +8,8 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.TSymOneOf.
+Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.TSymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.

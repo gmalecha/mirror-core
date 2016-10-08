@@ -111,7 +111,7 @@ Section SemiDec_expr.
   Qed.
 
   (* put SemiDec inside of theories/Util *)
-  (* Do this: make a copy of Lambda that only uses MTypes *)
+  (* Do this: make a copy of Lambda that only uses Types *)
   Instance SemiDecOk_expr : RelDecSemiOk (expr typ func) _ RelDecSemi_expr.
   Proof.
     constructor. intros.

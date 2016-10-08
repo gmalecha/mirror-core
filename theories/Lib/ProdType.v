@@ -3,7 +3,7 @@ Require Import Coq.Lists.List.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.

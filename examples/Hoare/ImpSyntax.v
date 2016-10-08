@@ -4,7 +4,7 @@ Require Import ExtLib.Data.String.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.

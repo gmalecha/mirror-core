@@ -17,7 +17,7 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.

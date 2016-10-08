@@ -1,4 +1,4 @@
-Require Import MirrorCore.MTypes.ModularTypesT.
+Require Import MirrorCore.Types.ModularTypesT.
 Require Import MirrorCore.Util.PositivePolyMap.
 
 

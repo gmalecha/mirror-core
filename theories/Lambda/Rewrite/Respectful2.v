@@ -13,8 +13,8 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
-Require Import MirrorCore.MTypes.ModularTypes2.
-Require Import MirrorCore.MTypes.MTypeUnify2.
+Require Import MirrorCore.Types.ModularTypes2.
+Require Import MirrorCore.Types.MTypeUnify2.
 Require Import MirrorCore.Polymorphic2.
 Require Import MirrorCore.Lambda.PolyInst2.
 

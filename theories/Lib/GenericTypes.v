@@ -1,7 +1,7 @@
 Require Import Coq.omega.Omega.
 Require Import ExtLib.Data.PList.
 Require Import ExtLib.Data.POption.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 
 Set Implicit Arguments.
 Set Strict Implicit.

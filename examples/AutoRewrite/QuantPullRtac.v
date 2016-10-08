@@ -228,7 +228,7 @@ Qed.
    PolyQuantpullRtac anyway. We should figure out whether to remove it. *)
 (*
 Require Import MirrorCore.Lambda.Rtac.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 
 Definition the_rewrites (lems : RewriteHintDb Rbase (*list (rw_lemma typ func (expr typ func) *
                                       CoreK.rtacK typ (expr typ func)) *))

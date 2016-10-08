@@ -20,8 +20,8 @@ Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
 
-Require Import MirrorCore.MTypes.ModularTypesT.
-Require Import MirrorCore.MTypes.MTypeUnifyT.
+Require Import MirrorCore.Types.ModularTypesT.
+Require Import MirrorCore.Types.MTypeUnifyT.
 
 Require Import MirrorCore.Util.Forwardy.
 

@@ -9,7 +9,7 @@ Require Import McExamples.Tauto.ILogicFunc.
 Require Import McExamples.Tauto.ILogicReify.
 
 Require Import MirrorCore.Lambda.Red.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.PLemma.
 Require Import MirrorCore.RTac.PApply.

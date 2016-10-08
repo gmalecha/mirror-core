@@ -50,20 +50,20 @@ theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
 theories/PLemmaT.v
-theories/MTypes/ModularTypes.v
-theories/MTypes/MTypeUnify.v
-theories/MTypes/TSyms.v
-theories/MTypes/TSymOneOf.v
+theories/Types/ModularTypes.v
+theories/Types/MTypeUnify.v
+theories/Types/TSyms.v
+theories/Types/TSymOneOf.v
 
-theories/MTypes/ModularTypesT.v
-theories/MTypes/MTypeUnifyT.v
+theories/Types/ModularTypesT.v
+theories/Types/MTypeUnifyT.v
 theories/Lambda/PolyInstT.v
 theories/PolymorphicF.v
 theories/Lambda/Rewrite/HintDbsT.v
 theories/Lambda/Rewrite/RespectfulT.v
 
-# theories/MTypes/ModularTypesF.v
-# theories/MTypes/MTypeUnifyF.v
+# theories/Types/ModularTypesF.v
+# theories/Types/MTypeUnifyF.v
 # theories/Lambda/PolyInstF.v
 # theories/Lambda/Rewrite/HintDbs2.v
 # theories/Lambda/Rewrite/Respectful2.v
@@ -181,6 +181,8 @@ theories/RTac/Reduce.v
 theories/RTac/Interface.v
 theories/RTac/Auto.v
 theories/RTac/RTac.v
+
+theories/RTac/PApplyT.v
 
 theories/Reify/Patterns.v
 theories/Reify/Reify.v

@@ -1,4 +1,4 @@
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.Types.ModularTypes.
 Require Import ExtLib.Data.Map.FMapPositive.
 
 Section parametric.
