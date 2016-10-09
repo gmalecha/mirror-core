@@ -5,10 +5,12 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.
+Require Import ExtLib.Data.Map.FMapPositive.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.MTypes.MTypeUnify.
 Require Import MirrorCore.MTypes.TSymOneOf.
 
 Set Implicit Arguments.
@@ -51,6 +53,20 @@ Inductive func :=
 | Lt | Plus | N : nat -> func | Eq : typ -> func
 | Ex : typ -> func | All : typ -> func
 | And | Or | Impl.
+
+Definition func_unify (a b : func) (s : pmap typ) : option (pmap typ) :=
+  match a , b with
+  | Lt , Lt
+  | Plus , Plus
+  | N _ , N _
+  | And , And
+  | Or , Or
+  | Impl , Impl => Some s
+  | Eq t , Eq t'
+  | Ex t , Ex t'
+  | All t , All t' => mtype_unify _ t t' s
+  | _ , _ => None
+  end.
 
 Local Notation "! x" := (@tyBase0 _ x) (at level 0).
 

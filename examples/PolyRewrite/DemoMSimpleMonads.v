@@ -83,7 +83,7 @@ Reify Pattern patterns_simplemon_typ_special += (!! (@option) @ ?0) => (fun (x :
 Instance Reify_expr_simple_opt : Reify (expr typ func) := Reify_expr_simple option. *)
 
 Instance RSym_func_opt : RSym func := @RSym_func option OptionMonad.Monad_option.
-Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func option OptionMonad.Monad_option. 
+Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func option OptionMonad.Monad_option.
 
 Definition rlaw1 : polymorphic typ 2 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
@@ -225,7 +225,7 @@ Proof. red. red. red. firstorder. Qed.
 Arguments PPr {_ _ _} n _ : clear implicits.
 
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
+  do_prespectful rel_dec (@tyVar typ') (func_unify)
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> :: nil).
 
@@ -239,7 +239,7 @@ Proof.
 Qed.
 
 Definition get_respectful : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
+  do_prespectful rel_dec (@tyVar typ') func_unify
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_eq_eq_flip_impl ::> ::
@@ -353,7 +353,7 @@ Qed.
 (* Q: simple_reduce or reduce? *)
 Definition the_rewrites (lems : RewriteHintDb Rbase)
   : RwAction typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints func_unify lems))).
 
 Definition monad_simplify : RwAction typ func Rbase :=
   repeat_rewrite (fun e r =>
@@ -482,7 +482,7 @@ Proof.
   { eapply CompileHints_sound.
     auto. }
   Unshelve.
-  (*exact option.*)  
+  (*exact option.*)
   exact (@id Type).
 Qed.
 
@@ -624,7 +624,7 @@ Arguments Typ0_Prop {_ _}.
         idtac "found";
         doNRed' n k
       end.
-    
+
     (* testing on larger examples *)
     (* We need an opaque symbol *)
     Section AssocTest.
@@ -638,11 +638,11 @@ Arguments Typ0_Prop {_ _}.
         end.
 
       Definition MAT1 := Eval cbv beta zeta iota delta [makeAssocTest] in (makeAssocTest 1).
-    
+
       Goal (MAT1 = MAT1).
         unfold MAT1.
 
-        
+
         Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
       Abort.
 

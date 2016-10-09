@@ -331,16 +331,18 @@ Section setoid.
 
   Section for_polymorphism.
 
+(*
   Variable unify_function : typ -> typ -> FMapPositive.pmap typ -> option (FMapPositive.pmap typ).
+*)
   Variable mkVar : BinNums.positive -> typ.
 
-  Local Definition get_Proper {n : nat}
+  Local Definition get_Proper (su : sym_unifier) {n : nat}
              (p : polymorphic typ n Proper_concl)
              (tc : polymorphic typ n bool)
              (e : expr typ func)
   : option Proper_concl :=
     let p' := Functor.fmap term p in
-    match @get_inst _ _ _ _ mkVar unify_function n p' e with
+    match @get_inst _ _ mkVar su n p' e with
     | Some args =>
       if Polymorphic.inst tc args
       then Some (Polymorphic.inst p args)
@@ -349,8 +351,8 @@ Section setoid.
     end.
 
   Local Lemma get_Proper_sound :
-    forall n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
-      get_Proper p tc e  = Some x ->
+    forall su n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
+      get_Proper su p tc e  = Some x ->
       polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc p) ->
       Proper_conclP x.
   Proof using.
@@ -366,11 +368,11 @@ Section setoid.
   Qed.
 
 
-  Local Definition do_one_prespectful (h : HintProper) : ResolveProper typ func Rbase :=
+  Local Definition do_one_prespectful su (h : HintProper) : ResolveProper typ func Rbase :=
     match h with
     | PPr_tc pc tc =>
       (fun (e : expr typ func) =>
-         match get_Proper pc tc e with
+         match get_Proper su pc tc e with
          | Some lem =>
            apply_respectful {| vars := nil
                              ; premises := nil
@@ -380,17 +382,17 @@ Section setoid.
     end.
 
   Local Lemma do_one_prespectful_sound :
-    forall hp : HintProper,
+    forall su (hp : HintProper),
       ProperHintOk hp ->
-      respectful_spec RbaseD (do_one_prespectful hp).
+      respectful_spec RbaseD (do_one_prespectful su hp).
   Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
         Typ2Ok_Fun.
     intros.
     unfold do_one_prespectful.
     destruct hp.
     red. intros.
-    generalize (@get_Proper_sound n p p0 e).
-    destruct (get_Proper p p0 e).
+    generalize (@get_Proper_sound su n p p0 e).
+    destruct (get_Proper su p p0 e).
     { intros.
       eapply apply_respectful_sound; eauto using IDTACK_sound.
       red. simpl.
@@ -402,17 +404,17 @@ Section setoid.
   Qed.
 
   (** This is the main entry point for the file *)
-  Fixpoint do_prespectful (pdb : ProperDb) : ResolveProper typ func Rbase :=
+  Fixpoint do_prespectful su (pdb : ProperDb) : ResolveProper typ func Rbase :=
     match pdb with
     | nil => fail_respectful
     | p :: pdb' =>
-      or_respectful (do_one_prespectful p) (fun e => do_prespectful pdb' e)
+      or_respectful (do_one_prespectful su p) (fun e => do_prespectful su pdb' e)
     end.
 
   Theorem do_prespectful_sound
-  : forall propers,
+  : forall su propers,
       ProperDbOk propers ->
-      respectful_spec RbaseD (do_prespectful propers).
+      respectful_spec RbaseD (do_prespectful su propers).
   Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
     induction 1.
     { eapply fail_respectful_sound. }
@@ -422,13 +424,13 @@ Section setoid.
   End for_polymorphism.
 
   (** This is the non-polymorphic entry point *)
-  Definition do_respectful : ProperDb -> ResolveProper typ func Rbase :=
-    do_prespectful (fun _ _ => Some) (fun _ => typ0 (F:=Prop)).
+  Definition do_respectful : (BinNums.positive -> typ) -> sym_unifier -> ProperDb -> ResolveProper typ func Rbase :=
+    @do_prespectful.
 
   Theorem do_respectful_sound
-  : forall propers,
+  : forall su mkVar propers,
       ProperDbOk propers ->
-      respectful_spec RbaseD (do_respectful propers).
+      respectful_spec RbaseD (do_respectful su mkVar propers).
   Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
     eapply do_prespectful_sound.
   Qed.
@@ -436,7 +438,7 @@ Section setoid.
 End setoid.
 
 (**
-      Helpful notations for workign with Respectfulness,
+      Helpful notations for working with Respectfulness,
       based on the ones in Coq's standard library.
  *)
 Delimit Scope Rrespects_scope with Rresp.

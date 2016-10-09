@@ -23,21 +23,40 @@ Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.MSimpleTyp.
 
 Require Import Coq.Bool.Bool.
-
+Require Import MirrorCore.MTypes.MTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive ilfunc : Type :=
-  | ilf_entails (logic : typ)
-  | ilf_true (logic : typ)
-  | ilf_false (logic : typ)
-  | ilf_and (logic : typ)
-  | ilf_or (logic : typ)
-  | ilf_impl (logic : typ)
-  | ilf_exists (arg logic : typ)
-  | ilf_forall (arg logic : typ).
+| ilf_entails (logic : typ)
+| ilf_true (logic : typ)
+| ilf_false (logic : typ)
+| ilf_and (logic : typ)
+| ilf_or (logic : typ)
+| ilf_impl (logic : typ)
+| ilf_exists (arg logic : typ)
+| ilf_forall (arg logic : typ).
+
+Definition ilfunc_unify (a b : ilfunc) (s : FMapPositive.pmap typ)
+: option (FMapPositive.pmap typ) :=
+  match a , b with
+  | ilf_entails t , ilf_entails t'
+  | ilf_true t , ilf_true t'
+  | ilf_false t , ilf_false t'
+  | ilf_and t , ilf_or t'
+  | ilf_or t , ilf_or t'
+  | ilf_impl t , ilf_impl t' =>
+    mtype_unify _ t t' s
+  | ilf_exists t l , ilf_exists t' l'
+  | ilf_forall t l , ilf_forall t' l' =>
+    match mtype_unify _ t t' s with
+    | Some s' => mtype_unify _ l l' s
+    | None => None
+    end
+  | _ , _ => None
+  end.
 
 Definition ilfunc_logic (x : ilfunc) : typ :=
   match x with
@@ -52,12 +71,12 @@ Definition ilfunc_logic (x : ilfunc) : typ :=
   end.
 
 Section ILogicFuncInst.
-  
+
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
   Definition logic_ops := forall (t : typ),
     poption (ILogicOps (typD t)).
-    
+
   Definition logic_opsOk (l : logic_ops) : Prop :=
     forall g, match l g return Prop with
                 | pSome T => @ILogic _ T
@@ -89,7 +108,7 @@ Section ILogicFuncInst.
 			| pNone => None
 			end
     end.
-  
+
   Global Instance RelDec_ilfunc : RelDec (@eq ilfunc) :=
     { rel_dec := fun a b =>
 	           match a, b with
@@ -127,13 +146,13 @@ Section ILogicFuncInst.
    castR id (RFun (RFun (typD u) (typD t)) (typD t)) (@lexists (typD t) IL (typD u)).
  Definition forallR {t u : typ} {IL : ILogicOps (typD t)} :=
    castR id (RFun (RFun (typD u) (typD t)) (typD t)) (@lforall (typD t) IL (typD u)).
- 
+
  Implicit Arguments trueR [[t] [IL]].
  Implicit Arguments falseR [[t] [IL]].
- Implicit Arguments andR [[t] [IL]]. 
+ Implicit Arguments andR [[t] [IL]].
  Implicit Arguments orR [[t] [IL]].
  Implicit Arguments implR [[t] [IL]].
- 
+
  Definition funcD (f : ilfunc) : match typeof_ilfunc f return Type with
 				     | Some t => typD t
 				     | None => unit
@@ -237,7 +256,7 @@ Section ILogicFuncInst.
      | pNone => tt
      end
    end.
- 
+
 End ILogicFuncInst.
 
 
@@ -269,7 +288,7 @@ Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Subst.FMapSubst.
 
 Definition gs : logic_ops :=
-  fun t => 
+  fun t =>
     match t with
     | ModularTypes.tyProp => pSome _
     | _ => pNone
@@ -291,7 +310,7 @@ Qed.
 
 Global Instance Expr_expr : ExprI.Expr _ (expr typ ilfunc) := @Expr_expr typ ilfunc _ _ _.
 
-Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr := 
+Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr :=
   @ExprOk_expr typ ilfunc _ _ _ _ _ _.
 
 Global Instance ExprVar_expr : ExprVar (expr typ ilfunc) := _.

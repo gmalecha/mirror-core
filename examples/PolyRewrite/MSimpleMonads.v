@@ -4,12 +4,15 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
+Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.MTypes.MTypeUnify.
 Require Import MirrorCore.MTypes.TSymOneOf.
+
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -48,13 +51,13 @@ Section Monad.
     Variable M_mon : Monad M.
 
     Instance TSym_typ' : TSym typ' :=
-      { symbolD n s :=
-          match s with
-          | tyNat => nat
-          | tyBool => bool
-          | tyMonad => M
-          end
-        ; symbol_dec := typ'_dec }.
+    { symbolD n s :=
+        match s with
+        | tyNat => nat
+        | tyBool => bool
+        | tyMonad => M
+        end
+    ; symbol_dec := typ'_dec }.
 
     Definition typ := mtyp typ'.
 
@@ -65,6 +68,27 @@ Section Monad.
     | Lt | Plus | N : nat -> func | Eq : typ -> func
     | Ex : typ -> func | All : typ -> func
     | And | Or | Impl | Bind : typ -> typ -> func | Ret : typ -> func.
+
+    Definition func_unify (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
+      match a , b with
+      | Lt , Lt
+      | Plus , Plus
+      | N _ , N _
+      | And , And
+      | Or , Or
+      | Impl , Impl => Some s
+      | Ret t , Ret t'
+      | Eq t , Eq t'
+      | Ex t , Ex t'
+      | All t , All t' => mtype_unify _ t t' s
+      | Bind a b , Bind a' b'  =>
+        match mtype_unify _ a a' s with
+        | Some s' => mtype_unify _ b b' s'
+        | None => None
+        end
+      | _ , _ => None
+      end.
+
 
     Local Notation "! x" := (@tyBase0 _ x) (at level 0).
 
