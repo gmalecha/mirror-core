@@ -1,10 +1,9 @@
-Require Import McExamples.Cancel.RtacDemo.
+Require Import McExamples.PolyRewrite.QuantifierPuller.RtacDemo.
 
-Declare Module M : Monoid.Monoid.
-
-Module Automation := RtacDemo.MonoidCancel M.
+Module Automation := RtacDemo.
 
 Goal Automation.Demo.goal NNN.
   Automation.Demo.prep.
-  Time Automation.rtac_canceler.
+  Time Automation.Demo.run.
+  Automation.Demo.cleanup.
 Time Qed.

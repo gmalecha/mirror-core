@@ -214,7 +214,7 @@ Qed.
 
 
 (* original goal *)
-  Goal goal2_D' 2 4 (* n = *) 5 0.
+Goal goal2_D' 2 4 (* n = *) 5 0.
   simpl.
 (*
   Check ex.
@@ -268,3 +268,11 @@ Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0.
 repeat exists true. tauto.
 Qed.
+
+Module Demo.
+  Ltac prep := vm_compute.
+  Ltac run := run_tactic reify_simple rewrite_it rewrite_it_sound.
+  Ltac cleanup := repeat ( first [exists 0 | exists true]); tauto.
+  Definition goal := goal2_D''.
+End Demo.
+                                         

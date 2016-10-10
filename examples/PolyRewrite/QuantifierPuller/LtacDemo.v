@@ -95,5 +95,7 @@ Abort.
 (* code for the new test bench *)
 Module Demo.
   Ltac prep := vm_compute.
+  Ltac run := rewrite_strat (bottomup (hints pulling ; eval cbv beta)).
+  Ltac cleanup := repeat (first [exists 0 |exists true]); tauto.
   Definition goal := goal2_D''.
 End Demo.
