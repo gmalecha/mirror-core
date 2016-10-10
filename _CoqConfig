@@ -206,15 +206,17 @@ examples/Hoare/Tests.v
 
 examples/PolyRewrite/MSimple.v
 examples/PolyRewrite/MSimpleReify.v
-examples/PolyRewrite/PolyQuantPullRtac.v
-examples/PolyRewrite/DemoPolyQuantPullRtac.v
+
+examples/PolyRewrite/QuantifierPuller/PolyQuantPullRtac.v
+examples/PolyRewrite/QuantifierPuller/RtacDemo.v
+examples/PolyRewrite/QuantifierPuller/LtacDemo.v
 
 examples/PolyApply/MSimpleType.v
 examples/PolyApply/MSimpleFunc.v
 examples/PolyApply/DemoPolyApply.v
 
-examples/PolyRewrite/Monads.v
-examples/PolyRewrite/MSimpleMonads.v
-examples/PolyRewrite/MSimpleMonadsReify.v
-examples/PolyRewrite/DemoMSimpleMonads.v
+examples/PolyRewrite/Monads/Monads.v
+examples/PolyRewrite/Monads/MSimpleMonads.v
+examples/PolyRewrite/Monads/MSimpleMonadsReify.v
+examples/PolyRewrite/Monads/DemoMSimpleMonads.v
 

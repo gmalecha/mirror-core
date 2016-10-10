@@ -238,6 +238,7 @@ Proof.
   compute. intros. subst. reflexivity.
 Qed.
 
+(* TODO: make sure we only really need proper_plus_eq. *)
 Definition get_respectful : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::

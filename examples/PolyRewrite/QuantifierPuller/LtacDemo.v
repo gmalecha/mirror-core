@@ -4,7 +4,6 @@ Require Import ExtLib.Tactics.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-
 Theorem pull_ex_and_left
 : forall T P Q, Basics.flip Basics.impl ((@ex T P) /\ Q) (exists n, P n /\ Q).
 Proof.
@@ -63,8 +62,10 @@ Set Printing Depth 5. (* To avoid printing large terms *)
 
 Ltac the_tac := rewrite_strat (bottomup (hints pulling ; eval cbv beta)).
 
+(*
 Goal goal2_D'' 12.
   vm_compute. Time the_tac.
+*)
 
 (* Data: keeping track of values for runs for different n
    we report time-out if any runs time out
@@ -84,24 +85,15 @@ Goal goal2_D'' 12.
    14: all runs time out
 *)
 
-
-(* original settings 4 2 5 0 provide a baseline. increase from n = 5 *)
+(* original settings 4 2 5 0 provide a baseline *)
+(*
 Goal goal2_D' 2 4 5 0.
   vm_compute.   Time rewrite_strat (bottomup (hints pulling ; eval cbv beta)).
-
-
-(* the reflection based one does it in a few seconds *)
-(* rewrite_strat takes 20s *)
-(*
-Time repeat progress (repeat setoid_rewrite pull_ex_and_left in H;
-                      repeat setoid_rewrite pull_ex_and_right in H).
+Abort.
 *)
-(*
-Time repeat first [ setoid_rewrite pull_ex_and_left in H
-                  | setoid_rewrite pull_ex_and_right in H ].
- *)
-(*
-repeat exists true;
-repeat exists 0; tauto.
-Qed.
-*)
+
+(* code for the new test bench *)
+Module Demo.
+  Ltac prep := vm_compute.
+  Definition goal := goal2_D''.
+End Demo.
