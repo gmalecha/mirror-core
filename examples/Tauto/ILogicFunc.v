@@ -286,47 +286,51 @@ End MakeILogic.
 Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Subst.FMapSubst.
-
+(*
 Definition gs : logic_ops :=
   fun t =>
     match t with
     | ModularTypes.tyProp => pSome _
     | _ => pNone
     end.
+*)
+Section ILFunc_insts.
+  Variable gs : logic_ops.
+  Global Instance RSym_ilfunc : SymI.RSym ilfunc :=
+    { typeof_sym := typeof_ilfunc gs
+      ; sym_eqb := fun a b => Some (rel_dec a b)
+      ; symD := funcD gs
+    }.
 
-Global Instance RSym_ilfunc : SymI.RSym ilfunc :=
-  { typeof_sym := typeof_ilfunc gs
-    ; sym_eqb := fun a b => Some (rel_dec a b)
-    ; symD := funcD gs
-  }.
-
-Global Instance RSymOk_ilfunc : SymI.RSymOk RSym_ilfunc.
-Proof.
-  constructor.
-  intros. unfold sym_eqb; simpl.
-  consider (a ?[ eq ] b); auto.
-Qed.
+  Global Instance RSymOk_ilfunc : SymI.RSymOk RSym_ilfunc.
+  Proof.
+    constructor.
+    intros. unfold sym_eqb; simpl.
+    consider (a ?[ eq ] b); auto.
+  Qed.
 
 
-Global Instance Expr_expr : ExprI.Expr _ (expr typ ilfunc) := @Expr_expr typ ilfunc _ _ _.
+  Global Instance Expr_expr : ExprI.Expr _ (expr typ ilfunc) := @Expr_expr typ ilfunc _ _ _.
 
-Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr :=
-  @ExprOk_expr typ ilfunc _ _ _ _ _ _.
+  Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr :=
+    @ExprOk_expr typ ilfunc _ _ _ _ _ _.
+  
+  Global Instance ExprVar_expr : ExprVar (expr typ ilfunc) := _.
+  
+  Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr := _.
+  
+  Global Instance ExprUVar_expr : ExprUVar (expr typ ilfunc) := _.
+  Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr := _.
+  
+  Definition subst : Type :=
+    FMapSubst.SUBST.raw (expr typ ilfunc).
+  Global Instance SS : SubstI.Subst subst (expr typ ilfunc) :=
+    @FMapSubst.SUBST.Subst_subst _.
+  Global Instance SU : SubstI.SubstUpdate subst (expr typ ilfunc) :=
+    @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
+  Check SubstI.SubstOk.
+  Global Instance SO : @SubstI.SubstOk _ _ _ _ _ SS :=
+    @FMapSubst.SUBST.SubstOk_subst typ RType_typ (expr typ ilfunc) _.
+  Global Instance SUO : @SubstI.SubstUpdateOk _ _ _ _ _ _ SU SO :=  @FMapSubst.SUBST.SubstUpdateOk_subst typ RType_typ (expr typ ilfunc) _ _.
 
-Global Instance ExprVar_expr : ExprVar (expr typ ilfunc) := _.
-
-Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr := _.
-
-Global Instance ExprUVar_expr : ExprUVar (expr typ ilfunc) := _.
-Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr := _.
-
-Definition subst : Type :=
-  FMapSubst.SUBST.raw (expr typ ilfunc).
-Global Instance SS : SubstI.Subst subst (expr typ ilfunc) :=
-  @FMapSubst.SUBST.Subst_subst _.
-Global Instance SU : SubstI.SubstUpdate subst (expr typ ilfunc) :=
-  @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
-Check SubstI.SubstOk.
-Global Instance SO : @SubstI.SubstOk _ _ _ _ _ SS :=
-  @FMapSubst.SUBST.SubstOk_subst typ RType_typ (expr typ ilfunc) _.
-Global Instance SUO : @SubstI.SubstUpdateOk _ _ _ _ _ _ SU SO :=  @FMapSubst.SUBST.SubstUpdateOk_subst typ RType_typ (expr typ ilfunc) _ _.
+End ILFunc_insts.

@@ -12,6 +12,7 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.ExprUnify_simple.
 Require Import MirrorCore.RTac.RTac.
+Require Import MirrorCore.Lambda.ExprTac.
 
 
 Require Import McExamples.Tauto.MSimpleTyp.
@@ -19,145 +20,286 @@ Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.ILogicFunc.
 Require Import McExamples.Tauto.ILogicReify.
 
-
-Definition tc (t : typ) :=
-  match t with
-  | ModularTypes.tyProp => true
-  | _ => false
-  end.
-
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Reify.ReifyClass.
+
+Definition ilogic_tc (gs : logic_ops) (t : typ) :=
+  match gs t with
+  | POption.pSome ILOps => @ILogic (typD t) ILOps
+  | pNone => False
+  end.
 
 Definition test : (lemma typ (expr typ ilfunc) (expr typ ilfunc)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @limplAdj Prop _ _ ::>.
 
-Definition conclD (us vs : tenv typ) (e : expr typ ilfunc) : option (exprT us vs Prop) :=
-  exprD us vs tyProp e.
 
-Definition r_refl : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: nil;
-                  premises := nil;
-                  concl := App (App (Inj (fEntails t)) (Var 0)) (Var 0) |};
-     p_tc := tc
-  |}.
+Section Tauto.
 
-Lemma r_refl_sound : PolyLemmaD conclD r_refl.
-Proof.
-  unfold PolyLemmaD, with_typeclasses; simpl.
-  destruct t; simpl in *; try apply I.
-  unfold lemmaD; simpl; intros.
-  intro H; apply H.
-Qed.
+  Variable gs : logic_ops.
+  Variable tc' : forall t, option (ilogic_tc gs t).
 
-Definition r_trueR : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: nil;
-                  premises := nil;
-                  concl := App (App (Inj (fEntails t)) (Var 0)) (mkTrue t) |};
-     p_tc := tc
-  |}.
+  Instance Expr_gs : Expr typ (expr typ ilfunc) := Expr_expr gs.
 
-Lemma r_trueR_sound : PolyLemmaD conclD r_trueR.
-Proof.
-  unfold PolyLemmaD, with_typeclasses; simpl.
-  destruct t; simpl in *; try apply I.
-  unfold lemmaD; simpl; intros.
-  unfold AbsAppI.exprT_App, exprT_Inj; simpl.
-  unfold entailsR, castR; simpl; intros.
-  apply I.
-Qed.
+  Definition tc t := 
+    match tc' t with
+    | Some _ => true
+    | _ => false
+    end.
 
-Definition r_falseL : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: nil;
-                  premises := nil;
-                  concl := App (App (Inj (fEntails t)) (mkFalse t)) (Var 0) |};
-     p_tc := tc
-  |}.
+  Definition conclD (us vs : tenv typ) (e : expr typ ilfunc) : option (exprT us vs Prop) :=
+    exprD_typ0 (T := Prop) us vs e.
 
-Definition r_andR : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: t :: t :: nil;
-                  premises := App (App (Inj (fEntails t)) (Var 0)) (Var 2)
-                                  :: App (App (Inj (fEntails t)) (Var 0)) (Var 1) :: nil;
-                  concl := App (App (Inj (fEntails t)) (Var 0))
-                               (App (App (Inj (fAnd t)) (Var 2)) (Var 1)) |};
-     p_tc := tc
-  |}.
 
-Definition r_andL1 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: t :: t :: nil;
-                  premises := App (App (Inj (fEntails t)) (Var 2))
-                                  (Var 0) :: nil;
-                  concl := App
-                             (App (Inj (fEntails t))
-                                  (App (App (Inj (fAnd t)) (Var 2))
-                                       (Var 1))) (Var 0) |};
-     p_tc := tc
-  |}.
+  Definition r_refl : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: nil;
+                     premises := nil;
+                     concl := App (App (Inj (fEntails t)) (Var 0)) (Var 0) |};
+       p_tc := tc
+    |}.
 
-Definition r_andL2 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: t :: t :: nil;
-                  premises := App (App (Inj (fEntails t)) (Var 1))
-                                  (Var 0) :: nil;
-                  concl := App
-                             (App (Inj (fEntails t))
-                                  (App (App (Inj (fAnd t)) (Var 2))
-                                       (Var 1))) (Var 0) |};
-     p_tc := tc
-  |}.
+  Lemma r_refl_sound : PolyLemmaD conclD r_refl.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros). 
+    reflexivity.
+  Qed.
 
-Definition r_orL : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: t :: t :: nil;
-                  premises := App (App (Inj (fEntails t)) (Var 2))
-                                  (Var 0)
-                              :: App (App (Inj (fEntails t)) (Var 1))
-                              (Var 0) :: nil;
-                  concl := App
-                             (App (Inj (fEntails t))
-                                  (App (App (Inj (fOr t)) (Var 2)) (Var 1)))
-                             (Var 0) |};
-     p_tc := tc
-  |}.
+  Definition r_trueR : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: nil;
+                     premises := nil;
+                     concl := App (App (Inj (fEntails t)) (Var 0)) (mkTrue t) |};
+       p_tc := tc
+    |}.
 
-Definition r_orR1 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: t :: t :: nil;
-                  premises := App (App (Inj (fEntails t)) (Var 0))
-                                  (Var 2) :: nil;
+  Lemma r_trueR_sound : PolyLemmaD conclD r_trueR.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, mkTrue, fTrue; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros). 
+    apply ltrueR.
+  Qed.
+
+  Definition r_falseL : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: nil;
+                     premises := nil;
+                     concl := App (App (Inj (fEntails t)) (mkFalse t)) (Var 0) |};
+       p_tc := tc
+    |}.
+
+  Lemma r_falseL_sound : PolyLemmaD conclD r_falseL.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, mkFalse, fFalse; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros). 
+    apply lfalseL.
+  Qed.
+
+  Definition r_andR : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: t :: t :: nil;
+                     premises := App (App (Inj (fEntails t)) (Var 0)) (Var 2)
+                                     :: App (App (Inj (fEntails t)) (Var 0)) (Var 1) :: nil;
+                     concl := App (App (Inj (fEntails t)) (Var 0))
+                                  (App (App (Inj (fAnd t)) (Var 2)) (Var 1)) |};
+       p_tc := tc
+    |}.
+
+  Lemma r_andR_sound : PolyLemmaD conclD r_andR.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply landR; assumption.
+  Qed.
+
+  Definition r_andL1 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: t :: t :: nil;
+                     premises := App (App (Inj (fEntails t)) (Var 2))
+                                     (Var 0) :: nil;
+                     concl := App
+                                (App (Inj (fEntails t))
+                                     (App (App (Inj (fAnd t)) (Var 2))
+                                          (Var 1))) (Var 0) |};
+       p_tc := tc
+    |}.
+
+  Lemma r_andL1_sound : PolyLemmaD conclD r_andL1.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply landL1; assumption.
+  Qed.
+
+  Definition r_andL2 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: t :: t :: nil;
+                     premises := App (App (Inj (fEntails t)) (Var 1))
+                                     (Var 0) :: nil;
+                     concl := App
+                                (App (Inj (fEntails t))
+                                     (App (App (Inj (fAnd t)) (Var 2))
+                                          (Var 1))) (Var 0) |};
+       p_tc := tc
+    |}.
+
+  Lemma r_andL2_sound : PolyLemmaD conclD r_andL2.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply landL2; assumption.
+  Qed.
+
+
+  Definition r_orL : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: t :: t :: nil;
+                     premises := App (App (Inj (fEntails t)) (Var 2))
+                                     (Var 0)
+                                     :: App (App (Inj (fEntails t)) (Var 1))
+                                     (Var 0) :: nil;
+                     concl := App
+                                (App (Inj (fEntails t))
+                                     (App (App (Inj (fOr t)) (Var 2)) (Var 1)))
+                                (Var 0) |};
+       p_tc := tc
+    |}.
+
+  Lemma r_orL_sound : PolyLemmaD conclD r_orL.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fOr, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply lorL; assumption.
+  Qed.
+
+  Definition r_orR1 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: t :: t :: nil;
+                     premises := App (App (Inj (fEntails t)) (Var 0))
+                                     (Var 2) :: nil;
+                     concl := App (App (Inj (fEntails t)) (Var 0))
+                                  (App (App (Inj (fOr t)) (Var 2)) (Var 1)) |};
+       p_tc := tc
+    |}.
+  
+  Lemma r_orR1_sound : PolyLemmaD conclD r_orR1.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply lorR1; assumption.
+  Qed.
+
+  Definition r_orR2 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
+                  {| vars := t :: t :: t :: nil;
+                     premises := App (App (Inj (fEntails t)) (Var 0))
+                                     (Var 1) :: nil;
                   concl := App (App (Inj (fEntails t)) (Var 0))
                                (App (App (Inj (fOr t)) (Var 2)) (Var 1)) |};
-     p_tc := tc
-  |}.
-
-Definition r_orR2 : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
-               {| vars := t :: t :: t :: nil;
-                  premises := App (App (Inj (fEntails t)) (Var 0))
-                                  (Var 1) :: nil;
-                  concl := App (App (Inj (fEntails t)) (Var 0))
-                               (App (App (Inj (fOr t)) (Var 2)) (Var 1)) |};
-     p_tc := tc
-  |}.
-
-Definition r_implAdj : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
-  {| p_n := 1;
-     p_lem := fun t =>
+       p_tc := tc
+    |}.
+  
+  Lemma r_orR2_sound : PolyLemmaD conclD r_orR2.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fOr, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply lorR2; assumption.
+  Qed.
+  
+  Definition r_implAdj : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
+    {| p_n := 1;
+       p_lem := fun t =>
                {| vars := t :: t :: t :: nil;
                   premises := App
                                 (App (Inj (fEntails t))
@@ -168,63 +310,147 @@ Definition r_implAdj : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
      p_tc := tc
   |}.
 
-Definition PAPPLY (plem : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc)) :=
-  PAPPLY
-    (fun subst SS SU tus tvs n l r t s =>
-              @exprUnify subst typ ilfunc RType_typ RSym_ilfunc Typ2_Fun
-                         SS SU 10 tus tvs n l r t s) ilfunc_unify plem.
+  Lemma r_implAdj_sound : PolyLemmaD conclD r_implAdj.
+  Proof.
+    unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
+    remember (tc' t).
+    destruct o; [clear Heqo|apply I].
+    unfold ilogic_tc in i.
+    remember (gs t).
+    destruct p; [|intuition].
+    unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fImpl, fEntails; simpl; intros.
+    repeat (red_exprD; 
+            (try rewrite <- Heqp); 
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+    apply limplAdj; assumption.
+  Qed.
 
-Definition fintro (e : expr typ ilfunc) : option (@OpenAs typ (expr typ ilfunc)) :=
-  match e with
-  | App (App (Inj (ilf_entails t1)) P) (App (Inj (ilf_exists t2 t3)) Q) =>
-    if t1 ?[eq] t3 && tc t1 then
-      Some (AsEx t2 (fun x => beta (App Q x)))
-    else
-      None
-  | App (App (Inj (ilf_entails t1)) (App (Inj (ilf_forall t2 t3)) P)) Q =>
-    if t1 ?[eq] t3 && tc t1 then
-      Some (AsEx t2 (fun x => beta (App P x)))
-    else
-      None
-  | App (App (Inj (ilf_entails t1)) (App (Inj (ilf_exists t2 t3)) P)) Q =>
-    if t1 ?[eq] t3 && tc t1 then
-      Some (AsAl t2 (fun x => beta (App P x)))
-    else
-      None
-  | App (App (Inj (ilf_entails t1)) P) (App (Inj (ilf_forall t2 t3)) Q) =>
-    if t1 ?[eq] t3 && tc t1 then
-      Some (AsAl t2 (fun x => beta (App Q x)))
-    else
-      None
-  | _ => None
+  Definition PAPPLY (plem : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc)) :=
+    PAPPLY (RSym_func := RSym_ilfunc gs)
+      (fun subst SS SU tus tvs n l r t s =>
+         @exprUnify subst typ ilfunc RType_typ (RSym_ilfunc gs) Typ2_Fun
+                    SS SU 10 tus tvs n l r t s) ilfunc_unify plem.
+
+  Definition fintro (e : expr typ ilfunc) : option (@OpenAs typ (expr typ ilfunc)) :=
+    match e with
+    | App (App (Inj (ilf_entails t1)) P) (App (Inj (ilf_exists t2 t3)) Q) =>
+      if t1 ?[eq] t3 && tc t1 then
+        Some (AsEx t2 (fun x => beta (App Q x)))
+      else
+        None
+    | App (App (Inj (ilf_entails t1)) (App (Inj (ilf_forall t2 t3)) P)) Q =>
+      if t1 ?[eq] t3 && tc t1 then
+        Some (AsEx t2 (fun x => beta (App P x)))
+      else
+        None
+    | App (App (Inj (ilf_entails t1)) (App (Inj (ilf_exists t2 t3)) P)) Q =>
+      if t1 ?[eq] t3 && tc t1 then
+        Some (AsAl t2 (fun x => beta (App P x)))
+      else
+        None
+    | App (App (Inj (ilf_entails t1)) P) (App (Inj (ilf_forall t2 t3)) Q) =>
+      if t1 ?[eq] t3 && tc t1 then
+        Some (AsAl t2 (fun x => beta (App Q x)))
+      else
+        None
+    | _ => None
+    end.
+
+  Lemma fintro_sound : open_sound fintro.
+  Proof. 
+    admit.
+    (*
+    unfold open_sound, fintro; intros.
+    destruct e; simpl in H; try inversion H; clear H1.
+    destruct e1; simpl in H; try inversion H; clear H1.
+    destruct e1_1; simpl in H; try inversion H; clear H1.
+    destruct i; simpl in H; try inversion H; clear H1.
+    destruct e1_2; simpl in H; try inversion H; clear H1.
+    destruct e2; simpl in H; try inversion H; clear H1.
+    destruct e2_1; simpl in H; try inversion H; clear H1.
+    destruct i; simpl in H; try inversion H; clear H1.
+    remember (logic ?[eq] logic0 && tc logic).
+    destruct b; [symmetry in Heqb|inversion H].
+    rewrite andb_true_iff in Heqb; destruct Heqb as [Hl Htc].
+    rewrite rel_dec_correct in Hl; subst.
+    inversion H; subst; clear H.
+    unfold tc in Htc.
+    destruct (tc' logic0); [clear Htc|inversion Htc].
+    unfold ilogic_tc in i.
+    destruct (gs logic0); [|destruct i].
+    unfold open_spec; intros; simpl in *.
+    unfold propD, exprD_typ0 in H.
+    unfold exprD in H; simpl in H.
+    *)
+  Admitted.
+
+  Definition INTRO := @INTRO typ (expr typ ilfunc) ExprVar_expr ExprUVar_expr fintro.
+
+  Definition TAUTO : rtac typ (expr typ ilfunc) :=
+    REC 10
+        (fun r =>
+           THEN (REPEAT 10 INTRO)
+                (runOnGoals
+                   (FIRST
+                      (PAPPLY r_trueR ::
+                       PAPPLY r_falseL ::
+                       PAPPLY r_refl ::
+                       THEN (PAPPLY r_andR) (runOnGoals r) ::
+                       THEN (PAPPLY r_orL) (runOnGoals r) ::
+                       SOLVE (THEN (PAPPLY r_orR1) (runOnGoals r)) ::
+                       SOLVE (THEN (PAPPLY r_orR2) (runOnGoals r)) ::
+                       SOLVE (THEN (PAPPLY r_andL1) (runOnGoals r)) ::
+                       SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))) FAIL.
+
+
+  Lemma TAUTO_sound : rtac_sound TAUTO.
+  Proof.
+    unfold TAUTO.
+    rtac_derive_soundness_default.
+    apply INTRO_sound.
+    apply fintro_sound.
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_trueR_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_falseL_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_refl_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_andR_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_orL_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_orR1_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_orR2_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_andL1_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_andL2_sound].
+  Qed.
+
+End Tauto.
+
+Definition gs : logic_ops :=
+  fun t => 
+    match t with
+    | ModularTypes.tyProp => POption.pSome ILogicOps_Prop
+    | _ => POption.pNone
+    end.
+
+Definition gs' t : option (ilogic_tc gs t) :=
+  match t with
+    | ModularTypes.tyProp => Some ILogic_Prop
+    | _ => None
   end.
 
-Definition INTRO := @INTRO typ (expr typ ilfunc) ExprVar_expr ExprUVar_expr fintro.
-
-
-Definition TAUTO : rtac typ (expr typ ilfunc) :=
-  REC 10
-      (fun r =>
-         THEN (REPEAT 10 INTRO)
-              (runOnGoals
-                 (FIRST
-                    (PAPPLY r_trueR ::
-                     PAPPLY r_falseL ::
-                     PAPPLY r_refl ::
-                     THEN (PAPPLY r_andR) (runOnGoals r) ::
-                     THEN (PAPPLY r_orL) (runOnGoals r) ::
-                     SOLVE (THEN (PAPPLY r_orR1) (runOnGoals r)) ::
-                     SOLVE (THEN (PAPPLY r_orR2) (runOnGoals r)) ::
-                     SOLVE (THEN (PAPPLY r_andL1) (runOnGoals r)) ::
-                     SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))) FAIL.
-
 Goal True.
-
-pose (PApply.get_lemma ilfunc_unify r_trueR
-                       (mkEntails tyProp (mkTrue tyProp) (mkTrue tyProp))).
-
-cbv beta zeta iota delta [PApply.get_lemma PolyInst.get_inst PolyInst.get_types PolyInst.get_vector PolyInst.build_vector PApply.view_update p_n p_lem p_tc Functor.fmap Functor_polymorphic fmap_polymorphic] in o.
-
-cbv beta zeta iota delta [r_trueR inst concl Functor.fmap Functor_polymorphic fmap_polymorphic mkTrue mkEntails Vector.vector_hd tc mkTrue mkEntails fTrue fEntails typeof_sym RSym_ilfunc typeof_ilfunc] in o.
+SearchAbout CTop.
+  pose (TAUTO gs gs' (CTop nil nil) (TopSubst _ nil nil) 
+              (mkEntails tyProp (mkTrue tyProp) (mkAnd tyProp (mkTrue tyProp) (mkTrue tyProp)))).
+  vm_compute in r.
+  (* I do not think that this should fail *)
+  
 apply I.
 Qed.
