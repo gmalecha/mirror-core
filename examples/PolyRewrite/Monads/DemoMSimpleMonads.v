@@ -19,11 +19,11 @@ Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Polymorphic.
-Require Import McExamples.PolyRewrite.MSimpleMonads.
-Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonadsReify.
 
 (* for examples *)
-Require Import McExamples.PolyRewrite.Monads.
+Require Import McExamples.PolyRewrite.Monads.Monads.
 
 Set Implicit Arguments.
 Set Strict Implicit.

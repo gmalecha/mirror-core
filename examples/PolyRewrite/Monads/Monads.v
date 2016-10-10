@@ -4,8 +4,8 @@
  *)
 
 Require Import ExtLib.Structures.Monad.
-Require Import McExamples.PolyRewrite.MSimpleMonads.
-Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonadsReify.
 
 Section MonadLaws.
 
