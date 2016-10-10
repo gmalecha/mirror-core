@@ -51,7 +51,7 @@ struct
 
   module Std = Reify_Core.Std
 
-  let do_debug = true
+  let do_debug = false
 
   let rec pr_constrs sep ks =
     Pp.prlist_with_sep (fun _ -> sep) Printer.pr_constr ks
@@ -864,8 +864,8 @@ struct
       with
         Not_found ->
         if not (Term.isConst name) then
-          Pp.(msg_debug (   str "compiling inline reify command (this may impact performance):"
-                         ++ spc () ++ Printer.pr_constr name)) ;
+          debug_pp Pp.(   str "compiling inline reify command (this may impact performance):"
+                       ++ spc () ++ Printer.pr_constr name) ;
         let data = compile_name name in
         reify_table := Cmap.add name (CEphemeron.create data) !reify_table ;
         data
@@ -1041,7 +1041,7 @@ struct
       List.map (fun (ns,e) -> Syntax.reify_term ns (Term e) st) ns_e
     in
     let end_time = Sys.time () in
-    Pp.(msg_info (str "Total reification time = " ++ real (end_time -. start_time) ++ fnl ())) ;
+    Pp.(msg_info (str "Total reification time = " ++ real (end_time -. start_time))) ;
     (result, { tables = !(st.typed_tables) })
 
 
@@ -1207,7 +1207,6 @@ struct
                  ; discharge_function = (fun (obj_name,value) ->
                      Some value)
                  ; load_function = (fun i (obj_name,value) ->
-                     Pp.(msg_debug (str "loading...")) ;
 	             let (collection, ptrn, rule) = value in
                      Patterns.add_pattern (Syntax.compile_rule [])
                        Environ.empty_env Evd.empty (** NOTE: neither should be necessary *)

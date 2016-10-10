@@ -29,7 +29,6 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-Check @get_inst.
   Context {tsym : nat -> Type} {func : Type}.
   Let typ := mtyp tsym.
 
@@ -64,25 +63,26 @@ Check @get_inst.
   Local Definition view_update :=
     (mtype_unify tsym).
 
-  Local Definition get_lemma 
+  Local Definition get_lemma su
         (plem : PolyLemma typ (expr typ func) (expr typ func))
         (e : expr typ func)
   : option (lemma typ (expr typ func) (expr typ func)) :=
     match
-      get_inst tyVar view_update (fmap (fun x => x.(concl)) (p_lem plem)) e
+      get_inst tyVar su (fmap (fun x => x.(concl)) (p_lem plem)) e
     with
     | None => None
-    | Some args => 
+    | Some args =>
       if (inst (p_tc plem) args)
       then Some (inst (p_lem plem) args)
       else None
     end.
 
-  Definition PAPPLY 
+  Definition PAPPLY
+             su
              (plem : PolyLemma typ (expr typ func) (expr typ func)) :
     rtac typ (expr typ func) :=
     AT_GOAL (fun _ c gl =>
-               match get_lemma plem gl with
+               match get_lemma su plem gl with
                | None => FAIL
                | Some lem => APPLY exprUnify lem
                end).
@@ -94,11 +94,12 @@ Check @get_inst.
   Variable plem : PolyLemma typ (expr typ func) (expr typ func).
   Hypothesis plemD : ReifiedPLemma plem.
 
-  Theorem PAPPLY_sound : rtac_sound (PAPPLY plem).
+  Theorem PAPPLY_sound : forall su, rtac_sound (PAPPLY su plem).
   Proof.
+    intros.
     unfold PAPPLY.
     apply AT_GOAL_sound; intros.
-    remember (get_lemma plem e).
+    remember (get_lemma su plem e).
     destruct o; [apply APPLY_sound; try apply _; try assumption |apply FAIL_sound].
     split; destruct plemD as [H].
     unfold PolyLemmaD in H; simpl in H.
@@ -115,4 +116,4 @@ End parameterized.
 
 Hint Opaque PAPPLY : typeclass_instances.
 
-Arguments PAPPLY {typ expr _ _ _ _} unify lem _ _ _ : rename.
+Arguments PAPPLY {tsym func _ _ _ _} unify sym_type_unify lem _ _ _ : rename.

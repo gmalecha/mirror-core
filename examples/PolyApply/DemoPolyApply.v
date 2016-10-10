@@ -1,4 +1,4 @@
-Require Import ExtLib.Core.RelDec. 
+Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
@@ -44,7 +44,6 @@ Global Instance SS : SubstI.Subst subst (expr typ func) :=
   @FMapSubst.SUBST.Subst_subst _.
 Global Instance SU : SubstI.SubstUpdate subst (expr typ func) :=
   @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
-Check SubstI.SubstOk.
 Global Instance SO : @SubstI.SubstOk _ _ _ _ _ SS :=
   @FMapSubst.SUBST.SubstOk_subst typ RType_typ (expr typ func) _.
 Global Instance SUO : @SubstI.SubstUpdateOk _ _ _ _ _ _ SU SO :=  @FMapSubst.SUBST.SubstUpdateOk_subst typ RType_typ (expr typ func) _ _.
@@ -61,7 +60,7 @@ Definition INTRO := @INTRO typ (expr typ func) ExprVar_expr ExprUVar_expr fintro
 
 
 Lemma forall_exists_eq {A : Type} : forall x : A, exists y, x = y.
-Proof.                                                  
+Proof.
   intros.
   exists x. reflexivity.
 Qed.
@@ -92,15 +91,16 @@ Definition fN n : expr typ func := Inj (MSimple.N n).
 
 Require Import MirrorCore.RTac.PApply.
 Require Import MirrorCore.Lambda.ExprUnify_simple.
+About func.
 
 Definition PAPPLY (plem : PolyLemma typ (expr typ func) (expr typ func)) :=
-  PAPPLY 
+  PAPPLY
     (fun subst SS SU tus tvs n l r t s =>
               @exprUnify subst typ func RType_typ RSym_func Typ2_Fun
-                         SS SU 10 tus tvs n l r t s) plem.
+                         SS SU 10 tus tvs n l r t s) func_unify plem.
 
-Eval vm_compute in 
-    (THEN INTRO (runOnGoals (PAPPLY p_lem_forall_exists_eq))) 
-      (CTop nil nil) 
-      (TopSubst _ nil nil) 
+Eval vm_compute in
+    (THEN INTRO (runOnGoals (PAPPLY p_lem_forall_exists_eq)))
+      (CTop nil nil)
+      (TopSubst _ nil nil)
       (fAll tyBNat (fEx tyBNat (mkEq tyBNat (Var 1) (Var 0)))).

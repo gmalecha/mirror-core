@@ -153,13 +153,13 @@ Section setoid.
                        end |}.
   Local Existing Instance local_view.
 
-  Local Definition get_lemma {n : nat}
+  Local Definition get_lemma su {n : nat}
         (plem : polymorphic typ n (rw_lemma typ func Rbase))
         (tc : polymorphic typ n bool)
         (e : expr typ func)
   : option (rw_lemma typ func Rbase) :=
     match
-      get_inst tyVar view_update (fmap (fun x => x.(concl).(lhs)) plem) e
+      get_inst tyVar su (fmap (fun x => x.(concl).(lhs)) plem) e
     with
     | None => None
     | Some args =>
@@ -168,16 +168,16 @@ Section setoid.
       else None
     end.
 
-  Fixpoint CompileHints (hints : RewriteHintDb)
+  Fixpoint CompileHints su (hints : RewriteHintDb)
            (e : expr typ func)
            (r : R)
     : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
     match hints with
     | nil => nil
     | PRw_tc plem tc tac :: hints =>
-      match get_lemma plem tc e with
-      | None => CompileHints hints e r
-      | Some lem => (lem, tac) :: CompileHints hints e r
+      match get_lemma su plem tc e with
+      | None => CompileHints su hints e r
+      | Some lem => (lem, tac) :: CompileHints su hints e r
       end
     end.
 
@@ -197,9 +197,9 @@ Section setoid.
     Forall RewriteHintOk db.
 
   Theorem CompileHints_sound
-  : forall db,
+  : forall su db,
       RewriteHintDbOk db ->
-      hints_sound (CompileHints db).
+      hints_sound (CompileHints su db).
   Proof using.
     induction db; intros; simpl.
     { unfold hints_sound. intros. constructor. }
@@ -207,7 +207,7 @@ Section setoid.
       specialize (IHdb H3). clear H3.
       unfold hints_sound. intros.
       destruct a.
-      destruct (get_lemma p p0) eqn:Hgl; [|eapply IHdb].
+      destruct (get_lemma su p p0) eqn:Hgl; [|eapply IHdb].
       constructor; [|eauto].
       unfold RewriteHintOk in *. destruct H2.
       split; [|eauto].
