@@ -15,9 +15,9 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import McExamples.PolyRewrite.MSimple.
-Require Import McExamples.PolyRewrite.MSimpleReify.
-Require Import McExamples.PolyRewrite.PolyQuantPullRtac.
+Require Import McExamples.PolyRewrite.QuantifierPuller.MSimple.
+Require Import McExamples.PolyRewrite.QuantifierPuller.MSimpleReify.
+Require Import McExamples.PolyRewrite.QuantifierPuller.PolyQuantPullRtac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -172,10 +172,18 @@ Arguments Typ0_Prop {_ _}.
   let thirdn := Nat.div n 3 in
   goal2_D' thirdn (2 * thirdn) n 0.
 
-Set Printing Depth 5. (* To avoid printing large terms *)
+(*Set Printing Depth 5.*) (* To avoid printing large terms *)
 
 Ltac the_tac := run_tactic reify_simple rewrite_it rewrite_it_sound.
 
+(* examples of things that don't work *)
+(*
+Goal ((exists (x : nat), 1 = 1)/\(exists (y : nat), 2 = 2)).
+Variable k : nat.
+Goal (1 = 1 /\ exists (y : nat), y = 1).
+  Time the_tac.
+ *)
+  
 Goal goal2_D'' 2.
   vm_compute. Time the_tac.
   repeat exists 0.
@@ -206,7 +214,7 @@ Qed.
 
 
 (* original goal *)
-  Goal goal2_D' 2 4 (* n = *) 5 0.
+Goal goal2_D' 2 4 (* n = *) 5 0.
   simpl.
 (*
   Check ex.
@@ -260,3 +268,11 @@ Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0.
 repeat exists true. tauto.
 Qed.
+
+Module Demo.
+  Ltac prep := vm_compute.
+  Ltac run := run_tactic reify_simple rewrite_it rewrite_it_sound.
+  Ltac cleanup := repeat ( first [exists 0 | exists true]); tauto.
+  Definition goal := goal2_D''.
+End Demo.
+                                         

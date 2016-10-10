@@ -19,11 +19,11 @@ Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Polymorphic.
-Require Import McExamples.PolyRewrite.MSimpleMonads.
-Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonadsReify.
 
 (* for examples *)
-Require Import McExamples.PolyRewrite.Monads.
+Require Import McExamples.PolyRewrite.Monads.Monads.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -238,6 +238,7 @@ Proof.
   compute. intros. subst. reflexivity.
 Qed.
 
+(* TODO: make sure we only really need proper_plus_eq. *)
 Definition get_respectful : ResolveProper typ func Rbase :=
   do_prespectful rel_dec (@tyVar typ') func_unify
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::

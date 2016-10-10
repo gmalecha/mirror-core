@@ -2,7 +2,7 @@ Require Import Coq.Lists.List.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Lambda.ExprCore.
-Require Import McExamples.PolyRewrite.MSimpleMonads.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
 Require Import ExtLib.Structures.Monad.
 
 (* Notes from Greg
