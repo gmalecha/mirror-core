@@ -4,6 +4,6 @@ Module Automation := LtacDemo.
 
 Goal Automation.Demo.goal NNN.
   Automation.Demo.prep.
-  Time Automation.Demo.run.
+  Time (timeout 240 Automation.Demo.run).
   Automation.Demo.cleanup.
 Time Qed.
