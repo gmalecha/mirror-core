@@ -15,6 +15,7 @@ Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Lambda.ExprTac.
 
 
+Require Import McExamples.PolyRewrite.Monads.DemoMSimpleMonads.
 Require Import McExamples.Tauto.MSimpleTyp.
 Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.ILogicFunc.
@@ -49,7 +50,6 @@ Section Tauto.
 
   Definition conclD (us vs : tenv typ) (e : expr typ ilfunc) : option (exprT us vs Prop) :=
     exprD_typ0 (T := Prop) us vs e.
-
 
   Definition r_refl : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
     {| p_n := 1;
@@ -336,29 +336,29 @@ Section Tauto.
     match e with
     | App (App (Inj (ilf_entails t1)) P) (App (Inj (ilf_exists t2 t3)) Q) =>
       if t1 ?[eq] t3 && tc t1 then
-        Some (AsEx t2 (fun x => beta (App Q x)))
+        Some (AsEx t2 (fun x => mkEntails t1 P (beta (App Q x))))
       else
         None
     | App (App (Inj (ilf_entails t1)) (App (Inj (ilf_forall t2 t3)) P)) Q =>
       if t1 ?[eq] t3 && tc t1 then
-        Some (AsEx t2 (fun x => beta (App P x)))
+        Some (AsEx t2 (fun x => mkEntails t1 (beta (App P x)) Q))
       else
         None
     | App (App (Inj (ilf_entails t1)) (App (Inj (ilf_exists t2 t3)) P)) Q =>
       if t1 ?[eq] t3 && tc t1 then
-        Some (AsAl t2 (fun x => beta (App P x)))
+        Some (AsAl t2 (fun x => mkEntails t1 (beta (App P x)) Q))
       else
         None
     | App (App (Inj (ilf_entails t1)) P) (App (Inj (ilf_forall t2 t3)) Q) =>
       if t1 ?[eq] t3 && tc t1 then
-        Some (AsAl t2 (fun x => beta (App Q x)))
+        Some (AsAl t2 (fun x => mkEntails t1 P (beta (App Q x))))
       else
         None
     | _ => None
     end.
 
   Lemma fintro_sound : open_sound fintro.
-  Proof. 
+  Proof.     
     admit.
     (*
     unfold open_sound, fintro; intros.
@@ -379,29 +379,37 @@ Section Tauto.
     destruct (tc' logic0); [clear Htc|inversion Htc].
     unfold ilogic_tc in i.
     destruct (gs logic0); [|destruct i].
+Print open_spec.
     unfold open_spec; intros; simpl in *.
+
+    reduce_exprT.
     unfold propD, exprD_typ0 in H.
     unfold exprD in H; simpl in H.
+    reduce_exprT.
+Print Ltac reduce_exprT.
+prove_lem idtac.
+unfold ExprDsimul.ExprDenote.lambda_exprD in H.
     *)
   Admitted.
 
   Definition INTRO := @INTRO typ (expr typ ilfunc) ExprVar_expr ExprUVar_expr fintro.
 
   Definition TAUTO : rtac typ (expr typ ilfunc) :=
-    REC 10
+    REC 50
         (fun r =>
-           THEN (REPEAT 10 INTRO)
+           THEN (REPEAT 50 INTRO)
                 (runOnGoals
                    (FIRST
                       (PAPPLY r_trueR ::
                        PAPPLY r_falseL ::
                        PAPPLY r_refl ::
                        THEN (PAPPLY r_andR) (runOnGoals r) ::
+                       THEN (PAPPLY r_implAdj) (runOnGoals r) ::
                        THEN (PAPPLY r_orL) (runOnGoals r) ::
                        SOLVE (THEN (PAPPLY r_orR1) (runOnGoals r)) ::
                        SOLVE (THEN (PAPPLY r_orR2) (runOnGoals r)) ::
                        SOLVE (THEN (PAPPLY r_andL1) (runOnGoals r)) ::
-                       SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))) FAIL.
+                       SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))) IDTAC.
 
 
   Lemma TAUTO_sound : rtac_sound TAUTO.
@@ -418,6 +426,8 @@ Section Tauto.
                          split; apply r_refl_sound].
     apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
                          split; apply r_andR_sound].
+    apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
+                         split; apply r_implAdj_sound].
     apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
                          split; apply r_orL_sound].
     apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
@@ -445,12 +455,39 @@ Definition gs' t : option (ilogic_tc gs t) :=
     | _ => None
   end.
 
+Fixpoint mkAnds n :=
+  match n with 
+  | 0 => Var 0
+  | S n => mkAnd tyProp (Var (S n)) (mkAnds n)
+  end.
+
+Fixpoint mkImpls n P :=
+  match n with 
+  | 0 => mkImpl tyProp (Var 0) P
+  | S n => mkImpl tyProp (Var (S n)) (mkImpls n P)
+  end.
+
+Fixpoint mkForalls n P :=
+  match n with
+  | 0 => mkForall tyProp tyProp P
+  | S n => mkForall tyProp tyProp (mkForalls n P)
+  end.
+
+Definition mkTerm n := mkForalls n (mkImpls n (mkAnds n)).
+
+Fixpoint mkBigTerm n m :=
+  match n with
+  | 0 => mkTerm m
+  | S n => mkAnd tyProp (mkTerm m) (mkBigTerm n m)
+  end.
+  
+
 Goal True.
-SearchAbout CTop.
   pose (TAUTO gs gs' (CTop nil nil) (TopSubst _ nil nil) 
-              (mkEntails tyProp (mkTrue tyProp) (mkAnd tyProp (mkTrue tyProp) (mkTrue tyProp)))).
-  vm_compute in r.
+              (mkEntails tyProp (mkTrue tyProp) (mkBigTerm 1 0))).
+  unfold mkBigTerm, mkTerm, mkForalls, mkImpls, mkAnds in r.
+  Time vm_compute in r.
   (* I do not think that this should fail *)
   
-apply I.
+  apply I.
 Qed.
