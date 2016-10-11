@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FLAGS="-noglob -I ../../../src -Q ../../../coq-ext-lib/theories ExtLib -Q ../.. McExamples -Q ../../../theories MirrorCore"
+FLAGS="-noglob -I ../../../../src -Q ../../../../coq-ext-lib/theories ExtLib -Q ../../.. McExamples -Q ../../../../theories MirrorCore"
 
 for i in 3 5 10 20 50 75 100
 do

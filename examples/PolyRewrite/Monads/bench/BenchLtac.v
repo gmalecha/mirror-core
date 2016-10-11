@@ -7,4 +7,5 @@ Module Automation := LtacDemo.Demo M.
 Goal Automation.Demo.goal NNN.
   Automation.Demo.prep.
   Time Automation.ltac_canceler.
+  Automation.Demo.cleanup.
 Time Qed.

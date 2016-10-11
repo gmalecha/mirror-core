@@ -15,8 +15,8 @@ Require Import MirrorCore.Lambda.Red.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import McExamples.PolyRewrite.QuantifierPuller.MSimple.
-Require Import McExamples.PolyRewrite.QuantifierPuller.MSimpleReify.
+Require Import McExamples.PolyRewrite.MSimple.
+Require Import McExamples.PolyRewrite.MSimpleReify.
 Require Import McExamples.PolyRewrite.QuantifierPuller.PolyQuantPullRtac.
 
 Set Implicit Arguments.
