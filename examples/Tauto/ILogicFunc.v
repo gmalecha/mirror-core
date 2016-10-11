@@ -45,7 +45,7 @@ Definition ilfunc_unify (a b : ilfunc) (s : FMapPositive.pmap typ)
   | ilf_entails t , ilf_entails t'
   | ilf_true t , ilf_true t'
   | ilf_false t , ilf_false t'
-  | ilf_and t , ilf_or t'
+  | ilf_and t , ilf_and t'
   | ilf_or t , ilf_or t'
   | ilf_impl t , ilf_impl t' =>
     mtype_unify _ t t' s
