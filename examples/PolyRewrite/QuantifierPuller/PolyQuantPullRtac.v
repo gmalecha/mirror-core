@@ -206,7 +206,7 @@ Qed.
 
 Definition lem_pull_ex_and_right : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
-  <:: @pull_ex_and_right ::>.
+    <:: @pull_ex_and_right ::>.
 
 (*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
@@ -216,6 +216,46 @@ Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
 Lemma lem_pull_ex_and_right_sound
 : polymorphicD (Lemma.lemmaD (rw_conclD RbaseD) nil nil) (n:=1) lem_pull_ex_and_right.
 Proof. prove_lem pull_ex_and_right. Defined.
+
+Theorem eq_refl' : forall (T : Type) (x : T), x = x.
+Proof. reflexivity. Qed.
+
+Definition lem_eq_refl' : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+    <:: @eq_refl' ::>.
+
+Require Import MirrorCore.PLemma.
+
+Definition plem_eq_refl' : PolyLemma typ (expr typ func) (expr typ func) :=
+  {| p_n := 1;
+     p_lem := lem_eq_refl';
+     p_tc := tc_any 1 |}.
+
+(* from tauto *)
+Definition conclD (us vs : tenv typ) (e : expr typ func) : option (exprT us vs Prop) :=
+  MirrorCore.ExprDAs.exprD_typ0 (T := Prop) us vs e.
+
+Require Import MirrorCore.Lemma.
+Require Import MirrorCore.Lambda.ExprTac.
+
+Lemma lem_eq_refl'_sound
+  : PolyLemmaD conclD plem_eq_refl'.
+Proof.
+  cbv beta zeta iota delta [PolyLemmaD with_typeclasses lemmaD lemmaD' conclD exprD_typ0].
+  simpl.
+  intros.
+  unfold lambda_exprD.
+
+  (* this is awful it can be way simpler probably *)
+  unfold PolyLemmaD, with_typeclasses; simpl.
+  intros.
+    unfold lemmaD, lemmaD', conclD, exprD_typ0; simpl; intros.
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
+            (try rewrite mtyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
+    reflexivity.
+Defined.
 
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
@@ -422,15 +462,63 @@ Proof.
     auto. }
 Qed.
 
+Require Import MirrorCore.PLemma.
+Require Import MirrorCore.RTac.PApply.
+Require Import MirrorCore.Lambda.ExprUnify_simple.
+
+
+Definition PAPPLY (plem : PolyLemma typ (expr typ func) (expr typ func)) :=
+  PAPPLY (RSym_func := RSym_func)
+         (fun subst SS SU tus tvs n l r t s =>
+            @exprUnify subst typ func RType_typ (RSym_func) Typ2_Fun
+                       SS SU 10 tus tvs n l r t s) func_unify plem.
+
+Require Import MirrorCore.RTac.RunOnGoals.
+Require Import MirrorCore.RTac.Instantiate.
+Require Import MirrorCore.RTac.Then.
+Require Import MirrorCore.RTac.ThenK.
+Require Import MirrorCore.RTac.Intro.
+
+Check THEN.
+
+Definition DO_REFL :=
+  (runOnGoals (THEN INSTANTIATE (runOnGoals (THEN (PAPPLY plem_eq_refl') (runOnGoals INSTANTIATE))))).
+
+Require Import MirrorCore.RTac.Interface.
+Lemma DO_REFL_sound : CoreK.rtacK_sound DO_REFL.
+Proof. Admitted.
+(*
+  unfold DO_REFL.
+  eapply runOnGoals_sound.
+  eapply THEN_sound.
+  eapply INSTANTIATE_sound.
+  eapply runOnGoals_sound.
+  eapply THEN_sound. eapply INSTANTIATE_sound.
+  eapply runOnGoals_sound.
+  eapply PAPPLY_sound.
+  intros.
+  apply exprUnify_sound; eauto with typeclass_instances.
+  constructor.
+  apply lem_eq_refl'_sound.
+  Unshelve.
+  apply Expr.ExprOk_expr.
+  apply Expr.ExprOk_expr.
+  apply Expr.ExprOk_expr.
+  apply Expr.ExprOk_expr.
+  apply Expr.ExprOk_expr.
+Qed.
+*)
+
 Definition the_lemmas
 : RewriteHintDb Rbase :=
-  @PRw _ _ _ 1 lem_pull_ex_and_left IDTACK ::
-  @PRw _ _ _ 1 lem_pull_ex_and_right IDTACK ::
+  @PRw _ _ _ 1 lem_pull_ex_and_left DO_REFL ::
+  @PRw _ _ _ 1 lem_pull_ex_and_right DO_REFL ::
+(*  @PRw _ _ _ 1 lem_eq_refl' IDTACK :: *)
   nil.
 
 Theorem the_lemmas_sound : RewriteHintDbOk RbaseD the_lemmas.
 Proof.
-  repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply IDTACK_sound.
+  repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply DO_REFL_sound.
   { unfold polymorphicD. intros. apply lem_pull_ex_and_left_sound. }
   { unfold polymorphicD. intros. apply lem_pull_ex_and_right_sound. }
 Qed.

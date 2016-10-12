@@ -1,4 +1,4 @@
-(* DemoPolyQuantPullRtac.v
+(* RtacDemo.v
  * Contains a demonstration of the quantifier-puller's funcionality,
  * As well as some supporting infrastructure/automation.
  *)
@@ -183,6 +183,9 @@ Variable k : nat.
 Goal (1 = 1 /\ exists (y : nat), y = 1).
   Time the_tac.
  *)
+Goal (exists x : nat, x = 1) /\ (1 = 1).
+  Time the_tac.
+
   
 Goal goal2_D'' 2.
   vm_compute. Time the_tac.

@@ -15,7 +15,7 @@ Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Lambda.ExprTac.
 
 
-Require Import McExamples.PolyRewrite.Monads.DemoMSimpleMonads.
+Require Import McExamples.PolyRewrite.Monads.RtacDemo.
 Require Import McExamples.Tauto.MSimpleTyp.
 Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.ILogicFunc.

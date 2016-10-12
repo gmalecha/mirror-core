@@ -1,21 +1,16 @@
 Require Import Coq.Lists.List.
+
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.MTypes.ModularTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
 Require Import ExtLib.Structures.Monad.
+Require Import McExamples.PolyRewrite.Monads.Monad.
 
 (* Notes from Greg
    "OnGoal" tactic. Inspect goal, and use same functions from rewriter *)
 
 (* Catch-all for things that fail to reify *)
-Definition otherFunc : BinNums.positive -> expr typ func :=
-  fun _ => Inj (N 0).
-Opaque otherFunc.
-
-Module Type Monad.
-  Parameter M : Type -> Type.
-End Monad.
 
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
@@ -23,7 +18,14 @@ Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
 Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
 Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
-Module RMonad (MM : Monad).
+Module RMonad (MM : Monad) (FF : Frob MM).
+
+  Module MS := MSimpleMonads.TheMonad MM FF.
+  Import MS.
+
+  Definition otherFunc : BinNums.positive -> expr typ func :=
+  fun _ => Inj (N 0).
+  Opaque otherFunc.
 
   (** Declare patterns (cannot be done inside section) **)
   Reify Declare Patterns patterns_simplemon_typ : typ.
@@ -40,14 +42,15 @@ Module RMonad (MM : Monad).
   Reify Pattern patterns_simplemon += (!! and) => (Inj (typ:=typ) And).
   Reify Pattern patterns_simplemon += (!! or) => (Inj (typ:=typ) Or).
   Reify Pattern patterns_simplemon += (!! Basics.impl) => (Inj (typ:=typ) Impl).
+  Reify Pattern patterns_simplemon += (!! FF.frob) => Inj (typ:=typ) Frob.
 
   (* += doesn't restrict. but the pattern you're matching on must be closed... *)
   Import MM.
+  Import FF.
 
   (* Used so the user can reify the specific monad she wants *)
   Reify Declare Patterns patterns_simplemon_typ_special : typ.
 
-  (* exactly option applied to ?0 goes to function reify_typ -> *)
   Reify Declare Syntax reify_simplemon_typ :=
     CFix
       (CFirst
@@ -90,18 +93,8 @@ Module RMonad (MM : Monad).
 
   Instance Reify_simple_type : Reify typ :=
     { reify_scheme := CCall reify_simplemon_typ }.
-End RMonad.
 
-
-(* using Option as our monad *)
-Module MonadOption <: Monad.
-                       Definition M := option.
-End MonadOption.
-
-Module RMonadOption := RMonad MonadOption.
-Import RMonadOption.
-
-Reify Pattern patterns_simplemon_typ_special += (!! (@option) @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x).
+ Reify Pattern patterns_simplemon_typ_special += (!! M @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x). 
 
 (*
 Definition reify_option_typ : Command (mtyp typ') :=
@@ -136,7 +129,7 @@ Print test_typ.
 (* Order tables *)
 
 Definition test_montyp : typ.
-                           reify_typ (nat -> option nat).
+                           reify_typ (nat -> M nat).
 Defined.
 Print test_montyp.
 
@@ -180,6 +173,12 @@ Definition test_7 : expr typ func.
 Defined.
 Print test_7.
 
+Definition test_8 : expr typ func.
+                      reify (frob 2).
+Defined.
+Print test_8.
+
+
 (** Something that doesn't fit **)
 Definition id T (x : T) : T := x.
 
@@ -196,3 +195,5 @@ Definition test_table : expr typ func.
                           reify (foo).
 Defined.
 Print test_table.
+
+End RMonad.

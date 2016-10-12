@@ -1,11 +1,12 @@
-Require Import McExamples.Cancel.LtacDemo.
+Require Import McExamples.PolyRewrite.Monads.Monad.
+Require Import McExamples.PolyRewrite.Monads.LtacDemo.
 
-Declare Module M : Monoid.Monoid.
+Declare Module M : Monad.Monad.
+Declare Module F : Frob M.
 
-Module Automation := LtacDemo.Demo M.
-
-Goal Automation.Demo.goal NNN.
+Module Automation := LtacDemo.TheMonad M F.
+Goal Automation.Demo.goal NNN .
   Automation.Demo.prep.
-  Time Automation.ltac_canceler.
+  Time Automation.Demo.run.
   Automation.Demo.cleanup.
 Time Qed.

@@ -205,8 +205,9 @@ examples/PolyApply/MSimpleType.v
 examples/PolyApply/MSimpleFunc.v
 examples/PolyApply/DemoPolyApply.v
 
-examples/PolyRewrite/Monads/Monads.v
+examples/PolyRewrite/Monads/Monad.v
+examples/PolyRewrite/Monads/LtacDemo.v
+examples/PolyRewrite/Monads/RtacDemo.v
 examples/PolyRewrite/Monads/MSimpleMonads.v
 examples/PolyRewrite/Monads/MSimpleMonadsReify.v
-examples/PolyRewrite/Monads/DemoMSimpleMonads.v
 

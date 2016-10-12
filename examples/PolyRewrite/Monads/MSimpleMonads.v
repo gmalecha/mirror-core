@@ -46,9 +46,10 @@ refine
 Defined.
 
 Require Import ExtLib.Structures.Monad.
-Section Monad.
-    Variable M : Type -> Type.
-    Variable M_mon : Monad M.
+Require Import McExamples.PolyRewrite.Monads.Monad.
+Module TheMonad (M : Monad) (F : Frob M).
+  Import M.
+  Import F.
 
     Instance TSym_typ' : TSym typ' :=
     { symbolD n s :=
@@ -67,12 +68,13 @@ Section Monad.
     Inductive func :=
     | Lt | Plus | N : nat -> func | Eq : typ -> func
     | Ex : typ -> func | All : typ -> func
-    | And | Or | Impl | Bind : typ -> typ -> func | Ret : typ -> func.
+    | And | Or | Impl | Bind : typ -> typ -> func | Ret : typ -> func | Frob : func.
 
     Definition func_unify (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
       match a , b with
       | Lt , Lt
       | Plus , Plus
+      | Frob, Frob
       | N _ , N _
       | And , And
       | Or , Or
@@ -89,8 +91,11 @@ Section Monad.
       | _ , _ => None
       end.
 
-
     Local Notation "! x" := (@tyBase0 _ x) (at level 0).
+    Print mtyp.
+
+    Check tyBase1.
+    Check tyNat.
 
     Definition typeof_func (f : func) : option typ :=
       Some match f with
@@ -102,7 +107,11 @@ Section Monad.
            | Ex t | All t => tyArr (tyArr t tyProp) tyProp
            | Bind alpha beta => tyArr (tyBase1 tyMonad alpha) (tyArr (tyArr alpha (tyBase1 tyMonad beta)) (tyBase1 tyMonad beta))
            | Ret alpha => tyArr alpha (tyBase1 tyMonad alpha)
+           | Frob => tyArr (tyBase0 tyNat) (tyBase1 tyMonad (tyBase0 tyNat))
            end.
+
+    Eval compute in (typeof_func Frob).
+    Eval compute in (typD (tyBase1 tyMonad ! tyNat)).
 
     Definition funcD (f : func)
       : match typeof_func f with
@@ -125,6 +134,7 @@ Section Monad.
       | Ex t => fun P => exists x : typD t, P x
       | Bind a b => bind
       | Ret a => ret
+      | Frob => frob
       end.
 
     Let RelDec_eq_typ : RelDec (@eq typ) := RelDec_Rty _.
@@ -144,10 +154,10 @@ Section Monad.
                      | Ex a , Ex b => a ?[ eq ] b
                      | Bind a b, Bind a' b' => andb (a ?[eq] a') (b ?[eq] b')
                      | Ret a, Ret a' => a ?[eq] a'
+                     | Frob, Frob => true
                      | _ , _ => false
                      end
       }.
-
 
     Instance RelDecCorrect_eq_func : RelDec_Correct RelDec_eq_func.
     Proof.
@@ -177,4 +187,4 @@ Section Monad.
       intros. simpl. consider (a ?[ eq ] b); auto. }
     Qed.
 
-End Monad.
+End TheMonad.
