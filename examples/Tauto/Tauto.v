@@ -482,8 +482,79 @@ Fixpoint mkBigTerm n m :=
   | S n => mkAnd tyProp (mkTerm m) (mkBigTerm n m)
   end.
 
+(* from quantifier puller *)
+Require Import MirrorCore.syms.SymEnv.
+Require Import MirrorCore.Lambda.ExprDsimul.
+Require Import McExamples.PolyRewrite.MSimple.
 
-Goal True.
+Ltac reduce_propD g e := eval cbv beta iota zeta delta
+    [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      exprT_UseV exprT_UseU ExprDenote.exprT_GetUAs ExprDenote.exprT_GetVAs
+      HList.nth_error_get_hlist_nth HList.hlist_hd HList.hlist_tl
+      ExprDsimul.ExprDenote.lambda_exprD ExprDenote.func_simul symAs typ0_cast Typ0_Prop
+      typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
+      Typ2_Fun mtyp_dec
+      mtyp_dec
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
+      RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
+      typD mtypD symbolD
+    ] in e.
+
+
+  Local Notation typ :=
+    McExamples.Tauto.MSimpleTyp.typ.
+
+
+  Ltac run_tactic reify tac tac_sound :=
+    match goal with
+    | |- ?goal =>
+      let k g :=
+          let result := constr:(runRtac typ (expr typ ilfunc) nil nil g tac) in
+          let resultV := eval vm_compute in result in
+          lazymatch resultV with
+          | Solved _ =>
+            change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
+              cut(result = resultV) ;
+              [
+              | vm_cast_no_check (@eq_refl _ resultV) ]
+          | More_ _ ?g' =>
+            pose (g'V := g') ;
+            let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
+                                | Some G => G HList.Hnil HList.Hnil
+                                | None => True
+                                end) in
+            let post := reduce_propD g'V post in
+            lazymatch post with
+            | ?G =>
+              cut G ;
+                [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
+                  cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
+                  [ exact (@rtac_More_closed_soundness _ _ _ _ _ _ tac_sound nil nil g g'V)
+                  | vm_cast_no_check (@eq_refl _ resultV) ]
+                | try clear g'V g ]
+            end
+          | Fail => idtac "failed"
+          | ?G => fail "reduction failed with " G
+          end
+      in
+      reify_expr_bind reify k [[ True ]] [[ goal ]]
+    end.
+  
+  Definition TAUTO' := @TAUTO gs gs' 10.
+
+  Instance Expr' : Expr typ (expr typ ilfunc) := (Expr_gs gs).
+  Lemma TAUTO'_sound : rtac_sound TAUTO'.
+  Proof.
+    apply TAUTO_sound.
+  Qed.
+
+  Ltac the_tac := run_tactic reify_ilfunc TAUTO' TAUTO'_sound.
+
+  Goal (forall (P : Prop), (P -> P)) /\ (forall (P : Prop), (P -> P)).
+    the_tac.
+    
 pose (TAUTO gs gs' 10 (CTop nil nil) (TopSubst (expr typ ilfunc) nil nil)
        (mkEntails tyProp (mkTrue tyProp)
           (mkAnd tyProp

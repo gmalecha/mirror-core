@@ -121,7 +121,7 @@ Module TheMonad (M : Monad) (F : Frob M).
     | S n' => bind (makeRightIdAssocTest n') (fun k => frob (k + 1))
     end.
 
-  Goal (exists x, makeRightIdAssocTest 25 = x).
+  Goal (exists x, makeRightIdAssocTest 2 = x).
   Proof.
     simpl.
     Time rewrite_strat (bottomup (hints monads; eval cbv beta)).

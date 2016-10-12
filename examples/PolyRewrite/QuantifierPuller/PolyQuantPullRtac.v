@@ -478,24 +478,26 @@ Require Import MirrorCore.RTac.Instantiate.
 Require Import MirrorCore.RTac.Then.
 Require Import MirrorCore.RTac.ThenK.
 Require Import MirrorCore.RTac.Intro.
+Require Import MirrorCore.RTac.Try.
 
-Check THEN.
-
+(* TODO maybe try the other order. *)
 Definition DO_REFL :=
-  (runOnGoals (THEN INSTANTIATE (runOnGoals (THEN (PAPPLY plem_eq_refl') (runOnGoals INSTANTIATE))))).
+  (runOnGoals (THEN (TRY INSTANTIATE) (runOnGoals (TRY (PAPPLY plem_eq_refl'))))).
+
+(*
+Definition DO_REFL :=
+  (runOnGoals (THEN (TRY (PAPPLY plem_eq_refl')) (runOnGoals (TRY INSTANTIATE)))).
+*)
 
 Require Import MirrorCore.RTac.Interface.
 Lemma DO_REFL_sound : CoreK.rtacK_sound DO_REFL.
-Proof. Admitted.
-(*
+Proof. 
   unfold DO_REFL.
   eapply runOnGoals_sound.
   eapply THEN_sound.
   eapply INSTANTIATE_sound.
   eapply runOnGoals_sound.
-  eapply THEN_sound. eapply INSTANTIATE_sound.
-  eapply runOnGoals_sound.
-  eapply PAPPLY_sound.
+  eapply TRY_sound. eapply PAPPLY_sound.
   intros.
   apply exprUnify_sound; eauto with typeclass_instances.
   constructor.
@@ -504,10 +506,8 @@ Proof. Admitted.
   apply Expr.ExprOk_expr.
   apply Expr.ExprOk_expr.
   apply Expr.ExprOk_expr.
-  apply Expr.ExprOk_expr.
-  apply Expr.ExprOk_expr.
 Qed.
-*)
+
 
 Definition the_lemmas
 : RewriteHintDb Rbase :=
@@ -556,3 +556,195 @@ Proof.
 Qed.
 
 (* use mtyps instead of typs in lambda - lambdaMT *)
+
+(* TODO remove what's below this *)
+(* TODO begin code from RtacDemo.v *)
+
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.RedAll.
+Require Import MirrorCore.Lambda.RewriteStrat.
+Require Import MirrorCore.Lambda.Red.
+Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Reify.Reify.
+Require Import MirrorCore.RTac.IdtacK.
+Require Import McExamples.PolyRewrite.MSimple.
+Require Import McExamples.PolyRewrite.MSimpleReify.
+Require Import McExamples.PolyRewrite.QuantifierPuller.PolyQuantPullRtac.
+
+Set Implicit Arguments.
+Set Strict Implicit.
+
+(* Convenient abbreviation for modular type *)
+
+Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
+Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.
+Definition fAll t P : expr typ func := App (Inj (MSimple.All t)) (Abs t P).
+Definition fEx t P : expr typ func := App (Inj (MSimple.Ex t)) (Abs t P).
+Definition fEq t : expr typ func := (Inj (MSimple.Eq t)).
+Definition fImpl : expr typ func := (Inj MSimple.Impl).
+Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
+Definition fN n : expr typ func := Inj (MSimple.N n).
+
+Fixpoint goal n : expr typ func :=
+  match n with
+  | 0 => fEq_nat (fN 0) (fN 0)
+  | S n =>
+    fAnd (fEx tyBNat (goal n)) (fEx tyBNat (goal n))
+  end.
+
+
+Fixpoint goal2 mx n (acc : nat) : expr typ func :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      fEx tyBNat (fEq_nat (fN 0) (fN 0))
+    else
+      fEq_nat (fN 0) (fN 0)
+  | S n =>
+    fAnd (goal2 mx n (acc * 2)) (goal2 mx n (acc * 2 + 1)) (*
+    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
+  end.
+
+Fixpoint goal2_D mx n (acc : nat) : Prop :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      exists x : nat, 0 = 0
+    else
+      0 = 0
+  | S n =>
+    goal2_D mx n (acc * 2) /\ goal2_D mx n (acc * 2 + 1)
+  end.
+
+Fixpoint goal2_D' mx mx2 n (acc : nat) : Prop :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      exists x : nat, 0 = 0
+    else if acc ?[lt] mx2 then
+           exists b : bool, 0 = 0 else
+           0 = 0
+  | S n =>
+    goal2_D' mx mx2 n (acc * 2) /\ goal2_D' mx mx2 n (acc * 2 + 1)
+  end.
+
+
+
+Fixpoint count_quant (e : expr typ func) : nat :=
+  match e with
+  | App (Inj (Ex _)) (Abs _ e') => S (count_quant e')
+  | _ => 0
+  end.
+
+Definition benchmark (n m : nat) : bool :=
+  match quant_pull (goal2 m n 0) (Rinj fImpl) nil (TopSubst _ nil nil)
+  with
+  | Some _ => true
+  | _ => false
+  end.
+
+Definition rewrite_it : rtac typ (expr typ func) :=
+  @auto_setoid_rewrite_bu typ func (expr typ func)
+                          (Rflip (Rinj fImpl))
+                          (is_reflR is_refl) (is_transR is_trans) pull_all_quant get_respectful.
+
+Theorem rewrite_it_sound : rtac_sound rewrite_it.
+Proof.
+  eapply auto_setoid_rewrite_bu_sound with (RbaseD:=RbaseD).
+  - eapply RbaseD_single_type.
+  - reflexivity.
+  - eapply is_reflROk; eapply is_refl_ok.
+  - eapply is_transROk; eapply is_trans_ok.
+  - eapply pull_all_quant_sound.
+  - eapply get_respectful_sound.
+Qed.
+
+Require Import MirrorCore.RTac.RTac.
+Require Import MirrorCore.Reify.Reify.
+Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.MTypes.ModularTypes.
+
+Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
+
+Ltac reduce_propD g e := eval cbv beta iota zeta delta
+    [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
+      typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
+      Typ2_Fun mtyp_dec
+      mtyp_dec
+      typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
+      AbsAppI.exprT_App eq_sym
+      typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
+      RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
+      typD mtypD symbolD
+    ] in e.
+
+Arguments Typ0_Prop {_ _}.
+
+
+
+(* Maybe we can use typeclasses to resolve the reification function *)
+  Ltac run_tactic reify tac tac_sound :=
+    match goal with
+    | |- ?goal =>
+      let k g :=
+          let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
+          let resultV := eval vm_compute in result in
+          lazymatch resultV with
+          | Solved _ =>
+            change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
+              cut(result = resultV) ;
+              [
+              | vm_cast_no_check (@eq_refl _ resultV) ]
+          | More_ _ ?g' =>
+            pose (g'V := g') ;
+            let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
+                                | Some G => G HList.Hnil HList.Hnil
+                                | None => True
+                                end) in
+            let post := reduce_propD g'V post in
+            match post with
+            | ?G =>
+              cut G ;
+                [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
+                  cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
+                  [ exact (@rtac_More_closed_soundness _ _ _ _ _ _ tac_sound nil nil g g'V)
+                  | vm_cast_no_check (@eq_refl _ resultV) ]
+                | try clear g'V g ]
+            end
+          | Fail => idtac "failed"
+          | ?G => fail "reduction failed with " G
+          end
+      in
+      reify_expr_bind reify k [[ True ]] [[ goal ]]
+    end.
+  
+  Definition goal2_D'' n : Prop :=
+  let thirdn := Nat.div n 3 in
+  goal2_D' thirdn (2 * thirdn) n 0.
+
+(*Set Printing Depth 5.*) (* To avoid printing large terms *)
+
+Ltac the_tac := run_tactic reify_simple rewrite_it rewrite_it_sound.
+
+(* examples of things that don't work *)
+(*
+Goal ((exists (x : nat), 1 = 1)/\(exists (y : nat), 2 = 2)).
+Variable k : nat.
+Goal (1 = 1 /\ exists (y : nat), y = 1).
+  Time the_tac.
+ *)
+
+
+Goal (exists x : nat, x = 1) /\ (1 = 1).
+  Time the_tac.
+
+
+(* TODO end code from RtacDemo.v *)
+Goal (exists x : nat, x = 1) /\ (1 = 1).
+  Time the_tac.
