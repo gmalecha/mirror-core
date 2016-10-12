@@ -571,18 +571,18 @@ Arguments Typ0_Prop {_ _}.
     | |- ?goal =>
       let k g :=
           let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
-          idtac "result: " result;
+(*          idtac "result: " result; *)
             let resultV := eval vm_compute in result in
-      idtac "resultV: " resultV;
+(*      idtac "resultV: " resultV; *)
           lazymatch resultV with
           | Solved _ =>
-            idtac "solved";
+(*            idtac "solved"; *)
             change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
               cut(result = resultV) ;
               [
               | vm_cast_no_check (@eq_refl _ resultV) ]
           | More_ _ ?g' =>
-            idtac "more";
+(*            idtac "more"; *)
             pose (g'V := g') ;
             let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
                                 | Some G => G HList.Hnil HList.Hnil

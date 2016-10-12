@@ -6,9 +6,7 @@ Declare Module F : Frob M.
 
 Module Automation := RtacDemo.DemoRtacMonad M F.
 
-Print Automation.Demo.goal.
-
-Goal Automation.Demo.goal 3.
+Goal Automation.Demo.goal NNN.
   Automation.Demo.prep.
   Time Automation.Demo.run.
   Automation.Demo.cleanup.
