@@ -42,7 +42,7 @@ Section Tauto.
 
   Instance Expr_gs : Expr typ (expr typ ilfunc) := Expr_expr gs.
 
-  Definition tc t := 
+  Definition tc t :=
     match tc' t with
     | Some _ => true
     | _ => false
@@ -69,10 +69,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     reflexivity.
   Qed.
 
@@ -94,10 +94,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, mkTrue, fTrue; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     apply ltrueR.
   Qed.
 
@@ -119,10 +119,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, mkFalse, fFalse; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     apply lfalseL.
   Qed.
 
@@ -146,10 +146,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply landR; assumption.
   Qed.
 
@@ -175,10 +175,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply landL1; assumption.
   Qed.
 
@@ -204,10 +204,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply landL2; assumption.
   Qed.
 
@@ -236,10 +236,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fOr, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply lorL; assumption.
   Qed.
 
@@ -253,7 +253,7 @@ Section Tauto.
                                   (App (App (Inj (fOr t)) (Var 2)) (Var 1)) |};
        p_tc := tc
     |}.
-  
+
   Lemma r_orR1_sound : PolyLemmaD conclD r_orR1.
   Proof.
     unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
@@ -263,10 +263,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply lorR1; assumption.
   Qed.
 
@@ -280,7 +280,7 @@ Section Tauto.
                                (App (App (Inj (fOr t)) (Var 2)) (Var 1)) |};
        p_tc := tc
     |}.
-  
+
   Lemma r_orR2_sound : PolyLemmaD conclD r_orR2.
   Proof.
     unfold PolyLemmaD, with_typeclasses; simpl; unfold tc; intros.
@@ -290,13 +290,13 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fOr, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply lorR2; assumption.
   Qed.
-  
+
   Definition r_implAdj : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc) :=
     {| p_n := 1;
        p_lem := fun t =>
@@ -319,10 +319,10 @@ Section Tauto.
     remember (gs t).
     destruct p; [|intuition].
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fImpl, fEntails; simpl; intros.
-    repeat (red_exprD; 
-            (try rewrite <- Heqp); 
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
             (try rewrite mtyp_cast_refl);
-            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros). 
+            unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply limplAdj; assumption.
   Qed.
 
@@ -358,7 +358,7 @@ Section Tauto.
     end.
 
   Lemma fintro_sound : open_sound fintro.
-  Proof.     
+  Proof.
     admit.
     (*
     unfold open_sound, fintro; intros.
@@ -394,10 +394,10 @@ unfold ExprDsimul.ExprDenote.lambda_exprD in H.
 
   Definition INTRO := @INTRO typ (expr typ ilfunc) ExprVar_expr ExprUVar_expr fintro.
 
-  Definition TAUTO : rtac typ (expr typ ilfunc) :=
-    REC 50
-        (fun r =>
-           THEN (REPEAT 50 INTRO)
+  Definition TAUTO n : rtac typ (expr typ ilfunc) :=
+    REC n
+        (fun r => THEN INSTANTIATE (runOnGoals (
+           THEN (REPEAT n INTRO)
                 (runOnGoals
                    (FIRST
                       (PAPPLY r_trueR ::
@@ -409,13 +409,13 @@ unfold ExprDsimul.ExprDenote.lambda_exprD in H.
                        SOLVE (THEN (PAPPLY r_orR1) (runOnGoals r)) ::
                        SOLVE (THEN (PAPPLY r_orR2) (runOnGoals r)) ::
                        SOLVE (THEN (PAPPLY r_andL1) (runOnGoals r)) ::
-                       SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))) IDTAC.
+                       SOLVE (THEN (PAPPLY r_andL2) (runOnGoals r)) :: nil)))))) IDTAC.
 
-
-  Lemma TAUTO_sound : rtac_sound TAUTO.
+  Lemma TAUTO_sound : forall n, rtac_sound (TAUTO n).
   Proof.
     unfold TAUTO.
     rtac_derive_soundness_default.
+    apply INSTANTIATE_sound.
     apply INTRO_sound.
     apply fintro_sound.
     apply PAPPLY_sound; [intros; apply exprUnify_sound; apply _ |
@@ -440,10 +440,11 @@ unfold ExprDsimul.ExprDenote.lambda_exprD in H.
                          split; apply r_andL2_sound].
   Qed.
 
+
 End Tauto.
 
 Definition gs : logic_ops :=
-  fun t => 
+  fun t =>
     match t with
     | ModularTypes.tyProp => POption.pSome ILogicOps_Prop
     | _ => POption.pNone
@@ -456,13 +457,13 @@ Definition gs' t : option (ilogic_tc gs t) :=
   end.
 
 Fixpoint mkAnds n :=
-  match n with 
+  match n with
   | 0 => Var 0
   | S n => mkAnd tyProp (Var (S n)) (mkAnds n)
   end.
 
 Fixpoint mkImpls n P :=
-  match n with 
+  match n with
   | 0 => mkImpl tyProp (Var 0) P
   | S n => mkImpl tyProp (Var (S n)) (mkImpls n P)
   end.
@@ -480,14 +481,21 @@ Fixpoint mkBigTerm n m :=
   | 0 => mkTerm m
   | S n => mkAnd tyProp (mkTerm m) (mkBigTerm n m)
   end.
-  
+
 
 Goal True.
-  pose (TAUTO gs gs' (CTop nil nil) (TopSubst _ nil nil) 
+pose (TAUTO gs gs' 10 (CTop nil nil) (TopSubst (expr typ ilfunc) nil nil)
+       (mkEntails tyProp (mkTrue tyProp)
+          (mkAnd tyProp
+             (mkForall tyProp tyProp (mkImpl tyProp (Var 0) (Var 0)))
+             (mkForall tyProp tyProp (mkImpl tyProp (Var 0) (Var 0)))))).
+compute in r.
+
+  pose (TAUTO gs gs' 10 (CTop nil nil) (TopSubst _ nil nil)
               (mkEntails tyProp (mkTrue tyProp) (mkBigTerm 1 0))).
   unfold mkBigTerm, mkTerm, mkForalls, mkImpls, mkAnds in r.
-  Time vm_compute in r.
+  Time vm_compute in r0.
   (* I do not think that this should fail *)
-  
+
   apply I.
 Qed.

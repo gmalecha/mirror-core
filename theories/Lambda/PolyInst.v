@@ -54,6 +54,10 @@ Section poly.
       | Some s => ok s
       | None => bad
       end
+    | Inj _ , App _ _
+    | App _ _ , Inj _
+    | Abs _ _ , App _ _
+    | App _ _ , Abs _ _ => bad
     | _ , _ => ok s
     end.
 
