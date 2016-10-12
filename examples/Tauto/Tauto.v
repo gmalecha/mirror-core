@@ -505,7 +505,8 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
 
   Local Notation typ :=
     McExamples.Tauto.MSimpleTyp.typ.
-
+  Local Notation Expr_expr := (Expr.Expr_expr gs).
+  Local Notation Typ0_Prop := (Typ0_Prop typ' TSym_typ').
 
   Ltac run_tactic reify tac tac_sound :=
     match goal with
@@ -552,8 +553,9 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
 
   Ltac the_tac := run_tactic reify_ilfunc TAUTO' TAUTO'_sound.
 
-  Goal (forall (P : Prop), (P -> P)) /\ (forall (P : Prop), (P -> P)).
+  Goal lentails ltrue (lforall (fun P => limpl P P)).
     the_tac.
+
     
 pose (TAUTO gs gs' 10 (CTop nil nil) (TopSubst (expr typ ilfunc) nil nil)
        (mkEntails tyProp (mkTrue tyProp)
