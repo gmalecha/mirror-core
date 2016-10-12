@@ -117,6 +117,8 @@ Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 
 Ltac reduce_propD g e := eval cbv beta iota zeta delta
     [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      exprT_UseV exprT_UseU exprT_GetUAs exprT_GetVAs
+      HList.nth_error_get_hlist_nth HList.hlist_hd HList.hlist_tl
       ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
       typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
       Typ2_Fun mtyp_dec
@@ -152,7 +154,7 @@ Arguments Typ0_Prop {_ _}.
                                 | None => True
                                 end) in
             let post := reduce_propD g'V post in
-            match post with
+            lazymatch post with
             | ?G =>
               cut G ;
                 [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
@@ -167,7 +169,7 @@ Arguments Typ0_Prop {_ _}.
       in
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
-  
+
   Definition goal2_D'' n : Prop :=
   let thirdn := Nat.div n 3 in
   goal2_D' thirdn (2 * thirdn) n 0.
@@ -183,10 +185,13 @@ Variable k : nat.
 Goal (1 = 1 /\ exists (y : nat), y = 1).
   Time the_tac.
  *)
+
 Goal (exists x : nat, x = 1) /\ (1 = 1).
   Time the_tac.
+  repeat exists 1. tauto.
+Qed.
 
-  
+
 Goal goal2_D'' 2.
   vm_compute. Time the_tac.
   repeat exists 0.
@@ -212,7 +217,7 @@ Qed.
    12: (7.123, .06), (7.08, .052), (7.02, .056), (6.977, .056), (6.98, .056)
    13: ?
    14: (28.662, .276), (30.69, .264), (28.595, .272), (,), (,)
-   16: 
+   16:
 *)
 
 
@@ -278,4 +283,3 @@ Module Demo.
   Ltac cleanup := repeat ( first [exists 0 | exists true]); tauto.
   Definition goal := goal2_D''.
 End Demo.
-                                         
