@@ -132,8 +132,6 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
 
 Arguments Typ0_Prop {_ _}.
 
-
-
 (* Maybe we can use typeclasses to resolve the reification function *)
   Ltac run_tactic reify tac tac_sound :=
     match goal with
@@ -190,7 +188,6 @@ Goal (exists x : nat, x = 1) /\ (1 = 1).
   Time the_tac.
   repeat exists 1. tauto.
 Qed.
-
 
 Goal goal2_D'' 2.
   vm_compute. Time the_tac.
