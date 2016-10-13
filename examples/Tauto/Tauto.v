@@ -443,6 +443,41 @@ unfold ExprDsimul.ExprDenote.lambda_exprD in H.
 
 End Tauto.
 
+Section Examples.
+  Context {T : Type} {ILOps : ILogicOps T} {IL : ILogic T}.
+
+  Fixpoint mkAnds xs :=
+    match xs with 
+      | nil => ltrue
+      | x::xs => x //\\ (mkAnds xs)
+    end.
+
+  Fixpoint mkImpls P xs :=
+    match xs with 
+      | nil => P
+      | x::xs => x -->> (mkImpls P xs)
+    end.
+
+  Fixpoint mkForalls_aux n acc f :=
+    match n with
+    | 0 => f acc
+    | S n => Forall x : T, mkForalls_aux n (x::acc) f
+    end.
+
+  Definition mkForalls n f := mkForalls_aux n nil f.
+
+  Definition mkTerm n := mkForalls n (fun xs => mkImpls (mkAnds xs) xs).
+
+  Fixpoint mkBigTerm n m :=
+    match n with
+    | 0 => mkTerm m
+    | S n => (mkTerm m) //\\ (mkBigTerm n m)
+    end.
+
+End Examples.    
+    
+
+
 Definition gs : logic_ops :=
   fun t =>
     match t with
@@ -454,32 +489,6 @@ Definition gs' t : option (ilogic_tc gs t) :=
   match t with
     | ModularTypes.tyProp => Some ILogic_Prop
     | _ => None
-  end.
-
-Fixpoint mkAnds n :=
-  match n with
-  | 0 => Var 0
-  | S n => mkAnd tyProp (Var (S n)) (mkAnds n)
-  end.
-
-Fixpoint mkImpls n P :=
-  match n with
-  | 0 => mkImpl tyProp (Var 0) P
-  | S n => mkImpl tyProp (Var (S n)) (mkImpls n P)
-  end.
-
-Fixpoint mkForalls n P :=
-  match n with
-  | 0 => mkForall tyProp tyProp P
-  | S n => mkForall tyProp tyProp (mkForalls n P)
-  end.
-
-Definition mkTerm n := mkForalls n (mkImpls n (mkAnds n)).
-
-Fixpoint mkBigTerm n m :=
-  match n with
-  | 0 => mkTerm m
-  | S n => mkAnd tyProp (mkTerm m) (mkBigTerm n m)
   end.
 
 (* from quantifier puller *)
@@ -505,9 +514,12 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
 
   Local Notation typ :=
     McExamples.Tauto.MSimpleTyp.typ.
-  Local Notation Expr_expr := (Expr.Expr_expr gs).
+Locate propD.
+About propD.
+Check @propD.
+(*  Local Notation Expr_expr := (Expr.Expr_expr gs).
   Local Notation Typ0_Prop := (Typ0_Prop typ' TSym_typ').
-
+*)
   Ltac run_tactic reify tac tac_sound :=
     match goal with
     | |- ?goal =>
@@ -515,35 +527,21 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
           let result := constr:(runRtac typ (expr typ ilfunc) nil nil g tac) in
           let resultV := eval vm_compute in result in
           lazymatch resultV with
-          | Solved _ =>
-            change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
-              cut(result = resultV) ;
-              [
-              | vm_cast_no_check (@eq_refl _ resultV) ]
-          | More_ _ ?g' =>
-            pose (g'V := g') ;
-            let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
-                                | Some G => G HList.Hnil HList.Hnil
-                                | None => True
-                                end) in
-            let post := reduce_propD g'V post in
-            lazymatch post with
-            | ?G =>
-              cut G ;
-                [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
-                  cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
-                  [ exact (@rtac_More_closed_soundness _ _ _ _ _ _ tac_sound nil nil g g'V)
-                  | vm_cast_no_check (@eq_refl _ resultV) ]
-                | try clear g'V g ]
-            end
-          | Fail => idtac "failed"
+          | Solved _ => 
+            change (env_propD typ (expr typ ilfunc) nil nil g);
+              cut(result = resultV); [
+                let H := fresh "H" in
+                intro H; eapply rtac_Solved_closed_soundness; [apply tac_sound | apply H] |
+                    vm_cast_no_check (@eq_refl _ resultV)
+                  ]
+          | Fail => idtac "failed" 
           | ?G => fail "reduction failed with " G
           end
       in
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
   
-  Definition TAUTO' := @TAUTO gs gs' 10.
+  Definition TAUTO' := @TAUTO gs gs' 100.
 
   Instance Expr' : Expr typ (expr typ ilfunc) := (Expr_gs gs).
   Lemma TAUTO'_sound : rtac_sound TAUTO'.
@@ -551,24 +549,34 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
     apply TAUTO_sound.
   Qed.
 
+
   Ltac the_tac := run_tactic reify_ilfunc TAUTO' TAUTO'_sound.
 
-  Goal lentails ltrue (lforall (fun P => limpl P P)).
-    the_tac.
+  Ltac ltauto :=
+    intros;
+    first [
+        apply ltrueR |
+        apply lfalseL |
+        apply lforallR; ltauto |
+        apply lexistsL; ltauto |
+        eapply lforallL; ltauto |
+        eapply lexistsR; ltauto |
+        apply landR; ltauto |
+        apply limplAdj; ltauto |
+        apply lorL; ltauto |
+        solve [apply lorR1; ltauto] |
+        solve [apply lorR2; ltauto] |
+        solve [apply landL1; ltauto] |
+        solve [apply landL2; ltauto] |
+        reflexivity
+      ].
 
-    
-pose (TAUTO gs gs' 10 (CTop nil nil) (TopSubst (expr typ ilfunc) nil nil)
-       (mkEntails tyProp (mkTrue tyProp)
-          (mkAnd tyProp
-             (mkForall tyProp tyProp (mkImpl tyProp (Var 0) (Var 0)))
-             (mkForall tyProp tyProp (mkImpl tyProp (Var 0) (Var 0)))))).
-compute in r.
+  Goal lentails ltrue (mkBigTerm 2 10).
+    unfold mkBigTerm, mkTerm, mkForalls, mkForalls_aux, mkImpls, mkAnds.
+    Time the_tac.
+  Qed.    
 
-  pose (TAUTO gs gs' 10 (CTop nil nil) (TopSubst _ nil nil)
-              (mkEntails tyProp (mkTrue tyProp) (mkBigTerm 1 0))).
-  unfold mkBigTerm, mkTerm, mkForalls, mkImpls, mkAnds in r.
-  Time vm_compute in r0.
-  (* I do not think that this should fail *)
-
-  apply I.
-Qed.
+  Goal lentails ltrue (mkBigTerm 2 10).
+    unfold mkBigTerm, mkTerm, mkForalls, mkForalls_aux, mkImpls, mkAnds.
+    Time ltauto.
+  Qed.    
