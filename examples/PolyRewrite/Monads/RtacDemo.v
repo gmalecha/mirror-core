@@ -271,9 +271,8 @@ Definition lem_ret_proper
     <:: @ret_proper ::>.
 
 (* TODO: make sure we only really need proper_plus_eq. *)
-
 Definition get_respectful : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (@tyVar typ') func_unify
+  do_prespectful rel_dec (@tyVar typ') func_unify_slow
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 lem_Proper_eq_eq_flip_impl ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 2 lem_bind_proper ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 lem_ret_proper ::
@@ -388,7 +387,7 @@ Qed. *)
 (* Q: simple_reduce or reduce? *)
 Definition the_rewrites (lems : RewriteHintDb Rbase)
   : RwAction typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints func_unify lems))).
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints func_unify_slow lems))).
 
 Definition monad_simplify : RwAction typ func Rbase :=
   repeat_rewrite (fun e r =>

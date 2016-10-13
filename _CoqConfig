@@ -167,6 +167,8 @@ examples/Tauto/ILogic.v
 examples/Tauto/ILogicFunc.v
 examples/Tauto/ILogicReify.v
 examples/Tauto/Tauto.v
+examples/Tauto/LtacDemo.v
+examples/Tauto/RtacDemo.v
 
 examples/Cancel/Monoid.v
 examples/Cancel/MonoidSyntaxSimple.v

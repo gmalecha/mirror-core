@@ -326,11 +326,13 @@ Section Tauto.
     apply limplAdj; assumption.
   Qed.
 
+  Print PolyLemma.
+
   Definition PAPPLY (plem : PolyLemma typ (expr typ ilfunc) (expr typ ilfunc)) :=
     PAPPLY (RSym_func := RSym_ilfunc gs)
       (fun subst SS SU tus tvs n l r t s =>
          @exprUnify subst typ ilfunc RType_typ (RSym_ilfunc gs) Typ2_Fun
-                    SS SU 10 tus tvs n l r t s) ilfunc_unify plem.
+                    SS SU 10 tus tvs n l r t s) (ilfunc_unify (p_n plem)) plem.
 
   Definition fintro (e : expr typ ilfunc) : option (@OpenAs typ (expr typ ilfunc)) :=
     match e with
@@ -573,10 +575,10 @@ Check @propD.
 
   Goal lentails ltrue (mkBigTerm 2 10).
     unfold mkBigTerm, mkTerm, mkForalls, mkForalls_aux, mkImpls, mkAnds.
-    Time the_tac.
-  Qed.    
+    Time the_tac. (* *)
+  Time Qed. (* *)
 
   Goal lentails ltrue (mkBigTerm 2 10).
     unfold mkBigTerm, mkTerm, mkForalls, mkForalls_aux, mkImpls, mkAnds.
-    Time ltauto.
-  Qed.    
+    Time ltauto. (* *)
+    Time Qed. (*  *)

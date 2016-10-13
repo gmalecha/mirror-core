@@ -1,9 +1,9 @@
-Require Import McExamples.PolyRewrite.QuantifierPuller.LtacDemo.
+Require Import McExamples.Tauto.LtacDemo.
 
 Module Automation := LtacDemo.
 
-Goal Automation.Demo.goal NNN.
+Goal Automation.Demo.goal 18(*NNN*).
+  unfold Automation.Demo.goal.
   Automation.Demo.prep.
-  Time (timeout 240 Automation.Demo.run).
-  Automation.Demo.cleanup.
+  Time Automation.Demo.run.
 Time Qed.

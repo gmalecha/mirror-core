@@ -1,4 +1,4 @@
-Require Import McExamples.PolyRewrite.QuantifierPuller.RtacDemo.
+Require Import McExamples.Tauto.DemoRtac.
 
 Module Automation := RtacDemo.
 

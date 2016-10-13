@@ -70,7 +70,9 @@ Module TheMonad (M : Monad) (F : Frob M).
     | Ex : typ -> func | All : typ -> func
     | And | Or | Impl | Bind : typ -> typ -> func | Ret : typ -> func | Frob : func.
 
-    Definition func_unify (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
+
+    (* slower version if we don't know how many vars we need *)
+    Definition func_unify_slow (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
       match a , b with
       | Lt , Lt
       | Plus , Plus
@@ -82,21 +84,51 @@ Module TheMonad (M : Monad) (F : Frob M).
       | Ret t , Ret t'
       | Eq t , Eq t'
       | Ex t , Ex t'
-      | All t , All t' => ctype_unify _ t t' s
+      | All t , All t' => ctype_unify_slow _ t t' s
       | Bind a b , Bind a' b'  =>
-        match ctype_unify _ a a' s with
-        | Some s' => ctype_unify _ b b' s'
+        match ctype_unify_slow _ a a' s with
+        | Some s' => ctype_unify_slow _ b b' s
         | None => None
         end
       | _ , _ => None
       end.
 
+    (* n is how many variables we are trying to discover *)    
+    Definition func_unify (n : nat) (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
+      match n with
+      | S _ =>
+        match a , b with
+        | Lt , Lt
+        | Plus , Plus
+        | Frob, Frob
+        | N _ , N _
+        | And , And
+        | Or , Or
+        | Impl , Impl => Some s
+        | Ret t , Ret t'
+        | Eq t , Eq t'
+        | Ex t , Ex t'
+        | All t , All t' =>
+          match ctype_unify _ n t t' s with
+          | Some (s', _) => Some s'
+          | _ => None
+          end
+        | Bind a b , Bind a' b'  =>
+          match ctype_unify _ n a a' s with
+          | Some (s', S k) =>
+            match ctype_unify _ (S k) b b' s' with
+            | Some (s'', _) => Some s''
+            | _ => None
+            end
+          | Some (s', 0) => Some s'
+          | None => None
+          end
+        | _ , _ => None
+        end
+      | 0 => Some s
+      end.
+
     Local Notation "! x" := (@tyBase0 _ x) (at level 0).
-    Print ctyp.
-
-    Check tyBase1.
-    Check tyNat.
-
     Definition typeof_func (f : func) : option typ :=
       Some match f with
            | Lt => tyArr !tyNat (tyArr !tyNat !tyBool)
@@ -109,9 +141,6 @@ Module TheMonad (M : Monad) (F : Frob M).
            | Ret alpha => tyArr alpha (tyBase1 tyMonad alpha)
            | Frob => tyArr (tyBase0 tyNat) (tyBase1 tyMonad (tyBase0 tyNat))
            end.
-
-    Eval compute in (typeof_func Frob).
-    Eval compute in (typD (tyBase1 tyMonad ! tyNat)).
 
     Definition funcD (f : func)
       : match typeof_func f with

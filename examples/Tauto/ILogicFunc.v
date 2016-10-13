@@ -39,23 +39,36 @@ Inductive ilfunc : Type :=
 | ilf_exists (arg logic : typ)
 | ilf_forall (arg logic : typ).
 
-Definition ilfunc_unify (a b : ilfunc) (s : FMapPositive.pmap typ)
-: option (FMapPositive.pmap typ) :=
-  match a , b with
-  | ilf_entails t , ilf_entails t'
-  | ilf_true t , ilf_true t'
-  | ilf_false t , ilf_false t'
-  | ilf_and t , ilf_and t'
-  | ilf_or t , ilf_or t'
-  | ilf_impl t , ilf_impl t' =>
-    ctype_unify _ t t' s
-  | ilf_exists t l , ilf_exists t' l'
-  | ilf_forall t l , ilf_forall t' l' =>
-    match ctype_unify _ t t' s with
-    | Some s' => ctype_unify _ l l' s
-    | None => None
+(* like ctype_unify, takes a number of variabes to find *)
+Definition ilfunc_unify (n : nat) (a b : ilfunc) (s : FMapPositive.pmap typ)
+  : option (FMapPositive.pmap typ) :=
+  match n with
+  | 0 => None
+  | S _ =>
+    match a , b with
+    | ilf_entails t , ilf_entails t'
+    | ilf_true t , ilf_true t'
+    | ilf_false t , ilf_false t'
+    | ilf_and t , ilf_and t'
+    | ilf_or t , ilf_or t'
+    | ilf_impl t , ilf_impl t' =>
+      match ctype_unify _ n t t' s with
+      | Some (s', _) => Some s'
+      | _ => None
+      end
+    | ilf_exists t l , ilf_exists t' l'
+    | ilf_forall t l , ilf_forall t' l' =>
+      match ctype_unify _ n t t' s with
+      | Some (s', S k) =>
+        match ctype_unify _ (S k) l l' s' with
+        | Some (s'', _) => Some s''
+        | _ => None
+        end
+      | Some (s', 0) => Some s'
+      | None => None
+      end
+    | _ , _ => None
     end
-  | _ , _ => None
   end.
 
 Definition ilfunc_logic (x : ilfunc) : typ :=

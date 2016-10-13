@@ -64,7 +64,12 @@ Definition func_unify (a b : func) (s : pmap typ) : option (pmap typ) :=
   | Impl , Impl => Some s
   | Eq t , Eq t'
   | Ex t , Ex t'
-  | All t , All t' => ctype_unify _ t t' s
+  | All t , All t' =>
+    (* danger, this is a hack. but proably ok *)
+    match ctype_unify _ 1 t t' s  with
+    | Some (s', _) => Some s'
+    | _ => None
+    end
   | _ , _ => None
   end.
 
