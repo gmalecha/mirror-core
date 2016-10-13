@@ -1,7 +1,7 @@
 Require Import Coq.Lists.List.
 
 Require Import MirrorCore.Reify.Reify.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
 Require Import ExtLib.Structures.Monad.
@@ -97,7 +97,7 @@ Module RMonad (MM : Monad) (FF : Frob MM).
  Reify Pattern patterns_simplemon_typ_special += (!! M @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x). 
 
 (*
-Definition reify_option_typ : Command (mtyp typ') :=
+Definition reify_option_typ : Command (ctyp typ') :=
   CFix
     (CFirst
        ((CPattern (ls := _ :: nil) (!! option @ ?0) (fun x : function (CRec 0) => tyBase1 tyMonad x)) ::

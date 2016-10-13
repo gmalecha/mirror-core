@@ -1,5 +1,5 @@
 Require Import ExtLib.Data.Positive.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 
 Inductive VType : nat -> Type :=
 | tVar : positive -> VType 0.

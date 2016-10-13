@@ -9,9 +9,9 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.MTypeUnify.
-Require Import MirrorCore.MTypes.TSymOneOf.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
+Require Import MirrorCore.CTypes.TSymOneOf.
 
 
 Set Implicit Arguments.
@@ -60,10 +60,10 @@ Module TheMonad (M : Monad) (F : Frob M).
         end
     ; symbol_dec := typ'_dec }.
 
-    Definition typ := mtyp typ'.
+    Definition typ := ctyp typ'.
 
-    Global Instance RType_typ : RType typ := RType_mtyp _ _.
-    Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_mtyp _ _.
+    Global Instance RType_typ : RType typ := RType_ctyp _ _.
+    Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
     Inductive func :=
     | Lt | Plus | N : nat -> func | Eq : typ -> func
@@ -82,17 +82,17 @@ Module TheMonad (M : Monad) (F : Frob M).
       | Ret t , Ret t'
       | Eq t , Eq t'
       | Ex t , Ex t'
-      | All t , All t' => mtype_unify _ t t' s
+      | All t , All t' => ctype_unify _ t t' s
       | Bind a b , Bind a' b'  =>
-        match mtype_unify _ a a' s with
-        | Some s' => mtype_unify _ b b' s'
+        match ctype_unify _ a a' s with
+        | Some s' => ctype_unify _ b b' s'
         | None => None
         end
       | _ , _ => None
       end.
 
     Local Notation "! x" := (@tyBase0 _ x) (at level 0).
-    Print mtyp.
+    Print ctyp.
 
     Check tyBase1.
     Check tyNat.

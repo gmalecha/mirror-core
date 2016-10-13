@@ -10,8 +10,8 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.TSymOneOf.
+Require Import MirrorCore.CTypes.ModularTypes.
+Require Import MirrorCore.CTypes.TSymOneOf.
 
 (* from Joey's stuff (floyd_funcs.v)
    looks as though a couple things

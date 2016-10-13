@@ -20,8 +20,8 @@ Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
 
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.MTypeUnify.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Require Import MirrorCore.Util.Forwardy.
 
@@ -30,7 +30,7 @@ Set Strict Implicit.
 
 Section parameterized.
   Context {tsym : nat -> Type} {func : Type}.
-  Let typ := mtyp tsym.
+  Let typ := ctyp tsym.
 
   Context {RType_typ : RType typ}.
   Context {RSym_func : RSym func}.
@@ -61,7 +61,7 @@ Section parameterized.
   Variable lem : Lemma.lemma typ (expr typ func) (expr typ func).
 
   Local Definition view_update :=
-    (mtype_unify tsym).
+    (ctype_unify tsym).
 
   Local Definition get_lemma su
         (plem : PolyLemma typ (expr typ func) (expr typ func))

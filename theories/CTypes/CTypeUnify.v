@@ -1,22 +1,22 @@
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import ExtLib.Data.Map.FMapPositive.
 
 Section parametric.
   Variable tsym : nat -> Type.
   Variable TSym_tsym : TSym tsym.
 
-  Let S := FMapPositive.pmap (mtyp tsym).
-  Let add : positive -> mtyp tsym -> S -> option S := (fun a b c => Some (FMapPositive.pmap_insert a b c)).
+  Let S := FMapPositive.pmap (ctyp tsym).
+  Let add : positive -> ctyp tsym -> S -> option S := (fun a b c => Some (FMapPositive.pmap_insert a b c)).
 
   (** This is asymmetric, the first argument is the "special one" **)
-  Fixpoint mtype_unify (a b : mtyp tsym) (s : pmap (mtyp tsym)) {struct a}
+  Fixpoint ctype_unify (a b : ctyp tsym) (s : pmap (ctyp tsym)) {struct a}
   : option S :=
     match a with
     | tyArr da ca =>
       match b with
       | tyArr db cb =>
-        match mtype_unify da db s with
-        | Some s' => mtype_unify ca cb s'
+        match ctype_unify da db s with
+        | Some s' => ctype_unify ca cb s'
         | _ => None
         end
       | tyVar v => add v a s
@@ -30,15 +30,15 @@ Section parametric.
       end
     | tyBase1 _ ta =>
       match b with
-      | tyBase1 _ tb => mtype_unify ta tb s
+      | tyBase1 _ tb => ctype_unify ta tb s
       | tyVar v => add v a s
       | _ => None
       end
     | tyBase2 _ ta ta' =>
       match b with
       | tyBase2 _ tb tb' =>
-        match mtype_unify ta tb s with
-        | Some s' => mtype_unify ta' tb' s'
+        match ctype_unify ta tb s with
+        | Some s' => ctype_unify ta' tb' s'
         | _ => None
         end
       | tyVar v => add v a s
@@ -52,7 +52,7 @@ Section parametric.
            match va , vb with
            | Vector.Vnil _ , Vector.Vnil _ => Some s
            | Vector.Vcons a va , Vector.Vcons b vb =>
-             match mtype_unify a b s with
+             match ctype_unify a b s with
              | Some s' => go _ _ va vb s'
              | _ => None
              end

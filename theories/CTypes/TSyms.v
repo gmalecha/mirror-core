@@ -1,4 +1,4 @@
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 
 Section sum.
   Variable T U : nat -> Type.

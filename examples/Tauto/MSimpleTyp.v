@@ -8,8 +8,8 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.TSymOneOf.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.TSymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -42,13 +42,13 @@ Instance TSym_typ' : TSym typ' :=
     end
 ; symbol_dec := typ'_dec }.
 
-Definition typ := mtyp typ'.
+Definition typ := ctyp typ'.
 
-Global Instance RType_typ : RType typ := RType_mtyp _ _.
-Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_mtyp _ _.
+Global Instance RType_typ : RType typ := RType_ctyp _ _.
+Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
-Global Instance RelDec_typ : RelDec (@eq typ) := RelDec_eq_mtyp typ' TSym_typ'.
-Global Instance RelDec_Correct_typ : RelDec_Correct RelDec_typ := RelDec_Correct_eq_mtyp typ' TSym_typ'.
+Global Instance RelDec_typ : RelDec (@eq typ) := RelDec_eq_ctyp typ' TSym_typ'.
+Global Instance RelDec_Correct_typ : RelDec_Correct RelDec_typ := RelDec_Correct_eq_ctyp typ' TSym_typ'.
 
 Definition tyNat := tyBase0 tNat.
 Definition tyBool := tyBase0 tBool.

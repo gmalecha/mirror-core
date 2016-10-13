@@ -110,8 +110,6 @@ Section SemiDec_expr.
     { intros. simpl in *. apply EqNat.beq_nat_true in H. subst. reflexivity. }
   Qed.
 
-  (* put SemiDec inside of theories/Util *)
-  (* Do this: make a copy of Lambda that only uses MTypes *)
   Instance SemiDecOk_expr : RelDecSemiOk (expr typ func) _ RelDecSemi_expr.
   Proof.
     constructor. intros.

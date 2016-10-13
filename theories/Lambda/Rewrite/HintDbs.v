@@ -7,8 +7,8 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.PolyInst.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.MTypeUnify.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
 Require Import MirrorCore.Lib.TypeVar.
 
 Set Implicit Arguments.
@@ -18,7 +18,7 @@ Set Suggest Proof Using.
 
 Section setoid.
   Context {tsym : nat -> Type}.
-  Let typ := mtyp tsym.
+  Let typ := ctyp tsym.
   Context {func : Type}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
@@ -141,7 +141,7 @@ Section setoid.
   Qed.
 
   Local Definition view_update :=
-    (mtype_unify tsym).
+    (ctype_unify tsym).
 
   Let local_view : PartialView typ (VType 0) :=
   {| f_insert := fun x => match x with

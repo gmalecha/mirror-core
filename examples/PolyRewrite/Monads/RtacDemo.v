@@ -17,7 +17,7 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
 Require Import McExamples.PolyRewrite.Monads.MSimpleMonadsReify.
@@ -29,7 +29,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 (* Convenient abbreviation for modular type *)
-Let tyBNat := ModularTypes.tyBase0 tyNat.
+Let tyBNat := CoreTypes.tyBase0 tyNat.
 
 
 Module DemoRtacMonad (M : Monad) (F : Frob M).
@@ -130,7 +130,7 @@ Ltac get_num_arrs t :=
   end.
 
 Ltac reduce_exprT :=
-  repeat progress (red; simpl; repeat rewrite mtyp_cast_refl);
+  repeat progress (red; simpl; repeat rewrite ctyp_cast_refl);
   unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl.
 
 Ltac prove_lem lem :=
@@ -169,7 +169,7 @@ Qed.
 
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 
-Existing Instance RelDec_eq_mtyp.
+Existing Instance RelDec_eq_ctyp.
 
 Definition my_expr_acc := @expr_acc typ func.
 Instance TSym_typ'_opt : TSym typ':= TSym_typ'.
@@ -536,7 +536,7 @@ Defined. (*Does this need to be Denfined? *)
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 Locate Typ2_tyArr.
@@ -545,16 +545,16 @@ Ltac reduce_propD g e :=
   eval cbv beta iota zeta delta
        [g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
                ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
-               typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
-               Typ2_Fun mtyp_dec
-               mtyp_dec
+               typeof_sym RSym_func type_cast typeof_func RType_ctyp typ2_match
+               Typ2_Fun ctyp_dec
+               ctyp_dec
                typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
                AbsAppI.exprT_App eq_sym
                typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
-               RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
-               typD mtypD symbolD
+               RType_typ symbol_dec ctyp_cast TSym_typ' typ'_dec
+               typD ctypD symbolD
                (* I added everything after this point to the whitelist --Mario *)
-               RType_typ_opt RType_mtyp Expr_expr TSym_typ'_opt RSym_func_opt
+               RType_typ_opt RType_ctyp Expr_expr TSym_typ'_opt RSym_func_opt
                RelDec_eq_func_opt RelDec_eq_func RType_typ (*RTypeOk_typ*)
                RelDec_eq_typ exprT_GetVAs
                HList.nth_error_get_hlist_nth HList.hlist_hd

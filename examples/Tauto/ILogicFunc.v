@@ -23,7 +23,7 @@ Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.MSimpleTyp.
 
 Require Import Coq.Bool.Bool.
-Require Import MirrorCore.MTypes.MTypeUnify.
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -48,11 +48,11 @@ Definition ilfunc_unify (a b : ilfunc) (s : FMapPositive.pmap typ)
   | ilf_and t , ilf_and t'
   | ilf_or t , ilf_or t'
   | ilf_impl t , ilf_impl t' =>
-    mtype_unify _ t t' s
+    ctype_unify _ t t' s
   | ilf_exists t l , ilf_exists t' l'
   | ilf_forall t l , ilf_forall t' l' =>
-    match mtype_unify _ t t' s with
-    | Some s' => mtype_unify _ l l' s
+    match ctype_unify _ t t' s with
+    | Some s' => ctype_unify _ l l' s
     | None => None
     end
   | _ , _ => None
@@ -290,7 +290,7 @@ Require Import MirrorCore.Subst.FMapSubst.
 Definition gs : logic_ops :=
   fun t =>
     match t with
-    | ModularTypes.tyProp => pSome _
+    | CoreTypes.tyProp => pSome _
     | _ => pNone
     end.
 *)

@@ -17,7 +17,7 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
@@ -48,7 +48,7 @@ Proof.
   intros. inversion H3. reflexivity.
 Qed.
 
-Existing Instance RelDec_eq_mtyp.
+Existing Instance RelDec_eq_ctyp.
 
 Fixpoint from_terms (rs : list (expr typ func))
 : refl_dec Rbase :=
@@ -170,7 +170,7 @@ Ltac get_num_arrs t :=
   end.
 
 Ltac reduce_exprT :=
-  repeat progress (red; simpl; repeat rewrite mtyp_cast_refl);
+  repeat progress (red; simpl; repeat rewrite ctyp_cast_refl);
   unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl.
 
 Ltac polymorphicD_intro :=
@@ -252,19 +252,19 @@ Proof.
     unfold lemmaD, lemmaD', conclD, exprD_typ0; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     reflexivity.
 Defined.
 
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
-Existing Instance RelDec_eq_mtyp.
+Existing Instance RelDec_eq_ctyp.
 
 Require Import MirrorCore.Util.Forwardy.
 
 (*
-   write a convencience wrapper that handles everything for mtyp
+   write a convencience wrapper that handles everything for ctyp
    figure out what arguments i want to_respectful/do_prespectful to have
    and then make it have them
  *)
@@ -314,13 +314,13 @@ Arguments PPr {_ _ _} n _ : clear implicits.
 Require Import MirrorCore.Lambda.PolyInst.
 
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec tyVar (type_sym_unifier (MTypeUnify.mtype_unify _))
+  do_prespectful rel_dec tyVar (type_sym_unifier (CTypeUnify.ctype_unify _))
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> :: nil).
 
 Let tyBNat := tyBase0 tyNat.
 Definition get_respectful : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (@tyVar typ') (type_sym_unifier (MTypeUnify.mtype_unify _))
+  do_prespectful rel_dec (@tyVar typ') (type_sym_unifier (CTypeUnify.ctype_unify _))
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> ::
      Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_and_flip_impl ::> ::
@@ -339,7 +339,7 @@ Ltac prove_prespectful :=
   reduce_exprT.
 (*
   repeat match goal with
-         | |- context[mtyp_cast _ _ _ _] => rewrite mtyp_cast_refl
+         | |- context[ctyp_cast _ _ _ _] => rewrite ctyp_cast_refl
          | _ => red; simpl
          end.
 *)
@@ -393,7 +393,7 @@ Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
 
 Definition the_rewrites (lems : RewriteHintDb Rbase)
   : RwAction typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints (type_sym_unifier (MTypeUnify.mtype_unify _)) lems))).
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints (type_sym_unifier (CTypeUnify.ctype_unify _)) lems))).
 
 Lemma simple_reduce_sound :
   forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
@@ -555,7 +555,7 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
-(* use mtyps instead of typs in lambda - lambdaMT *)
+(* use ctyps instead of typs in lambda - lambdaMT *)
 
 (* TODO remove what's below this *)
 (* TODO begin code from RtacDemo.v *)
@@ -666,7 +666,7 @@ Qed.
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
   Definition goal2_D'' n : Prop :=

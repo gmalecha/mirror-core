@@ -3,7 +3,7 @@ Require Import ExtLib.Data.PList.
 Require Import ExtLib.Data.Eq.UIP_trans.
 Require Import ExtLib.Tactics.
 
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Util.Compat.
 

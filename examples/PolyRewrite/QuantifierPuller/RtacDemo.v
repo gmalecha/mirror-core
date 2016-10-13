@@ -23,7 +23,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 (* Convenient abbreviation for modular type *)
-Let tyBNat := ModularTypes.tyBase0 tyNat.
+Let tyBNat := CoreTypes.tyBase0 tyNat.
 
 Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
 Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.
@@ -111,7 +111,7 @@ Qed.
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 
@@ -120,14 +120,14 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
       exprT_UseV exprT_UseU exprT_GetUAs exprT_GetVAs
       HList.nth_error_get_hlist_nth HList.hlist_hd HList.hlist_tl
       ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
-      typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
-      Typ2_Fun mtyp_dec
-      mtyp_dec
+      typeof_sym RSym_func type_cast typeof_func RType_ctyp typ2_match
+      Typ2_Fun ctyp_dec
+      ctyp_dec
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
-      RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
-      typD mtypD symbolD
+      RType_typ symbol_dec ctyp_cast TSym_typ' typ'_dec
+      typD ctypD symbolD
     ] in e.
 
 Arguments Typ0_Prop {_ _}.

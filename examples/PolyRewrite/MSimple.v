@@ -9,9 +9,9 @@ Require Import ExtLib.Data.Map.FMapPositive.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.MTypes.ModularTypes.
-Require Import MirrorCore.MTypes.MTypeUnify.
-Require Import MirrorCore.MTypes.TSymOneOf.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
+Require Import MirrorCore.CTypes.TSymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -44,10 +44,10 @@ Instance TSym_typ' : TSym typ' :=
     end
 ; symbol_dec := typ'_dec }.
 
-Definition typ := mtyp typ'.
+Definition typ := ctyp typ'.
 
-Global Instance RType_typ : RType typ := RType_mtyp _ _.
-Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_mtyp _ _.
+Global Instance RType_typ : RType typ := RType_ctyp _ _.
+Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
 Inductive func :=
 | Lt | Plus | N : nat -> func | Eq : typ -> func
@@ -64,7 +64,7 @@ Definition func_unify (a b : func) (s : pmap typ) : option (pmap typ) :=
   | Impl , Impl => Some s
   | Eq t , Eq t'
   | Ex t , Ex t'
-  | All t , All t' => mtype_unify _ t t' s
+  | All t , All t' => ctype_unify _ t t' s
   | _ , _ => None
   end.
 

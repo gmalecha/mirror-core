@@ -16,7 +16,7 @@ Require Import MirrorCore.RTac.Intro.
 Require Import MirrorCore.RTac.Then.
 Require Import MirrorCore.RTac.RunOnGoals.
 Require Import MirrorCore.RTac.PApply.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.PLemma.
 
@@ -77,8 +77,8 @@ Definition p_lem_forall_exists_eq : PolyLemma typ (expr typ func) (expr typ func
 
 Print lem_forall_exists_eq.
 
-Let tyBNat := ModularTypes.tyBase0 tyNat.
-Let tyBBool := ModularTypes.tyBase0 tyBool.
+Let tyBNat := CoreTypes.tyBase0 tyNat.
+Let tyBBool := CoreTypes.tyBase0 tyBool.
 
 Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
 Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.

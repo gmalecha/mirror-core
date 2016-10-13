@@ -47,17 +47,17 @@ Section parametric.
 
   Unset Elimination Schemes.
 
-  Inductive mtyp : Type :=
-  | tyArr : mtyp -> mtyp -> mtyp
-  | tyBase0 : symbol 0 -> mtyp
-  | tyBase1 : symbol 1 -> mtyp -> mtyp
-  | tyBase2 : symbol 2 -> mtyp -> mtyp -> mtyp
-  | tyApp : forall {n}, symbol (3 + n) -> vector mtyp (3 + n) -> mtyp
+  Inductive ctyp : Type :=
+  | tyArr : ctyp -> ctyp -> ctyp
+  | tyBase0 : symbol 0 -> ctyp
+  | tyBase1 : symbol 1 -> ctyp -> ctyp
+  | tyBase2 : symbol 2 -> ctyp -> ctyp -> ctyp
+  | tyApp : forall {n}, symbol (3 + n) -> vector ctyp (3 + n) -> ctyp
   | tyProp
-  | tyVar : positive -> mtyp. (** Reserved for unification, do not use **)
+  | tyVar : positive -> ctyp. (** Reserved for unification, do not use **)
 
-  Section mtyp_ind.
-    Variable P : mtyp -> Prop.
+  Section ctyp_ind.
+    Variable P : ctyp -> Prop.
     Hypotheses  (Harr : forall {a b}, P a -> P b -> P (tyArr a b))
                 (Hbase0 : forall s, P (tyBase0 s))
                 (Hbase1 : forall s {a}, P a -> P (tyBase1 s a))
@@ -65,47 +65,47 @@ Section parametric.
                 (Happ : forall {n} s ms, ForallV P ms -> P (@tyApp n s ms))
                 (Hprop : P tyProp)
                 (Hvar : forall p, P (tyVar p)).
-    Fixpoint mtyp_ind (x : mtyp) : P x :=
+    Fixpoint ctyp_ind (x : ctyp) : P x :=
       match x as x return P x with
-      | tyArr a b => Harr _ _ (mtyp_ind a) (mtyp_ind b)
+      | tyArr a b => Harr _ _ (ctyp_ind a) (ctyp_ind b)
       | tyBase0 s => Hbase0 s
-      | tyBase1 s a => Hbase1 s _ (mtyp_ind a)
-      | tyBase2 s a b => Hbase2 s _ _ (mtyp_ind a) (mtyp_ind b)
+      | tyBase1 s a => Hbase1 s _ (ctyp_ind a)
+      | tyBase2 s a b => Hbase2 s _ _ (ctyp_ind a) (ctyp_ind b)
       | tyApp s ms =>
-        Happ _ s ms ((fix all {n} (ms : vector mtyp n) : ForallV P ms :=
+        Happ _ s ms ((fix all {n} (ms : vector ctyp n) : ForallV P ms :=
                         match ms with
                         | Vnil _ => ForallV_nil _
-                        | Vcons m ms => ForallV_cons _(mtyp_ind m) (all ms)
+                        | Vcons m ms => ForallV_cons _(ctyp_ind m) (all ms)
                         end) _ ms)
       | tyProp => Hprop
       | tyVar p => Hvar p
       end.
-  End mtyp_ind.
+  End ctyp_ind.
 
   Set Elimination Schemes.
 
   (** Better to match on vector? *)
 
-  Fixpoint mtypD (t : mtyp) : Type@{Usmall} :=
+  Fixpoint ctypD (t : ctyp) : Type@{Usmall} :=
     match t return Type@{Usmall} with
-    | tyArr a b => mtypD a -> mtypD b
+    | tyArr a b => ctypD a -> ctypD b
     | tyBase0 s => symbolD s
-    | tyBase1 s m => symbolD s (mtypD m)
-    | tyBase2 s m1 m2 => symbolD s (mtypD m1) (mtypD m2)
-    | tyApp s ms => applyn (symbolD s) (vector_map mtypD ms)
+    | tyBase1 s m => symbolD s (ctypD m)
+    | tyBase2 s m1 m2 => symbolD s (ctypD m1) (ctypD m2)
+    | tyApp s ms => applyn (symbolD s) (vector_map ctypD ms)
     | tyProp => Prop
     | tyVar _ => Empty_set
     end.
 
-  Let getAppN (a : mtyp) : nat :=
+  Let getAppN (a : ctyp) : nat :=
     match a with
     | @tyApp n _ _ => n
     | _ => 0
     end.
-  Let getApp_f_ms (a : mtyp)
-  : option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a)) :=
+  Let getApp_f_ms (a : ctyp)
+  : option (symbol (3 + getAppN a) * vector ctyp (3 + getAppN a)) :=
     match a as a
-          return option (symbol (3 + getAppN a) * vector mtyp (3 + getAppN a))
+          return option (symbol (3 + getAppN a) * vector ctyp (3 + getAppN a))
     with
     | @tyApp n a b => Some (a,b)
     | _ => None
@@ -137,12 +137,12 @@ Section parametric.
     split; reflexivity.
   Defined.
 
-  Fixpoint mtyp_dec (a b : mtyp) : {a = b} + {a <> b}.
+  Fixpoint ctyp_dec (a b : ctyp) : {a = b} + {a <> b}.
   refine
     match a as a , b as b return {a = b} + {a <> b} with
     | tyArr l r , tyArr l' r' =>
-      match mtyp_dec l l'
-          , mtyp_dec r r'
+      match ctyp_dec l l'
+          , ctyp_dec r r'
       with
       | left pf , left pf' => left match pf , pf' with
                                    | eq_refl , eq_refl => eq_refl
@@ -156,7 +156,7 @@ Section parametric.
       end
     | tyBase1 s m , tyBase1 s' m' =>
       match symbol_dec s s'
-          , mtyp_dec m m'
+          , ctyp_dec m m'
       with
       | left pf , left pf' => left match pf , pf' with
                                    | eq_refl , eq_refl => eq_refl
@@ -165,8 +165,8 @@ Section parametric.
       end
     | tyBase2 s m m2 , tyBase2 s' m' m2' =>
       match symbol_dec s s'
-          , mtyp_dec m m'
-          , mtyp_dec m2 m2'
+          , ctyp_dec m m'
+          , ctyp_dec m2 m2'
       with
       | left pf , left pf' , left pf'' =>
         left match pf , pf' , pf'' with
@@ -178,7 +178,7 @@ Section parametric.
       match PeanoNat.Nat.eq_dec n' n with
       | left pf =>
         match symbol_dec s match pf with eq_refl => s' end
-            , vector_dec mtyp_dec ms match pf with eq_refl => ms' end
+            , vector_dec ctyp_dec ms match pf with eq_refl => ms' end
         with
         | left pf , left pf' => left _
         | _ , _ => right _
@@ -202,12 +202,12 @@ Section parametric.
     specialize (H pf). destruct H; auto. }
   Defined.
 
-  Fixpoint mtyp_cast (a b : mtyp) : option (a = b).
+  Fixpoint ctyp_cast (a b : ctyp) : option (a = b).
   refine
     match a as a , b as b return option (a = b) with
     | tyArr l r , tyArr l' r' =>
-      match mtyp_cast l l'
-          , mtyp_cast r r'
+      match ctyp_cast l l'
+          , ctyp_cast r r'
       with
       | Some pf , Some pf' => Some match pf , pf' with
                                    | eq_refl , eq_refl => eq_refl
@@ -221,7 +221,7 @@ Section parametric.
       end
     | tyBase1 s m , tyBase1 s' m' =>
       match symbol_dec s s'
-          , mtyp_cast m m'
+          , ctyp_cast m m'
       with
       | left pf , Some pf' => Some match pf , pf' with
                                    | eq_refl , eq_refl => eq_refl
@@ -230,8 +230,8 @@ Section parametric.
       end
     | tyBase2 s m m2 , tyBase2 s' m' m2' =>
       match symbol_dec s s'
-          , mtyp_cast m m'
-          , mtyp_cast m2 m2'
+          , ctyp_cast m m'
+          , ctyp_cast m2 m2'
       with
       | left pf , Some pf' , Some pf'' =>
         Some match pf , pf' , pf'' with
@@ -243,7 +243,7 @@ Section parametric.
       match PeanoNat.Nat.eq_dec n' n with
       | left pf =>
         match symbol_dec s match pf with eq_refl => s' end
-            , vector_dec mtyp_dec ms match pf with eq_refl => ms' end
+            , vector_dec ctyp_dec ms match pf with eq_refl => ms' end
         with
         | left pf , left pf' => Some _
         | _ , _ => None
@@ -261,33 +261,33 @@ Section parametric.
   subst. reflexivity.
   Defined.
 
-  Instance RelDec_eq_mtyp : RelDec (@eq mtyp) :=
-  { rel_dec := fun a b => if mtyp_dec a b then true else false }.
-  Instance RelDec_Correct_eq_mtyp : RelDec_Correct RelDec_eq_mtyp.
+  Instance RelDec_eq_ctyp : RelDec (@eq ctyp) :=
+  { rel_dec := fun a b => if ctyp_dec a b then true else false }.
+  Instance RelDec_Correct_eq_ctyp : RelDec_Correct RelDec_eq_ctyp.
   Proof. constructor. unfold rel_dec. simpl.
-         intros. destruct (mtyp_dec x y); try tauto.
+         intros. destruct (ctyp_dec x y); try tauto.
          split; intros; congruence.
   Defined.
 
-  Inductive mtyp_acc (a : mtyp) : mtyp -> Prop :=
-  | tyAcc_tyArrL   : forall b, mtyp_acc a (tyArr a b)
-  | tyAcc_tyArrR   : forall b, mtyp_acc a (tyArr b a)
-  | tyAcc_tyBase1  : forall s, mtyp_acc a (tyBase1 s a)
-  | tyAcc_tyBase2L : forall s b, mtyp_acc a (tyBase2 s a b)
-  | tyAcc_tyBase2R : forall s b, mtyp_acc a (tyBase2 s b a)
-  | tyAcc_tyApp    : forall n s ms, vector_In a ms -> mtyp_acc a (@tyApp n s ms).
+  Inductive ctyp_acc (a : ctyp) : ctyp -> Prop :=
+  | tyAcc_tyArrL   : forall b, ctyp_acc a (tyArr a b)
+  | tyAcc_tyArrR   : forall b, ctyp_acc a (tyArr b a)
+  | tyAcc_tyBase1  : forall s, ctyp_acc a (tyBase1 s a)
+  | tyAcc_tyBase2L : forall s b, ctyp_acc a (tyBase2 s a b)
+  | tyAcc_tyBase2R : forall s b, ctyp_acc a (tyBase2 s b a)
+  | tyAcc_tyApp    : forall n s ms, vector_In a ms -> ctyp_acc a (@tyApp n s ms).
 
-  Theorem wf_mtyp_acc : well_founded mtyp_acc.
+  Theorem wf_ctyp_acc : well_founded ctyp_acc.
   Proof using.
     red.
     induction a; constructor; inversion 1; subst; auto.
     - inv_all. subst. eapply ForallV_vector_In; eauto.
   Defined.
 
-  Instance RType_mtyp : RType mtyp :=
-  { typD := mtypD
-  ; type_cast := mtyp_cast
-  ; tyAcc := mtyp_acc }.
+  Instance RType_ctyp : RType ctyp :=
+  { typD := ctypD
+  ; type_cast := ctyp_cast
+  ; tyAcc := ctyp_acc }.
 
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.
@@ -295,10 +295,10 @@ Section parametric.
     destruct (symbol_dec x y); (left + right); assumption.
   Defined.
 
-  Local Instance EqDec_mtyp : EqDec mtyp (@eq mtyp).
+  Local Instance EqDec_ctyp : EqDec ctyp (@eq ctyp).
   Proof.
     red. intros.
-    eapply mtyp_dec.
+    eapply ctyp_dec.
   Defined.
 
   Lemma dec_refl
@@ -317,8 +317,8 @@ Section parametric.
     intro. apply dec_refl.
   Qed.
 
-  Theorem mtyp_cast_refl : forall a,
-      mtyp_cast a a = Some eq_refl.
+  Theorem ctyp_cast_refl : forall a,
+      ctyp_cast a a = Some eq_refl.
   Proof.
     induction a; simpl.
     - rewrite IHa1. rewrite IHa2. reflexivity.
@@ -330,22 +330,22 @@ Section parametric.
     - rewrite dec_refl. reflexivity.
   Qed.
 
-  Instance RTypeOk_mtyp : RTypeOk.
+  Instance RTypeOk_ctyp : RTypeOk.
   Proof.
     constructor.
     - reflexivity.
-    - eapply wf_mtyp_acc.
+    - eapply wf_ctyp_acc.
     - destruct pf; reflexivity.
     - destruct pf1; destruct pf2; reflexivity.
-    - apply mtyp_cast_refl.
+    - apply ctyp_cast_refl.
     - eauto with typeclass_instances.
   Qed.
 
   Global Instance Typ0_Prop : Typ0 _ Prop :=
   { typ0 := tyProp
   ; typ0_cast := eq_refl
-  ; typ0_match := fun T (m : mtyp) tr =>
-    match m as t' return T (mtypD t') -> T (mtypD t')
+  ; typ0_match := fun T (m : ctyp) tr =>
+    match m as t' return T (ctypD t') -> T (ctypD t')
     with
     | tyProp => fun _ => tr
     | _ => fun fa => fa
@@ -364,9 +364,9 @@ Section parametric.
   Instance Typ0_sym (s : symbol 0) : Typ0 _ (symbolD s) :=
   { typ0 := tyBase0 s
   ; typ0_cast := eq_refl
-  ; typ0_match := fun T (t : mtyp) tr =>
+  ; typ0_match := fun T (t : ctyp) tr =>
     match t as t'
-          return T (mtypD t') -> T (mtypD t')
+          return T (ctypD t') -> T (ctypD t')
     with
     | tyBase0 s' =>
       match symbol_dec s s' with
@@ -395,8 +395,8 @@ Section parametric.
   Instance Typ1_sym (s : symbol 1) : Typ1 _ (symbolD s) :=
   { typ1 := tyBase1 s
   ; typ1_cast := fun _ => eq_refl
-  ; typ1_match := fun T (t : mtyp) tr =>
-      match t as t return T (mtypD t) -> T (mtypD t) with
+  ; typ1_match := fun T (t : ctyp) tr =>
+      match t as t return T (ctypD t) -> T (ctypD t) with
       | tyBase1 s' m =>
         match symbol_dec s s' with
         | left pf => fun _ => match pf with
@@ -423,8 +423,8 @@ Section parametric.
   Instance Typ2_sym (s : symbol 2) : Typ2 _ (symbolD s) :=
   { typ2 := tyBase2 s
   ; typ2_cast := fun _ _ => eq_refl
-  ; typ2_match := fun T (t : mtyp) tr =>
-      match t as t return T (mtypD t) -> T (mtypD t) with
+  ; typ2_match := fun T (t : ctyp) tr =>
+      match t as t return T (ctypD t) -> T (ctypD t) with
       | tyBase2 s' m m' =>
         match symbol_dec s s' with
         | left pf => fun _ => match pf with
@@ -452,8 +452,8 @@ Section parametric.
   Instance Typ2_Fun : Typ2 _ RFun :=
   { typ2 := tyArr
   ; typ2_cast := fun _ _ => eq_refl
-  ; typ2_match := fun T (x : mtyp) tr =>
-    match x as x return T (mtypD x) -> T (mtypD x) with
+  ; typ2_match := fun T (x : ctyp) tr =>
+    match x as x return T (ctypD x) -> T (ctypD x) with
     | tyArr l r => fun _ => tr l r
     | _ => fun fa => fa
     end }.
@@ -471,7 +471,7 @@ Section parametric.
   Qed.
 
   Global Instance TypeView_sym0
-  : PartialView mtyp (symbol 0) :=
+  : PartialView ctyp (symbol 0) :=
   { f_insert := tyBase0;
     f_view :=
      fun x =>
@@ -484,7 +484,7 @@ Section parametric.
   Definition typ0D := @symbolD _ 0.
 
   Global Definition TypeViewOk_sym0
-  : @TypeViewOk _ _ mtypD typ0D TypeView_sym0.
+  : @TypeViewOk _ _ ctypD typ0D TypeView_sym0.
   Proof.
     constructor; simpl.
     { destruct f; split; try congruence. }
@@ -492,7 +492,7 @@ Section parametric.
   Defined.
 
   Global Instance TypeView_sym1
-  : PartialView mtyp (symbol 1 * mtyp) :=
+  : PartialView ctyp (symbol 1 * ctyp) :=
   { f_insert := fun p => tyBase1 (fst p) (snd p);
     f_view :=
      fun x =>
@@ -502,10 +502,10 @@ Section parametric.
        end
   }.
 
-  Definition typ1D := (fun ab => @symbolD _ 1 (fst ab) (mtypD (snd ab))).
+  Definition typ1D := (fun ab => @symbolD _ 1 (fst ab) (ctypD (snd ab))).
 
   Global Definition TypeViewOk_sym1
-  : @TypeViewOk _ _ mtypD typ1D TypeView_sym1.
+  : @TypeViewOk _ _ ctypD typ1D TypeView_sym1.
   Proof.
     constructor; simpl.
     { destruct f; split; try congruence.
@@ -515,7 +515,7 @@ Section parametric.
   Defined.
 
   Global Instance TypeView_sym2
-  : PartialView mtyp (symbol 2 * (mtyp * mtyp)) :=
+  : PartialView ctyp (symbol 2 * (ctyp * ctyp)) :=
   { f_insert := fun p => tyBase2 (fst p) (fst (snd p)) (snd (snd p));
     f_view :=
      fun x =>
@@ -526,10 +526,10 @@ Section parametric.
   }.
 
   Definition typ2D :=
-    (fun ab => @symbolD _ 2 (fst ab) (mtypD (fst (snd ab))) (mtypD (snd (snd ab)))).
+    (fun ab => @symbolD _ 2 (fst ab) (ctypD (fst (snd ab))) (ctypD (snd (snd ab)))).
 
   Global Definition TypeViewOk_sym2
-  : @TypeViewOk _ _ mtypD typ2D TypeView_sym2.
+  : @TypeViewOk _ _ ctypD typ2D TypeView_sym2.
   Proof.
     constructor; simpl.
     { destruct f; split; try congruence.

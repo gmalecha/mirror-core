@@ -4,7 +4,7 @@ Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 
 Require Import MirrorCore.Lambda.Red.
-Require Import MirrorCore.MTypes.ModularTypes.
+Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.PLemma.
 Require Import MirrorCore.RTac.PApply.
@@ -71,7 +71,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     reflexivity.
   Qed.
@@ -96,7 +96,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, mkTrue, fTrue; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     apply ltrueR.
   Qed.
@@ -121,7 +121,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, mkFalse, fFalse; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
     apply lfalseL.
   Qed.
@@ -148,7 +148,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply landR; assumption.
   Qed.
@@ -177,7 +177,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply landL1; assumption.
   Qed.
@@ -206,7 +206,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply landL2; assumption.
   Qed.
@@ -238,7 +238,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fOr, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply lorL; assumption.
   Qed.
@@ -265,7 +265,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply lorR1; assumption.
   Qed.
@@ -292,7 +292,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fOr, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply lorR2; assumption.
   Qed.
@@ -321,7 +321,7 @@ Section Tauto.
     unfold lemmaD, lemmaD', conclD, exprD_typ0, fAnd, fImpl, fEntails; simpl; intros.
     repeat (red_exprD;
             (try rewrite <- Heqp);
-            (try rewrite mtyp_cast_refl);
+            (try rewrite ctyp_cast_refl);
             unfold symAs; unfold AbsAppI.exprT_App; unfold exprD_typ0; simpl; intros).
     apply limplAdj; assumption.
   Qed.
@@ -481,13 +481,13 @@ End Examples.
 Definition gs : logic_ops :=
   fun t =>
     match t with
-    | ModularTypes.tyProp => POption.pSome ILogicOps_Prop
+    | CoreTypes.tyProp => POption.pSome ILogicOps_Prop
     | _ => POption.pNone
     end.
 
 Definition gs' t : option (ilogic_tc gs t) :=
   match t with
-    | ModularTypes.tyProp => Some ILogic_Prop
+    | CoreTypes.tyProp => Some ILogic_Prop
     | _ => None
   end.
 
@@ -501,14 +501,14 @@ Ltac reduce_propD g e := eval cbv beta iota zeta delta
       exprT_UseV exprT_UseU ExprDenote.exprT_GetUAs ExprDenote.exprT_GetVAs
       HList.nth_error_get_hlist_nth HList.hlist_hd HList.hlist_tl
       ExprDsimul.ExprDenote.lambda_exprD ExprDenote.func_simul symAs typ0_cast Typ0_Prop
-      typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
-      Typ2_Fun mtyp_dec
-      mtyp_dec
+      typeof_sym RSym_func type_cast typeof_func RType_ctyp typ2_match
+      Typ2_Fun ctyp_dec
+      ctyp_dec
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
-      RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
-      typD mtypD symbolD
+      RType_typ symbol_dec ctyp_cast TSym_typ' typ'_dec
+      typD ctypD symbolD
     ] in e.
 
 
