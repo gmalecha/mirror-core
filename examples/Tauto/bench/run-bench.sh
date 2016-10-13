@@ -2,7 +2,7 @@
 
 FLAGS="-noglob -I ../../../../src -Q ../../../coq-ext-lib/theories ExtLib -Q ../../.. McExamples -Q ../../../../theories MirrorCore"
 
-for i in 1 3 6 9 12 15 18
+for i in 1 3 6 9 12 15
 do
     echo $i
 
@@ -23,5 +23,5 @@ do
     rm {r,l}tac.$i.*.raw
 done
 
-cat ltac.{1,3,6,9,12,15,18}.raw > ltac.raw
-cat rtac.{1,3,6,9,12,15,18}.raw > rtac.raw
+cat ltac.{1,3,6,9,12,15}.raw > ltac.raw
+cat rtac.{1,3,6,9,12,15}.raw > rtac.raw
