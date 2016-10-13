@@ -1,3 +1,6 @@
+(* This is a demo of developing a cancellation algorithm for
+ * commutative monoids.
+ *)
 Require Import ExtLib.Data.Fun.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
@@ -23,7 +26,6 @@ Module Syntax (M : Monoid).
   (* The syntax of types *)
   Inductive typ' : nat -> Type :=
   | tyNat : typ' 0
-  | tyProp : typ' 0
   | tyM : typ' 0.
 
   Definition typ'_dec {n} (a : typ' n) : forall b, {a = b} + {a <> b}.
@@ -32,11 +34,6 @@ Module Syntax (M : Monoid).
     | tyNat => fun b =>
                  match b as b in typ' 0 return {tyNat = b} + {tyNat <> b} with
                  | tyNat => left eq_refl
-                 | _ => right (fun pf => _)
-                 end
-    | tyProp => fun b =>
-                 match b as b in typ' 0 return {tyProp = b} + {tyProp <> b} with
-                 | tyProp => left eq_refl
                  | _ => right (fun pf => _)
                  end
     | tyM => fun b =>
@@ -50,7 +47,6 @@ Module Syntax (M : Monoid).
   Definition typ'D {n} (t : typ' n) : type_for_arity n :=
     match t with
     | tyNat => nat
-    | tyProp => Prop
     | tyM => M.M
     end.
 
@@ -68,8 +64,8 @@ Module Syntax (M : Monoid).
   Instance Typ2_tyArr : Typ2 RType_typ Fun := Typ2_Fun.
   Instance Typ2Ok_tyArr : Typ2Ok Typ2_tyArr := Typ2Ok_Fun.
 
-  Instance Typ0_tyProp : Typ0 RType_typ Prop := Typ0_sym tyProp.
-  Instance Typ0Ok_tyProp : Typ0Ok Typ0_tyProp := Typ0Ok_sym tyProp.
+  Instance Typ0_tyProp : Typ0 RType_typ Prop := _.
+  Instance Typ0Ok_tyProp : Typ0Ok Typ0_tyProp := _.
 
   (* The syntax of terms *)
   Inductive func' :=
@@ -98,13 +94,13 @@ Module Syntax (M : Monoid).
          match f with
          | mU => mkTypedVal !tyM M.U
          | mP => mkTypedVal (tyArr !tyM (tyArr !tyM !tyM)) M.P
-         | mR => mkTypedVal (tyArr !tyM (tyArr !tyM !tyProp)) M.R
-         | Eq t => mkTypedVal (tyArr t (tyArr t !tyProp)) (@eq _)
-         | And => mkTypedVal (tyArr !tyProp (tyArr !tyProp !tyProp)) and
-         | Or => mkTypedVal (tyArr !tyProp (tyArr !tyProp !tyProp)) or
-         | Impl => mkTypedVal (tyArr !tyProp (tyArr !tyProp !tyProp)) Basics.impl
-         | Ex t => mkTypedVal (tyArr (tyArr t !tyProp) !tyProp) (@ex _)
-         | All t => mkTypedVal (tyArr (tyArr t !tyProp) !tyProp) _
+         | mR => mkTypedVal (tyArr !tyM (tyArr !tyM tyProp)) M.R
+         | Eq t => mkTypedVal (tyArr t (tyArr t tyProp)) (@eq _)
+         | And => mkTypedVal (tyArr tyProp (tyArr tyProp tyProp)) and
+         | Or => mkTypedVal (tyArr tyProp (tyArr tyProp tyProp)) or
+         | Impl => mkTypedVal (tyArr tyProp (tyArr tyProp tyProp)) Basics.impl
+         | Ex t => mkTypedVal (tyArr (tyArr t tyProp) tyProp) (@ex _)
+         | All t => mkTypedVal (tyArr (tyArr t tyProp) tyProp) _
          end)
       func'_eq_dec).
   refine (fun P : _ -> Prop => forall x : typD t, P x).
@@ -156,7 +152,7 @@ Module Syntax (M : Monoid).
   (* Pattern rules for reifying types *)
   Reify Pattern patterns_monoid_typ += (@RExact _ nat)  => !tyNat.
   Reify Pattern patterns_monoid_typ += (@RExact _ M.M) => !tyM.
-  Reify Pattern patterns_monoid_typ += (@RExact _ Prop) => !tyProp.
+  Reify Pattern patterns_monoid_typ += (@RExact _ Prop) => @tyProp typ'.
   Reify Pattern patterns_monoid_typ += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function (CCall reify_monoid_typ)) => @tyArr typ' a b).
 
   (* Pattern rules for reifying terms *)
