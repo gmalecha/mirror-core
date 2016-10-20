@@ -1,61 +1,40 @@
 Require Coq.FSets.FMapPositive.
 
 Unset Elimination Schemes.
+Set Printing Universes.
 
 (* NOTE: These should realy be axioms **)
 Inductive table (K : Type) : Type := a_table.
 Inductive typed_table (K T : Type) : Type := a_typed_table.
 Inductive patterns (T : Type) : Type := a_pattern.
 
-Fixpoint action_pattern (ls : list Type) (r : Type) : Type :=
+Polymorphic Fixpoint action_pattern@{A} (ls : list Type@{A}) (r : Type@{A}) : Type@{A} :=
   match ls with
   | nil => r
-  | List.cons l ls => l -> action_pattern ls r
+  | Datatypes.cons l ls => l -> action_pattern ls r
   end.
 
 (** Patterns **)
-Inductive RPattern : Prop :=
+Polymorphic Inductive RPattern@{U} : Prop :=
 | RIgnore
 | RConst
-| RHasType (T : Type) (p : RPattern)
+| RHasType (T : Type@{U}) (p : RPattern)
 | RGet     (idx : nat) (p : RPattern)
 | RApp     (f x : RPattern)
 | RLam     (t r : RPattern)
 | RPi      (t r : RPattern)
 | RImpl    (l r : RPattern)
-| RExact   {T : Type} (value : T).
+| RExact   {T : Type@{U}} (value : T).
 
-Record RBranch (T : Type) : Prop := mkRBranch
-{ rcaptures : list Type
-; rpattern  : RPattern
-; rtemplate : action_pattern rcaptures T
-}.
 
-(** Commands **)
-Polymorphic Parameter Command@{U} : Type@{U} -> Prop.
-Polymorphic Parameter CFix : forall {T : Type}, Command T -> Command T.
-Polymorphic Parameter CRec : forall {T : Type}, nat -> Command T.
-Polymorphic Parameter CCall : forall {T : Type}, Command T -> Command T.
-Polymorphic Parameter CMap : forall {T F : Type}, (F -> T) -> Command F -> Command T.
-Polymorphic Parameter COr : forall {T : Type}, Command T -> Command T -> Command T.
-Polymorphic Parameter CFail : forall {T : Type}, Command T.
-Polymorphic Parameter CApp        : forall {T : Type} {U : Type} {V : Type} (_ : Command T) (_ : Command U)
-                       (app : T -> U -> V), Command V.
-Polymorphic Parameter CAbs        : forall {T : Type} {U : Type} {V : Type} (_ : Command U) (_ : Command V)
-                       (lam : U -> V -> T), Command T.
-Polymorphic Parameter CVar        : forall {T : Type} (var : nat -> T), Command T.
-Polymorphic Parameter CPiMeta     : forall {T U : Type} (a : Command U), Command (T -> U).
-  (* Patterns *)
-Polymorphic Parameter CPatternTr  : forall {T : Type}, list (RBranch T) -> Command T.
-Polymorphic Parameter CPatterns   : forall {T : Type} (f : patterns T), Command T.
-  (* Tables *)
-Polymorphic Parameter CTable      : forall {T : Type} (t : table T), Command T.
-Polymorphic Parameter CTypedTable : forall {T Ty : Type} (cTy : Command Ty) (t : typed_table T Ty), Command T.
 
-(*
-(** TODO: Try axiomatizing this? *)
-(* Command T parses a constr into a T *)
-Polymorphic Inductive Command@{U} : Type@{U} -> Prop :=
+Polymorphic Inductive RTemplate@{U} : Type@{U} -> Prop :=
+| RRet : forall (T : Type@{U}), T -> RTemplate T
+| RDo  : forall (T U : Type@{U}), RAction U -> RTemplate (U -> T) -> RTemplate T
+with RAction@{U} : Type@{U} -> Prop :=
+| RId : forall (T : Type@{U}), RAction T
+| RCmd : forall (T : Type@{U}), Command T -> RAction T
+with Command@{U} : Type@{U} -> Prop :=
   (* Structural combinators *)
 | CFix        : forall {T : Type@{U}}, Command T -> Command T
 | CRec        : forall {T : Type@{U}}, nat -> Command T
@@ -71,31 +50,16 @@ Polymorphic Inductive Command@{U} : Type@{U} -> Prop :=
 | CVar        : forall {T : Type@{U}} (var : nat -> T), Command T
 | CPiMeta     : forall {T U : Type@{U}} (a : Command U), Command (T -> U)
   (* Patterns *)
-| CPatternTr  : forall {T : Type@{U}}, list (RBranch T) -> Command T
+| CPatternTr  : forall {T : Type@{U}}, list (RPattern@{U} * RTemplate T) -> Command T
 | CPatterns   : forall {T : Type@{U}} (f : patterns T), Command T
   (* Tables *)
 | CTable      : forall {T : Type@{U}} (t : table T), Command T
 | CTypedTable : forall {T Ty : Type@{U}} (cTy : Command Ty) (t : typed_table T Ty), Command T.
-*)
-
-(*
-Notation "'CApp_' x" := (@CApp _ _ _ (CRec 0) (CRec 0) x) (at level 0).
-(*
-Definition CApp_ {T} (f : T -> T -> T) : Command T :=
-  @CApp T T T (CRec 0) (CRec 0) f.
-*)
-Notation "'CAbs_' c x"
-Definition CAbs_ {T Ty} (c : Command Ty) (f : Ty -> T -> T) : Command T :=
-  @CAbs T Ty T c (CRec 0) f.
-*)
-Definition CPattern T ls ptr br : Command T :=
-  CPatternTr (mkRBranch T ls ptr br :: nil).
-Arguments CPattern {_} [_] _ _.
 
 
-(** Actions **)
-Polymorphic Definition function@{U}  {T : Type@{U}} (f : Command T) : Type@{U} := T.
-Polymorphic Definition id@{U}        (T : Type@{U}) : Type@{U} := T.
+Polymorphic Definition CPattern T ptr br : Command T :=
+  CPatternTr ((ptr, br) :: nil).
+Arguments CPattern {_} _ _.
 
 Arguments CPatterns {_} _.
 Arguments CApp {_ _ _} _ _ _.
@@ -111,7 +75,14 @@ Arguments CPatternTr {T} _.
 Arguments CRec {_} _.
 Arguments CFix {_} _.
 
-Polymorphic Fixpoint CFirst_@{U} {T : Type@{U}} (ls : list (Command@{U} T)) : Command@{U} T :=
+Arguments RRet {_} _.
+Arguments RDo {_ _} _ _.
+Arguments RId {_}.
+Arguments RCmd {_} _.
+
+
+Polymorphic Fixpoint CFirst_@{U} {T : Type@{U}} (ls : list (Command@{U} T))
+: Command@{U} T :=
   match ls with
   | nil => CFail
   | cons l nil => l

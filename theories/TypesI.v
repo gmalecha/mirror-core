@@ -7,6 +7,7 @@ Require Import MirrorCore.Util.Compat.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+(** This is the semantic universe of reflected terms *)
 Universe Urefl.
 
 (* This is Fun for reflected things *)

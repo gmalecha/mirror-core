@@ -210,12 +210,12 @@ Section ReifyList.
   Polymorphic Context {t : Reify typ}.
 
   Polymorphic Definition reify_nil : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := typ::nil)
              (RApp (RExact (@nil)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => mkNil x).
 
   Polymorphic Definition reify_cons : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := typ::nil)
              (RApp (RExact (@cons)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fCons x)).
 
@@ -225,4 +225,3 @@ Section ReifyList.
 End ReifyList.
 
 Arguments reify_list _ _ {_ _}.
-

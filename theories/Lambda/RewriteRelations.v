@@ -570,16 +570,12 @@ Section reify_R.
 
   Definition reify_R : Command (R Ty Rbase) :=
     CFix
-      (CFirst (   CPattern (ls:=_::_::nil)
-                           (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1)
-                           (fun a b : function (CRec 0) => Rrespects a b)
-               :: CPattern (ls:=_::_::nil)
-                           (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1)
-                           (fun (a : function (CCall (reify_scheme Ty))) (b : function (CRec 0)) =>
-                              Rpointwise a b)
-               :: CPattern (ls:=_::nil)
-                           (!!@Basics.flip @ # @ # @ # @ ?0)
-                           (fun a : function (CRec 0) => Rflip a)
+      (CFirst (   CPattern (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1)
+                           (RDo (RCmd (CRec 0)) (RDo (RCmd (CRec 0)) (RRet (fun a b => Rrespects a b))))
+               :: CPattern (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1)
+                           (RDo (RCmd (CRec 0)) (RDo (RCmd (CCall (reify_scheme Ty))) (RRet (fun a b => Rpointwise a b))))
+               :: CPattern (!!@Basics.flip @ # @ # @ # @ ?0)
+                           (RDo (RCmd (CRec 0)) (RRet (fun a => Rflip a)))
                :: CMap (@Rinj Ty _) (reify_scheme Rbase)
                :: nil)).
 
@@ -600,10 +596,9 @@ Section Reify_Proper_concl.
   Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
   Definition reify_rw_concl :=
-    CPattern (ls:=_::_::_::nil)
-             (?0 @ ?1 @ ?2)
-             (fun (a : function (reify_scheme (R Ty Rbase))) (b c : function (CCall (reify_scheme (expr Ty func)))) =>
-                @Build_rw_concl Ty func Rbase b a c).
+    CPattern (?0 @ ?1 @ ?2)
+             (RDo (RCmd (CCall (reify_scheme (expr Ty func)))) (RDo (RCmd (CCall (reify_scheme (expr Ty func)))) (RDo (RCmd (CCall (reify_scheme (R Ty Rbase)))) (RRet (fun a b c =>
+                @Build_rw_concl Ty func Rbase b a c))))).
 
   Global Instance Reify_rw_concl : Reify (rw_concl Ty func Rbase) :=
   { reify_scheme := CCall reify_rw_concl }.

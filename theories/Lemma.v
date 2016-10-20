@@ -390,15 +390,13 @@ Section rlemma.
   Definition reify_lemma : Command (lemma ty pr c) :=
     Eval unfold CPattern in
     CFix
-      (CFirst (   CPattern (ls:=pr::lemma ty pr c::nil)
-                           (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
-                           (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_prem x y)
-               :: CPattern (ls:=ty::lemma ty pr c::nil)
-                           (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
-                           (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_var x y)
+      (CFirst (   CPattern (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
+                           (RDo (RCmd (CRec 0)) (RDo (RCmd (CCall (reify_scheme _))) (RRet (fun x y => add_prem x y))))
+               :: CPattern (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
+                           (RDo (RCmd (CRec 0)) (RDo (RCmd (CCall (reify_scheme _))) (RRet (fun x y => add_var x y))))
                :: CMap (fun x => {| vars := nil
-                                  ; premises := nil
-                                  ; concl := x |}) (reify_scheme _)
+                               ; premises := nil
+                               ; concl := x |}) (reify_scheme _)
                :: nil)).
 
   Global Instance Reify_rlemma : Reify (lemma ty pr c) :=

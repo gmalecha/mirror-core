@@ -15,7 +15,7 @@ Set Strict Implicit.
 (* This universe is only here as list_typ otherwise is cast to nat->Prop *)
 Universes T.
 
-Inductive list_typ : nat -> Type@{T} :=
+Inductive list_typ : nat -> Set :=
 | tList : list_typ 1.
 
 Definition list_typ_dec {n} (a : list_typ n) : forall b, {a = b} + {a <> b} :=
@@ -60,7 +60,7 @@ End FuncView_list_type.
 Section RelDec_list_type.
 
   Global Instance RelDec_list_typ (x : nat) : RelDec (@eq (list_typ x)) := {
-    rel_dec := fun a b => 
+    rel_dec := fun a b =>
                  match x with
                  | 1 => true
                  | _ => false
@@ -81,14 +81,14 @@ Section RelDec_list_type.
     split; intros; [|reflexivity].
     apply list_typ_eq.
   Qed.
-  
+
 End RelDec_list_type.
 
 Section TSym_list_type.
 
   Global Instance TSym_list_typ : TSym list_typ := {
     symbolD n := list_typD (n := n);
-    symbol_dec n := list_typ_dec (n := n)    
+    symbol_dec n := list_typ_dec (n := n)
   }.
 
 End TSym_list_type.
@@ -96,8 +96,9 @@ End TSym_list_type.
 Section ListTypeReify.
   Context {typ : Type} {FV : PartialView typ (list_typ 1 * typ)}.
 
-  Definition reify_tyList : Command typ := 
-    CApp (CPattern (ls := nil) (RExact (@list)) tyList) (CRec 0) (fun f x => tyList x).
+  Definition reify_tyList : Command typ :=
+    CApp (CPattern (RExact (@list)) (RRet tt))
+         (CRec 0) (fun _ x => tyList x).
 
   Definition reify_list_typ : Command typ :=
     CFirst (reify_tyList :: nil).
@@ -105,5 +106,3 @@ Section ListTypeReify.
 End ListTypeReify.
 
 Arguments reify_list_typ _ {_}.
-
-

@@ -162,54 +162,54 @@ theories/Reify/Reify.v
 theories/Reify/ReifyClass.v
 theories/Reify/ReifyView.v
 
-examples/Tauto/MSimpleTyp.v
-examples/Tauto/ILogic.v
-examples/Tauto/ILogicFunc.v
-examples/Tauto/ILogicReify.v
-examples/Tauto/Tauto.v
-examples/Tauto/LtacDemo.v
-examples/Tauto/RtacDemo.v
+# examples/Tauto/MSimpleTyp.v
+# examples/Tauto/ILogic.v
+# examples/Tauto/ILogicFunc.v
+# examples/Tauto/ILogicReify.v
+# examples/Tauto/Tauto.v
+# examples/Tauto/LtacDemo.v
+# examples/Tauto/RtacDemo.v
 
-examples/Cancel/Monoid.v
-examples/Cancel/MonoidSyntaxSimple.v
-examples/Cancel/MonoidSyntaxNoDec.v
-examples/Cancel/MonoidSyntaxWithConst.v
-examples/Cancel/MonoidSyntaxModular.v
-examples/Cancel/LtacDemo.v
-examples/Cancel/RtacDemo.v
+# examples/Cancel/Monoid.v
+# examples/Cancel/MonoidSyntaxSimple.v
+# examples/Cancel/MonoidSyntaxNoDec.v
+# examples/Cancel/MonoidSyntaxWithConst.v
+# examples/Cancel/MonoidSyntaxModular.v
+# examples/Cancel/LtacDemo.v
+# examples/Cancel/RtacDemo.v
 
-examples/Hoare/ILogic.v
-examples/Hoare/ILogicFunc.v
-examples/Hoare/LogicTac.v
-examples/Hoare/Imp.v
-examples/Hoare/ImpMetaTheory.v
-examples/Hoare/ImpSyntax.v
-examples/Hoare/Verify.v
-examples/Hoare/Tests.v
+# examples/Hoare/ILogic.v
+# examples/Hoare/ILogicFunc.v
+# examples/Hoare/LogicTac.v
+# examples/Hoare/Imp.v
+# examples/Hoare/ImpMetaTheory.v
+# examples/Hoare/ImpSyntax.v
+# examples/Hoare/Verify.v
+# examples/Hoare/Tests.v
 
-# examples/Simple/Simple.v
-# examples/Simple/SimpleReify.v
-# examples/Simple/SimpleExt.v
-# examples/Simple/FoldTest.v
+# # examples/Simple/Simple.v
+# # examples/Simple/SimpleReify.v
+# # examples/Simple/SimpleExt.v
+# # examples/Simple/FoldTest.v
 
-# examples/Reify/ModularReify.v
+# # examples/Reify/ModularReify.v
 
-# examples/RTac/Demo.v
+# # examples/RTac/Demo.v
 
-examples/PolyRewrite/MSimple.v
-examples/PolyRewrite/MSimpleReify.v
+# examples/PolyRewrite/MSimple.v
+# examples/PolyRewrite/MSimpleReify.v
 
-examples/PolyRewrite/QuantifierPuller/PolyQuantPullRtac.v
-examples/PolyRewrite/QuantifierPuller/RtacDemo.v
-examples/PolyRewrite/QuantifierPuller/LtacDemo.v
+# examples/PolyRewrite/QuantifierPuller/PolyQuantPullRtac.v
+# examples/PolyRewrite/QuantifierPuller/RtacDemo.v
+# examples/PolyRewrite/QuantifierPuller/LtacDemo.v
 
-examples/PolyApply/MSimpleType.v
-examples/PolyApply/MSimpleFunc.v
-examples/PolyApply/DemoPolyApply.v
+# examples/PolyApply/MSimpleType.v
+# examples/PolyApply/MSimpleFunc.v
+# examples/PolyApply/DemoPolyApply.v
 
-examples/PolyRewrite/Monads/Monad.v
-examples/PolyRewrite/Monads/LtacDemo.v
-examples/PolyRewrite/Monads/RtacDemo.v
-examples/PolyRewrite/Monads/MSimpleMonads.v
-examples/PolyRewrite/Monads/MSimpleMonadsReify.v
+# examples/PolyRewrite/Monads/Monad.v
+# examples/PolyRewrite/Monads/LtacDemo.v
+# examples/PolyRewrite/Monads/RtacDemo.v
+# examples/PolyRewrite/Monads/MSimpleMonads.v
+# examples/PolyRewrite/Monads/MSimpleMonadsReify.v
 
