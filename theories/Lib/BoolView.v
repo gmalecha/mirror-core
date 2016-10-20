@@ -13,7 +13,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive boolFunc : Type  :=
+Inductive boolFunc : Set :=
 | pBool  : bool -> boolFunc.
 
 Section BoolFuncInst.
@@ -128,7 +128,8 @@ Section ReifyBool.
   Context {typ func : Type} {FV : PartialView func boolFunc}.
 
   Definition reify_cbool : Command (expr typ func) :=
-    CPattern (ls := (bool:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fBool x)).
+    CPattern (RHasType bool (RGet 0 RIgnore))
+             (RDo RId (RRet (fun x => Inj (fBool x)))).
 
   Definition reify_bool : Command (expr typ func) :=
     CFirst (reify_cbool :: nil).

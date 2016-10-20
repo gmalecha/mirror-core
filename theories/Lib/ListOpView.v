@@ -455,37 +455,37 @@ Section ReifyListOp.
   Polymorphic Context {t : Reify typ}.
 
   Polymorphic Definition reify_length : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
-             (RApp (RExact (@length)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => Inj (fLength x)).
+    CPattern (RApp (RExact (@length)) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => Inj (fLength x)))).
 
   Polymorphic Definition reify_NoDup : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
-             (RApp (RExact (@NoDup)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => Inj (fNoDup x)).
+    CPattern (RApp (RExact (@NoDup)) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => Inj (fNoDup x)))).
 
   Polymorphic Definition reify_In : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
-             (RApp (RExact (@In)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => Inj (fIn x)).
+    CPattern (RApp (RExact (@In)) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => Inj (fIn x)))).
 
   Polymorphic Definition reify_map : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@map)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fMap x y)).
+    CPattern (RApp (RApp (RExact (@map)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ)))
+                  (RDo (RCmd (CCall (reify_scheme typ)))
+                       (RRet (fun x y => Inj (fMap x y))))).
 
   Polymorphic Definition reify_fold : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@fold_right)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFold x y)).
+    CPattern (RApp (RApp (RExact (@fold_right)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ)))
+                  (RDo (RCmd (CCall (reify_scheme typ)))
+                       (RRet (fun x y => Inj (fFold x y))))).
 
   Polymorphic Definition reify_combine : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@combine)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fCombine x y)).
+    CPattern (RApp (RApp (RExact (@combine)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ)))
+                  (RDo (RCmd (CCall (reify_scheme typ)))
+                       (RRet (fun x y => Inj (fCombine x y))))).
 
   Polymorphic Definition reify_listOp : Command (expr typ func) :=
-    CFirst (reify_length :: reify_NoDup :: reify_In :: 
+    CFirst (reify_length :: reify_NoDup :: reify_In ::
             reify_map :: reify_fold :: reify_combine :: nil).
 
 End ReifyListOp.

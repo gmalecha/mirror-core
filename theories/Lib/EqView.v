@@ -140,9 +140,8 @@ Section ReifyEq.
   Context {t : Reify typ}.
 
   Definition reify_equiv : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
-             (RApp (RExact (@eq)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => Inj (fEq x)).
+    CPattern (RApp (RExact (@eq)) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => Inj (fEq x)))).
 
   Definition reify_eq : Command (expr typ func) :=
     CFirst (reify_equiv :: nil).

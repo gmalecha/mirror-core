@@ -277,16 +277,17 @@ Section ReifyNat.
   Polymorphic Context {typ : Type@{U}} {func : Type@{V}} {FV : PartialView func natFunc}.
 
   Polymorphic Definition reify_cnat : Command (expr typ func) :=
-    CPattern (ls := (nat:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun (x : id nat) => Inj (fNat x)).
+    CPattern (RHasType nat (RGet 0 RIgnore))
+             (RDo RId (RRet (fun x => Inj (fNat x)))).
 
   Polymorphic Definition reify_plus : Command (expr typ func) :=
-    CPattern (ls := nil) (RExact plus) (Inj fPlus).
+    CPattern (RExact plus) (RRet (Inj fPlus)).
 
   Polymorphic Definition reify_minus : Command (expr typ func) :=
-    CPattern (ls := nil) (RExact minus) (Inj fMinus).
+    CPattern (RExact minus) (RRet (Inj fMinus)).
 
   Polymorphic Definition reify_mult : Command (expr typ func) :=
-    CPattern (ls := nil) (RExact mult) (Inj fMult).
+    CPattern (RExact mult) (RRet (Inj fMult)).
 
   Polymorphic Definition reify_nat : Command (expr typ func) :=
     CFirst (reify_cnat :: reify_plus :: reify_minus :: reify_mult :: nil).

@@ -13,7 +13,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive list_func (typ : Type) :=
+Inductive list_func (typ : Type) : Type :=
 | pNil : typ -> list_func typ
 | pCons : typ -> list_func typ.
 
@@ -210,14 +210,12 @@ Section ReifyList.
   Polymorphic Context {t : Reify typ}.
 
   Polymorphic Definition reify_nil : Command (expr typ func) :=
-    CPattern (ls := typ::nil)
-             (RApp (RExact (@nil)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => mkNil x).
+    CPattern (RApp (RExact (@nil)) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => mkNil x))).
 
   Polymorphic Definition reify_cons : Command (expr typ func) :=
-    CPattern (ls := typ::nil)
-             (RApp (RExact (@cons)) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => Inj (fCons x)).
+    CPattern (RApp (RExact (@cons)) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => Inj (fCons x)))).
 
   Polymorphic Definition reify_list : Command (expr typ func) :=
     CFirst (reify_nil :: reify_cons :: nil).

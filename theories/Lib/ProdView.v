@@ -387,19 +387,22 @@ Section ReifyProd.
   Context {t : Reify typ}.
 
   Definition reify_pair : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@pair)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fPair x y)).
+    CPattern (RApp (RApp (RExact (@pair)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ)))
+                  (RDo (RCmd (CCall (reify_scheme typ)))
+                       (RRet (fun x y => Inj (fPair x y))))).
 
   Definition reify_fst : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@fst)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFst x y)).
+    CPattern (RApp (RApp (RExact (@fst)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ)))
+                  (RDo (RCmd (CCall (reify_scheme typ)))
+                       (RRet (fun x y => Inj (fFst x y))))).
 
   Definition reify_snd : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RExact (@snd)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fSnd x y)).
+    CPattern (RApp (RApp (RExact (@snd)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ)))
+                  (RDo (RCmd (CCall (reify_scheme typ)))
+                       (RRet (fun x y => Inj (fSnd x y))))).
 
   Definition reify_prod : Command (expr typ func) :=
     CFirst (reify_pair :: reify_fst :: reify_snd :: nil).

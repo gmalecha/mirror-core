@@ -11,18 +11,18 @@ Require Import MirrorCore.Views.View.
 
 Section ReifyType.
   Universe U.
-  
+
   Context {typ : Type@{U}} {RType_typ : RType typ}.
   Context {Typ2_typ : Typ2 _ Fun}.
 
   Let tyArr : typ -> typ -> typ := @typ2 typ RType_typ Fun Typ2_typ.
-  
+
   Definition reify_typ (rt : list (Command typ)) : Command typ :=
-  (@Patterns.CFix _
-      (@Patterns.CFirst_ _
-          ((@CPattern _ (typ :: typ :: nil)
-                     (@RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
-                     (fun (a b : function (CRec 0)) => tyArr a b)) :: rt))).
+    CFix (CFirst_
+            ((CPattern (@RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
+                       (RDo (RCmd (CRec 0))
+                            (RDo (RCmd (CRec 0))
+                                 (RRet (fun a b => tyArr a b))))) :: rt)).
 
   Instance Reify_typ (rt : list (Command typ)) : Reify typ := {
     reify_scheme := reify_typ rt
@@ -46,14 +46,15 @@ Section ReifyFunc.
 
   Polymorphic Let Ext (x : SymEnv.func) := @ExprCore.Inj typ func (f_insert x).
 
-  Polymorphic Definition reify_func (rf : list (Command (expr typ func))) : Command (expr typ func) :=
-  @Patterns.CFix (expr typ func)
-    (@Patterns.CFirst_ _
+  Polymorphic Definition reify_func (rf : list (Command (expr typ func)))
+  : Command (expr typ func) :=
+    CFix
+      (CFirst_
         (rf ++
-       ((Patterns.CVar (@ExprCore.Var typ func)) ::
-        (Patterns.CApp (Patterns.CRec 0) (Patterns.CRec 0) (@ExprCore.App typ func)) ::
-	(Patterns.CAbs (CCall (reify_scheme typ)) (CRec 0) (@ExprCore.Abs typ func)) ::
-	(Patterns.CMap Ext (Patterns.CTypedTable (reify_scheme typ) term_table))::nil))).
+       ((CVar (@ExprCore.Var typ func)) ::
+        (CApp (CRec 0) (CRec 0) (@ExprCore.App typ func)) ::
+	(CAbs (CCall (reify_scheme typ)) (CRec 0) (@ExprCore.Abs typ func)) ::
+	(CMap Ext (CTypedTable (reify_scheme typ) term_table))::nil))).
 
   Polymorphic Instance Reify_func (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
     reify_scheme := reify_func rf
@@ -63,4 +64,3 @@ End ReifyFunc.
 
 Arguments reify_func _ _ {_ _} _.
 Arguments Reify_func _ _ {_ _} _.
-

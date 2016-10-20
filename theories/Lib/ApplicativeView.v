@@ -233,14 +233,12 @@ Section ReifyApplicative.
   Context {t : Reify typ}.
 
   Definition reify_pure : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
-             (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore))
-             (fun (x : function (CCall (reify_scheme typ))) => Inj (fPure x)).
+    CPattern (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x => Inj (fPure x)))).
 
   Definition reify_ap : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
-             (RApp (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
-             (fun (x y : function (CCall (reify_scheme typ))) => Inj (fAp x y)).
+    CPattern (RApp (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RDo (RCmd (CCall (reify_scheme typ))) (RDo (RCmd (CCall (reify_scheme typ))) (RRet (fun x y => Inj (fAp x y))))).
 
   Definition reify_applicative : Command (expr typ func) :=
     CFirst (reify_pure :: reify_ap :: nil).

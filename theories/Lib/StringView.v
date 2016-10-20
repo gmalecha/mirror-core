@@ -14,7 +14,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive stringFunc : Type  :=
+Inductive stringFunc : Set  :=
 | pString  : string -> stringFunc%type.
 
 Section StringFuncInst.
@@ -136,7 +136,8 @@ Section ReifyString.
   Context {typ func : Type} {FV : PartialView func stringFunc}.
 
   Definition reify_cstring : Command (expr typ func) :=
-    CPattern (ls := (string:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fString x)).
+    CPattern (RHasType nat (RGet 0 RIgnore))
+             (RDo RId (RRet (fun x => Inj (fString x)))).
 
   Definition reify_string : Command (expr typ func) :=
     CFirst (reify_cstring :: nil).

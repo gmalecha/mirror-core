@@ -466,11 +466,10 @@ Section Reify_Proper_concl.
   Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
   Definition reify_Proper_concl :=
-    CPattern (ls:=_::_::nil)
-             (!!@Morphisms.Proper @ # @ ?0 @ ?1)
-             (fun (a : function (CCall (reify_scheme (R Ty Rbase))))
-                  (b : function (CCall (reify_scheme (expr Ty func)))) =>
-                @mkProper _ _ _ a b).
+    CPattern (!!@Morphisms.Proper @ # @ ?0 @ ?1)
+             (RDo (RCmd (CCall (reify_scheme (expr Ty func))))
+                  (RDo (RCmd (CCall (reify_scheme (R Ty Rbase))))
+                       (RRet (fun a b => @mkProper _ _ _ a b)))).
 
   Global Instance Reify_Proper_concl : Reify (Proper_concl Ty func Rbase) :=
   { reify_scheme := CCall reify_Proper_concl }.
