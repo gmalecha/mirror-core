@@ -1,7 +1,7 @@
 Require Import MirrorCore.Reify.Patterns.
 
-Class Reify (T : Type) : Type :=
-{ reify_scheme : Command T }.
+Polymorphic Class Reify@{U} (T : Type@{U}) : Prop :=
+{ reify_scheme : Command@{U} T }.
 
 Arguments reify_scheme _ {_}.
 

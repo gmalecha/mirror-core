@@ -20,8 +20,8 @@ Set Strict Implicit.
 Require Import FunctionalExtensionality.
 
 Section mentionsU.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
 
   Lemma mentionsU_lift
   : forall u e a b,
@@ -72,8 +72,8 @@ Section mentionsU.
 End mentionsU.
 
 Section expr_subst.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
   Variable lookupU : uvar -> option (expr typ func).
   Variable lookupV : var -> option (expr typ func).
 
@@ -100,8 +100,8 @@ Section expr_subst.
 End expr_subst.
 
 Section instantiate_thm.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
   Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.

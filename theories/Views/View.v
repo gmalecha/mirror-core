@@ -42,11 +42,11 @@ Section PartialView.
   Qed.
 
   Section ptrns.
-    Universe X L.
+    Universe X L T.
     Context {T : Type@{X}}.
 
-    Definition ptrn_view (p : ptrn@{X X L} A T)
-    : ptrn@{s X L} func T :=
+    Definition ptrn_view (p : ptrn@{X X L T} A T)
+    : ptrn@{s X L T} func T :=
       fun e _T good bad =>
         match f_view e with
         | pNone => bad e

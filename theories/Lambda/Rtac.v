@@ -15,7 +15,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section tactics.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 RType_typ Prop}.

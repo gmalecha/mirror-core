@@ -13,8 +13,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section app_full.
-  Variable typ : Type.
-  Variable sym : Type.
+  Variable typ : Set.
+  Variable sym : Set.
 
   Fixpoint apps (e : expr typ sym) (ls : list (expr typ sym)) :=
     match ls with
@@ -44,8 +44,8 @@ Section app_full.
 End app_full.
 
 Section app_full_proofs.
-  Variable typ : Type.
-  Variable sym : Type.
+  Variable typ : Set.
+  Variable sym : Set.
   Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ RFun.
   Variable RSym_sym : RSym sym.

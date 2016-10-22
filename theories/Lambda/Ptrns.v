@@ -7,10 +7,12 @@ Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Printing Universes.
+Set Universe Polymorphism.
 
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {RSym_func : RSym func}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
@@ -20,48 +22,43 @@ Section setoid.
 
   Let tyArr := @typ2 _ _ _ Typ2_Fun.
 
-  Definition app {T U} (f : ptrn (expr typ func) T) (g : ptrn (expr typ func) U)
-  : ptrn (expr typ func) (T * U) :=
+  Definition app@{T U z} {T U : Type@{T}}
+             (f : ptrn@{Set T U z} (expr typ func) T) (g : ptrn@{Set T U z} (expr typ func) U)
+  : ptrn@{Set T U z} (expr typ func) (T * U) :=
     fun e _T good bad =>
       match e with
       | App l r =>
-        Mbind (Mrebuild (fun x => App x r) (f l))
-              (fun x => Mmap (fun y => (x,y)) (Mrebuild (App l) (g r))) good bad
+        (* Mbind@{Set T U z} (Mrebuild (fun x => App x r) (f l))
+              (fun x => Mmap (fun y => (x,y)) (Mrebuild (App l) (g r))) good bad *)
+        f l _ (fun l' => g r _ (fun r' => good (l', r')) (fun y => bad (App l y))) (fun x => bad (App x r))
       | Abs a b => bad (Abs a b)
       | UVar a => bad (UVar a)
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
-      end%type.
+      end.
 
-  Definition appr (typ func T U : Type) (f : ptrn (expr typ func) (U -> T))
-             (g : ptrn (expr typ func) U) : ptrn (expr typ func) T :=
+  Definition appr@{T U z} {T U : Type@{T}} (f : ptrn@{Set T U z} (expr typ func) (U -> T))
+    (g : ptrn@{Set T U z} (expr typ func) U) : ptrn@{Set T U z} (expr typ func) T :=
     fun (e : expr typ func)
-        (_T : Type) (good : T -> _T) (bad : expr typ func -> _T) =>
+        (_T : Type@{T}) (good : T -> _T) (bad : expr typ func -> _T) =>
       match e with
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
       | App l r =>
-        Mbind (Mrebuild (App l) (g r))
-              (fun x : U => Mmap (fun y : U -> T => y x)
-                                 (Mrebuild (fun x : expr typ func => App x r) (f l)))
-              good bad
+        g r _ (fun r' => f l _ (fun l' => good (l' r')) (fun l' => bad (App l' r))) (fun r' => bad (App l r'))
       | Abs a b => bad (Abs a b)
       | UVar a => bad (UVar a)
       end.
 
-  Definition appl {typ func T U : Type}
-        (f : ptrn (expr typ func) T)
-        (g : ptrn (expr typ func) (T -> U)) : ptrn (expr typ func) U :=
-          fun e _T good bad =>
+  Definition appl@{T U z} {T U : Type@{T}}
+        (f : ptrn@{Set T U z} (expr typ func) T)
+        (g : ptrn@{Set T U z} (expr typ func) (T -> U)) : ptrn@{Set T U z} (expr typ func) U :=
+    fun e (_T : Type@{T}) good bad =>
       match e with
       | ExprCore.Var a => bad (ExprCore.Var a)
       | Inj a => bad (Inj a)
       | App l r =>
-        Mbind (Mrebuild (fun x => App x r) (f l))
-              (fun x : T =>
-                 Mmap (fun y : T -> U => y x)
-                      (Mrebuild (App l) (g r))) good bad
-      | Abs a b => bad (Abs a b)
+        f l _ (fun l' => g r _ (fun r' => good (r' l')) (fun r' => bad (App l r'))) (fun l' => bad (App l' r))         | Abs a b => bad (Abs a b)
       | ExprCore.UVar a => bad (ExprCore.UVar a)
       end.
 
@@ -105,7 +102,7 @@ Section setoid.
       | App a b => bad (App a b)
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
-      end%type.
+      end.
 
   Fixpoint exact_nat (n : nat) : ptrn nat unit :=
     fun n' _T good bad =>
@@ -171,21 +168,24 @@ Section setoid.
     eapply H. exact (fun x => x).
   Qed.
 
-  Theorem Succeeds_inj : forall {T} p e (res : T),
+  Set Printing Universes.
+
+  Theorem Succeeds_inj : forall {T : Type} (p : ptrn func T) e (res : T),
       ptrn_ok p ->
       Succeeds e (inj p) res ->
       exists f, e = Inj f /\ Succeeds f p res.
   Proof.
     clear. intros.
     destruct e;
-      try solve [ specialize (H0 bool (fun _ => true) (fun _ => false)); inversion H0 ].
+      try solve [ specialize (H0 bool (fun _ => true) (fun _ => false)); exfalso; discriminate H0 ].
     eexists; split; eauto. red; intros.
     red in H0. simpl in H0.
     destruct (H f) as [ [ ? ? ] | ? ].
-    { red in H1.  setoid_rewrite H1 in H0.
+    { red in H1. setoid_rewrite H1 in H0.
       rewrite H1. eapply H0. eauto. }
     { red in H1. setoid_rewrite H1 in H0.
-      specialize (H0 _ (fun _ => true) (fun _ => false)). inversion H0. }
+      specialize (H0 _ (fun _ => true) (fun _ => false)).
+      exfalso. clear - H0. discriminate H0. }
   Qed.
 
   Theorem Succeeds_abs : forall {T U} a b e res
@@ -308,7 +308,7 @@ Section setoid.
   Qed.
 
   Global Instance ptrn_ok_appl
-  : forall {typ func T U}
+  : forall {T U : Type}
            (f : ptrn (expr typ func) T)
            (g : ptrn (expr typ func) (T -> U)),
       ptrn_ok f -> ptrn_ok g -> ptrn_ok (appl f g).
@@ -320,7 +320,7 @@ Section setoid.
   Qed.
 
   Global Instance ptrn_ok_appr
-  : forall {typ func T U}
+  : forall {T U}
            (f : ptrn (expr typ func) (T -> U))
            (g : ptrn (expr typ func) T),
       ptrn_ok f -> ptrn_ok g -> ptrn_ok (appr f g).
@@ -512,8 +512,7 @@ Section setoid.
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=U)).
     generalize dependent (typ0 (F:=T)).
-    intros. revert H. subst U. simpl.
-     subst T. simpl.
+    intros. revert H. destruct e. destruct e0. simpl.
     generalize dependent (typ2_cast t t0).
     generalize dependent (typD (typ2 t t0)).
     do 2 intro; subst.
@@ -534,15 +533,14 @@ Section setoid.
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=T)).
     generalize dependent (typ0 (F:=U)).
-    intros. revert H. subst U. simpl in *.
-    subst T. simpl.
+    intros. revert H. destruct e; destruct e0; simpl.
     generalize dependent (typ2_cast t0 t).
     intro.
     rewrite @Eq.eq_sym_eq.
     generalize (eq_sym e).
     clear. unfold tyArr in *.
     generalize dependent (@typD typ RType_typD (@typ2 typ RType_typD RFun Typ2_Fun t0 t)).
-    intros; subst. assumption.
+    intros. destruct e. assumption.
   Qed.
 
  Theorem exprT_App_castD tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
@@ -562,8 +560,7 @@ Section setoid.
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=U)).
     generalize dependent (typ0 (F:=T)).
-    intros. subst U. simpl in *.
-    revert H. subst T. simpl.
+    intros. destruct e. destruct e0. simpl in *.
     generalize dependent (typ2_cast t t0).
     generalize dependent (typD (typ2 t t0)).
     do 3 intro; subst.

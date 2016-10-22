@@ -2,6 +2,7 @@ Require Import Coq.Lists.List.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
 
+Set Universe Polymorphism.
 Set Implicit Arguments.
 Set Strict Implicit.
 

@@ -14,7 +14,7 @@ Set Strict Implicit.
  **)
 Module OneOfType.
 
-  Definition TypeR := Type.
+  Definition TypeR := Set.
   Definition TypeS := Type.
 
   Inductive _option : TypeS :=
@@ -245,7 +245,7 @@ End OneOfType.
 Import OneOfType.
 
 Section TSym_OneOf.
-  Context {typ : nat -> Type} {TS : TSym typ}.
+  Context {typ : nat -> Set} {TS : TSym typ}.
 
   Definition TSym_Empty_set : TSym (fun _ => Empty_set) :=
   {| symbolD := fun n (x : Empty_set) => match x with end

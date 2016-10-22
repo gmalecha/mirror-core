@@ -12,8 +12,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section some_lemmas.
-  Variable typ : Type.
-  Variable sym : Type.
+  Variable typ : Set.
+  Variable sym : Set.
   Variable RType_typ : RType typ.
   Variable RTypeOk : RTypeOk.
   Variable Typ2_arr : Typ2 _ RFun.
@@ -214,7 +214,7 @@ Ltac arrow_case_any :=
   end.
 
 Section lemmas.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
   Variable RTypeOk : RTypeOk.
 

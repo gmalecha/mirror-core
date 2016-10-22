@@ -20,8 +20,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section spec_lemmas.
-  Context {typ : Type}.
-  Context {expr : Type}.
+  Context {typ : Set}.
+  Context {expr : Set}.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.

@@ -2,7 +2,7 @@ Require Import Coq.Lists.List.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Reify.Reify.
 
-Definition lambda_reify (typ func : Type)
+Definition lambda_reify (typ func : Set)
            (reify_typ : Command typ)
            (reify_func : Command func)
 : Command (expr typ func) :=

@@ -5,7 +5,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section symbols_prod.
-  Context {A B typ : Type}.
+  Context {A B typ : Set}.
   Context {RType_typ : RType typ}.
   Context {RSymA : RSym A} {RSymB : RSym B}.
   Context {RSymAOk : RSymOk RSymA} {RSymBOk : RSymOk RSymB}.

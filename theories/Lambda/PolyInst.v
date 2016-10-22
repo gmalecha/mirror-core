@@ -11,7 +11,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section poly.
-  Context {typ : Type} {sym : Type}.
+  Context {typ : Set} {sym : Set}.
   Context {RT : RType typ}
           {RS : RSym sym}.
 

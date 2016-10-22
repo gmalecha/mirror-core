@@ -11,8 +11,8 @@ Set Strict Implicit.
 
 Section typed.
   Variable subst : Type.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {RSym_func : RSym func}.

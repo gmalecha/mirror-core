@@ -23,8 +23,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section runOnGoals_list.
-  Context {typ : Type}.
-  Context {expr : Type}.
+  Context {typ : Set}.
+  Context {expr : Set}.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
@@ -289,8 +289,8 @@ End runOnGoals_list.
 Arguments runOnGoals_list {typ expr RType Expr} tac ctx csub goal : rename.
 
 Section runOnGoals_list_proof.
-  Context {typ : Type}.
-  Context {expr : Type}.
+  Context {typ : Set}.
+  Context {expr : Set}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr typ expr}.

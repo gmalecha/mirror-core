@@ -5,9 +5,9 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section sem.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
-  Variable expr : Type.
+  Variable expr : Set.
   Variable Expr_expr : Expr _ expr.
 
   Definition Sem_equiv' (t : typ) (R : relation (typD t))

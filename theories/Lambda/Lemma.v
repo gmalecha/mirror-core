@@ -2,7 +2,7 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.Lambda.Expr.
 
 Section reify_lemma.
-  Variables typ func : Type.
+  Variables typ func : Set.
 
   Variable is_forall : expr typ func -> option typ.
   Variable is_impl : expr typ func -> bool.

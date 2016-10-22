@@ -14,8 +14,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Section findHyp.
     Variable T : Type.

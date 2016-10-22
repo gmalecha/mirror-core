@@ -12,10 +12,9 @@ Set Maximal Implicit Insertion.
 Set Universe Polymorphism.
 
 Section FuncView.
-  Universes s t.
-  Variables func A : Type@{s}.
+  Variables func A : Set.
   Variable FV : PartialView func A.
-  Variable typ : Type@{t}.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
   Variable Sym_func : RSym func.
   Variable Sym_A : RSym A.

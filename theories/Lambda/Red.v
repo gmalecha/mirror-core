@@ -14,8 +14,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section substitute.
-  Context {typ : Type}.
-  Context {sym : Type}.
+  Context {typ : Set}.
+  Context {sym : Set}.
   Context {RT : RType typ}
           {T2 : Typ2 _ RFun}
           {RS : RSym sym}.
@@ -222,8 +222,8 @@ Section substitute.
 End substitute.
 
 Section beta.
-  Context {typ : Type}.
-  Context {sym : Type}.
+  Context {typ : Set}.
+  Context {sym : Set}.
   Context {RT : RType typ}
           {T2 : Typ2 _ RFun}
           {RS : RSym sym}

@@ -7,8 +7,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Context {typ : Type}.
-  Context {expr : Type}.
+  Context {typ : Set}.
+  Context {expr : Set}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 _ Prop}.

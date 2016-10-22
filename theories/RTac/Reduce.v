@@ -16,9 +16,29 @@ Require Import MirrorCore.Util.Compat.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Polymorphic Lemma equiv_hlist_app'
+  : forall {T} (F : T -> Type)
+      (eqv : forall x : T, Relation_Definitions.relation (F x))
+      (a b : list T) (c c' : hlist F a) (d d' : hlist F b),
+    equiv_hlist eqv (hlist_app c d) (hlist_app c' d') <->
+    (equiv_hlist eqv c c' /\ equiv_hlist eqv d d').
+Proof using.
+  intros. symmetry. eapply equiv_hlist_app.
+Qed.
+
+Ltac solve_equiv_hlist :=
+  repeat match goal with
+         | |- _ => assumption
+         | |- _ => reflexivity
+         | |- equiv_hlist _ (hlist_app _ _) (hlist_app _ _) =>
+           eapply equiv_hlist_app'; split; auto
+         | |- _ => constructor
+         end.
+
+
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
@@ -78,6 +98,7 @@ Section parameterized.
         autorewrite with eq_rw.
         do 5 red in H5.
         rewrite H5; try reflexivity.
+        unfold tenv.
         rewrite <- hlist_app_nil_r.
         revert H6. clear. firstorder. } }
     { simpl in *.
@@ -140,25 +161,6 @@ Section parameterized.
     split. intros; inv_all; subst. auto.
     intros. constructor.
   Qed.
-
-  Lemma equiv_hlist_app'
-  : forall {T} (F : T -> Type)
-           (eqv : forall x : T, Relation_Definitions.relation (F x))
-           (a b : list T) (c c' : hlist F a) (d d' : hlist F b),
-      equiv_hlist eqv (hlist_app c d) (hlist_app c' d') <->
-      (equiv_hlist eqv c c' /\ equiv_hlist eqv d d').
-  Proof using.
-    intros. symmetry. eapply equiv_hlist_app.
-  Qed.
-
-  Ltac solve_equiv_hlist :=
-    repeat match goal with
-             | |- _ => assumption
-             | |- _ => reflexivity
-             | |- equiv_hlist _ (hlist_app _ _) (hlist_app _ _) =>
-               eapply equiv_hlist_app'; split; auto
-             | |- _ => constructor
-           end.
 
   Theorem GAll_do_solved_respects tus tvs t
   : (EqGoal tus (tvs ++ t :: nil) ==> EqGoal tus tvs)%signature

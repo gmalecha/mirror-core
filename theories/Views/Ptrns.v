@@ -9,6 +9,7 @@ Require Import ExtLib.Tactics.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Universe Polymorphism.
+Set Printing Universes.
 
 (** * Patterns **)
 (** This file defines patterns which are essentially pattern matches on
@@ -48,48 +49,55 @@ End Anyof.
 
 
 Section setoid.
-  Polymorphic Universe R.
-  Polymorphic Universe U.
-  Polymorphic Universe L.
+  Polymorphic Universe U. (* value to match on *)
+  Polymorphic Universe V. (* value to get *)
+  Polymorphic Universe R. (* final value to return *)
+  Polymorphic Universe L. (* universe of patterns *)
 
   Variable X : Type@{U}.
 
-  Polymorphic Definition M (t : Type@{U}) : Type@{L}
+  Polymorphic Definition M (t : Type@{V}) : Type@{L}
     := forall T : Type@{R}, (t -> T) -> (X -> T) -> T.
 
-  Polymorphic Definition Mret {t : Type@{U}} (v : t) : M t :=
+  Polymorphic Definition Mret {t : Type@{V}} (v : t) : M t :=
     fun _ good _ => good v.
 
-  Polymorphic Definition Mfail {t : Type@{U}} (v : X) : M t :=
+  Polymorphic Definition Mfail {t : Type@{V}} (v : X) : M t :=
     fun _ _ bad => bad v.
 
-  Polymorphic Definition Mmap {t u : Type@{U}} (f : t -> u) (m : M t) : M u :=
+  Polymorphic Definition Mmap {t u : Type@{V}} (f : t -> u) (m : M t) : M u :=
     fun _T good bad =>
       m _T (fun x => good (f x)) bad.
 
-  Polymorphic Definition ptrn (t : Type@{U}) : Type@{L} :=
+
+  Polymorphic Definition Mbind {T U : Type@{U}} (m1 : M T) (m2 : T -> M U)
+  : M U :=
+    fun _T good bad =>
+      m1 _T (fun x => m2 x _T good bad) bad.
+
+  Polymorphic Definition ptrn (t : Type@{V}) : Type@{L} :=
     X -> M t.
 
-  Polymorphic Definition MR {t : Type@{U}} : relation (M t) :=
+  Polymorphic Definition MR {t : Type@{V}} : relation (M t) :=
     (fun a b => forall x,
          ((eq ==> eq) ==> (eq ==> eq) ==> eq) (a x) (b x))%signature.
 
-  Polymorphic Definition ptrnR {t : Type@{U}} : relation (ptrn t) :=
+  Polymorphic Definition ptrnR {t : Type@{V}} : relation (ptrn t) :=
     (eq ==> MR)%signature.
 
-  Polymorphic Definition Succeeds {t : Type@{U}} e (m : ptrn t) val : Prop :=
+  Polymorphic Definition Succeeds {t : Type@{V}} e (m : ptrn t) val : Prop :=
     forall (T : Type@{R}) good bad, m e T good bad = good val.
 
-  Polymorphic Definition Fails {t : Type@{U}} e (m : ptrn t) : Prop :=
+  Polymorphic Definition Fails {t : Type@{V}} e (m : ptrn t) : Prop :=
     forall (T : Type@{R}) good bad, m e T good bad = bad e.
 
-  Polymorphic Definition ptrn_ok {t : Type@{U}} (p : ptrn t) : Prop :=
+  Polymorphic Definition ptrn_ok {t : Type@{V}} (p : ptrn t) : Prop :=
     forall x,
       (exists y, Succeeds x p y) \/
       (Fails x p).
   Existing Class ptrn_ok.
 
-  Polymorphic Definition run_ptrn {t : Type@{U}}
+  Polymorphic Definition run_ptrn {t : Type@{V}}
               (p : ptrn t) (default : t) (x : X) : t :=
     p x t (fun x => x) (fun _ => default).
 
@@ -125,7 +133,7 @@ Section setoid.
     eapply run_ptrn_sound; assumption.
   Qed.
 
-  Polymorphic Definition por {t : Type@{U}} (l r : ptrn t) : ptrn t :=
+  Polymorphic Definition por {t : Type@{V}} (l r : ptrn t) : ptrn t :=
     fun e T good bad =>
       l e T good (fun x => r x T good bad).
 
@@ -140,7 +148,7 @@ Section setoid.
   Polymorphic Definition ignore : ptrn unit :=
     fun e _ good _ => good tt.
 
-  Polymorphic Definition pret {t : Type@{U}} (v : t) : ptrn t :=
+  Polymorphic Definition pret {t : Type@{V}} (v : t) : ptrn t :=
     fun e _ good _ => good v.
 
   Polymorphic Definition pfail : ptrn Empty_set :=
@@ -155,12 +163,6 @@ Section setoid.
       | cons p ps => por p (pors ps)
       end.
   End pors.
-
-  Polymorphic Definition Mbind {T U : Type@{U}} (m1 : M T) (m2 : T -> M U)
-  : M U :=
-    fun _T good bad =>
-      m1 _T (fun x => m2 x _T good bad) bad.
-
 
   Theorem Succeeds_pmap : forall {T U : Type@{U}} (f : T -> U) p (x : X) res,
       ptrn_ok p ->
@@ -354,8 +356,8 @@ End setoid.
 
 Hint Opaque por pfail get ignore pmap pors : typeclass_instances.
 
-Polymorphic Definition Mrebuild@{R L U} {X Y T : Type@{U}} (f : X -> Y) (m : M@{R U L} X T)
-: M@{R U L} Y T :=
+Polymorphic Definition Mrebuild@{U V R L} {X Y T : Type@{U}} (f : X -> Y) (m : M@{U V R L} X T)
+: M@{U V R L} Y T :=
   fun _T good bad => m _T good (fun x => bad (f x)).
 
 Local Ltac make_type p :=

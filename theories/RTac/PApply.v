@@ -29,7 +29,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Context {tsym : nat -> Type} {func : Type}.
+  Context {tsym : nat -> Set} {func : Set}.
   Let typ := ctyp tsym.
 
   Context {RType_typ : RType typ}.

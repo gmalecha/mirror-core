@@ -3,7 +3,7 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.Polymorphic.
 
 Section PolyLemma.
-  Context {typ expr conclusion : Type}.
+  Context {typ expr conclusion : Set}.
 
   Record PolyLemma := {
     p_n : nat;                    
@@ -16,7 +16,7 @@ End PolyLemma.
 Arguments PolyLemma : clear implicits.
 
 Section PolyLemmaD.
-  Context {typ expr conclusion : Type}.
+  Context {typ expr conclusion : Set}.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr _ expr}.
 
@@ -24,7 +24,7 @@ Section PolyLemmaD.
  
   Variable conclusionD : forall us vs, conclusion -> option (exprT us vs Prop).
 
-  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
+  Definition with_typeclasses {T : Set} (TD : T -> Prop) {n}
              (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
     : polymorphic typ n Prop :=
     make_polymorphic (fun args =>

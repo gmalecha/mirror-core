@@ -17,14 +17,14 @@ Require Import MirrorCore.TypesI.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Definition func : Type := positive.
+Definition func : Set := positive.
 
 Global Instance RelDec_eq_func : RelDec (@eq func) := _.
 
 Global Instance RelDec_Correct_eq_func : RelDec_Correct RelDec_eq_func := _.
 
 Section RSym.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
 
   Record function := F

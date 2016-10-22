@@ -11,15 +11,15 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section env.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
   Definition var := nat.
   Definition uvar := nat.
 
   (** NOTE: Putting [typ] and [func] in a module would
    ** reduce the number of parameters here.
    **)
-  Inductive expr : Type :=
+  Inductive expr : Set :=
   | Var : var -> expr
   | Inj : func -> expr
   | App : expr -> expr -> expr
@@ -31,7 +31,7 @@ Section env.
   | acc_App_r : forall f a, expr_acc a (App f a)
   | acc_Abs : forall t e, expr_acc e (Abs t e).
 
-  Definition exprs : Type := list expr.
+  Definition exprs : Set := list expr.
 
   Theorem wf_expr_acc : well_founded expr_acc.
   Proof.

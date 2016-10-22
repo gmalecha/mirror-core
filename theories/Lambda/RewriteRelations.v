@@ -13,8 +13,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
@@ -29,11 +29,11 @@ Section setoid.
 
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
-  Variable Rbase : Type.
+  Variable Rbase : Set.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 
-  Inductive R : Type :=
+  Inductive R : Set :=
   | Rinj (r : Rbase)
   | Rrespects (l r : R)
   | Rpointwise (t : typ) (r : R)
@@ -462,7 +462,7 @@ Section setoid.
     ; rel : R
     ; rhs : expr typ func }.
 
-    Definition rw_lemma : Type :=
+    Definition rw_lemma : Set :=
       Lemma.lemma typ (expr typ func) rw_concl.
 
     Definition rw_conclD (tus tvs : tenv typ) (c : rw_concl)
@@ -558,27 +558,31 @@ Arguments trans_dec _ : clear implicits.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section reify_R.
-  Variables Ty Rbase : Type.
+  Variables Ty Rbase : Set.
   Context {Reify_Ty : Reify Ty}.
   Context {Reify_Rbase : Reify Rbase}.
 
+(*
   Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
   Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
   Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
   Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
   Local Notation "'#'" := RIgnore (only parsing, at level 0).
+*)
+
+  Set Printing Universes.
 
   Definition reify_R : Command (R Ty Rbase) :=
     CFix
       (CFirst (   CPattern (ls:=_::_::nil)
-                           (!!@Morphisms.respectful @ # @ # @ ?0 @ ?1)
-                           (fun a b : function (CRec 0) => Rrespects a b)
+                           (RApp (RApp (RApp (RApp (RExact (@Morphisms.respectful)) RIgnore) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+                           (fun a b : function (CRec 0) => Rrespects (typ:=Ty) (Rbase:=Rbase) a b)
                :: CPattern (ls:=_::_::nil)
-                           (!!@Morphisms.pointwise_relation @ ?0 @ # @ ?1)
-                           (fun (a : function (CCall (reify_scheme Ty))) (b : function (CRec 0)) =>
+                           (RApp (RApp (RApp (RExact (@Morphisms.pointwise_relation)) (RGet 0 RIgnore)) RIgnore) (RGet 1 RIgnore))
+                           (fun (a : function@{Set} (CCall (reify_scheme Ty))) (b : function (CRec 0)) =>
                               Rpointwise a b)
                :: CPattern (ls:=_::nil)
-                           (!!@Basics.flip @ # @ # @ # @ ?0)
+                           (RApp (RApp (RApp (RExact (@Basics.flip)) RIgnore) RIgnore) (RGet 0 RIgnore))
                            (fun a : function (CRec 0) => Rflip a)
                :: CMap (@Rinj Ty _) (reify_scheme Rbase)
                :: nil)).
@@ -588,7 +592,7 @@ Section reify_R.
 End reify_R.
 
 Section Reify_Proper_concl.
-  Variables Ty func Rbase : Type.
+  Variables Ty func Rbase : Set.
   Context {Reify_Ty : Reify Ty}.
   Context {Reify_expr_typ_func : Reify (expr Ty func)}.
   Context {Reify_Rbase : Reify Rbase}.

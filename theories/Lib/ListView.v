@@ -13,13 +13,13 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive list_func (typ : Type) :=
+Inductive list_func (typ : Set) : Set :=
 | pNil : typ -> list_func typ
 | pCons : typ -> list_func typ.
 
 Section ListFuncInst.
-  Context {typ : Type} {RType_typ : RType typ}.
-  Context {func : Type}.
+  Context {typ : Set} {RType_typ : RType typ}.
+  Context {func : Set}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ2_tyArr : Typ2 _ RFun}.
@@ -77,7 +77,7 @@ Section ListFuncInst.
 End ListFuncInst.
 
 Section MakeList.
-  Context {typ func : Type} {FV : PartialView func (list_func typ)}.
+  Context {typ func : Set} {FV : PartialView func (list_func typ)}.
 
   Definition fNil t := f_insert (pNil t).
   Definition fCons t := f_insert (pCons t).
@@ -173,15 +173,22 @@ Section MakeList.
 End MakeList.
 
 Section PtrnList.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func (list_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkNil typ func' in JavaFunc (with typ and func instantiated) *)
 
+
+  Set Printing Universes.
+
+
+
   Definition ptrnNil {T : Type}
              (p : ptrn typ T) : ptrn (expr typ func) T :=
     inj (ptrn_view _ (fptrnNil p)).
+Print ptrnNil.
+
 
   Definition ptrnCons {A B T : Type}
              (p : ptrn typ T)
@@ -189,11 +196,12 @@ Section PtrnList.
              (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnCons p))) a) b.
 
-  Definition list_cases {T : Type}
+  Definition list_cases@{T} {T : Type@{T}}
              (do_nil : typ -> T)
              (do_cons : typ -> expr typ func -> expr typ func -> T)
              (do_default : T)
-  : expr typ func -> T :=
+  : expr typ func -> T.
+    Check run_ptrn.
     run_ptrn
       (Ptrns.por
          (Ptrns.pmap do_nil (ptrnNil Ptrns.get))

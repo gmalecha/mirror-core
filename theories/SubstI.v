@@ -14,7 +14,8 @@ Require Import MirrorCore.Instantiate.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Inductive hlist_Forall2 T (F G : T -> Type) (P : forall t, F t -> G t -> Prop)
+Polymorphic Inductive hlist_Forall2@{A B C}
+            {T : Type@{A}} (F : T -> Type@{B}) (G : T -> Type@{C}) (P : forall t, F t -> G t -> Prop)
 : forall ls, hlist F ls -> hlist G ls -> Prop :=
 | hlist_Forall2_nil : hlist_Forall2 P Hnil Hnil
 | hlist_Forall2_cons : forall l ls x xs y ys,
@@ -176,35 +177,35 @@ Section subst.
 
   Fixpoint all_Some (ls : list (option expr)) : bool :=
     match ls with
-      | nil => true
-      | None :: _ => false
-      | Some _ :: ls => all_Some ls
+    | nil => true
+    | None :: _ => false
+    | Some _ :: ls => all_Some ls
     end.
 
   Fixpoint all_defined (from : uvar) (len : nat) (s : T) : bool :=
     match len with
-      | 0 => true
-      | S len =>
-        match subst_lookup from s with
-          | None => false
-          | Some _ => all_defined (S from) len s
-        end
+    | 0 => true
+    | S len =>
+      match subst_lookup from s with
+      | None => false
+      | Some _ => all_defined (S from) len s
+      end
     end.
 
   (** This is the "obvious" extension of [drop] **)
   Fixpoint subst_pull (from : uvar) (len : nat) (s : T) : option T :=
     match len with
-      | 0 => Some s
-      | S len' => match subst_pull (S from) len' s with
-                   | None => None
-                   | Some s' => subst_drop from s'
-                  end
+    | 0 => Some s
+    | S len' => match subst_pull (S from) len' s with
+               | None => None
+               | Some s' => subst_drop from s'
+               end
     end.
 
   Fixpoint seq (start : nat) (len : nat) : list nat :=
     match len with
-      | 0 => nil
-      | S len => start :: seq (S start) len
+    | 0 => nil
+    | S len => start :: seq (S start) len
     end.
 
   Lemma getInstantiation_syntactic
@@ -232,30 +233,34 @@ Section subst.
       assumption. }
     { apply (@lookup_normalized _ _ _ _ _ H0 H _ _ H). }
   Qed.
+  Set Printing Universes.
 
+(*
   Lemma getInstantiation_syntactic_multi
-  : forall (s : T) tus tvs ts (es : list expr) sD,
+  : forall (s : T) (tus tvs ts : tenv typ) (es : list expr) sD,
       mapT (fun u => subst_lookup u s) (seq (length tus) (length ts)) = Some es ->
       WellFormed_subst s ->
       substD (tus ++ ts) tvs s = Some sD ->
-      exists esD : hlist (fun t => exprT tus tvs (typD t)) ts,
+      exists esD : hlist@{Set Urefl} (fun t => exprT tus tvs (typD t)) ts,
         @hlist_build_option typ (fun t => exprT tus tvs (typD t)) expr
                      (fun t e => exprD tus tvs t e) ts es = Some esD /\
-        forall us vs us',
+        forall (us : hlist@{Set Urefl} _ _)
+          (vs : hlist@{Set Urefl} _ _)
+          (us' : hlist@{Set Urefl} (fun _ : typ => _) ts),
           sD (hlist_app us (hlist_map (fun t (x : exprT tus tvs (typD t)) => x us vs) us')) vs ->
           hlist_Forall2 (fun t (x : exprT tus tvs (typD t))
                              (y : exprT tus tvs (typD t)) =>
                            x us vs = y us vs) us' esD.
   Proof.
   Abort.
-
+*)
 
   Theorem pull_sound
   : forall n s s' u,
       subst_pull u n s = Some s' ->
       WellFormed_subst s ->
       WellFormed_subst s' /\
-      forall tus tus' tvs sD,
+      forall (tus tus' tvs : tenv typ) sD,
         u = length tus ->
         n = length tus' ->
         substD (tus ++ tus') tvs s = Some sD ->
@@ -265,7 +270,7 @@ Section subst.
           (forall u', u' < n -> subst_lookup (u + u') s' = None) /\
         exists sD',
           substD tus tvs s' = Some sD' /\
-          exists us' : hlist (fun t => hlist typD tus -> hlist typD tvs -> typD t) tus',
+          exists us' : hlist@{Set Urefl} (fun t => hlist typD tus -> hlist typD tvs -> typD t) tus',
             @hlist_build_option _ _ _ (fun t e => exprD tus tvs t e) tus' eus' = Some us' /\
             forall us vs,
               let us' := hlist_map (fun t (x : hlist typD tus -> hlist typD tvs -> typD t) => x us vs) us' in
@@ -401,7 +406,7 @@ Section subst.
   Qed.
 
   Lemma In_seq : forall a c b,
-                   In a (seq b c) <-> (b <= a /\ a < b + c).
+      In a (seq b c) <-> (b <= a /\ a < b + c).
   Proof.
     clear.
     induction c; simpl; intros.
