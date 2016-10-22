@@ -6,14 +6,19 @@ Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Printing Universes.
+
+Polymorphic Lemma f_eq@{A B}
+: forall {T : Type@{A}} {U : Type@{B}} (f : T -> U) (a b : T), a = b -> f a = f b.
+Proof. intros. destruct H. reflexivity. Defined.
 
 Section Env.
-  Variable typ : Type.
+  Variable typ : Set.
   Context {RType_typ : RType typ}.
 
   (** Environments **)
-  Definition tenv : Type := list typ.
-  Definition env : Type := list (sigT (@typD _ _)).
+  Definition tenv : Set := list typ.
+  Definition env : Type@{Urefl} := list (sigT (@typD _ _)).
 
   Definition typeof_env (e : env) : tenv :=
     map (@projT1 _ _) e.
@@ -39,29 +44,37 @@ Section Env.
     lookupAs (a ++ b) n t = Some x.
   Proof.
     clear. unfold lookupAs. intros.
-    consider (nth_error a n); intros; try congruence.
-    erewrite nth_error_weaken by eassumption. auto.
+    consider (nth_error a n); intros.
+    { erewrite nth_error_weaken by eassumption. auto. }
+    { exfalso.
+      refine match H0 in _ = x return match x return Prop with
+                                      | None => True
+                                      | Some _ => False
+                                      end
+             with
+             | eq_refl => I
+             end. }
   Qed.
 
-  Fixpoint join_env (gs : list typ) (hgs : hlist (@typD _ _) gs) : env :=
+  Fixpoint join_env@{} (gs : list typ) (hgs : hlist@{Set Urefl} (@typD _ _) gs) : env :=
     match hgs with
-      | Hnil => nil
-      | Hcons c d => existT _ _ c :: join_env d
+    | Hnil => nil
+    | Hcons c d => existT _ _ c :: join_env d
     end.
 
-  Fixpoint split_env (gs : env) : sigT (hlist (@typD _ _)) :=
+  Fixpoint split_env@{} (gs : env) : sigT (hlist@{Set Urefl} (@typD _ _)) :=
     match gs with
-      | nil => existT _ nil Hnil
-      | g :: gs =>
-        let res := split_env gs in
-        existT _ (projT1 g :: projT1 res) (Hcons (projT2 g) (projT2 res))
+    | nil => existT _ nil Hnil
+    | g :: gs =>
+      let res := split_env gs in
+      existT _ (projT1 g :: projT1 res) (Hcons (projT2 g) (projT2 res))
     end.
 
-  Theorem split_env_app : forall gs gs',
+  Theorem split_env_app : forall (gs gs' : env),
     split_env (gs ++ gs') =
     let (a,b) := split_env gs in
     let (c,d) := split_env gs' in
-    existT _ (a ++ c) (hlist_app b d).
+    existT _ ((a ++ c) : list (typ : Set)) (hlist_app b d).
   Proof.
     induction gs; simpl; intros.
     { destruct (split_env gs'); reflexivity. }
@@ -70,14 +83,14 @@ Section Env.
       destruct (split_env gs'). reflexivity. }
   Qed.
 
-  Theorem split_env_projT1 : forall x,
+  Theorem split_env_projT1@{} : forall (x : env),
     projT1 (split_env x) = map (@projT1 _ _) x.
   Proof.
     induction x; simpl; intros; auto.
     f_equal. auto.
   Qed.
 
-  Theorem split_env_typeof_env : forall x,
+  Theorem split_env_typeof_env@{} : forall (x : env),
     projT1 (split_env x) = typeof_env x.
   Proof.
     exact split_env_projT1.
@@ -87,17 +100,21 @@ Section Env.
   : forall a b (ax : hlist _ a) (bx : hlist _ b),
       join_env ax ++ join_env bx = join_env (hlist_app ax bx).
   Proof.
-    clear.
-    induction ax; simpl; intros; auto.
-    f_equal. auto.
+    refine (fix rec (a b : list typ) (ax : hlist@{Set Urefl} _ _) {struct ax} :=
+              match ax with
+              | Hnil => _
+              | Hcons _ _ => _
+              end).
+    reflexivity.
+    simpl. intro. rewrite rec. reflexivity.
   Qed.
 
   Theorem split_env_nth_error : forall (ve : env) v tv,
     nth_error ve v = Some tv <->
     match nth_error (projT1 (split_env ve)) v as t
-          return match t with
+          return match t return Type@{Urefl} with
                    | Some v => typD v
-                   | None => unit:Type
+                   | None => unit
                  end -> Prop
     with
       | None => fun _ => False
@@ -133,7 +150,7 @@ Section Env.
     induction a; simpl; auto.
   Qed.
 
-  Theorem split_env_join_env : forall a b,
+  Theorem split_env_join_env : forall (a : tenv) b,
     split_env (@join_env a b) = existT _ a b.
   Proof.
     induction b; simpl; auto.
@@ -144,7 +161,7 @@ Section Env.
     join_env (projT2 (split_env x)) = x.
   Proof.
     induction x; simpl; auto.
-    f_equal; eauto. destruct a; reflexivity.
+    rewrite IHx. destruct a; reflexivity.
   Qed.
 
   Lemma split_env_projT2_join_env : forall x h vs,
@@ -154,7 +171,17 @@ Section Env.
     induction h; destruct vs; simpl; intros; inversion H; auto.
     subst.
     rewrite join_env_split_env. destruct s; auto.
-  Qed.
+
+(*
+    induction h; destruct vs; simpl; intros; auto.
+    { apply (@f_eq _ _ (@projT1 _ _)) in H. simpl in H. exfalso.
+      discriminate H. }
+    { apply (@f_eq _ _ (@projT1 _ _)) in H. simpl in H. exfalso.
+      discriminate H. }
+    { 
+*)
+  Qed. (** TOO MANY UNIVERSES *)
+  Print split_env_projT2_join_env.
 
   Lemma typeof_env_join_env : forall a (b : HList.hlist _ a),
     typeof_env (join_env b) = a.

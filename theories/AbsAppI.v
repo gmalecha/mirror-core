@@ -7,10 +7,10 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section AppAbs.
-  Variable typ : Type.
+  Variable typ : Set.
   Context {RType_typ : RType typ}.
 
-  Variable expr : Type.
+  Variable expr : Set.
   Context {Expr_expr : Expr typ expr}.
 
   Context {Typ2_fun : Typ2 _ RFun}.

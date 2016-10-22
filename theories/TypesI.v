@@ -13,7 +13,7 @@ Universe Urefl.
 Definition RFun (A B : Type@{Urefl}) : Type@{Urefl} := A -> B.
 
 Section typed.
-  Variable typ : Type.
+  Variable typ : Set.
 
   (** NOTE: Fewer parameters is better, but pulling [typ] to the top
    ** means that I can modularize the expression langauge and avoid
@@ -486,7 +486,7 @@ Section typed.
 End typed.
 
 Section CastRD.
-  Context {typ : Type} {RType_typ : RType typ}.
+  Context {typ : Set} {RType_typ : RType typ}.
 
   Theorem castRD (F : Type@{Urefl} -> Type) (U : Type@{Urefl})
           {HTyp0 : Typ0 RType_typ U} (x : F (typD (typ0 (F := U)))) :

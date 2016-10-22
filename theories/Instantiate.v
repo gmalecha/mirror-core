@@ -10,8 +10,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section instantiate.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : @Expr typ _ expr}.

@@ -24,8 +24,8 @@ Inductive hlist_Forall2 T (F G : T -> Type) (P : forall t, F t -> G t -> Prop)
 
 Section subst.
   Variable T : Type.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
   Context {RType_type : RType typ}.
   Context {RTypeOk_type : RTypeOk}.
   Context {Expr_expr : Expr _ expr}.

@@ -20,10 +20,10 @@ Definition var := nat.
 Definition uvar := nat.
 
 Section Expr.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
 
-  Variable expr : Type.
+  Variable expr : Set.
 
   Definition exprT (us : tenv typ) (vs : tenv typ) (T : Type) : Type :=
     OpenT typD us (OpenT typD vs  T).
