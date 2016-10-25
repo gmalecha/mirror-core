@@ -184,7 +184,7 @@ Section PtrnList.
 
   Definition ptrnNil@{V R L} {T : Type@{V}}
              (p : ptrn@{Set V R L} typ T) : ptrn@{Set V R L} (expr typ func) T :=
-    inj@{V L R} (ptrn_view _ (fptrnNil p)). (** TODO(gmalecha): Fix the arguments on inj *)
+    inj@{V R L} (ptrn_view _ (fptrnNil p)).
 
 
   Definition ptrnCons@{V R L} {A : Type@{V}} {B : Type@{V}} {T : Type@{V}}

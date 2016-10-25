@@ -14,8 +14,9 @@ Require Import MirrorCore.Lambda.RedAll.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
+Set Universe Polymorphism.
 
-Inductive prod_func {typ : Type} :=
+Inductive prod_func {typ : Set} : Set :=
 | pPair : typ -> typ -> prod_func
 | pFst : typ -> typ -> prod_func
 | pSnd : typ -> typ -> prod_func.
@@ -23,7 +24,7 @@ Inductive prod_func {typ : Type} :=
 Arguments prod_func _ : clear implicits.
 
 Section ExprDInject.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
   Context {RSym_func : RSym func} {RSymOk_func : RSymOk RSym_func}.
   Context {Typ2_tyArr : Typ2 _ RFun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
@@ -59,7 +60,7 @@ End ExprDInject.
 
 
 Section ProdFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {RelDecCorrect_typ : RelDec_Correct RelDec_typ}.
 
@@ -129,7 +130,7 @@ Section ProdFuncInst.
 End ProdFuncInst.
 
 Section MakeProd.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {HF : PartialView func (prod_func typ)}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
@@ -200,11 +201,12 @@ Section MakeProd.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnPair {A B T : Type}
-             (p : ptrn (typ * typ) T)
-             (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
-    app (app (inj (ptrn_view _ (fptrnPair p))) a) b.
+  Definition ptrnPair@{V R L} {A B T : Type@{V}}
+             (p : ptrn@{Set V R L} (typ * typ) T)
+             (a : ptrn@{Set V R L} (expr typ func) A)
+             (b : ptrn@{Set V R L} (expr typ func) B)
+  : ptrn@{Set V R L} (expr typ func) (T * A * B) :=
+    app@{V R L} (app@{V R L} (inj@{V R L} (ptrn_view HF (fptrnPair p))) a) b.
   Global Instance ptrnPair_ok : ltac:(PtrnOk (@ptrnPair)) :=
     ltac:(unfold ptrnPair ; refine _).
 
@@ -221,7 +223,8 @@ Section MakeProd.
     app (inj (ptrn_view _ (fptrnSnd p))) a.
   Global Instance ptrnSnd_ok : ltac:(PtrnOk (@ptrnSnd)) :=
     ltac:(unfold ptrnSnd ; refine _).
-
+  Proof. Grab Existential Variables.
+         intros.
 
   Lemma Succeeds_fptrnPair {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPair p) res) :
@@ -387,17 +390,17 @@ Section ReifyProd.
   Context {t : Reify typ}.
 
   Definition reify_pair : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := typ::typ::nil)
              (RApp (RApp (RExact (@pair)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fPair x y)).
 
   Definition reify_fst : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := typ::typ::nil)
              (RApp (RApp (RExact (@fst)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFst x y)).
 
   Definition reify_snd : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := typ::typ::nil)
              (RApp (RApp (RExact (@snd)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fSnd x y)).
 

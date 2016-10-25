@@ -63,13 +63,13 @@ Section StringFuncInst.
 End StringFuncInst.
 
 Section MakeString.
-  Polymorphic Context {func : Type}.
+  Polymorphic Context {func : Set}.
   Polymorphic Context {FV : PartialView func stringFunc}.
 
   Polymorphic Definition fString s := f_insert (pString s).
 
-  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T)
-  : ptrn stringFunc T :=
+  Polymorphic Definition fptrnString@{V L R} {T : Type@{V}} (p : Ptrns.ptrn@{Set V L R} string T)
+  : ptrn@{Set V L R} stringFunc T :=
     fun f U good bad =>
       match f with
       | pString s => p s U good (fun x => bad f)
@@ -124,15 +124,16 @@ Section PtrnString.
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
 
-  Definition ptrnString {T : Type} (p : ptrn string T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnString p)).
+  Definition ptrnString@{V L R} {T : Type@{V}} (p : ptrn@{Set V L R} string T)
+  : ptrn@{Set V L R} (expr typ func) T :=
+    inj (ptrn_view FV (fptrnString p)).
 
 End PtrnString.
 
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyString.
-  Context {typ func : Type} {FV : PartialView func stringFunc}.
+  Context {typ func : Set} {FV : PartialView func stringFunc}.
 
   Definition reify_cstring : Command (expr typ func) :=
     CPattern (ls := (string:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fString x)).
