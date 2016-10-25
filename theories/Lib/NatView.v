@@ -12,15 +12,16 @@ Require Import MirrorCore.Views.Ptrns.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
+Set Universe Polymorphism.
 
-Inductive natFunc : Type :=
+Inductive natFunc : Set :=
 | pNat  : nat -> natFunc
 | pPlus : natFunc
 | pMinus : natFunc
 | pMult : natFunc.
 
 Section NatFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ2_tyArr : Typ2 _ RFun}.
@@ -89,7 +90,7 @@ Section NatFuncInst.
 End NatFuncInst.
 
 Section MakeNat.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func natFunc}.
 
   Definition fNat n := f_insert (pNat n).
@@ -240,7 +241,7 @@ Section MakeNat.
 End MakeNat.
 
 Section PtrnNat.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func natFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
@@ -249,32 +250,35 @@ Section PtrnNat.
   Definition ptrnNat {T : Type} (p : ptrn nat T) : ptrn (expr typ func) T :=
     inj (ptrn_view FV (fptrnNat p)).
 
-  Definition ptrnPlus {A B T : Type}
-             (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view FV fptrnPlus)) a) b).
+  Set Printing Universes.
 
-  Definition ptrnMinus {A B T : Type}
-             (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
-    pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view FV fptrnMinus)) a) b).
+  Definition ptrnPlus@{V L R} {A B : Type@{V}}
+             (a : ptrn@{Set V L R} (expr typ func) A)
+             (b : ptrn@{Set V L R} (expr typ func) B)
+  : ptrn@{Set V L R} (expr typ func) (A * B) :=
+    pmap@{Set V V L R} (fun xy => match xy with (_, a, b) => (a, b) end)
+         (app (app@{V L R} (inj (ptrn_view FV fptrnPlus)) a) b).
 
-  Definition ptrnMult {A B T : Type}
-             (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (A * B) :=
+  Definition ptrnMinus@{V L R} {A B : Type@{V}}
+             (a : ptrn@{Set V L R} (expr typ func) A)
+             (b : ptrn@{Set V L R} (expr typ func) B)
+  : ptrn@{Set V L R} (expr typ func) (A * B) :=
     pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app (inj (ptrn_view FV fptrnMult)) a) b).
+         (app (app@{V L R} (inj (ptrn_view FV fptrnMinus)) a) b).
+
+  Definition ptrnMult@{V L R} {A B : Type@{V}}
+             (a : ptrn@{Set V L R} (expr typ func) A)
+             (b : ptrn@{Set V L R} (expr typ func) B)
+  : ptrn@{Set V L R} (expr typ func) (A * B) :=
+    pmap (fun xy => match xy with (_, a, b) => (a, b) end)
+         (app (app@{V L R} (inj (ptrn_view FV fptrnMult)) a) b).
 
 End PtrnNat.
 
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyNat.
-  Universe U V.
-
-  Polymorphic Context {typ : Type@{U}} {func : Type@{V}} {FV : PartialView func natFunc}.
+  Polymorphic Context {typ func : Set} {FV : PartialView func natFunc}.
 
   Polymorphic Definition reify_cnat : Command (expr typ func) :=
     CPattern (ls := (nat:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun (x : id nat) => Inj (fNat x)).

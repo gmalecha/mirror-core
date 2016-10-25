@@ -12,6 +12,7 @@ Require Import MirrorCore.Reify.ReifyClass.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
+Set Universe Polymorphism.
 
 Inductive list_func (typ : Set) : Set :=
 | pNil : typ -> list_func typ
@@ -156,6 +157,7 @@ Section MakeList.
     exists t; split; [assumption | reflexivity].
   Qed.
 
+(*
   Global Instance fptrnNil_SucceedsE {T : Type} {f : list_func typ}
          {p : ptrn typ T} {res : T} {pok : ptrn_ok p}
   : SucceedsE f (fptrnNil p) res :=
@@ -169,6 +171,7 @@ Section MakeList.
   { s_result := exists t, Succeeds t p res /\ f = pCons t
   ; s_elim := @Succeeds_fptrnCons T f p res pok
   }.
+*)
 
 End MakeList.
 
@@ -179,33 +182,27 @@ Section PtrnList.
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkNil typ func' in JavaFunc (with typ and func instantiated) *)
 
-
-  Set Printing Universes.
-
-
-
-  Definition ptrnNil {T : Type}
-             (p : ptrn typ T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnNil p)).
-Print ptrnNil.
+  Definition ptrnNil@{V R L} {T : Type@{V}}
+             (p : ptrn@{Set V R L} typ T) : ptrn@{Set V R L} (expr typ func) T :=
+    inj@{V L R} (ptrn_view _ (fptrnNil p)). (** TODO(gmalecha): Fix the arguments on inj *)
 
 
-  Definition ptrnCons {A B T : Type}
-             (p : ptrn typ T)
-             (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
+  Definition ptrnCons@{V R L} {A : Type@{V}} {B : Type@{V}} {T : Type@{V}}
+             (p : ptrn@{Set V R L} typ T)
+             (a : ptrn@{Set V R L} (expr typ func) A)
+             (b : ptrn@{Set V R L} (expr typ func) B)
+  : ptrn@{Set V R L} (expr typ func) (T * A * B) :=
     app (app (inj (ptrn_view _ (fptrnCons p))) a) b.
 
-  Definition list_cases@{T} {T : Type@{T}}
+  Definition list_cases@{T Z} {T : Type@{T}}
              (do_nil : typ -> T)
              (do_cons : typ -> expr typ func -> expr typ func -> T)
              (do_default : T)
-  : expr typ func -> T.
-    Check run_ptrn.
-    run_ptrn
-      (Ptrns.por
-         (Ptrns.pmap do_nil (ptrnNil Ptrns.get))
-         (Ptrns.pmap (fun t_x_xs =>
+  : expr typ func -> T :=
+    run_ptrn@{Set T T Z}
+        (Ptrns.por
+           (Ptrns.pmap@{Set Set T T Z} do_nil (ptrnNil Ptrns.get))
+           (Ptrns.pmap (fun t_x_xs =>
                         let '(t,x,xs) := t_x_xs in
                         do_cons t x xs) (ptrnCons Ptrns.get Ptrns.get Ptrns.get)))
       do_default.
@@ -214,16 +211,16 @@ End PtrnList.
 
 Section ReifyList.
 
-  Polymorphic Context {typ func : Type} {FV : PartialView func (list_func typ)}.
+  Polymorphic Context {typ func : Set} {FV : PartialView func (list_func typ)}.
   Polymorphic Context {t : Reify typ}.
 
   Polymorphic Definition reify_nil : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ : Type)::nil)
              (RApp (RExact (@nil)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => mkNil x).
 
   Polymorphic Definition reify_cons : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ:Type)::nil)
              (RApp (RExact (@cons)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fCons x)).
 
@@ -233,4 +230,3 @@ Section ReifyList.
 End ReifyList.
 
 Arguments reify_list _ _ {_ _}.
-

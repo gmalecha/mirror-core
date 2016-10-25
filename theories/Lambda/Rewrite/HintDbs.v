@@ -9,10 +9,10 @@ Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.PolyInst.
 Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.CTypes.CTypeUnify.
-Require Import MirrorCore.Lib.TypeVar.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Universe Polymorphism.
 
 Set Suggest Proof Using.
 
@@ -55,14 +55,14 @@ Section setoid.
       t1 = t2.
 
   Inductive HintRewrite : Type :=
-    | PRw_tc : forall {n : nat},
-        polymorphic typ n (rw_lemma typ func Rbase) ->
-        polymorphic typ n bool ->
-        CoreK.rtacK typ (expr typ func) ->
-        HintRewrite.
+  | PRw_tc : forall {n : nat},
+      polymorphic@{Set} typ n (rw_lemma typ func Rbase) ->
+      polymorphic@{Set} typ n bool ->
+      CoreK.rtacK typ (expr typ func) ->
+      HintRewrite.
 
   (* TODO - change to RewriteDb for consistency? *)
-  Definition RewriteHintDb : Set := list HintRewrite.
+  Definition RewriteHintDb : Type := list HintRewrite.
 
   (* TODO(mario): this is duplicated in Respectful.v. We should find a long-term home for it *)
   (* TODO(mario): convert this so it uses rw_concl instead of rw_lemma? *)
@@ -70,30 +70,38 @@ Section setoid.
   Definition tc_any (n : nat) : polymorphic typ n bool :=
     make_polymorphic (fun _ => true).
 
-  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
-             (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
-    : polymorphic typ n Prop :=
+  Definition with_typeclasses@{X} {T : Type@{X}} {n}
+             (tc : polymorphic@{Set} typ n bool) (pc : polymorphic@{X} typ n T)
+  : polymorphic@{X} typ n (option T) :=
     make_polymorphic (fun args =>
                         if inst tc args
-                        then TD (inst pc args)
-                        else True).
+                        then Some (inst pc args)
+                        else None).
 
   (* TODO(mario): end duplicated code *)
 
   Definition rw_lemmaP (rw : rw_lemma typ func Rbase) : Prop :=
     lemmaD (rw_conclD RbaseD) nil nil rw.
 
+  Set Printing Universes.
+
   Definition RewriteHintOk (hr : HintRewrite) : Prop :=
     match hr with
     | PRw_tc plem tc tac =>
-      polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) /\
+      polymorphicD@{Set} (fun x => match x return Prop with
+                                | None => True
+                                | Some x => rw_lemmaP x
+                                end) (with_typeclasses tc plem) /\
       rtacK_sound tac
     end.
 
   Theorem PRw_tc_sound
           {n : nat}
           (plem : polymorphic typ n (rw_lemma typ func Rbase)) tc tac
-  : polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) ->
+  : polymorphicD (fun x => match x with
+                        | None => True
+                        | Some x => rw_lemmaP x
+                        end) (with_typeclasses tc plem) ->
     rtacK_sound tac ->
     RewriteHintOk (PRw_tc plem tc tac).
   Proof using.
@@ -140,18 +148,7 @@ Section setoid.
     simpl. assumption.
   Qed.
 
-  Local Definition view_update :=
-    (ctype_unify tsym).
-
-  Let local_view : PartialView typ (VType 0) :=
-  {| f_insert := fun x => match x with
-                         | tVar p => tyVar p
-                         end
-  ; f_view := fun x => match x with
-                       | tyVar x => POption.pSome (tVar x)
-                       | _ => POption.pNone
-                       end |}.
-  Local Existing Instance local_view.
+  Local Definition view_update := ctype_unify tsym.
 
   Local Definition get_lemma su {n : nat}
         (plem : polymorphic typ n (rw_lemma typ func Rbase))

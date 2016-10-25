@@ -3,12 +3,13 @@ Require Import ExtLib.Structures.Functor.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Universe Polymorphism.
 
 Section poly.
-  Variable typ : Type.
+  Variable typ : Set.
 
-  Fixpoint polymorphic (n : nat) T : Type :=
-    match n with
+  Fixpoint polymorphic@{U} (n : nat) (T : Type@{U}) : Type@{U} :=
+    match n return Type@{U} with
     | 0 => T
     | S n => typ -> polymorphic n T
     end.
@@ -70,7 +71,7 @@ Arguments make_polymorphic {_ _ n} _.
 Arguments polymorphicD {_ _} _ {n} _.
 
 Section fmap_polymorphic.
-  Context {Z T U : Type}.
+  Context {Z : Set} {T U : Type}.
   Variable f : T -> U.
   Fixpoint fmap_polymorphic (n : nat)
   : polymorphic Z n T -> polymorphic Z n U :=
@@ -88,7 +89,7 @@ Arguments inst {typ T n} p v : clear implicits, rename.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section rpolymorphic.
-  Context {T U : Type}.
+  Context {T : Set} {U : Type}.
   Context {r : Reify U}.
 
   Fixpoint rpolymorphic n : Command (polymorphic T n U) :=

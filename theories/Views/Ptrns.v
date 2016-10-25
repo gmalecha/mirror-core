@@ -2,9 +2,11 @@ Require Import Coq.Classes.Morphisms.
 Require Import Coq.Classes.RelationClasses.
 Require Import Coq.Setoids.Setoid.
 Require Import Coq.Relations.Relations.
+Require Import Coq.Lists.List.
 Require Import ExtLib.Recur.Relation.
 Require Import ExtLib.Recur.GenRec.
 Require Import ExtLib.Tactics.
+
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -69,7 +71,6 @@ Section setoid.
     fun _T good bad =>
       m _T (fun x => good (f x)) bad.
 
-
   Polymorphic Definition Mbind {T U : Type@{U}} (m1 : M T) (m2 : T -> M U)
   : M U :=
     fun _T good bad =>
@@ -133,38 +134,46 @@ Section setoid.
     eapply run_ptrn_sound; assumption.
   Qed.
 
-  Polymorphic Definition por {t : Type@{V}} (l r : ptrn t) : ptrn t :=
+End setoid.
+
+  Polymorphic Definition por@{U V R L} {X : Type@{U}} {t : Type@{V}} (l r : ptrn@{U V R L} X t)
+  : ptrn@{U V R L} X t :=
     fun e T good bad =>
       l e T good (fun x => r x T good bad).
 
-  Polymorphic Definition pmap {t u : Type@{U}} (f : t -> u) (p : ptrn t)
-  : ptrn u :=
+  Polymorphic Definition pmap@{U V V' R L}
+              {X : Type@{U}} {t : Type@{V}} {u : Type@{V'}} (f : t -> u)
+              (p : ptrn@{U V R L} X t)
+  : ptrn@{U V' R L} X u :=
     fun e T good bad =>
       p e T (fun x => good (f x)) bad.
 
-  Polymorphic Definition get : ptrn X :=
+  Polymorphic Definition get@{U R L} {X : Type@{U}} : ptrn@{U U R L} X X :=
     fun e _ good _ => good e.
 
-  Polymorphic Definition ignore : ptrn unit :=
+  Polymorphic Definition ignore@{U V R L} {X : Type@{U}} : ptrn@{U V R L} X unit :=
     fun e _ good _ => good tt.
 
-  Polymorphic Definition pret {t : Type@{V}} (v : t) : ptrn t :=
+  Polymorphic Definition pret@{U V R L} {X : Type@{U}} {t : Type@{V}} (v : t)
+  : ptrn@{U V R L} X t :=
     fun e _ good _ => good v.
 
-  Polymorphic Definition pfail : ptrn Empty_set :=
+  Polymorphic Definition pfail@{U V R L} {X : Type@{U}} {T : Type@{V}} : ptrn@{U V R L} X T :=
     fun e _ _ bad => bad e.
 
   Section pors.
-    Context {T : Type@{U}}.
 
-    Polymorphic Fixpoint pors (ps : list (ptrn T)) : ptrn T :=
+    Polymorphic Fixpoint pors@{U V R L} {X : Type@{V}} {T : Type@{V}} (ps : list (ptrn@{U V R L} X T))
+    : ptrn@{U V R L} X T :=
       match ps with
-      | nil => pmap (fun (x : Empty_set) => match x with end) pfail
+      | nil => pfail@{U V R L}
       | cons p ps => por p (pors ps)
       end.
   End pors.
 
-  Theorem Succeeds_pmap : forall {T U : Type@{U}} (f : T -> U) p (x : X) res,
+  Theorem Succeeds_pmap@{U V V' R L}
+  : forall {X : Type@{U}} {T : Type@{V}} {U : Type@{V'}}
+      (f : T -> U) (p : ptrn@{U V R L} X T) (x : X) res,
       ptrn_ok p ->
       Succeeds x (pmap f p) res ->
       exists y, Succeeds x p y /\ res = f y.
@@ -173,14 +182,19 @@ Section setoid.
     destruct (H x).
     { destruct H1. exists x0. split; auto.
       red in H1.
-      setoid_rewrite H1 in H0.
-      symmetry. eapply (H0 U (fun x => x)).
-      eauto. }
-    { red in H1. setoid_rewrite H1 in H0.
-      exfalso. specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
+      symmetry.
+      specialize (H1 U (fun x => f x) (fun _ => res)).
+      specialize (H0 U (fun x => x) (fun _ => res)). simpl in *.
+      etransitivity; [ symmetry; eapply H1 | eapply H0 ]. }
+    { exfalso. red in H1.
+      specialize (H0 _ (fun _ => true) (fun _ => false)).
+      specialize (H1 _ (fun _ => true) (fun _ => false)).
+      simpl in *. rewrite H0 in H1. discriminate H1. }
   Qed.
 
-  Theorem Succeeds_por : forall {T} p1 p2 (x : X) (res : T),
+  Theorem Succeeds_por@{U V R L}
+  : forall {X : Type@{U}} {T : Type@{V}}
+      (p1 p2 : ptrn@{U V R L} X T) (x : X) (res : T),
       ptrn_ok p1 -> ptrn_ok p2 ->
       Succeeds x (por p1 p2) res ->
       Succeeds x p1 res \/ Succeeds x p2 res.
@@ -188,22 +202,28 @@ Section setoid.
     clear. intros.
     destruct (H x) as [ [ ? ? ] | ].
     { left. unfold Succeeds in *.
-      intros. setoid_rewrite H2 in H1.
-      rewrite H2. eauto. }
+      intros. rewrite H2.
+      unfold por in H1.
+      specialize (H1 T0 good bad).
+      specialize (H2 _ good (fun x => p2 x _ good bad)).
+      congruence. }
     { right.
       unfold Succeeds, Fails in *. unfold por in H1.
-      setoid_rewrite H2 in H1.
-      eauto. }
+      intros.
+      specialize (H1 _ good bad).
+      rewrite H2 in H1. assumption. }
   Qed.
 
-  Theorem Succeeds_pfail : forall x res,
-      Succeeds x pfail res ->
+  Theorem Succeeds_pfail@{U V R L} : forall {X : Type@{U}} {T : Type@{V}} (x : X) res,
+      Succeeds x (@pfail@{U V R L} X T) res ->
       False.
   Proof.
-    compute. intros. destruct res.
+    compute. intros. specialize (H bool (fun _ => true) (fun _ => false)).
+    simpl in H. discriminate H.
   Qed.
 
-  Lemma pmap_sound {T U} {x : X} {f : T -> U} {p : ptrn T} {res : U}
+  Lemma pmap_sound@{U V V' R L} {X : Type@{U}} {T : Type@{V}} {U : Type@{V'}} {x : X} {f : T -> U}
+        {p : ptrn@{U V R L} X T} {res : U}
         (HSucceeds : Succeeds x (pmap f p) res)
         (H : ptrn_ok p)
         {P : U -> Prop}
@@ -215,16 +235,16 @@ Section setoid.
     subst; apply Hstep; assumption.
   Qed.
 
-  Theorem Succeeds_get : forall (x res : X),
-      Succeeds x get res ->
+  Theorem Succeeds_get@{U R L} : forall {X : Type@{U}} (x res : X),
+      Succeeds x get@{U R L} res ->
       x = res.
   Proof.
     clear. compute. intros.
     eapply (H _ (fun x => x)); eauto.
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_por
-  : forall {T} (p1 : ptrn T) (p2 : ptrn T),
+  Global Polymorphic Instance ptrn_ok_por@{U V R L}
+  : forall {X} {T} (p1 : ptrn@{U V R L} X T) (p2 : ptrn@{U V R L} X T),
       ptrn_ok p1 -> ptrn_ok p2 -> ptrn_ok (por p1 p2).
   Proof.
     clear.
@@ -240,9 +260,9 @@ Section setoid.
         intros. rewrite H1. apply H2. } }
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_pmap
-  : forall {T U} (p1 : ptrn T) (f : T -> U),
-      ptrn_ok p1 -> ptrn_ok (pmap f p1).
+  Global Polymorphic Instance ptrn_ok_pmap@{U V V' R L}
+  : forall {X} {T} {U} (p1 : ptrn@{U V R L} X T) (f : T -> U),
+      ptrn_ok p1 -> ptrn_ok (pmap@{U V V' R L} f p1).
   Proof.
     clear. unfold pmap.
     red; intros.
@@ -253,17 +273,17 @@ Section setoid.
       setoid_rewrite H0; eauto. }
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_get : ptrn_ok get.
+  Global Polymorphic Instance ptrn_ok_get@{U R L} : forall X, ptrn_ok (@get@{U R L} X).
   Proof.
     left. exists x. compute. reflexivity.
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_ignore : ptrn_ok ignore.
+  Global Polymorphic Instance ptrn_ok_ignore@{U R L} : forall X, ptrn_ok (@ignore X).
   Proof.
     left. exists tt. compute. reflexivity.
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_pfail : ptrn_ok pfail.
+  Global Polymorphic Instance ptrn_ok_pfail@{U V R L} : forall X Z, ptrn_ok (@pfail@{U V R L} X Z).
   Proof.
     right. compute. reflexivity.
   Qed.
@@ -285,34 +305,36 @@ Section setoid.
   ; injection := @Succeeds_get _ _ }.
 *)
 
-  Global Polymorphic Class SucceedsE {T : Type} (f : X) (p : ptrn T) (v : T) :=
+  Global Polymorphic Class SucceedsE@{U V R L} {X : Type@{U}} {T : Type@{V}}
+         (f : X) (p : ptrn@{U V R L} X T) (v : T) :=
   { s_result : Prop
   ; s_elim : Succeeds f p v -> s_result
   }.
 
-  Global Polymorphic Instance pmap_SucceedsE {T U : Type} {x : X}
-         {f : T -> U} {p : ptrn T} {res : U}
+  Global Polymorphic Instance pmap_SucceedsE@{U V V' R L} {X : Type@{U}} {T : Type@{V}} {U : Type@{V'}} {x : X}
+         {f : T -> U} {p : ptrn@{U V R L} X T} {res : U}
          {pok : ptrn_ok p}
   : SucceedsE x (pmap f p) res :=
   { s_result := exists y, Succeeds x p y /\ res = f y
   ; s_elim := Succeeds_pmap pok
   }.
 
-  Global Polymorphic Instance por_SucceedsE {T : Type} {x : X}  {p q : ptrn T}
+  Global Polymorphic Instance por_SucceedsE@{U V R L} {X : Type@{U}} {T : Type@{V}} {x : X}
+         {p q : ptrn@{U V R L} X T}
          {res : T} {pok_p : ptrn_ok p} {pok_q : ptrn_ok q}
   : SucceedsE x (por p q) res :=
   { s_result := Succeeds x p res \/ Succeeds x q res
   ; s_elim := Succeeds_por pok_p pok_q
   }.
 
-  Global Polymorphic Instance get_SucceedsE {x res : X}
-  : SucceedsE x get res :=
+  Global Polymorphic Instance get_SucceedsE@{U R L} {X : Type@{U}} {x res : X}
+  : SucceedsE x get@{U R L} res :=
   { s_result := x = res
-  ; s_elim := @Succeeds_get x res
+  ; s_elim := @Succeeds_get _ x res
   }.
 
-  Global Polymorphic Instance ignore_SucceedsE {x : X} (res : unit)
-  : SucceedsE x ignore res :=
+  Global Polymorphic Instance ignore_SucceedsE@{U V R L} {X : Type@{U}} {x : X} (res : unit)
+  : SucceedsE x ignore@{U V R L} res :=
   { s_result := res = tt
   ; s_elim :=
       fun _ => match res as x return (x = tt) with
@@ -320,38 +342,39 @@ Section setoid.
                end
   }.
 
-  Inductive _Forall (A : Type) (P : A -> Prop) : list A -> Prop :=
-    _Forall_nil : _Forall P nil
-  | _Forall_cons : forall (x : A) (l : list A),
-      P x -> _Forall P l -> _Forall P (x :: l).
 
-  Global Polymorphic Instance ptrn_ok_pors : forall {T} (ps : list (ptrn T)),
-      _Forall ptrn_ok ps ->
+
+
+  Global Polymorphic Instance ptrn_ok_pors@{U V R L}
+  : forall {X : Type@{U}} {T : Type@{V}} (ps : list (ptrn@{U V R L} X T)),
+      Forall (fun p => ptrn_ok p) ps ->
       ptrn_ok (pors ps).
   Proof.
     induction 1; simpl; intros; eauto with typeclass_instances.
   Qed.
 
-  Polymorphic Theorem Succeeds_pors : forall {T} ps (x : X) (res : T),
-      _Forall ptrn_ok ps ->
+  Polymorphic Theorem Succeeds_pors@{U V R L}
+  : forall {X : Type@{U}} {T : Type@{V}} (ps : list (ptrn@{U V R L} X T)) (x : X) (res : T),
+      Forall (fun p => ptrn_ok@{U V R L} p) ps ->
       Succeeds x (pors ps) res ->
       Anyof (fun p => Succeeds x p res) ps.
   Proof.
     induction 1; simpl; intros.
-    { eapply Succeeds_pmap in H; eauto with typeclass_instances.
-      destruct H. destruct x0. }
+    { eapply Succeeds_pfail in H. assumption. }
     { eapply Succeeds_por in H1; eauto with typeclass_instances.
       destruct H1; auto. }
   Qed.
 
+(*
   Global Polymorphic Instance pors_SucceedsE {x : X} (res : unit) ps
          (Hoks : _Forall ptrn_ok ps)
   : SucceedsE x (pors ps) res :=
   { s_result := Anyof (fun p => Succeeds x p res) ps
   ; s_elim := Succeeds_pors Hoks
   }.
+*)
 
-End setoid.
+(*End setoid. *)
 
 
 Hint Opaque por pfail get ignore pmap pors : typeclass_instances.
@@ -463,6 +486,7 @@ Proof.
     compute; intros. apply H1.
 Qed.
 
+(*
 Lemma Mrebuild_Succeeds : forall {X Y} (p' : ptrn X Y) {T} p f v x,
     (forall T0 (good : T -> T0) (bad : X -> T0),
         Mrebuild (X:=Y) f (p x) good bad = good v) ->
@@ -528,3 +552,4 @@ Ltac solve_Succeeds :=
     try solve [ intro H ; specialize (H bool (fun _ => true) (fun _ => false)); inversion H
               | split; auto using unit_irr ]
   end.
+*)

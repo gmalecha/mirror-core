@@ -6,7 +6,7 @@ Section PolyLemma.
   Context {typ expr conclusion : Set}.
 
   Record PolyLemma := {
-    p_n : nat;                    
+    p_n : nat;
     p_lem : polymorphic typ p_n (lemma typ expr conclusion);
     p_tc : polymorphic typ p_n bool
   }.
@@ -21,7 +21,7 @@ Section PolyLemmaD.
   Context {Expr_expr : Expr _ expr}.
 
   Context {Typ0_Prop : Typ0 RType_typ Prop}.
- 
+
   Variable conclusionD : forall us vs, conclusion -> option (exprT us vs Prop).
 
   Definition with_typeclasses {T : Set} (TD : T -> Prop) {n}
@@ -33,9 +33,9 @@ Section PolyLemmaD.
                         else True).
 
   Definition PolyLemmaD plem :=
-    polymorphicD (fun x => x) 
-                 (with_typeclasses (lemmaD conclusionD nil nil) 
-                                   (p_tc plem) 
+    polymorphicD (fun x => x)
+                 (with_typeclasses (lemmaD conclusionD nil nil)
+                                   (p_tc plem)
                                    (p_lem plem)).
 
 End PolyLemmaD.

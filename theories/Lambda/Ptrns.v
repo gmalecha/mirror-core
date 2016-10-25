@@ -28,9 +28,9 @@ Section setoid.
     fun e _T good bad =>
       match e with
       | App l r =>
-        (* Mbind@{Set T U z} (Mrebuild (fun x => App x r) (f l))
-              (fun x => Mmap (fun y => (x,y)) (Mrebuild (App l) (g r))) good bad *)
-        f l _ (fun l' => g r _ (fun r' => good (l', r')) (fun y => bad (App l y))) (fun x => bad (App x r))
+        Mbind@{Set T U z} (Mrebuild (fun x => App x r) (f l))
+              (fun x => Mmap (fun y => (x,y)) (Mrebuild (App l) (g r))) good bad (*
+        f l _ (fun l' => g r _ (fun r' => good (l', r')) (fun y => bad (App l y))) (fun x => bad (App x r)) *)
       | Abs a b => bad (Abs a b)
       | UVar a => bad (UVar a)
       | Var a => bad (Var a)
@@ -82,7 +82,7 @@ Section setoid.
       | Inj a => bad (Inj a)
       end.
 
-  Definition inj {T} (p : ptrn func T) : ptrn (expr typ func) T :=
+  Definition inj@{V L R} {T : Type@{V}} (p : ptrn func T) : ptrn@{Set V L R} (expr typ func) T :=
     fun e _T good bad =>
       match e with
       | UVar v => bad (UVar v)
@@ -188,7 +188,9 @@ Section setoid.
       exfalso. clear - H0. discriminate H0. }
   Qed.
 
-  Theorem Succeeds_abs : forall {T U} a b e res
+(*
+  Theorem Succeeds_abs
+  : forall {T U} (a : ptrn@{Set Set T U} typ T) b e res
       (Hpoka : ptrn_ok a) (Hpokb : forall x, ptrn_ok (b x)),
       Succeeds e (abs a b) res ->
       exists l r ra, e = Abs l r /\
@@ -592,6 +594,7 @@ Section setoid.
       setoid_rewrite H0. eauto. }
     { red in H0. setoid_rewrite H0. eauto. }
   Qed.
+*)
 
 End setoid.
 
@@ -607,6 +610,7 @@ Ltac force_apply lem :=
   let L := fresh "L" in
   pose proof lem as L; simpl in L; apply L; clear L.
 
+(*
 Ltac exprT_App_red :=
   match goal with
   | |- context [castR id _ _] => rewrite exprT_App_castR_pure
@@ -687,4 +691,6 @@ Ltac solve_denotation :=
       @P t x y z ->
       Forall3_hlist P xs ys zs ->
       Forall3_hlist (Ts:=t::Ts) P (x :: xs) (Hcons y ys) (Hcons z zs).
+*)
+
 *)

@@ -14,11 +14,11 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive stringFunc : Type  :=
+Inductive stringFunc : Set  :=
 | pString  : string -> stringFunc%type.
 
 Section StringFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ0_tyString : Typ0 _ string}.
@@ -110,16 +110,15 @@ Section MakeString.
 End MakeString.
 
 Section mkString.
-  Polymorphic Universe u.
-  Polymorphic Context {typ func : Type@{u}}.
-  Polymorphic Context {FV : PartialView@{u} func stringFunc}.
+  Polymorphic Context {typ func : Set}.
+  Polymorphic Context {FV : PartialView func stringFunc}.
 
   Polymorphic Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
 End mkString.
 
 Section PtrnString.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {FV : PartialView func stringFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies

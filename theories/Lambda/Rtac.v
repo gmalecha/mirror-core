@@ -278,7 +278,7 @@ Section tactics.
   : rtac typ (expr typ func) :=
     INTRO (run_ptrn (pmap Some p) None).
 
-  Inductive SimpleOpen : Type :=
+  Inductive SimpleOpen : Set :=
   | sAsEx (t : typ) (l : expr typ func)
   | sAsAl (t : typ) (l : expr typ func)
   | sAsHy (p q : expr typ func).
@@ -293,13 +293,14 @@ Section tactics.
     | sAsHy p q => AsHy p q
     end.
 
-  Definition open_ptrn_sound
-             (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
-  :=
+  Definition open_ptrn_sound@{T}
+             (p : ptrn@{Set Set Set T} (expr typ func) (OpenAs typ (expr typ func)))
+  : Prop :=
     forall (tus tvs : list typ) (e : expr typ func)
            (ot : OpenAs typ (expr typ func)),
       Succeeds e p ot ->
       open_spec tus tvs e ot.
+
 
   Definition simple_open_spec (tus tvs : list typ) (e : expr typ func)
              (ot : SimpleOpen) : Prop :=
@@ -457,7 +458,12 @@ Section tactics.
       rewrite H7. assumption.
   Qed.
 
-  Definition INTRO_ptrn_sound : forall p,
+Set Printing All.
+Set Printing Universes.
+Print open_ptrn_sound.
+
+  Definition INTRO_ptrn_sound@{X}
+  : forall (p : ptrn@{Set Set Set X} (expr typ func) (OpenAs typ (expr typ func))),
       ptrn_ok p ->
       open_ptrn_sound p ->
       rtac_sound (INTRO_ptrn p).

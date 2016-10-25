@@ -33,8 +33,6 @@ theories/LemmaApply.v
 theories/Simple.v
 theories/Polymorphic.v
 
-theories/Lib/TypeVar.v
-
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
