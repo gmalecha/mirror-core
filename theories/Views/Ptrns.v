@@ -61,21 +61,6 @@ Section setoid.
   Polymorphic Definition M (t : Type@{V}) : Type@{L}
     := forall T : Type@{R}, (t -> T) -> (X -> T) -> T.
 
-  Polymorphic Definition Mret {t : Type@{V}} (v : t) : M t :=
-    fun _ good _ => good v.
-
-  Polymorphic Definition Mfail {t : Type@{V}} (v : X) : M t :=
-    fun _ _ bad => bad v.
-
-  Polymorphic Definition Mmap {t u : Type@{V}} (f : t -> u) (m : M t) : M u :=
-    fun _T good bad =>
-      m _T (fun x => good (f x)) bad.
-
-  Polymorphic Definition Mbind {T U : Type@{U}} (m1 : M T) (m2 : T -> M U)
-  : M U :=
-    fun _T good bad =>
-      m1 _T (fun x => m2 x _T good bad) bad.
-
   Polymorphic Definition ptrn (t : Type@{V}) : Type@{L} :=
     X -> M t.
 
@@ -135,6 +120,24 @@ Section setoid.
   Qed.
 
 End setoid.
+
+Polymorphic Definition Mret@{X V R L} {X : Type@{X}} {t : Type@{V}} (v : t)
+: M@{X V R L} X t := fun _ good _ => good v.
+
+Polymorphic Definition Mfail@{X V R L} {X : Type@{X}} {t : Type@{V}} (v : X)
+: M@{X V R L} X t :=
+  fun _ _ bad => bad v.
+
+Polymorphic Definition Mmap@{X V V' R L}
+            {X : Type@{X}} {t : Type@{V}} {u : Type@{V'}}
+            (f : t -> u) (m : M@{X V R L} X t) : M@{X V' R L} X u :=
+  fun _T good bad => m _T (fun x => good (f x)) bad.
+
+Polymorphic Definition Mbind@{X T T' U R L}
+            {X : Type@{T}} {T : Type@{T'}} {U : Type@{U}}
+            (m1 : M@{X T' R L} X T) (m2 : T -> M@{X U R L} X U)
+: M@{X T' R L} X U :=
+  fun _T good bad => m1 _T (fun x => m2 x _T good bad) bad.
 
   Polymorphic Definition por@{U V R L} {X : Type@{U}} {t : Type@{V}} (l r : ptrn@{U V R L} X t)
   : ptrn@{U V R L} X t :=
@@ -379,7 +382,9 @@ End setoid.
 
 Hint Opaque por pfail get ignore pmap pors : typeclass_instances.
 
-Polymorphic Definition Mrebuild@{U V R L} {X Y T : Type@{U}} (f : X -> Y) (m : M@{U V R L} X T)
+Polymorphic Definition Mrebuild@{U V R L}
+            {X Y : Type@{U}} {T : Type@{V}}
+            (f : X -> Y) (m : M@{U V R L} X T)
 : M@{U V R L} Y T :=
   fun _T good bad => m _T good (fun x => bad (f x)).
 

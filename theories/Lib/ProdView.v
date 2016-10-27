@@ -16,6 +16,59 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 Set Universe Polymorphism.
 
+(** TODO: This needs to move *)
+Section thing.
+  Variable typ : Set.
+  Variable RType_typ : RType typ.
+  Variable RTypeOk_typ : RTypeOk.
+  Variable F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}.
+  Variable Typ2_F : Typ2 _ F.
+  Variable Typ2Ok_F : Typ2Ok Typ2_F.
+
+
+  Definition typ2_Rty (a b c d : typ) (pf : Rty a b) (pf' : Rty c d)
+    : Rty (typ2 a c) (typ2 b d).
+    destruct pf. destruct pf'. apply eq_refl. Defined.
+
+  Lemma xxx : forall {a b c d : typ} (pf : Rty (typ2  a b) (typ2 c d)),
+      exists pf' pf'', pf = typ2_Rty pf' pf''.
+  Proof.
+    intros. generalize pf.
+    intros. inv_all.
+    subst. exists eq_refl. exists eq_refl. simpl.
+    apply UIP_refl.
+  Defined.
+
+  Lemma symAs_D' :
+    forall (Typ2_Fun : Typ2 RType_typ RFun)
+      (func : Set) (RSym_func : RSym func),
+      RTypeOk ->
+      Typ2Ok Typ2_Fun ->
+      RSymOk RSym_func ->
+      forall (f : func) (t : typ) (v : typD t),
+        symAs f t = Some v ->
+        match typeof_sym f as X return match X with
+                                       | None => unit
+                                       | Some t => typD t
+                                       end -> Prop with
+        | None => fun _ => False
+        | Some t' => fun d =>
+                      exists pf : Rty t' t,
+                        Rcast_val pf d = v
+        end (symD f).
+  Proof.
+    clear. intros.
+    unfold symAs in H1.
+    generalize dependent (symD f).
+    destruct (typeof_sym f).
+    { intros. destruct (type_cast t t0).
+      { exists (Rsym r). inv_all. unfold Rcast_val, Rcast, Relim in *.
+        unfold Rsym. rewrite eq_sym_involutive. assumption. }
+      { exfalso. clear - H1. discriminate H1. } }
+    { clear. intros. discriminate H1. }
+  Defined.
+End thing.
+
 Inductive prod_func {typ : Set} : Set :=
 | pPair : typ -> typ -> prod_func
 | pFst : typ -> typ -> prod_func
@@ -223,8 +276,6 @@ Section MakeProd.
     app (inj (ptrn_view _ (fptrnSnd p))) a.
   Global Instance ptrnSnd_ok : ltac:(PtrnOk (@ptrnSnd)) :=
     ltac:(unfold ptrnSnd ; refine _).
-  Proof. Grab Existential Variables.
-         intros.
 
   Lemma Succeeds_fptrnPair {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPair p) res) :
@@ -295,7 +346,7 @@ Section MakeProd.
 End MakeProd.
 
 Section Tactics.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {FV : PartialView func (prod_func typ)}.
   Context {RType_typ : RType typ} {RSym_func : RSym func}.
   Context {RTypeOk_typ : @RTypeOk _ RType_typ}.
@@ -351,6 +402,11 @@ Section Tactics.
                 (beta_all (fun _ e args => red_fst (apps e args)))).
 *)
 
+  Hint Extern 0 (PartialViewOk ?X _) =>
+    match goal with
+    | H : FuncViewOk _ _ _ |- _ => eexact H
+    end : typeclass_instances.
+
   Lemma red_fst_ok : partial_reducer_ok (fun e args => red_fst (apps e args)).
   Proof.
     unfold partial_reducer_ok; intros.
@@ -360,6 +416,116 @@ Section Tactics.
     eapply run_ptrn_id_sound; eauto with typeclass_instances.
     unfold red_fst_ptrn.
     intros.
+    Ltac ptrnE :=
+      let rec break_conj H :=
+          lazymatch type of H with
+          | exists x : _ , _ =>
+            let H' := fresh in destruct H as [ ? H' ] ; break_conj H'
+          | _ /\ _ =>
+            let H' := fresh in let H'' := fresh in
+            destruct H as [ H' H'' ] ; break_conj H' ; break_conj H''
+          | _ => idtac
+          end
+      in
+      match goal with
+      | H : Succeeds ?e ?X ?r |- _ =>
+        let el := constr:(_ : SucceedsE e X r) in
+        eapply (@s_elim _ _ e X r el) in H; do 2 red in H ; break_conj H
+      end.
+    repeat ptrnE; subst.
+
+    Require Import MirrorCore.Lambda.ExprTac.
+    Require Import ExtLib.Tactics.
+    inv_all. subst.
+
+    
+    eapply symAs_D' in H0. simpl in H0. destruct H0.
+    eapply symAs_D' in H. simpl in H. destruct H.
+
+    destruct (xxx _ _ x1) as [ ? [ ? ? ] ].
+    subst.
+    destruct (xxx _ _ x10) as [ ? [ ? ? ] ].
+    subst.
+    destruct (xxx _ _ x2) as [ ? [ ? ? ] ].
+    subst.
+    destruct x5. destruct x1. destruct x15. simpl in *.
+    destruct x14.
+    destruct (xxx _ _ x10) as [ ? [ ? ? ] ].
+    subst. destruct x0. destruct x1. simpl.
+    unfold Rcast_val, Rcast, Relim. simpl.
+    rewrite H3. f_equal.
+    unfold fstR.
+    compute.
+
+    Lemma Rty_typ2
+      : forall (a b : typ)
+          (P : forall c d : typ, Rty (typ2 a b) (typ2 c d) -> Prop),
+        (forall c d (pf : Rty a c) (pf' : Rty b d),
+            @P c d (typ2_Rty pf pf')) ->
+        forall (c d : typ) (pf : Rty (typ2 a b) (typ2 c d)),
+          P c d pf.
+    Proof.
+      clear - RTypeOk_typ Typ2Ok_tyProd. intros.
+      generalize pf.
+      intro. apply typ2_inj in pf; eauto.
+      destruct pf.
+      specialize (H c d H0 H1).
+      cutrewrite (pf0 = typ2_Rty H0 H1). assumption.
+      generalize (typ2_Rty H0 H1).
+      clear - RTypeOk_typ.
+      intros. destruct r.
+      eapply UIP_refl.
+    Defined.
+
+
+Ltac exprT_App_red :=
+  match goal with
+  | |- context [castR id _ _] => rewrite exprT_App_castR_pure
+  | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ _ (castR _ (RFun ?t1 ?t2) _) _] =>
+    force_apply (@exprT_App_castR typ _ _ tus tvs t1 t2 _ _)
+  | |- context [@AbsAppI.exprT_App ?typ _ _ ?tus ?tvs _ ?t2 ?e (castR _ ?t1 _)] =>
+    force_apply (@exprT_App_castR2 typ _ _ _ _ _ _ _ tus tvs t1 (typD t2) _ _ e)
+  | |- context [@castD ?typ _ (exprT ?tus ?tvs) ?u ?Tu
+                       (@AbsAppI.exprT_App _ _ _ _ _ ?t _ ?a ?b)] =>
+    force_apply (@exprT_App_castD typ _ _ tus tvs (typD t) u _ Tu a b)
+  | |- _ => rewrite castDR
+  | |- _ => rewrite castRD
+  end.
+
+Ltac symAsE :=
+  match goal with
+    | H : symAs ?f ?t = Some ?v |- _ =>
+      let Heq := fresh "Heq" in
+      pose proof (ExprFacts.symAs_typeof_sym _ _ H) as Heq;
+        simpl in Heq; inv_all; repeat subst;
+        unfold symAs in H; simpl in H; rewrite type_cast_refl in H; [|apply _];
+        simpl in H; inv_all; subst
+  end.
+
+
+Ltac exprDI :=
+  match goal with
+    | |- context [ExprDsimul.ExprDenote.lambda_exprD ?tus ?tvs ?t (App ?e1 ?e2)] =>
+      apply (@lambda_exprD_AppI _ _ _ _ _ _ _ _ tus tvs t e1 e2);
+        (do 3 eexists); split; [exprDI | split; [exprDI | try reflexivity]]
+    | |- context [ExprDsimul.ExprDenote.lambda_exprD ?tus ?tvs ?t (Inj ?f)] =>
+      apply (@lambda_exprD_InjI _ _ _ _ _ _ _ _ tus tvs t f);
+        eexists; split; [exprDI | try reflexivity]
+    | |- context [symAs (f_insert ?p) ?t] =>
+      apply (@symAs_finsertI _ _ _ _ _ _ _ _ t p);
+        try (unfold symAs; simpl; rewrite type_cast_refl; [|apply _]; simpl; reflexivity)
+(*    | |- context [ExprDsimul.ExprDenote.lambda_exprD ?tus ?tvs ?t (Red.beta ?e)] =>
+      apply (@lambda_exprD_beta _ _ _ _ _ _ _ _ tus tvs e t);
+        eexists; split; [exprDI | try reflexivity]
+*)
+    | _ => try eassumption
+    | _ => try reflexivity
+  end.
+SearchAbout lambda_exprD.
+
+    eapply Succeeds_pmap in H0; [ | eauto with typeclass_instances ].
+    SearchAbout SucceedsE.
+
     repeat solve_denotation.
     unfold pairR, fstR.
     solve_denotation.

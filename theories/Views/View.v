@@ -9,6 +9,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 Set Universe Polymorphism.
+Set Printing Universes.
 
 (** * Partial Views **)
 (** This file defines PartialViews which allows you to 'view' one type
@@ -22,7 +23,7 @@ Section PartialView.
   Universes s.
   Variable func A : Type@{s}.
 
-  Class PartialView : Type@{s} :=
+  Class PartialView : Type :=
   { f_insert : A -> func
   ; f_view : func -> poption A
   }.
@@ -30,7 +31,7 @@ Section PartialView.
   Variable FV : PartialView.
   Variable R : func -> A -> Prop.
 
-  Class PartialViewOk : Type :=
+  Class PartialViewOk : Prop :=
   { pv_ok : forall f a, f_view f = pSome a <-> f_insert a = f
   ; pv_compat : forall (a : A), R (f_insert a) a
   }.
@@ -45,7 +46,7 @@ Section PartialView.
     Universe X L T.
     Context {T : Type@{X}}.
 
-    Definition ptrn_view (p : ptrn@{X X L T} A T)
+    Definition ptrn_view (p : ptrn@{s X L T} A T)
     : ptrn@{s X L T} func T :=
       fun e _T good bad =>
         match f_view e with
@@ -86,13 +87,11 @@ Section PartialView.
         specialize (H0 _ (fun _ => true) (fun _ => false)); inversion H0. }
     Qed.
 
-(*
     Global Instance SucceedsE_ptrn_view x res
            (p : ptrn A T) (pok : ptrn_ok p)
     : SucceedsE x (ptrn_view p) res :=
     { s_result := exists f : A, _ /\ Succeeds f p res
     ; s_elim := Succeeds_ptrn_view pok }.
-*)
 
   End ptrns.
 
