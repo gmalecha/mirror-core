@@ -119,18 +119,18 @@ Section typed.
   Section Typ0.
     Variable F : Type@{Urefl}.
 
-    Class Typ0 : Type :=
+    Class Typ0 :=
     { typ0 : typ
-    ; typ0_cast : typD typ0 = F
+    ; typ0_cast : @eq Type@{Urefl} (typD typ0) F
     ; typ0_match : forall (T : Type@{Urefl} -> Type) t,
                      T F ->
                      T (typD t) ->
                      T (typD t)
     }.
 
-    Class Typ0Ok (TI : Typ0) : Type :=
+    Class Typ0Ok@{R} (TI : Typ0) : Prop :=
     { typ0_match_iota
-      : forall (T : Type@{Urefl} -> Type) tr fa,
+      : forall (T : Type@{Urefl} -> Type@{R}) tr fa,
           typ0_match T typ0 tr fa =
           match eq_sym typ0_cast in _ = t return T t with
             | eq_refl => tr
@@ -138,15 +138,15 @@ Section typed.
     ; typ0_match_case
       : forall x,
           (exists (pf : Rty x typ0),
-             forall (T: Type@{Urefl} -> Type) tr fa,
+             forall (T: Type@{Urefl} -> Type@{R}) tr fa,
                typ0_match T x tr fa =
                Relim T pf
                      match eq_sym typ0_cast in _ = t return T t with
                        | eq_refl => tr
                      end) \/
-          (forall (T: Type@{Urefl} -> Type) tr fa, typ0_match T x tr fa = fa)
+          (forall (T: Type@{Urefl} -> Type@{R}) tr fa, typ0_match T x tr fa = fa)
     ; typ0_match_Proper
-      : forall (T: Type@{Urefl} -> Type) t t' (pf : Rty t' t) tr fa,
+      : forall (T: Type@{Urefl} -> Type@{R}) t t' (pf : Rty t' t) tr fa,
           typ0_match T t tr fa =
           Relim T (Rsym pf) (typ0_match T t' tr (Relim T pf fa))
     }.
@@ -155,18 +155,18 @@ Section typed.
   Section Typ1.
     Variable F : Type@{Urefl} -> Type@{Urefl}.
 
-    Class Typ1 : Type :=
+    Class Typ1 :=
     { typ1 : typ -> typ
-    ; typ1_cast : forall a, typD (typ1 a) = F (typD a)
+    ; typ1_cast : forall a, @eq Type@{Urefl} (typD (typ1 a)) (F (typD a))
     ; typ1_match : forall (T : Type@{Urefl} -> Type) t,
                      (forall a, T (F (typD a))) ->
                      T (typD t) ->
                      T (typD t)
     }.
 
-    Class Typ1Ok (TI : Typ1) : Type :=
+    Class Typ1Ok@{R} (TI : Typ1) : Prop :=
     { typ1_match_iota
-      : forall (T: Type@{Urefl} -> Type) a tr fa,
+      : forall (T: Type@{Urefl} -> Type@{R}) a tr fa,
           typ1_match T (typ1 a) tr fa =
           match eq_sym (typ1_cast a) in _ = t return T t with
             | eq_refl => tr a
@@ -179,15 +179,15 @@ Section typed.
     ; typ1_match_case
       : forall x,
           (exists d (pf : Rty x (typ1 d)),
-             forall (T: Type@{Urefl} -> Type) tr fa,
+             forall (T: Type@{Urefl} -> Type@{R}) tr fa,
                typ1_match T x tr fa =
                Relim T pf
                      (match eq_sym (typ1_cast d) in _ = t return T t with
                         | eq_refl => tr d
                       end)) \/
-          (forall (T: Type@{Urefl} -> Type) tr fa, typ1_match T x tr fa = fa)
+          (forall (T: Type@{Urefl} -> Type@{R}) tr fa, typ1_match T x tr fa = fa)
     ; typ1_match_Proper
-      : forall (T: Type@{Urefl} -> Type) t t' (pf : Rty t' t) tr fa,
+      : forall (T: Type@{Urefl} -> Type@{R}) t t' (pf : Rty t' t) tr fa,
           typ1_match T t tr fa =
           Relim T (Rsym pf) (typ1_match T t' tr (Relim T pf fa))
     }.
@@ -196,21 +196,21 @@ Section typed.
   Section Typ2.
     Variable F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}.
 
-    Class Typ2 : Type :=
+    Class Typ2 :=
     { typ2 : typ -> typ -> typ
-    ; typ2_cast : forall a b, typD (typ2 a b) = F (typD a) (typD b)
+    ; typ2_cast : forall a b, @eq Type@{Urefl} (typD (typ2 a b)) (F (typD a) (typD b))
     ; typ2_match : forall (T : Type@{Urefl} -> Type) t,
                      (forall a b, T (F (typD a) (typD b))) ->
                      T (typD t) ->
                      T (typD t)
     }.
 
-    Class Typ2Ok (TI : Typ2) : Type :=
+    Class Typ2Ok@{R} (TI : Typ2) : Prop :=
     { typ2_match_iota
-      : forall T a b tr fa,
+      : forall (T : Type@{Urefl} -> Type@{R}) a b tr fa,
           typ2_match T (typ2 a b) tr fa =
           match eq_sym (typ2_cast a b) in _ = t return T t with
-            | eq_refl => tr a b
+          | eq_refl => tr a b
           end
     ; tyAcc_typ2L : forall a b, tyAcc a (typ2 a b)
     ; tyAcc_typ2R : forall a b, tyAcc a (typ2 b a)
@@ -221,15 +221,15 @@ Section typed.
     ; typ2_match_case
       : forall x,
           (exists d r (pf : Rty x (typ2 d r)),
-             forall T tr fa,
+             forall (T : Type@{Urefl} -> Type@{R}) tr fa,
                typ2_match T x tr fa =
                Relim T pf
                      (match eq_sym (typ2_cast d r) in _ = t return T t with
                         | eq_refl => tr d r
                       end)) \/
-          (forall T tr fa, typ2_match T x tr fa = fa)
+          (forall (T : Type@{Urefl} -> Type@{R}) tr fa, typ2_match T x tr fa = fa)
     ; typ2_match_Proper
-      : forall T t t' (pf : Rty t' t) tr fa,
+      : forall (T : Type@{Urefl} -> Type@{R}) t t' (pf : Rty t' t) tr fa,
           typ2_match T t tr fa =
           Relim T (Rsym pf) (typ2_match T t' tr (Relim T pf fa))
     }.
