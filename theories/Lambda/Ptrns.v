@@ -22,8 +22,6 @@ Section setoid.
 
   Let tyArr := @typ2 _ _ _ Typ2_Fun.
 
-  Print Mbind.
-
   Definition app@{T U z} {T U : Type@{T}}
              (f : ptrn@{Set T U z} (expr typ func) T) (g : ptrn@{Set T U z} (expr typ func) U)
   : ptrn@{Set T U z} (expr typ func) (T * U) :=

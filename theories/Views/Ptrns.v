@@ -491,6 +491,24 @@ Proof.
     compute; intros. apply H1.
 Qed.
 
+Ltac ptrnE :=
+  let rec break_conj H :=
+      lazymatch type of H with
+      | exists x : _ , _ =>
+        let H' := fresh in destruct H as [ ? H' ] ; break_conj H'
+      | _ /\ _ =>
+        let H' := fresh in let H'' := fresh in
+                           destruct H as [ H' H'' ] ; break_conj H' ; break_conj H''
+      | _ => idtac
+      end
+  in
+  match goal with
+  | H : Succeeds ?e ?X ?r |- _ =>
+    let el := constr:(_ : SucceedsE e X r) in
+    eapply (@s_elim _ _ e X r el) in H; do 2 red in H ; break_conj H
+  end.
+
+
 (*
 Lemma Mrebuild_Succeeds : forall {X Y} (p' : ptrn X Y) {T} p f v x,
     (forall T0 (good : T -> T0) (bad : X -> T0),

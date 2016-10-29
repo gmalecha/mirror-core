@@ -87,7 +87,7 @@ Section AppAbs.
 
 End AppAbs.
 
-Arguments exprT_App {typ _ _ _ _ _ _} _ _ _ _.
-Arguments exprT_Abs {typ _ _ _ _ _ _} _ _ _.
+Arguments exprT_App {typ _ _ _ _ _ _} _ _ _ _ /.
+Arguments exprT_Abs {typ _ _ _ _ _ _} _ _ _ /.
 Arguments ApplicationOk {typ _ expr _ _} _ : rename.
 Arguments AbstractionOk {typ _ expr _ _} _ : rename.

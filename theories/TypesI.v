@@ -48,6 +48,9 @@ Section typed.
       @eq_trans _
   }.
 
+  Arguments Relim _ _ _ _ !pf _.
+  Arguments Rsym _ _ _ !pf.
+
   Variable RType_typ : RType.
 
   Class RTypeOk  : Type :=

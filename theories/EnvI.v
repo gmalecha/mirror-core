@@ -164,26 +164,16 @@ Section Env.
     rewrite IHx. destruct a; reflexivity.
   Qed.
 
-  Lemma split_env_projT2_join_env : forall x h vs,
+  Lemma split_env_projT2_join_env@{} : forall (x : tenv) (h : hlist@{Set Urefl} _ x) (vs : env),
     split_env vs = @existT _ _ x h ->
     vs = join_env h.
   Proof.
-    induction h; destruct vs; simpl; intros; inversion H; auto.
+    induction h using (@hlist_ind@{Set Urefl Set}); destruct vs; simpl; intros; inversion H; auto.
     subst.
     rewrite join_env_split_env. destruct s; auto.
+  Qed.
 
-(*
-    induction h; destruct vs; simpl; intros; auto.
-    { apply (@f_eq _ _ (@projT1 _ _)) in H. simpl in H. exfalso.
-      discriminate H. }
-    { apply (@f_eq _ _ (@projT1 _ _)) in H. simpl in H. exfalso.
-      discriminate H. }
-    { 
-*)
-  Qed. (** TOO MANY UNIVERSES *)
-  Print split_env_projT2_join_env.
-
-  Lemma typeof_env_join_env : forall a (b : HList.hlist _ a),
+  Lemma typeof_env_join_env@{} : forall a (b : hlist _ a),
     typeof_env (join_env b) = a.
   Proof.
     induction a; simpl; intros.
@@ -192,9 +182,9 @@ Section Env.
       reflexivity. }
   Qed.
 
-  Lemma map_projT1_split_env
+  Lemma map_projT1_split_env@{}
   : forall vs x h,
-      split_env vs = existT (HList.hlist _) x h ->
+      split_env vs = existT (hlist _) x h ->
       map (@projT1 _ _) vs = x.
   Proof.
     intros. change x with (projT1 (existT _ x h)).
@@ -202,20 +192,20 @@ Section Env.
     rewrite split_env_projT1. reflexivity.
   Qed.
 
-  Lemma nth_error_join_env
-  : forall ls (hls : HList.hlist _ ls) v t,
+  Lemma nth_error_join_env@{}
+  : forall (ls : tenv) (hls : hlist@{Set Urefl} _ ls) v t,
       nth_error ls v = Some t ->
       exists val,
         nth_error (join_env hls) v = Some (@existT _ _ t val).
   Proof.
     clear.
-    induction hls; simpl; intros.
+    induction hls using (@hlist_ind@{Set Urefl Set}); simpl; intros.
     { destruct v; inversion H. }
     { destruct v; simpl in *; eauto.
       inversion H; clear H; subst. eauto. }
   Qed.
 
-  Theorem split_env_eta : forall vs,
+  Theorem split_env_eta@{} : forall (vs : env),
       split_env vs = existT _ (typeof_env vs) (valof_env vs).
   Proof.
     induction vs; simpl; auto.

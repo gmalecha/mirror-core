@@ -153,3 +153,8 @@ Global Instance PartialView_FuncView {A B} : FuncView A B -> PartialView A B :=
 
 Existing Class FuncViewOk.
 Export MirrorCore.Views.View.
+
+Hint Extern 0 (PartialViewOk ?X _) =>
+  match goal with
+  | H : FuncViewOk _ _ _ |- _ => eexact H
+  end : typeclass_instances.

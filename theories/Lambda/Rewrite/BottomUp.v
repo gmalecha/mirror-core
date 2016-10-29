@@ -229,45 +229,6 @@ Section setoid.
     Hypothesis rwOk : setoid_rewrite_spec RbaseD rw.
     Hypothesis respectfulOk : respectful_spec RbaseD respectful.
 
-    (** TODO(gmalecha): Move **)
-    Lemma lambda_exprD_App
-    : forall tus tvs td tr f x fD xD,
-        lambda_exprD tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
-        lambda_exprD tus tvs td x = Some xD ->
-        lambda_exprD tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
-    Proof using Typ2Ok_Fun RSymOk_func RTypeOk_typD.
-      intros.
-      autorewrite with exprD_rw; simpl.
-      erewrite lambda_exprD_typeof_Some by eauto.
-      rewrite H. rewrite H0. reflexivity.
-    Qed.
-
-    Lemma lambda_exprD_Abs_prem
-      : forall tus tvs t t' x xD,
-        ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Abs t' x) = Some xD ->
-        exists t'' (pf : typ2 t' t'' = t) bD,
-          ExprDsimul.ExprDenote.lambda_exprD tus (t' :: tvs) t'' x = Some bD /\
-          xD = match pf with
-               | eq_refl => AbsAppI.exprT_Abs bD
-               end.
-    Proof using Typ2Ok_Fun RSymOk_func RTypeOk_typD.
-      intros.
-      autorewrite with exprD_rw in H.
-      destruct (typ2_match_case t); forward_reason.
-      { rewrite H0 in H; clear H0.
-        red in x2; subst. simpl in *.
-        autorewrite_with_eq_rw_in H.
-        destruct (type_cast x0 t'); subst; try congruence.
-        red in r; subst.
-        forward. inv_all; subst.
-        eexists; exists eq_refl.
-        eexists; split; eauto. inversion H.
-        unfold AbsAppI.exprT_Abs.
-        autorewrite_with_eq_rw.
-        reflexivity. }
-      { rewrite H0 in H. congruence. }
-    Qed.
-
     Local Fixpoint recursive_rewrite' (prog : bool) (f : expr typ func)
              (es : list arg_rewriter)
              (rs : list R)

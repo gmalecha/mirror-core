@@ -360,12 +360,9 @@ Section app_full_proofs.
                 rewrite H3. rewrite H. reflexivity. }
               { simpl. intros.
                 erewrite lambda_exprD_App in H2; eauto.
-                erewrite lambda_exprD_typeof_Some in H2 by eassumption.
-                rewrite H0 in H2. rewrite H in H2.
-                inv_all; subst. eauto. } } }
+                rewrite H4; clear H4. f_equal.
+                congruence. } } }
           { erewrite lambda_exprD_App; eauto.
-            erewrite lambda_exprD_typeof_Some by eassumption.
-            rewrite H0; clear H0. rewrite H; clear H.
             unfold AbsAppI.exprT_App. autorewrite_with_eq_rw.
             reflexivity. } }
         { inversion H1. } }

@@ -783,7 +783,6 @@ Section setoid.
           rewrite H3 in H1.
           assert (u + length tvs' >= length tvs') by omega.
           destruct H4 as [ ? [ ? ? ] ].
-          About nth_error_get_hlist_nth_appR'.
           eapply nth_error_get_hlist_nth_appR' in H4; simpl in H4.
           destruct H4 as [ ? [ ? ? ] ].
           rewrite H4.
@@ -1181,7 +1180,6 @@ Section setoid.
         intros.
         eapply pctxD_iff; eauto.
         intros.
-        About forall_hlist_nil.
         rewrite (@forall_hlist_nil@{Set Urefl}).
         rewrite hlist_app_nil_r.
         revert vs0.

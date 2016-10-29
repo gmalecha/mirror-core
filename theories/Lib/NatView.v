@@ -251,27 +251,28 @@ Section PtrnNat.
     inj (ptrn_view FV (fptrnNat p)).
 
   Set Printing Universes.
+  Set Printing All.
 
   Definition ptrnPlus@{V L R} {A B : Type@{V}}
              (a : ptrn@{Set V L R} (expr typ func) A)
              (b : ptrn@{Set V L R} (expr typ func) B)
   : ptrn@{Set V L R} (expr typ func) (A * B) :=
-    pmap@{Set V V L R} (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app@{V L R} (inj (ptrn_view FV fptrnPlus)) a) b).
+    pmap@{Set V V L R} (fun xy => match xy return A * B with (_, a, b) => (a, b) end)
+         (app@{V L R} (app@{V L R} (inj@{V L R} (ptrn_view@{Set Set L R} FV fptrnPlus@{L R})) a) b).
 
   Definition ptrnMinus@{V L R} {A B : Type@{V}}
              (a : ptrn@{Set V L R} (expr typ func) A)
              (b : ptrn@{Set V L R} (expr typ func) B)
   : ptrn@{Set V L R} (expr typ func) (A * B) :=
     pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app@{V L R} (inj (ptrn_view FV fptrnMinus)) a) b).
+         (app (app@{V L R} (inj (ptrn_view@{Set Set L R} FV fptrnMinus)) a) b).
 
   Definition ptrnMult@{V L R} {A B : Type@{V}}
              (a : ptrn@{Set V L R} (expr typ func) A)
              (b : ptrn@{Set V L R} (expr typ func) B)
   : ptrn@{Set V L R} (expr typ func) (A * B) :=
     pmap (fun xy => match xy with (_, a, b) => (a, b) end)
-         (app (app@{V L R} (inj (ptrn_view FV fptrnMult)) a) b).
+         (app (app@{V L R} (inj (ptrn_view@{Set Set L R} FV fptrnMult)) a) b).
 
 End PtrnNat.
 

@@ -18,14 +18,14 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive ap_func (typ : Type) :=
+Inductive ap_func (typ : Set) : Set :=
 | pPure (_ : typ)
 | pAp (_ _ : typ).
 
 Arguments ap_func _ : clear implicits.
 
 Section ApplicativeFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
   Context {T : Type -> Type} {Applicative_T : Applicative T}.
 
@@ -92,7 +92,7 @@ Section ApplicativeFuncInst.
 End ApplicativeFuncInst.
 
 Section MakeApplicative.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func (ap_func typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
 
@@ -208,7 +208,7 @@ Definition applicative_cases {T : Type}
 End MakeApplicative.
 
 Section PtrnApplicative.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func (ap_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
@@ -228,17 +228,17 @@ Section PtrnApplicative.
 End PtrnApplicative.
 
 Section ReifyApplicative.
-  Context {typ func : Type} {FV : PartialView func (ap_func typ)}.
+  Context {typ func : Set} {FV : PartialView func (ap_func typ)}.
   Context {T : Type -> Type} {IH : Applicative T}.
   Context {t : Reify typ}.
 
   Definition reify_pure : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ:Type)::nil)
              (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fPure x)).
 
   Definition reify_ap : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ:Type)::(typ:Type)::nil)
              (RApp (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fAp x y)).
 

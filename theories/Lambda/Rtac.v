@@ -250,11 +250,14 @@ Section tactics.
                    ]. }
     { do 3 red. intros; subst.
       reflexivity. }
-    { intros. ptrnE.
-      eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+    { intros. repeat ptrnE. subst.
+      lambda_exprD_fwd.
+      repeat match goal with
+             | H : (_ * _)%type |- _ => destruct H
+             end. simpl in *.
       inv_all. subst.
-      generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
-      generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
+      generalize (Red.beta_sound tus (x4 :: tvs) x10 x12).
+      generalize (Red.beta_sound tus (x4 :: tvs) x7 x8).
       simpl. Cases.rewrite_all_goal. intros; forward.
       erewrite lambda_exprD_App; try eassumption.
       2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
@@ -268,7 +271,7 @@ Section tactics.
       intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
       autorewrite_with_eq_rw.
       f_equal.
-      destruct (eq_sym (typ2_cast x4 x2)).
+      destruct (eq_sym (typ2_cast x4 x3)).
       apply FunctionalExtensionality.functional_extensionality.
       intros. rewrite H5. rewrite H6. reflexivity. }
     { eauto. }
@@ -457,10 +460,6 @@ Section tactics.
       rewrite H2 in *.
       rewrite H7. assumption.
   Qed.
-
-Set Printing All.
-Set Printing Universes.
-Print open_ptrn_sound.
 
   Definition INTRO_ptrn_sound@{X}
   : forall (p : ptrn@{Set Set Set X} (expr typ func) (OpenAs typ (expr typ func))),
