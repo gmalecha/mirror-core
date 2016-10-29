@@ -39,8 +39,8 @@ Module ExprDenote <: ExprDenote.
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
 
-    Global Arguments Rcast_val [_ _] !pf _.
-    Global Arguments Rcast _ [_ _] !pf _.
+    Global Arguments Rcast_val [_ _] !pf _ /.  (* COMPAT(8.5): To be fixed in 8.6 *)
+    Global Arguments Rcast _ [_ _] !pf _ /.  (* COMPAT(8.5): To be fixed in 8.6 *)
 
     Section exprT.
       Variables tus tvs : tenv typ.

@@ -48,8 +48,8 @@ Section typed.
       @eq_trans _
   }.
 
-  Arguments Relim _ _ _ _ !pf _.
-  Arguments Rsym _ _ _ !pf.
+  Arguments Relim _ _ _ _ !pf _ /. (* COMPAT(8.5): To be fixed in 8.6 *)
+  Arguments Rsym _ _ _ !pf /.  (* COMPAT(8.5): To be fixed in 8.6 *)
 
   Variable RType_typ : RType.
 
