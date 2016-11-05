@@ -136,7 +136,7 @@ Section ReifyString.
   Context {typ func : Set} {FV : PartialView func stringFunc}.
 
   Definition reify_cstring : Command (expr typ func) :=
-    CPattern (ls := (string:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fString x)).
+    CPattern (ls := (string:Type)::nil) (RHasType string (RGet 0 RIgnore)) (fun x => Inj (fString x)).
 
   Definition reify_string : Command (expr typ func) :=
     CFirst (reify_cstring :: nil).
