@@ -35,6 +35,10 @@ Module Type MType.
     Constraint T < P.
 
     Parameter M : Type@{X} -> Type@{T} -> Type@{P}.
+
+    Polymorphic Universe Z.
+    Constraint Z < P.
+    Parameter Melim : forall {X : Type@{X}} {T : Type@{T}} {U : Type@{Z}}, M X T -> (T -> U) -> U -> U.
   End poly.
 
   Parameter Mmap@{X A B P}
@@ -61,7 +65,14 @@ Module Type MType.
   Parameter Mok@{X T P} : forall {X : Type@{X}} {T : Type@{T}},
       (X -> Prop) -> (T -> Prop) -> M@{X T P} X T -> Prop.
 
-  Parameter Mok_conseq@{X T P}
+  Axiom Mok_Melim@{X T P Z}
+  : forall {X: Type@{X}} {T : Type@{T}} {U : Type@{Z}} (P : _ -> Prop) (Q : _ -> Prop) (R : _ -> Prop) (m : M X T) (succ : T -> U) (default : U),
+      Mok P Q m ->
+      (forall x, Q x -> R (succ x)) ->
+      (forall x, P x -> R default) ->
+      R (Melim@{X T P Z} m succ default).
+
+  Axiom Mok_conseq@{X T P}
   : forall {X : Type@{X}} {T : Type@{T}} (P P' : X -> Prop) (Q Q' : T -> Prop) (c : M@{X T P} X T),
       Mok P Q c ->
       (forall x : X, P x -> P' x) ->
@@ -158,6 +169,9 @@ Module MakePtrns (P : MType) <: PtrnsT.
       X -> M@{X T P} X T.
   End poly.
 
+  Definition run_ptrn {X} {T} {U} (p : ptrn X T) (succ : T -> U) (default : U) (x : X) : U :=
+    Melim (p x) succ default.
+
   Definition pmap@{X A B P}
              {X : Type@{X}} {T : Type@{A}} {U : Type@{B}} (f : T -> U)
              (p : ptrn@{X A P} X T) : ptrn@{X B P} X U :=
@@ -176,6 +190,22 @@ Module MakePtrns (P : MType) <: PtrnsT.
   Definition Pok@{X T P} {X : Type@{X}} {T : Type@{T}}
       (Q : X -> T -> Prop) (p : ptrn@{X T P} X T) : Prop :=
     forall x : X, Mok (fun y => @peq X x y) (Q x) (p x).
+
+
+  Theorem run_ptrn_ok@{X T U P}
+  : forall {X : Type@{X}} {T : Type@{T}} {U : Type@{U}} (p : ptrn@{X T P} X T)
+      (succ : T -> U) (default : U) (x : X) P (Q : _ -> Prop),
+      Pok P p ->
+      (forall y, P x y -> Q (succ y)) ->
+      Q default ->
+      Q (run_ptrn p succ default x).
+  Proof.
+    simpl; intros. red in H.
+    unfold run_ptrn. eapply Mok_Melim.
+    eapply H. eauto. eauto.
+    Show Proof.
+
+  Qed.
 
   (** Reasoning principles *)
   Theorem Pok_pmap@{X T U P} {X : Type@{X}} {T : Type@{T}} {U : Type@{U}} (f : T -> U) p P
@@ -379,6 +409,16 @@ Module PtrnOption <: MType.
     Constraint T <= P.
 
     Definition M : Type@{X} -> Type@{T} -> Type@{P} := fun _ x => poption@{T} x : Type@{P}.
+
+    Polymorphic Universe Z.
+    Constraint Z < P.
+    Definition Melim {X : Type@{X}} {T : Type@{T}} {U : Type@{Z}}
+               (x : M X T) (succ : T -> U) (default : U) : U :=
+      match x with
+      | pNone => default
+      | pSome x => succ x
+      end.
+
   End poly.
 
   Definition Mmap@{X A B P} (xt : Type@{X}) (t : Type@{A}) (u : Type@{B})
@@ -428,6 +468,16 @@ Module PtrnOption <: MType.
     | pNone => pex fail
     | pSome x => succ x
     end.
+
+  Theorem Mok_Melim@{X T P Z}
+  : forall {X: Type@{X}} {T : Type@{T}} {U : Type@{Z}} (P : _ -> Prop) (Q : _ -> Prop) (R : _ -> Prop) (m : M X T) (succ : T -> U) (default : U),
+      Mok P Q m ->
+      (forall x, Q x -> R (succ x)) ->
+      (forall x, P x -> R default) ->
+      R (Melim@{X T P Z} m succ default).
+  Proof.
+    destruct m; simpl; eauto. intros. destruct H. eapply H1. eauto.
+  Defined.
 
   Theorem Mok_conseq@{X T P}
   : forall {X : Type@{X}} {T : Type@{T}} (P P' : X -> Prop) (Q Q' : T -> Prop) (c : M@{X T P} X T),
@@ -515,6 +565,16 @@ Module PtrnEither <: MType.
     Constraint T <= P.
 
     Definition M : Type@{X} -> Type@{T} -> Type@{P} := psum@{X T}.
+
+    Polymorphic Universe Z.
+    Constraint Z < P.
+    Definition Melim {X : Type@{X}} {T : Type@{T}} {U : Type@{Z}}
+               (x : M X T) (succ : T -> U) (default : U) : U :=
+      match x with
+      | pinl _ => default
+      | pinr x => succ x
+      end.
+
   End poly.
 
   Definition Mmap@{X A B P} (xt : Type@{X}) (t : Type@{A}) (u : Type@{B})
@@ -561,6 +621,16 @@ Module PtrnEither <: MType.
     | pinl x => fail x
     | pinr x => succ x
     end.
+
+  Theorem Mok_Melim@{X T P Z}
+  : forall {X: Type@{X}} {T : Type@{T}} {U : Type@{Z}} (P : _ -> Prop) (Q : _ -> Prop) (R : _ -> Prop) (m : M X T) (succ : T -> U) (default : U),
+      Mok P Q m ->
+      (forall x, Q x -> R (succ x)) ->
+      (forall x, P x -> R default) ->
+      R (Melim@{X T P Z} m succ default).
+  Proof.
+    destruct m; simpl; eauto.
+  Defined.
 
   Theorem Mok_conseq@{X T P}
   : forall {X : Type@{X}} {T : Type@{T}} (P P' : X -> Prop) (Q Q' : T -> Prop) (c : M@{X T P} X T),
