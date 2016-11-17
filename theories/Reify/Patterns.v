@@ -1,5 +1,7 @@
 Require Coq.FSets.FMapPositive.
 
+Set Printing Universes.
+Set Printing Implicit.
 Unset Elimination Schemes.
 
 (* NOTE: These should realy be axioms **)
@@ -7,29 +9,31 @@ Inductive table (K : Type) : Type := a_table.
 Inductive typed_table (K T : Type) : Type := a_typed_table.
 Inductive patterns (T : Type) : Type := a_pattern.
 
-Fixpoint action_pattern (ls : list Type) (r : Type) : Type :=
-  match ls with
+Polymorphic Fixpoint action_pattern@{U} (ls : list Type@{U}) (r : Type@{U})
+: Type@{U} :=
+  match ls return Type@{U} with
   | nil => r
   | List.cons l ls => l -> action_pattern ls r
   end.
 
 (** Patterns **)
-Inductive RPattern : Prop :=
+Polymorphic Inductive RPattern@{U} : Prop :=
 | RIgnore
 | RConst
-| RHasType (T : Type) (p : RPattern)
+| RHasType (T : Type@{U}) (p : RPattern)
 | RGet     (idx : nat) (p : RPattern)
 | RApp     (f x : RPattern)
 | RLam     (t r : RPattern)
 | RPi      (t r : RPattern)
 | RImpl    (l r : RPattern)
-| RExact   {T : Type} (value : T).
+| RExact   {T : Type@{U}} (value : T).
 
-Record RBranch (T : Type) : Prop := mkRBranch
-{ rcaptures : list Type
-; rpattern  : RPattern
-; rtemplate : action_pattern rcaptures T
+Polymorphic Record RBranch@{U} (T : Type@{U}) : Prop := mkRBranch
+{ rcaptures : list Type@{U}
+; rpattern  : RPattern@{U}
+; rtemplate : action_pattern@{U} rcaptures T
 }.
+
 
 (** Commands **)
 Polymorphic Parameter Command@{U} : Type@{U} -> Prop.
@@ -39,7 +43,7 @@ Polymorphic Parameter CCall : forall {T : Type}, Command T -> Command T.
 Polymorphic Parameter CMap : forall {T F : Type}, (F -> T) -> Command F -> Command T.
 Polymorphic Parameter COr : forall {T : Type}, Command T -> Command T -> Command T.
 Polymorphic Parameter CFail : forall {T : Type}, Command T.
-Polymorphic Parameter CApp        : forall {T : Type} {U : Type} {V : Type} (_ : Command T) (_ : Command U)
+Polymorphic Parameter CApp : forall {T : Type} {U : Type} {V : Type} (_ : Command T) (_ : Command U)
                        (app : T -> U -> V), Command V.
 Polymorphic Parameter CAbs        : forall {T : Type} {U : Type} {V : Type} (_ : Command U) (_ : Command V)
                        (lam : U -> V -> T), Command T.
@@ -88,10 +92,9 @@ Notation "'CAbs_' c x"
 Definition CAbs_ {T Ty} (c : Command Ty) (f : Ty -> T -> T) : Command T :=
   @CAbs T Ty T c (CRec 0) f.
 *)
-Polymorphic Definition CPattern@{U} (T : Type@{U}) ls ptr br : Command@{U} T :=
+Polymorphic Definition CPattern@{U} (T : Type@{U}) (ls : list Type@{U}) ptr br : Command@{U} T :=
   CPatternTr (mkRBranch T ls ptr br :: nil).
 Arguments CPattern {_} [_] _ _.
-
 
 (** Actions **)
 Polymorphic Definition function@{U}  {T : Type@{U}} (f : Command T) : Type@{U} := T.

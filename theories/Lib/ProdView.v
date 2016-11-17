@@ -370,24 +370,26 @@ Section ReifyProd.
   Context {typ func : Set} {FV : PartialView func (prod_func typ)}.
   Context {t : Reify typ}.
 
-  Definition reify_pair : Command (expr typ func) :=
-    CPattern (ls := (typ : Type)::(typ : Type)::nil)
-             (RApp (RApp (RExact (@pair)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+  Definition reify_pair@{X} : Command (expr typ func) :=
+    CPattern (ls := @cons Type@{X} typ (@cons Type@{X} typ nil))
+             (RApp (RApp (@RExact (forall a b : Set, a -> b -> a * b)(@pair))
+                         (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fPair x y)).
 
-  Definition reify_fst : Command (expr typ func) :=
-    CPattern (ls := (typ :Type)::(typ:Type)::nil)
-             (RApp (RApp (RExact (@fst)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+  Definition reify_fst@{X} : Command (expr typ func) :=
+    CPattern (ls := @cons Type@{X} typ (@cons Type@{X} typ nil))
+             (RApp (RApp (@RExact (forall a b : Set, a * b -> a) (@fst))
+                         (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFst x y)).
 
-  Definition reify_snd : Command (expr typ func) :=
-    CPattern (ls := (typ :Type)::(typ:Type)::nil)
-             (RApp (RApp (RExact (@snd)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+  Definition reify_snd@{X} : Command (expr typ func) :=
+    CPattern (ls := @cons Type@{X} typ (@cons Type@{X} typ nil))
+             (RApp (RApp (@RExact (forall a b : Set, a * b -> b) (@snd))
+                         (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fSnd x y)).
 
   Definition reify_prod : Command (expr typ func) :=
     CFirst (reify_pair :: reify_fst :: reify_snd :: nil).
-
 End ReifyProd.
 
 Arguments reify_prod _ _ {_ _}.

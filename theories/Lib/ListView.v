@@ -214,18 +214,18 @@ Section ReifyList.
   Polymorphic Context {typ func : Set} {FV : PartialView func (list_func typ)}.
   Polymorphic Context {t : Reify typ}.
 
-  Polymorphic Definition reify_nil : Command (expr typ func) :=
-    CPattern (ls := (typ : Type)::nil)
-             (RApp (RExact (@nil)) (RGet 0 RIgnore))
+  Polymorphic Definition reify_nil@{X} : Command (expr typ func) :=
+    CPattern (ls := @cons Type@{X} typ nil)
+             (RApp@{X} (@RExact@{X} (forall x : Set, list x) (@nil)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => mkNil x).
 
-  Polymorphic Definition reify_cons : Command (expr typ func) :=
-    CPattern (ls := (typ:Type)::nil)
-             (RApp (RExact (@cons)) (RGet 0 RIgnore))
+  Polymorphic Definition reify_cons@{X} : Command@{X} (expr typ func) :=
+    CPattern (ls := @cons Type@{X} typ nil)
+             (RApp (@RExact (forall x : Set, x -> list x -> list x) (@cons)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fCons x)).
 
-  Polymorphic Definition reify_list : Command (expr typ func) :=
-    CFirst (reify_nil :: reify_cons :: nil).
+  Polymorphic Definition reify_list@{X} : Command (expr typ func) :=
+    CFirst (reify_nil@{X} :: reify_cons@{X} :: nil).
 
 End ReifyList.
 
