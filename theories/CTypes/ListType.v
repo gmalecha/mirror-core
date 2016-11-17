@@ -94,7 +94,8 @@ Section ListTypeReify.
   Context {typ : Set} {FV : PartialView typ (list_typ 1 * typ)}.
 
   Definition reify_tyList : Command typ :=
-    CApp (CPattern (ls := nil) (RExact (@list)) tyList) (CRec 0) (fun f x => tyList x).
+    CPattern (ls := @cons Type typ nil) (RApp (RExact (@list)) (RGet 0 RIgnore))
+             (fun (x : function (CRec 0)) => tyList x).
 
   Definition reify_list_typ : Command typ :=
     CFirst (reify_tyList :: nil).
