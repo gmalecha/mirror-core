@@ -14,15 +14,16 @@ Require Import MirrorCore.Lambda.ExprUnify_simple.
 Reify Declare Patterns patterns_simple_typ : typ.
 Reify Declare Patterns patterns_ilfunc : (expr typ ilfunc).
 
-Reify Declare Syntax reify_simple_typ :=
+Definition reify_simple_typ' :=
   CPatterns patterns_simple_typ.
+Reify Declare Syntax reify_simple_typ := reify_simple_typ'.
 
 Axiom otherFunc : BinNums.positive -> expr typ ilfunc.
 
 Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
 (** Declare syntax **)
-Reify Declare Syntax reify_ilfunc :=
+Definition reify_ilfunc' : Command@{Set} _ :=
   CFix
     (CFirst (CPatterns patterns_ilfunc ::
              CApp (CRec 0) (CRec 0) (@ExprCore.App typ ilfunc) ::
@@ -30,6 +31,7 @@ Reify Declare Syntax reify_ilfunc :=
              CVar (@ExprCore.Var typ ilfunc) ::
              CMap otherFunc (CTypedTable (CCall reify_simple_typ) table_terms)
              :: nil)).
+Reify Declare Syntax reify_ilfunc := reify_ilfunc'.
 
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
@@ -57,10 +59,10 @@ Reify Pattern patterns_ilfunc += (!! @ILogic.lentails @ ?0 @ #) =>
 Reify Pattern patterns_ilfunc += (!! @ILogic.lexists @ ?0 @ # @ ?1) => (fun (x y : function (CCall reify_simple_typ)) => Inj (typ := typ) (fExists y x)).
 Reify Pattern patterns_ilfunc += (!! @ILogic.lforall @ ?0 @ # @ ?1) => (fun (x y : function (CCall reify_simple_typ)) => Inj (typ := typ) (fForall y x)).
 
-Instance Reify_expr_ilfunc : Reify (expr typ ilfunc) :=
-{ reify_scheme := CCall reify_ilfunc }.
+Instance Reify_expr_ilfunc : Reify@{Set} (expr typ ilfunc) :=
+{ reify_scheme := CCall@{Set} reify_ilfunc }.
 
-Instance Reify_simple_type : Reify typ :=
+Instance Reify_simple_type : Reify@{Set} typ :=
 { reify_scheme := CCall reify_simple_typ }.
 
 Ltac reify_typ trm :=
@@ -95,7 +97,7 @@ Defined.
 Print test_1.
 
 Definition test_2 : expr typ ilfunc.
-  reify (@lfalse Prop _).                      
+  reify (@lfalse Prop _).
 Defined.
 Print test_2.
 

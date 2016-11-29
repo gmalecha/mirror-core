@@ -372,7 +372,6 @@ Section lem.
 
 End lem.
 
-(*
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section rlemma.
@@ -391,13 +390,13 @@ Section rlemma.
      ; premises := v :: premises x
      ; concl := concl x |}.
 
-  Definition reify_lemma : Command (lemma ty pr c) :=
+  Definition reify_lemma : Command@{Set} (lemma ty pr c) :=
     Eval unfold CPattern in
     CFix
-      (CFirst (   CPattern (ls:=pr::lemma ty pr c::nil)
+      (CFirst (   CPattern (ls:=(pr : Type)::(lemma ty pr c : Type)::nil)
                            (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
                            (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_prem x y)
-               :: CPattern (ls:=ty::lemma ty pr c::nil)
+               :: CPattern (ls:=(ty : Type)::(lemma ty pr c : Type)::nil)
                            (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
                            (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_var x y)
                :: CMap (fun x => {| vars := nil
@@ -409,4 +408,3 @@ Section rlemma.
   { reify_scheme := CCall reify_lemma }.
 
 End rlemma.
-*)

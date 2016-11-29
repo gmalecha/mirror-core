@@ -15,7 +15,7 @@ Require Import McExamples.Hoare.ILogicFunc.
 
 Module ImpSyntax (I : ImpLang).
   (* Types *)
-  Inductive tsym : nat -> Type :=
+  Inductive tsym : nat -> Set :=
   | tyLocals   : tsym 0
   | tyCmd      : tsym 0
   | tySProp    : tsym 0
@@ -595,8 +595,9 @@ Definition test_lemma :=
 
   Reify Declare Typed Table term_table : BinNums.positive => typ.
 
-  Reify Declare Syntax reify_imp_typ :=
+  Definition reify_imp_typ' :=
     Patterns.CPatterns patterns_imp_typ.
+  Reify Declare Syntax reify_imp_typ := reify_imp_typ'.
 
   Reify Declare Patterns patterns_ilogic_func : ilfunc typ.
   Reify Declare Patterns patterns_imp_func : imp_func.
@@ -611,7 +612,7 @@ Definition test_lemma :=
     ExprCore.Inj (inl (inl x)).
 
 
-  Reify Declare Syntax reify_imp :=
+  Definition reify_imp' :=
     CFix
       (CFirst (   CVar (@ExprCore.Var typ func)
                :: CMap mkLogic patterns_ilogic_func
@@ -621,6 +622,7 @@ Definition test_lemma :=
                :: CAbs (CCall reify_imp_typ) (CRec 0) (@ExprCore.Abs typ func)
                :: CMap mkExt (CTypedTable reify_imp_typ term_table)
                :: nil)).
+  Reify Declare Syntax reify_imp := reify_imp'.
 
   Global Instance Reify_imp_typ : Reify typ :=
   { reify_scheme := CCall reify_imp_typ }.

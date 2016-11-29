@@ -14,8 +14,10 @@ Require Import MirrorCore.Lambda.Rtac.
 Require Import McExamples.Hoare.Imp.
 Require Import McExamples.Hoare.ILogicFunc.
 
+Set Universe Polymorphism.
+
 Section parametric.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ2_RFun : Typ2 RType_typ RFun}.
@@ -37,7 +39,7 @@ Section parametric.
                             | eq_refl => ILogic.ILogicOps_Prop
                             end}.
 
-  Definition bin_op {T U V W} (f : T -> U -> V -> W)
+  Definition bin_op {T U V W : Type} (f : T -> U -> V -> W)
              (t : ptrn func T) (l : ptrn (expr typ func) U) (r : ptrn (expr typ func) V)
   : ptrn (expr typ func) W :=
     appl (appl (inj t) (pmap (fun t x => (x,t)) l))
@@ -45,22 +47,24 @@ Section parametric.
 
   Instance ptrn_ok_bin_op : ltac:(PtrnOk @bin_op) := _.
 
-  Definition ptrn_entails {T U V}
-             (t : ptrn typ V)
-             (a : ptrn (expr typ func) (V -> T))
-             (b : ptrn (expr typ func) (T -> U))
-  : ptrn (expr typ func) U :=
-    appl (appl (inj (ptrn_view _ (fptrn_lentails t))) a) b.
+Set Printing Universes.
+
+  Definition ptrn_entails@{A X P} {T U V : Type@{A}}
+             (t : ptrn@{Set A X P} typ V)
+             (a : ptrn@{Set A X P} (expr typ func) (V -> T))
+             (b : ptrn@{Set A X P} (expr typ func) (T -> U))
+  : ptrn@{Set A X P} (expr typ func) U :=
+    appl (appl (inj (ptrn_view _ (fptrn_lentails@{A X P} t))) a) b.
 
   Instance ptrn_entails_ok : ltac:(PtrnOk @ptrn_entails) := _.
 
   Definition intro_ptrn_all : ptrn (expr typ func) (OpenAs typ (expr typ func))
   :=
     por
-      (appl (inj (ptrn_view _ (fptrn_lforall get (fun t => pmap (fun _ => t) ignore))))
+      (appl (inj (ptrn_view FV (fptrn_lforall get (fun t => pmap (fun _ => t) ignore))))
             (pmap (fun body t => SimpleOpen_to_OpenAs (sAsAl t body)) get))
       (ptrn_entails get (pmap (fun G t => (G,t)) get)
-                    (appl (inj (ptrn_view _ (fptrn_lforall get (fun t => pmap (fun _ => t) ignore))))
+                    (appl (inj (ptrn_view FV (fptrn_lforall get (fun t => pmap (fun _ => t) ignore))))
                           (pmap (fun body t Gt =>
                                    let '(G,l) := Gt in
                                    AsAl t (fun arg =>
@@ -76,7 +80,7 @@ Section parametric.
   Local Existing Instance RSym_func.
   Local Existing Instance RType_typ.
 
-  Theorem Succeeds_bin_op {T U V W} f t l r e res
+  Theorem Succeeds_bin_op {T U V W : Type} f t l r e res
   : ptrn_ok t -> ptrn_ok l -> ptrn_ok r ->
     Succeeds e (@bin_op T U V W f t l r) res ->
     exists ef el er rf rl rr,
@@ -87,20 +91,25 @@ Section parametric.
       Succeeds er r rr.
   Proof.
     unfold bin_op. intros. ptrn_elim; subst.
-    do 6 eexists. repeat (split; [ reflexivity | ]); auto.
+    do 6 eexists.
+    repeat (split; [ reflexivity | ]); auto.
   Qed.
 
-  Theorem Succeeds_ptrn_entails {T U V} e t a b r
-  : ptrn_ok a -> ptrn_ok b -> ptrn_ok t ->
-    Succeeds e (@ptrn_entails T U V t a b) r ->
+Axiom todo : forall P : Prop, P.
+
+  Theorem Succeeds_ptrn_entails@{A X P} {T U V : Type@{A}}
+          (e : expr typ func) (t : ptrn@{Set A X P} _ _) (a : ptrn@{Set A X P} _ _) (b : ptrn@{Set A X P} _ _) r
+  : ptrn_ok@{Set A X P} a -> ptrn_ok@{Set A X P} b -> ptrn_ok@{Set A X P} t ->
+    Succeeds@{Set A X P} e (@ptrn_entails@{A X P} T U V t a b) r ->
     exists te ta tb tr ar br,
       e = App (App (Inj (f_insert (ilf_entails te))) ta) tb /\
       r = br (ar tr) /\
-      Succeeds te t tr /\
-      Succeeds ta a ar /\
-      Succeeds tb b br.
+      Succeeds@{Set A X P} te t tr /\
+      Succeeds@{Set A X P} ta a ar /\
+      Succeeds@{Set A X P} tb b br.
   Proof.
-    unfold ptrn_entails. intros. ptrn_elim; subst.
+    unfold ptrn_entails. intros.
+    ptrn_elim; subst.
     do 6 eexists; split; eauto.
   Qed.
 
@@ -167,36 +176,33 @@ Section parametric.
       eapply SimpleOpen_to_OpenAs_sound; eauto.
       simpl. unfold propD, exprD_typ0. simpl. intros.
       forwardy.
-      solve_denotation.
+      inv_all. subst.
       unfold symAs in H. simpl in H.
-      destruct (ilo x6) eqn:?; try congruence.
-      forwardy; inv_all; subst.
-      clear H. generalize y.
-      eapply typ2_inj in y; [ | eassumption ].
-      unfold Rty in y; destruct y; subst.
-      eexists; split; [ eassumption | ].
-      assert (i = match
-                  eq_sym (typ0_cast (F:=Prop)) in (_ = X)
-                  return (ILogic.ILogicOps X)
-                with
-                | eq_refl => ILogic.ILogicOps_Prop
-                end).
-      { clear - ilo_Prop Heql.
-        revert Heql. change_rewrite ilo_Prop.
-        inversion 1. reflexivity. }
-      subst. clear - RTypeOk_typ.
-      unfold castD. simpl.
-      unfold typ2_cast_quant, AbsAppI.exprT_App.
+      forward. inv_all; subst.
+      destruct (decompose_Rty_typ2 _ _ r) as [ ? [ ? ? ] ].
+      subst.
+      destruct x2.
+      red in x0. subst x.
+      eexists; split; eauto.
+      intros.
+      simpl.
+      specialize (iloOk (typ0 (F:=Prop))).
+      rewrite H in *; clear H.
+      inversion ilo_Prop; clear ilo_Prop; subst.
+      revert iloOk.
+      clear - H2.
+      revert H2.
+      unfold typ2_cast_quant, castD in *. simpl.
       generalize dependent (typ0_cast (F:=Prop)).
-      generalize dependent (typ2_cast x7 (typ0 (F:=Prop))).
-      generalize dependent (typ2_cast (typ2 x7 (typ0 (F:=Prop))) (typ0 (F:=Prop))).
-      rewrite (UIP_refl y); clear y; simpl.
-      revert x1.
-      generalize ((typD (typ2 x7 (typ0 (F:=Prop))))).
-      generalize (typD (typ2 (typ2 x7 (typ0 (F:=Prop))) (typ0 (F:=Prop)))).
-      generalize (typD (typ0 (F:=Prop))).
-      intros; subst; simpl in *.
-      assumption.
+      generalize dependent (typ0 (F:=Prop)).
+      intro.
+      generalize dependent (typ2_cast x7 t).
+      unfold AbsAppI.exprT_App, exprT_Inj.
+      generalize dependent (typ2_cast (typ2 x7 t) t).
+      generalize dependent (typD (typ2 x7 t)).
+      generalize dependent (typD t).
+      generalize dependent (typD (typ2 (typ2 x7 t) t)).
+      intros; subst; simpl in *. auto.
     - ptrn_elim; subst.
       simpl.
       unfold propD, exprD_typ0. simpl.

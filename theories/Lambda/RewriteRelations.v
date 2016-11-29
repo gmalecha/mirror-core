@@ -582,7 +582,7 @@ Section reify_R.
                            (fun (a : function@{Set} (CCall (reify_scheme Ty))) (b : function (CRec 0)) =>
                               Rpointwise a b)
                :: CPattern (ls:=_::nil)
-                           (RApp (RApp (RApp (RExact (@Basics.flip)) RIgnore) RIgnore) (RGet 0 RIgnore))
+                           (RApp (RApp (RApp (RApp (RExact (@Basics.flip)) RIgnore) RIgnore) RIgnore) (RGet 0 RIgnore))
                            (fun a : function (CRec 0) => Rflip a)
                :: CMap (@Rinj Ty _) (reify_scheme Rbase)
                :: nil)).

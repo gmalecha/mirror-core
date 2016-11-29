@@ -416,6 +416,7 @@ Proof.
   { do 3 red. intros; subst.
     reflexivity. }
   { intros. ptrnE.
+    admit. (*
     eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
@@ -435,9 +436,9 @@ Proof.
     intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
     f_equal.
     apply FunctionalExtensionality.functional_extensionality.
-    intros. rewrite H5. rewrite H6. reflexivity. }
+    intros. rewrite H5. rewrite H6. reflexivity. *) }
   { eauto. }
-Qed.
+Admitted.
 
 Theorem the_rewrites_sound
 : forall hints, RewriteHintDbOk RbaseD hints ->

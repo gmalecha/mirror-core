@@ -24,7 +24,7 @@ Module Syntax (M : Monoid).
   (********************************)
 
   (* The syntax of types *)
-  Inductive typ' : nat -> Type :=
+  Inductive typ' : nat -> Set :=
   | tyNat : typ' 0
   | tyM : typ' 0.
 
@@ -54,7 +54,7 @@ Module Syntax (M : Monoid).
   { symbolD := @typ'D
   ; symbol_dec := @typ'_dec }.
 
-  Definition typ := ctyp typ'.
+  Definition typ : Set := ctyp typ'.
 
   (* Instantiate the RType interface *)
   Instance RType_typ : RType typ := RType_ctyp typ' _.
@@ -68,7 +68,7 @@ Module Syntax (M : Monoid).
   Instance Typ0Ok_tyProp : Typ0Ok Typ0_tyProp := _.
 
   (* The syntax of terms *)
-  Inductive func' :=
+  Inductive func' : Set :=
   | Eq : typ -> func' (* polymorphic equality *)
   | Ex : typ -> func' | All : typ -> func' (* polymorphic quantification *)
   | And | Or | Impl
@@ -108,7 +108,7 @@ Module Syntax (M : Monoid).
 
   Instance RSymOk_func' : RSymOk RSym_func' := _.
 
-  Definition func : Type := sum func' SymEnv.func.
+  Definition func : Set := sum func' SymEnv.func.
 
   Instance RSym_func fs : RSym func :=
     SymSum.RSym_sum RSym_func' (@SymEnv.RSym_func _ _ fs).
@@ -135,19 +135,22 @@ Module Syntax (M : Monoid).
   Reify Declare Patterns patterns_monoid : (expr typ func).
 
   (* Declare the syntax for the types *)
-  Reify Declare Syntax reify_monoid_typ :=
+  Definition reify_monoid_typ' : Command@{Set} typ :=
     CPatterns patterns_monoid_typ.
+  Reify Declare Syntax reify_monoid_typ := reify_monoid_typ'.
 
   Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
   (* Declare syntax **)
-  Reify Declare Syntax reify_monoid :=
+  Definition reify_monoid' : Command (expr typ func) :=
     CFix
       (CFirst (CPatterns patterns_monoid ::
                CApp (CRec 0) (CRec 0) (@ExprCore.App typ func) ::
                CAbs (CCall reify_monoid_typ) (CRec 0) (@ExprCore.Abs typ func) ::
                CVar (@ExprCore.Var typ func) ::
                CMap other (CTypedTable reify_monoid_typ table_terms) :: nil)).
+
+  Reify Declare Syntax reify_monoid := reify_monoid'.
 
   (* Pattern rules for reifying types *)
   Reify Pattern patterns_monoid_typ += (@RExact _ nat)  => !tyNat.
@@ -161,7 +164,9 @@ Module Syntax (M : Monoid).
   Reify Pattern patterns_monoid += (@RExact _ M.R) => (known mR).
   Reify Pattern patterns_monoid += (RApp (@RExact _ (@eq)) (RGet 0 RIgnore)) =>
   (fun (t : function (CCall reify_monoid_typ)) => Inj (typ:=typ) (Eq t)).
-  Reify Pattern patterns_monoid += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) => (fun (t : function (CCall reify_monoid_typ)) (b : function (CCall reify_monoid)) => (App (known (All t)) (Abs t b))).
+  Reify Pattern patterns_monoid += (RPi (RGet 0 RIgnore) (RGet 1 RIgnore)) =>
+    (fun (t : function@{Set} (CCall@{Set} reify_monoid_typ)) (b : function (CCall reify_monoid)) =>
+       (App (known (All t)) (Abs (typ:=typ) t b))).
   Reify Pattern patterns_monoid += (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) => (fun (a b : function (CCall reify_monoid)) => App (App (known Impl) a) b).
 
   Global Instance Reify_typ : Reify typ :=

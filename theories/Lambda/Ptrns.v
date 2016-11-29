@@ -40,7 +40,7 @@ Section setoid.
   Definition appr@{T U z} {T U : Type@{T}} (f : ptrn@{Set T U z} (expr typ func) (U -> T))
     (g : ptrn@{Set T U z} (expr typ func) U) : ptrn@{Set T U z} (expr typ func) T :=
     fun (e : expr typ func)
-        (_T : Type@{T}) (good : T -> _T) (bad : expr typ func -> _T) =>
+        (_T : Type@{U}) (good : T -> _T) (bad : expr typ func -> _T) =>
       match e with
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
@@ -54,7 +54,7 @@ Section setoid.
   Definition appl@{T U z} {T U : Type@{T}}
         (f : ptrn@{Set T U z} (expr typ func) T)
         (g : ptrn@{Set T U z} (expr typ func) (T -> U)) : ptrn@{Set T U z} (expr typ func) U :=
-    fun e (_T : Type@{T}) good bad =>
+    fun e (_T : Type@{U}) good bad =>
       match e with
       | ExprCore.Var a => bad (ExprCore.Var a)
       | Inj a => bad (Inj a)
@@ -173,12 +173,11 @@ Section setoid.
     eapply H. exact (fun x => x).
   Qed.
 
-  Set Printing Universes.
-
-  Theorem Succeeds_inj : forall {T : Type} (p : ptrn func T) e (res : T),
-      ptrn_ok p ->
-      Succeeds e (inj p) res ->
-      exists f, e = Inj f /\ Succeeds f p res.
+  Theorem Succeeds_inj@{T u z}
+  : forall {T : Type@{T}} (p : ptrn@{Set T u z} func T) (e : expr typ func) (res : T),
+      ptrn_ok@{Set T u z} p ->
+      Succeeds@{Set T u z} e (inj@{T u z} p) res ->
+      exists f, e = Inj f /\ Succeeds@{Set T u z} f p res.
   Proof.
     clear. intros.
     destruct e;
@@ -186,10 +185,12 @@ Section setoid.
     eexists; split; eauto. red; intros.
     red in H0. simpl in H0.
     destruct (H f) as [ [ ? ? ] | ? ].
-    { red in H1. setoid_rewrite H1 in H0.
-      rewrite H1. eapply H0. eauto. }
-    { red in H1. setoid_rewrite H1 in H0.
-      specialize (H0 _ (fun _ => true) (fun _ => false)).
+    { specialize (H0 _ good (fun _ => good x)).
+      rewrite H1.
+      unfold Mrebuild in H0. red in H1. rewrite H1 in H0.
+      assumption. }
+    { specialize (H0 _ (fun _ => true) (fun _ => false)).
+      unfold Mrebuild in H0. red  in H1. rewrite H1 in H0.
       exfalso. clear - H0. discriminate H0. }
   Qed.
 
@@ -410,8 +411,8 @@ Section setoid.
   ; s_elim := Succeeds_abs pok_p pok_q
   }.
 
-  Global Instance inj_SucceedsE {T : Type} {e : expr typ func}
-         {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p}
+  Global Instance inj_SucceedsE@{T u z} {T : Type@{T}} {e : expr typ func}
+         {p : ptrn@{Set T u z} func T}  {res : T} {pok_p : ptrn_ok p}
   : SucceedsE e (inj p) res :=
   { s_result := exists f, e = Inj f /\ Succeeds f p res
   ; s_elim := Succeeds_inj pok_p
@@ -449,15 +450,16 @@ Section setoid.
       specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
   Qed.
 
-  Lemma Succeeds_appl
-    : forall (T U : Type)
-             (a : ptrn (expr typ func) (T -> U)) (b : ptrn (expr typ func) T)
+  Lemma Succeeds_appl@{T u z}
+    : forall (T U : Type@{T})
+             (a : ptrn@{Set T u z} (expr typ func) (T -> U))
+             (b : ptrn@{Set T u z} (expr typ func) T)
              (e : expr typ func) (res : U),
-      ptrn_ok a ->
-      ptrn_ok b ->
-      Succeeds e (appl b a) res ->
+      ptrn_ok@{Set T u z} a ->
+      ptrn_ok@{Set T u z} b ->
+      Succeeds@{Set T u z} e (appl@{T u z} b a) res ->
       exists resL resR, exists l r : expr typ func,
-          e = App l r /\ Succeeds r a resL /\ Succeeds l b resR /\
+          e = App l r /\ Succeeds@{Set T u z} r a resL /\ Succeeds@{Set T u z} l b resR /\
           res = resL resR.
   Proof using.
     unfold appl.
@@ -469,16 +471,19 @@ Section setoid.
     compute in H1.
     specialize (H0 e1).
     specialize (H e2).
+
     destruct H0.
-    { destruct H0. setoid_rewrite H0 in H1.
-      destruct H.
-      { destruct H. setoid_rewrite H in H1.
-        do 4 eexists. split; [ reflexivity | ]. split; eauto.
-        split; eauto. symmetry; eapply (H1 _ (fun x => x) (fun _ => res)). }
-      { setoid_rewrite H in H1.
-        specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. } }
-    { setoid_rewrite H0 in H1.
-      specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
+    { destruct H0. destruct H as [ [ ? ? ] | ? ].
+      { do 4 eexists; split; [ reflexivity | ].
+        split; eauto. split; eauto.
+        specialize (H1 _ (fun x => x) (fun _ => res)).
+        rewrite H0 in H1.
+        rewrite H in H1. symmetry; assumption. }
+      { exfalso. specialize (H1 _ (fun x => true) (fun _ => false)).
+        rewrite H0 in H1. rewrite H in H1. discriminate. } }
+    { exfalso; clear - H1 H0.
+      specialize (H1 _ (fun _ => true) (fun _ => false)).
+      rewrite H0 in H1. discriminate. }
   Qed.
 
   Global Instance SucceedsE_appl (T U : Type)

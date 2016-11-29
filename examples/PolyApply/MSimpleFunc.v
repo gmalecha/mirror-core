@@ -17,13 +17,13 @@ Require Import McExamples.PolyApply.MSimpleType.
 
 Import OneOfType.
 
-Definition func_map : 
+Definition func_map :
   OneOfType.pmap :=
   list_to_pmap
     (pcons (listOp_func typ)
-           (pcons (list_func typ) 
+           (pcons (list_func typ)
                   (pcons SymEnv.func
-                         (pcons (natFunc:Type)
+                         (pcons natFunc
                                 pnil)))).
 
 Definition func := OneOf func_map.
@@ -48,10 +48,10 @@ Section SimpleFunc.
   Global Instance RSym_func : RSym func.
   Proof.
     apply RSymOneOf.
-    repeat first [eapply RSym_All_Branch_None | 
+    repeat first [eapply RSym_All_Branch_None |
                   eapply RSym_All_Branch_Some |
                   eapply RSym_All_Empty].
-    
+
     apply RSym_ListOpFunc.
     apply RSym_ListFunc.
     apply RSym_NatFunc.
@@ -61,9 +61,9 @@ Section SimpleFunc.
   Global Instance RSymOk_func : RSymOk RSym_func.
   apply RSymOk_OneOf.
 
-  repeat first [eapply RSymOk_All_Branch_None | 
+  repeat first [eapply RSymOk_All_Branch_None |
                 eapply RSymOk_All_Branch_Some; [apply _ | |] |
-                eapply RSymOk_All_Empty]. 
+                eapply RSymOk_All_Empty].
   Defined.
 
   Global Instance Expr_expr : ExprI.Expr _ (expr typ func) := @Expr_expr typ func _ _ _.
@@ -114,7 +114,7 @@ Ltac reify trm :=
 
 Goal True.
   reify (In 5 (5::4::3::nil)).
-  
+
   apply I.
 Qed.
 (*

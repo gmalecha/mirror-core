@@ -24,7 +24,7 @@ Module RMonad (MM : Monad) (FF : Frob MM).
   Import MS.
 
   Definition otherFunc : BinNums.positive -> expr typ func :=
-  fun _ => Inj (N 0).
+    fun _ => Inj (N 0).
   Opaque otherFunc.
 
   (** Declare patterns (cannot be done inside section) **)
@@ -52,41 +52,42 @@ Module RMonad (MM : Monad) (FF : Frob MM).
   Reify Declare Patterns patterns_simplemon_typ_special : typ.
 
   Reify Declare Syntax reify_simplemon_typ :=
-    CFix
-      (CFirst
-         (CPattern (ls := _ :: _ :: nil) (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) (fun (a b : function (CRec 0)) => tyArr a b) ::
-         @CPatterns typ patterns_simplemon_typ ::
-         @CPatterns typ patterns_simplemon_typ_special ::
+    CFix@{Set}
+      (CFirst_@{Set}
+         (CPattern@{Set} (ls := _ :: _ :: nil) (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) (fun (a b : function (CRec 0)) => tyArr a b) ::
+         @CPatterns@{Set} typ patterns_simplemon_typ ::
+         @CPatterns@{Set} typ patterns_simplemon_typ_special ::
          nil)).
 
   (** Declare syntax **)
   Reify Declare Syntax reify_simplemon :=
-    CFix
-      (CFirst (CPatterns patterns_simplemon ::
-                         CApp (CRec 0) (CRec 0) (@ExprCore.App typ func) ::
-                         CAbs (CCall reify_simplemon_typ) (CRec 0) (@ExprCore.Abs typ func) ::
-                         CVar (@ExprCore.Var typ func) ::
+    CFix@{Set}
+      (CFirst_@{Set}
+              (CPatterns@{Set} patterns_simplemon ::
+               CApp@{Set Set Set} (CRec@{Set} 0) (CRec@{Set} 0) (@ExprCore.App typ func) ::
+               CAbs@{Set Set Set} (CCall@{Set} reify_simplemon_typ) (CRec@{Set} 0) (@ExprCore.Abs typ func) ::
+               CVar@{Set} (@ExprCore.Var typ func) ::
 
-                         CPattern (ls := _ :: nil) (!! (@eq) @ ?0)
-                         (fun (t : function (CCall reify_simplemon_typ)) => Inj (typ:=typ) (Eq t)) ::
+               CPattern@{Set} (ls := _ :: nil) (!! (@eq) @ ?0)
+                        (fun (t : function@{Set} (CCall@{Set} reify_simplemon_typ)) => Inj (typ:=typ) (Eq t)) ::
 
-                         CPattern (ls := _ :: _ :: nil) (RPi (?0) (?1))
-                         (fun (t : function (CCall reify_simplemon_typ)) (b : function (CRec 0)) =>
+               CPattern@{Set} (ls := _ :: _ :: nil) (RPi (?0) (?1))
+                        (fun (t : function@{Set} (CCall@{Set} reify_simplemon_typ)) (b : function@{Set} (CRec@{Set} 0)) =>
                             (App (Inj (All t)) (Abs (func:=func) t b))) ::
 
-                         CPattern (ls :=  _ :: nil) (!! (@ex) @ ?0)
-                         (fun (t : function (CCall reify_simplemon_typ)) => Inj (typ := typ) (Ex t)) ::
+               CPattern@{Set} (ls :=  _ :: nil) (!! (@ex) @ ?0)
+                        (fun (t : function@{Set} (CCall@{Set} reify_simplemon_typ)) => Inj (typ := typ) (Ex t)) ::
 
-                         (* First 2 parameters : M, Monad instance for M  *)
-                         CPattern (ls := _ :: nil) (!! (@ret) @ # @ # @ ?0)
-                         (fun t : function (CCall reify_simplemon_typ) => Inj (typ := typ) (Ret t)) ::
+               (* First 2 parameters : M, Monad instance for M  *)
+               CPattern@{Set} (ls := _ :: nil) (!! (@ret) @ # @ # @ ?0)
+                        (fun t : function@{Set} (CCall@{Set} reify_simplemon_typ) => Inj (typ := typ) (Ret t)) ::
 
-                         (* First 2 parameters : M, Monad instance for M  *)
-                         CPattern (ls := _ :: _ :: nil) (!! (@bind) @ # @ # @ ?0 @ ?1)
-                         (fun t u : function (CCall reify_simplemon_typ) => Inj (typ := typ) (Bind t u)) ::
-                         
-                         CMap otherFunc (CTypedTable (CCall reify_simplemon_typ) table_terms)
-                         :: nil)).
+                (* First 2 parameters : M, Monad instance for M  *)
+                CPattern@{Set} (ls := _ :: _ :: nil) (!! (@bind) @ # @ # @ ?0 @ ?1)
+                         (fun t u : function@{Set} (CCall@{Set} reify_simplemon_typ) => Inj (typ := typ) (Bind t u)) ::
+
+                CMap@{Set Set} otherFunc (CTypedTable@{Set Set} (CCall@{Set} reify_simplemon_typ) table_terms)
+                :: nil)).
 
   Instance Reify_expr_simple : Reify (expr typ func) :=
     { reify_scheme := CCall reify_simplemon }.
@@ -94,7 +95,7 @@ Module RMonad (MM : Monad) (FF : Frob MM).
   Instance Reify_simple_type : Reify typ :=
     { reify_scheme := CCall reify_simplemon_typ }.
 
- Reify Pattern patterns_simplemon_typ_special += (!! M @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x). 
+  Reify Pattern patterns_simplemon_typ_special += (!! M @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x).
 
 (*
 Definition reify_option_typ : Command (ctyp typ') :=
@@ -103,7 +104,7 @@ Definition reify_option_typ : Command (ctyp typ') :=
        ((CPattern (ls := _ :: nil) (!! option @ ?0) (fun x : function (CRec 0) => tyBase1 tyMonad x)) ::
         (CCall reify_simplemon_typ) ::
          nil)).
-*)                              
+*)
 
 Ltac reify_typ trm :=
   let k e :=
@@ -122,59 +123,59 @@ Ltac reify_simple trm k :=
   reify_expr (CCall reify_simplemon) k [[ True ]] [[ trm ]].
 
 Definition test_typ : typ.
-                          reify_typ (nat -> nat).
+  reify_typ (nat -> nat).
 Defined.
 Print test_typ.
 
 (* Order tables *)
 
 Definition test_montyp : typ.
-                           reify_typ (nat -> M nat).
+  reify_typ (nat -> M nat).
 Defined.
 Print test_montyp.
 
 Definition test_typ_2 : typ.
-                          reify_typ ((nat -> nat) -> nat -> (nat -> nat -> nat -> nat)).
+  reify_typ ((nat -> nat) -> nat -> (nat -> nat -> nat -> nat)).
 Defined.
 Print test_typ_2.
 
 Definition test_1 : expr typ func.
-                      reify (0 = 0).
+  reify (0 = 0).
 Defined.
 Print test_1.
 
 Definition test_2 : expr typ func.
-                      reify ((NPeano.Nat.ltb 0 1) = (NPeano.Nat.ltb 0 0)).
+  reify ((NPeano.Nat.ltb 0 1) = (NPeano.Nat.ltb 0 0)).
 Defined.
 Print test_2.
 
 Definition test_3 : expr typ func.
-                      reify ((fun x => x) 1).
+  reify ((fun x => x) 1).
 Defined.
 Print test_3.
 
 Definition test_4 : expr typ func.
-                      reify ((fun x => x) 1).
+  reify ((fun x => x) 1).
 Defined.
 Print test_4.
 
 Definition test_5 : expr typ func.
-                      reify ((fun x y => x) 1 3).
+  reify ((fun x y => x) 1 3).
 Defined.
 Print test_5.
 
 Definition test_6 : expr typ func.
-                      reify ((fun x : nat => x) = (fun y : nat => y)).
+  reify ((fun x : nat => x) = (fun y : nat => y)).
 Defined.
 Print test_6.
 
 Definition test_7 : expr typ func.
-                      reify (forall x : nat, 1 = 1 -> (x + 1) = 1).
+  reify (forall x : nat, 1 = 1 -> (x + 1) = 1).
 Defined.
 Print test_7.
 
 Definition test_8 : expr typ func.
-                      reify (frob 2).
+  reify (frob 2).
 Defined.
 Print test_8.
 
@@ -183,7 +184,7 @@ Print test_8.
 Definition id T (x : T) : T := x.
 
 Definition test_fail : expr typ func.
-                         reify (id nat 0).
+  reify (id nat 0).
 Defined.
 Print test_fail.
 
@@ -192,7 +193,7 @@ Definition foo : nat := 6.
 Reify Seed Typed Table table_terms += 1 => [[ MSimpleMonads.tyNat , foo ]].
 
 Definition test_table : expr typ func.
-                          reify (foo).
+  reify (foo).
 Defined.
 Print test_table.
 
