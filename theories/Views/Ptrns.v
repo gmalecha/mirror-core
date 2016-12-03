@@ -247,7 +247,7 @@ Polymorphic Definition Mbind@{X T T' U R L}
   Qed.
 
   Global Polymorphic Instance ptrn_ok_por@{U V R L}
-  : forall {X} {T} (p1 : ptrn@{U V R L} X T) (p2 : ptrn@{U V R L} X T),
+  : forall {X : Type@{U}} {T : Type@{V}} (p1 : ptrn@{U V R L} X T) (p2 : ptrn@{U V R L} X T),
       ptrn_ok p1 -> ptrn_ok p2 -> ptrn_ok (por p1 p2).
   Proof.
     clear.
@@ -264,29 +264,30 @@ Polymorphic Definition Mbind@{X T T' U R L}
   Qed.
 
   Global Polymorphic Instance ptrn_ok_pmap@{U V V' R L}
-  : forall {X} {T} {U} (p1 : ptrn@{U V R L} X T) (f : T -> U),
-      ptrn_ok p1 -> ptrn_ok (pmap@{U V V' R L} f p1).
+  : forall {X : Type@{U}} {T : Type@{V}} {U : Type@{V'}} (p1 : ptrn@{U V R L} X T) (f : T -> U),
+      ptrn_ok@{U V R L} p1 -> ptrn_ok (pmap@{U V V' R L} f p1).
   Proof.
     clear. unfold pmap.
     red; intros.
     destruct (H x).
     { destruct H0. unfold Succeeds, Fails in *.
-      setoid_rewrite H0. eauto. }
-    { unfold Succeeds, Fails in *.
-      setoid_rewrite H0; eauto. }
+      left. eexists. intros. rewrite H0. reflexivity. }
+    { unfold Fails in *.
+      right. intros. apply H0. }
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_get@{U R L} : forall X, ptrn_ok (@get@{U R L} X).
+  Global Polymorphic Instance ptrn_ok_get@{U R L} : forall X : Type@{U}, ptrn_ok (@get@{U R L} X).
   Proof.
     left. exists x. compute. reflexivity.
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_ignore@{U R L} : forall X, ptrn_ok (@ignore X).
+  Global Polymorphic Instance ptrn_ok_ignore@{U R L} : forall X : Type@{U}, ptrn_ok (@ignore X).
   Proof.
     left. exists tt. compute. reflexivity.
   Qed.
 
-  Global Polymorphic Instance ptrn_ok_pfail@{U V R L} : forall X Z, ptrn_ok (@pfail@{U V R L} X Z).
+  Global Polymorphic Instance ptrn_ok_pfail@{U V R L}
+  : forall (X : Type@{U}) (Z : Type@{V}), ptrn_ok (@pfail@{U V R L} X Z).
   Proof.
     right. compute. reflexivity.
   Qed.
@@ -508,8 +509,6 @@ Ltac ptrnE :=
     eapply (@s_elim _ _ e X r el) in H; do 2 red in H ; break_conj H
   end.
 
-
-(*
 Lemma Mrebuild_Succeeds : forall {X Y} (p' : ptrn X Y) {T} p f v x,
     (forall T0 (good : T -> T0) (bad : X -> T0),
         Mrebuild (X:=Y) f (p x) good bad = good v) ->
@@ -548,10 +547,8 @@ Proof.
     specialize (H0 bool (fun _ => true) (fun _ => false)). inversion H0.
 Qed.
 
-(** TODO(gmalecha): ExtLib? **)
 Lemma unit_irr : forall a b : unit, a = b.
 Proof. destruct a; destruct b; reflexivity. Qed.
-
 
 Ltac solve_Succeeds :=
   match goal with
@@ -575,4 +572,3 @@ Ltac solve_Succeeds :=
     try solve [ intro H ; specialize (H bool (fun _ => true) (fun _ => false)); inversion H
               | split; auto using unit_irr ]
   end.
-*)
