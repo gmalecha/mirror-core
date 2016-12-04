@@ -268,8 +268,6 @@ Section reducer.
       rewrite app_length in H0. omega. }
   Qed.
 
-  Set Printing Universes.
-
   Local Lemma get_var_ok
   : forall tus tvs tus'  tvs' var_terms P,
       @var_termsP tus tvs tus' tvs' var_terms P ->

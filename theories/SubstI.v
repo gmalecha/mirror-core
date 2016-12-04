@@ -233,7 +233,6 @@ Section subst.
       assumption. }
     { apply (@lookup_normalized _ _ _ _ _ H0 H _ _ H). }
   Qed.
-  Set Printing Universes.
 
 (*
   Lemma getInstantiation_syntactic_multi

@@ -132,8 +132,6 @@ Section typed.
       end
     end.
 
-
-
   Definition typ2_cast_bin (a b c : typ)
   : (typD a -> typD b -> typD c) -> typD (tyArr a (tyArr b c)) :=
     fun f =>

@@ -15,6 +15,7 @@ Require Import McExamples.Hoare.Imp.
 Require Import McExamples.Hoare.ILogicFunc.
 
 Set Universe Polymorphism.
+Set Printing Universes.
 
 Section parametric.
   Context {typ func : Set}.
@@ -46,8 +47,6 @@ Section parametric.
          (pmap (fun v tx => let '(t,x) := tx in f t x v) r).
 
   Instance ptrn_ok_bin_op : ltac:(PtrnOk @bin_op) := _.
-
-Set Printing Universes.
 
   Definition ptrn_entails@{A X P} {T U V : Type@{A}}
              (t : ptrn@{Set A X P} typ V)

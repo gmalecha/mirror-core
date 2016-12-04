@@ -241,7 +241,7 @@ Section MakeListOp.
     try (right; unfold Fails; reflexivity).
     destruct (Hok t).
     { left. destruct H; exists x. revert H. compute; intros.
-      rewrite H. reflexivity. }repeat rewrite Rcast_val_eq_refl by eauto.
+      rewrite H. reflexivity. }
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 

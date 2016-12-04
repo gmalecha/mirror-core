@@ -27,8 +27,6 @@ Set Printing Universes.
 
 Set Suggest Proof Using.
 
-Axiom todo : forall T, T.
-
 (** TODO(gmalecha): Move to EnvI or ExtLib.Data.HList **)
 Polymorphic Lemma nth_error_get_hlist_nth_appR'
 : forall {T : Type} (F : T -> Type) ls u v,
