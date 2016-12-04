@@ -49,8 +49,8 @@ Module ImpVerify (I : ImpLang).
   Local Existing Instance RTypeOk_typ.
   Local Existing Instance Typ2_Fun.
   Local Existing Instance Typ2Ok_Fun.
-  Local Existing Instance ModularTypes.Typ0_Prop.
-  Local Existing Instance ModularTypes.Typ0Ok_Prop.
+  Local Existing Instance CoreTypes.Typ0_Prop.
+  Local Existing Instance CoreTypes.Typ0Ok_Prop.
 
   Section with_fs.
     Variable fs' : SymEnv.functions typ _.
@@ -222,7 +222,6 @@ Module ImpVerify (I : ImpLang).
       eapply (RtacSound_INTRO_hyp lops eops).
       Unshelve.
       eauto with typeclass_instances.
-      reflexivity.
     Qed.
 
     Instance RL_embeD_ltrue : ReifiedLemma embed_ltrue_lemma.
@@ -405,13 +404,13 @@ Module ImpVerify (I : ImpLang).
 
     Require MirrorCore.Views.Ptrns.
 
-    Definition nat_red : RedAll.partial_reducer typ func :=
+    Definition nat_red@{} : RedAll.partial_reducer typ func :=
       let p : Ptrns.ptrn (expr typ func) (expr typ func) :=
           Views.Ptrns.pmap (fun ab : nat * nat =>
                               let (a,b) := ab in
                               mkImp (pNat (a + b)))
             (Ptrns.app (Ptrns.appl (Ptrns.inj (ptrn_view _ ptrn_plus))
-                                   (Views.Ptrns.pmap (fun x _ => x) (Ptrns.inj (ptrn_view _ ptrn_nat)))) (Ptrns.inj (ptrn_view _ ptrn_nat)))
+                                   (Views.Ptrns.pmap (fun (x : nat) (_ : unit) => x) (Ptrns.inj (ptrn_view _ ptrn_nat)))) (Ptrns.inj (ptrn_view _ ptrn_nat)))
       in fun f xs =>
            let e := AppN.apps f xs in
            Ptrns.run_ptrn p e e.
@@ -435,24 +434,23 @@ Module ImpVerify (I : ImpLang).
     eapply TypeView_FuncView; eauto 1 with typeclass_instances
                                            : typeclass_instances.
 
-
-    Theorem nat_red_sound : RedAll.partial_reducer_ok nat_red.
+    Theorem nat_red_sound@{} : RedAll.partial_reducer_ok nat_red.
     Proof.
       red. intros. simpl.
       unfold nat_red.
       revert H.
       eapply Ptrns.run_ptrn_sound.
-      { eauto 100 with typeclass_instances. }
+      { refine _. }
       { red. red. red. intros; subst. reflexivity. }
       { intros.
         Ptrns.ptrn_elim. subst. subst.
         generalize dependent (AppN.apps e es); intros; subst.
         destruct x; simpl in *.
-        assert (t = ModularTypes.tyBase0 tyValue).
+        assert (t = CoreTypes.tyBase0 tyValue).
         { autorewrite with exprD_rw in H0.
           cbn in H0.
-          destruct (ModularTypes.mtyp_cast tsym _ t
-                     (ModularTypes.tyBase0 tyValue)). auto. inversion H0. }
+          destruct (CoreTypes.ctyp_cast tsym _ t
+                     (CoreTypes.tyBase0 tyValue)). auto. inversion H0. }
         subst. cbn in H0.
         inv_all. subst.
         cbn. eexists; split; eauto. }
@@ -462,8 +460,6 @@ Module ImpVerify (I : ImpLang).
 
     Lemma refl_eq_nat : forall a : nat, a = a.
     Proof. reflexivity. Qed.
-
-
 
     Definition eq_nat_refl_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
     := <:: refl_eq_nat ::>.
@@ -598,20 +594,20 @@ Module ImpVerify (I : ImpLang).
           let resultV := eval vm_compute in result in
           lazymatch resultV with
           | Solved _ =>
-            change (@propD _ _ _ (@ModularTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g) ;
+            change (@propD _ _ _ (@CoreTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g) ;
               cut(result = resultV) ;
               [ exact (@rtac_Solved_closed_soundness _ _ _ _ _ _ (tac_sound tbl) nil nil g)
               | vm_cast_no_check (@eq_refl _ resultV) ]
           | More_ _ ?g' =>
             pose (g'V := g') ;
-            let post := constr:(match @goalD _ _ _ (@ModularTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g'V with
+            let post := constr:(match @goalD _ _ _ (@CoreTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g'V with
                                 | Some G => G HList.Hnil HList.Hnil
                                 | None => True
                                 end) in
             let post := reduce_propD tbl g'V post in
             let G := post in
             cut G ;
-              [ change (@closedD _ _ _ (@ModularTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g g'V) ;
+              [ change (@closedD _ _ _ (@CoreTypes.Typ0_Prop _ _) (Expr_expr tbl) nil nil g g'V) ;
                 cut (result = More_ (@TopSubst _ _ _ _) g'V) ;
                 [ exact (@rtac_More_closed_soundness _ _ _ _ _ _ (tac_sound tbl) nil nil g g'V)
                 | vm_cast_no_check (@eq_refl _ resultV) ]
@@ -753,7 +749,7 @@ Definition PHASE3_tauto : imp_tac :=
   (*
 Fixpoint parse_ands (e : expr typ func) : list (expr typ func) :=
   match e with
-    | App (App (Inj (inr (ILogicFunc.ilf_and (ModularTypestyBase0 tyProp)))) P) Q =>
+    | App (App (Inj (inr (ILogicFunc.ilf_and (CoreTypestyBase0 tyProp)))) P) Q =>
       parse_ands P ++ parse_ands Q
     | _ => e :: nil
   end.

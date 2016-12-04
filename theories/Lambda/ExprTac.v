@@ -1,6 +1,7 @@
 Require Import Coq.Logic.FunctionalExtensionality.
 Require Import ExtLib.Data.HList.
 Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
@@ -12,8 +13,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section some_lemmas.
-  Variable typ : Type.
-  Variable sym : Type.
+  Variable typ : Set.
+  Variable sym : Set.
   Variable RType_typ : RType typ.
   Variable RTypeOk : RTypeOk.
   Variable Typ2_arr : Typ2 _ RFun.
@@ -120,7 +121,7 @@ Section some_lemmas.
 
   Global Instance Injective_lambda_exprD_Inj tus tvs (f : sym) (t : typ) (v : exprT tus tvs (typD t)):
     Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v) := {
-      result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
+      result := exists v', symAs f t = Some v' /\ v = exprT_Inj _ _ v';
       injection := fun H => _
     }.
   Proof.
@@ -175,6 +176,45 @@ Section some_lemmas.
     rewrite H. reflexivity.
   Qed.
 
+  Lemma lambda_exprD_App
+    : forall tus tvs td tr f x fD xD,
+      lambda_exprD tus tvs (typ2 (F:=RFun) td tr) f = Some fD ->
+      lambda_exprD tus tvs td x = Some xD ->
+      lambda_exprD tus tvs tr (App f x) = Some (AbsAppI.exprT_App fD xD).
+  Proof using Typ2Ok_arr RSymOk_sym RTypeOk.
+    intros.
+    autorewrite with exprD_rw; simpl.
+    erewrite lambda_exprD_typeof_Some by eauto.
+    rewrite H. rewrite H0. reflexivity.
+  Qed.
+
+  Lemma lambda_exprD_Abs_prem
+    : forall tus tvs t t' x xD,
+      ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Abs t' x) = Some xD ->
+      exists t'' (pf : typ2 t' t'' = t) bD,
+        ExprDsimul.ExprDenote.lambda_exprD tus (t' :: tvs) t'' x = Some bD /\
+        xD = match pf with
+             | eq_refl => AbsAppI.exprT_Abs bD
+             end.
+  Proof using Typ2Ok_arr RSymOk_sym RTypeOk.
+    intros.
+    autorewrite with exprD_rw in H.
+    destruct (typ2_match_case t); forward_reason.
+    { rewrite H0 in H; clear H0.
+      red in x2; subst. simpl in *.
+      autorewrite_with_eq_rw_in H.
+      destruct (type_cast x0 t'); subst; try congruence.
+      red in r; subst.
+      forward. inv_all; subst.
+      eexists; exists eq_refl.
+      eexists; split; eauto. inversion H.
+      unfold AbsAppI.exprT_Abs.
+      autorewrite_with_eq_rw.
+      reflexivity. }
+    { rewrite H0 in H. congruence. }
+  Qed.
+
+
 End some_lemmas.
 
 Hint Rewrite lambda_exprD_App_both_cases using eassumption : exprD_rw.
@@ -209,12 +249,12 @@ Ltac arrow_case t :=
 
 Ltac arrow_case_any :=
   match goal with
-    | H : appcontext [ @typ2_match _ _ _ _ _ ?X ] |- _ =>
+    | H : context [ @typ2_match _ _ _ _ _ ?X ] |- _ =>
       arrow_case X
   end.
 
 Section lemmas.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
   Variable RTypeOk : RTypeOk.
 
@@ -245,3 +285,168 @@ Section lemmas.
     rewrite type_cast_refl in H; eauto.
   Qed.
 End lemmas.
+
+(** TODO: This needs to move *)
+Section thing.
+  Variable typ : Set.
+  Variable RType_typ : RType typ.
+  Variable RTypeOk_typ : RTypeOk.
+  Variable F : Type@{Urefl} -> Type@{Urefl} -> Type@{Urefl}.
+  Variable Typ2_F : Typ2 _ F.
+  Variable Typ2Ok_F : Typ2Ok Typ2_F.
+
+
+  Definition typ2_Rty (a b c d : typ) (pf : Rty a b) (pf' : Rty c d)
+  : Rty (typ2 a c) (typ2 b d) :=
+    match pf , pf' with
+    | eq_refl , eq_refl => eq_refl
+    end.
+
+  Lemma decompose_Rty_typ2 : forall {a b c d : typ} (pf : Rty (typ2  a b) (typ2 c d)),
+      exists pf' pf'', pf = typ2_Rty pf' pf''.
+  Proof.
+    intros. generalize pf.
+    intros. inv_all.
+    subst. exists eq_refl. exists eq_refl. simpl.
+    apply UIP_refl.
+  Defined.
+
+  Lemma symAs_D :
+    forall (Typ2_Fun : Typ2 RType_typ RFun)
+      (func : Set) (RSym_func : RSym func),
+      forall (f : func) (t : typ) (v : typD t),
+        symAs f t = Some v ->
+        match typeof_sym f as X return match X with
+                                       | None => unit
+                                       | Some t => typD t
+                                       end -> Prop with
+        | None => fun _ => False
+        | Some t' => fun d =>
+                      exists pf : Rty t' t,
+                        Rcast_val pf d = v
+        end (symD f).
+  Proof.
+    clear. intros.
+    unfold symAs in H.
+    generalize dependent (symD f).
+    destruct (typeof_sym f).
+    { intros. destruct (type_cast t t0).
+      { exists (Rsym r). inv_all. unfold Rcast_val, Rcast, Relim in *.
+        unfold Rsym. rewrite eq_sym_involutive. assumption. }
+      { exfalso. clear - H. discriminate H. } }
+    { clear. intros. discriminate H. }
+  Defined.
+
+  Lemma Rcast_val_eq_refl : forall a pf x, @Rcast_val _ _ a a pf x = x.
+  Proof.
+    intros. rewrite (UIP_refl pf). reflexivity.
+  Defined.
+
+
+
+End thing.
+
+
+Ltac lambda_exprD_fwd :=
+  repeat match goal with
+         | H : symAs _ _ = Some _ |- _ =>
+           (eapply symAs_D in H; eauto); [] ; simpl in H; destruct H
+         | pf : Rty _ _ |- _ =>
+           destruct (decompose_Rty_typ2 _ _ pf) as [ ? [ ? ? ] ] ; subst pf
+         | pf : lambda_exprD _ _ _ (Abs _ _) = Some _ |- _ =>
+           apply lambda_exprD_Abs_prem in pf ; eauto ; [ ] ; destruct pf as [ ? [ ? [ ? [ ? ? ] ] ] ]
+         | pf : Rty _ ?X |- _ => is_var X ; destruct pf
+         | pf : Rty ?X _ |- _ => is_var X ; red in pf ; subst X
+         | |- _ => progress inv_all ; subst
+         end.
+
+Require Import MirrorCore.ExprI.
+Section exprT.
+  Context {typ : Set}.
+  Context {RType_typ : RType typ}.
+  (** TODO(gmalecha): These should go somewhere else since they are generic
+   ** to exprT.
+   **)
+  Lemma exprT_Inj_castR
+  : forall (tus tvs : tenv typ) (T : Type@{Urefl}) (Ty0 : Typ0 _ T) (v : T),
+    @exprT_Inj _ _ _ _ (typD _) (castR (@id Type@{Urefl}) T v) = castR (exprT tus tvs) _ (exprT_Inj _ _ v).
+  Proof.
+    clear. unfold exprT_Inj, castR. intros.
+    generalize dependent (typ0_cast (F:=T)).
+    intro e. generalize dependent (typD (typ0 (F:=T))).
+    intros; subst. reflexivity.
+  Defined.
+
+  Theorem exprT_App_castRl
+    : forall (tus tvs : tenv typ) (T U : Type@{Urefl})
+        (Ty2 : Typ2 _ RFun) (Ty0T : Typ0 _ T) (Ty0U : Typ0 _ U)
+        e1 e2,
+      AbsAppI.exprT_App (castR (exprT tus tvs) (RFun T U) e1) e2 =
+      castR (exprT tus tvs) U (Applicative.ap e1 (castD (exprT tus tvs) T e2)).
+  Proof.
+    unfold AbsAppI.exprT_App, castR, castD. simpl; intros.
+    generalize dependent (typ0_cast (F:=U)).
+    generalize dependent (typ0_cast (F:=T)).
+    generalize dependent (typ2_cast (typ0 (F:=T)) (typ0 (F:=U))).
+    clear.
+    intros.
+    generalize dependent (typD (typ0 (F:=T))).
+    generalize dependent (typD (typ0 (F:=U))).
+    intros; subst. simpl.
+    generalize dependent (typD (typ2 (typ0 (F:=T)) (typ0 (F:=U)))).
+    intros; subst. reflexivity.
+  Defined.
+End exprT.
+
+Ltac simpl_exprT :=
+  repeat match goal with
+         | |- context [ (fun a b => ?F a b) ] =>
+           change (fun a b => F a b) with F
+         | |- _ => rewrite castDR
+         | |- _ => rewrite castRD
+         | |- context [ exprT_Inj ?tus ?tvs (@castR _ _ _ _ ?T ?v) ] =>
+           let H := fresh in
+           pose proof (@exprT_Inj_castR _ _ tus tvs _ T v) as H ; change_rewrite H ; clear H
+         | |- context [ @AbsAppI.exprT_App _ _ _ ?tus ?tvs ?d ?c (@castR _ _ _ ?T _ ?f) ?x] =>
+           let H := fresh in
+           pose proof (@exprT_App_castRl _ _ tus tvs _ _ _ _ _ f x) as H ; change_rewrite H ; clear H
+         end.
+
+
+
+(* TODO(gmalecha): Remove this. It appears to be duplicated.
+Section ExprDInject.
+  Context {typ func : Set}.
+  Context {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
+  Context {RSym_func : RSym func} {RSymOk_func : RSymOk RSym_func}.
+  Context {Typ2_tyArr : Typ2 _ RFun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
+
+  Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
+
+  Global Instance Injective_lambda_exprD_App tus tvs (e1 e2 : expr typ func) (t : typ)
+         (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v) := {
+      result := exists u v1 v2, ExprDsimul.ExprDenote.lambda_exprD tus tvs (tyArr u t) e1 = Some v1 /\
+                                ExprDsimul.ExprDenote.lambda_exprD tus tvs u e2 = Some v2 /\
+                                v = AbsAppI.exprT_App v1 v2;
+      injection := fun H => _
+    }.
+  Proof.
+    autorewrite with exprD_rw in H.
+    simpl in H. forward; inv_all; subst.
+    do 3 eexists; repeat split; eassumption.
+  Defined.
+
+  Global Instance Injective_lambda_exprD_Inj tus tvs (f : func) (t : typ) (v : exprT tus tvs (typD t)):
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v) := {
+      result := exists v', symAs f t = Some v' /\ v = exprT_Inj _ _ v' ;
+      injection := fun H => _
+    }.
+  Proof.
+    autorewrite with exprD_rw in H.
+    simpl in H. forward; inv_all; subst.
+    eexists; repeat split.
+  Defined.
+
+End ExprDInject.
+*)

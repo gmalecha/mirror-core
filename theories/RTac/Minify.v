@@ -20,8 +20,8 @@ Instance Reflexive_ge : Reflexive ge.
 Proof. constructor. Qed.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
@@ -333,7 +333,7 @@ Section parameterized.
     Qed.
 
     Lemma nth_error_get_hlist_nth_conv
-    : forall (iT : Type) (F : iT -> Type) (ls ls' : list iT) n (pf : ls' = ls),
+    : forall (iT : Set) (F : iT -> Type) (ls ls' : list iT) n (pf : ls' = ls),
         nth_error_get_hlist_nth F ls n =
         match pf in _ = ls'
               return option { t : _ & hlist F ls' -> F t }
@@ -1645,12 +1645,14 @@ Section parameterized.
         intros.
         autorewrite_with_eq_rw.
         generalize (H7 _us _vs (hlist_app vs (Hcons x0 Hnil)) us us'); clear H7. intros.
+        unfold tenv.
         rewrite <- hlist_app_assoc'.
         eapply H7; eauto.
         { autorewrite_with_eq_rw.
           rewrite <- hlist_app_assoc.
           eapply H6. eassumption. }
         { autorewrite_with_eq_rw.
+          unfold tenv.
           rewrite <- hlist_app_assoc.
           eapply H11 in H10; first [ eassumption | reflexivity ]. } }
 
@@ -1851,6 +1853,7 @@ Section parameterized.
                   specialize (H7 (hlist_app h1 h0) h).
                   revert H9.
                   autorewrite_with_eq_rw.
+                  unfold tenv.
                   rewrite <- hlist_app_assoc'.
                   subst. rewrite <- hlist_app_assoc.
                   repeat rewrite hlist_split_hlist_app in H8. simpl in H8.
@@ -2062,6 +2065,7 @@ Section parameterized.
           destruct H14; split; auto.
           eapply Hres; eauto.
           autorewrite_with_eq_rw.
+          unfold tenv.
           rewrite <- hlist_app_assoc.
           tauto. } }
 
@@ -2198,7 +2202,7 @@ Section parameterized.
       eapply Pure_pctxD; eauto. clear - H9.
       intros. specialize (H9 us vs Hnil Hnil _ eq_refl H).
       revert H0. autorewrite_with_eq_rw.
-      repeat rewrite <- hlist_app_nil_r. eapply H9. }
+      unfold tenv. repeat rewrite <- hlist_app_nil_r. eapply H9. }
     { f_equal. rewrite app_nil_r_trans. reflexivity. }
   Qed.
 

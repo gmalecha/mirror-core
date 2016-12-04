@@ -23,21 +23,53 @@ Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.MSimpleTyp.
 
 Require Import Coq.Bool.Bool.
-
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
 Inductive ilfunc : Type :=
-  | ilf_entails (logic : typ)
-  | ilf_true (logic : typ)
-  | ilf_false (logic : typ)
-  | ilf_and (logic : typ)
-  | ilf_or (logic : typ)
-  | ilf_impl (logic : typ)
-  | ilf_exists (arg logic : typ)
-  | ilf_forall (arg logic : typ).
+| ilf_entails (logic : typ)
+| ilf_true (logic : typ)
+| ilf_false (logic : typ)
+| ilf_and (logic : typ)
+| ilf_or (logic : typ)
+| ilf_impl (logic : typ)
+| ilf_exists (arg logic : typ)
+| ilf_forall (arg logic : typ).
+
+(* like ctype_unify, takes a number of variabes to find *)
+Definition ilfunc_unify (n : nat) (a b : ilfunc) (s : FMapPositive.pmap typ)
+  : option (FMapPositive.pmap typ) :=
+  match n with
+  | 0 => None
+  | S _ =>
+    match a , b with
+    | ilf_entails t , ilf_entails t'
+    | ilf_true t , ilf_true t'
+    | ilf_false t , ilf_false t'
+    | ilf_and t , ilf_and t'
+    | ilf_or t , ilf_or t'
+    | ilf_impl t , ilf_impl t' =>
+      match ctype_unify _ n t t' s with
+      | Some (s', _) => Some s'
+      | _ => None
+      end
+    | ilf_exists t l , ilf_exists t' l'
+    | ilf_forall t l , ilf_forall t' l' =>
+      match ctype_unify _ n t t' s with
+      | Some (s', S k) =>
+        match ctype_unify _ (S k) l l' s' with
+        | Some (s'', _) => Some s''
+        | _ => None
+        end
+      | Some (s', 0) => Some s'
+      | None => None
+      end
+    | _ , _ => None
+    end
+  end.
 
 Definition ilfunc_logic (x : ilfunc) : typ :=
   match x with
@@ -52,12 +84,12 @@ Definition ilfunc_logic (x : ilfunc) : typ :=
   end.
 
 Section ILogicFuncInst.
-  
+
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
 
   Definition logic_ops := forall (t : typ),
     poption (ILogicOps (typD t)).
-    
+
   Definition logic_opsOk (l : logic_ops) : Prop :=
     forall g, match l g return Prop with
                 | pSome T => @ILogic _ T
@@ -89,7 +121,7 @@ Section ILogicFuncInst.
 			| pNone => None
 			end
     end.
-  
+
   Global Instance RelDec_ilfunc : RelDec (@eq ilfunc) :=
     { rel_dec := fun a b =>
 	           match a, b with
@@ -127,13 +159,13 @@ Section ILogicFuncInst.
    castR id (RFun (RFun (typD u) (typD t)) (typD t)) (@lexists (typD t) IL (typD u)).
  Definition forallR {t u : typ} {IL : ILogicOps (typD t)} :=
    castR id (RFun (RFun (typD u) (typD t)) (typD t)) (@lforall (typD t) IL (typD u)).
- 
+
  Implicit Arguments trueR [[t] [IL]].
  Implicit Arguments falseR [[t] [IL]].
- Implicit Arguments andR [[t] [IL]]. 
+ Implicit Arguments andR [[t] [IL]].
  Implicit Arguments orR [[t] [IL]].
  Implicit Arguments implR [[t] [IL]].
- 
+
  Definition funcD (f : ilfunc) : match typeof_ilfunc f return Type with
 				     | Some t => typD t
 				     | None => unit
@@ -237,7 +269,7 @@ Section ILogicFuncInst.
      | pNone => tt
      end
    end.
- 
+
 End ILogicFuncInst.
 
 
@@ -267,47 +299,51 @@ End MakeILogic.
 Require Import MirrorCore.VariablesI.
 Require Import MirrorCore.Lambda.ExprVariables.
 Require Import MirrorCore.Subst.FMapSubst.
-
+(*
 Definition gs : logic_ops :=
-  fun t => 
+  fun t =>
     match t with
-    | ModularTypes.tyProp => pSome _
+    | CoreTypes.tyProp => pSome _
     | _ => pNone
     end.
+*)
+Section ILFunc_insts.
+  Variable gs : logic_ops.
+  Global Instance RSym_ilfunc : SymI.RSym ilfunc :=
+    { typeof_sym := typeof_ilfunc gs
+      ; sym_eqb := fun a b => Some (rel_dec a b)
+      ; symD := funcD gs
+    }.
 
-Global Instance RSym_ilfunc : SymI.RSym ilfunc :=
-  { typeof_sym := typeof_ilfunc gs
-    ; sym_eqb := fun a b => Some (rel_dec a b)
-    ; symD := funcD gs
-  }.
-
-Global Instance RSymOk_ilfunc : SymI.RSymOk RSym_ilfunc.
-Proof.
-  constructor.
-  intros. unfold sym_eqb; simpl.
-  consider (a ?[ eq ] b); auto.
-Qed.
+  Global Instance RSymOk_ilfunc : SymI.RSymOk RSym_ilfunc.
+  Proof.
+    constructor.
+    intros. unfold sym_eqb; simpl.
+    consider (a ?[ eq ] b); auto.
+  Qed.
 
 
-Global Instance Expr_expr : ExprI.Expr _ (expr typ ilfunc) := @Expr_expr typ ilfunc _ _ _.
+  Global Instance Expr_expr : ExprI.Expr _ (expr typ ilfunc) := @Expr_expr typ ilfunc _ _ _.
 
-Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr := 
-  @ExprOk_expr typ ilfunc _ _ _ _ _ _.
+  Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr :=
+    @ExprOk_expr typ ilfunc _ _ _ _ _ _.
+  
+  Global Instance ExprVar_expr : ExprVar (expr typ ilfunc) := _.
+  
+  Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr := _.
+  
+  Global Instance ExprUVar_expr : ExprUVar (expr typ ilfunc) := _.
+  Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr := _.
+  
+  Definition subst : Type :=
+    FMapSubst.SUBST.raw (expr typ ilfunc).
+  Global Instance SS : SubstI.Subst subst (expr typ ilfunc) :=
+    @FMapSubst.SUBST.Subst_subst _.
+  Global Instance SU : SubstI.SubstUpdate subst (expr typ ilfunc) :=
+    @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
+  Check SubstI.SubstOk.
+  Global Instance SO : @SubstI.SubstOk _ _ _ _ _ SS :=
+    @FMapSubst.SUBST.SubstOk_subst typ RType_typ (expr typ ilfunc) _.
+  Global Instance SUO : @SubstI.SubstUpdateOk _ _ _ _ _ _ SU SO :=  @FMapSubst.SUBST.SubstUpdateOk_subst typ RType_typ (expr typ ilfunc) _ _.
 
-Global Instance ExprVar_expr : ExprVar (expr typ ilfunc) := _.
-
-Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr := _.
-
-Global Instance ExprUVar_expr : ExprUVar (expr typ ilfunc) := _.
-Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr := _.
-
-Definition subst : Type :=
-  FMapSubst.SUBST.raw (expr typ ilfunc).
-Global Instance SS : SubstI.Subst subst (expr typ ilfunc) :=
-  @FMapSubst.SUBST.Subst_subst _.
-Global Instance SU : SubstI.SubstUpdate subst (expr typ ilfunc) :=
-  @FMapSubst.SUBST.SubstUpdate_subst _ _ _ _.
-Check SubstI.SubstOk.
-Global Instance SO : @SubstI.SubstOk _ _ _ _ _ SS :=
-  @FMapSubst.SUBST.SubstOk_subst typ RType_typ (expr typ ilfunc) _.
-Global Instance SUO : @SubstI.SubstUpdateOk _ _ _ _ _ _ SU SO :=  @FMapSubst.SUBST.SubstUpdateOk_subst typ RType_typ (expr typ ilfunc) _ _.
+End ILFunc_insts.

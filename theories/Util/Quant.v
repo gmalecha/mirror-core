@@ -2,8 +2,8 @@ Require Import ExtLib.Data.Prop.
 Require Import MirrorCore.OpenT.
 
 Section quants.
-  Context {typ : Type}.
-  Variable typD : typ -> Type.
+  Context {typ : Set}.
+  Variable typD : typ -> Type@{Urefl}.
 
   Fixpoint _foralls (ls : list typ)
   : (OpenT typD ls Prop) -> Prop :=

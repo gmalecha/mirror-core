@@ -11,8 +11,8 @@ Set Strict Implicit.
 Set Suggest Proof Using.
 
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
@@ -37,7 +37,7 @@ Section setoid.
   (* TODO(gmalecha): Wrap all of this up in a type class?
    * Why should it be different than Expr?
    *)
-  Variable Rbase : Type.
+  Variable Rbase : Set.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 

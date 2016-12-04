@@ -1,6 +1,6 @@
-(* DemoPolyQuantPullRtac.v
- * Contains some supporting infrastructure/automation for MSimple
- * Similar to DemoPolyQuantPullRtac; generic things need to be factored out
+(* DemoMSimpleMonads.v
+ * Contains some supporting infrastructure/automation for MSimpleMonads
+ * generic things need to be factored out
  *)
 
 Require Import ExtLib.Core.RelDec.
@@ -17,73 +17,86 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
+<<<<<<< HEAD:examples/PolyRewrite/DemoMSimpleMonads.v
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master:examples/PolyRewrite/Monads/RtacDemo.v
 Require Import MirrorCore.Polymorphic.
-Require Import McExamples.PolyRewrite.MSimpleMonads.
-Require Import McExamples.PolyRewrite.MSimpleMonadsReify.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonads.
+Require Import McExamples.PolyRewrite.Monads.MSimpleMonadsReify.
 
 (* for examples *)
-Require Import McExamples.PolyRewrite.Monads.
+Require Import McExamples.PolyRewrite.Monads.Monad.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 (* Convenient abbreviation for modular type *)
-Let tyBNat := ModularTypes.tyBase0 tyNat.
+Let tyBNat := CoreTypes.tyBase0 tyNat.
 
-Definition fAnd a b : expr typ func := App (App (Inj MSimpleMonads.And) a) b.
-Definition fOr a b : expr typ func := App (App (Inj MSimpleMonads.And) a) b.
-Definition fAll t P : expr typ func := App (Inj (MSimpleMonads.All t)) (Abs t P).
-Definition fEx t P : expr typ func := App (Inj (MSimpleMonads.Ex t)) (Abs t P).
-Definition fEq t : expr typ func := (Inj (MSimpleMonads.Eq t)).
-Definition fImpl : expr typ func := (Inj MSimpleMonads.Impl).
-Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
-Definition fN n : expr typ func := Inj (MSimpleMonads.N n).
-
-Lemma OptionOk : MonadLaws option OptionMonad.Monad_option.
+Lemma lambda_exprD_AbsX:
+  forall (typ func : Set) (RType_typD : RType typ) (RTOk : RTypeOk) (Typ2_Fun : Typ2 RType_typD RFun)
+    (Typ2Ok_Fun : Typ2Ok Typ2_Fun)
+    (RSym_func : RSym func) (tus : tenv typ) (e : expr typ func) (tvs : tenv typ) 
+    (t' t : typ),
+  lambda_exprD tus tvs (typ2 t' t) (Abs t' e) =
+  match lambda_exprD tus (t' :: tvs) t e with
+  | Some val =>
+    Some (AbsAppI.exprT_Abs val)
+  | None => None
+  end.
 Proof.
-  constructor; simpl; [reflexivity| intros m m'; destruct m'; reflexivity |].
   intros.
-  destruct m; [|reflexivity].
-  destruct (f a); reflexivity.
-Qed.
+  rewrite lambda_exprD_Abs'.
+  rewrite typ2_match_iota; eauto.
+  rewrite type_cast_refl; eauto.
+  unfold AbsAppI.exprT_Abs.
+  destruct (eq_sym (typ2_cast t' t)).
+  reflexivity.
+Defined.
 
-Let Rbase := expr typ func.
+Module DemoRtacMonad (M : Monad) (F : Frob M).
+  Import M.
+  Import F.
 
-Definition law1 := lem1 option _ OptionOk.
-Definition law2 := lem2 option _ OptionOk.
-Definition law3 := lem3 option _ OptionOk.
+  Module MR := MSimpleMonadsReify.RMonad M F.
+  Import MR.
+  Import MR.MS.
 
-Existing Instance Reify_polymorphic.
+  Definition fAnd a b : expr typ func := App (App (Inj MS.And) a) b.
+  Definition fOr a b : expr typ func := App (App (Inj MS.And) a) b.
+  Definition fAll t P : expr typ func := App (Inj (MS.All t)) (Abs t P).
+  Definition fEx t P : expr typ func := App (Inj (MS.Ex t)) (Abs t P).
+  Definition fEq t : expr typ func := (Inj (MS.Eq t)).
+  Definition fImpl : expr typ func := (Inj MS.Impl).
+  Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
+  Definition fN n : expr typ func := Inj (MS.N n).
 
-Instance RType_typ_opt : RType typ := RType_typ option.
-Existing Instance Expr.Expr_expr.
-Existing Instance Typ2_Fun.
-Existing Instance Typ2Ok_Fun.
+  Let Rbase := expr typ func.
 
-(* Option monad *)
-(* using Option as our monad *)
-Module MonadOption <: Monad.
-                       Definition M := option.
-End MonadOption.
+  Definition law1 := @monad_left_id.
+  Definition law2 := @monad_right_id.
+  Definition law3 := @monad_assoc.
 
-Module RMonadOption := RMonad MonadOption.
-Import RMonadOption.
+  Existing Instance Reify_polymorphic.
 
-Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
-Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
-Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
-Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
-Local Notation "'#'" := RIgnore (only parsing, at level 0).
+  Instance RType_typ_opt : RType typ := RType_typ.
+  Existing Instance Expr.Expr_expr.
+  Existing Instance Typ2_Fun.
+  Existing Instance Typ2Ok_Fun.
 
-Reify Pattern patterns_simplemon_typ_special += (!! (@option) @ ?0) => (fun (x : function (CCall reify_simplemon_typ)) => tyBase1 tyMonad x).
+  Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
+  Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).
+  Local Notation "'?' n" := (@RGet n RIgnore) (only parsing, at level 25).
+  Local Notation "'?!' n" := (@RGet n RConst) (only parsing, at level 25).
+  Local Notation "'#'" := RIgnore (only parsing, at level 0).
 
+  Instance Reify_simple_type : Reify typ := Reify_simple_type.
 
-(*Instance Reify_simple_type_opt : Reify typ := Reify_simple_type.
-Instance Reify_expr_simple_opt : Reify (expr typ func) := Reify_expr_simple option. *)
-
-Instance RSym_func_opt : RSym func := @RSym_func option OptionMonad.Monad_option.
-Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func option OptionMonad.Monad_option. 
+  Instance Reify_expr_simple : Reify (expr typ func) := Reify_expr_simple.
+  Instance RSym_func_opt : RSym func := RSym_func.
+  Instance RSymOk_func_opt : RSymOk RSym_func_opt := @RSymOk_func.
 
 Definition rlaw1 : polymorphic typ 2 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
@@ -96,6 +109,12 @@ Definition rlaw2 : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (rw_concl 
 Definition rlaw3 : polymorphic typ 3 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem, Lemma.vars, Lemma.concl, Lemma.premises, Lemma.foralls in
     <:: @law3 ::>.
+
+Require Import MirrorCore.RTac.PApply.
+
+Check PAPPLY.
+
+(* the following is from the tauto example, using papply *)
 
 Definition the_lemmas : RewriteHintDb Rbase :=
   @PRw _ _ _ 2 rlaw1 IDTACK ::
@@ -135,7 +154,7 @@ Ltac get_num_arrs t :=
   end.
 
 Ltac reduce_exprT :=
-  repeat progress (red; simpl; repeat rewrite mtyp_cast_refl);
+  repeat progress (red; simpl; repeat rewrite ctyp_cast_refl);
   unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl.
 
 Ltac prove_lem lem :=
@@ -174,12 +193,12 @@ Qed.
 
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 
-Existing Instance RelDec_eq_mtyp.
+Existing Instance RelDec_eq_ctyp.
 
 Definition my_expr_acc := @expr_acc typ func.
-Instance TSym_typ'_opt : TSym typ':= TSym_typ' option.
+Instance TSym_typ'_opt : TSym typ':= TSym_typ'.
 
-Instance RelDec_eq_func_opt : RelDec eq := RelDec_eq_func option.
+Instance RelDec_eq_func_opt : RelDec eq := RelDec_eq_func.
 
 (* another significant chunk copied from PolyQuantpullrtac. *)
 Require Import Coq.Classes.Morphisms.
@@ -202,12 +221,12 @@ Lemma Proper_and_flip_impl
 Proof. compute. tauto. Qed.
 
 Definition lem_Proper_exists
-: polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
+: polymorphic typ 1 ((*Lemma.lemma typ (expr typ func)*) (Proper_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @Proper_exists ::>.
 
 Definition lem_Proper_forall
-: polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
+: polymorphic typ 1 ((*Lemma.lemma typ (expr typ func)*) (Proper_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @Proper_forall ::>.
 
@@ -222,13 +241,12 @@ Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
 Theorem Proper_plus_eq : Proper (eq ==> eq ==> eq) plus.
 Proof. red. red. red. firstorder. Qed.
 
+Definition lem_Proper_plus_eq
+  : ((*Lemma.lemma typ (expr typ func)*) (Proper_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+    <:: @Proper_plus_eq ::>.
+
 Arguments PPr {_ _ _} n _ : clear implicits.
-
-Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-    (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
-     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> :: nil).
-
 
 Lemma Proper_eq_eq_flip_impl :
   forall (T : Type),
@@ -238,14 +256,53 @@ Proof.
   compute. intros. subst. reflexivity.
 Qed.
 
+Definition lem_Proper_eq_eq_flip_impl
+  : polymorphic typ 1 ((*Lemma.lemma typ (expr typ func)*) (Proper_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+    <:: @Proper_eq_eq_flip_impl ::>.
+
+Require Import ExtLib.Structures.Monad.
+Require Import Coq.Classes.Morphisms.
+Require Import Coq.Logic.FunctionalExtensionality.
+
+Lemma bind_proper :
+      forall T U,
+        Proper (@eq (M T) ==> pointwise_relation T (@eq (M U)) ==> @eq (M U)) bind.
+    intros. red. red. intros; subst.
+    red. intros.
+    unfold pointwise_relation in H.
+    apply functional_extensionality in H.
+    subst.
+    reflexivity.
+Qed.
+
+Definition lem_bind_proper
+  : polymorphic typ 2 ((*Lemma.lemma typ (expr typ func)*) (Proper_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+    <:: @bind_proper ::>.
+
+Lemma ret_proper :
+  forall T,
+    Proper (@eq T ==> @eq (M T)) ret.
+Proof.
+  intros. red. red. intros; subst.
+  reflexivity.
+Qed.
+
+Definition lem_ret_proper
+  : polymorphic typ 1 ((*Lemma.lemma typ (expr typ func) *)(Proper_concl typ func Rbase)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+    <:: @ret_proper ::>.
+
+(* TODO: make sure we only really need proper_plus_eq. *)
 Definition get_respectful : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
-    (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
-     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> ::
-     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_eq_eq_flip_impl ::> ::
-     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_and_flip_impl ::> ::
-     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_or_flip_impl ::> ::
-     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_plus_eq ::> :: nil).
+  do_prespectful rel_dec (@tyVar typ') func_unify_slow
+    (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 lem_Proper_eq_eq_flip_impl ::
+     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 2 lem_bind_proper ::
+     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 lem_ret_proper ::
+     PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 lem_Proper_exists ::
+     Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) lem_Proper_plus_eq :: nil).
+
 
 Definition is_trans : trans_dec Rbase :=
   fun r =>
@@ -301,13 +358,7 @@ Proof.
     clear. red in r. inversion r.
     subst.
     rewrite (UIP_refl r). compute. intros; tauto. }
-  Unshelve.
-  (*
-  exact option.
-  exact option. *)
-  exact (@id Type).
-  exact (@id Type).
-Qed.
+  Qed.
 
 Theorem is_trans_ok : trans_dec_ok RbaseD is_trans.
 Proof.
@@ -343,17 +394,12 @@ Proof.
     clear. inversion r. subst.
     rewrite (UIP_refl r).
     compute. tauto. }
-  Unshelve.
-  (*exact option.
-  exact option.*)
-  exact (@id Type).
-  exact (@id Type).
 Qed.
 
 (* Q: simple_reduce or reduce? *)
 Definition the_rewrites (lems : RewriteHintDb Rbase)
   : RwAction typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints func_unify_slow lems))).
 
 Definition monad_simplify : RwAction typ func Rbase :=
   repeat_rewrite (fun e r =>
@@ -382,33 +428,47 @@ Proof.
   { do 3 red. intros; subst.
     reflexivity. }
   { intros. ptrnE.
-    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+    ptrn_elim. subst.
+    inv_all.
+    eapply ExprTac.lambda_exprD_Abs_prem in H; forward_reason; subst; eauto with typeclass_instances.
     inv_all. subst.
-    generalize dependent (Red.beta_sound tus (x4 :: tvs) x10 x6).
-    generalize dependent (Red.beta_sound tus (x4 :: tvs) x7 x).
+    generalize dependent (Red.beta_sound tus (x4 :: tvs) x10 x8).
+    generalize dependent (Red.beta_sound tus (x4 :: tvs) x7 x0).
     simpl.
     change_rewrite H1. change_rewrite H2.
-    intros; forward.
-    erewrite lambda_exprD_App; try eassumption.
-    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
-    2: rewrite typ2_match_iota; eauto with typeclass_instances.
-    2: rewrite type_cast_refl; eauto with typeclass_instances.
-    2: erewrite lambda_exprD_App; try eassumption.
-    3: erewrite lambda_exprD_App; try eassumption; eauto.
-    2: autorewrite_with_eq_rw; reflexivity.
-    simpl. eexists; split; eauto.
-    unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
-    intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
+    intros; forward. subst. simpl in *. subst.
+    inv_all. subst.
+    (** TODO(gmalecha): This should go elsewhere *)
+    repeat match goal with
+    | H : lambda_exprD _ _ (_ ?X ?Y) ?L = _
+      |- context [ @lambda_exprD _ _ ?TD ?T2 ?Rs _ _ _ (App ?L _) ] =>
+      erewrite ExprTac.lambda_exprD_AppL with (tx:=X) (ty:=Y);
+        eauto with typeclass_instances
+    | H : lambda_exprD _ _ _ ?R = _
+      |- context [ @lambda_exprD _ _ ?TD ?T2 ?Rs _ _ _ (App _ ?R) ] =>
+      erewrite ExprTac.lambda_exprD_AppR ;
+        eauto with typeclass_instances
+    | |- context [ @lambda_exprD ?typ ?sym ?TD ?T2 ?Rs ?tus' ?tvs' ?T (Abs ?tz ?b) ] =>
+      let z := constr:(@typ2_match _ TD _ T2 (fun _ => option typ) T (fun _ z => Some z) None) in
+      let z := eval compute in z in
+      match z with
+      | Some ?tr =>
+        let p := constr:(@lambda_exprD_AbsX typ sym TD _ T2 _ Rs tus' b tvs' tz tr) in
+        match type of p with
+        | ?L = ?R =>
+          change (@lambda_exprD typ sym TD T2 Rs tus' tvs' T (Abs tz b)) with L ;
+          rewrite p
+        end
+      end
+    end.
+    change_rewrite H4.
+    eexists; split; eauto.
+    simpl.
+    intros.
     f_equal.
     apply FunctionalExtensionality.functional_extensionality.
     intros. rewrite H5. rewrite H6. reflexivity. }
   { eauto. }
-  Unshelve.
-  (*
-  exact option.
-  exact option. *)
-  exact (@id Type).
-  exact (@id Type).
 Qed.
 
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
@@ -422,20 +482,6 @@ Ltac prove_prespectful :=
         | simple eapply PPr_tc_sound ] ; polymorphicD_intro;
   reduce_exprT.
 
-
-Theorem get_respectful_only_all_ex_sound
-: respectful_spec RbaseD get_respectful_only_all_ex.
-Proof.
-  eapply do_prespectful_sound; [eapply rel_dec_correct|].
-  red; repeat first [ simple eapply Forall_cons; [ prove_prespectful | ]
-                    | simple eapply Forall_nil].
-  eapply Proper_forall.
-  eapply Proper_exists.
-  Unshelve.
-  apply RelDecCorrect_eq_expr; eauto with typeclass_instances.
-  apply RelDecCorrect_eq_func.
-Qed.
-
 Theorem get_respectful_sound : respectful_spec RbaseD get_respectful.
 Proof.
   (** TODO: Make respectful_spec opaque to type classes
@@ -446,15 +492,13 @@ Proof.
   (** Encapsulate this into 'prove_ProperDb' tactic *)
   red; repeat first [ simple apply Forall_cons; [ prove_prespectful | ]
                     | simple apply Forall_nil ].
-  all: try refine (@Proper_forall _).
-  all: try refine (@Proper_exists _).
   all: try refine (@Proper_eq_eq_flip_impl _).
   all: try eapply Proper_and_flip_impl.
   all: try eapply Proper_or_flip_impl.
   all: try eapply Proper_plus_eq.
-  Unshelve.
-  apply RelDecCorrect_eq_expr; eauto with typeclass_instances.
-  apply RelDecCorrect_eq_func.
+  all: try eapply bind_proper.
+  all: try eapply ret_proper.
+  all: try eapply Proper_exists.
 Qed.
 
 Theorem the_rewrites_sound
@@ -474,16 +518,14 @@ Proof.
     generalize dependent (Red.beta_sound tus tvs e t). rewrite H0.
     intros; forward. eauto. }
   eapply using_prewrite_db_sound; eauto with typeclass_instances.
-  { eapply RelDec_semidec; eauto with typeclass_instances.
+  { eapply RelDec_semidec; eauto with typeclass_instances. }
+  (*
     apply RelDecCorrect_eq_expr; eauto with typeclass_instances.
     apply RelDecCorrect_eq_func.
-  }
+  } *)
   { eapply RbaseD_single_type. }
   { eapply CompileHints_sound.
     auto. }
-  Unshelve.
-  (*exact option.*)  
-  exact (@id Type).
 Qed.
 
 Theorem monad_simplify_sound : setoid_rewrite_spec RbaseD monad_simplify.
@@ -518,7 +560,11 @@ Defined. (*Does this need to be Denfined? *)
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
+<<<<<<< HEAD:examples/PolyRewrite/DemoMSimpleMonads.v
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master:examples/PolyRewrite/Monads/RtacDemo.v
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 Locate Typ2_tyArr.
@@ -527,16 +573,16 @@ Ltac reduce_propD g e :=
   eval cbv beta iota zeta delta
        [g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
                ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
-               typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
-               Typ2_Fun mtyp_dec
-               mtyp_dec
+               typeof_sym RSym_func type_cast typeof_func RType_ctyp typ2_match
+               Typ2_Fun ctyp_dec
+               ctyp_dec
                typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
                AbsAppI.exprT_App eq_sym
                typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
-               RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
-               typD mtypD symbolD
+               RType_typ symbol_dec ctyp_cast TSym_typ' typ'_dec
+               typD ctypD symbolD
                (* I added everything after this point to the whitelist --Mario *)
-               RType_typ_opt RType_mtyp Expr_expr TSym_typ'_opt RSym_func_opt
+               RType_typ_opt RType_ctyp Expr_expr TSym_typ'_opt RSym_func_opt
                RelDec_eq_func_opt RelDec_eq_func RType_typ (*RTypeOk_typ*)
                RelDec_eq_typ exprT_GetVAs
                HList.nth_error_get_hlist_nth HList.hlist_hd
@@ -553,18 +599,18 @@ Arguments Typ0_Prop {_ _}.
     | |- ?goal =>
       let k g :=
           let result := constr:(runRtac typ (expr typ func) nil nil g tac) in
-          idtac "result: " result;
+(*          idtac "result: " result; *)
             let resultV := eval vm_compute in result in
-      idtac "resultV: " resultV;
+(*      idtac "resultV: " resultV; *)
           lazymatch resultV with
           | Solved _ =>
-            idtac "solved";
+(*            idtac "solved"; *)
             change (@propD _ _ _ Typ0_Prop Expr_expr nil nil g) ;
               cut(result = resultV) ;
               [
               | vm_cast_no_check (@eq_refl _ resultV) ]
           | More_ _ ?g' =>
-            idtac "more";
+(*            idtac "more"; *)
             pose (g'V := g') ;
             let post := constr:(match @goalD _ _ _ Typ0_Prop Expr_expr nil nil g'V with
                                 | Some G => G HList.Hnil HList.Hnil
@@ -597,76 +643,91 @@ Arguments Typ0_Prop {_ _}.
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
 
+  (* Debugging code; may be unused now; perhaps should be moved *)
+  Ltac doNRed n :=
+    let rec doNRed' n e :=
+        let e' := eval red in e in (*idtac e';*)
+    match n with
+    | 0 => idtac e'
+    | S ?n' => doNRed' n' e'
+    end
+      in
+        match goal with
+        | |- ex (fun x => eq ?k x) =>
+          idtac "found";
+          doNRed' n k
+        end.
 
-  Definition ex1' := ex1 option OptionMonad.Monad_option.
+  (* testing on larger examples *)
+  Require Import ExtLib.Structures.Monad.
 
-  Definition ex0 := Monad.bind (Monad.ret 5) (fun x => Monad.ret x).
+  Fixpoint makeAssocTest (n : nat) : M nat :=
+    match n with
+    | 0 => frob 1
+    | S n' => bind (makeAssocTest n') (fun x => ret (x + 1))
+    end.
 
+  Definition MAT1 := Eval cbv beta zeta iota delta [makeAssocTest] in (makeAssocTest 2).
 
+  Definition testy : expr typ func.
+    reify (bind (frob 1) (fun x0 : nat => ret (x0 + 1))).
+  Defined.
+  Print testy.
 
-  Goal ex0 = ex0.
-    unfold ex0.
+  Goal (MAT1 = MAT1).
+    unfold MAT1.
+    Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
+    reflexivity.
+  Qed.
+
+  (*   n = depth of overall tree
+         k = depth of associations at each node *)
+  Fixpoint makeLeftIdAssocTest (n : nat) (k : nat) : M nat :=
+    match n with
+    | 0 => @frob 1
+    | S n' => @Monad.bind M _ _ nat (makeLeftIdAssocTest n' k) (fun _ => makeAssocTest k)
+    end.
+
+  Definition MLIA1 := Eval cbv beta zeta iota delta [makeAssocTest makeLeftIdAssocTest] in (makeLeftIdAssocTest 2 2).
+
+  (* n = depth *)
+  (* this is our benchmark *)
+  Fixpoint makeRightIdAssocTest (n : nat) : M nat :=
+    match n with
+    | 0 => @bind M _ _ nat (frob 1) ret
+    | S n' => bind (makeRightIdAssocTest n') (fun k => frob (k + 1))
+    end.
+
+  Goal (exists x, makeRightIdAssocTest 40 = x).
+  Proof.
+    simpl.
+    Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
+    eexists; reflexivity.
+  Qed.
+
+  Goal (bind (ret 1) (fun x => frob x) = frob 1).
+    unfold MLIA1.
+    run_tactic reify_simplemon rewrite_it rewrite_it_sound.
+    reflexivity.
+  Qed.
+
+  (*
+  Definition MLIA2 := Eval cbv beta zeta iota delta [makeAssocTest makeLeftIdAssocTest] in (makeLeftIdAssocTest 8 5).
+  Goal (exists x, MLIA2 = x).
+    unfold MLIA2.
+    Require Import McExamples.PolyRewrite.Monads.LtacDemo.
+
+    Time rewrite_strat (bottomup (terms law1 law2 law3; eval cbv beta)).
 
     Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
-    Abort.
+    eexists. reflexivity.
+  Qed. *)
 
-    (* Debugging code; may be unused now; perhaps should be moved *)
-    Ltac doNRed n :=
-      let rec doNRed' n e :=
-          let e' := eval red in e in (*idtac e';*)
-        match n with
-        | 0 => idtac e'
-        | S ?n' => doNRed' n' e'
-        end
-        in
-      match goal with
-      | |- ex (fun x => eq ?k x) =>
-        idtac "found";
-        doNRed' n k
-      end.
-    
-    (* testing on larger examples *)
-    (* We need an opaque symbol *)
-    Section AssocTest.
+  Module Demo.
+    Definition goal := fun n => (exists x, makeRightIdAssocTest n = x).
+    Ltac prep := unfold goal; simpl.
+    Ltac run := run_tactic reify_simplemon rewrite_it rewrite_it_sound.
+    Ltac cleanup := eexists; reflexivity.
+  End Demo.
 
-      Variable frob : forall x, x -> option x.
-
-      Fixpoint makeAssocTest (n : nat) : option nat :=
-        match n with
-        | 0 => (*@frob nat 1*) Monad.ret 1
-        | S n' => Monad.bind (makeAssocTest n') (fun x => Monad.ret (x + 1))
-        end.
-
-      Definition MAT1 := Eval cbv beta zeta iota delta [makeAssocTest] in (makeAssocTest 1).
-    
-      Goal (MAT1 = MAT1).
-        unfold MAT1.
-
-        
-        Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
-      Abort.
-
-      (*   n = depth of overall tree
-         k = depth of associations at each node *)
-      Fixpoint makeLeftIdAssocTest (n : nat) (k : nat) : option nat :=
-        match n with
-        | 0 => (*@frob nat 1*) Monad.ret 1
-        | S n' => @Monad.bind option _ _ nat (makeLeftIdAssocTest n' k) (fun _ => makeAssocTest k)
-        end.
-
-      Definition MLIA1 := Eval cbv beta zeta iota delta [makeAssocTest makeLeftIdAssocTest] in (makeLeftIdAssocTest 2 2).
-
-      Goal (MLIA1 = MLIA1).
-        unfold MLIA1.
-        Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
-
-      Abort.
-        (*Rejoice! 0.079s *)
-
-      Definition MLIA2 := Eval cbv beta zeta iota delta [makeAssocTest makeLeftIdAssocTest] in (makeLeftIdAssocTest 8 5).
-
-      Goal (exists x, MLIA2 = x).
-        unfold MLIA2.
-        Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
-      Abort.
-End AssocTest.
+End DemoRtacMonad.

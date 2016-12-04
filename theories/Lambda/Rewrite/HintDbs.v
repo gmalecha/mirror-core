@@ -12,13 +12,14 @@ Require Import MirrorCore.Types.MTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Universe Polymorphism.
 
 Set Suggest Proof Using.
 
 Section setoid.
-  Context {tsym : nat -> Type}.
+  Context {tsym : nat -> Set}.
   Let typ := mtyp tsym.
-  Context {func : Type}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
@@ -39,7 +40,7 @@ Section setoid.
   (* TODO(gmalecha): Wrap all of this up in a type class?
    * Why should it be different than Expr?
    *)
-  Variable Rbase : Type.
+  Variable Rbase : Set.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 
@@ -54,11 +55,11 @@ Section setoid.
       t1 = t2.
 
   Inductive HintRewrite : Type :=
-    | PRw_tc : forall {n : nat},
-        polymorphic typ n (rw_lemma typ func Rbase) ->
-        polymorphic typ n bool ->
-        CoreK.rtacK typ (expr typ func) ->
-        HintRewrite.
+  | PRw_tc : forall {n : nat},
+      polymorphic@{Set} typ n (rw_lemma typ func Rbase) ->
+      polymorphic@{Set} typ n bool ->
+      CoreK.rtacK typ (expr typ func) ->
+      HintRewrite.
 
   (* TODO - change to RewriteDb for consistency? *)
   Definition RewriteHintDb : Type := list HintRewrite.
@@ -69,13 +70,13 @@ Section setoid.
   Definition tc_any (n : nat) : polymorphic typ n bool :=
     make_polymorphic (fun _ => true).
 
-  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
-             (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
-    : polymorphic typ n Prop :=
+  Definition with_typeclasses@{X} {T : Type@{X}} {n}
+             (tc : polymorphic@{Set} typ n bool) (pc : polymorphic@{X} typ n T)
+  : polymorphic@{X} typ n (option T) :=
     make_polymorphic (fun args =>
                         if inst tc args
-                        then TD (inst pc args)
-                        else True).
+                        then Some (inst pc args)
+                        else None).
 
   (* TODO(mario): end duplicated code *)
 
@@ -85,14 +86,20 @@ Section setoid.
   Definition RewriteHintOk (hr : HintRewrite) : Prop :=
     match hr with
     | PRw_tc plem tc tac =>
-      polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) /\
+      polymorphicD@{Set} (fun x => match x return Prop with
+                                | None => True
+                                | Some x => rw_lemmaP x
+                                end) (with_typeclasses tc plem) /\
       rtacK_sound tac
     end.
 
   Theorem PRw_tc_sound
           {n : nat}
           (plem : polymorphic typ n (rw_lemma typ func Rbase)) tc tac
-  : polymorphicD (fun x => x) (with_typeclasses rw_lemmaP tc plem) ->
+  : polymorphicD (fun x => match x with
+                        | None => True
+                        | Some x => rw_lemmaP x
+                        end) (with_typeclasses tc plem) ->
     rtacK_sound tac ->
     RewriteHintOk (PRw_tc plem tc tac).
   Proof using.
@@ -139,16 +146,15 @@ Section setoid.
     simpl. assumption.
   Qed.
 
-  Local Definition view_update :=
-    (mtype_unify tsym).
+  Local Definition view_update := mtype_unify tsym.
 
-  Local Definition get_lemma {n : nat}
+  Local Definition get_lemma su {n : nat}
         (plem : polymorphic typ n (rw_lemma typ func Rbase))
         (tc : polymorphic typ n bool)
         (e : expr typ func)
   : option (rw_lemma typ func Rbase) :=
     match
-      get_inst tyVar view_update (fmap (fun x => x.(concl).(lhs)) plem) e
+      get_inst tyVar su (fmap (fun x => x.(concl).(lhs)) plem) e
     with
     | None => None
     | Some args =>
@@ -157,16 +163,16 @@ Section setoid.
       else None
     end.
 
-  Fixpoint CompileHints (hints : RewriteHintDb)
+  Fixpoint CompileHints su (hints : RewriteHintDb)
            (e : expr typ func)
            (r : R)
     : list (rw_lemma typ func Rbase * rtacK typ (expr typ func)) :=
     match hints with
     | nil => nil
     | PRw_tc plem tc tac :: hints =>
-      match get_lemma plem tc e with
-      | None => CompileHints hints e r
-      | Some lem => (lem, tac) :: CompileHints hints e r
+      match get_lemma su plem tc e with
+      | None => CompileHints su hints e r
+      | Some lem => (lem, tac) :: CompileHints su hints e r
       end
     end.
 
@@ -186,9 +192,9 @@ Section setoid.
     Forall RewriteHintOk db.
 
   Theorem CompileHints_sound
-  : forall db,
+  : forall su db,
       RewriteHintDbOk db ->
-      hints_sound (CompileHints db).
+      hints_sound (CompileHints su db).
   Proof using.
     induction db; intros; simpl.
     { unfold hints_sound. intros. constructor. }
@@ -196,7 +202,7 @@ Section setoid.
       specialize (IHdb H3). clear H3.
       unfold hints_sound. intros.
       destruct a.
-      destruct (get_lemma p p0) eqn:Hgl; [|eapply IHdb].
+      destruct (get_lemma su p p0) eqn:Hgl; [|eapply IHdb].
       constructor; [|eauto].
       unfold RewriteHintOk in *. destruct H2.
       split; [|eauto].

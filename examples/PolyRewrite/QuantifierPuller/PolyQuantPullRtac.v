@@ -17,7 +17,11 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
+<<<<<<< HEAD:examples/PolyRewrite/PolyQuantPullRtac.v
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master:examples/PolyRewrite/QuantifierPuller/PolyQuantPullRtac.v
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
@@ -48,7 +52,7 @@ Proof.
   intros. inversion H3. reflexivity.
 Qed.
 
-Existing Instance RelDec_eq_mtyp.
+Existing Instance RelDec_eq_ctyp.
 
 Fixpoint from_terms (rs : list (expr typ func))
 : refl_dec Rbase :=
@@ -170,7 +174,7 @@ Ltac get_num_arrs t :=
   end.
 
 Ltac reduce_exprT :=
-  repeat progress (red; simpl; repeat rewrite mtyp_cast_refl);
+  repeat progress (red; simpl; repeat rewrite ctyp_cast_refl);
   unfold AbsAppI.exprT_App, exprT_Inj, Rcast_val, Rcast, Relim, Rsym; simpl.
 
 Ltac polymorphicD_intro :=
@@ -206,7 +210,7 @@ Qed.
 
 Definition lem_pull_ex_and_right : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (rw_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
-  <:: @pull_ex_and_right ::>.
+    <:: @pull_ex_and_right ::>.
 
 (*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_concl_base >
@@ -217,14 +221,54 @@ Lemma lem_pull_ex_and_right_sound
 : polymorphicD (Lemma.lemmaD (rw_conclD RbaseD) nil nil) (n:=1) lem_pull_ex_and_right.
 Proof. prove_lem pull_ex_and_right. Defined.
 
+Theorem eq_refl' : forall (T : Type) (x : T), x = x.
+Proof. reflexivity. Qed.
+
+Definition lem_eq_refl' : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)) :=
+  Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+    <:: @eq_refl' ::>.
+
+Require Import MirrorCore.PLemma.
+
+Definition plem_eq_refl' : PolyLemma typ (expr typ func) (expr typ func) :=
+  {| p_n := 1;
+     p_lem := lem_eq_refl';
+     p_tc := tc_any 1 |}.
+
+(* from tauto *)
+Definition conclD (us vs : tenv typ) (e : expr typ func) : option (exprT us vs Prop) :=
+  MirrorCore.ExprDAs.exprD_typ0 (T := Prop) us vs e.
+
+Require Import MirrorCore.Lemma.
+Require Import MirrorCore.Lambda.ExprTac.
+
+Lemma lem_eq_refl'_sound
+  : PolyLemmaD conclD plem_eq_refl'.
+Proof.
+  cbv beta zeta iota delta [PolyLemmaD with_typeclasses lemmaD lemmaD' conclD exprD_typ0].
+  simpl.
+  intros.
+  unfold lambda_exprD.
+
+  (* this is awful it can be way simpler probably *)
+  unfold PolyLemmaD, with_typeclasses; simpl.
+  intros.
+    unfold lemmaD, lemmaD', conclD, exprD_typ0; simpl; intros.
+    repeat (red_exprD;
+            (try rewrite <- Heqp);
+            (try rewrite ctyp_cast_refl);
+            unfold symAs; unfold AbsAppI.exprT_App; simpl; intros).
+    reflexivity.
+Defined.
+
 Definition flip_impl : R typ Rbase := Rflip (Rinj (Inj Impl)).
 
-Existing Instance RelDec_eq_mtyp.
+Existing Instance RelDec_eq_ctyp.
 
 Require Import MirrorCore.Util.Forwardy.
 
 (*
-   write a convencience wrapper that handles everything for mtyp
+   write a convencience wrapper that handles everything for ctyp
    figure out what arguments i want to_respectful/do_prespectful to have
    and then make it have them
  *)
@@ -271,14 +315,16 @@ Proof. red. red. red. firstorder. Qed.
 
 Arguments PPr {_ _ _} n _ : clear implicits.
 
+Require Import MirrorCore.Lambda.PolyInst.
+
 Definition get_respectful_only_all_ex : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
+  do_prespectful rel_dec tyVar (type_sym_unifier (CTypeUnify.ctype_unify_slow _))
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> :: nil).
 
 Let tyBNat := tyBase0 tyNat.
 Definition get_respectful : ResolveProper typ func Rbase :=
-  do_prespectful rel_dec (MTypeUnify.mtype_unify _) (@tyVar typ')
+  do_prespectful rel_dec (@tyVar typ') (type_sym_unifier (CTypeUnify.ctype_unify_slow _))
     (PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_forall ::> ::
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 <:: @Proper_exists ::> ::
      Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) <:: Proper_and_flip_impl ::> ::
@@ -297,7 +343,7 @@ Ltac prove_prespectful :=
   reduce_exprT.
 (*
   repeat match goal with
-         | |- context[mtyp_cast _ _ _ _] => rewrite mtyp_cast_refl
+         | |- context[ctyp_cast _ _ _ _] => rewrite ctyp_cast_refl
          | _ => red; simpl
          end.
 *)
@@ -351,7 +397,7 @@ Definition build_hint_db (lems : list (rw_lemma typ func (expr typ func) *
 
 Definition the_rewrites (lems : RewriteHintDb Rbase)
   : RwAction typ func Rbase :=
-  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints lems))).
+  rw_post_simplify simple_reduce (rw_simplify Red.beta (using_prewrite_db rel_dec (CompileHints (type_sym_unifier (CTypeUnify.ctype_unify_slow _)) lems))).
 
 Lemma simple_reduce_sound :
   forall (tus tvs : tenv typ) (t : typ) (e : expr typ func)
@@ -373,20 +419,22 @@ Proof.
                  ]. }
   { do 3 red. intros; subst.
     reflexivity. }
-  { intros. ptrnE.
-    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+  { intros. ptrn_elim. subst.
+    destruct x as [ ? [ [ ? [ ? ? ] ] ? ] ]. simpl in *.
+    inv_all. subst.
+    eapply lambda_exprD_Abs_prem in H; refine _; forward_reason; subst.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
     generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
     simpl.
     change_rewrite H1. change_rewrite H2.
     intros; forward.
-    erewrite lambda_exprD_App; try eassumption.
-    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
+    erewrite lambda_exprD_App; refine _; try eassumption.
+    2: erewrite lambda_exprD_Abs; refine _; try eauto with typeclass_instances.
     2: rewrite typ2_match_iota; eauto with typeclass_instances.
     2: rewrite type_cast_refl; eauto with typeclass_instances.
-    2: erewrite lambda_exprD_App; try eassumption.
-    3: erewrite lambda_exprD_App; try eassumption; eauto.
+    2: erewrite lambda_exprD_App; refine _; try eassumption.
+    3: erewrite lambda_exprD_App; refine _; try eassumption; eauto.
     2: autorewrite_with_eq_rw; reflexivity.
     simpl. eexists; split; eauto.
     unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
@@ -420,15 +468,63 @@ Proof.
     auto. }
 Qed.
 
+Require Import MirrorCore.PLemma.
+Require Import MirrorCore.RTac.PApply.
+Require Import MirrorCore.Lambda.ExprUnify_simple.
+
+
+Definition PAPPLY (plem : PolyLemma typ (expr typ func) (expr typ func)) :=
+  PAPPLY (RSym_func := RSym_func)
+         (fun subst SS SU tus tvs n l r t s =>
+            @exprUnify subst typ func RType_typ (RSym_func) Typ2_Fun
+                       SS SU 10 tus tvs n l r t s) func_unify plem.
+
+Require Import MirrorCore.RTac.RunOnGoals.
+Require Import MirrorCore.RTac.Instantiate.
+Require Import MirrorCore.RTac.Then.
+Require Import MirrorCore.RTac.ThenK.
+Require Import MirrorCore.RTac.Intro.
+Require Import MirrorCore.RTac.Try.
+
+(* TODO maybe try the other order. *)
+Definition DO_REFL :=
+  (runOnGoals (THEN (TRY INSTANTIATE) (runOnGoals (TRY (PAPPLY plem_eq_refl'))))).
+
+(*
+Definition DO_REFL :=
+  (runOnGoals (THEN (TRY (PAPPLY plem_eq_refl')) (runOnGoals (TRY INSTANTIATE)))).
+*)
+
+Require Import MirrorCore.RTac.Interface.
+Lemma DO_REFL_sound : CoreK.rtacK_sound DO_REFL.
+Proof. 
+  unfold DO_REFL.
+  eapply runOnGoals_sound.
+  eapply THEN_sound.
+  eapply INSTANTIATE_sound.
+  eapply runOnGoals_sound.
+  eapply TRY_sound. eapply PAPPLY_sound.
+  intros.
+  apply exprUnify_sound; eauto with typeclass_instances.
+  constructor.
+  apply lem_eq_refl'_sound.
+  Unshelve.
+  apply Expr.ExprOk_expr.
+  apply Expr.ExprOk_expr.
+  apply Expr.ExprOk_expr.
+Qed.
+
+
 Definition the_lemmas
 : RewriteHintDb Rbase :=
-  @PRw _ _ _ 1 lem_pull_ex_and_left IDTACK ::
-  @PRw _ _ _ 1 lem_pull_ex_and_right IDTACK ::
+  @PRw _ _ _ 1 lem_pull_ex_and_left DO_REFL ::
+  @PRw _ _ _ 1 lem_pull_ex_and_right DO_REFL ::
+(*  @PRw _ _ _ 1 lem_eq_refl' IDTACK :: *)
   nil.
 
 Theorem the_lemmas_sound : RewriteHintDbOk RbaseD the_lemmas.
 Proof.
-  repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply IDTACK_sound.
+  repeat first [ apply Forall_cons | apply Forall_nil ]; split; try apply DO_REFL_sound.
   { unfold polymorphicD. intros. apply lem_pull_ex_and_left_sound. }
   { unfold polymorphicD. intros. apply lem_pull_ex_and_right_sound. }
 Qed.
@@ -465,4 +561,133 @@ Proof.
   - eapply get_respectful_sound.
 Qed.
 
-(* use mtyps instead of typs in lambda - lambdaMT *)
+(* use ctyps instead of typs in lambda - lambdaMT *)
+
+(* TODO remove what's below this *)
+(* TODO begin code from RtacDemo.v *)
+
+Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Tactics.
+Require Import MirrorCore.Util.Compat.
+Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Lambda.ExprCore.
+Require Import MirrorCore.Lambda.ExprD.
+Require Import MirrorCore.Lambda.RedAll.
+Require Import MirrorCore.Lambda.RewriteStrat.
+Require Import MirrorCore.Lambda.Red.
+Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Reify.Reify.
+Require Import MirrorCore.RTac.IdtacK.
+Require Import McExamples.PolyRewrite.MSimple.
+Require Import McExamples.PolyRewrite.MSimpleReify.
+
+Set Implicit Arguments.
+Set Strict Implicit.
+
+(* Convenient abbreviation for modular type *)
+
+Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
+Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.
+Definition fAll t P : expr typ func := App (Inj (MSimple.All t)) (Abs t P).
+Definition fEx t P : expr typ func := App (Inj (MSimple.Ex t)) (Abs t P).
+Definition fEq t : expr typ func := (Inj (MSimple.Eq t)).
+Definition fImpl : expr typ func := (Inj MSimple.Impl).
+Definition fEq_nat a b : expr typ func := App (App (fEq tyBNat) a) b.
+Definition fN n : expr typ func := Inj (MSimple.N n).
+
+Fixpoint goal n : expr typ func :=
+  match n with
+  | 0 => fEq_nat (fN 0) (fN 0)
+  | S n =>
+    fAnd (fEx tyBNat (goal n)) (fEx tyBNat (goal n))
+  end.
+
+
+Fixpoint goal2 mx n (acc : nat) : expr typ func :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      fEx tyBNat (fEq_nat (fN 0) (fN 0))
+    else
+      fEq_nat (fN 0) (fN 0)
+  | S n =>
+    fAnd (goal2 mx n (acc * 2)) (goal2 mx n (acc * 2 + 1)) (*
+    fAnd (fEx tyNat (goal n)) (fEx tyNat (goal n)) *)
+  end.
+
+Fixpoint goal2_D mx n (acc : nat) : Prop :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      exists x : nat, 0 = 0
+    else
+      0 = 0
+  | S n =>
+    goal2_D mx n (acc * 2) /\ goal2_D mx n (acc * 2 + 1)
+  end.
+
+Fixpoint goal2_D' mx mx2 n (acc : nat) : Prop :=
+  match n with
+  | 0 =>
+    if acc ?[ lt ] mx then
+      exists x : nat, 0 = 0
+    else if acc ?[lt] mx2 then
+           exists b : bool, 0 = 0 else
+           0 = 0
+  | S n =>
+    goal2_D' mx mx2 n (acc * 2) /\ goal2_D' mx mx2 n (acc * 2 + 1)
+  end.
+
+
+
+Fixpoint count_quant (e : expr typ func) : nat :=
+  match e with
+  | App (Inj (Ex _)) (Abs _ e') => S (count_quant e')
+  | _ => 0
+  end.
+
+Definition benchmark (n m : nat) : bool :=
+  match quant_pull (goal2 m n 0) (Rinj fImpl) nil (TopSubst _ nil nil)
+  with
+  | Some _ => true
+  | _ => false
+  end.
+
+Definition rewrite_it : rtac typ (expr typ func) :=
+  @auto_setoid_rewrite_bu typ func (expr typ func)
+                          (Rflip (Rinj fImpl))
+                          (is_reflR is_refl) (is_transR is_trans) pull_all_quant get_respectful.
+
+Theorem rewrite_it_sound : rtac_sound rewrite_it.
+Proof.
+  eapply auto_setoid_rewrite_bu_sound with (RbaseD:=RbaseD).
+  - eapply RbaseD_single_type.
+  - reflexivity.
+  - eapply is_reflROk; eapply is_refl_ok.
+  - eapply is_transROk; eapply is_trans_ok.
+  - eapply pull_all_quant_sound.
+  - eapply get_respectful_sound.
+Qed.
+
+Require Import MirrorCore.RTac.RTac.
+Require Import MirrorCore.Reify.Reify.
+Require Import MirrorCore.Lambda.Expr.
+Require Import MirrorCore.CTypes.CoreTypes.
+
+Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
+  Definition goal2_D'' n : Prop :=
+  let thirdn := Nat.div n 3 in
+  goal2_D' thirdn (2 * thirdn) n 0.
+
+(*Set Printing Depth 5.*) (* To avoid printing large terms *)
+
+
+
+(* examples of things that don't work *)
+(*
+Goal ((exists (x : nat), 1 = 1)/\(exists (y : nat), 2 = 2)).
+Variable k : nat.
+Goal (1 = 1 /\ exists (y : nat), y = 1).
+  Time the_tac.
+ *)
+

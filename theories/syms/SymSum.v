@@ -5,9 +5,9 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section symbols_sum.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
-  Variable func1 func2 : Type.
+  Variable func1 func2 : Set.
 
   Variable RSym_func1 : RSym func1.
   Variable RSym_func2 : RSym func2.

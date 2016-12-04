@@ -10,9 +10,9 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section OpenT.
-  Variable typ : Type.
-  Variable typD : typ -> Type.
-  Variables tvs : tenv typ.
+  Variable typ : Set.
+  Variable typD : typ -> Type@{Urefl}.
+  Variable tvs : tenv typ.
 
   Definition OpenT (T : Type) :=
     hlist typD tvs -> T.
@@ -115,7 +115,7 @@ Section OpenT.
 End OpenT.
 
 Section OpenT_Abs.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable typD : typ -> Type.
 
   Definition Open_Abs {tvs t T} (f : OpenT typD (t :: tvs) T)

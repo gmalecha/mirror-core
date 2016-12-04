@@ -15,8 +15,8 @@ Set Strict Implicit.
 Module ExprDenote <: ExprDenote.
 
   Section with_types.
-    Context {typ : Type}.
-    Context {func : Type}.
+    Context {typ : Set}.
+    Context {func : Set}.
     Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ RFun}.
     Context {RSym_func : RSym func}.
@@ -38,6 +38,9 @@ Module ExprDenote <: ExprDenote.
     Definition Rcast_val
     : forall {a b} (pf : Rty a b), typD a -> typD b :=
       @Rcast (fun T => T).
+
+    Global Arguments Rcast_val [_ _] !pf _ /.  (* COMPAT(8.5): To be fixed in 8.6 *)
+    Global Arguments Rcast _ [_ _] !pf _ /.  (* COMPAT(8.5): To be fixed in 8.6 *)
 
     Section exprT.
       Variables tus tvs : tenv typ.

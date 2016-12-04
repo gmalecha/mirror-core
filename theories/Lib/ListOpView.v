@@ -19,7 +19,7 @@ Set Strict Implicit.
 Set Maximal Implicit Insertion.
 Set Printing Universes.
 
-Inductive listOp_func (typ : Type) :=
+Inductive listOp_func (typ : Set) : Set :=
 | pLength : typ -> listOp_func typ
 | pNoDup : typ -> listOp_func typ
 | pIn : typ -> listOp_func typ
@@ -28,8 +28,8 @@ Inductive listOp_func (typ : Type) :=
 | pCombine : typ -> typ -> listOp_func typ.
 
 Section ListOpFuncInst.
-  Context {typ : Type} {RType_typ : RType typ}.
-  Context {func : Type}.
+  Context {typ : Set} {RType_typ : RType typ}.
+  Context {func : Set}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ2_tyArr : Typ2 _ RFun}.
@@ -103,7 +103,7 @@ Section ListOpFuncInst.
           (@combine (typD t) (typD u)).
 
   Definition listOp_func_symD lf :=
-    match lf as lf return match typeof_listOp_func lf return Type with
+    match lf as lf return match typeof_listOp_func lf return Type@{Urefl} with
 			    | Some t => typD t
 			    | None => unit
 			  end with
@@ -137,7 +137,7 @@ Section ListOpFuncInst.
 End ListOpFuncInst.
 
 Section MakeListOp.
-  Context {typ func : Type} {FV : PartialView func (listOp_func typ)}.
+  Context {typ func : Set} {FV : PartialView func (listOp_func typ)}.
 
   Definition fLength t := f_insert (pLength t).
   Definition fNoDup t := f_insert (pNoDup t).
@@ -410,7 +410,7 @@ Section MakeListOp.
 End MakeListOp.
 
 Section PtrnListOp.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func (listOp_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
@@ -451,41 +451,41 @@ Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyListOp.
 
-  Polymorphic Context {typ func : Type} {FV : PartialView func (listOp_func typ)}.
+  Polymorphic Context {typ func : Set} {FV : PartialView func (listOp_func typ)}.
   Polymorphic Context {t : Reify typ}.
 
   Polymorphic Definition reify_length : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ:Type)::nil)
              (RApp (RExact (@length)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fLength x)).
 
   Polymorphic Definition reify_NoDup : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ:Type)::nil)
              (RApp (RExact (@NoDup)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fNoDup x)).
 
   Polymorphic Definition reify_In : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ:Type)::nil)
              (RApp (RExact (@In)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fIn x)).
 
   Polymorphic Definition reify_map : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ:Type)::(typ:Type)::nil)
              (RApp (RApp (RExact (@map)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fMap x y)).
 
   Polymorphic Definition reify_fold : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ:Type)::(typ:Type)::nil)
              (RApp (RApp (RExact (@fold_right)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFold x y)).
 
   Polymorphic Definition reify_combine : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ:Type)::(typ:Type)::nil)
              (RApp (RApp (RExact (@combine)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fCombine x y)).
 
   Polymorphic Definition reify_listOp : Command (expr typ func) :=
-    CFirst (reify_length :: reify_NoDup :: reify_In :: 
+    CFirst (reify_length :: reify_NoDup :: reify_In ::
             reify_map :: reify_fold :: reify_combine :: nil).
 
 End ReifyListOp.

@@ -15,11 +15,11 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
   Variable RTypeOk_typD : RTypeOk.
 
-  Inductive func : Type :=
+  Inductive func : Set :=
   | FRef (fi : positive) (ts : list typ).
 
   Fixpoint list_Rty (x y : list typ) : bool :=

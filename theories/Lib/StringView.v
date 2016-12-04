@@ -14,11 +14,11 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive stringFunc : Type  :=
+Inductive stringFunc : Set  :=
 | pString  : string -> stringFunc%type.
 
 Section StringFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ0_tyString : Typ0 _ string}.
@@ -63,13 +63,13 @@ Section StringFuncInst.
 End StringFuncInst.
 
 Section MakeString.
-  Polymorphic Context {func : Type}.
+  Polymorphic Context {func : Set}.
   Polymorphic Context {FV : PartialView func stringFunc}.
 
   Polymorphic Definition fString s := f_insert (pString s).
 
-  Polymorphic Definition fptrnString {T : Type} (p : Ptrns.ptrn string T)
-  : ptrn stringFunc T :=
+  Polymorphic Definition fptrnString@{V L R} {T : Type@{V}} (p : Ptrns.ptrn@{Set V L R} string T)
+  : ptrn@{Set V L R} stringFunc T :=
     fun f U good bad =>
       match f with
       | pString s => p s U good (fun x => bad f)
@@ -110,33 +110,33 @@ Section MakeString.
 End MakeString.
 
 Section mkString.
-  Polymorphic Universe u.
-  Polymorphic Context {typ func : Type@{u}}.
-  Polymorphic Context {FV : PartialView@{u} func stringFunc}.
+  Polymorphic Context {typ func : Set}.
+  Polymorphic Context {FV : PartialView func stringFunc}.
 
   Polymorphic Definition mkString (s : string) := Inj (typ:=typ) (fString s).
 
 End mkString.
 
 Section PtrnString.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {FV : PartialView func stringFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
   when calling '@mkString typ func' in JavaFunc (with typ and func instantiated) *)
 
-  Definition ptrnString {T : Type} (p : ptrn string T) : ptrn (expr typ func) T :=
-    inj (ptrn_view _ (fptrnString p)).
+  Definition ptrnString@{V L R} {T : Type@{V}} (p : ptrn@{Set V L R} string T)
+  : ptrn@{Set V L R} (expr typ func) T :=
+    inj (ptrn_view FV (fptrnString p)).
 
 End PtrnString.
 
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyString.
-  Context {typ func : Type} {FV : PartialView func stringFunc}.
+  Context {typ func : Set} {FV : PartialView func stringFunc}.
 
   Definition reify_cstring : Command (expr typ func) :=
-    CPattern (ls := (string:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fString x)).
+    CPattern (ls := (string:Type)::nil) (RHasType string (RGet 0 RIgnore)) (fun x => Inj (fString x)).
 
   Definition reify_string : Command (expr typ func) :=
     CFirst (reify_cstring :: nil).

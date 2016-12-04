@@ -8,8 +8,8 @@ Set Strict Implicit.
 Definition Lazy T := unit -> T.
 
 Section app_full.
-  Variable typ : Type.
-  Variable sym : Type.
+  Variable typ : Set.
+  Variable sym : Set.
 
   Variable T : expr typ sym -> Type. (** The return type **)
 
@@ -80,8 +80,8 @@ Section app_full.
 End app_full.
 
 Section with_args.
-  Variable typ : Type.
-  Variable sym : Type.
+  Variable typ : Set.
+  Variable sym : Set.
 
   Variable T : expr typ sym -> Type. (** The return type **)
 

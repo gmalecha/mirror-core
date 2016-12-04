@@ -7,7 +7,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section SimpleRType_ctor.
-  Context {T : Type}.
+  Context {T : Set}.
   Variable TD : T -> Type.
   Variable Tacc : T -> T -> Prop.
   Variable Tdec : forall a b : T, {a = b} + {a <> b}.

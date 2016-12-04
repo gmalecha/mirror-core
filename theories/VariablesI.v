@@ -7,14 +7,14 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section with_Expr.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : @Expr typ _ expr}.
 
   (** Variables **)
-  Class ExprVar : Type :=
+  Class ExprVar : Set :=
   { Var : var -> expr
   }.
 
@@ -59,7 +59,7 @@ Section with_Expr.
   Qed.
 
   (** Unification Variables **)
-  Class ExprUVar : Type :=
+  Class ExprUVar : Set :=
   { UVar : uvar -> expr
   }.
 

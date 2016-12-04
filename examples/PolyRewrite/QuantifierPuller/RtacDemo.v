@@ -1,4 +1,4 @@
-(* DemoPolyQuantPullRtac.v
+(* RtacDemo.v
  * Contains a demonstration of the quantifier-puller's funcionality,
  * As well as some supporting infrastructure/automation.
  *)
@@ -17,13 +17,13 @@ Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
-Require Import McExamples.PolyRewrite.PolyQuantPullRtac.
+Require Import McExamples.PolyRewrite.QuantifierPuller.PolyQuantPullRtac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
 (* Convenient abbreviation for modular type *)
-Let tyBNat := ModularTypes.tyBase0 tyNat.
+Let tyBNat := CoreTypes.tyBase0 tyNat.
 
 Definition fAnd a b : expr typ func := App (App (Inj MSimple.And) a) b.
 Definition fOr a b : expr typ func := App (App (Inj MSimple.And) a) b.
@@ -111,26 +111,30 @@ Qed.
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
+<<<<<<< HEAD:examples/PolyRewrite/DemoPolyQuantPullRtac.v
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master:examples/PolyRewrite/QuantifierPuller/RtacDemo.v
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 
 Ltac reduce_propD g e := eval cbv beta iota zeta delta
     [ g goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
+      exprT_UseV exprT_UseU exprT_GetUAs exprT_GetVAs
+      HList.nth_error_get_hlist_nth HList.hlist_hd HList.hlist_tl
       ExprDsimul.ExprDenote.lambda_exprD func_simul symAs typ0_cast Typ0_Prop
-      typeof_sym RSym_func type_cast typeof_func RType_mtyp typ2_match
-      Typ2_Fun mtyp_dec
-      mtyp_dec
+      typeof_sym RSym_func type_cast typeof_func RType_ctyp typ2_match
+      Typ2_Fun ctyp_dec
+      ctyp_dec
       typ2 Relim exprT_Inj eq_ind eq_rect eq_rec
       AbsAppI.exprT_App eq_sym
       typ2_cast sumbool_rec sumbool_rect eq_ind_r f_equal typ0 symD funcD
-      RType_typ symbol_dec mtyp_cast TSym_typ' typ'_dec
-      typD mtypD symbolD
+      RType_typ symbol_dec ctyp_cast TSym_typ' typ'_dec
+      typD ctypD symbolD
     ] in e.
 
 Arguments Typ0_Prop {_ _}.
-
-
 
 (* Maybe we can use typeclasses to resolve the reification function *)
   Ltac run_tactic reify tac tac_sound :=
@@ -152,7 +156,7 @@ Arguments Typ0_Prop {_ _}.
                                 | None => True
                                 end) in
             let post := reduce_propD g'V post in
-            match post with
+            lazymatch post with
             | ?G =>
               cut G ;
                 [ change (@closedD _ _ _ Typ0_Prop Expr_expr nil nil g g'V) ;
@@ -167,14 +171,27 @@ Arguments Typ0_Prop {_ _}.
       in
       reify_expr_bind reify k [[ True ]] [[ goal ]]
     end.
-  
+
   Definition goal2_D'' n : Prop :=
   let thirdn := Nat.div n 3 in
   goal2_D' thirdn (2 * thirdn) n 0.
 
-Set Printing Depth 5. (* To avoid printing large terms *)
+(*Set Printing Depth 5.*) (* To avoid printing large terms *)
 
 Ltac the_tac := run_tactic reify_simple rewrite_it rewrite_it_sound.
+
+(* examples of things that don't work *)
+(*
+Goal ((exists (x : nat), 1 = 1)/\(exists (y : nat), 2 = 2)).
+Variable k : nat.
+Goal (1 = 1 /\ exists (y : nat), y = 1).
+  Time the_tac.
+ *)
+
+Goal (exists x : nat, x = 1) /\ (1 = 1).
+  Time the_tac.
+  repeat exists 1. tauto.
+Qed.
 
 Goal goal2_D'' 2.
   vm_compute. Time the_tac.
@@ -201,12 +218,12 @@ Qed.
    12: (7.123, .06), (7.08, .052), (7.02, .056), (6.977, .056), (6.98, .056)
    13: ?
    14: (28.662, .276), (30.69, .264), (28.595, .272), (,), (,)
-   16: 
+   16:
 *)
 
 
 (* original goal *)
-  Goal goal2_D' 2 4 (* n = *) 5 0.
+Goal goal2_D' 2 4 (* n = *) 5 0.
   simpl.
 (*
   Check ex.
@@ -260,3 +277,10 @@ Time run_tactic reify_simple rewrite_it rewrite_it_sound.
 repeat exists 0.
 repeat exists true. tauto.
 Qed.
+
+Module Demo.
+  Ltac prep := vm_compute.
+  Ltac run := run_tactic reify_simple rewrite_it rewrite_it_sound.
+  Ltac cleanup := repeat ( first [exists 0 | exists true]); tauto.
+  Definition goal := goal2_D''.
+End Demo.

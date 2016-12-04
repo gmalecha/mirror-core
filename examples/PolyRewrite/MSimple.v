@@ -5,11 +5,18 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
 Require Import ExtLib.Tactics.
+Require Import ExtLib.Data.Map.FMapPositive.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+<<<<<<< HEAD
 Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Types.TSymOneOf.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
+Require Import MirrorCore.CTypes.TSymOneOf.
+>>>>>>> master
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -42,15 +49,34 @@ Instance TSym_typ' : TSym typ' :=
     end
 ; symbol_dec := typ'_dec }.
 
-Definition typ := mtyp typ'.
+Definition typ := ctyp typ'.
 
-Global Instance RType_typ : RType typ := RType_mtyp _ _.
-Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_mtyp _ _.
+Global Instance RType_typ : RType typ := RType_ctyp _ _.
+Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
 Inductive func :=
 | Lt | Plus | N : nat -> func | Eq : typ -> func
 | Ex : typ -> func | All : typ -> func
 | And | Or | Impl.
+
+Definition func_unify (a b : func) (s : pmap typ) : option (pmap typ) :=
+  match a , b with
+  | Lt , Lt
+  | Plus , Plus
+  | N _ , N _
+  | And , And
+  | Or , Or
+  | Impl , Impl => Some s
+  | Eq t , Eq t'
+  | Ex t , Ex t'
+  | All t , All t' =>
+    (* danger, this is a hack. but proably ok *)
+    match ctype_unify _ 1 t t' s  with
+    | Some (s', _) => Some s'
+    | _ => None
+    end
+  | _ , _ => None
+  end.
 
 Local Notation "! x" := (@tyBase0 _ x) (at level 0).
 

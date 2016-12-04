@@ -7,7 +7,7 @@ Module Type TypeLangUnify.
   Import RT.
 
   Section with_symbols.
-    Variable symbol : kind -> Type.
+    Variable symbol : kind -> Set.
 
     Parameter type_unify : forall k, type symbol k -> type symbol k ->
                            pmap { k : kind & type symbol k } ->
@@ -20,7 +20,7 @@ Module TypeLangUnify_mtyp <: TypeLangUnify with Module RT := TypeLang_mtyp.
   Import RT.
 
   Section with_symbols.
-    Variable tsym : kind -> Type.
+    Variable tsym : kind -> Set.
 
     Definition Sub := pmap { k : kind & type tsym k }.
     Definition add {n} (a :  positive) (b : type tsym n) (c : Sub)
@@ -99,7 +99,7 @@ Module TypeLangUnify_mtypF <: TypeLangUnify with Module RT := TypeLang_mtypF.
   Import RT.
 
   Section with_symbols.
-    Variable tsym : kind -> Type.
+    Variable tsym : kind -> Set.
 
     Definition Sub := pmap { k : kind & type tsym k }.
     Definition add {n} (a :  positive) (b : type tsym n) (c : Sub)

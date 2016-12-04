@@ -39,8 +39,8 @@ Ltac equivs :=
          end; subst.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
@@ -57,7 +57,7 @@ Section parameterized.
   Local Instance RelDecOk_eq_typ : RelDec_Correct RelDec_eq_typ :=
     @RelDec_Correct_Rty _ _ _.
 
-  Inductive Ctx :=
+  Inductive Ctx : Set :=
   | CTop : tenv typ -> tenv typ -> Ctx
   | CAll : Ctx -> typ -> Ctx
   | CExs : Ctx -> tenv typ -> Ctx
@@ -2741,6 +2741,8 @@ Section parameterized.
       | CHyp c2 _ => hlist_getExtensionVars c2
     end.
 
+  Set Printing Universes.
+
   Lemma pctxD_get_hyp
   : forall (ctx ctx' : Ctx) e
            (s : ctx_subst (Ctx_append (CHyp ctx e) ctx')) sD,
@@ -2759,7 +2761,7 @@ Section parameterized.
       eapply Pure_pctxD; eauto.
       unfold hlist_getUVars_Ctx_append, hlist_getVars_Ctx_append. simpl.
       clear.
-      intros.
+      intros. unfold tenv.
       do 2 rewrite <- hlist_app_nil_r.
       do 2 rewrite hlist_split_hlist_app.
       assumption. }

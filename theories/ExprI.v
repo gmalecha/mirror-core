@@ -20,10 +20,10 @@ Definition var := nat.
 Definition uvar := nat.
 
 Section Expr.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
 
-  Variable expr : Type.
+  Variable expr : Set.
 
   Definition exprT (us : tenv typ) (vs : tenv typ) (T : Type) : Type :=
     OpenT typD us (OpenT typD vs  T).
@@ -34,14 +34,14 @@ Section Expr.
    ; ap := fun _ _ f x => ap (T:=OpenT typD tus)
           (ap (T:=OpenT typD tus) (pure (ap (T:=OpenT typD tvs))) f) x
    |}.
-  Existing Instance Applicative_exprT.
+  Global Existing Instance Applicative_exprT.
 
   Definition Functor_exprT tus tvs : Functor (exprT tus tvs) :=
     Eval cbv beta iota zeta delta [ fmap Functor_OpenT ] in
   {| fmap := fun _ _ f x =>
                fmap (F:=OpenT typD tus) (fmap (F:=OpenT typD tvs) f) x
   |}.
-  Existing Instance Functor_exprT.
+  Global Existing Instance Functor_exprT.
 
   Definition RexprT (tus tvs : tenv typ) {T} (R : relation T)
   : relation (exprT tus tvs T) :=
@@ -636,7 +636,7 @@ End Expr.
 Arguments Expr _ {_} _.
 Arguments exprD {_ _ _ Expr} _ _ _ _ : rename.
 Arguments exprT {_ RType} _ _ _ : rename.
-Arguments exprT_Inj {_ _} _ _ {_} _ _ _ : rename.
+Arguments exprT_Inj {_ _} _ _ {_} _ _ _ / : rename.
 Arguments exprT_UseU {_ _} tus tvs n : rename.
 Arguments exprT_UseV {_ _} tus tvs n : rename.
 Arguments RexprT {typ RType} tus tvs {_} _ _ _ : rename.

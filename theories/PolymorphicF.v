@@ -6,8 +6,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section poly.
-  Variable kind : Type.
-  Variable typ : kind -> Type.
+  Variable kind : Set.
+  Variable typ : kind -> Set.
 
   Fixpoint polymorphic (n : list kind) T : Type :=
     match n with
@@ -72,8 +72,8 @@ Arguments make_polymorphic {_ _ _ n} _.
 Arguments polymorphicD {_ _ _} _ {n} _.
 
 Section fmap_polymorphic.
-  Context {kind : Type}.
-  Context {Z : kind -> Type}.
+  Context {kind : Set}.
+  Context {Z : kind -> Set}.
   Context {T U : Type}.
   Variable f : T -> U.
   Fixpoint fmap_polymorphic (n : list kind)
@@ -92,8 +92,8 @@ Arguments inst {kind typ T n} p v : clear implicits, rename.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section rpolymorphic.
-  Context {k : Type}.
-  Context {T : k -> Type}.
+  Context {k : Set}.
+  Context {T : k -> Set}.
   Context {U : Type}.
   Context {r : Reify U}.
 

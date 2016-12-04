@@ -3,11 +3,11 @@ Require Import MirrorCore.Lemma.
 Require Import MirrorCore.PolymorphicF.
 
 Section PolyLemma.
-  Context {kind : Type}.
+  Context {kind : Set}.
   Variable Kstar : kind.
-  Variable typ : kind -> Type.
+  Variable typ : kind -> Set.
 
-  Context {expr conclusion : Type}.
+  Context {expr conclusion : Set}.
 
   Record PolyLemma :=
   { p_n : list kind

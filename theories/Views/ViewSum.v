@@ -5,10 +5,10 @@ Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.syms.SymSum.
 
 Section sum.
-  Context {typ : Type}.
+  Context {typ : Set}.
   Context {RT : @RType typ}.
 
-  Context {T U V : Type}.
+  Context {T U V : Set}.
   Context {RSt : RSym T} {RSu : RSym U} {RSv : RSym V}.
 
   (** This is generic to PartialView **)

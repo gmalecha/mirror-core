@@ -6,8 +6,8 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprSubst.
 
 Section parametric.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.

@@ -5,6 +5,8 @@ Require Import ExtLib.Relations.TransitiveClosure.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Lambda.ExprD.
 Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Lambda.ExprTac.
+
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.RTac.Simplify.
@@ -14,52 +16,17 @@ Require Import MirrorCore.Lambda.RedAll.
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
+Set Universe Polymorphism.
 
-Inductive prod_func {typ : Type} :=
+Inductive prod_func {typ : Set} : Set :=
 | pPair : typ -> typ -> prod_func
 | pFst : typ -> typ -> prod_func
 | pSnd : typ -> typ -> prod_func.
 
 Arguments prod_func _ : clear implicits.
 
-Section ExprDInject.
-  Context {typ func : Type}.
-  Context {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
-  Context {RSym_func : RSym func} {RSymOk_func : RSymOk RSym_func}.
-  Context {Typ2_tyArr : Typ2 _ RFun} {Typ2Ok_tyArr : Typ2Ok Typ2_tyArr}.
-
-  Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
-
-  Global Instance Injective_lambda_exprD_App tus tvs (e1 e2 : expr typ func) (t : typ)
-         (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v) := {
-      result := exists u v1 v2, ExprDsimul.ExprDenote.lambda_exprD tus tvs (tyArr u t) e1 = Some v1 /\
-                                ExprDsimul.ExprDenote.lambda_exprD tus tvs u e2 = Some v2 /\
-                                v = AbsAppI.exprT_App v1 v2;
-      injection := fun H => _
-    }.
-  Proof.
-    autorewrite with exprD_rw in H.
-    simpl in H. forward; inv_all; subst.
-    do 3 eexists; repeat split; eassumption.
-  Defined.
-
-  Global Instance Injective_lambda_exprD_Inj tus tvs (f : func) (t : typ) (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v) := {
-      result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
-      injection := fun H => _
-    }.
-  Proof.
-    autorewrite with exprD_rw in H.
-    simpl in H. forward; inv_all; subst.
-    eexists; repeat split.
-  Defined.
-
-End ExprDInject.
-
-
 Section ProdFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {RelDecCorrect_typ : RelDec_Correct RelDec_typ}.
 
@@ -129,7 +96,7 @@ Section ProdFuncInst.
 End ProdFuncInst.
 
 Section MakeProd.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {HF : PartialView func (prod_func typ)}.
   Context {RelDec_typ : RelDec (@eq typ)}.
   Context {Typ2_tyArr : Typ2 _ RFun}.
@@ -200,11 +167,12 @@ Section MakeProd.
     { right; unfold Fails in *; intros; simpl; rewrite H; reflexivity. }
   Qed.
 
-  Definition ptrnPair {A B T : Type}
-             (p : ptrn (typ * typ) T)
-             (a : ptrn (expr typ func) A)
-             (b : ptrn (expr typ func) B) : ptrn (expr typ func) (T * A * B) :=
-    app (app (inj (ptrn_view _ (fptrnPair p))) a) b.
+  Definition ptrnPair@{V R L} {A B T : Type@{V}}
+             (p : ptrn@{Set V R L} (typ * typ) T)
+             (a : ptrn@{Set V R L} (expr typ func) A)
+             (b : ptrn@{Set V R L} (expr typ func) B)
+  : ptrn@{Set V R L} (expr typ func) (T * A * B) :=
+    app@{V R L} (app@{V R L} (inj@{V R L} (ptrn_view HF (fptrnPair p))) a) b.
   Global Instance ptrnPair_ok : ltac:(PtrnOk (@ptrnPair)) :=
     ltac:(unfold ptrnPair ; refine _).
 
@@ -221,7 +189,6 @@ Section MakeProd.
     app (inj (ptrn_view _ (fptrnSnd p))) a.
   Global Instance ptrnSnd_ok : ltac:(PtrnOk (@ptrnSnd)) :=
     ltac:(unfold ptrnSnd ; refine _).
-
 
   Lemma Succeeds_fptrnPair {T : Type} (f : prod_func typ) (p : ptrn (typ * typ) T) (res : T)
         {pok : ptrn_ok p} (H : Succeeds f (fptrnPair p) res) :
@@ -292,7 +259,7 @@ Section MakeProd.
 End MakeProd.
 
 Section Tactics.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {FV : PartialView func (prod_func typ)}.
   Context {RType_typ : RType typ} {RSym_func : RSym func}.
   Context {RTypeOk_typ : @RTypeOk _ RType_typ}.
@@ -357,11 +324,23 @@ Section Tactics.
     eapply run_ptrn_id_sound; eauto with typeclass_instances.
     unfold red_fst_ptrn.
     intros.
-    repeat solve_denotation.
-    unfold pairR, fstR.
-    solve_denotation.
-    eassumption.
-  Qed.
+    repeat ptrnE; subst.
+
+    (*  *)
+    (* Require Import ExtLib.Tactics. *)
+(*    inv_all; subst. *)
+
+    lambda_exprD_fwd.
+    subst.
+    repeat rewrite Rcast_val_eq_refl by eauto.
+
+    rewrite H3. f_equal.
+    unfold fstR, pairR.
+
+    simpl_exprT.
+    simpl.
+    simpl_exprT. reflexivity.
+  Defined.
 
   Lemma red_snd_ok : partial_reducer_ok (fun e args => red_snd (apps e args)).
   Proof.
@@ -372,10 +351,15 @@ Section Tactics.
     eapply run_ptrn_id_sound; eauto with typeclass_instances.
     unfold red_snd_ptrn.
     intros.
-    repeat solve_denotation.
-    unfold pairR, sndR.
-    solve_denotation.
-    assumption.
+    repeat ptrnE. subst.
+    lambda_exprD_fwd. rewrite H1.
+    f_equal.
+    subst.
+    repeat rewrite Rcast_val_eq_refl by eauto.
+    simpl. unfold sndR, pairR. simpl.
+    simpl_exprT.
+    simpl.
+    simpl_exprT. reflexivity.
   Qed.
 
 End Tactics.
@@ -383,21 +367,21 @@ End Tactics.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyProd.
-  Context {typ func : Type} {FV : PartialView func (prod_func typ)}.
+  Context {typ func : Set} {FV : PartialView func (prod_func typ)}.
   Context {t : Reify typ}.
 
   Definition reify_pair : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ : Type)::(typ : Type)::nil)
              (RApp (RApp (RExact (@pair)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fPair x y)).
 
   Definition reify_fst : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ :Type)::(typ:Type)::nil)
              (RApp (RApp (RExact (@fst)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fFst x y)).
 
   Definition reify_snd : Command (expr typ func) :=
-    CPattern (ls := typ::typ::nil) 
+    CPattern (ls := (typ :Type)::(typ:Type)::nil)
              (RApp (RApp (RExact (@snd)) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fSnd x y)).
 

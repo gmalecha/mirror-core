@@ -32,9 +32,9 @@ Module PAPPLY (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT).
   Module PI := PolyInst RT RTU.
 
   Section parameterized.
-    Context {tsym : kind -> Type}
+    Context {tsym : kind -> Set}
             {TSym_tsym : TSym kindD tsym}
-            {func : Type}.
+            {func : Set}.
     Let typ := type tsym Kstar.
 
     Let RType_type : RType (type tsym Kstar) := _.

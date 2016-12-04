@@ -32,17 +32,17 @@ Arguments symbolD {_} _ {_ _ _} _.
 Arguments symbol_dec {_} _ {_ _ _} _ _.
 
 Module Type TypeLang.
-  Parameter kind : Type.
+  Parameter kind : Set.
   Parameter Kstar : kind.
   Parameter kind_eq_dec : forall a b : kind, {a = b} + {a <> b}.
   Parameter kindD : kind -> Type@{Ukind}.
 
-  Parameter type : (kind -> Type) -> kind -> Type.
+  Parameter type : (kind -> Set) -> kind -> Set.
 
   Parameter tyVar : forall tsym k (p : positive), type tsym k.
 
   Section with_symbols.
-    Variable symbol : kind -> Type.
+    Variable symbol : kind -> Set.
 
     Parameter RType_type : TSym kindD symbol -> RType (type symbol Kstar).
     Parameter RTypeOk_type : forall ts : TSym kindD symbol, @RTypeOk _ (RType_type ts).
@@ -80,11 +80,11 @@ Module TypeLang_mtyp <: TypeLang.
 
   Section with_symbols.
 
-    Variable symbol : kind -> Type.
+    Variable symbol : kind -> Set.
 
     Unset Elimination Schemes.
 
-    Inductive type' : kind -> Type :=
+    Inductive type' : kind -> Set :=
     | tyArr : type' 0 -> type' 0 -> type' 0
     | tyBase0 : symbol Kstar -> type' 0
     | tyBase1 : symbol 1 -> type' 0 -> type' 0
@@ -263,7 +263,7 @@ End TypeLang_mtyp.
 
 
 Module TypeLang_mtypF <: TypeLang.
-  Inductive kind' :=
+  Inductive kind' : Set :=
   | Kstar' : kind'
   | Karr : kind' -> kind' -> kind'.
   Definition Kstar := Kstar'.
@@ -281,11 +281,11 @@ Module TypeLang_mtypF <: TypeLang.
 
   Section with_symbols.
 
-    Variable symbol : kind -> Type.
+    Variable symbol : kind -> Set.
 
     Unset Elimination Schemes.
 
-    Inductive mtyp : kind -> Type :=
+    Inductive mtyp : kind -> Set :=
     | tyArr : mtyp Kstar -> mtyp Kstar -> mtyp Kstar
     | tyApp : forall {d c}, mtyp (Karr d c) -> mtyp d -> mtyp c
     | tyInj : forall n, symbol n -> mtyp n
@@ -322,6 +322,62 @@ Module TypeLang_mtypF <: TypeLang.
         | tyVar' n p => Hvar n p
         end.
     End mtyp_ind.
+
+    Section mtyp_rec.
+      Variable P : forall {n}, mtyp n -> Set.
+      Hypotheses  (Harr : forall {a b : mtyp Kstar'}, P _ a -> P _ b -> P _ (tyArr a b))
+                  (Happ : forall k n {a : mtyp (Karr k n)} {b : mtyp k}, P _ a -> P _ b -> P _ (tyApp a b))
+                  (*(Hinj0 : forall s, P _ (tyInj0 s))
+                (Hinj1 : forall s, P _ (tyInj1 s))
+                (Hinj2 : forall s, P _ (tyInj2 s))
+                (Hinj : forall {n} s, P (3+n) (tyInjN s))
+                   *)
+                  (Hinj : forall n s, P n (tyInj _ s))
+                  (Hprop : P _ tyProp)
+                  (Hvar : forall n p, P n (tyVar _ p)).
+      Fixpoint mtyp_rec {n} (x : mtyp n) : P n x :=
+        match x as x in mtyp n return P n x with
+        | tyArr a b => Harr _ _ (mtyp_rec a) (mtyp_rec b)
+        (*
+      | tyInj0 s => Hinj0 s
+      | tyInj1 s => Hinj1 s
+      | tyInj2 s => Hinj2 s
+      | @tyInjN n s => Hinj n s *)
+        | tyInj _ s => Hinj _ s
+        | tyApp s ms =>
+          Happ _ _ _ _ (mtyp_rec s) (mtyp_rec ms)
+        | tyProp => Hprop
+        | tyVar' n p => Hvar n p
+        end.
+    End mtyp_rec.
+
+    Section mtyp_rect.
+      Variable P : forall {n}, mtyp n -> Type.
+      Hypotheses  (Harr : forall {a b : mtyp Kstar'}, P _ a -> P _ b -> P _ (tyArr a b))
+                  (Happ : forall k n {a : mtyp (Karr k n)} {b : mtyp k}, P _ a -> P _ b -> P _ (tyApp a b))
+                  (*(Hinj0 : forall s, P _ (tyInj0 s))
+                (Hinj1 : forall s, P _ (tyInj1 s))
+                (Hinj2 : forall s, P _ (tyInj2 s))
+                (Hinj : forall {n} s, P (3+n) (tyInjN s))
+                   *)
+                  (Hinj : forall n s, P n (tyInj _ s))
+                  (Hprop : P _ tyProp)
+                  (Hvar : forall n p, P n (tyVar _ p)).
+      Fixpoint mtyp_rect {n} (x : mtyp n) : P n x :=
+        match x as x in mtyp n return P n x with
+        | tyArr a b => Harr _ _ (mtyp_rect a) (mtyp_rect b)
+        (*
+      | tyInj0 s => Hinj0 s
+      | tyInj1 s => Hinj1 s
+      | tyInj2 s => Hinj2 s
+      | @tyInjN n s => Hinj n s *)
+        | tyInj _ s => Hinj _ s
+        | tyApp s ms =>
+          Happ _ _ _ _ (mtyp_rect s) (mtyp_rect ms)
+        | tyProp => Hprop
+        | tyVar' n p => Hvar n p
+        end.
+    End mtyp_rect.
 
     Set Elimination Schemes.
 
@@ -542,24 +598,47 @@ Module TypeLang_mtypF <: TypeLang.
     .
 
 
+    Lemma mtyp_acc_case : forall k b n y (x1 : mtyp (Karr k n)) x2,
+        mtyp_acc b n y (tyApp x1 x2) ->
+        (exists pf : Karr k n = b, y = match pf with
+                                  | eq_refl => x1
+                                  end) \/
+        ( exists pf : _ = b, y = match pf with
+                            | eq_refl => x2
+                            end).
+    Proof.
+      intros.
+      refine
+        match H in mtyp_acc b n m1 m2
+              return match m2 return Prop with
+                     | tyApp x1 x2 =>
+                       (exists pf : _ = b, m1 = match pf in (_ = k0) return (mtyp k0) with
+                                           | eq_refl => x1
+                                           end) \/
+                       (exists pf : _ = b, m1 = match pf in (_ = k0) return (mtyp k0) with
+                                           | eq_refl => x2
+                                           end)
+                     | _ => True
+                     end
+        with
+        | tyAcc_tyAppL _ _ _ _ => _
+        | tyAcc_tyAppR _ _ _ _ => _
+        | _ => I
+        end.
+      { left. exists eq_refl. reflexivity. }
+      { right. exists eq_refl. reflexivity. }
+    Defined.
+
     Theorem Pwf_mtyp_acc : @Pwell_founded _ _ mtyp_acc.
     Proof.
       red. induction x; try solve [ simpl; intros; constructor; inversion 1; auto ].
-      constructor. inversion 1.
-      { subst.
-        eapply inj_pair2 in H6.
-        eapply inj_pair2 in H6.
-        subst. auto. }
-      { subst.
-        eapply inj_pair2 in H3.
-        eapply inj_pair2 in H5.
-        eapply inj_pair2 in H5.
-        eapply inj_pair2 in H6.
-        subst.  auto. admit. }
-      Unshelve.
-      all: apply kind_eq_dec.
-    Admitted.
-
+      { constructor.
+        intros.
+        eapply mtyp_acc_case in H.
+        destruct H.
+        { destruct H. subst. auto. }
+        { destruct H. subst. auto. } }
+    Defined.
 
     Instance RType_type : RType (mtyp Kstar) :=
     { typD := typeD

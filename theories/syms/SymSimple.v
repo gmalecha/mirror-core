@@ -1,14 +1,14 @@
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 
-Record TypedValue {T : Type} {RT : RType T} : Type := mkTypedVal
+Record TypedValue {T : Set} {RT : RType T} : Type := mkTypedVal
 { tv_type : T
 ; tv_value : TypesI.typD tv_type }.
 Arguments TypedValue _ {_} : clear implicits.
 Arguments mkTypedVal {_ _} _ _ : clear implicits.
 
 Section Simple_RSym.
-  Context {T} {RT : RType T} {f : Type}
+  Context {T} {RT : RType T} {f : Set}
              (fD : f -> option (TypedValue T))
              (fdec : forall a b : f, {a = b} + {a <> b}).
   Definition RSym_simple : RSym f :=

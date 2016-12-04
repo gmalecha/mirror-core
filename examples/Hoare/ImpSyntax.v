@@ -4,7 +4,11 @@ Require Import ExtLib.Data.String.
 Require Import ExtLib.Tactics.Consider.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.ExprI.
+<<<<<<< HEAD
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master
 Require Import MirrorCore.syms.SymEnv.
 Require Import MirrorCore.syms.SymSum.
 Require Import MirrorCore.Lambda.Expr.
@@ -15,7 +19,7 @@ Require Import McExamples.Hoare.ILogicFunc.
 
 Module ImpSyntax (I : ImpLang).
   (* Types *)
-  Inductive tsym : nat -> Type :=
+  Inductive tsym : nat -> Set :=
   | tyLocals   : tsym 0
   | tyCmd      : tsym 0
   | tySProp    : tsym 0
@@ -101,10 +105,10 @@ Module ImpSyntax (I : ImpLang).
   { symbolD := @tsymD
   ; symbol_dec := @tsym_dec }.
 
-  Definition typ := mtyp tsym.
+  Definition typ := ctyp tsym.
 
-  Global Instance RType_typ : RType typ := RType_mtyp tsym _.
-  Global Instance RTypeOk_typ : RTypeOk := RTypeOk_mtyp _ _.
+  Global Instance RType_typ : RType typ := RType_ctyp tsym _.
+  Global Instance RTypeOk_typ : RTypeOk := RTypeOk_ctyp _ _.
 
   Global Instance Typ2_Fun : @Typ2 typ _ Fun := Typ2_Fun.
   Global Instance Typ2Ok_Fun : Typ2Ok Typ2_Fun := Typ2Ok_Fun.
@@ -595,8 +599,9 @@ Definition test_lemma :=
 
   Reify Declare Typed Table term_table : BinNums.positive => typ.
 
-  Reify Declare Syntax reify_imp_typ :=
+  Definition reify_imp_typ' :=
     Patterns.CPatterns patterns_imp_typ.
+  Reify Declare Syntax reify_imp_typ := reify_imp_typ'.
 
   Reify Declare Patterns patterns_ilogic_func : ilfunc typ.
   Reify Declare Patterns patterns_imp_func : imp_func.
@@ -611,7 +616,7 @@ Definition test_lemma :=
     ExprCore.Inj (inl (inl x)).
 
 
-  Reify Declare Syntax reify_imp :=
+  Definition reify_imp' :=
     CFix
       (CFirst (   CVar (@ExprCore.Var typ func)
                :: CMap mkLogic patterns_ilogic_func
@@ -621,6 +626,7 @@ Definition test_lemma :=
                :: CAbs (CCall reify_imp_typ) (CRec 0) (@ExprCore.Abs typ func)
                :: CMap mkExt (CTypedTable reify_imp_typ term_table)
                :: nil)).
+  Reify Declare Syntax reify_imp := reify_imp'.
 
   Global Instance Reify_imp_typ : Reify typ :=
   { reify_scheme := CCall reify_imp_typ }.
@@ -826,16 +832,16 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
       typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
       FMapPositive.PositiveMap.empty
-      RS ModularTypes.Typ0_sym
-      ModularTypes.Injective_tyApp
+      RS CoreTypes.Typ0_sym
+      CoreTypes.Injective_tyApp
       ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
       sumbool_rect sumbool_rec String.string_dec
       SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
-      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      CoreTypes.RType_ctyp SymEnv.func_typeof_sym fs
       FMapPositive.PositiveMap.find BinPos.Pos.succ
       SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
-      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
-      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      SymEnv.funcD CoreTypes.Typ2_Fun CoreTypes.ctyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD CoreTypes.ctypD exprT OpenT tsymD
       fAssign fTriple fSkip
 
       tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
@@ -851,16 +857,16 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
       typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
       FMapPositive.PositiveMap.empty
-      ModularTypes.Typ0_sym
-      ModularTypes.Injective_tyApp
+      CoreTypes.Typ0_sym
+      CoreTypes.Injective_tyApp
       ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
       sumbool_rect sumbool_rec String.string_dec
       SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
-      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      CoreTypes.RType_ctyp SymEnv.func_typeof_sym fs
       FMapPositive.PositiveMap.find BinPos.Pos.succ
       SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
-      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
-      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      SymEnv.funcD CoreTypes.Typ2_Fun CoreTypes.ctyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD CoreTypes.ctypD exprT OpenT tsymD
       fAssign fTriple fSkip
 
 
@@ -898,7 +904,7 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       typeof_sym_imp
       typeof_sym
       ILogicFunc.typeof_func
-      ModularTypes.type_for_arity
+      CoreTypes.type_for_arity
       type_cast
       typD
       ILogicFunc.typ2_cast_quant
@@ -931,9 +937,9 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       nat_rect
       nat_rec
       nat_eq_eqdec
-      ModularTypes.mtyp_dec
-      ModularTypes.mtyp_cast
-      ModularTypes.mtypD
+      CoreTypes.ctyp_dec
+      CoreTypes.ctyp_cast
+      CoreTypes.ctypD
 
       lops
       SymEnv.join_functions
@@ -975,16 +981,16 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       Ascii.ascii_rect
       Ascii.ascii_rec
       Ascii.ascii_dec
-      ModularTypes.applyn'
-      ModularTypes.applyn
+      CoreTypes.applyn'
+      CoreTypes.applyn
       Applicative.ap
       andb
       and_rect
       and_ind
       FMapPositive.PositiveMap.add
       Typ2_Fun
-      ModularTypes.Typ2_Fun
-      ModularTypes.Typ0_sym
+      CoreTypes.Typ2_Fun
+      CoreTypes.Typ0_sym
       Typ0_Prop
       Rty
       String.RelDec_string
@@ -995,7 +1001,7 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       Nat.RelDec_eq
       RelDec_Rty
       RType_typ
-      ModularTypes.RType_mtyp
+      CoreTypes.RType_ctyp
       SymSum.RSym_sum
       RSym_imp_func
       RSym_ilfunc
@@ -1003,7 +1009,7 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       SymEnv.RSym_func
       RS
       RFun
-      ModularTypes.Injective_tyApp
+      CoreTypes.Injective_tyApp
       Fun
       ILogic.EmbedOp_refl
       ILogic.EmbedOp_Fun
@@ -1012,7 +1018,7 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       UIP_trans.uip_prop_trans
       RS
       RFun
-      ModularTypes.Injective_tyApp
+      CoreTypes.Injective_tyApp
       Fun
       Applicative_Fun
       Traversable.mapT
@@ -1025,8 +1031,8 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       amap_substD FMapSubst.SUBST.raw_substD UVarMap.MAP.fold FMapPositive.PositiveMap.fold FMapPositive.PositiveMap.xfoldi HList.nth_error_get_hlist_nth UVarMap.MAP.from_key FMapPositive.append Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add
       tsym_dec Quant._exists exprT_Inj
       UVarMap.MAP.from_key
-      Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add  ModularTypes.mtyp_cast
-      ModularTypes.symbol_dec ModularTypes.symbolD TSym_tsym
+      Nat.pred BinPos.Pos.to_nat BinPos.Pos.iter_op Nat.add  CoreTypes.ctyp_cast
+      CoreTypes.symbol_dec CoreTypes.symbolD TSym_tsym
     ] in e.
 
 (*
@@ -1043,16 +1049,16 @@ Reify Pattern patterns_imp += (!! PtsTo) => fPtsTo.
       PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
       typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
       FMapPositive.PositiveMap.empty
-      RS ModularTypes.Typ0_sym
-      ModularTypes.Injective_tyApp
+      RS CoreTypes.Typ0_sym
+      CoreTypes.Injective_tyApp
       ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
       sumbool_rect sumbool_rec String.string_dec
       SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
-      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      CoreTypes.RType_ctyp SymEnv.func_typeof_sym fs
       FMapPositive.PositiveMap.find BinPos.Pos.succ
       SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
-      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
-      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      SymEnv.funcD CoreTypes.Typ2_Fun CoreTypes.ctyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD CoreTypes.ctypD exprT OpenT tsymD
       fAssign fTriple fSkip
 e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       ExprDsimul.ExprDenote.lambda_exprD symAs typ0_cast
@@ -1067,16 +1073,16 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       PeanoNat.Nat.eq_dec bool_rect bool_rec complement Ascii.ascii_rect Ascii.ascii_rec Ascii.ascii_dec
       typeof_sym RS SymSum.RSym_sum SymEnv.RSym_func SymEnv.func_typeof_sym FMapPositive.PositiveMap.find fs SymEnv.from_list FMapPositive.PositiveMap.add BinPos.Pos.succ FMapPositive.PositiveMap.empty SymEnv.ftype RSym_imp_func typeof_sym_imp imp_func_eq
       FMapPositive.PositiveMap.empty
-      ModularTypes.Typ0_sym
-      ModularTypes.Injective_tyApp
+      CoreTypes.Typ0_sym
+      CoreTypes.Injective_tyApp
       ILogicFunc.typ2_cast_bin ILogicFunc.typ2_cast_quant tsym_dec
       sumbool_rect sumbool_rec String.string_dec
       SymSum.RSym_sum RSym_imp_func SymEnv.RSym_func
-      ModularTypes.RType_mtyp SymEnv.func_typeof_sym fs
+      CoreTypes.RType_ctyp SymEnv.func_typeof_sym fs
       FMapPositive.PositiveMap.find BinPos.Pos.succ
       SymEnv.from_list FMapPositive.PositiveMap.add SymEnv.ftype
-      SymEnv.funcD ModularTypes.Typ2_Fun ModularTypes.mtyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
-      ILogicFunc.funcD typD ModularTypes.mtypD exprT OpenT tsymD
+      SymEnv.funcD CoreTypes.Typ2_Fun CoreTypes.ctyp_cast ILogicFunc.RSym_ilfunc RSym_ilfunc ILogicFunc.typeof_func lops
+      ILogicFunc.funcD typD CoreTypes.ctypD exprT OpenT tsymD
       fAssign fTriple fSkip
 
 
@@ -1114,7 +1120,7 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       typeof_sym_imp
       typeof_sym
       ILogicFunc.typeof_func
-      ModularTypes.type_for_arity
+      CoreTypes.type_for_arity
       type_cast
       typD
       ILogicFunc.typ2_cast_quant
@@ -1148,9 +1154,9 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       nat_rect
       nat_rec
       nat_eq_eqdec
-      ModularTypes.mtyp_dec
-      ModularTypes.mtyp_cast
-      ModularTypes.mtypD
+      CoreTypes.ctyp_dec
+      CoreTypes.ctyp_cast
+      CoreTypes.ctypD
 
       lops
       SymEnv.join_functions
@@ -1193,8 +1199,8 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       Ascii.ascii_rect
       Ascii.ascii_rec
       Ascii.ascii_dec
-      ModularTypes.applyn'
-      ModularTypes.applyn
+      CoreTypes.applyn'
+      CoreTypes.applyn
       Applicative.ap
       andb
       and_rect
@@ -1202,8 +1208,8 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       FMapPositive.PositiveMap.add
       Nat.add
       Typ2_Fun
-      ModularTypes.Typ2_Fun
-      ModularTypes.Typ0_sym
+      CoreTypes.Typ2_Fun
+      CoreTypes.Typ0_sym
       Typ0_Prop
       Rty
       String.RelDec_string
@@ -1214,7 +1220,7 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       Nat.RelDec_eq
       RelDec_Rty
       RType_typ
-      ModularTypes.RType_mtyp
+      CoreTypes.RType_ctyp
       SymSum.RSym_sum
       RSym_imp_func
       RSym_ilfunc
@@ -1222,7 +1228,7 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       SymEnv.RSym_func
       RS
       RFun
-      ModularTypes.Injective_tyApp
+      CoreTypes.Injective_tyApp
       I.ILogicOps_lprop
       Fun
       EqdepFacts.Eq_rect_eq_on
@@ -1232,7 +1238,7 @@ e tbl Quant._foralls goalD Ctx.propD exprD_typ0 exprD Expr_expr Expr.Expr_expr
       ILogic.EmbedOp_refl
       ILogic.EmbedOp_Fun
       Applicative_Fun
-      ModularTypes.symbol_dec ModularTypes.symbolD TSym_tsym
+      CoreTypes.symbol_dec CoreTypes.symbolD TSym_tsym
     ] in e.
 *)
 

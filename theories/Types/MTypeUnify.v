@@ -2,7 +2,7 @@ Require Import MirrorCore.Types.ModularTypes.
 Require Import ExtLib.Data.Map.FMapPositive.
 
 Section parametric.
-  Variable tsym : nat -> Type.
+  Variable tsym : nat -> Set.
 
   Let S := FMapPositive.pmap (mtyp tsym).
   Let add : positive -> mtyp tsym -> S -> option S := (fun a b c => Some (FMapPositive.pmap_insert a b c)).

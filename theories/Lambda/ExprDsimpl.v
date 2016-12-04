@@ -20,7 +20,7 @@ Set Strict Implicit.
 Module ExprDenote <: ExprDenote.
 
   Section with_types.
-    Context {typ func : Type}.
+    Context {typ func : Set}.
     Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ Fun}.
     Context {RSym_func : RSym func}.

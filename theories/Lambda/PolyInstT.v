@@ -15,9 +15,9 @@ Set Strict Implicit.
 
 Module PolyInst (Import RT : TypeLang) (Import RU : TypeLangUnify with Module RT := RT).
   Section with_symbols.
-    Context {tsym : kind -> Type}
+    Context {tsym : kind -> Set}
             {TS : TSym kindD tsym}.
-    Context {sym : Type}
+    Context {sym : Set}
             {RS : @RSym _ (@RT.RType_type tsym TS) sym}.
 
     Local Fixpoint build_vars p (n : list kind) : hlist (type tsym) n :=

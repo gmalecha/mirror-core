@@ -21,10 +21,10 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
   Module PI := PolyInst RT RTU.
 
   Section with_symbols.
-    Variable tsym : kind -> Type.
+    Variable tsym : kind -> Set.
     Variable TSym_tsym : TSym kindD tsym.
     Let typ := type tsym Kstar.
-    Context {func : Type}.
+    Context {func : Set}.
     Let RType_typD : RType typ := RT.RType_type _ _.
     Context {Typ2_Fun : Typ2 RType_typD RFun}.
     Context {RSym_func : RSym func}.
@@ -41,7 +41,7 @@ Module HintDbs (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT)
     (* TODO(gmalecha): Wrap all of this up in a type class?
      * Why should it be different than Expr?
      *)
-    Variable Rbase : Type.
+    Variable Rbase : Set.
     Variable Rbase_eq : Rbase -> Rbase -> bool.
     Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 

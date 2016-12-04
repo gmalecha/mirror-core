@@ -11,13 +11,31 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section poly.
-  Context {typ : Type} {sym : Type}.
+  Context {typ : Set} {sym : Set}.
   Context {RT : RType typ}
           {RS : RSym sym}.
 
   Variable mkVar : positive -> typ.
 
   Variable typ_unify : typ -> typ -> pmap typ -> option (pmap typ).
+
+  Definition sym_unifier : Type :=
+    sym -> sym -> pmap typ -> option (pmap typ).
+
+  Definition type_sym_unifier : sym_unifier :=
+    fun a b s =>
+      match typeof_sym a
+          , typeof_sym b
+      with
+      | Some ta , Some tb =>
+        match typ_unify ta tb s with
+        | Some s' => Some s'
+        | None => None
+        end
+      | _ , _ => None
+      end.
+
+  Variable su : sym_unifier.
 
   (** NOTE: This function does not need to be complete
    ** TODO: We should really stop looking at the term as
@@ -32,16 +50,14 @@ Section poly.
                 (fun s' => get_types aa ab s' ok bad)
                 bad
     | Inj a , Inj b =>
-      match typeof_sym a
-          , typeof_sym b
-      with
-      | Some ta , Some tb =>
-        match typ_unify ta tb s with
-        | Some s' => ok s'
-        | None => bad
-        end
-      | _ , _ => bad
+      match su a b s with
+      | Some s => ok s
+      | None => bad
       end
+    | Inj _ , App _ _
+    | App _ _ , Inj _
+    | Abs _ _ , App _ _
+    | App _ _ , Abs _ _ => bad
     | _ , _ => ok s
     end.
 

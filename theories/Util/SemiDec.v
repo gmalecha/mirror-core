@@ -36,9 +36,9 @@ End SemiDec.
 Section SemiDec_RSym.
 
   (* need to have a typ *)
-  Variable typ : Type.
+  Variable typ : Set.
   Variable typ_Rt : RType typ.
-  Variable func : Type.
+  Variable func : Set.
   Variable Rs : @RSym typ typ_Rt func.
   Variable RsOk : RSymOk Rs.
 
@@ -65,10 +65,10 @@ End SemiDec_RSym.
  **)
 Section SemiDec_expr.
 
-  Variable typ : Type.
+  Variable typ : Set.
   Variable typ_Rt : RType typ.
   Variable typ_RtOk : @RTypeOk typ typ_Rt.
-  Variable func : Type.
+  Variable func : Set.
   Variable func_Rs : @RSym typ typ_Rt func.
   Variable func_RsOk : RSymOk func_Rs.
 
@@ -110,8 +110,6 @@ Section SemiDec_expr.
     { intros. simpl in *. apply EqNat.beq_nat_true in H. subst. reflexivity. }
   Qed.
 
-  (* put SemiDec inside of theories/Util *)
-  (* Do this: make a copy of Lambda that only uses Types *)
   Instance SemiDecOk_expr : RelDecSemiOk (expr typ func) _ RelDecSemi_expr.
   Proof.
     constructor. intros.

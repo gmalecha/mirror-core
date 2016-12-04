@@ -14,7 +14,7 @@ Require Import MirrorCore.Types.TSymOneOf.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Inductive typ' : nat -> Type :=
+Inductive typ' : nat -> Set :=
 | tNat : typ' 0
 | tBool : typ' 0.
 
@@ -42,13 +42,13 @@ Instance TSym_typ' : TSym typ' :=
     end
 ; symbol_dec := typ'_dec }.
 
-Definition typ := mtyp typ'.
+Definition typ := ctyp typ'.
 
-Global Instance RType_typ : RType typ := RType_mtyp _ _.
-Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_mtyp _ _.
+Global Instance RType_typ : RType typ := RType_ctyp _ _.
+Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
-Global Instance RelDec_typ : RelDec (@eq typ) := RelDec_eq_mtyp typ' TSym_typ'.
-Global Instance RelDec_Correct_typ : RelDec_Correct RelDec_typ := RelDec_Correct_eq_mtyp typ' TSym_typ'.
+Global Instance RelDec_typ : RelDec (@eq typ) := RelDec_eq_ctyp typ' TSym_typ'.
+Global Instance RelDec_Correct_typ : RelDec_Correct RelDec_typ := RelDec_Correct_eq_ctyp typ' TSym_typ'.
 
 Definition tyNat := tyBase0 tNat.
 Definition tyBool := tyBase0 tBool.

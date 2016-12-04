@@ -17,7 +17,7 @@ Require Import McExamples.Simple.SimpleReify.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(* TODO - change typ to mtyp typ' *)
+(* TODO - change typ to ctyp typ' *)
 (* TODO - figure out how to resolve the dependency this creates on PolyRewrite *)
 (* TODO - i think MLambda will resolve this *)
 Let Rbase := expr typ func.
@@ -228,7 +228,11 @@ Qed.
    PolyQuantpullRtac anyway. We should figure out whether to remove it. *)
 (*
 Require Import MirrorCore.Lambda.Rtac.
+<<<<<<< HEAD
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master
 
 Definition the_rewrites (lems : RewriteHintDb Rbase (*list (rw_lemma typ func (expr typ func) *
                                       CoreK.rtacK typ (expr typ func)) *))

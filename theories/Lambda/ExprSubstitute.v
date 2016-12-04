@@ -19,8 +19,8 @@ Set Strict Implicit.
 Require Import Coq.Logic.FunctionalExtensionality.
 
 Section substitute.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
 
   Section subst'.
     Variable lookupU : uvar -> forall t, (expr typ func -> t) -> t -> t.

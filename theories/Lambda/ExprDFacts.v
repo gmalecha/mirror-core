@@ -19,10 +19,10 @@ Module Make (ED : ExprDenote).
   Hint Rewrite @ED.lambda_exprD_Var @ED.lambda_exprD_UVar @ED.lambda_exprD_Inj @ED.lambda_exprD_Abs @ED.lambda_exprD_App using (eauto with typeclass_instances) : exprD_rw.
 
   Section with_types.
-    Context {typ : Type}.
+    Context {typ : Set}.
     Context {RType_typD : RType typ}.
     Context {Typ2_Fun : Typ2 _ RFun}.
-    Context {func : Type}.
+    Context {func : Set}.
     Context {RSym_func : RSym func}.
 
     (** Reasoning principles **)

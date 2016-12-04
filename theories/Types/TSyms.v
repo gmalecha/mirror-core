@@ -1,14 +1,14 @@
 Require Import MirrorCore.Types.ModularTypes.
 
 Section sum.
-  Variable T U : nat -> Type.
-  Inductive tsym_sum (n : nat) : Type :=
+  Variable T U : nat -> Set.
+  Inductive tsym_sum (n : nat) : Set :=
   | TSym_left : T n -> tsym_sum n
   | TSym_right : U n -> tsym_sum n.
 
   Variable TSym_T : TSym T.
   Variable TSym_U : TSym U.
- 
+
   Instance TSym_sum : TSym tsym_sum :=
   { symbolD := fun n x =>
                  match x in tsym_sum _ return type_for_arity n with

@@ -1,6 +1,10 @@
 Require Import Coq.Lists.List.
 Require Import MirrorCore.Reify.Reify.
+<<<<<<< HEAD
 Require Import MirrorCore.Types.ModularTypes.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.PolyRewrite.MSimple.
 
@@ -8,15 +12,16 @@ Require Import McExamples.PolyRewrite.MSimple.
 Reify Declare Patterns patterns_simple_typ : typ.
 Reify Declare Patterns patterns_simple : (expr typ func).
 
-Reify Declare Syntax reify_simple_typ :=
+Definition reify_simple_typ' :=
   CPatterns patterns_simple_typ.
+Reify Declare Syntax reify_simple_typ := reify_simple_typ'.
 
 Axiom otherFunc : BinNums.positive -> expr typ func.
 
 Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
 (** Declare syntax **)
-Reify Declare Syntax reify_simple :=
+Definition reify_simple' :=
   CFix
     (CFirst (CPatterns patterns_simple ::
              CApp (CRec 0) (CRec 0) (@ExprCore.App typ func) ::
@@ -24,6 +29,7 @@ Reify Declare Syntax reify_simple :=
              CVar (@ExprCore.Var typ func) ::
              CMap otherFunc (CTypedTable (CCall reify_simple_typ) table_terms)
              :: nil)).
+Reify Declare Syntax reify_simple := reify_simple'.
 
 Local Notation "x @ y" := (@RApp x y) (only parsing, at level 30).
 Local Notation "'!!' x" := (@RExact _ x) (only parsing, at level 25).

@@ -13,7 +13,7 @@ Set Printing Universes.
  **)
 Module OneOfType.
 
-  Definition TypeR := Type.
+  Definition TypeR := Set.
   Definition TypeS := Type.
 
   Inductive _option : TypeS :=
@@ -113,7 +113,7 @@ Module OneOfType.
            end :=
     @asNth' ts p oe.(index) oe.(value).
 
-  Definition OutOf {ts} {T : Type} (n : positive)
+  Definition OutOf {ts} {T : TypeR} (n : positive)
              (pf : pmap_lookup' ts n = _Some T)
   : OneOf ts -> option T :=
     match pf in _ = X
@@ -248,20 +248,20 @@ Module OneOfType.
   Qed.
 
   Universe UPmap.
-  Polymorphic Fixpoint list_to_pmap_aux (lst : plist@{UPmap} Type) (p : positive) : pmap :=
+  Polymorphic Fixpoint list_to_pmap_aux (lst : plist@{UPmap} TypeR) (p : positive) : pmap :=
     match lst with
     | pnil => OneOfType.Empty
     | pcons x xs => OneOfType.pmap_insert p (list_to_pmap_aux xs (p + 1)) x
   end.
 
-  Definition list_to_pmap (lst : plist@{UPmap} Type) := list_to_pmap_aux lst 1.
+  Definition list_to_pmap (lst : plist@{UPmap} TypeR) := list_to_pmap_aux lst 1.
 
 End OneOfType.
 
 Import OneOfType.
 
 Section RSym_OneOf.
-  Context {typ : Type} {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
+  Context {typ : Set} {RType_typ : RType typ} {RTypeOk_typ : RTypeOk}.
 
   Instance RSym_Empty_set : RSym Empty_set :=
   { typeof_sym s := None
@@ -272,10 +272,10 @@ Section RSym_OneOf.
   Proof. constructor. destruct a. Defined.
 
   Definition typeof_sym_OneOf {m : pmap}
-    (H : forall p, RSym match pmap_lookup' m p return TypeR with
-                        | _Some T => T
-                        | _None => Empty_set
-                        end)
+    (H : forall p, RSym match pmap_lookup' m p return Set with
+                   | _Some T => T
+                   | _None => Empty_set
+                   end)
     (s : OneOf m) : option typ :=
     match s with
     | mkOneOf _ x v =>
@@ -303,13 +303,13 @@ Section RSym_OneOf.
                         | _None => Empty_set
                         end)
     (f : OneOf m)
-  : match typeof_sym_OneOf H f return TypeR with
+  : match typeof_sym_OneOf H f return TypeS with
     | Some t => typD t
     | None => unit
     end.
   refine (
     match f as f' return f = f' ->
-                         match typeof_sym_OneOf H f' return TypeR with
+                         match typeof_sym_OneOf H f' return TypeS with
                          | Some t => typD t
                          | None => unit:Type
                          end with
@@ -318,7 +318,7 @@ Section RSym_OneOf.
         match pmap_lookup' m x as o
               return o = pmap_lookup' m x ->
                      match typeof_sym_OneOf H {| index := x; value := v |}
-                           return TypeR
+                           return TypeS
                      with
                      | Some t => typD t
                      | None => unit

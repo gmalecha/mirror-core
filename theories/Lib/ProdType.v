@@ -11,10 +11,7 @@ Require Import ExtLib.Core.RelDec.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(* This universe is only here as prod_typ otherwise is cast to nat->Prop *)
-Universes T.
-
-Inductive prod_typ : nat -> Type@{T} :=
+Inductive prod_typ : nat -> Set :=
 | tProd : prod_typ 2.
 
 Definition prod_typ_dec {n} (a : prod_typ n) : forall b, {a = b} + {a <> b} :=
@@ -60,7 +57,7 @@ End FuncView_prod_type.
 Section RelDec_prod_type.
 
   Global Instance RelDec_prod_typ (x : nat) : RelDec (@eq (prod_typ x)) := {
-    rel_dec := fun a b => 
+    rel_dec := fun a b =>
                  match x with
                  | 2 => true
                  | _ => false
@@ -82,14 +79,14 @@ Section RelDec_prod_type.
     split; intros; [|reflexivity].
     apply prod_typ_eq.
   Qed.
-  
+
 End RelDec_prod_type.
 
 Section TSym_prod_type.
 
   Global Instance TSym_prod_typ : TSym prod_typ := {
     symbolD n := prod_typD (n := n);
-    symbol_dec n := prod_typ_dec (n := n)    
+    symbol_dec n := prod_typ_dec (n := n)
   }.
 
 End TSym_prod_type.
@@ -97,11 +94,11 @@ End TSym_prod_type.
 Section ProdTypeReify.
   Context {typ : Type} {FV : PartialView typ (prod_typ 2 * (typ * typ))}.
 
-  Definition reify_tyProd : Command typ := 
-    CApp (CApp (CPattern (ls := nil) (RExact (@prod)) tyProd) 
-               (CRec 0) 
+  Definition reify_tyProd : Command typ :=
+    CApp (CApp (CPattern (ls := nil) (RExact (@prod)) tyProd)
+               (CRec 0)
                (fun _ x => tyProd x))
-         (CRec 0) 
+         (CRec 0)
          (fun f y => f y).
 
     Definition reify_prod_typ : Command typ :=

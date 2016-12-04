@@ -23,12 +23,52 @@ Require Import MirrorCore.Lambda.Rewrite.Core.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Printing Universes.
 
 Set Suggest Proof Using.
 
+(** TODO(gmalecha): Move to EnvI or ExtLib.Data.HList **)
+Polymorphic Lemma nth_error_get_hlist_nth_appR'
+: forall {T : Type} (F : T -> Type) ls u v,
+    nth_error_get_hlist_nth F ls u = Some v ->
+    forall ls' : list T,
+    exists v' : hlist F (ls' ++ ls) -> F (projT1 v),
+      nth_error_get_hlist_nth F (ls' ++ ls) (u + length ls') = Some (existT _ (projT1 v) v') /\
+      forall a b,
+        projT2 v a = v' (hlist_app b a).
+Proof using.
+  induction ls'.
+  { simpl.
+    replace (u + 0) with u by omega.
+    destruct v. eexists; split; eauto.
+    simpl. intros.
+    rewrite (hlist_eta b). reflexivity. }
+  { simpl.
+    replace (u + S (length ls')) with (S (u + length ls')) by omega.
+    destruct IHls' as [ ? [ ? ? ] ].
+    rewrite H0. eexists; split; eauto.
+    simpl. intros.
+    rewrite (hlist_eta b). simpl. eauto. }
+Qed.
+
+(** TODO: Move **)
+Polymorphic Lemma forall_hlist_nil : forall T (F : T -> Type) (P : hlist F nil -> Prop),
+    (forall x, P x) <-> P Hnil.
+Proof using.
+  intros. split. eauto. intros. rewrite hlist_eta. assumption.
+Qed.
+
+
+Polymorphic Lemma forall_hlist_cons : forall T (F : T -> Type) t ts (P : hlist F (t :: ts) -> Prop),
+    (forall x, P x) <-> (forall x xs, P (Hcons x xs)).
+Proof using.
+  intros. split. eauto. intros. rewrite hlist_eta. eapply H.
+Qed.
+
+
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
@@ -50,10 +90,22 @@ Section setoid.
   Local Existing Instance Expr_expr.
   Local Existing Instance ExprOk_expr.
 
+  (** TODO: Move **)
+  Lemma pctxD_iff : forall ctx (cs : ctx_subst ctx) cD P Q,
+      pctxD cs = Some cD ->
+      (forall us vs, P us vs <-> Q us vs) ->
+      forall us vs,
+        cD P us vs <-> cD Q us vs.
+  Proof using.
+    intros.
+    split; eapply Ap_pctxD; eauto; eapply Pure_pctxD; eauto; intros; eapply H0; eauto.
+  Qed.
+
+
   (* TODO(gmalecha): Wrap all of this up in a type class?
    * Why should it be different than Expr?
    *)
-  Variable Rbase : Type.
+  Variable Rbase : Set.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 
@@ -678,29 +730,6 @@ Section setoid.
     : expr typ func -> expr typ func :=
       expr_subst _lookupU (_lookupV u above) 0.
 
-    (** TODO(gmalecha): Move to EnvI or ExtLib.Data.HList **)
-    Lemma nth_error_get_hlist_nth_appR'
-    : forall T (F : T -> Type) ls u v,
-        nth_error_get_hlist_nth F ls u = Some v ->
-        forall ls',
-        exists v',
-          nth_error_get_hlist_nth F (ls' ++ ls) (u + length ls') = Some (existT _ (projT1 v) v') /\
-          forall a b,
-            projT2 v a = v' (hlist_app b a).
-    Proof using.
-      induction ls'.
-      { simpl.
-        replace (u + 0) with u by omega.
-        destruct v. eexists; split; eauto.
-        simpl. intros.
-        rewrite (hlist_eta b). reflexivity. }
-      { simpl.
-        replace (u + S (length ls')) with (S (u + length ls')) by omega.
-        destruct IHls' as [ ? [ ? ? ] ].
-        rewrite H0. eexists; split; eauto.
-        simpl. intros.
-        rewrite (hlist_eta b). simpl. eauto. }
-    Qed.
 
     Lemma expr_convert_sound
     : forall tus tvs tvs' e t eD,
@@ -1102,30 +1131,6 @@ Section setoid.
       intros. rewrite <- IHtvs. reflexivity.
     Qed.
 
-    (** TODO: Move **)
-    Lemma pctxD_iff : forall ctx (cs : ctx_subst ctx) cD P Q,
-        pctxD cs = Some cD ->
-        (forall us vs, P us vs <-> Q us vs) ->
-        forall us vs,
-          cD P us vs <-> cD Q us vs.
-    Proof using.
-      intros.
-      split; eapply Ap_pctxD; eauto; eapply Pure_pctxD; eauto; intros; eapply H0; eauto.
-    Qed.
-
-    (** TODO: Move **)
-    Lemma forall_hlist_nil : forall T (F : T -> Type) (P : hlist F nil -> Prop),
-        (forall x, P x) <-> P Hnil.
-    Proof using.
-      intros. split. eauto. intros. rewrite hlist_eta. assumption.
-    Qed.
-
-    Lemma forall_hlist_cons : forall T (F : T -> Type) t ts (P : hlist F (t :: ts) -> Prop),
-        (forall x, P x) <-> (forall x xs, P (Hcons x xs)).
-    Proof using.
-      intros. split. eauto. intros. rewrite hlist_eta. eapply H.
-    Qed.
-
     Lemma getUVars_wrap_tvs
     : forall tvs' ctx, getUVars (wrap_tvs tvs' ctx) = getUVars ctx.
     Proof using.
@@ -1173,7 +1178,7 @@ Section setoid.
         intros.
         eapply pctxD_iff; eauto.
         intros.
-        rewrite forall_hlist_nil.
+        rewrite (@forall_hlist_nil@{Set Urefl}).
         rewrite hlist_app_nil_r.
         revert vs0.
         refine

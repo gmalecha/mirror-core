@@ -9,8 +9,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr typ expr}.

@@ -17,7 +17,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section raw_types.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
 
   Fixpoint lower (skip : nat) (_by : nat) (e : expr typ func) {struct e}
   : option (expr typ func) :=
@@ -48,8 +48,8 @@ Section raw_types.
 End raw_types.
 
 Section types.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.

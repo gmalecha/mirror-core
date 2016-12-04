@@ -4,10 +4,10 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section symbols.
-  Variable typ : Type.
+  Variable typ : Set.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
-  Variable func : Type.
+  Variable func : Set.
 
   Class RSym : Type :=
   { typeof_sym : func -> option typ
@@ -16,19 +16,19 @@ Section symbols.
      ** a unification variable.
      **)
   ; symD : forall (f : func),
-             match typeof_sym f with
-               | None => unit:Type
+             match typeof_sym f return Type@{Urefl} with
+               | None => unit
                | Some t => typD t
              end
   ; sym_eqb : func -> func -> option bool
   }.
 
-  Class RSymOk (R : RSym) : Type :=
-  { sym_eqbOk : forall a b, match sym_eqb a b with
-                              | None => True
-                              | Some true => a = b
-                              | Some false => a <> b
-                            end
+  Class RSymOk (R : RSym) : Prop :=
+  { sym_eqbOk : forall a b, match sym_eqb a b return Prop with
+                       | None => True
+                       | Some true => a = b
+                       | Some false => a <> b
+                       end
   }.
 
   Context {RSym_func : RSym}.

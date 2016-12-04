@@ -17,12 +17,12 @@ Require Import MirrorCore.Lambda.PolyInst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
+Set Universe Polymorphism.
 Set Suggest Proof Using.
 
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
@@ -46,7 +46,7 @@ Section setoid.
   (* TODO(gmalecha): Wrap all of this up in a type class?
    * Why should it be different than Expr?
    *)
-  Variable Rbase : Type.
+  Variable Rbase : Set.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 
@@ -80,7 +80,7 @@ Section setoid.
   Qed.
 
   (* This is just a "special" version of the rewriting lemma *)
-  Record Proper_concl : Type := mkProper
+  Record Proper_concl : Set := mkProper
   { relation : R
   ; term     : expr typ func
   }.
@@ -135,7 +135,7 @@ Section setoid.
   (** A "lemma" representing [Proper ...] that can be polymorphic and
    ** use typeclasses.
    **)
-  Inductive HintProper : Type :=
+  Inductive HintProper : Set :=
   | PPr_tc : forall {n : nat},
       Polymorphic.polymorphic typ n Proper_concl ->
       Polymorphic.polymorphic typ n bool ->
@@ -149,19 +149,22 @@ Section setoid.
   Definition tc_any (n : nat) : polymorphic typ n bool :=
     make_polymorphic (fun _ => true).
 
-  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
-             (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
-  : polymorphic typ n Prop :=
-    make_polymorphic (fun args =>
-                        if inst tc args
-                        then TD (inst pc args)
-                        else True).
+  Polymorphic Definition with_typeclasses@{X} {T : Type@{X}} {n}
+             (tc : polymorphic typ n bool) (pc : polymorphic@{X} typ n T)
+  : polymorphic@{X} typ n (option T) :=
+    make_polymorphic@{X} (fun args =>
+                            if inst tc args
+                            then Some (inst pc args)
+                            else None).
 
   (* TODO(mario): end duplicated code *)
   Definition ProperHintOk (hp : HintProper) : Prop :=
     match hp with
     | PPr_tc pc tc =>
-      polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc)
+      polymorphicD (fun x => match x with
+                          | None => True
+                          | Some x => Proper_conclP x
+                          end) (with_typeclasses tc pc)
     end.
 
   (** Convenience constructors for building lemmas that do not use
@@ -199,7 +202,10 @@ Section setoid.
   Qed.
 
   Theorem PPr_tc_sound {n : nat} (pc : polymorphic typ n Proper_concl) tc
-  : polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc) ->
+  : polymorphicD (fun x => match x with
+                        | None => True
+                        | Some x => Proper_conclP x
+                        end) (with_typeclasses tc pc) ->
     ProperHintOk (PPr_tc pc tc).
   Proof using.
     clear. simpl. tauto.
@@ -331,16 +337,18 @@ Section setoid.
 
   Section for_polymorphism.
 
+(*
   Variable unify_function : typ -> typ -> FMapPositive.pmap typ -> option (FMapPositive.pmap typ).
+*)
   Variable mkVar : BinNums.positive -> typ.
 
-  Local Definition get_Proper {n : nat}
+  Local Definition get_Proper (su : sym_unifier) {n : nat}
              (p : polymorphic typ n Proper_concl)
              (tc : polymorphic typ n bool)
              (e : expr typ func)
   : option Proper_concl :=
     let p' := Functor.fmap term p in
-    match @get_inst _ _ _ _ mkVar unify_function n p' e with
+    match @get_inst _ _ mkVar su n p' e with
     | Some args =>
       if Polymorphic.inst tc args
       then Some (Polymorphic.inst p args)
@@ -349,9 +357,12 @@ Section setoid.
     end.
 
   Local Lemma get_Proper_sound :
-    forall n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
-      get_Proper p tc e  = Some x ->
-      polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc p) ->
+    forall su n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
+      get_Proper su p tc e  = Some x ->
+      polymorphicD (fun x => match x with
+                          | Some x => Proper_conclP x
+                          | None => True
+                          end) (with_typeclasses tc p) ->
       Proper_conclP x.
   Proof using.
     unfold get_Proper. simpl. intros.
@@ -366,11 +377,11 @@ Section setoid.
   Qed.
 
 
-  Local Definition do_one_prespectful (h : HintProper) : ResolveProper typ func Rbase :=
+  Local Definition do_one_prespectful su (h : HintProper) : ResolveProper typ func Rbase :=
     match h with
     | PPr_tc pc tc =>
       (fun (e : expr typ func) =>
-         match get_Proper pc tc e with
+         match get_Proper su pc tc e with
          | Some lem =>
            apply_respectful {| vars := nil
                              ; premises := nil
@@ -380,17 +391,17 @@ Section setoid.
     end.
 
   Local Lemma do_one_prespectful_sound :
-    forall hp : HintProper,
+    forall su (hp : HintProper),
       ProperHintOk hp ->
-      respectful_spec RbaseD (do_one_prespectful hp).
+      respectful_spec RbaseD (do_one_prespectful su hp).
   Proof using RSymOk_func RTypeOk_typD Rbase_eq_ok RelDec_Correct_eq_typ
         Typ2Ok_Fun.
     intros.
     unfold do_one_prespectful.
     destruct hp.
     red. intros.
-    generalize (@get_Proper_sound n p p0 e).
-    destruct (get_Proper p p0 e).
+    generalize (@get_Proper_sound su n p p0 e).
+    destruct (get_Proper su p p0 e).
     { intros.
       eapply apply_respectful_sound; eauto using IDTACK_sound.
       red. simpl.
@@ -402,17 +413,17 @@ Section setoid.
   Qed.
 
   (** This is the main entry point for the file *)
-  Fixpoint do_prespectful (pdb : ProperDb) : ResolveProper typ func Rbase :=
+  Fixpoint do_prespectful su (pdb : ProperDb) : ResolveProper typ func Rbase :=
     match pdb with
     | nil => fail_respectful
     | p :: pdb' =>
-      or_respectful (do_one_prespectful p) (fun e => do_prespectful pdb' e)
+      or_respectful (do_one_prespectful su p) (fun e => do_prespectful su pdb' e)
     end.
 
   Theorem do_prespectful_sound
-  : forall propers,
+  : forall su propers,
       ProperDbOk propers ->
-      respectful_spec RbaseD (do_prespectful propers).
+      respectful_spec RbaseD (do_prespectful su propers).
   Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
     induction 1.
     { eapply fail_respectful_sound. }
@@ -422,13 +433,13 @@ Section setoid.
   End for_polymorphism.
 
   (** This is the non-polymorphic entry point *)
-  Definition do_respectful : ProperDb -> ResolveProper typ func Rbase :=
-    do_prespectful (fun _ _ => Some) (fun _ => typ0 (F:=Prop)).
+  Definition do_respectful : (BinNums.positive -> typ) -> sym_unifier -> ProperDb -> ResolveProper typ func Rbase :=
+    @do_prespectful.
 
   Theorem do_respectful_sound
-  : forall propers,
+  : forall su mkVar propers,
       ProperDbOk propers ->
-      respectful_spec RbaseD (do_respectful propers).
+      respectful_spec RbaseD (do_respectful su mkVar propers).
   Proof using RTypeOk_typD Typ2Ok_Fun RSymOk_func RelDec_Correct_eq_typ Rbase_eq_ok.
     eapply do_prespectful_sound.
   Qed.
@@ -436,7 +447,7 @@ Section setoid.
 End setoid.
 
 (**
-      Helpful notations for workign with Respectfulness,
+      Helpful notations for working with Respectfulness,
       based on the ones in Coq's standard library.
  *)
 Delimit Scope Rrespects_scope with Rresp.
@@ -452,7 +463,7 @@ Arguments Proper_concl _ _ _ : clear implicits.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section Reify_Proper_concl.
-  Variables Ty func Rbase : Type.
+  Variables Ty func Rbase : Set.
   Context {Reify_Ty : Reify Ty}.
   Context {Reify_expr_typ_func : Reify (expr Ty func)}.
   Context {Reify_Rbase : Reify Rbase}.

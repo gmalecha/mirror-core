@@ -10,12 +10,21 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+<<<<<<< HEAD
 Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Types.TSymOneOf.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Lib.ListType.
 Require Import MirrorCore.Lib.BaseType.
 Require Import MirrorCore.Lib.ProdType.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.TSymOneOf.
+Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.CTypes.ListType.
+Require Import MirrorCore.CTypes.BaseType.
+Require Import MirrorCore.CTypes.ProdType.
+>>>>>>> master
 Require Import MirrorCore.Views.ViewSumN.
 Require Import MirrorCore.Reify.ReifyClass.
 Require Import MirrorCore.Reify.ReifyView.
@@ -34,7 +43,7 @@ Definition typ_map :=
 
 Definition typ' := OneOfF typ_map.
 
-Definition typ := mtyp typ'.
+Definition typ := ctyp typ'.
 
 Ltac pmap_lookup'_simpl :=
   repeat (
@@ -120,12 +129,12 @@ Defined.
 
 
 Global Instance RType_typ : RType typ.
-apply RType_mtyp. 
+apply RType_ctyp. 
 apply _.
 Defined.
 
 Global Instance RTypeOk_typ : RTypeOk.
-apply RTypeOk_mtyp.
+apply RTypeOk_ctyp.
 Defined.
 
 Global Instance Typ2_tyArr : Typ2 RType_typ Fun := Typ2_Fun.

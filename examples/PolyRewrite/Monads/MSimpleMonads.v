@@ -4,12 +4,20 @@
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.Fun.
 Require Import ExtLib.Data.Nat.
+Require Import ExtLib.Data.Map.FMapPositive.
 Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+<<<<<<< HEAD:examples/PolyRewrite/MSimpleMonads.v
 Require Import MirrorCore.Types.ModularTypes.
 Require Import MirrorCore.Types.TSymOneOf.
+=======
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
+Require Import MirrorCore.CTypes.TSymOneOf.
+
+>>>>>>> master:examples/PolyRewrite/Monads/MSimpleMonads.v
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -43,31 +51,89 @@ refine
 Defined.
 
 Require Import ExtLib.Structures.Monad.
-Section Monad.
-    Variable M : Type -> Type.
-    Variable M_mon : Monad M.
+Require Import McExamples.PolyRewrite.Monads.Monad.
+Module TheMonad (M : Monad) (F : Frob M).
+  Import M.
+  Import F.
 
     Instance TSym_typ' : TSym typ' :=
-      { symbolD n s :=
-          match s with
-          | tyNat => nat
-          | tyBool => bool
-          | tyMonad => M
-          end
-        ; symbol_dec := typ'_dec }.
+    { symbolD n s :=
+        match s with
+        | tyNat => nat
+        | tyBool => bool
+        | tyMonad => M
+        end
+    ; symbol_dec := typ'_dec }.
 
-    Definition typ := mtyp typ'.
+    Definition typ := ctyp typ'.
 
-    Global Instance RType_typ : RType typ := RType_mtyp _ _.
-    Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_mtyp _ _.
+    Global Instance RType_typ : RType typ := RType_ctyp _ _.
+    Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
     Inductive func :=
     | Lt | Plus | N : nat -> func | Eq : typ -> func
     | Ex : typ -> func | All : typ -> func
-    | And | Or | Impl | Bind : typ -> typ -> func | Ret : typ -> func.
+    | And | Or | Impl | Bind : typ -> typ -> func | Ret : typ -> func | Frob : func.
+
+
+    (* slower version if we don't know how many vars we need *)
+    Definition func_unify_slow (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
+      match a , b with
+      | Lt , Lt
+      | Plus , Plus
+      | Frob, Frob
+      | N _ , N _
+      | And , And
+      | Or , Or
+      | Impl , Impl => Some s
+      | Ret t , Ret t'
+      | Eq t , Eq t'
+      | Ex t , Ex t'
+      | All t , All t' => ctype_unify_slow _ t t' s
+      | Bind a b , Bind a' b'  =>
+        match ctype_unify_slow _ a a' s with
+        | Some s' => ctype_unify_slow _ b b' s
+        | None => None
+        end
+      | _ , _ => None
+      end.
+
+    (* n is how many variables we are trying to discover *)    
+    Definition func_unify (n : nat) (a b : func) (s : FMapPositive.pmap typ) : option (FMapPositive.pmap typ) :=
+      match n with
+      | S _ =>
+        match a , b with
+        | Lt , Lt
+        | Plus , Plus
+        | Frob, Frob
+        | N _ , N _
+        | And , And
+        | Or , Or
+        | Impl , Impl => Some s
+        | Ret t , Ret t'
+        | Eq t , Eq t'
+        | Ex t , Ex t'
+        | All t , All t' =>
+          match ctype_unify _ n t t' s with
+          | Some (s', _) => Some s'
+          | _ => None
+          end
+        | Bind a b , Bind a' b'  =>
+          match ctype_unify _ n a a' s with
+          | Some (s', S k) =>
+            match ctype_unify _ (S k) b b' s' with
+            | Some (s'', _) => Some s''
+            | _ => None
+            end
+          | Some (s', 0) => Some s'
+          | None => None
+          end
+        | _ , _ => None
+        end
+      | 0 => Some s
+      end.
 
     Local Notation "! x" := (@tyBase0 _ x) (at level 0).
-
     Definition typeof_func (f : func) : option typ :=
       Some match f with
            | Lt => tyArr !tyNat (tyArr !tyNat !tyBool)
@@ -78,6 +144,7 @@ Section Monad.
            | Ex t | All t => tyArr (tyArr t tyProp) tyProp
            | Bind alpha beta => tyArr (tyBase1 tyMonad alpha) (tyArr (tyArr alpha (tyBase1 tyMonad beta)) (tyBase1 tyMonad beta))
            | Ret alpha => tyArr alpha (tyBase1 tyMonad alpha)
+           | Frob => tyArr (tyBase0 tyNat) (tyBase1 tyMonad (tyBase0 tyNat))
            end.
 
     Definition funcD (f : func)
@@ -101,6 +168,7 @@ Section Monad.
       | Ex t => fun P => exists x : typD t, P x
       | Bind a b => bind
       | Ret a => ret
+      | Frob => frob
       end.
 
     Let RelDec_eq_typ : RelDec (@eq typ) := RelDec_Rty _.
@@ -120,10 +188,10 @@ Section Monad.
                      | Ex a , Ex b => a ?[ eq ] b
                      | Bind a b, Bind a' b' => andb (a ?[eq] a') (b ?[eq] b')
                      | Ret a, Ret a' => a ?[eq] a'
+                     | Frob, Frob => true
                      | _ , _ => false
                      end
       }.
-
 
     Instance RelDecCorrect_eq_func : RelDec_Correct RelDec_eq_func.
     Proof.
@@ -153,4 +221,4 @@ Section Monad.
       intros. simpl. consider (a ?[ eq ] b); auto. }
     Qed.
 
-End Monad.
+End TheMonad.

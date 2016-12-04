@@ -11,16 +11,16 @@ Require Import MirrorCore.Views.View.
 
 Section ReifyType.
   Universe U.
-  
-  Context {typ : Type@{U}} {RType_typ : RType typ}.
+
+  Context {typ : Set} {RType_typ : RType typ}.
   Context {Typ2_typ : Typ2 _ Fun}.
 
   Let tyArr : typ -> typ -> typ := @typ2 typ RType_typ Fun Typ2_typ.
-  
+
   Definition reify_typ (rt : list (Command typ)) : Command typ :=
   (@Patterns.CFix _
       (@Patterns.CFirst_ _
-          ((@CPattern _ (typ :: typ :: nil)
+          ((@CPattern _ ((typ : Type) :: (typ : Type) :: nil)
                      (@RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
                      (fun (a b : function (CRec 0)) => tyArr a b)) :: rt))).
 
@@ -38,7 +38,7 @@ Require Import MirrorCore.syms.SymEnv.
 Section ReifyFunc.
   Universe U V.
 
-  Polymorphic Context {typ : Type@{U}} {func : Type@{V}}.
+  Polymorphic Context {typ : Set} {func : Set}.
   Polymorphic Context {rt : Reify typ}.
   Polymorphic Context {PV : PartialView func (SymEnv.func)}.
 
@@ -63,4 +63,3 @@ End ReifyFunc.
 
 Arguments reify_func _ _ {_ _} _.
 Arguments Reify_func _ _ {_ _} _.
-
