@@ -15,7 +15,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section tactics.
-  Context {typ func : Type}.
+  Context {typ func : Set}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Typ0_Prop : Typ0 RType_typ Prop}.
@@ -250,11 +250,14 @@ Section tactics.
                    ]. }
     { do 3 red. intros; subst.
       reflexivity. }
-    { intros. ptrnE.
-      eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+    { intros. repeat ptrnE. subst.
+      lambda_exprD_fwd.
+      repeat match goal with
+             | H : (_ * _)%type |- _ => destruct H
+             end. simpl in *.
       inv_all. subst.
-      generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
-      generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
+      generalize (Red.beta_sound tus (x4 :: tvs) x10 x12).
+      generalize (Red.beta_sound tus (x4 :: tvs) x7 x8).
       simpl. Cases.rewrite_all_goal. intros; forward.
       erewrite lambda_exprD_App; try eassumption.
       2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
@@ -268,7 +271,7 @@ Section tactics.
       intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
       autorewrite_with_eq_rw.
       f_equal.
-      destruct (eq_sym (typ2_cast x4 x2)).
+      destruct (eq_sym (typ2_cast x4 x3)).
       apply FunctionalExtensionality.functional_extensionality.
       intros. rewrite H5. rewrite H6. reflexivity. }
     { eauto. }
@@ -278,7 +281,7 @@ Section tactics.
   : rtac typ (expr typ func) :=
     INTRO (run_ptrn (pmap Some p) None).
 
-  Inductive SimpleOpen : Type :=
+  Inductive SimpleOpen : Set :=
   | sAsEx (t : typ) (l : expr typ func)
   | sAsAl (t : typ) (l : expr typ func)
   | sAsHy (p q : expr typ func).
@@ -293,13 +296,14 @@ Section tactics.
     | sAsHy p q => AsHy p q
     end.
 
-  Definition open_ptrn_sound
-             (p : ptrn (expr typ func) (OpenAs typ (expr typ func)))
-  :=
+  Definition open_ptrn_sound@{T}
+             (p : ptrn@{Set Set Set T} (expr typ func) (OpenAs typ (expr typ func)))
+  : Prop :=
     forall (tus tvs : list typ) (e : expr typ func)
            (ot : OpenAs typ (expr typ func)),
       Succeeds e p ot ->
       open_spec tus tvs e ot.
+
 
   Definition simple_open_spec (tus tvs : list typ) (e : expr typ func)
              (ot : SimpleOpen) : Prop :=
@@ -457,7 +461,8 @@ Section tactics.
       rewrite H7. assumption.
   Qed.
 
-  Definition INTRO_ptrn_sound : forall p,
+  Definition INTRO_ptrn_sound@{X}
+  : forall (p : ptrn@{Set Set Set X} (expr typ func) (OpenAs typ (expr typ func))),
       ptrn_ok p ->
       open_ptrn_sound p ->
       rtac_sound (INTRO_ptrn p).

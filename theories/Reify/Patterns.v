@@ -88,7 +88,7 @@ Notation "'CAbs_' c x"
 Definition CAbs_ {T Ty} (c : Command Ty) (f : Ty -> T -> T) : Command T :=
   @CAbs T Ty T c (CRec 0) f.
 *)
-Definition CPattern T ls ptr br : Command T :=
+Polymorphic Definition CPattern@{U} (T : Type@{U}) ls ptr br : Command@{U} T :=
   CPatternTr (mkRBranch T ls ptr br :: nil).
 Arguments CPattern {_} [_] _ _.
 
@@ -111,7 +111,8 @@ Arguments CPatternTr {T} _.
 Arguments CRec {_} _.
 Arguments CFix {_} _.
 
-Polymorphic Fixpoint CFirst_@{U} {T : Type@{U}} (ls : list (Command@{U} T)) : Command@{U} T :=
+Polymorphic Fixpoint CFirst_@{U} {T : Type@{U}} (ls : list (Command@{U} T))
+: Command@{U} T :=
   match ls with
   | nil => CFail
   | cons l nil => l

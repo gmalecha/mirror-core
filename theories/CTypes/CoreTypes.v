@@ -28,7 +28,7 @@ Section parametric.
   : Type@{Usmall} :=
     applyn' vs f.
 
-  Variable symbol : nat -> Type.
+  Variable symbol : nat -> Set.
 
   Class TSym : Type :=
   { symbolD : forall {n}, symbol n -> type_for_arity n
@@ -47,7 +47,7 @@ Section parametric.
 
   Unset Elimination Schemes.
 
-  Inductive ctyp : Type :=
+  Inductive ctyp : Set :=
   | tyArr : ctyp -> ctyp -> ctyp
   | tyBase0 : symbol 0 -> ctyp
   | tyBase1 : symbol 1 -> ctyp -> ctyp
@@ -569,10 +569,10 @@ Arguments typ1D {_ _} _.
 Arguments typ2D {_ _} _.
 
 Section TSym_sum.
-  Variable F G : nat -> Type.
+  Variable F G : nat -> Set.
   Context {TSym_F : TSym F} {TSym_G : TSym G}.
 
-  Inductive Fsum (x : nat) : Type :=
+  Inductive Fsum (x : nat) : Set :=
   | Finl : F x -> Fsum x
   | Finr : G x -> Fsum x.
 

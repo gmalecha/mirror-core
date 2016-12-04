@@ -222,7 +222,6 @@ Module ImpVerify (I : ImpLang).
       eapply (RtacSound_INTRO_hyp lops eops).
       Unshelve.
       eauto with typeclass_instances.
-      reflexivity.
     Qed.
 
     Instance RL_embeD_ltrue : ReifiedLemma embed_ltrue_lemma.
@@ -405,13 +404,13 @@ Module ImpVerify (I : ImpLang).
 
     Require MirrorCore.Views.Ptrns.
 
-    Definition nat_red : RedAll.partial_reducer typ func :=
+    Definition nat_red@{} : RedAll.partial_reducer typ func :=
       let p : Ptrns.ptrn (expr typ func) (expr typ func) :=
           Views.Ptrns.pmap (fun ab : nat * nat =>
                               let (a,b) := ab in
                               mkImp (pNat (a + b)))
             (Ptrns.app (Ptrns.appl (Ptrns.inj (ptrn_view _ ptrn_plus))
-                                   (Views.Ptrns.pmap (fun x _ => x) (Ptrns.inj (ptrn_view _ ptrn_nat)))) (Ptrns.inj (ptrn_view _ ptrn_nat)))
+                                   (Views.Ptrns.pmap (fun (x : nat) (_ : unit) => x) (Ptrns.inj (ptrn_view _ ptrn_nat)))) (Ptrns.inj (ptrn_view _ ptrn_nat)))
       in fun f xs =>
            let e := AppN.apps f xs in
            Ptrns.run_ptrn p e e.
@@ -435,14 +434,13 @@ Module ImpVerify (I : ImpLang).
     eapply TypeView_FuncView; eauto 1 with typeclass_instances
                                            : typeclass_instances.
 
-
-    Theorem nat_red_sound : RedAll.partial_reducer_ok nat_red.
+    Theorem nat_red_sound@{} : RedAll.partial_reducer_ok nat_red.
     Proof.
       red. intros. simpl.
       unfold nat_red.
       revert H.
       eapply Ptrns.run_ptrn_sound.
-      { eauto 100 with typeclass_instances. }
+      { refine _. }
       { red. red. red. intros; subst. reflexivity. }
       { intros.
         Ptrns.ptrn_elim. subst. subst.
@@ -462,8 +460,6 @@ Module ImpVerify (I : ImpLang).
 
     Lemma refl_eq_nat : forall a : nat, a = a.
     Proof. reflexivity. Qed.
-
-
 
     Definition eq_nat_refl_lemma : Lemma.lemma typ (expr typ func) (expr typ func)
     := <:: refl_eq_nat ::>.

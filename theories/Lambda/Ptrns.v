@@ -7,10 +7,12 @@ Require Import MirrorCore.Lambda.ExprTac.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Printing Universes.
+Set Universe Polymorphism.
 
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {RSym_func : RSym func}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
@@ -20,47 +22,45 @@ Section setoid.
 
   Let tyArr := @typ2 _ _ _ Typ2_Fun.
 
-  Definition app {T U} (f : ptrn (expr typ func) T) (g : ptrn (expr typ func) U)
-  : ptrn (expr typ func) (T * U) :=
+  Definition app@{T U z} {T U : Type@{T}}
+             (f : ptrn@{Set T U z} (expr typ func) T) (g : ptrn@{Set T U z} (expr typ func) U)
+  : ptrn@{Set T U z} (expr typ func) (T * U) :=
     fun e _T good bad =>
       match e with
       | App l r =>
         Mbind (Mrebuild (fun x => App x r) (f l))
-              (fun x => Mmap (fun y => (x,y)) (Mrebuild (App l) (g r))) good bad
+              (fun x => Mmap (fun y => (x,y)) (Mrebuild (App l) (g r))) good bad (*
+        f l _ (fun l' => g r _ (fun r' => good (l', r')) (fun y => bad (App l y))) (fun x => bad (App x r)) *)
       | Abs a b => bad (Abs a b)
       | UVar a => bad (UVar a)
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
-      end%type.
+      end.
 
-  Definition appr (typ func T U : Type) (f : ptrn (expr typ func) (U -> T))
-             (g : ptrn (expr typ func) U) : ptrn (expr typ func) T :=
+  Definition appr@{T U z} {T U : Type@{T}} (f : ptrn@{Set T U z} (expr typ func) (U -> T))
+    (g : ptrn@{Set T U z} (expr typ func) U) : ptrn@{Set T U z} (expr typ func) T :=
     fun (e : expr typ func)
-        (_T : Type) (good : T -> _T) (bad : expr typ func -> _T) =>
+        (_T : Type@{U}) (good : T -> _T) (bad : expr typ func -> _T) =>
       match e with
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
       | App l r =>
-        Mbind (Mrebuild (App l) (g r))
-              (fun x : U => Mmap (fun y : U -> T => y x)
-                                 (Mrebuild (fun x : expr typ func => App x r) (f l)))
-              good bad
+        Mbind (Mrebuild (fun x => App l x) (g r))
+              (fun r' => Mmap (fun f => f r') (Mrebuild (fun x => App x r) (f l))) good bad
       | Abs a b => bad (Abs a b)
       | UVar a => bad (UVar a)
       end.
 
-  Definition appl {typ func T U : Type}
-        (f : ptrn (expr typ func) T)
-        (g : ptrn (expr typ func) (T -> U)) : ptrn (expr typ func) U :=
-          fun e _T good bad =>
+  Definition appl@{T U z} {T U : Type@{T}}
+        (f : ptrn@{Set T U z} (expr typ func) T)
+        (g : ptrn@{Set T U z} (expr typ func) (T -> U)) : ptrn@{Set T U z} (expr typ func) U :=
+    fun e (_T : Type@{U}) good bad =>
       match e with
       | ExprCore.Var a => bad (ExprCore.Var a)
       | Inj a => bad (Inj a)
       | App l r =>
         Mbind (Mrebuild (fun x => App x r) (f l))
-              (fun x : T =>
-                 Mmap (fun y : T -> U => y x)
-                      (Mrebuild (App l) (g r))) good bad
+              (fun r' => Mmap (fun f => f r') (Mrebuild (fun x => App l x) (g r))) good bad
       | Abs a b => bad (Abs a b)
       | ExprCore.UVar a => bad (ExprCore.UVar a)
       end.
@@ -85,27 +85,29 @@ Section setoid.
       | Inj a => bad (Inj a)
       end.
 
-  Definition inj {T} (p : ptrn func T) : ptrn (expr typ func) T :=
+  Definition inj@{V L R} {T : Type@{V}} (p : ptrn func T) : ptrn@{Set V L R} (expr typ func) T :=
     fun e _T good bad =>
       match e with
       | UVar v => bad (UVar v)
       | App a b => bad (App a b)
       | Abs a b => bad (Abs a b)
       | Var a => bad (Var a)
-      | Inj a => p a _T good (fun x => bad (Inj a))
+      | Inj a => Mrebuild (fun x => Inj x) (p a) good bad
       end.
 
-  Definition abs {T U} (pt : ptrn typ U) (p : U -> ptrn (expr typ func) T)
-  : ptrn (expr typ func) T :=
+  Definition abs@{V V' R L} {T : Type@{V}} {U : Type@{V'}}
+             (pt : ptrn@{Set V R L} typ U) (p : U -> ptrn@{Set V' R L} (expr typ func) T)
+  : ptrn@{Set V' R L} (expr typ func) T :=
     fun e _T good bad =>
       match e with
-      | Abs t e' => pt t _T (fun v => p v e' _T good (fun x => bad (Abs t x)))
-                       (fun t => bad (Abs t e'))
+      | Abs t e' =>
+        Mbind (Mrebuild (fun t' => Abs t' e') (pt t))
+              (fun v => Mrebuild (fun e' => Abs t e') (p v e')) good bad
       | UVar v => bad (UVar v)
       | App a b => bad (App a b)
       | Var a => bad (Var a)
       | Inj a => bad (Inj a)
-      end%type.
+      end.
 
   Fixpoint exact_nat (n : nat) : ptrn nat unit :=
     fun n' _T good bad =>
@@ -118,10 +120,10 @@ Section setoid.
 
   Definition exact_func (i1 : func) : ptrn func unit :=
     fun i2 _T good bad =>
-    match sym_eqb i1 i2 with
+      match sym_eqb i1 i2 with
       | Some true => good tt
       | _ => bad i2
-    end.
+      end.
 
   Fixpoint exact (e : expr typ func) {struct e} : ptrn (expr typ func) unit :=
     fun e' _T good bad =>
@@ -171,89 +173,96 @@ Section setoid.
     eapply H. exact (fun x => x).
   Qed.
 
-  Theorem Succeeds_inj : forall {T} p e (res : T),
-      ptrn_ok p ->
-      Succeeds e (inj p) res ->
-      exists f, e = Inj f /\ Succeeds f p res.
+  Theorem Succeeds_inj@{T u z}
+  : forall {T : Type@{T}} (p : ptrn@{Set T u z} func T) (e : expr typ func) (res : T),
+      ptrn_ok@{Set T u z} p ->
+      Succeeds@{Set T u z} e (inj@{T u z} p) res ->
+      exists f, e = Inj f /\ Succeeds@{Set T u z} f p res.
   Proof.
     clear. intros.
     destruct e;
-      try solve [ specialize (H0 bool (fun _ => true) (fun _ => false)); inversion H0 ].
+      try solve [ specialize (H0 bool (fun _ => true) (fun _ => false)); exfalso; discriminate H0 ].
     eexists; split; eauto. red; intros.
     red in H0. simpl in H0.
     destruct (H f) as [ [ ? ? ] | ? ].
-    { red in H1.  setoid_rewrite H1 in H0.
-      rewrite H1. eapply H0. eauto. }
-    { red in H1. setoid_rewrite H1 in H0.
-      specialize (H0 _ (fun _ => true) (fun _ => false)). inversion H0. }
+    { specialize (H0 _ good (fun _ => good x)).
+      rewrite H1.
+      unfold Mrebuild in H0. red in H1. rewrite H1 in H0.
+      assumption. }
+    { specialize (H0 _ (fun _ => true) (fun _ => false)).
+      unfold Mrebuild in H0. red  in H1. rewrite H1 in H0.
+      exfalso. clear - H0. discriminate H0. }
   Qed.
 
-  Theorem Succeeds_abs : forall {T U} a b e res
+  Theorem Succeeds_abs@{T U R L}
+  : forall {T : Type@{T}} {U : Type@{U}} (a : ptrn@{Set T R L} typ T)
+      (b : T -> ptrn@{Set U R L} (expr typ func) U) (e : expr typ func) (res : U)
       (Hpoka : ptrn_ok a) (Hpokb : forall x, ptrn_ok (b x)),
       Succeeds e (abs a b) res ->
       exists l r ra, e = Abs l r /\
         Succeeds (T:=T) l a ra /\
         Succeeds (T:=U) r (b ra) res.
   Proof.
+    unfold abs, Mbind, Mrebuild.
     clear. intros.
     destruct e;
-      try solve [ specialize (H _ (fun _ => true) (fun _ => false)); inversion H ].
+      try solve [ specialize (H _ (fun _ => true) (fun _ => false));
+                  exfalso; discriminate H ].
     { red in H.
       destruct (Hpoka t) as [ [ ? ? ] | ? ].
-      { red in H0.
-        setoid_rewrite H0 in H.
+      { exists t. exists e. exists x; split; try reflexivity.
+        split; [ assumption | ].
+        red in H0. red; intros.
         destruct (Hpokb x e) as [ [ ? ? ] | ? ].
-        { red in H1. setoid_rewrite H1 in H.
-          do 3 eexists; split; eauto.
-          split; eauto.
-          specialize (H _ (fun x => x)). simpl in H. destruct H; eauto. }
+        { specialize (H _ good bad).
+          rewrite H0 in H.
+          rewrite H1 in H.
+          rewrite <- H. apply H1. }
         { exfalso.
-          red in H1.
-          setoid_rewrite H1 in H.
-          specialize (H _ (fun _ => true) (fun _ => false)); inversion H. } }
-      { simpl in H.
+          specialize (H _ (fun _ => true) (fun _ => false)).
+          rewrite H0 in H.
+          red in H1. rewrite H1 in H. clear - H.
+          discriminate H. } }
+      { exfalso.
         red in H0.
-        setoid_rewrite H0 in H.
-        specialize (H _ (fun _ => true) (fun _ => false)); inversion H. } }
+        specialize (H _ (fun _ => true) (fun _ => false)).
+        simpl in H. rewrite H0 in H. clear - H.
+        discriminate H. } }
   Qed.
 
-  Theorem Succeeds_app : forall {T U} a b e res
-      (Hpoka : ptrn_ok a) (Hpokb : ptrn_ok b),
+  Theorem Succeeds_app@{T R L}
+  : forall {T U : Type@{T}}
+      (a : ptrn@{Set T R L} (expr typ func) T)
+      (b : ptrn@{Set T R L} (expr typ func) U) (e : expr typ func) (res : T * U)
+      (Hpoka : ptrn_ok@{Set T R L} a) (Hpokb : ptrn_ok@{Set T R L} b),
       Succeeds e (app a b) res ->
       exists l r, e = App l r /\
         Succeeds (T:=T) l a (fst res) /\
         Succeeds (T:=U) r b (snd res).
   Proof.
-    clear. intros.
+    clear. unfold app, Mrebuild, Mbind, Mmap. intros.
     destruct e;
       try solve [ specialize (H bool (fun _ => true) (fun _ => false)); inversion H ].
     { do 2 eexists; split; eauto.
-      destruct (Hpoka e1).
-      { destruct H0.
-        { destruct (Hpokb e2).
-          { destruct H1.
-            red in H. red in H0. red in H1.
-            simpl in H.
-            setoid_rewrite H0 in H.
-            setoid_rewrite H1 in H.
-            split; eauto; red.
-            { intros.
-              rewrite H0.
-              eapply (H _ (fun x => good (fst x)) bad). }
-            { intros.
-              rewrite H1.
-              eapply (H _ (fun x => good (snd x)) bad). } }
-          { exfalso.
-            red in H, H0, H1.
-            setoid_rewrite H0 in H.
-            setoid_rewrite H1 in H.
-            specialize (H _ (fun _ => true) (fun _ => false)).
-            inversion H. } } }
+      red in H.
+      destruct (Hpoka e1) as [ [ ? ? ] | ? ].
+      { destruct (Hpokb e2) as [ [ ? ? ] | ? ].
+        { red in H0. red in H1.
+          split; red; intros.
+          { specialize (H _ fst (fun _ => x)).
+            rewrite H0 in H. rewrite H1 in H. simpl in *.
+            rewrite H0. subst. reflexivity. }
+          { specialize (H _ snd (fun _ => x0)).
+            rewrite H0 in H. rewrite H1 in H. simpl in *.
+            rewrite H1. subst. reflexivity. } }
+        { specialize (H _ (fun _ => true) (fun _ => false)).
+          red in H0. rewrite H0 in H.
+          red in H1. rewrite H1 in H.
+          exfalso. clear - H. discriminate H. } }
       { exfalso.
-        red in H, H0.
-        setoid_rewrite H0 in H.
         specialize (H _ (fun _ => true) (fun _ => false)).
-        inversion H. } }
+        red in H0. rewrite H0 in H.
+        clear - H. discriminate H. } }
   Qed.
 
   Lemma app_sound {A B : Type} {tus tvs t e res val}
@@ -308,7 +317,7 @@ Section setoid.
   Qed.
 
   Global Instance ptrn_ok_appl
-  : forall {typ func T U}
+  : forall {T U : Type}
            (f : ptrn (expr typ func) T)
            (g : ptrn (expr typ func) (T -> U)),
       ptrn_ok f -> ptrn_ok g -> ptrn_ok (appl f g).
@@ -320,7 +329,7 @@ Section setoid.
   Qed.
 
   Global Instance ptrn_ok_appr
-  : forall {typ func T U}
+  : forall {T U}
            (f : ptrn (expr typ func) (T -> U))
            (g : ptrn (expr typ func) T),
       ptrn_ok f -> ptrn_ok g -> ptrn_ok (appr f g).
@@ -402,8 +411,8 @@ Section setoid.
   ; s_elim := Succeeds_abs pok_p pok_q
   }.
 
-  Global Instance inj_SucceedsE {T : Type} {e : expr typ func}
-         {p : ptrn func T}  {res : T} {pok_p : ptrn_ok p}
+  Global Instance inj_SucceedsE@{T u z} {T : Type@{T}} {e : expr typ func}
+         {p : ptrn@{Set T u z} func T}  {res : T} {pok_p : ptrn_ok p}
   : SucceedsE e (inj p) res :=
   { s_result := exists f, e = Inj f /\ Succeeds f p res
   ; s_elim := Succeeds_inj pok_p
@@ -441,15 +450,16 @@ Section setoid.
       specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
   Qed.
 
-  Lemma Succeeds_appl
-    : forall (T U : Type)
-             (a : ptrn (expr typ func) (T -> U)) (b : ptrn (expr typ func) T)
+  Lemma Succeeds_appl@{T u z}
+    : forall (T U : Type@{T})
+             (a : ptrn@{Set T u z} (expr typ func) (T -> U))
+             (b : ptrn@{Set T u z} (expr typ func) T)
              (e : expr typ func) (res : U),
-      ptrn_ok a ->
-      ptrn_ok b ->
-      Succeeds e (appl b a) res ->
+      ptrn_ok@{Set T u z} a ->
+      ptrn_ok@{Set T u z} b ->
+      Succeeds@{Set T u z} e (appl@{T u z} b a) res ->
       exists resL resR, exists l r : expr typ func,
-          e = App l r /\ Succeeds r a resL /\ Succeeds l b resR /\
+          e = App l r /\ Succeeds@{Set T u z} r a resL /\ Succeeds@{Set T u z} l b resR /\
           res = resL resR.
   Proof using.
     unfold appl.
@@ -461,16 +471,19 @@ Section setoid.
     compute in H1.
     specialize (H0 e1).
     specialize (H e2).
+
     destruct H0.
-    { destruct H0. setoid_rewrite H0 in H1.
-      destruct H.
-      { destruct H. setoid_rewrite H in H1.
-        do 4 eexists. split; [ reflexivity | ]. split; eauto.
-        split; eauto. symmetry; eapply (H1 _ (fun x => x) (fun _ => res)). }
-      { setoid_rewrite H in H1.
-        specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. } }
-    { setoid_rewrite H0 in H1.
-      specialize (H1 _ (fun _ => true) (fun _ => false)); inversion H1. }
+    { destruct H0. destruct H as [ [ ? ? ] | ? ].
+      { do 4 eexists; split; [ reflexivity | ].
+        split; eauto. split; eauto.
+        specialize (H1 _ (fun x => x) (fun _ => res)).
+        rewrite H0 in H1.
+        rewrite H in H1. symmetry; assumption. }
+      { exfalso. specialize (H1 _ (fun x => true) (fun _ => false)).
+        rewrite H0 in H1. rewrite H in H1. discriminate. } }
+    { exfalso; clear - H1 H0.
+      specialize (H1 _ (fun _ => true) (fun _ => false)).
+      rewrite H0 in H1. discriminate. }
   Qed.
 
   Global Instance SucceedsE_appl (T U : Type)
@@ -512,8 +525,7 @@ Section setoid.
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=U)).
     generalize dependent (typ0 (F:=T)).
-    intros. revert H. subst U. simpl.
-     subst T. simpl.
+    intros. revert H. destruct e. destruct e0. simpl.
     generalize dependent (typ2_cast t t0).
     generalize dependent (typD (typ2 t t0)).
     do 2 intro; subst.
@@ -534,15 +546,14 @@ Section setoid.
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=T)).
     generalize dependent (typ0 (F:=U)).
-    intros. revert H. subst U. simpl in *.
-    subst T. simpl.
+    intros. revert H. destruct e; destruct e0; simpl.
     generalize dependent (typ2_cast t0 t).
     intro.
     rewrite @Eq.eq_sym_eq.
     generalize (eq_sym e).
     clear. unfold tyArr in *.
     generalize dependent (@typD typ RType_typD (@typ2 typ RType_typD RFun Typ2_Fun t0 t)).
-    intros; subst. assumption.
+    intros. destruct e. assumption.
   Qed.
 
  Theorem exprT_App_castD tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
@@ -562,8 +573,7 @@ Section setoid.
     generalize dependent (typ0_cast (F:=U)).
     generalize dependent (typ0 (F:=U)).
     generalize dependent (typ0 (F:=T)).
-    intros. subst U. simpl in *.
-    revert H. subst T. simpl.
+    intros. destruct e. destruct e0. simpl in *.
     generalize dependent (typ2_cast t t0).
     generalize dependent (typD (typ2 t t0)).
     do 3 intro; subst.
@@ -610,6 +620,7 @@ Ltac force_apply lem :=
   let L := fresh "L" in
   pose proof lem as L; simpl in L; apply L; clear L.
 
+(*
 Ltac exprT_App_red :=
   match goal with
   | |- context [castR id _ _] => rewrite exprT_App_castR_pure
@@ -690,4 +701,6 @@ Ltac solve_denotation :=
       @P t x y z ->
       Forall3_hlist P xs ys zs ->
       Forall3_hlist (Ts:=t::Ts) P (x :: xs) (Hcons y ys) (Hcons z zs).
+*)
+
 *)

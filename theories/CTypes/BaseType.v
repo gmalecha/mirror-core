@@ -15,9 +15,7 @@ Require Import Coq.Strings.String.
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Universe T.
-
-Inductive base_typ : nat -> (Type@{T}) :=
+Inductive base_typ : nat -> Set :=
 | tNat : base_typ 0
 | tString : base_typ 0
 | tBool : base_typ 0
@@ -64,7 +62,7 @@ Definition base_typD {n} (t : base_typ n) : type_for_arity n :=
   end.
 
 Section DepMatch_base_typ.
-  Context {typ : Type}.
+  Context {typ : Set}.
   Context {RType_typ : RType typ}.
   Context {FV : PartialView typ (base_typ 0)}.
   Context {FVOk : TypeViewOk typD (base_typD (n := 0)) FV}. 
@@ -113,7 +111,7 @@ Section DepMatch_base_typ.
 End DepMatch_base_typ.
 
 Section TypeView_base_type.
-  Context {typ : Type}.
+  Context {typ : Set}.
   Context {FV : PartialView typ (base_typ 0)}.
 
   Definition tyNat := f_insert tNat.
@@ -230,7 +228,7 @@ Section TSym_base_type.
 End TSym_base_type.
 
 Section BaseTypeReify.
-  Context {typ : Type} {FV : PartialView typ (base_typ 0)}.
+  Context {typ : Set} {FV : PartialView typ (base_typ 0)}.
 
   Definition reify_tyProp : Command typ :=
     CPattern (ls := nil) (RExact Prop) tyProp.

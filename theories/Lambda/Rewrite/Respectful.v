@@ -17,12 +17,12 @@ Require Import MirrorCore.Lambda.PolyInst.
 
 Set Implicit Arguments.
 Set Strict Implicit.
-
+Set Universe Polymorphism.
 Set Suggest Proof Using.
 
 Section setoid.
-  Context {typ : Type}.
-  Context {func : Type}.
+  Context {typ : Set}.
+  Context {func : Set}.
   Context {RType_typD : RType typ}.
   Context {Typ2_Fun : Typ2 RType_typD RFun}.
   Context {RSym_func : RSym func}.
@@ -46,7 +46,7 @@ Section setoid.
   (* TODO(gmalecha): Wrap all of this up in a type class?
    * Why should it be different than Expr?
    *)
-  Variable Rbase : Type.
+  Variable Rbase : Set.
   Variable Rbase_eq : Rbase -> Rbase -> bool.
   Hypothesis Rbase_eq_ok : forall a b, Rbase_eq a b = true -> a = b.
 
@@ -80,7 +80,7 @@ Section setoid.
   Qed.
 
   (* This is just a "special" version of the rewriting lemma *)
-  Record Proper_concl : Type := mkProper
+  Record Proper_concl : Set := mkProper
   { relation : R
   ; term     : expr typ func
   }.
@@ -135,7 +135,7 @@ Section setoid.
   (** A "lemma" representing [Proper ...] that can be polymorphic and
    ** use typeclasses.
    **)
-  Inductive HintProper : Type :=
+  Inductive HintProper : Set :=
   | PPr_tc : forall {n : nat},
       Polymorphic.polymorphic typ n Proper_concl ->
       Polymorphic.polymorphic typ n bool ->
@@ -149,19 +149,22 @@ Section setoid.
   Definition tc_any (n : nat) : polymorphic typ n bool :=
     make_polymorphic (fun _ => true).
 
-  Definition with_typeclasses {T : Type} (TD : T -> Prop) {n}
-             (tc : polymorphic typ n bool) (pc : polymorphic typ n T)
-  : polymorphic typ n Prop :=
-    make_polymorphic (fun args =>
-                        if inst tc args
-                        then TD (inst pc args)
-                        else True).
+  Polymorphic Definition with_typeclasses@{X} {T : Type@{X}} {n}
+             (tc : polymorphic typ n bool) (pc : polymorphic@{X} typ n T)
+  : polymorphic@{X} typ n (option T) :=
+    make_polymorphic@{X} (fun args =>
+                            if inst tc args
+                            then Some (inst pc args)
+                            else None).
 
   (* TODO(mario): end duplicated code *)
   Definition ProperHintOk (hp : HintProper) : Prop :=
     match hp with
     | PPr_tc pc tc =>
-      polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc)
+      polymorphicD (fun x => match x with
+                          | None => True
+                          | Some x => Proper_conclP x
+                          end) (with_typeclasses tc pc)
     end.
 
   (** Convenience constructors for building lemmas that do not use
@@ -199,7 +202,10 @@ Section setoid.
   Qed.
 
   Theorem PPr_tc_sound {n : nat} (pc : polymorphic typ n Proper_concl) tc
-  : polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc pc) ->
+  : polymorphicD (fun x => match x with
+                        | None => True
+                        | Some x => Proper_conclP x
+                        end) (with_typeclasses tc pc) ->
     ProperHintOk (PPr_tc pc tc).
   Proof using.
     clear. simpl. tauto.
@@ -353,7 +359,10 @@ Section setoid.
   Local Lemma get_Proper_sound :
     forall su n (p : polymorphic _ n _) (tc : polymorphic _ _ _) e x,
       get_Proper su p tc e  = Some x ->
-      polymorphicD (fun x => x) (with_typeclasses Proper_conclP tc p) ->
+      polymorphicD (fun x => match x with
+                          | Some x => Proper_conclP x
+                          | None => True
+                          end) (with_typeclasses tc p) ->
       Proper_conclP x.
   Proof using.
     unfold get_Proper. simpl. intros.
@@ -454,7 +463,7 @@ Arguments Proper_concl _ _ _ : clear implicits.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section Reify_Proper_concl.
-  Variables Ty func Rbase : Type.
+  Variables Ty func Rbase : Set.
   Context {Reify_Ty : Reify Ty}.
   Context {Reify_expr_typ_func : Reify (expr Ty func)}.
   Context {Reify_Rbase : Reify Rbase}.

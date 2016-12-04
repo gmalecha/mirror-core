@@ -415,20 +415,22 @@ Proof.
                  ]. }
   { do 3 red. intros; subst.
     reflexivity. }
-  { intros. ptrnE.
-    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+  { intros. ptrn_elim. subst.
+    destruct x as [ ? [ [ ? [ ? ? ] ] ? ] ]. simpl in *.
+    inv_all. subst.
+    eapply lambda_exprD_Abs_prem in H; refine _; forward_reason; subst.
     inv_all. subst.
     generalize (Red.beta_sound tus (x4 :: tvs) x10 x6).
     generalize (Red.beta_sound tus (x4 :: tvs) x7 x).
     simpl.
     change_rewrite H1. change_rewrite H2.
     intros; forward.
-    erewrite lambda_exprD_App; try eassumption.
-    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
+    erewrite lambda_exprD_App; refine _; try eassumption.
+    2: erewrite lambda_exprD_Abs; refine _; try eauto with typeclass_instances.
     2: rewrite typ2_match_iota; eauto with typeclass_instances.
     2: rewrite type_cast_refl; eauto with typeclass_instances.
-    2: erewrite lambda_exprD_App; try eassumption.
-    3: erewrite lambda_exprD_App; try eassumption; eauto.
+    2: erewrite lambda_exprD_App; refine _; try eassumption.
+    3: erewrite lambda_exprD_App; refine _; try eassumption; eauto.
     2: autorewrite_with_eq_rw; reflexivity.
     simpl. eexists; split; eauto.
     unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.

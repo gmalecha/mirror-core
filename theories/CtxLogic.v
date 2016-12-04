@@ -2,7 +2,7 @@ Require Import MirrorCore.ExprI.
 Require Import ExtLib.Data.HList.
 
 Section parameterized.
-  Context {typ expr : Type}.
+  Context {typ expr : Set}.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr typ expr}.
 

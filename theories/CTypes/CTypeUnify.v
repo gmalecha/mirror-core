@@ -2,7 +2,7 @@ Require Import MirrorCore.CTypes.CoreTypes.
 Require Import ExtLib.Data.Map.FMapPositive.
 
 Section parametric.
-  Variable tsym : nat -> Type.
+  Variable tsym : nat -> Set.
   Variable TSym_tsym : TSym tsym.
 
   Let FM := FMapPositive.pmap (ctyp tsym).

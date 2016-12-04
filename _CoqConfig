@@ -1,8 +1,5 @@
--Q ../coq-ext-lib/theories ExtLib
-
 -Q theories MirrorCore
 -Q examples McExamples
--Q ../bedrock-trunk/Bedrock Bedrock
 
 -I src
 -I $(COQLIB)/user-contrib/PluginUtils
@@ -35,8 +32,6 @@ theories/PLemma.v
 theories/LemmaApply.v
 theories/Simple.v
 theories/Polymorphic.v
-
-theories/Lib/TypeVar.v
 
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
@@ -212,4 +207,3 @@ examples/PolyRewrite/Monads/LtacDemo.v
 examples/PolyRewrite/Monads/RtacDemo.v
 examples/PolyRewrite/Monads/MSimpleMonads.v
 examples/PolyRewrite/Monads/MSimpleMonadsReify.v
-

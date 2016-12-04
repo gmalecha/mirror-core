@@ -14,8 +14,8 @@ Require Export MirrorCore.Lambda.ExprSubst.
 Require Import MirrorCore.Util.Compat.
 
 Section expr.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
   Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ RFun.
   Context {RSym_func : RSym func}.

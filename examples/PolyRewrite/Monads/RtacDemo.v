@@ -31,6 +31,26 @@ Set Strict Implicit.
 (* Convenient abbreviation for modular type *)
 Let tyBNat := CoreTypes.tyBase0 tyNat.
 
+Lemma lambda_exprD_AbsX:
+  forall (typ func : Set) (RType_typD : RType typ) (RTOk : RTypeOk) (Typ2_Fun : Typ2 RType_typD RFun)
+    (Typ2Ok_Fun : Typ2Ok Typ2_Fun)
+    (RSym_func : RSym func) (tus : tenv typ) (e : expr typ func) (tvs : tenv typ) 
+    (t' t : typ),
+  lambda_exprD tus tvs (typ2 t' t) (Abs t' e) =
+  match lambda_exprD tus (t' :: tvs) t e with
+  | Some val =>
+    Some (AbsAppI.exprT_Abs val)
+  | None => None
+  end.
+Proof.
+  intros.
+  rewrite lambda_exprD_Abs'.
+  rewrite typ2_match_iota; eauto.
+  rewrite type_cast_refl; eauto.
+  unfold AbsAppI.exprT_Abs.
+  destruct (eq_sym (typ2_cast t' t)).
+  reflexivity.
+Defined.
 
 Module DemoRtacMonad (M : Monad) (F : Frob M).
   Import M.
@@ -279,6 +299,7 @@ Definition get_respectful : ResolveProper typ func Rbase :=
      PPr (typ:=typ) (func:=func) (Rbase:=Rbase) 1 lem_Proper_exists ::
      Pr  (typ:=typ) (func:=func) (Rbase:=Rbase) lem_Proper_plus_eq :: nil).
 
+
 Definition is_trans : trans_dec Rbase :=
   fun r =>
     match r with
@@ -334,13 +355,6 @@ Proof.
     subst.
     rewrite (UIP_refl r). compute. intros; tauto. }
   Qed.
-(*  Unshelve.
-  (*
-  exact option.
-  exact option. *)
-  exact (@id Type).
-  exact (@id Type).
-Qed. *)
 
 Theorem is_trans_ok : trans_dec_ok RbaseD is_trans.
 Proof.
@@ -377,12 +391,6 @@ Proof.
     rewrite (UIP_refl r).
     compute. tauto. }
 Qed.
-(*  Unshelve.
-  (*exact option.
-  exact option.*)
-  exact (@id Type).
-  exact (@id Type).
-Qed. *)
 
 (* Q: simple_reduce or reduce? *)
 Definition the_rewrites (lems : RewriteHintDb Rbase)
@@ -416,36 +424,49 @@ Proof.
   { do 3 red. intros; subst.
     reflexivity. }
   { intros. ptrnE.
-    eapply lambda_exprD_Abs_prem in H; forward_reason; subst.
+    ptrn_elim. subst.
+    inv_all.
+    eapply ExprTac.lambda_exprD_Abs_prem in H; forward_reason; subst; eauto with typeclass_instances.
     inv_all. subst.
-    generalize dependent (Red.beta_sound tus (x4 :: tvs) x10 x6).
-    generalize dependent (Red.beta_sound tus (x4 :: tvs) x7 x).
+    generalize dependent (Red.beta_sound tus (x4 :: tvs) x10 x8).
+    generalize dependent (Red.beta_sound tus (x4 :: tvs) x7 x0).
     simpl.
     change_rewrite H1. change_rewrite H2.
-    intros; forward.
-    erewrite lambda_exprD_App; try eassumption.
-    2: erewrite lambda_exprD_Abs; try eauto with typeclass_instances.
-    2: rewrite typ2_match_iota; eauto with typeclass_instances.
-    2: rewrite type_cast_refl; eauto with typeclass_instances.
-    2: erewrite lambda_exprD_App; try eassumption.
-    3: erewrite lambda_exprD_App; try eassumption; eauto.
-    2: autorewrite_with_eq_rw; reflexivity.
-    simpl. eexists; split; eauto.
-    unfold AbsAppI.exprT_App, AbsAppI.exprT_Abs. simpl.
-    intros. unfold Rrefl, Rcast_val, Rcast, Relim; simpl.
+    intros; forward. subst. simpl in *. subst.
+    inv_all. subst.
+    (** TODO(gmalecha): This should go elsewhere *)
+    repeat match goal with
+    | H : lambda_exprD _ _ (_ ?X ?Y) ?L = _
+      |- context [ @lambda_exprD _ _ ?TD ?T2 ?Rs _ _ _ (App ?L _) ] =>
+      erewrite ExprTac.lambda_exprD_AppL with (tx:=X) (ty:=Y);
+        eauto with typeclass_instances
+    | H : lambda_exprD _ _ _ ?R = _
+      |- context [ @lambda_exprD _ _ ?TD ?T2 ?Rs _ _ _ (App _ ?R) ] =>
+      erewrite ExprTac.lambda_exprD_AppR ;
+        eauto with typeclass_instances
+    | |- context [ @lambda_exprD ?typ ?sym ?TD ?T2 ?Rs ?tus' ?tvs' ?T (Abs ?tz ?b) ] =>
+      let z := constr:(@typ2_match _ TD _ T2 (fun _ => option typ) T (fun _ z => Some z) None) in
+      let z := eval compute in z in
+      match z with
+      | Some ?tr =>
+        let p := constr:(@lambda_exprD_AbsX typ sym TD _ T2 _ Rs tus' b tvs' tz tr) in
+        match type of p with
+        | ?L = ?R =>
+          change (@lambda_exprD typ sym TD T2 Rs tus' tvs' T (Abs tz b)) with L ;
+          rewrite p
+        end
+      end
+    end.
+    change_rewrite H4.
+    eexists; split; eauto.
+    simpl.
+    intros.
     f_equal.
     apply FunctionalExtensionality.functional_extensionality.
     intros. rewrite H5. rewrite H6. reflexivity. }
   { eauto. }
 Qed.
-(*  Unshelve.
-  (*
-  exact option.
-  exact option. *)
-  exact (@id Type).
-  exact (@id Type).
-Qed.
-*)
+
 Lemma RelDec_semidec {T} (rT : T -> T -> Prop)
       (RDT : RelDec rT) (RDOT : RelDec_Correct RDT)
 : forall a b : T, a ?[ rT ] b = true -> rT a b.
@@ -687,13 +708,13 @@ Arguments Typ0_Prop {_ _}.
   Goal (exists x, MLIA2 = x).
     unfold MLIA2.
     Require Import McExamples.PolyRewrite.Monads.LtacDemo.
-    
+
     Time rewrite_strat (bottomup (terms law1 law2 law3; eval cbv beta)).
 
     Time run_tactic reify_simplemon rewrite_it rewrite_it_sound.
     eexists. reflexivity.
   Qed. *)
-  
+
   Module Demo.
     Definition goal := fun n => (exists x, makeRightIdAssocTest n = x).
     Ltac prep := unfold goal; simpl.

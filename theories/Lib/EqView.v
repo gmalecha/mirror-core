@@ -15,12 +15,12 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive eq_func (typ : Type) :=
+Inductive eq_func (typ : Set) : Set :=
 | pEq : typ -> eq_func typ.
 
 Section EqFuncInst.
-  Context {typ : Type} {RType_typ : RType typ}.
-  Context {func : Type}.
+  Context {typ : Set} {RType_typ : RType typ}.
+  Context {func : Set}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ2_tyArr : Typ2 _ Fun}.
@@ -73,7 +73,7 @@ Section EqFuncInst.
 End EqFuncInst.
 
 Section MakeEq.
-  Context {typ func : Type} {FV : PartialView func (eq_func typ)}.
+  Context {typ func : Set} {FV : PartialView func (eq_func typ)}.
 
   Definition fEq t := f_insert (pEq t).
 
@@ -121,7 +121,7 @@ Section MakeEq.
 End MakeEq.
 
 Section PtrnEq.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func (eq_func typ)}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
@@ -136,11 +136,11 @@ Section PtrnEq.
 End PtrnEq.
 
 Section ReifyEq.
-  Context {typ func : Type} {FV : PartialView func (eq_func typ)}.
+  Context {typ func : Set} {FV : PartialView func (eq_func typ)}.
   Context {t : Reify typ}.
 
   Definition reify_equiv : Command (expr typ func) :=
-    CPattern (ls := typ::nil) 
+    CPattern (ls := (typ:Type)::nil)
              (RApp (RExact (@eq)) (RGet 0 RIgnore))
              (fun (x : function (CCall (reify_scheme typ))) => Inj (fEq x)).
 

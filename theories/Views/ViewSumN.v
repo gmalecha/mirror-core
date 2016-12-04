@@ -9,7 +9,7 @@ Require Import MirrorCore.syms.SymOneOf.
 Require Import MirrorCore.Views.FuncView.
 
 Section FuncViewSumN.
-  Context {A func : Type}.
+  Context {A func : Set}.
 
   Global Instance PartialViewPMap (p : positive) (m : OneOfType.pmap)
 	 (pf : OneOfType._Some A = OneOfType.pmap_lookup' m p)
@@ -24,7 +24,7 @@ Section FuncViewSumN.
         end
   }.
 
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
 
   Global Instance FuncViewOkPMap

@@ -15,7 +15,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section reducer.
-  Context {typ : Type} {sym : Type}.
+  Context {typ : Set} {sym : Set}.
   Context {RT : RType typ}
           {T2 : Typ2 _ RFun}
           {RS : RSym sym}.
@@ -239,7 +239,7 @@ Section reducer.
   Qed.
 
   Local Lemma nth_error_get_hlist_nth_rwR
-  : forall {T} (F : T -> _) tus tvs' n,
+  : forall {T : Set} (F : T -> Type@{Urefl}) tus tvs' n,
       n >= length tus ->
       match nth_error_get_hlist_nth F tvs' (n - length tus) with
         | None => True
@@ -267,7 +267,6 @@ Section reducer.
       clear H1. eapply nth_error_length_lt in x0.
       rewrite app_length in H0. omega. }
   Qed.
-
 
   Local Lemma get_var_ok
   : forall tus tvs tus'  tvs' var_terms P,

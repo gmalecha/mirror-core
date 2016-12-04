@@ -36,8 +36,8 @@ Proof.
 Qed.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.

@@ -10,14 +10,14 @@ Set Strict Implicit.
 Set Primitive Projections.
 
 Section lem.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
   Context {RType_typ : RType typ}.
   Context {Expr_expr : Expr _ expr}.
   Context {ExprOk_expr : ExprOk Expr_expr}.
-  Variable conclusion : Type.
+  Variable conclusion : Set.
 
-  Record lemma : Type := mkLemma
+  Record lemma : Set := mkLemma
   { vars : list typ
   ; premises : list expr
   ; concl : conclusion
@@ -147,6 +147,8 @@ Section lem.
       { inversion H. subst. constructor; auto. eapply IHls. eauto. } }
   Qed.
 
+  Set Printing Universes.
+
   Lemma lemmaD'_weaken
   : forall tus tvs l lD,
       lemmaD' tus tvs l = Some lD ->
@@ -180,7 +182,7 @@ Section lem.
         eauto with typeclass_instances.
       forward_reason.
       rewrite exprD_typ0_conv with (pfu := eq_refl)
-                                    (pfv := eq_sym (app_ass_trans (vars l) tvs tvs')) in H1.
+                                    (pfv := eq_sym (app_ass_trans@{Set} (vars l) tvs tvs')) in H1.
       autorewrite_with_eq_rw_in H1. forward.
       inv_all; subst.
       eexists; split; eauto.
@@ -216,7 +218,7 @@ Section lem.
                      | eq_refl => x0
                    end).
       { clear - H0.
-        generalize dependent (app_ass_trans (vars l) tvs tvs').
+        generalize dependent (app_ass_trans@{Set} (vars l) tvs tvs').
         generalize dependent ((vars l ++ tvs) ++ tvs').
         generalize dependent (vars l ++ tvs ++ tvs').
         intros. subst. assumption. }
@@ -240,8 +242,9 @@ Section lem.
           constructor; eauto.
           { rewrite <- H4. reflexivity. } } }
       { autorewrite with eq_rw.
-        rewrite <- hlist_app_assoc.
-        rewrite H3. reflexivity. } }
+        rewrite H3.
+        rewrite (hlist_app_assoc@{Set Urefl} x1 vs vs').
+        reflexivity. } }
     { intros. destruct H2.
       rewrite H2. eexists; split; eauto.
       intros.
@@ -372,7 +375,7 @@ End lem.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section rlemma.
-  Context {ty pr c : Type}.
+  Context {ty pr c : Set}.
   Context {rT : Reify ty}.
   Context {rU : Reify pr}.
   Context {rV : Reify c}.
@@ -387,13 +390,13 @@ Section rlemma.
      ; premises := v :: premises x
      ; concl := concl x |}.
 
-  Definition reify_lemma : Command (lemma ty pr c) :=
+  Definition reify_lemma : Command@{Set} (lemma ty pr c) :=
     Eval unfold CPattern in
     CFix
-      (CFirst (   CPattern (ls:=pr::lemma ty pr c::nil)
+      (CFirst (   CPattern (ls:=(pr : Type)::(lemma ty pr c : Type)::nil)
                            (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
                            (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_prem x y)
-               :: CPattern (ls:=ty::lemma ty pr c::nil)
+               :: CPattern (ls:=(ty : Type)::(lemma ty pr c : Type)::nil)
                            (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
                            (fun (x : function (CCall (reify_scheme _))) (y : function (CRec 0)) => add_var x y)
                :: CMap (fun x => {| vars := nil

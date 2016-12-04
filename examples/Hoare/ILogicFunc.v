@@ -11,9 +11,12 @@ Require Import MirrorCore.TypesI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Universe Polymorphism.
+
+Monomorphic Universe Utc.
 
 Section typed.
-  Variable typ : Type.
+  Variable typ : Set.
   Variable RType_typ : RType typ.
   Variable RelDec_typ_eq : RelDec (@eq typ).
   Variable RelDecCorrect_typ_eq : RelDec_Correct RelDec_typ_eq.
@@ -29,7 +32,6 @@ Section typed.
   | ilf_forall (arg logic : typ)
   (** It may be a little nicer to remove embed **)
   | ilf_embed (from to : typ).
-(* | fref (fi : positive) *)
 
   Global Instance RelDec_ilfunc : RelDec (@eq ilfunc) :=
   { rel_dec := fun a b =>
@@ -43,7 +45,6 @@ Section typed.
 		   | ilf_forall a t, ilf_forall a' t'
 		   | ilf_exists a t, ilf_exists a' t'
 		   | ilf_embed a t, ilf_embed a' t' => a ?[eq] a' && t ?[eq] t'
-(*		   | fref r, fref r' => r ?[eq] r' *)
 		   | _, _ => false
 	         end
   }.
@@ -65,12 +66,12 @@ Section typed.
   | Empty : forall F, tree F.
   **)
 
-  Inductive loption (t : Type) : Type :=
+  Inductive loption (t : Type@{Utc}) : Type@{Utc} :=
   | lSome : t -> loption t
   | lNone.
   Global Arguments lNone {_}.
 
-  Definition logic_ops := forall (t : typ),
+  Definition logic_ops : Type@{Utc} := forall (t : typ),
     loption (ILogicOps@{Urefl Urefl} (typD t)).
   Definition embed_ops := forall (t u : typ),
     loption (EmbedOp (typD t) (typD u)).
@@ -95,7 +96,7 @@ Section typed.
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
   Let tyProp : typ := @typ0 _ _ _ _.
 
-  Definition typeof_func (f : ilfunc) : option typ :=
+  Definition typeof_func@{} (f : ilfunc) : option typ :=
     match f with
     | ilf_true t
     | ilf_false t =>
@@ -145,20 +146,20 @@ Section typed.
     fun f =>
       match eq_sym (typ2_cast (tyArr a b) c) in _ = t
             return t with
-        | eq_refl => match eq_sym (typ2_cast a b) in _ = t
-                           return t -> _ with
-                       | eq_refl => f
-                     end
+      | eq_refl => match eq_sym (typ2_cast a b) in _ = t
+                        return t -> _ with
+                  | eq_refl => f
+                  end
       end.
 
-  Definition funcD (f : ilfunc) :
+  Definition funcD@{} (f : ilfunc) :
     match typeof_func f return Type@{Urefl} with
     | Some t => typD t
     | None => unit
     end.
   refine (
     match f as f
-          return match typeof_func f with
+          return match typeof_func f return Type@{Urefl} with
 		   | Some t => typD t
 		   | None => unit
 		 end
@@ -422,7 +423,8 @@ Section typed.
                     eapply Mtwo_Succeeds with (p2':=p' _ _ ignore (fun _ => get)) in H; eauto ]
     end.
 
-  Definition fptrn_lentails {T} (k : ptrn typ T) : ptrn ilfunc T :=
+  Definition fptrn_lentails@{A X P} {T : Type@{A}} (k : ptrn@{Set A X P} typ T)
+  : ptrn@{Set A X P} ilfunc T :=
     fun x =>
       match x with
       | ilf_true t => Mfail (ilf_true t)
@@ -440,9 +442,13 @@ Section typed.
   : ptrn_ok p -> ptrn_ok (fptrn_lentails p).
   Proof. ptrn_ok_1. Qed.
 
-  Global Instance SucceedsE_fptrn_lentails {T} e k (v : T) : SucceedsE e (fptrn_lentails k) v :=
-  { s_result := exists t, e = ilf_entails t /\ Succeeds t k v }.
+  Definition SucceedsE_fptrn_lentails@{T u z} {T : Type@{T}} (e : ilfunc)
+             (k : ptrn@{Set T u z} typ T) (v : T)
+  : SucceedsE e (fptrn_lentails k) v.
+  refine (
+  {| s_result := exists t, e = ilf_entails t /\ Succeeds t k v |}).
   Proof. abstract solve_Succeeds1. Defined.
+  Global Existing Instance SucceedsE_fptrn_lentails.
 
   Definition fptrn_ltrue {T} (k : ptrn typ T) : ptrn ilfunc T :=
     fun x =>

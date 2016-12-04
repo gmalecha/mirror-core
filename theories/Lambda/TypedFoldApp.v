@@ -6,8 +6,8 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section typed_fold.
-  Variable typ : Type.
-  Variable func : Type.
+  Variable typ : Set.
+  Variable func : Set.
 
   Variable RType_typ : RType typ.
   Variable Typ2_Fun : Typ2 _ RFun.

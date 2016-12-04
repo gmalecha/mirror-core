@@ -12,7 +12,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section parameterized.
-  Context {typ expr : Type}.
+  Context {typ expr : Set}.
   Context {RType_typ : RType typ}.
   Context {RTypeOk_typ : RTypeOk}.
   Context {Expr_expr : Expr typ expr}.

@@ -2,7 +2,7 @@ Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 
 Section runTacK.
-  Context {typ expr : Type}.
+  Context {typ expr : Set}.
   Variable RType_typ : RType typ.
   Variable Typ0_Prop : Typ0 RType_typ Prop.
   Variable Expr_expr : Expr typ expr.

@@ -7,10 +7,10 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Section AppAbs.
-  Variable typ : Type.
+  Variable typ : Set.
   Context {RType_typ : RType typ}.
 
-  Variable expr : Type.
+  Variable expr : Set.
   Context {Expr_expr : Expr typ expr}.
 
   Context {Typ2_fun : Typ2 _ RFun}.
@@ -87,7 +87,7 @@ Section AppAbs.
 
 End AppAbs.
 
-Arguments exprT_App {typ _ _ _ _ _ _} _ _ _ _.
-Arguments exprT_Abs {typ _ _ _ _ _ _} _ _ _.
+Arguments exprT_App {typ _ _ _ _ _ _} _ _ _ _ /.
+Arguments exprT_Abs {typ _ _ _ _ _ _} _ _ _ /.
 Arguments ApplicationOk {typ _ expr _ _} _ : rename.
 Arguments AbstractionOk {typ _ expr _ _} _ : rename.

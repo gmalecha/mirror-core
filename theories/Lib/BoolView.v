@@ -13,11 +13,11 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive boolFunc : Type  :=
+Inductive boolFunc : Set :=
 | pBool  : bool -> boolFunc.
 
 Section BoolFuncInst.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {Heq : RelDec (@eq typ)} {HC : RelDec_Correct Heq}.
 
   Context {Typ0_tyBool : Typ0 _ bool}.
@@ -27,22 +27,22 @@ Section BoolFuncInst.
   Definition typeofBoolFunc (nf : boolFunc) : option typ :=
     match nf with
     | pBool _ => Some tyBool
-   end.
+    end.
 
   Definition boolFuncEq (a b : boolFunc) : option bool :=
     match a , b with
-      | pBool s, pBool t => Some (s ?[ eq ] t)
-  end.
+    | pBool s, pBool t => Some (s ?[ eq ] t)
+    end.
 
   Definition boolR (b : bool) : typD tyBool :=
     castR id bool b.
 
   Definition bool_func_symD bf :=
     match bf as bf return match typeofBoolFunc bf return Type with
-			    | Some t => typD t
-			    | None => unit
+			  | Some t => typD t
+			  | None => unit
 			  end with
-      | pBool b => boolR b
+    | pBool b => boolR b
     end.
 
   Global Instance RSym_BoolFunc
@@ -63,7 +63,7 @@ Section BoolFuncInst.
 End BoolFuncInst.
 
 Section MakeBool.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func boolFunc}.
 
   Definition fBool b := f_insert (pBool b).
@@ -111,7 +111,7 @@ Section MakeBool.
 End MakeBool.
 
 Section PtrnBool.
-  Context {typ func : Type} {RType_typ : RType typ}.
+  Context {typ func : Set} {RType_typ : RType typ}.
   Context {FV : PartialView func boolFunc}.
 
 (* Putting this in the previous sectioun caused universe inconsistencies
@@ -125,10 +125,10 @@ End PtrnBool.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section ReifyBool.
-  Context {typ func : Type} {FV : PartialView func boolFunc}.
+  Context {typ func : Set} {FV : PartialView func boolFunc}.
 
   Definition reify_cbool : Command (expr typ func) :=
-    CPattern (ls := (bool:Type)::nil) (RHasType nat (RGet 0 RIgnore)) (fun x => Inj (fBool x)).
+    CPattern (ls := (bool:Type)::nil) (RHasType bool (RGet 0 RIgnore)) (fun x => Inj (fBool x)).
 
   Definition reify_bool : Command (expr typ func) :=
     CFirst (reify_cbool :: nil).

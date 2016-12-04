@@ -4,7 +4,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 
 Definition typed_mfold_lazy
-           (typ : Type) (typD : list Type -> typ -> Type) (func : Type)
+           (typ : Set) (typD : list Type -> typ -> Type) (func : Set)
            (_ : SymI.RSym typD func)
            (_ : TypesI2.Typ2 typD PreFun.Fun)
            (ts : list Type)

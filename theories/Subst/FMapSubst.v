@@ -25,10 +25,10 @@ Module Make (FM : WS with Definition E.t := uvar
   Module PROPS := FMapFacts.WProperties FM.
 
   Section exprs.
-    Variable typ : Type.
+    Variable typ : Set.
     Context {RType_typ : RType typ}.
     Context {RTypeOk_typ : RTypeOk}.
-    Variable expr : Type.
+    Variable expr : Set.
     Context {Expr_expr : Expr typ expr}.
     Context {ExprOk_expr : ExprOk Expr_expr}.
 
@@ -315,8 +315,8 @@ Module Make (FM : WS with Definition E.t := uvar
         erewrite H4; clear H4. reflexivity. }
     Qed.
 
-    Definition eq_option_A tus tvs
-        (x y : option (hlist typD tus -> hlist typD tvs -> Prop))
+    Definition eq_option_A (tus tvs : tenv typ)
+        (x y : option (exprT tus tvs Prop))
     : Prop :=
            match x with
              | Some x0 =>
@@ -332,8 +332,8 @@ Module Make (FM : WS with Definition E.t := uvar
                        end
            end.
 
-    Theorem eq_option_A_Roption tus tvs
-    : forall x y, eq_option_A x y <-> (Roption (RexprT tus tvs iff)) x y.
+    Theorem eq_option_A_Roption (tus tvs : tenv typ)
+    : forall (x y : option (exprT tus tvs Prop)), eq_option_A x y <-> (Roption (RexprT tus tvs iff)) x y.
     Proof.
       clear. split; intros.
       { red in H. destruct x; destruct y; intuition; constructor.
@@ -860,7 +860,7 @@ Module Make (FM : WS with Definition E.t := uvar
       end.
       change_rewrite H.
       simpl. intros; forward.
-      eexists; split; try eassumption. reflexivity.
+      eexists; split; try eassumption.
     Qed.
 
     Lemma raw_substD_add'
@@ -1157,6 +1157,9 @@ Module Make (FM : WS with Definition E.t := uvar
     ; subst_weakenU := fun _ x => x
     }.
 
+
+    Set Printing Universes.
+
     Instance SubstOpenOk_subst
     : @SubstOpenOk raw typ expr _ _ _ _ SubstOpen_subst :=
     { drop_sound := substD_drop' }.
@@ -1165,7 +1168,7 @@ Module Make (FM : WS with Definition E.t := uvar
       intros; subst.
       eapply substD_weaken with (tus' := tus') (tvs' := nil) in H1.
       forward_reason.
-      exists (match app_nil_r_trans tvs in _ = X return exprT _ X Prop with
+      exists (match app_nil_r_trans@{Set} tvs in _ = X return exprT _ X Prop with
                 | eq_refl => x
               end).
       split.
@@ -1180,7 +1183,8 @@ Module Make (FM : WS with Definition E.t := uvar
           autorewrite_with_eq_rw.
           reflexivity. } }
       { intros. autorewrite with eq_rw.
-        rewrite <- hlist_app_nil_r. eapply H0. }
+        specialize (H0 us us' vs Hnil).
+        rewrite (hlist_app_nil_r vs) in H0. exact H0. }
     Qed.
 
     (** What is missing here is the fact that [amap_substD a]

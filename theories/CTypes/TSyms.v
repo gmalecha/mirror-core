@@ -1,8 +1,8 @@
 Require Import MirrorCore.CTypes.CoreTypes.
 
 Section sum.
-  Variable T U : nat -> Type.
-  Inductive tsym_sum (n : nat) : Type :=
+  Variable T U : nat -> Set.
+  Inductive tsym_sum (n : nat) : Set :=
   | TSym_left : T n -> tsym_sum n
   | TSym_right : U n -> tsym_sum n.
 

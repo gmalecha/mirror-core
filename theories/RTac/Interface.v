@@ -2,8 +2,8 @@ Require Import MirrorCore.RTac.Core.
 Require Import MirrorCore.RTac.CoreK.
 
 Section parameterized.
-  Variable typ : Type.
-  Variable expr : Type.
+  Variable typ : Set.
+  Variable expr : Set.
 
   Context {RType_typ : RType typ}.
   Context {Typ0_Prop : Typ0 _ Prop}.
