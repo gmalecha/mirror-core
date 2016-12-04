@@ -94,8 +94,6 @@ Section parametric.
     repeat (split; [ reflexivity | ]); auto.
   Qed.
 
-Axiom todo : forall P : Prop, P.
-
   Theorem Succeeds_ptrn_entails@{A X P} {T U V : Type@{A}}
           (e : expr typ func) (t : ptrn@{Set A X P} _ _) (a : ptrn@{Set A X P} _ _) (b : ptrn@{Set A X P} _ _) r
   : ptrn_ok@{Set A X P} a -> ptrn_ok@{Set A X P} b -> ptrn_ok@{Set A X P} t ->
