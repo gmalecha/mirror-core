@@ -37,13 +37,16 @@ theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
 theories/PLemmaT.v
-theories/Types/ModularTypes.v
-theories/Types/MTypeUnify.v
+# theories/Types/ModularTypes.v
+# theories/Types/MTypeUnify.v
+
 theories/Types/TSyms.v
 theories/Types/TSymOneOf.v
 
 theories/Types/ModularTypesT.v
-theories/Types/MTypeUnifyT.v
+theories/Types/FTypes.v
+theories/Types/HTypes.v
+
 theories/Lambda/PolyInstT.v
 theories/PolymorphicF.v
 theories/Lambda/Rewrite/HintDbsT.v
@@ -111,7 +114,6 @@ theories/Lambda/Rewrite/Repeat.v
 theories/Lambda/Rewrite/Reduce.v
 theories/Lambda/Rewrite/Respectful.v
 theories/Lambda/Rewrite/Rewrite.v
-theories/Lambda/Rewrite/HintDbs.v
 
 theories/Views/View.v
 theories/Views/TypeView.v
@@ -121,7 +123,6 @@ theories/Views/Ptrns2.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
 
-theories/Lib/GenericTypes.v
 theories/Lib/ProdType.v
 theories/Lib/ListType.v
 theories/Lib/BaseType.v
@@ -140,7 +141,6 @@ theories/RTac/Ctx.v
 theories/RTac/Core.v
 theories/RTac/CoreK.v
 theories/RTac/IsSolved.v
-theories/RTac/PApply.v
 theories/RTac/SpecLemmas.v
 theories/RTac/RunOnGoals.v
 theories/RTac/RunOnGoals_list.v

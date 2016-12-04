@@ -14,7 +14,6 @@ Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.Lambda.Rewrite.Core.
 Require Import MirrorCore.Types.ModularTypesT.
-Require Import MirrorCore.Types.MTypeUnifyT.
 Require Import MirrorCore.PolymorphicF.
 Require Import MirrorCore.Lambda.PolyInstT.
 Require Import MirrorCore.Reify.ReifyClass.

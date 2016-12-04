@@ -21,15 +21,15 @@ Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprVariables.
 
 Require Import MirrorCore.Types.ModularTypesT.
-Require Import MirrorCore.Types.MTypeUnifyT.
 
 Require Import MirrorCore.Util.Forwardy.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Module PAPPLY (Import RT : TypeLang) (RTU : TypeLangUnify with Module RT := RT).
-  Module PI := PolyInst RT RTU.
+Module PAPPLY (RTU : TypeLangUnify).
+  Import RTU.RT.
+  Module PI := PolyInst RTU.RT RTU.
 
   Section parameterized.
     Context {tsym : kind -> Set}

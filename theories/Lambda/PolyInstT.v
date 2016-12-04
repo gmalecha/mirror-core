@@ -8,7 +8,6 @@ Require Import MirrorCore.Views.View.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.PolymorphicF.
 Require Import MirrorCore.Types.ModularTypesT.
-Require Import MirrorCore.Types.MTypeUnifyT.
 
 Set Implicit Arguments.
 Set Strict Implicit.

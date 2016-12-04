@@ -4,7 +4,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.TypeView.
-Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.FTypes.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
@@ -53,7 +53,7 @@ Definition base_typ_dec {n} (a : base_typ n) : forall b, {a = b} + {a <> b}.
     end);  clear -pf; inversion pf.
 Defined.
 
-Definition base_typD {n} (t : base_typ n) : type_for_arity n :=
+Definition base_typD {n} (t : base_typ n) : kindD n :=
   match t with
   | tNat => nat
   | tString => string
@@ -65,25 +65,25 @@ Section DepMatch_base_typ.
   Context {typ : Set}.
   Context {RType_typ : RType typ}.
   Context {FV : PartialView typ (base_typ 0)}.
-  Context {FVOk : TypeViewOk typD (base_typD (n := 0)) FV}. 
+  Context {FVOk : TypeViewOk typD (base_typD (n := 0)) FV}.
 
   Definition string_match (F : typ -> Type) (x : typ) :
     F (f_insert tString) -> (unit -> F x) -> F x :=
     match f_view x as Z return f_view x = Z -> F (f_insert tString) -> (unit -> F x) -> F x
     with
-    | pSome v => 
-      match v as y in base_typ 0 return f_view x = pSome y -> 
-                                        F (f_insert tString) -> 
+    | pSome v =>
+      match v as y in base_typ 0 return f_view x = pSome y ->
+                                        F (f_insert tString) ->
                                         (unit -> F x) -> F x with
-      | tString => 
+      | tString =>
         fun pf X _ =>
-          match (match @pv_ok _ _ _ _ FVOk x tString with | conj A _ => A end) pf 
-                in _ = Z 
+          match (match @pv_ok _ _ _ _ FVOk x tString with | conj A _ => A end) pf
+                in _ = Z
                 return F Z with
           | eq_refl => X
           end
       | _ => fun _ _ X => X tt
-      end 
+      end
     | pNone => fun _ _ X => X tt
     end eq_refl.
 
@@ -91,19 +91,19 @@ Section DepMatch_base_typ.
     F (f_insert tProp) -> (unit -> F x) -> F x :=
     match f_view x as Z return f_view x = Z -> F (f_insert tProp) -> (unit -> F x) -> F x
     with
-    | pSome v => 
-      match v as y in base_typ 0 return f_view x = pSome y -> 
-                                        F (f_insert tProp) -> 
+    | pSome v =>
+      match v as y in base_typ 0 return f_view x = pSome y ->
+                                        F (f_insert tProp) ->
                                         (unit -> F x) -> F x with
-      | tProp => 
+      | tProp =>
         fun pf X _ =>
-          match (match @pv_ok _ _ _ _ FVOk x tProp with | conj A _ => A end) pf 
-                in _ = Z 
+          match (match @pv_ok _ _ _ _ FVOk x tProp with | conj A _ => A end) pf
+                in _ = Z
                 return F Z with
           | eq_refl => X
           end
       | _ => fun _ _ X => X tt
-      end 
+      end
     | pNone => fun _ _ X => X tt
     end eq_refl.
 
@@ -215,14 +215,14 @@ Section RelDec_base_type.
     remember (base_typ_dec x0 y).
     destruct s; subst; intuition.
   Qed.
-  
+
 End RelDec_base_type.
 
 Section TSym_base_type.
 
-  Global Instance TSym_base_typ : TSym base_typ := {
+  Global Instance TSym_base_typ : TSym kindD base_typ := {
     symbolD n := base_typD (n := n);
-    symbol_dec n := base_typ_dec (n := n)    
+    symbol_dec n := base_typ_dec (n := n)
   }.
 
 End TSym_base_type.

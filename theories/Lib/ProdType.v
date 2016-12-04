@@ -3,7 +3,7 @@ Require Import Coq.Lists.List.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
-Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.FTypes.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
@@ -25,7 +25,7 @@ Definition prod_typ_dec {n} (a : prod_typ n) : forall b, {a = b} + {a <> b} :=
       end
   end.
 
-Definition prod_typD {n} (t : prod_typ n) : type_for_arity n :=
+Definition prod_typD {n} (t : prod_typ n) : kindD n :=
   match t with
   | tProd => prod
   end.
@@ -56,8 +56,8 @@ End FuncView_prod_type.
 
 Section RelDec_prod_type.
 
-  Global Instance RelDec_prod_typ (x : nat) : RelDec (@eq (prod_typ x)) := {
-    rel_dec := fun a b =>
+  Global Instance RelDec_prod_typ (x : nat) : RelDec (@eq (prod_typ x)) :=
+  { rel_dec := fun a b =>
                  match x with
                  | 2 => true
                  | _ => false
@@ -84,7 +84,7 @@ End RelDec_prod_type.
 
 Section TSym_prod_type.
 
-  Global Instance TSym_prod_typ : TSym prod_typ := {
+  Global Instance TSym_prod_typ : TSym kindD prod_typ := {
     symbolD n := prod_typD (n := n);
     symbol_dec n := prod_typ_dec (n := n)
   }.

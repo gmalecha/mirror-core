@@ -3,7 +3,7 @@ Require Import Coq.Lists.List.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
-Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.FTypes.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
@@ -26,7 +26,7 @@ Definition list_typ_dec {n} (a : list_typ n) : forall b, {a = b} + {a <> b} :=
       end
   end.
 
-Definition list_typD {n} (t : list_typ n) : type_for_arity n :=
+Definition list_typD {n} (t : list_typ n) : kindD n :=
   match t with
   | tList => list
   end.
@@ -83,7 +83,7 @@ End RelDec_list_type.
 
 Section TSym_list_type.
 
-  Global Instance TSym_list_typ : TSym list_typ := {
+  Global Instance TSym_list_typ : TSym kindD list_typ := {
     symbolD n := list_typD (n := n);
     symbol_dec n := list_typ_dec (n := n)
   }.

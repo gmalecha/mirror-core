@@ -3,22 +3,22 @@ Require Import ExtLib.Data.PList.
 Require Import ExtLib.Data.Eq.UIP_trans.
 Require Import ExtLib.Tactics.
 
-Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.ModularTypesT.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-(** TODO(gmalecha): This should use the maps in FMapPositive from ExtLib.
+(** TODO(gmalecha): This should use the maps in FMapPositive from ExtLib,
+ ** but they are not universe polymorphic.
  **)
-Module OneOfType.
+Module OneOfType (T : TypeLang).
 
-  Definition TypeR := Set.
   Definition TypeS := Type.
 
   Inductive _option : TypeS :=
-  | _Some : (nat -> TypeR) -> _option
+  | _Some : (T.kind -> Set) -> _option
   | _None.
   Arguments _None.
   Arguments _Some _.
@@ -52,7 +52,7 @@ Module OneOfType.
     | xO p => pmap_lookup' (pmap_left ts) p
     end.
 
-  Fixpoint pmap_insert (p : positive) (ts : pmap) (x : nat -> TypeR) : pmap :=
+  Fixpoint pmap_insert (p : positive) (ts : pmap) (x : T.kind -> Set) : pmap :=
     match p with
     | xH => Branch (_Some x) (pmap_left ts) (pmap_right ts)
     | xO p => Branch (pmap_here ts)
@@ -65,21 +65,21 @@ Module OneOfType.
 
   Set Primitive Projections.
 
-  Definition type_nth (p : pmap) (k : positive) (n : nat) : TypeR :=
-    match pmap_lookup' p k return TypeR with
+  Definition type_nth (p : pmap) (k : positive) (n : T.kind) : Set :=
+    match pmap_lookup' p k return Set with
     | _None => Empty_set
     | _Some T => T n
     end.
 
-  Record OneOfF (ts : pmap) (x : nat) : Type := mkOneOfF
+  Record OneOfF (ts : pmap) (x : T.kind) : Set := mkOneOfF
   { indexF : positive
   ; valueF : type_nth ts indexF x
   }.
 
-  Definition IntoF {ts} {T : nat -> TypeR} x (n : positive)
+  Definition IntoF {ts} {T : T.kind -> Set} x (n : positive)
              (pf : pmap_lookup' ts n = _Some T)
   : T x -> OneOfF ts x :=
-    match pf in _ = X return match X return TypeR with
+    match pf in _ = X return match X return Set with
                              | _Some T => T x
                              | _None => Empty_set
                              end -> OneOfF ts x
@@ -88,7 +88,7 @@ Module OneOfType.
     end.
 
   Fixpoint asNth' {ts : pmap} {n} (p p' : positive)
-  : match pmap_lookup' ts p' return TypeR with
+  : match pmap_lookup' ts p' return Set with
     | _None => Empty_set
     | _Some T => T n
     end -> option (type_nth ts p n) :=
@@ -105,12 +105,12 @@ Module OneOfType.
   : option (type_nth ts p n) :=
     @asNth' ts n p oe.(indexF) oe.(valueF).
 
-  Definition OutOfF {ts} {T : nat -> TypeR} {x} (n : positive)
+  Definition OutOfF {ts} {T : T.kind -> Set} {x} (n : positive)
              (pf : pmap_lookup' ts n = _Some T)
   : OneOfF ts x -> option (T x) :=
     match pf in _ = X
           return OneOfF ts x ->
-                 option match X return TypeR with
+                 option match X return Set with
                         | _None => Empty_set
                         | _Some T => T x
                         end
@@ -231,34 +231,27 @@ Module OneOfType.
 
   Universe UPmap.
   Polymorphic Fixpoint list_to_pmap_aux
-              (lst : plist@{UPmap} (nat -> TypeR)) (p : positive) : pmap :=
+              (lst : plist@{UPmap} (T.kind -> Set)) (p : positive) : pmap :=
     match lst with
     | pnil => OneOfType.Empty
     | pcons x xs => OneOfType.pmap_insert p (list_to_pmap_aux xs (p + 1)) x
   end.
 
-  Definition list_to_pmap (lst : plist@{UPmap} (nat -> TypeR)) :=
+  Definition list_to_pmap (lst : plist@{UPmap} (T.kind -> Set)) :=
     list_to_pmap_aux lst 1.
 
-End OneOfType.
-
-Import OneOfType.
-
-Section TSym_OneOf.
-  Context {typ : nat -> Set} {TS : TSym typ}.
-
-  Definition TSym_Empty_set : TSym (fun _ => Empty_set) :=
+  Definition TSym_Empty_set : TSym T.kindD (fun _ => Empty_set) :=
   {| symbolD := fun n (x : Empty_set) => match x with end
    ; symbol_dec := fun _ x _ => match x with end
    |}.
 
   Definition TSym_All m : Type :=
-    forall p, TSym (type_nth m p).
+    forall p, TSym T.kindD(type_nth m p).
 
   Instance TSymOneOf (m : pmap) (H : TSym_All m)
-  : TSym (OneOfF m) :=
+  : TSym T.kindD (OneOfF m) :=
   { symbolD := fun s x => let ts := H x.(indexF) in
-                          @symbolD _ ts _ x.(valueF)
+                          @symbolD _ _ _ ts _ x.(valueF)
   ; symbol_dec := fun _ a b =>
     match a as a , b as b return {a = b} + {a <> b} with
     |   {| indexF := i1 ; valueF := v1 |}
@@ -270,7 +263,7 @@ Section TSym_OneOf.
               {mkOneOfF m _ i1 v1 <> mkOneOfF m _ Z x}
           with
           | eq_refl => fun v2 =>
-            match @symbol_dec _ (H i1) _ v1 v2 with
+            match @symbol_dec _ _ _ (H i1) _ v1 v2 with
             | left pf => left _
             | right _ => right _
             end
@@ -283,9 +276,9 @@ Section TSym_OneOf.
   { intro.
     eapply Injective_OneOf in H0. simpl in H0.
     destruct H0.
-    rewrite (uip_trans Pos.eq_dec _ _ x eq_refl) in H0. apply n0. assumption. }
+    rewrite (uip_trans Pos.eq_dec _ _ x eq_refl) in H0. apply n. assumption. }
   { intro.
-    apply n0.
+    apply n.
     change (indexF {| indexF := i1; valueF := v1 |} =
             indexF {| indexF := i2; valueF := v2 |}).
     rewrite H0. reflexivity. }
@@ -309,7 +302,7 @@ Section TSym_OneOf.
   Defined.
 
   Definition TSym_All_Branch_Some s l r
-  : TSym s -> TSym_All l -> TSym_All r -> TSym_All (Branch (_Some s) l r).
+  : TSym T.kindD s -> TSym_All l -> TSym_All r -> TSym_All (Branch (_Some s) l r).
   Proof.
     red. intros.
     destruct p.
@@ -318,8 +311,8 @@ Section TSym_OneOf.
     { assumption. }
   Defined.
 
-  Definition PartialViewPMap_Type (A : nat -> TypeR) (p : positive) (m : pmap)
-             (pf : _Some A = pmap_lookup' m p) (n : nat)
+  Definition PartialViewPMap_Type (A : T.kind -> Set) (p : positive) (m : pmap)
+             (pf : _Some A = pmap_lookup' m p) (n : T.kind)
   : PartialView (OneOfF m n) (A n) :=
   {| f_insert := IntoF n p (eq_sym pf)
    ; f_view := let view := OutOfF p (eq_sym pf) in
@@ -332,8 +325,8 @@ Section TSym_OneOf.
   Definition PartialViewOk_TSymOneOf (m : pmap) (H : TSym_All m)
              (p : positive) Z (pf : _Some Z = pmap_lookup' m p)
              n
-  : let X : TSym Z := match eq_sym pf in _ = K
-                            return TSym (fun n => match K return TypeR with
+  : let X : TSym T.kindD Z := match eq_sym pf in _ = K
+                            return TSym T.kindD (fun n => match K return Set with
                                                   | _Some T => T n
                                                   | _None => Empty_set
                                                   end)
@@ -342,7 +335,7 @@ Section TSym_OneOf.
                       end in
     PartialViewOk (PartialViewPMap_Type p m pf n)
                   (fun a b =>
-                     @symbolD _ (TSymOneOf H) _ a = symbolD b).
+                     @symbolD _ _ _ (TSymOneOf H) _ a = symbolD _ b).
   Proof.
     constructor.
     { simpl; intros.
@@ -371,4 +364,4 @@ Section TSym_OneOf.
     | xI p => pmap_lookup'_Empty p
     end.
 
-End TSym_OneOf.
+End OneOfType.
