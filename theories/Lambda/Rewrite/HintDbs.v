@@ -83,8 +83,6 @@ Section setoid.
   Definition rw_lemmaP (rw : rw_lemma typ func Rbase) : Prop :=
     lemmaD (rw_conclD RbaseD) nil nil rw.
 
-  Set Printing Universes.
-
   Definition RewriteHintOk (hr : HintRewrite) : Prop :=
     match hr with
     | PRw_tc plem tc tac =>

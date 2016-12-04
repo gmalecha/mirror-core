@@ -93,9 +93,6 @@ Section typed.
   Variable Typ2_tyArr : Typ2 _ RFun.
   Variable Typ0_tyProp : Typ0 _ Prop.
 
-
-
-
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ _.
   Let tyProp : typ := @typ0 _ _ _ _.
 

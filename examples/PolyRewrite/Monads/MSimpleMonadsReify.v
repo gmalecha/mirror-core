@@ -51,43 +51,46 @@ Module RMonad (MM : Monad) (FF : Frob MM).
   (* Used so the user can reify the specific monad she wants *)
   Reify Declare Patterns patterns_simplemon_typ_special : typ.
 
-  Reify Declare Syntax reify_simplemon_typ :=
-    CFix@{Set}
-      (CFirst_@{Set}
-         (CPattern@{Set} (ls := _ :: _ :: nil) (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) (fun (a b : function (CRec 0)) => tyArr a b) ::
-         @CPatterns@{Set} typ patterns_simplemon_typ ::
-         @CPatterns@{Set} typ patterns_simplemon_typ_special ::
+  Definition reify_simplemon_typ' :=
+    CFix
+      (CFirst_
+         (CPattern (ls := _ :: _ :: nil) (@RImpl (@RGet 0 RIgnore) (@RGet 1 RIgnore)) (fun (a b : function (CRec 0)) => tyArr a b) ::
+         @CPatterns typ patterns_simplemon_typ ::
+         @CPatterns typ patterns_simplemon_typ_special ::
          nil)).
+  Reify Declare Syntax reify_simplemon_typ := reify_simplemon_typ'.
+
 
   (** Declare syntax **)
-  Reify Declare Syntax reify_simplemon :=
-    CFix@{Set}
-      (CFirst_@{Set}
-              (CPatterns@{Set} patterns_simplemon ::
-               CApp@{Set Set Set} (CRec@{Set} 0) (CRec@{Set} 0) (@ExprCore.App typ func) ::
-               CAbs@{Set Set Set} (CCall@{Set} reify_simplemon_typ) (CRec@{Set} 0) (@ExprCore.Abs typ func) ::
-               CVar@{Set} (@ExprCore.Var typ func) ::
+  Definition reify_simplemon' :=
+    CFix
+      (CFirst_
+              (CPatterns patterns_simplemon ::
+               CApp (CRec 0) (CRec 0) (@ExprCore.App typ func) ::
+               CAbs (CCall reify_simplemon_typ) (CRec 0) (@ExprCore.Abs typ func) ::
+               CVar (@ExprCore.Var typ func) ::
 
-               CPattern@{Set} (ls := _ :: nil) (!! (@eq) @ ?0)
-                        (fun (t : function@{Set} (CCall@{Set} reify_simplemon_typ)) => Inj (typ:=typ) (Eq t)) ::
+               CPattern (ls := _ :: nil) (!! (@eq) @ ?0)
+                        (fun (t : function (CCall reify_simplemon_typ)) => Inj (typ:=typ) (Eq t)) ::
 
-               CPattern@{Set} (ls := _ :: _ :: nil) (RPi (?0) (?1))
-                        (fun (t : function@{Set} (CCall@{Set} reify_simplemon_typ)) (b : function@{Set} (CRec@{Set} 0)) =>
+               CPattern (ls := _ :: _ :: nil) (RPi (?0) (?1))
+                        (fun (t : function (CCall reify_simplemon_typ)) (b : function (CRec 0)) =>
                             (App (Inj (All t)) (Abs (func:=func) t b))) ::
 
-               CPattern@{Set} (ls :=  _ :: nil) (!! (@ex) @ ?0)
-                        (fun (t : function@{Set} (CCall@{Set} reify_simplemon_typ)) => Inj (typ := typ) (Ex t)) ::
+               CPattern (ls :=  _ :: nil) (!! (@ex) @ ?0)
+                        (fun (t : function (CCall reify_simplemon_typ)) => Inj (typ := typ) (Ex t)) ::
 
                (* First 2 parameters : M, Monad instance for M  *)
-               CPattern@{Set} (ls := _ :: nil) (!! (@ret) @ # @ # @ ?0)
-                        (fun t : function@{Set} (CCall@{Set} reify_simplemon_typ) => Inj (typ := typ) (Ret t)) ::
+               CPattern (ls := _ :: nil) (!! (@ret) @ # @ # @ ?0)
+                        (fun t : function (CCall reify_simplemon_typ) => Inj (typ := typ) (Ret t)) ::
 
                 (* First 2 parameters : M, Monad instance for M  *)
-                CPattern@{Set} (ls := _ :: _ :: nil) (!! (@bind) @ # @ # @ ?0 @ ?1)
-                         (fun t u : function@{Set} (CCall@{Set} reify_simplemon_typ) => Inj (typ := typ) (Bind t u)) ::
+                CPattern (ls := _ :: _ :: nil) (!! (@bind) @ # @ # @ ?0 @ ?1)
+                         (fun t u : function (CCall reify_simplemon_typ) => Inj (typ := typ) (Bind t u)) ::
 
-                CMap@{Set Set} otherFunc (CTypedTable@{Set Set} (CCall@{Set} reify_simplemon_typ) table_terms)
+                CMap otherFunc (CTypedTable (CCall reify_simplemon_typ) table_terms)
                 :: nil)).
+  Reify Declare Syntax reify_simplemon := reify_simplemon'.
 
   Instance Reify_expr_simple : Reify (expr typ func) :=
     { reify_scheme := CCall reify_simplemon }.

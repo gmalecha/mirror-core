@@ -140,13 +140,14 @@ Module Syntax (M : Monoid).
   Reify Declare Typed Table table_terms : BinNums.positive => typ.
 
   (* Declare syntax **)
-  Reify Declare Syntax reify_monoid :=
-    CFix@{Set}
-      (CFirst_@{Set} (CPatterns@{Set} patterns_monoid ::
-               CApp@{Set Set Set} (CRec@{Set} 0) (CRec@{Set} 0) (@ExprCore.App typ func) ::
-               CAbs@{Set Set Set} (CCall@{Set} reify_monoid_typ) (CRec@{Set} 0) (@ExprCore.Abs typ func) ::
-               CVar@{Set} (@ExprCore.Var typ func) ::
-               CMap@{Set Set} other (CTypedTable@{Set Set} reify_monoid_typ table_terms) :: nil)).
+  Definition reify_monoid' :=
+    CFix
+      (CFirst_ (CPatterns patterns_monoid ::
+               CApp (CRec 0) (CRec 0) (@ExprCore.App typ func) ::
+               CAbs (CCall reify_monoid_typ) (CRec 0) (@ExprCore.Abs typ func) ::
+               CVar (@ExprCore.Var typ func) ::
+               CMap other (CTypedTable reify_monoid_typ table_terms) :: nil)).
+  Reify Declare Syntax reify_monoid := reify_monoid'.
 
   (* Pattern rules for reifying types *)
   Reify Pattern patterns_monoid_typ += (@RExact _ nat)  => tyNat.

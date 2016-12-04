@@ -250,9 +250,6 @@ Section PtrnNat.
   Definition ptrnNat {T : Type} (p : ptrn nat T) : ptrn (expr typ func) T :=
     inj (ptrn_view FV (fptrnNat p)).
 
-  Set Printing Universes.
-  Set Printing All.
-
   Definition ptrnPlus@{V L R} {A B : Type@{V}}
              (a : ptrn@{Set V L R} (expr typ func) A)
              (b : ptrn@{Set V L R} (expr typ func) B)
