@@ -36,10 +36,6 @@ theories/Polymorphic.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
-theories/PLemmaT.v
-# theories/Types/ModularTypes.v
-# theories/Types/MTypeUnify.v
-
 theories/Types/TSyms.v
 theories/Types/TSymOneOf.v
 
@@ -47,16 +43,11 @@ theories/Types/ModularTypesT.v
 theories/Types/FTypes.v
 theories/Types/HTypes.v
 
+theories/PLemmaT.v
 theories/Lambda/PolyInstT.v
 theories/PolymorphicF.v
 theories/Lambda/Rewrite/HintDbsT.v
 theories/Lambda/Rewrite/RespectfulT.v
-
-# theories/Types/ModularTypesF.v
-# theories/Types/MTypeUnifyF.v
-# theories/Lambda/PolyInstF.v
-# theories/Lambda/Rewrite/HintDbs2.v
-# theories/Lambda/Rewrite/Respectful2.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v
