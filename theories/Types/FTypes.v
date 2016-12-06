@@ -82,6 +82,28 @@ Module TypeLang_mtyp <: TypeLang.
         end.
     End type_ind.
 
+    Section type0_case.
+      Variable P : type 0 -> Prop.
+      Hypotheses  (Harr : forall {a b}, P (tyArr a b))
+                  (Hbase0 : forall s, P (tyBase0 s))
+                  (Hbase1 : forall s {a}, P (tyBase1 s a))
+                  (Hbase2 : forall s {a b}, P (tyBase2 s a b))
+                  (Happ : forall {n} s ms, P (@tyApp n s ms))
+                  (Hprop : P tyProp)
+                  (Hvar : forall p, P (tyVar' Kstar p)).
+      Fixpoint type0_case (x : type 0) : P x :=
+        match x as x in type' 0 return P x with
+        | tyArr a b => Harr _ _
+        | tyBase0 s => Hbase0 s
+        | tyBase1 s a => Hbase1 s _
+        | tyBase2 s a b => Hbase2 s _ _
+        | tyApp s ms =>
+          Happ _ s ms
+        | tyProp => Hprop
+        | tyVar' 0 p => Hvar p
+        end.
+    End type0_case.
+
     Variable ts : TSym kindD symbol.
 
     Fixpoint default_type_for_kind n : kindD n :=
@@ -244,7 +266,7 @@ Module TypeLang_mtyp <: TypeLang.
                                 end%type b}
         with
         | @tyApp n' s' xs' =>
-          match PeanoNat.Nat.eq_dec n n' with
+          match kind_eq_dec n n' with
           | left pf =>
             match pf in _ = N
                   return forall (s' : symbol (3+N)) (xs' : vector _ (3+N)),
@@ -316,6 +338,354 @@ Module TypeLang_mtyp <: TypeLang.
        |}.
     simpl. unfold mtyp_cast. intros. rewrite dec_refl. reflexivity.
     Defined.
+
+    Lemma if_as_and : forall a b : bool, (if a then b else false) = true <-> (a = true /\ b = true).
+    Proof. destruct a; destruct b; tauto. Defined.
+
+    Section vector_bdec.
+      Context {T : Type}.
+      Variable bdec : T -> T -> bool.
+      Fixpoint vector_bdec {n} (v1 : vector T n) : vector T n -> bool :=
+        match v1 in vector _ n return vector T n -> bool with
+        | Vnil _ => fun _ => true
+        | Vcons v vs => fun v' =>
+          match v' in vector _ (S n) return (vector T n -> bool) -> bool with
+          | Vcons v' vs' => fun rec => if bdec v v' then rec vs' else false
+          end (fun vs' => vector_bdec vs vs')
+        end.
+
+      Hypothesis bdec_ok : forall a b, bdec a b = true <-> a = b.
+      Theorem vector_bdec_ok : forall n a b, @vector_bdec n a b = true <-> a = b.
+      Proof.
+        induction a; simpl.
+        { split; auto. rewrite (vector_eta b). reflexivity. }
+        { intro. rewrite (vector_eta b).
+          rewrite if_as_and. rewrite bdec_ok. rewrite IHa.
+          split.
+          { destruct 1; subst; auto. }
+          { intros.
+            refine
+              match eq_sym H in _ = X
+                    return vector_hd X = vector_hd b /\ vector_tl X = vector_tl b
+              with
+              | eq_refl => conj eq_refl eq_refl
+              end. } }
+      Defined.
+    End vector_bdec.
+
+    Fixpoint type_bdec {k} (a : type k) {struct a} : type k -> bool :=
+      match a in type' k
+            return type' k -> bool
+      with
+      | tyArr l r => fun b => match b with
+                          | tyArr l' r' => if type_bdec l l' then type_bdec r r' else false
+                          | _ => false
+                          end
+      | tyBase0 s => fun b => match b with
+                          | tyBase0 s' => if symbol_dec kindD s s' then true else false
+                          | _ => false
+                          end
+      | tyBase1 s x => fun b =>
+        match b with
+        | tyBase1 s' x' => if symbol_dec kindD s s' then type_bdec x x' else false
+        | _ => false
+        end
+      | tyBase2 s x y => fun b =>
+        match b with
+        | tyBase2 s' x' y' =>
+          if symbol_dec kindD s s' then
+            if type_bdec x x' then type_bdec y y' else false
+          else false
+        | _ => false
+        end
+      | @tyApp n s xs => fun b =>
+        match b with
+        | @tyApp n' s' xs' =>
+          match PeanoNat.Nat.eq_dec n n' with
+          | left pf =>
+            match pf in _ = X return symbol (3+X) -> vector (type 0) (3+X) -> bool with
+            | eq_refl => fun s' xs' =>
+              if symbol_dec kindD s s' then vector_bdec (@type_bdec 0) xs xs' else false
+            end s' xs'
+          | right _ => false
+          end
+        | _ => false
+        end
+      | tyProp => fun b => match b with
+                       | tyProp => true
+                       | _ => false
+                       end
+      | @tyVar' k v => fun b => match b with
+                            | @tyVar' _ v' => v ?[ eq ] v'
+                            | _ => false
+                            end
+      end.
+
+    (** TODO(gmalecha): this proof can be cleaned up. *)
+    Theorem type_bdec_ok : forall k a b, @type_bdec k a b = true <-> a = b.
+    Proof.
+      refine
+        (fix rec k (a : type k) {struct a} : forall b, type_bdec a b = true <-> a = b :=
+           match a as a in type' k
+                 return forall b, type_bdec a b = true <-> a = b
+           with
+           | tyArr l r => _
+           | _ => _
+           end); simpl.
+      { induction b using type0_case; simpl;
+          try solve [ split; try congruence; inversion 1 ].
+        { rewrite if_as_and. do 2 rewrite rec; clear rec.
+          split.
+          { destruct 1; subst; reflexivity. }
+          { apply Injective_tyArr. } } }
+      { induction b using type0_case; simpl;
+          try solve [ split; try congruence; inversion 1 ].
+        { destruct (symbol_dec kindD s s0); subst; split; try tauto.
+          { inversion 1. }
+          { inversion 1. auto. } } }
+      { induction b using type0_case; simpl;
+          try solve [ split; try congruence; inversion 1 ].
+        destruct (symbol_dec kindD s s0).
+        { rewrite rec; clear rec; split; subst; auto.
+          intro; subst; auto.
+          intro. eapply Injective_tyBase1 in H. tauto. }
+        { split; try congruence.
+          intro. apply Injective_tyBase1 in H. tauto. } }
+      { induction b using type0_case; simpl;
+          try solve [ split; try congruence; inversion 1 ].
+        destruct (symbol_dec kindD s s0); subst.
+        { rewrite if_as_and. do 2 rewrite rec; clear rec.
+          split.
+          { destruct 1; subst; reflexivity. }
+          { intro. apply Injective_tyBase2 in H. tauto. } }
+        { split; try congruence.
+          intro. apply Injective_tyBase2 in H. tauto. } }
+      { induction b using type0_case; simpl;
+          try solve [ split; try congruence; inversion 1 ].
+        destruct (PeanoNat.Nat.eq_dec n n0); subst.
+        { lazymatch goal with
+          | |- context [ if ?X then _ else _ ] => destruct X
+          end; subst.
+          { rewrite vector_bdec_ok; eauto.
+            split; intros; subst; auto.
+            apply Injective_tyApp in H. tauto. }
+          { split. inversion 1. intros.
+            apply Injective_tyApp in H; tauto. } }
+        { split; inversion 1; tauto. } }
+      { induction b using type0_case; simpl;
+          try solve [ split; try congruence; inversion 1 ]. }
+      { destruct b; try solve [ split; try congruence; inversion 1 ].
+        rewrite rel_dec_correct.
+        split; intro; subst; auto.
+        inversion H; auto. }
+    Defined.
+
+    Global Instance RelDec_eq_mtyp k : RelDec (@eq (type' k)) :=
+    { rel_dec := @type_bdec k }.
+
+    Global Instance RelDecOk_eq_mtyp k : RelDec_Correct (RelDec_eq_mtyp k).
+    Proof.
+      constructor.
+      eapply type_bdec_ok.
+    Defined.
+
+    Instance Typ0_Prop : Typ0 RType_type Prop :=
+    { typ0 := tyProp
+    ; typ0_cast := eq_refl
+    ; typ0_match := fun T t f =>
+                      match t as t in type' 0
+                            return T (typD t) -> T (typD t)
+                      with
+                      | tyProp => fun _ => f
+                      | tyVar' k _ =>
+                        match k with
+                        | 0 => fun d => d
+                        | _ => idProp
+                        end
+                      | _ => fun d => d
+                      end
+    }.
+
+    Instance Typ0Ok_Prop : Typ0Ok Typ0_Prop :=
+    { typ0_match_iota := fun _ _ _ => eq_refl
+    ; typ0_match_case := fun x => _
+    ; typ0_match_Proper := _
+    }.
+    { refine
+        match x as x in type' 0
+              return (exists pf : Rty x (typ0 (F:=Prop)),
+                         forall (T : Type -> Type) (tr : T Prop) (fa : T (typD x)),
+                           typ0_match T x tr fa =
+                           Relim T pf
+                                 match eq_sym (typ0_cast (F:=Prop)) in (_ = t) return (T t) with
+                                 | eq_refl => tr
+                                 end) \/
+                     (forall (T : Type -> Type) (tr : T Prop) (fa : T (typD x)), typ0_match T x tr fa = fa)
+        with
+        | tyProp => _
+        | _ => _
+        end; try solve [ right; reflexivity ].
+      left. exists eq_refl. reflexivity.
+      destruct k; auto using idProp. }
+    { destruct pf. reflexivity. }
+    Defined.
+
+    Instance Typ2_Fun : Typ2 RType_type RFun :=
+    { typ2 := tyArr
+    ; typ2_cast := fun _ _ => eq_refl
+    ; typ2_match := fun T t f =>
+                      match t as t in type' 0
+                            return T (typD t) -> T (typD t)
+                      with
+                      | tyArr d c => fun _ => f d c
+                      | tyVar' k _ =>
+                        match k with
+                        | 0 => fun d => d
+                        | _ => idProp
+                        end
+                      | _ => fun d => d
+                      end
+    }.
+
+    Instance Typ2Ok_Fun : Typ2Ok Typ2_Fun :=
+    { typ2_match_iota := fun _ _ _ _ _ => eq_refl
+    ; tyAcc_typ2L := tyAcc_tyArrL
+    ; tyAcc_typ2R := tyAcc_tyArrR
+    ; typ2_inj := Injective_tyArr
+    ; typ2_match_case := fun x => _
+    ; typ2_match_Proper := _
+    }.
+    { refine
+        match x as x in type' 0
+              return (exists (d r : type Kstar) (pf : Rty x (typ2 d r)),
+     forall (T : Type -> Type) (tr : forall a b : type Kstar, T (RFun (typD a) (typD b)))
+       (fa : T (typD x)),
+     typ2_match T x tr fa =
+     Relim T pf
+       match eq_sym (typ2_cast d r) in (_ = t) return (T t) with
+       | eq_refl => tr d r
+       end) \/
+  (forall (T : Type -> Type) (tr : forall a b : type Kstar, T (RFun (typD a) (typD b)))
+     (fa : T (typD x)), typ2_match T x tr fa = fa)
+        with
+        | tyArr _ _ => _
+        | _ => _
+        end; try solve [ right ; reflexivity ].
+      { left. do 2 eexists. exists eq_refl. reflexivity. }
+      { destruct k; auto using idProp. } }
+    { destruct pf; reflexivity. }
+    Defined.
+
+    Global Instance Typ0_sym (s : symbol Kstar) : Typ0 RType_type (symbolD kindD s) :=
+    { typ0 := tyBase0 s
+    ; typ0_cast := eq_refl
+    ; typ0_match := fun T r m =>
+                      match r as r in type' 0
+                            return T (typeD r) -> T (typeD r) with
+                      | tyBase0 s' =>
+                        match symbol_dec _ s s' with
+                        | left pf => match pf with
+                                    | eq_refl => fun _ => m
+                                    end
+                        | right _ => fun x => x
+                        end
+                      | tyVar' k _ => match k with
+                                     | 0 => fun x => x
+                                     | _ => idProp
+                                     end
+                      | _ => fun x => x
+                      end }.
+
+    Global Instance Typ0Ok_sym (s : symbol Kstar) : Typ0Ok (Typ0_sym s) :=
+    { typ0_match_iota := _
+    ; typ0_match_case := _
+    ; typ0_match_Proper := _
+    }.
+    { simpl. intros. destruct (symbol_dec kindD s s); [ | exfalso; eauto ].
+      rewrite (UIP_refl e). reflexivity. }
+    { intros.
+      induction x using type_ind; try solve [ right ; reflexivity ].
+      simpl. destruct (symbol_dec kindD s s0); try solve [ right; reflexivity ].
+      subst. left; exists eq_refl; reflexivity. }
+    { destruct pf; reflexivity. }
+    Unshelve. apply (symbol_dec kindD).
+    Defined.
+
+    Global Instance Typ1_sym (s : symbol 1) : Typ1 RType_type (symbolD kindD s) :=
+    { typ1 := tyBase1 s
+    ; typ1_cast := fun _ => eq_refl
+    ; typ1_match := fun T r m =>
+                      match r as r in type' 0
+                            return T (typeD r) -> T (typeD r) with
+                      | tyBase1 s' x =>
+                        match symbol_dec _ s s' with
+                        | left pf => match pf with
+                                    | eq_refl => fun _ => m x
+                                    end
+                        | right _ => fun x => x
+                        end
+                      | tyVar' k _ => match k with
+                                     | 0 => fun x => x
+                                     | _ => idProp
+                                     end
+                      | _ => fun x => x
+                      end }.
+
+    Global Instance Typ1Ok_sym (s : symbol 1) : Typ1Ok (Typ1_sym s) :=
+    { typ1_match_iota := _
+    ; typ1_match_case := _
+    ; typ1_match_Proper := _
+    }.
+    { simpl. intros. destruct (symbol_dec kindD s s); [ | exfalso; eauto ].
+      rewrite (UIP_refl e). reflexivity. }
+    { constructor. }
+    { inversion 1. reflexivity. }
+    { intros.
+      induction x using type_ind; try solve [ right ; reflexivity ].
+      simpl. destruct (symbol_dec kindD s s0); try solve [ right; reflexivity ].
+      subst. left; eexists; exists eq_refl; reflexivity. }
+    { destruct pf; reflexivity. }
+    Unshelve. apply (symbol_dec kindD).
+    Defined.
+
+    Global Instance Typ2_sym (s : symbol 2) : Typ2 RType_type (symbolD kindD s) :=
+    { typ2 := tyBase2 s
+    ; typ2_cast := fun _ _ => eq_refl
+    ; typ2_match := fun T r m =>
+                      match r as r in type' 0
+                            return T (typeD r) -> T (typeD r) with
+                      | tyBase2 s' x y =>
+                        match symbol_dec _ s s' with
+                        | left pf => match pf with
+                                    | eq_refl => fun _ => m x y
+                                    end
+                        | right _ => fun x => x
+                        end
+                      | tyVar' k _ => match k with
+                                     | 0 => fun x => x
+                                     | _ => idProp
+                                     end
+                      | _ => fun x => x
+                      end }.
+
+    Global Instance Typ2Ok_sym (s : symbol 2) : Typ2Ok (Typ2_sym s) :=
+    { typ2_match_iota := _
+    ; typ2_match_case := _
+    ; typ2_match_Proper := _
+    }.
+    { simpl. intros. destruct (symbol_dec kindD s s); [ | exfalso; eauto ].
+      rewrite (UIP_refl e). reflexivity. }
+    { constructor. }
+    { constructor. }
+    { inversion 1. split; reflexivity. }
+    { intros.
+      induction x using type_ind; try solve [ right ; reflexivity ].
+      simpl. destruct (symbol_dec kindD s s0); try solve [ right; reflexivity ].
+      subst. left; do 2 eexists; exists eq_refl; reflexivity. }
+    { destruct pf; reflexivity. }
+    Unshelve. apply (symbol_dec kindD).
+    Defined.
+
   End with_symbols.
 
   Arguments tyBase0 {_} _.
@@ -412,3 +782,50 @@ Export MirrorCore.Types.ModularTypesT.
 
 Definition kind : Set := TypeLang_mtyp.kind.
 Definition kindD : kind -> Type@{Ukind} := TypeLang_mtyp.kindD.
+Definition Kstar : kind := TypeLang_mtyp.Kstar.
+Definition Karr : kind -> kind := S.
+
+Definition ctyp : (kind -> Set) -> kind -> Set:= TypeLang_mtyp.type.
+Definition ctype (tsym : kind -> Set) : Set := ctyp tsym Kstar.
+
+Definition TSub : (kind -> Set) -> Set := TypeLangUnify_mtyp.Sub.
+Definition ctype_unify {tsym : kind -> Set} : ctype tsym -> ctype tsym -> TSub tsym -> option (TSub tsym) :=
+  @TypeLangUnify_mtyp.type_unify tsym Kstar.
+
+Definition RType_ctype := @TypeLang_mtyp.RType_type.
+Definition RTypeOk_ctype := @TypeLang_mtyp.RTypeOk_type.
+
+Global Existing Instance TypeLang_mtyp.RType_type.
+Global Existing Instance TypeLang_mtyp.RTypeOk_type.
+
+Definition tyArr : forall {tsym : kind -> Set}, ctype tsym -> ctype tsym -> ctype tsym :=
+  @TypeLang_mtyp.tyArr.
+Definition tyBase0 : forall {tsym : kind -> Set}, tsym Kstar -> ctype tsym :=
+  @TypeLang_mtyp.tyBase0.
+Definition tyBase1 : forall {tsym : kind -> Set}, tsym (Karr Kstar) -> ctype tsym -> ctype tsym :=
+  @TypeLang_mtyp.tyBase1.
+Definition tyBase2 : forall {tsym : kind -> Set}, tsym (Karr (Karr Kstar)) -> ctype tsym -> ctype tsym -> ctype tsym :=
+  @TypeLang_mtyp.tyBase2.
+Definition tyApp : forall {tsym : kind -> Set} (k : kind), tsym (Karr (Karr (Karr k))) -> vector (ctype tsym) (3 + k) -> ctype tsym :=
+  @TypeLang_mtyp.tyApp.
+Definition tyProp : forall {tsym : kind -> Set}, ctype tsym := @TypeLang_mtyp.tyProp.
+Definition tyVar {tsym : kind -> Set} (v : positive) : ctype tsym :=
+  TypeLang_mtyp.tyVar Kstar v.
+
+Global Existing Instance TypeLang_mtyp.Typ0_Prop.
+Global Existing Instance TypeLang_mtyp.Typ0Ok_Prop.
+Global Existing Instance TypeLang_mtyp.Typ2_Fun.
+Global Existing Instance TypeLang_mtyp.Typ2Ok_Fun.
+
+Definition Typ0_sym : forall {tsym : kind -> Set} {ts : TSym kindD tsym} (s : tsym Kstar),
+    Typ0 (RType_ctype tsym ts) (symbolD kindD s) := @TypeLang_mtyp.Typ0_sym.
+Definition Typ0Ok_sym : forall {tsym : kind -> Set} {ts : TSym kindD tsym} (s : tsym Kstar),
+    Typ0Ok (Typ0_sym s) := TypeLang_mtyp.Typ0Ok_sym.
+Definition Typ1_sym : forall {tsym : kind -> Set} {ts : TSym kindD tsym} (s : tsym (Karr Kstar)),
+    Typ1 (RType_ctype tsym ts) (symbolD kindD s) := TypeLang_mtyp.Typ1_sym.
+Definition Typ1Ok_sym : forall {tsym : kind -> Set} {ts : TSym kindD tsym} (s : tsym (Karr Kstar)),
+    Typ1Ok (Typ1_sym s) := TypeLang_mtyp.Typ1Ok_sym.
+Definition Typ2_sym : forall {tsym : kind -> Set} {ts : TSym kindD tsym} (s : tsym (Karr (Karr Kstar))),
+    Typ2 (RType_ctype tsym ts) (symbolD kindD s) := TypeLang_mtyp.Typ2_sym.
+Definition Typ2Ok_sym : forall {tsym : kind -> Set} {ts : TSym kindD tsym} (s : tsym (Karr (Karr Kstar))),
+    Typ2Ok (Typ2_sym s) := TypeLang_mtyp.Typ2Ok_sym.

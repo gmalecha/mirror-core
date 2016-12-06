@@ -812,3 +812,10 @@ Export MirrorCore.Types.ModularTypesT.
 
 Definition kind : Set := TypeLang_mtypF.kind.
 Definition kindD : kind -> Type@{Ukind} := TypeLang_mtypF.kindD.
+Definition Kstar : kind := TypeLang_mtypF.Kstar.
+Definition Karr : kind -> kind -> kind := TypeLang_mtypF.Karr.
+
+Definition ctyp := TypeLang_mtypF.type.
+
+Global Existing Instance TypeLang_mtypF.RType_type.
+Global Existing Instance TypeLang_mtypF.RTypeOk_type.
