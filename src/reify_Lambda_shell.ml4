@@ -1453,6 +1453,11 @@ TACTIC EXTEND Reify_Lambda_Shell_reify
 		         ++ Printer.pr_constr (Lazy.force trm)
                          ++ str "'.") in
 	    Tacticals.New.tclZEROMSG pr
+        | ParseFailure (trm, typ) ->
+            let pr = Pp.(   str "Failed to parse term '"
+		         ++ Printer.pr_constr trm
+                         ++ str "' at type " ++ str typ ++ str ".") in
+	    Tacticals.New.tclZEROMSG pr
       end
     ]
 END
@@ -1489,6 +1494,11 @@ TACTIC EXTEND Reify_Lambda_Shell_reify_bind
 		         ++ (Printer.pr_constr (Lazy.force trm))
 	                 ++ (str "'.")) in
             Tacticals.New.tclZEROMSG pr
+        | ParseFailure (trm, typ) ->
+            let pr = Pp.(   str "Failed to parse term '"
+		         ++ Printer.pr_constr trm
+                         ++ str "' at type " ++ str typ ++ str ".") in
+	    Tacticals.New.tclZEROMSG pr
       end
     ]
 END
