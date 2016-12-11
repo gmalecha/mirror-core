@@ -47,19 +47,34 @@ Section ReifyFunc.
   Polymorphic Let Ext (x : SymEnv.func) := @ExprCore.Inj typ func (f_insert x).
 
   Polymorphic Definition reify_func (rf : list (Command (expr typ func))) : Command (expr typ func) :=
-  @Patterns.CFix (expr typ func)
-    (@Patterns.CFirst_ _
+    @Patterns.CFix (expr typ func)
+      (@Patterns.CFirst_ _
         (rf ++
-       ((Patterns.CVar (@ExprCore.Var typ func)) ::
-        (Patterns.CApp (Patterns.CRec 0) (Patterns.CRec 0) (@ExprCore.App typ func)) ::
-	(Patterns.CAbs (CCall (reify_scheme typ)) (CRec 0) (@ExprCore.Abs typ func)) ::
-	(Patterns.CMap Ext (Patterns.CTypedTable (reify_scheme typ) term_table))::nil))).
+         ((Patterns.CVar (@ExprCore.Var typ func)) ::
+          (Patterns.CApp (Patterns.CRec 0) (Patterns.CRec 0) (@ExprCore.App typ func)) ::
+	  (Patterns.CAbs (CCall (reify_scheme typ)) (CRec 0) (@ExprCore.Abs typ func)) ::
+	  (Patterns.CMap Ext (Patterns.CTypedTable (reify_scheme typ) term_table))::nil))).
 
   Polymorphic Instance Reify_func (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
     reify_scheme := reify_func rf
+  }.
+
+  Polymorphic Definition reify_func' (rf : list (Command (expr typ func))) : Command (expr typ func) :=
+    @Patterns.CFix (expr typ func)
+      (@Patterns.CFirst_ _
+        (rf ++
+         ((Patterns.CVar (@ExprCore.Var typ func)) ::
+          (Patterns.CApp (Patterns.CRec 0) (Patterns.CRec 0) (@ExprCore.App typ func)) ::
+	  (Patterns.CAbs (CCall (reify_scheme typ)) (CRec 0) (@ExprCore.Abs typ func)) :: nil))).
+
+  Polymorphic Instance Reify_func' (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
+    reify_scheme := reify_func' rf
   }.
 
 End ReifyFunc.
 
 Arguments reify_func _ _ {_ _} _.
 Arguments Reify_func _ _ {_ _} _.
+
+Arguments reify_func' _ _ {_} _.
+Arguments Reify_func' _ _ {_} _.
