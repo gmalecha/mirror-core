@@ -16,7 +16,7 @@ Set Printing Universes.
 Section ForallT_hlist.
   Polymorphic Context {T} {F : T -> Type} {G : forall x, F x -> Type}.
   Polymorphic Inductive ForallT_hlist : forall ts : list T, hlist F ts -> Type :=
-   | ForallT_Hnil : ForallT_hlist Hnil
+  | ForallT_Hnil : ForallT_hlist Hnil
   | ForallT_Hcons : forall t ts h hs,
       G h ->
       ForallT_hlist hs ->
