@@ -818,7 +818,7 @@ struct
       let (_,typ) =
         try Typing.type_of env evm cmd
         with _ ->
-          Errors.errorlabstrm "Type-error"
+          Errors.errorlabstrm "Type error"
             Pp.(   str "Reification command is ill-typed"
                 ++ fnl ()
                 ++ Printer.pr_constr_env env evm cmd)
@@ -830,12 +830,13 @@ struct
                       typ)
       with
         Term_match.Match_failure ->
-        Errors.anomaly Pp.(   str "Reification got non-Command"
-                           ++ fnl ()
-                           ++ Printer.pr_constr_env env evm cmd
-                           ++ fnl ()
-                           ++ str "has type" ++ fnl ()
-                           ++ Printer.pr_constr_env env evm typ)
+        Errors.errorlabstrm "Type error"
+          Pp.(   str "Reification got non-Command"
+              ++ fnl ()
+              ++ Printer.pr_constr_env env evm cmd
+              ++ fnl ()
+              ++ str "has type" ++ fnl ()
+              ++ Printer.pr_constr_env env evm typ)
 
     let compile_name (prg : Term.constr) =
       let (evm,env) = Lemmas.get_current_context () in

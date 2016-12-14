@@ -80,7 +80,6 @@ Section Test.
                              (rw_concl typ func (expr typ func))).   
   Proof.
     (* But this does not *)
-    Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
-        <:: @Id ::>.
+    refine <:: @Id ::>.
   Qed.
     
