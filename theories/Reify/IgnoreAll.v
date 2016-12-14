@@ -21,12 +21,13 @@ End for_ignore.
 Arguments reify_IgnorePatterns {_} _ {_}.
 
 Require Import MirrorCore.Reify.Reify.
+Require Import MirrorCore.Polymorphic.
 
 Typeclasses Opaque IgnorePatterns.
 Local Instance Reify_nat : Reify nat :=
 { reify_scheme := CPattern (ls := nil) (RExact nat) 0 }.
 
 Goal True.
-  pose (<<: True -> False -> nat :>> : IgnorePatterns ((RImpl RIgnore (RGet 0 RIgnore)) :: nil) nat).
+  pose (<<: forall a : Type, a -> False -> nat :>> : polymorphic bool 1 (IgnorePatterns ((RImpl RIgnore (RGet 0 RIgnore)) :: nil) nat)).
   exact I.
 Defined.
