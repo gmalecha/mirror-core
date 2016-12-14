@@ -153,4 +153,4 @@ Section Test.
                              (rw_concl typ func (expr typ func)))) :=
     Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
         <:: @Id ::>.
-Print lem_landexistsDL.    
+
