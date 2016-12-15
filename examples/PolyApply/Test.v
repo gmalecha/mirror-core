@@ -14,9 +14,7 @@ Require Import MirrorCore.CTypes.CoreTypes.
 
 Inductive my_forall (typ : Set) : Set :=
 | MyForall (t : typ)
-| MyEq (t : typ)
-| MyImpl
-| MyTrue.
+| MyEq (t : typ).
 
 Inductive my_types : nat -> Set :=
 | MyNat : my_types 0.
@@ -31,6 +29,7 @@ Section MakeILogic.
 End MakeILogic.
 
 Definition IgnorePatterns (ls : list RPattern) (T : Set) : Set := T.
+Opaque IgnorePatterns.
 Section for_ignore.
   Variable ls : list RPattern.
   Variable T : Set.
@@ -69,19 +68,13 @@ Definition reify_peq_no_sect : Command@{Set} (expr typ (my_forall typ)) :=
            (fun (x : function (CCall (reify_scheme typ))) =>
               (Inj (MyEq typ x))).
 
-Definition reify_ptrue_no_sect : Command@{Set} (expr typ (my_forall typ)) :=
-  CPattern (ls := nil) (RExact True) (Inj (MyTrue typ)).
-  
-Definition reify_pimpl_no_sect : Command@{Set} (expr typ (my_forall typ)) :=
-  CPattern (ls := (expr typ (my_forall typ) : Type) :: (expr typ (my_forall typ) : Type) :: nil) 
-           (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
-           (fun (x y : function (CRec 0)) =>
-              (App (App (Inj (MyImpl typ)) x) y)).
-
 Local Instance Reify_expr_no_sect : Reify (expr typ (my_forall typ)) :=
-  Reify_func_no_table typ (my_forall typ) (reify_pimpl_no_sect :: reify_ptrue_no_sect :: reify_peq_no_sect :: reify_pforall_no_sect :: nil).
+  Reify_func_no_table_no_fix typ (my_forall typ) (reify_peq_no_sect :: reify_pforall_no_sect :: nil).
 
-Definition reify_poly_no_sect := reify_scheme@{Set} (IgnorePatterns (RImpl (RExact True) (RGet 0 RIgnore)::nil) (expr typ (my_forall typ))).
+Definition reify_poly_no_sect := 
+  @reify_scheme@{Set} (IgnorePatterns (RImpl (RExact True) (RGet 0 RIgnore)::nil) (expr typ (my_forall typ))) (Reify_IgnorePatterns _ _).
+
+
   Ltac reify_poly_no_sect e :=
     let k e :=
         pose e in
@@ -91,6 +84,10 @@ Definition reify_poly_no_sect := reify_scheme@{Set} (IgnorePatterns (RImpl (RExa
 
   Goal True.
     (* This reifies *)
+    pose reify_poly_no_sect.
+    cbv in c.
+    (* Gregory, this does not compile (is it a problem with CCall and CFix?) and
+       I have posed and unfolded  the reification command *)
     reify_poly_no_sect (forall x : nat, True -> x = x).
     apply I.
   Qed.
