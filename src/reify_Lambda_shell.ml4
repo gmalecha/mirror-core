@@ -848,10 +848,11 @@ struct
         ; reify = compile_command [] program }
       with
       | _ ->
-        Errors.anomaly
+        Errors.errorlabstrm "Compilation error"
           Pp.(   str "Failed to compile" ++ fnl ()
               ++ Printer.pr_constr prg
-              ++ fnl ())
+              ++ fnl ()
+              ++ str "(Are your binders correct?)")
 
     let get_entry (name : Term.constr) =
       let name = drop_calls name in

@@ -6,11 +6,13 @@ Require Import MirrorCore.Reify.ReifyView.
 Require Import MirrorCore.Lib.EqView.
 Require Import MirrorCore.CTypes.BaseType.
 Require Import MirrorCore.Lemma.
+Require Import MirrorCore.TCLemma.
 Require Import MirrorCore.PLemma.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.RewriteRelations.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.CTypes.CoreTypes.
+
 
 Inductive my_forall (typ : Set) : Set :=
 | MyForall (t : typ)
@@ -28,12 +30,13 @@ Section MakeILogic.
 
 End MakeILogic.
 
+(* TODO: Doesn't this exist somewhere?
 Definition IgnorePatterns (ls : list RPattern) (T : Set) : Set := T.
 Opaque IgnorePatterns.
 Section for_ignore.
   Variable ls : list RPattern.
   Variable T : Set.
- 
+
   Definition reify_IgnorePatterns {R : Reify T}
   : Command T :=
     let ignores :=
@@ -46,52 +49,10 @@ Section for_ignore.
 
 End for_ignore.
 
+Typeclasses Opaque IgnorePatterns.
+
 Arguments reify_IgnorePatterns {_} _ {_}.
-
-Definition typ := ctyp my_types.
-
-Axiom RType_typ : RType typ.
-Axiom Typ2_typ : Typ2 RType_typ Fun.
-Print reify_func_aux.
-Local Instance Reify_typ : Reify typ := 
-  Reify_typ typ ((CPattern (ls := nil) (RExact nat) (tyBase0 MyNat))::nil).
-
-Definition reify_pforall_no_sect : Command@{Set} (expr typ (my_forall typ)) :=
-  CPattern (ls := (typ : Type) :: (expr typ (my_forall typ) : Type) :: nil)
-           (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
-           (fun (x : function (CCall (reify_scheme typ))) (y : function (CRec 0)) =>
-              (App (Inj (MyForall typ x)) (Abs x y))).
-
-Definition reify_peq_no_sect : Command@{Set} (expr typ (my_forall typ)) :=
-  CPattern (ls := (typ : Type) :: nil)
-           (RApp (RExact (@eq)) (RGet 0 RIgnore))
-           (fun (x : function (CCall (reify_scheme typ))) =>
-              (Inj (MyEq typ x))).
-
-Local Instance Reify_expr_no_sect : Reify (expr typ (my_forall typ)) :=
-  Reify_func_no_table_no_fix typ (my_forall typ) (reify_peq_no_sect :: reify_pforall_no_sect :: nil).
-
-Definition reify_poly_no_sect := 
-  @reify_scheme@{Set} (IgnorePatterns (RImpl (RExact True) (RGet 0 RIgnore)::nil) (expr typ (my_forall typ))) (Reify_IgnorePatterns _ _).
-
-
-  Ltac reify_poly_no_sect e :=
-    let k e :=
-        pose e in
-    reify_expr reify_poly_no_sect k
-               [[ True ]]
-               [[ e ]].
-
-  Goal True.
-    (* This reifies *)
-    pose reify_poly_no_sect.
-    cbv in c.
-    (* Gregory, this does not compile (is it a problem with CCall and CFix?) and
-       I have posed and unfolded  the reification command *)
-    reify_poly_no_sect (forall x : nat, True -> x = x).
-    apply I.
-  Qed.
-
+*)
 
 Section Test.
   Context {typ func : Set}.
@@ -106,7 +67,7 @@ Section Test.
   Context {FV1 : PartialView func (eq_func typ)}.
   Context {FV2 : PartialView func (my_forall typ)}.
   Context {FV_typ : PartialView typ (base_typ 0)}.
-      
+
   Let tyProp : typ := @typ0 _ _ _ Typ0_tyProp.
   Let tyArr : typ -> typ -> typ := @typ2 _ _ _ Typ2_tyArr.
 
@@ -128,7 +89,10 @@ Section Test.
     reflexivity.
   Qed.
 
-  Definition reify_poly := reify_scheme@{Set} (IgnorePatterns (RImpl (RExact True) (RGet 0 RIgnore)::nil) (expr typ func)).
+  Definition reify_poly :=
+    reify_scheme@{Set}
+                (tc_lemma typ (expr typ func) (expr typ func)
+                          (RExact True :: nil)).
   Ltac reify_poly e :=
     let k e :=
         pose e in
@@ -142,12 +106,12 @@ Section Test.
     apply I.
   Qed.
 
-
-
-  Definition lem_landexistsDL : 
-    polymorphic typ 1 (IgnorePatterns (RImpl (RExact True) (RGet 0 RIgnore)::nil)
-                (Lemma.lemma typ (expr typ func) 
-                             (rw_concl typ func (expr typ func)))) :=
-    Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
+  Definition lem_landexistsDL :
+    polymorphic typ 1
+                (tc_lemma typ (expr typ func)
+                             (rw_concl typ func (expr typ func))
+                             (RExact True :: nil)) :=
+    Eval unfold Lemma.add_var , Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises, app  in
         <:: @Id ::>.
 
+End Test.
