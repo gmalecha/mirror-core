@@ -8,7 +8,6 @@ Require Import MirrorCore.Reify.ReifyClass.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Views.View.
 
-
 Section ReifyType.
   Universe U.
 
@@ -64,13 +63,6 @@ Section ReifyFunc.
               (rf : list (Command (expr typ func))) : Command (expr typ func) :=
     @Patterns.CFix (expr typ func) (reify_func_aux rf nil).
 
-  Polymorphic Definition reify_func_no_fix
-              (rf : list (Command (expr typ func))) : Command (expr typ func) :=
-      reify_func_aux rf (Patterns.CMap Ext (Patterns.CTypedTable (reify_scheme typ) term_table)::nil).
-
-  Polymorphic Definition reify_func_no_table_no_fix (rf : list (Command (expr typ func))) : Command (expr typ func) :=
-    reify_func_aux rf nil.
-
   Polymorphic Instance Reify_func (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
     reify_scheme := reify_func rf
   }.
@@ -79,24 +71,10 @@ Section ReifyFunc.
     reify_scheme := reify_func_no_table rf
   }.
 
-  Polymorphic Instance Reify_func_no_fix (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
-    reify_scheme := reify_func_no_fix rf
-  }.
-
-  Polymorphic Instance Reify_func_no_table_no_fix (rf : list (Command (expr typ func))) : Reify (expr typ func) := {
-    reify_scheme := reify_func_no_table_no_fix rf
-  }.
-
 End ReifyFunc.
 
 Arguments reify_func _ _ {_ _} _.
 Arguments Reify_func _ _ {_ _} _.
 
-Arguments reify_func_no_fix _ _ {_ _} _.
-Arguments Reify_func_no_fix _ _ {_ _} _.
-
 Arguments reify_func_no_table _ _ {_} _.
 Arguments Reify_func_no_table _ _ {_} _.
-
-Arguments reify_func_no_table_no_fix _ _ {_} _.
-Arguments Reify_func_no_table_no_fix _ _ {_} _.
