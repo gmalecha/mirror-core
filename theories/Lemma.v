@@ -401,22 +401,22 @@ Section rlemma_tc.
     CFix
       (CFirst (   (** Reify type classes, note each one is ignored *)
                   map (fun p =>
-                         CPattern (ls:=(lemma ty pr c : Type)::nil)
+                         CPattern (ls:=(tc_lemma ignores : Type)::nil)
                            (RPi p (RGet 0 RIgnore))
                            (fun (y : function (CRec 0)) => y))
                       ignores
                ++ (** Reifies premises *)
-                  CPattern (ls:=(pr : Type)::(lemma ty pr c : Type)::nil)
+                  CPattern (ls:=(pr : Type)::(tc_lemma ignores : Type)::nil)
                            (RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
                            (fun (x : function (CCall (reify_scheme _)))
                               (y : function (CRec 0)) => add_prem x y)
-               :: CPattern (ls:=(ty : Type)::(lemma ty pr c : Type)::nil)
+               :: CPattern (ls:=(ty : Type)::(tc_lemma ignores : Type)::nil)
                            (RPi (RGet 0 RIgnore) (RGet 1 RIgnore))
                            (fun (x : function (CCall (reify_scheme _)))
                               (y : function (CRec 0)) => add_var x y)
                :: CMap (fun x => {| vars := nil
-                                  ; premises := nil
-                                  ; concl := x |}) (reify_scheme _)
+                               ; premises := nil
+                               ; concl := x |}) (reify_scheme _)
                :: nil)).
 
   Global Instance Reify_tc_lemma : Reify (tc_lemma ignores) :=

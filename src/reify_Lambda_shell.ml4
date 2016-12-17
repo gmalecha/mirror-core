@@ -414,7 +414,7 @@ struct
 
     type syntax_data =
       { reify       : lazy_term -> Term.constr reifier
-      ; result_type : Term.constr
+      ; result_type : unit (* Term.constr *)
       }
 
     let reify_table : syntax_data CEphemeron.key Cmap.t ref =
@@ -814,37 +814,37 @@ struct
 	           init_function     = (fun () -> reify_table := Cmap.empty) })
 
     let cmd_Command  = resolve_poly_symbol_no_univs pattern_mod "Command"
-    let get_Command_type env evm cmd =
-      let (_,typ) =
-        try Typing.type_of env evm cmd
-        with _ ->
-          Errors.errorlabstrm "Type error"
-            Pp.(   str "Reification command is ill-typed"
-                ++ fnl ()
-                ++ Printer.pr_constr_env env evm cmd)
-      in
-      try
-        Term_match.(matches ()
-                      [(apps (Glob_no_univ cmd_Command) [get 0],
-                        fun _ s -> Hashtbl.find s 0)]
-                      typ)
-      with
-        Term_match.Match_failure ->
-        Errors.errorlabstrm "Type error"
-          Pp.(   str "Reification got non-Command"
-              ++ fnl ()
-              ++ Printer.pr_constr_env env evm cmd
-              ++ fnl ()
-              ++ str "has type" ++ fnl ()
-              ++ Printer.pr_constr_env env evm typ)
+    (* let get_Command_type env evm cmd = *)
+    (*   let (_,typ) = *)
+    (*     try Typing.type_of env evm cmd *)
+    (*     with _ -> *)
+    (*       Errors.errorlabstrm "Type error" *)
+    (*         Pp.(   str "Reification command is ill-typed" *)
+    (*             ++ fnl () *)
+    (*             ++ Printer.pr_constr_env env evm cmd) *)
+    (*   in *)
+    (*   try *)
+    (*     Term_match.(matches () *)
+    (*                   [(apps (Glob_no_univ cmd_Command) [get 0], *)
+    (*                     fun _ s -> Hashtbl.find s 0)] *)
+    (*                   typ) *)
+    (*   with *)
+    (*     Term_match.Match_failure -> *)
+    (*     Errors.errorlabstrm "Type error" *)
+    (*       Pp.(   str "Reification got non-Command" *)
+    (*           ++ fnl () *)
+    (*           ++ Printer.pr_constr_env env evm cmd *)
+    (*           ++ fnl () *)
+    (*           ++ str "has type" ++ fnl () *)
+    (*           ++ Printer.pr_constr_env env evm typ) *)
 
     let compile_name (prg : Term.constr) =
       let (evm,env) = Lemmas.get_current_context () in
-      let typ = get_Command_type env evm prg in
+      (* let typ = get_Command_type env evm prg in *)
       let reduced = Reductionops.whd_betadeltaiota env evm prg in
       let program = parse_command env evm reduced in
       try
-        { result_type = typ
+        { result_type = () (* typ *)
         ; reify = compile_command [] program }
       with
       | _ ->
@@ -878,9 +878,11 @@ struct
 
     let _ = set_reify_term reify_term
 
+(*
     let reify_type (name : Term.constr) =
       let data = get_entry name in
       data.result_type
+*)
 
     let declare_syntax (name : Names.identifier) env evm
 	(cmd : Term.constr) : unit =
@@ -898,7 +900,7 @@ struct
       in
       let program = parse_command env evm cmd in
       let _meta_reifier = compile_command [] program in
-      let data = { result_type = typ
+      let data = { result_type = () (* typ *)
                  ; reify = _meta_reifier } in
       let obj = decl_constant name evm cmd in
       reify_table := Cmap.add obj (CEphemeron.create data) !reify_table
