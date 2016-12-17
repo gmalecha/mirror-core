@@ -6,7 +6,7 @@ Require Import MirrorCore.Reify.ReifyView.
 Require Import MirrorCore.Lib.EqView.
 Require Import MirrorCore.CTypes.BaseType.
 Require Import MirrorCore.Lemma.
-Require Import MirrorCore.TCLemma.
+(* Require Import MirrorCore.TCLemma. *)
 Require Import MirrorCore.PLemma.
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.Lambda.RewriteRelations.
@@ -102,7 +102,7 @@ Section Test.
 
   Goal True.
     (* This reifies *)
-    reify_poly (forall x : nat, True -> x = x).
+    reify_poly (forall x : nat, True -> True -> x = x -> x = x).
     apply I.
   Qed.
 
