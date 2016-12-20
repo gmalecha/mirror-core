@@ -293,6 +293,8 @@ Definition lem_Proper_exists
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @Proper_exists ::>.
 
+Print lem_Proper_exists.
+
 Definition lem_Proper_forall
 : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
@@ -343,7 +345,8 @@ Ltac prove_prespectful :=
          | _ => red; simpl
          end.
 *)
-
+Locate ctyp.
+Check @ctyp.
 Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
@@ -468,7 +471,6 @@ Require Import MirrorCore.PLemma.
 Require Import MirrorCore.RTac.PApply.
 Require Import MirrorCore.Lambda.ExprUnify_simple.
 
-
 Definition PAPPLY (plem : PolyLemma typ (expr typ func) (expr typ func)) :=
   PAPPLY (RSym_func := RSym_func)
          (fun subst SS SU tus tvs n l r t s =>
@@ -509,8 +511,7 @@ Proof.
   apply Expr.ExprOk_expr.
   apply Expr.ExprOk_expr.
 Qed.
-
-
+Locate RewriteHintDb.
 Definition the_lemmas
 : RewriteHintDb Rbase :=
   @PRw _ _ _ 1 lem_pull_ex_and_left DO_REFL ::
