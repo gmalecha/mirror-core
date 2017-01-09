@@ -20,8 +20,12 @@ Section ReifyType.
   (@Patterns.CFix _
       (@Patterns.CFirst_ _
           ((@CPattern _ ((typ : Type) :: (typ : Type) :: nil)
-                     (@RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
-                     (fun (a b : function (CRec 0)) => tyArr a b)) :: rt))).
+                      (@RImpl (RGet 0 RIgnore) (RGet 1 RIgnore))
+                      (fun (a b : function (CRec 0)) => tyArr a b)) ::
+             (@CPattern _ ((typ : Type) :: (typ : Type) :: nil)
+                        (RApp (RApp (RExact RFun) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+                        (fun (a b : function (CRec 0)) => tyArr a b)) ::
+             rt))).
 
   Instance Reify_typ (rt : list (Command typ)) : Reify typ := {
     reify_scheme := reify_typ rt

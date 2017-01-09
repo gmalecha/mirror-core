@@ -128,7 +128,7 @@ Section ReifyBool.
   Context {typ func : Set} {FV : PartialView func boolFunc}.
 
   Definition reify_cbool : Command (expr typ func) :=
-    CPattern (ls := (bool:Type)::nil) (RHasType bool (RGet 0 RIgnore)) (fun x => Inj (fBool x)).
+    CPattern (ls := (bool:Type)::nil) (RHasType bool (RGet 0 RIgnore)) (fun (x : id bool) => Inj (fBool x)).
 
   Definition reify_bool : Command (expr typ func) :=
     CFirst (reify_cbool :: nil).

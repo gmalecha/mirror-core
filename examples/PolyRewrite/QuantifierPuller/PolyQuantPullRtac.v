@@ -223,7 +223,7 @@ Proof. reflexivity. Qed.
 Definition lem_eq_refl' : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
     <:: @eq_refl' ::>.
-
+Print lem_eq_refl'.
 Require Import MirrorCore.PLemma.
 
 Definition plem_eq_refl' : PolyLemma typ (expr typ func) (expr typ func) :=
@@ -299,7 +299,6 @@ Definition lem_Proper_forall
 : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @Proper_forall ::>.
-
 (*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
   lem_Proper_exists : @Proper_exists.
