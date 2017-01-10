@@ -1,6 +1,9 @@
 Require Import ExtLib.Data.HList.
+Require Import ExtLib.Data.Map.FMapPositive.
+
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.SubstI.
+Require Import MirrorCore.SymI.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -46,3 +49,17 @@ Section with_Expr.
                  v1 us (hlist_app vs' vs) = v2 us (hlist_app vs' vs).
 
 End with_Expr.
+
+Section with_RSym.
+  Variable typ func : Set.
+  Context {RType_typ : RType typ}.
+  Context {RSym_func : RSym func}.
+
+  Definition sym_unify (a b : func) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match sym_eqb a b with
+    | Some true => Some s
+    | _ => None
+    end.
+
+End with_RSym.

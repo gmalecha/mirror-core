@@ -14,6 +14,7 @@ Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Reify.ReifyClass.
 Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -91,6 +92,25 @@ Section ApplicativeFuncInst.
   Qed.
 
 End ApplicativeFuncInst.
+
+Section ApplicativeUnify.
+  Context {typ' : nat -> Set}.
+  
+  Let typ := ctyp typ'.
+
+  Definition ap_func_unify (a b : ap_func typ) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match a, b with
+    | pPure t, pPure t' => ctype_unify_slow _ t t' s
+    | pAp t u, pAp t' u' => 
+      match ctype_unify_slow _ t t' s with
+      | Some s' => ctype_unify_slow _ u u' s'
+      | None => None
+      end
+    | _, _ => None
+    end.
+
+End ApplicativeUnify.
 
 Section MakeApplicative.
   Context {typ func : Set} {RType_typ : RType typ}.

@@ -13,6 +13,9 @@ Require Import MirrorCore.RTac.Simplify.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.RedAll.
 
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
+
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
@@ -94,6 +97,26 @@ Section ProdFuncInst.
   Qed.
 
 End ProdFuncInst.
+
+Section ProdUnify.
+  Context {typ' : nat -> Set}.
+  
+  Let typ := ctyp typ'.
+
+  Definition prod_func_unify (a b : prod_func typ) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match a, b with
+    | pPair t u, pPair t' u'
+    | pFst t u, pFst t' u'
+    | pSnd t u, pSnd t' u' => 
+      match ctype_unify_slow _ t t' s with
+      | Some s' => ctype_unify_slow _ u u' s'
+      | None => None
+      end
+    | _, _ => None
+    end.
+
+End ProdUnify.
 
 Section MakeProd.
   Context {typ func : Set} {RType_typ : RType typ}.
