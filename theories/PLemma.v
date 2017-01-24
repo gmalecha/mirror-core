@@ -39,3 +39,16 @@ Section PolyLemmaD.
                                    (p_lem plem)).
 
 End PolyLemmaD.
+
+Section PolyLemmaDefs.
+  Variable (typ expr conclusion : Set).
+
+  Definition ptc_lem_typ x lst :=
+    polymorphic typ x (tc_lemma typ expr conclusion lst).
+
+  Definition pconcl {x : nat} (l : polymorphic typ x (lemma typ expr conclusion)) := 
+    fmap_polymorphic concl l.
+
+End PolyLemmaDefs.
+
+Arguments pconcl {_ _ _ _} _.

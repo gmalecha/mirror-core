@@ -8,6 +8,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Lambda.ExprTac.
 Require Import MirrorCore.Views.Ptrns.
+Require Import MirrorCore.Polymorphic.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -43,6 +44,14 @@ Section setoid.
     match r with
     | Rflip r => r
     | _ => Rflip r
+    end.
+
+  Fixpoint Rflip'' (r : R) : R :=
+    match r with
+    | Rflip r => r
+    | Rinj e => Rflip (Rinj e)
+    | Rrespects r1 r2 => Rrespects (Rflip'' r1) (Rflip'' r2)
+    | Rpointwise t r => Rpointwise t (Rflip'' r)
     end.
 
   Fixpoint Req_dec (a b : R) : bool :=
@@ -543,8 +552,16 @@ Section setoid.
 
   End lemmas.
 
+  Section poly_rewrite.
+
+    Definition ptc_rel_lem_typ x ignores :=
+      polymorphic typ x (tc_lemma typ (expr typ func) rw_concl ignores).
+
+  End poly_rewrite.
+
 End setoid.
 
+Arguments ptc_rel_lem_typ : clear implicits.
 Arguments rw_concl typ func Rbase : rename, clear implicits.
 Arguments rw_lemma typ func Rbase : rename, clear implicits.
 Arguments R typ Rbase : rename, clear implicits.

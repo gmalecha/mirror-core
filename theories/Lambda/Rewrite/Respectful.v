@@ -335,6 +335,9 @@ Section setoid.
     red. intros. inversion H.
   Qed.
 
+  Definition ptc_proper_rel_lem_typ x ignores :=
+    polymorphic typ x (tc_lemma typ (expr typ func) Proper_concl ignores).
+
   Section for_polymorphism.
 
 (*
@@ -445,6 +448,8 @@ Section setoid.
   Qed.
 
 End setoid.
+
+Arguments ptc_proper_rel_lem_typ : clear implicits.
 
 (**
       Helpful notations for working with Respectfulness,

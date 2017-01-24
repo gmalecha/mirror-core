@@ -272,48 +272,34 @@ Arguments reify_applicative _ _ {_} _ {_}.
 
 Section ReduceApplicative.
   Context {typ' : nat -> Set} {func : Set}.
-  Context {TSym_typ' : TSym typ'}.
   Let typ := ctyp typ'.
-  Local Instance RType_typ : RType typ := RType_ctyp typ' TSym_typ'.
-  Local Instance Typ2_typ : Typ2 RType_typ RFun := Typ2_Fun.
+  Context {TSym_typ' : TSym typ'}.
+  Local Instance RType_typ : RType typ := (RType_ctyp typ' _).
+  Local Instance Typ2_typ : Typ2 _ RFun := Typ2_Fun.
   Context {RSym_func : RSym (typ := typ) func}.
   Context {FV : PartialView func (ap_func typ)}.
-  Context {RelDec_typ : RelDec (@eq typ)}.
-  Context {RelDec_func : RelDec (@eq func)}.
 
+  Definition red_ap_ptrn 
+             (f : typ -> expr typ func -> expr typ func) :
+    ptrn (expr typ func) (expr typ func) :=
+    applicative_cases
+      (fun _ p => p)
+      (fun t u p q => App (f (tyArr t u) p) (f u q)).
 
-  Definition ptypeof {T : Type} (tus tvs : tenv typ) 
-    (p : ptrn typ T) : ptrn (expr typ func) T :=
+  Definition restore_ap_ptrn 
+    (f : expr typ func -> (typ * expr typ func)) :=
+      pmap (fun a_b => let '(a, b) := a_b in 
+                       let (t, ra) := f a in
+                       let (u, rb) := f b in
+                       mkAp t u ra rb)
+           (app get get).
+
+  Definition restore_pure_ptrn (tus tvs : tenv typ) : 
+    ptrn (expr typ func) (typ * expr typ func) :=
     fun e U good bad =>
       match typeof_expr tus tvs e with
-      | Some t => p t U good (fun _ => bad e)
+      | Some t => good (t, mkPure t e)
       | None => bad e
       end.
-
-  Fixpoint reduce_ap (e1 e2 : expr typ func) : expr typ func :=
-    run_ptrn 
-      (applicative_cases
-         (fun _ p => p)
-         (fun _ _ a1 a2 => App (reduce_ap a1 e2) (reduce_ap a2 e2)))
-      (App e1 e2) e1.
-
-  Fixpoint restore_ap (tus tvs : tenv typ) (e1 e2 : expr typ func) : option (expr typ func * typ) :=
-    run_ptrn 
-      (por
-         (pmap (fun a_b =>
-                 let '(a, b) := a_b in
-                 if b ?[ eq ] e2 then
-                   match typeof_expr tus tvs a with
-                   | Some (tyArr t u) => Some (a, t)
-                   | _ => None
-                   end
-                 else
-                   match restore_ap tus tvs a e2, restore_ap tus tvs b e2 with
-                   | Some (r1, tyArr t u), Some (r2, _) => 
-                     Some (mkAp t u r1 r2, u)
-                   | _, _ => None
-                   end
-                 ) (app get get))
-         (pmap (fun t => Some (mkPure t e1, t)) (ptypeof tus tvs get))) None e1.
 
 End ReduceApplicative.

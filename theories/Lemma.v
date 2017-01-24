@@ -372,6 +372,8 @@ Section lem.
 
 End lem.
 
+Arguments concl {_ _ _} _.
+
 Require Import MirrorCore.Reify.ReifyClass.
 
 Section rlemma_tc.

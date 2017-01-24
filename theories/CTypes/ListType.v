@@ -8,6 +8,7 @@ Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.PList.
+Require Import ExtLib.Data.Vector.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -30,6 +31,18 @@ Definition list_typD {n} (t : list_typ n) : type_for_arity n :=
   match t with
   | tList => list
   end.
+
+Definition inhabited_list_typ {n : nat} (t : list_typ n) (vs : vector Type@{Usmall} n) :
+  inhabited (applyn (list_typD t) vs).
+Proof.
+  intros.
+  destruct n; [inversion t|].
+  destruct n; [|inversion t].
+  destruct t.
+  rewrite (vector_eta vs); simpl.
+  rewrite (vector_eta (vector_tl vs)).
+  apply inhabits; apply nil.
+Defined.
 
 Section FuncView_list_type.
   Context {typ : Set}.
