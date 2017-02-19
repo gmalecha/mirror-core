@@ -11,132 +11,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Printing Universes.
 
-
-(** Generic definitions **)
-Section ForallT_hlist.
-  Polymorphic Context {T} {F : T -> Type} {G : forall x, F x -> Type}.
-  Polymorphic Inductive ForallT_hlist : forall ts : list T, hlist F ts -> Type :=
-  | ForallT_Hnil : ForallT_hlist Hnil
-  | ForallT_Hcons : forall t ts h hs,
-      G h ->
-      ForallT_hlist hs ->
-      @ForallT_hlist (t :: ts) (Hcons h hs).
-End ForallT_hlist.
-
-Section ForallT2_hlist.
-  Polymorphic Context {T} {F G : T -> Type}.
-  Polymorphic Variable P : forall x, F x -> G x -> Type.
-  Polymorphic Inductive ForallT2_hlist : forall ts : list T, hlist F ts -> hlist G ts -> Type :=
-  | ForallT2_Hnil : ForallT2_hlist Hnil Hnil
-  | ForallT2_Hcons : forall t ts x xs y ys,
-      P x y ->
-      ForallT2_hlist xs ys ->
-      @ForallT2_hlist (t :: ts) (Hcons x xs) (Hcons y ys).
-End ForallT2_hlist.
-Arguments ForallT2_hlist [_ _ _] _ [_] _ _.
-Arguments ForallT_hlist [_ _] _ [_] _.
-
-Section ForallT_hlist_lems.
-  Polymorphic Context {T} {F G : T -> Type} (f : forall x, F x -> G x)
-              (P : forall t, G t -> Type).
-
-  Polymorphic Lemma ForallT_hlist_map
-    : forall ls hs,
-      ForallT_hlist (ts:=ls) (fun t x => P (f x)) hs ->
-      ForallT_hlist (ts:=ls) P (hlist_map f hs).
-  Proof using. clear.
-               induction 1; constructor; eauto.
-  Defined.
-
-  Polymorphic Lemma ForallT_hlist_pure
-    : (forall t f, @P t f) -> forall ls hs,
-        ForallT_hlist (ts:=ls) P hs.
-  Proof using. clear.
-               induction hs; constructor; eauto.
-  Defined.
-
-  Polymorphic Definition ForallT_hlist_hd
-              {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
-    : P (hlist_hd hs) :=
-    match Fhs in @ForallT_hlist _ _ _ (_ :: _)  hs
-          return P (hlist_hd hs)
-    with
-    | ForallT_Hcons _ _ pf _ => pf
-    end.
-
-  Polymorphic Definition ForallT_hlist_tl
-              {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
-    : ForallT_hlist P (hlist_tl hs) :=
-    match Fhs in @ForallT_hlist _ _ _ (_ :: _)  hs
-          return ForallT_hlist P (hlist_tl hs)
-    with
-    | ForallT_Hcons _ _ _ pf => pf
-    end.
-
-  Polymorphic Lemma ForallT_hlist_ap (Q : forall t, G t -> Type)
-    : forall ls hs,
-      ForallT_hlist (ts:=ls) (fun t x => P x -> Q t x) hs ->
-      ForallT_hlist (ts:=ls) P hs ->
-      ForallT_hlist (ts:=ls) Q hs.
-  Proof using. clear.
-               induction 1; constructor.
-               { apply g.
-                 eapply (ForallT_hlist_hd X0). }
-               { eapply IHX. eapply (ForallT_hlist_tl X0). }
-  Defined.
-
-  Polymorphic Lemma ForallT_hlist_get
-    : forall ls (hs : hlist G ls),
-      ForallT_hlist P hs ->
-      forall t m, @P t (hlist_get m hs).
-  Proof.
-    induction m.
-    { eapply ForallT_hlist_hd. assumption. }
-    { eapply IHm. eapply ForallT_hlist_tl. eassumption. }
-  Defined.
-
-  Polymorphic Lemma ForallT2_hlist_map_l
-    : forall E Q ls (hs : hlist _ ls) (hs' : hlist E ls),
-      ForallT2_hlist (fun t x y => @Q t (@f t x) y) hs hs' ->
-      ForallT2_hlist Q (hlist_map f hs) hs'.
-  Proof.
-    induction 1; constructor; auto.
-  Defined.
-
-  Polymorphic Lemma ForallT2_hlist_map_r
-    : forall E Q ls (hs : hlist E ls) (hs' : hlist _ ls),
-      ForallT2_hlist (fun t x y => @Q t x (@f t y)) hs hs' ->
-      ForallT2_hlist Q hs (hlist_map f hs').
-  Proof.
-    induction 1; constructor; auto.
-  Defined.
-
-  Polymorphic Lemma ForallT2_hlist_same
-    : forall Q ls (hs : hlist F ls),
-      ForallT_hlist (fun t x => Q t x x) hs ->
-      ForallT2_hlist Q hs hs.
-  Proof. induction 1; constructor; auto. Defined.
-End ForallT_hlist_lems.
-
-(** TODO: This is generic *)
-Fixpoint members {T} (ls : list T) : hlist (fun x => member x ls) ls :=
-  match ls as ls
-        return hlist (fun x => member x ls) ls
-  with
-  | nil => Hnil
-  | l :: ls => Hcons (MZ _ _) (hlist_map (fun t m => @MN _ _ _ _ m) (@members _ ls))
-  end.
-
-
-Polymorphic Lemma hlist_get_members {T} {ls : list T} t (m : member t ls)
-: hlist_get m (members ls) = m.
-Proof.
-  induction m; simpl.
-  { reflexivity. }
-  { rewrite hlist_get_hlist_map. f_equal. assumption. }
-Defined.
-
-(* This is the universe of the reified language *)
+(* This is the universe of the syntactic language *)
 Universe Urefl.
 (* These are the universes of the denotation *)
 Universe Uhuge Ularge Usmall Utiny.
@@ -144,6 +19,12 @@ Universe Uhuge Ularge Usmall Utiny.
 (** Universes **)
 Inductive univ : Type@{Urefl} :=
 | U1 | U0.
+
+Definition mx (a b : univ) : univ :=
+    match a with
+    | U1 => U1
+    | U0 => b
+    end.
 
 Definition univD (u : univ) : Type@{Uhuge} :=
   match u with
@@ -171,6 +52,23 @@ Fixpoint kindD {u} (k : kind u) : univD u :=
   | Kstar U0 => Type@{Utiny}
   | Kstar U1 => Type@{Usmall}
   end.
+
+Fixpoint tmorphism (u : univ) (k : kind u) {struct k}
+: kindD k -> kindD k -> univD u :=
+  match k  as k in kind u
+        return kindD k -> kindD k -> univD u
+  with
+  | Karr k1 k2 => fun f g =>
+                   forall x y : kindD k1,
+                     tmorphism k1 x x ->
+                     tmorphism k1 y y ->
+                     tmorphism k1 x y ->
+                     tmorphism k2 (f x) (g y)
+  | Kstar U0 => path
+  | Kstar U1 => path
+  end.
+Arguments tmorphism [_] _ _ _.
+
 
 Section simple_dep_types.
   Variable Tsymbol : forall u, kind u -> Type@{Urefl}.
@@ -268,28 +166,6 @@ Section simple_dep_types.
       end.
   End type_rect.
 
-  Definition mx (a b : univ) : univ :=
-    match a with
-    | U1 => U1
-    | U0 => b
-    end.
-
-  Fixpoint tmorphism (u : univ) (k : kind u) {struct k}
-  : kindD k -> kindD k -> univD u :=
-    match k  as k in kind u
-          return kindD k -> kindD k -> univD u
-    with
-    | Karr k1 k2 => fun f g =>
-      forall x y : kindD k1,
-        tmorphism k1 x x ->
-        tmorphism k1 y y ->
-        tmorphism k1 x y ->
-        tmorphism k2 (f x) (g y)
-    | Kstar U0 => path
-    | Kstar U1 => path
-    end.
-  Arguments tmorphism [_] _ _ _.
-
   Record TSigT0 (k : kind U0) : Type@{Usmall} := mkTSigT0
   { tsigT0      : kindD k
   ; tsigProper0 : tmorphism k tsigT0 tsigT0
@@ -362,6 +238,7 @@ Section simple_dep_types.
     | k :: ks => Karr k (Karrs ks r)
     end.
 
+  (** This is the semantic version of substition *)
   Fixpoint apply_Karrs {ks} {r} (f : TSigT0 (Karrs ks r)) (Ks : Kenv ks) : TSigT0 r :=
     match Ks in hlist _ ks
           return TSigT0 (Karrs ks r) -> TSigT0 r

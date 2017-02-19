@@ -1460,6 +1460,11 @@ Section simple_dep_types.
       end).
   Defined.
 
+  Definition inst_typeI {tus tus' : list Kuvar}
+       (i : Inst tus tus')
+  : forall {ts : list (kind U0)} {u : univ} {k : kind u} (t : type tus ts k), type tus' ts k :=
+    @inst_typeA id _ _ _ (fun k t => to_type (lookupInst i t)).
+
   Fixpoint appInst {a b c} (i : Inst a b) : Inst b c -> Inst a c :=
     match i in Inst _ b return Inst b c -> Inst a c with
     | Done => fun x => x
@@ -1521,6 +1526,250 @@ Section simple_dep_types.
           end
         end eq_refl).
     Defined.
+
+    Definition kind0_case (T : kind U0 -> Type)
+               (doKstar : T (Kstar U0))
+               (doKarr : forall a b, T (Karr a b))
+               (k : kind U0)
+    : T k.
+    refine
+      match k as k in kind U0
+            return T k
+      with
+      | Kstar u =>
+        match u as u0
+          return match u0 as iV return (kind iV -> Type) with
+                 | U1 => fun _ : kind U1 => IDProp
+                 | U0 => fun k0 : kind U0 => T k0
+                 end (Kstar u0)
+        with
+        | U1 => idProp
+        | U0 => doKstar
+        end
+      | Karr a b => doKarr a b
+      end.
+  Defined.
+
+  Section elim_star.
+    Variable kus : list Kuvar.
+    Variable kvs : list (kind U0).
+    Variable T : forall u, type kus kvs (Kstar u) -> Type.
+
+    Hypothesis doTArr
+    : forall (t1 : type kus kvs (Kstar U0)) {u : univ} (t2 : @type kus kvs u (Kstar u)),
+        @T u (TArr t1 t2).
+    Hypothesis doTApp
+    : forall d (t1 : type kus kvs (Karr d (Kstar U0))) (t2 : @type kus kvs _ d),
+        @T _ (TApp t1 t2).
+    Hypothesis doTPi : forall k u (t : @type kus (k :: kvs) u (Kstar u)),
+        @T _ (TPi t).
+    Hypothesis doTVar : forall m, @T _ (@TVar kus kvs (Kstar U0) m).
+    Hypothesis doTInj : forall u i, @T _ (@TInj kus kvs u _ i).
+    Hypothesis doTUVar : forall vs vs' u,
+        @T _ (@TUVar kus kvs {| Tuctx := vs ; Tukind := Kstar U0 |} u vs').
+
+    Definition type_star_case {u} (t : type kus kvs (Kstar u)) : @T u t.
+    clear - doTArr doTApp doTPi doTVar doTInj doTUVar.
+    refine
+      match t as t in @type _ _ u (Kstar u')
+            return @T u' t
+      with
+      | TArr d c => doTArr d c
+      | @TApp _ _ d c f x => _
+      | TPi t => doTPi t
+      | TVar v => _
+      | _ => _
+      end.
+    Focus.
+    Print TApp.
+    revert f.
+    refine (@kind0_case (fun c => forall f : @type kus kvs U0 (Karr d c),
+                             match c as iV in (kind u0) return (@type kus kvs u0 iV -> Type) with
+                             | Karr k k0 => fun _ : @type kus kvs U0 (Karr k k0) => IDProp
+                             | Kstar u' => fun t0 : @type kus kvs u' (Kstar u') => @T u' t0
+                             end (@TApp kus kvs d c f x)) _ _ c).
+    2: intros; apply idProp.
+    intros. eapply doTApp.
+    Focus.
+    Print TVar.
+    revert v.
+    refine (@kind0_case (fun k => forall v : @member (kind U0) k kvs,
+                             match k as iV in (kind u0) return (@type kus kvs u0 iV -> Type) with
+                             | Karr k0 k1 => fun _ : @type kus kvs U0 (Karr k0 k1) => IDProp
+                             | Kstar u' => fun t0 : @type kus kvs u' (Kstar u') => @T u' t0
+                             end (@TVar kus kvs k v)) _ _ k).
+    2: intros; apply idProp.
+    eapply doTVar.
+    Focus.
+    destruct k.
+    apply idProp.
+    apply doTInj.
+    Focus.
+    destruct k; simpl in *.
+    revert m.
+    refine (@kind0_case (fun Tukind0 =>
+                           forall m : @member Kuvar {| Tuctx := Tuctx0; Tukind := Tukind0 |} kus,
+                             match Tukind0 as iV in (kind u0) return (@type kus kvs u0 iV -> Type) with
+                             | Karr k k0 => fun _ : @type kus kvs U0 (Karr k k0) => IDProp
+                             | Kstar u' => fun t0 : @type kus kvs u' (Kstar u') => @T u' t0
+                             end (@TUVar kus kvs {| Tuctx := Tuctx0; Tukind := Tukind0 |} m h))
+                        _ _ Tukind0).
+    2: intros; apply idProp.
+    eapply doTUVar.
+    Defined.
+  End elim_star.
+
+  Fixpoint tunify_rec {ts} {u} {k : kind u} (t1 : type tus ts k) {struct t1}
+  : forall (t2 : type tus ts k) {tus'} (s : Inst tus tus'),
+      option { tus'' : _ & { s' : Inst tus tus'' | inst_typeI s' t1 = inst_typeI s' t2 } }.
+  refine
+    match t1 as t1 in @type _ _ u k
+          return forall (t2 : @type tus ts u k) {tus'} (s : Inst tus tus'),
+            option { tus'' : _ & { s' : Inst tus tus'' | inst_typeI s' t1 = inst_typeI s' t2 } }
+    with
+    | @TArr _ _ u l r => fun t2 : @type tus ts u (Kstar u) =>
+      @type_star_case _ _
+                      (fun u t2 =>
+                        forall (l : @type tus ts U0 (Kstar U0)) (r : @type tus ts u (Kstar u)),
+                          (forall t2 : type tus ts (Kstar U0),
+                           forall {tus'} (s : Inst tus tus'),
+                              option { tus'' : _
+                                               & { s' : Inst tus tus''
+                                                 | inst_typeI s' l = inst_typeI s' t2 } }) ->
+                          (forall (t2 : type tus ts (Kstar u)) {tus'} (s : Inst tus tus'),
+                              option { tus'' : _
+                                     & { s' : Inst tus tus''
+                                       | inst_typeI s' r = inst_typeI s' t2 } }) ->
+                          forall {tus'} (s : Inst tus tus'),
+                            option _)
+                     (* doTArr *)
+                     _
+                     (fun _ _ _ _ _ _ _ _ _ => None)
+                     (fun _ _ _ _ _ _ _ _ _ => None)
+                     (fun _ _ _ _ _ _ _ => None)
+                     (fun _ _ _ _ _ _ _ _ => None)
+                     (fun _ _ _ _ _ _ _ _ _ => None)
+                     _
+                     t2
+                     l r
+                     (fun x : @type tus ts U0 (Kstar U0) => @tunify_rec _ U0 _ l x)
+                     (fun x : @type tus ts u (Kstar _) => @tunify_rec _ _ _ r x)
+    | _ => _
+    end.
+  simpl.
+
+
+    | @TApp _ _ k1 k2 l r => fun b : @type tus ts _ k2 =>
+      match b in @type _ _ u' k'
+            return
+            @type tus ts u' k' ->
+            (match u' as u' return kind u' -> Type with
+             | U0 => fun k' => type tus ts (Karr k1 k') -> forall {tus'} (s : Inst tus tus'),
+                        option { tus'' : _ & Inst tus tus'' }
+             | _ => fun _ => unit
+             end k') ->
+            (type tus ts k1 -> forall {tus'} (s : Inst tus tus'),
+                        option { tus'' : _ & Inst tus tus'' }) ->
+            forall {tus'} (s : Inst tus tus'),
+              option { tus'' : _ & Inst tus tus'' }
+      with
+      | @TApp _ _ k1' k2' l' r' => fun _ =>
+        match kind_eq_dec k1' k1 with
+        | left pf =>
+          match pf in _ = X
+                return (type tus ts (Karr X k2') -> forall {tus'} (s : Inst tus tus'),
+                           option { tus'' : _ & Inst tus tus'' }) ->
+                       (type tus ts X -> forall {tus'} (s : Inst tus tus'),
+                           option { tus'' : _ & Inst tus tus'' }) ->
+                       forall {tus'} (s : Inst tus tus'),
+                         option { tus'' : _ & Inst tus tus'' }
+          with
+          | eq_refl => fun recl recr tus' s =>
+                        match recl l' tus' s with
+                        | Some (existT _ tus'' i') => recr r' tus'' i'
+                        | None => None
+                        end
+          end
+        | right _ => fun _ _ _ _ => None
+        end
+      | TUVar u xs => fun X _ _ tus' s => trySet u xs X s
+      | _ => fun _ _ _ _ _ => None
+      end (TApp l r)
+          (fun x => @tunify_rec _ _ _ l x)
+          (fun x => @tunify_rec _ _ _ r x)
+    | @TPi _ _ k u t => fun b : @type tus ts U1 (Kstar U1) =>
+      match b in @type _ _ u' k'
+            return @type tus ts u' k' ->
+                   (type tus (k :: ts) (Kstar u) -> forall {tus'} (s : Inst tus tus'),
+                       option { tus'' : _ & Inst tus tus'' }) ->
+                   forall {tus'} (s : Inst tus tus'),
+                     option { tus'' : _ & Inst tus tus'' }
+      with
+      | @TPi _ _ k' u' t' => fun _ =>
+        match kind_eq_dec k' k , univ_eq_dec u' u with
+        | left pf , left pf' =>
+          match pf , pf' with
+          | eq_refl , eq_refl => fun rec tus i =>
+            rec t' tus i
+          end
+{ tus'' : _ & { s' : Inst tus tus'' | inst_typeI s t1 = inst_typeI s t2 } }        | _ , _ => fun _ _ _ => None
+        end
+      | TUVar u xs => fun X _ _ s => trySet u xs X s
+      | _ => fun _ _ _ _ => None
+      end (TPi t) (fun x => @tunify_rec _ _ _ t x)
+    | @TVar _ _ k v => fun b : @type tus ts U0 k =>
+      match b in @type _ _ u' k'
+            return @type tus ts u' k' -> _
+      with
+      | TVar v' => fun _ =>
+        match member_heq v v' with
+        | inr pf => fun tus i => Some (@existT _ _ tus i)
+        | inl _ => fun _ _ => None
+        end
+      | TUVar u xs => fun X tus i => trySet u xs X i
+      | _ => fun _ _ _ => None
+      end (TVar v)
+    | @TInj _ _ u k s => fun b : @type tus ts _ k =>
+      match b in @type _ _ u' k'
+            return Tsymbol k' -> _
+      with
+      | TInj s' => fun s =>
+        match Tsymbol_eq_dec s s' with
+        | left _ => fun tus i => Some (@existT _ _ tus i)
+        | right _ => fun _ _ => None
+        end
+      | TUVar u xs => fun s tus i => trySet u xs (TInj s) i
+      | _ => fun _ _ _ => None
+      end s
+    | @TUVar _ _ k u xs => fun b : @type tus ts U0 (Tukind k) =>
+      match b in @type _ _ u' k' return type tus ts k' -> _ with
+      | @TUVar _ _ k' u' xs' => fun a =>
+        match member_heq u u' with
+        | inr pf => match pf in _ = k'
+                         return hlist@{Urefl Urefl} (type tus ts (u:=U0)) (Tuctx k') ->
+                                _
+                   with
+                   | eq_refl => fun xs' tus' i =>
+                     hlist_foldM (m:=option)
+                                 (F:=fun _ => forall tus', Inst tus tus' -> option { tus'' : _ & Inst tus tus''})
+                                 (A:=fun _ => { tus'' : _ & Inst tus tus'' })
+                                 (fun _ v _ acc => v _ (projT2 acc))
+                                 (hlist_zipWith (fun t => @tunify_rec _ _ _) xs xs')
+                                 (existT _ _ i)
+                   end xs'
+        | inl _ => fun tus' i =>
+          match trySet u xs b i with
+          | Some z => Some z
+          | None => trySet u' xs' a i
+          end
+        end
+      | X => fun _ tus i => trySet u xs X i
+      end (TUVar u xs)
+    end.
+  Defined.
+
+
+
 
   Fixpoint tunify_rec {ts} {u} {k : kind u} (t1 : type tus ts k) {struct t1}
   : forall (t2 : type tus ts k) {tus'} (s : Inst tus tus'),
@@ -1681,6 +1930,105 @@ Section simple_dep_types.
 
   Arguments MN {_ _ _ _} _.
 
+  Inductive EInst {kus ks} (tus : list (Tuvar kus ks)) : list (Tuvar kus ks) -> Type@{Urefl} :=
+  | EDone : @EInst kus ks tus tus
+  | ESetOne : forall (Z : list (Tuvar kus ks)) (t : Tuvar kus ks) (m : member t tus),
+      @wtexpr kus ks (del_member m) (Uctx t) U0 (Utype t) ->
+      EInst (del_member m) Z ->
+      EInst tus Z.
+
+
+  Axiom todo : forall {T : Type}, T.
+
+  Check @inst_type.
+
+  Definition substTus kus ks {kus'} (i : Inst kus kus')
+  : list (Tuvar kus ks) -> list (Tuvar kus' ks) :=
+    map (fun t =>
+           {| Uctx := map (inst_typeI i) t.(Uctx)
+            ; Utype := inst_typeI i t.(Utype) |}).
+
+  Fixpoint eunify {kus ks} {tus tvs} {u} {t : @type kus ks u (Kstar u)}
+           (e1 : @wtexpr kus ks tus tvs u t) {struct e1}
+  : forall kus' (i : Inst kus kus'),
+      @wtexpr kus' ks (substTus i tus)
+              (map (inst_typeI i) tvs) u (inst_typeI i t) ->
+      forall tus',
+      @EInst kus' ks (substTus i tus) tus' ->
+      option { tus'' : _ & EInst tus tus'' }.
+    refine
+    match e1 in @wtexpr _ _ _ _ u t
+          return forall kus' (i : Inst kus kus'),
+      @wtexpr kus' ks (substTus i tus)
+              (map (inst_typeI i) tvs) u (inst_typeI i t) ->
+      forall tus',
+        @EInst kus' ks (substTus i tus) tus' ->
+        option { tus'' : _ & EInst tus tus'' }
+    with
+    | @wtApp _ _ _ _ u d r f x => fun kus' (ti : Inst kus kus')
+                                   (e2 : @wtexpr kus' ks (substTus ti tus) (map (inst_typeI ti) tvs) u (inst_typeI ti r)) =>
+      match e2 in @wtexpr _ _ _ _ u t
+            return (@wtexpr kus' ks (substTus ti tus)
+                            (map (inst_typeI ti) tvs) u (TArr (inst_typeI ti d) t) ->
+                    forall tus',
+                      @EInst kus' ks (substTus ti tus) tus' ->
+                      option { tus'' : _ & EInst tus tus'' }) ->
+                   _
+      with
+      | @wtApp _ _ _ _ _ d' r' f' x' => fun recf tus' ei =>
+        match tunify (inst_typeI ti d) d' Done with
+        | Some (@existT _ _ _ ti') => _
+        | None => None
+        end
+      | _ => fun _ => todo
+      end (@eunify _ _ _ _ _ _ f _ _)
+    | wtVar _ => todo
+    | _ => todo
+    end.
+
+
+
+
+
+
+  Fixpoint eunify {kus ks} {tus tvs} {u} {t : @type kus ks u (Kstar u)}
+           (e1 : @wtexpr kus ks tus tvs u t)
+  : @wtexpr kus ks tus tvs u t ->
+    forall kus' (i : Inst kus kus') tus',
+      @EInst kus' ks (substTus i tus) tus' ->
+      option { tus'' : _ & EInst tus tus'' }.
+    refine
+    match e1 in @wtexpr _ _ _ _ u t
+          return @wtexpr kus ks tus tvs u t ->
+                 forall kus' (i : Inst kus kus') tus',
+                   @EInst kus' ks (substTus i tus) tus' ->
+                   option { tus'' : _ & EInst tus tus'' }
+    with
+    | @wtApp _ _ _ _ _ d r f x => fun e2 =>
+      match e2 in @wtexpr _ _ _ _ u t
+            return (@wtexpr kus ks tus tvs u (TArr d t) -> _) ->
+                   _
+      with
+      | @wtApp _ _ _ _ _ d' r' f' x' => fun recf _ ti _ =>
+        match tunify d d' ti with
+        | Some (@existT _ _ _ ti') => fun ei =>
+          match recf f' _ _ _ ei with
+          | Some _ => _
+          | None => _
+          end
+        | None => todo
+        end
+      | _ => fun _ => todo
+      end (@eunify _ _ _ _ _ _ f)
+    | wtVar _ => todo
+    | _ => todo
+    end.
+Print wtApp.
+
+@wtexpr kus ks tus tvs u t ->
+    forall kus' (i : Inst kus kus') tus',
+      @EInst kus' ks (substTus i tus) tus' ->
+      option { tus'' : _ & EInst tus tus'' }
   (** DEMO **)
   Definition t1 {tus} : type tus (Kstar U0 :: Kstar U0 :: nil) (Kstar U0) :=
     TVar MZ.

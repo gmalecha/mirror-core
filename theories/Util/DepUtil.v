@@ -6,6 +6,7 @@ Set Implicit Arguments.
 Set Strict Implicit.
 Set Universe Polymorphism.
 
+
 Section hlist_Forall.
   Context {T : Type} {F G : T -> Type}.
   Variable P : forall t, F t -> Prop.
@@ -292,6 +293,357 @@ Section find_in_hlist.
   Defined.
 
 End find_in_hlist.
+
+(** Backported **)
+
+Require Import ExtLib.Structures.Applicative.
+
+(** TODO(gmalecha): Move to ExtLib *)
+Instance Applicative_id : Applicative id :=
+{ pure := fun _ x => x
+; ap := fun _ _ f x => f x
+}.
+
+(** TODO(gmalecha): Move to ExtLib *)
+Definition Compose {T U V} (g : U -> V) (f : T -> U) : T -> V :=
+  fun x => g (f x).
+
+(** TODO(gmalecha): Move to ExtLib *)
+Instance Applicative_Compose (f g : Type -> Type) (Af : Applicative f) (Ag : Applicative g)
+: Applicative (Compose f g) :=
+{ pure := fun (A : Type) (X : A) => pure (T:=f) (pure (T:=g) X)
+; ap := fun (A B : Type) (X : f (g (A -> B))) (X0 : f (g A)) =>
+          ap (T:=f) (ap (pure ap) X) X0
+}.
+
+
+(** TODO(gmalecha): This is generic *)
+Section del_val.
+  Context {T : Type}.
+  Variable ku : T.
+
+  Fixpoint del_member (ls : list T) (m : member ku ls) : list T :=
+    match m with
+    | MZ _ l => l
+    | MN ku' m => ku' :: del_member m
+    end.
+
+  Lemma lenth_del_member : forall ls (m : member ku ls),
+      length (del_member m) < length ls.
+  Proof using.
+    clear.
+    induction m; simpl.
+    { constructor. }
+    { apply Lt.lt_n_S. (** BAD: opaque *)
+      assumption. }
+  Defined.
+
+End del_val.
+
+
+Section member_heq.
+  Context {T : Type}.
+  Fixpoint member_heq {l r : T} {ls} (m : member l ls)
+  : member r ls -> member r (del_member m) + (l = r).
+    refine
+      match m as m in member _ ls
+            return member r ls -> member r (del_member m) + (l = r)
+      with
+      | @MZ _ _ ls => fun b : member r (l :: ls) =>
+                       match b in member _ (z :: ls)
+                             return l = z -> member r (del_member (@MZ _ _ ls)) + (l = r)
+                       with
+                       | MZ _ _ => @inr _ _
+                       | MN _ m' => fun pf => inl m'
+                       end eq_refl
+      | @MN _ _ l' ls' mx => fun b : member r (l' :: ls') =>
+                              match b in member _ (z :: ls)
+                                    return (member _ ls -> member _ (del_member mx) + (_ = r)) ->
+                                           member r (del_member (@MN _ _ _ _ mx)) + (_ = r)
+                              with
+                              | MZ _ _ => fun _ => inl (MZ _ _)
+                              | MN _ m' => fun f => match f m' with
+                                                | inl m => inl (MN _ m)
+                                                | inr pf => inr pf
+                                                end
+                              end (fun x => @member_heq _ _ _ mx x)
+      end.
+  Defined.
+
+  Fixpoint member_heq_pf {l r : T} {ls} (m : member l ls)
+  : forall m' : member r ls, member r (del_member m) + { pf : l = r | match pf with
+                                                                 | eq_refl => m
+                                                                 end = m' }.
+  Admitted. (*
+    refine
+      match m as m in member _ ls
+            return forall m' : member r ls,
+          member r (del_member m) + { pf : l = r | match pf with
+                                                   | eq_refl => m
+                                                   end = m'}
+      with
+      | @MZ _ _ ls => fun b : member r (l :: ls) =>
+        match b as b in member _ (z :: ls)
+              return l = z -> member r (del_member m) + { pf : l = r | match pf with
+                                                                      | eq_refl => @MZ _ _ _
+                                                                      end = b }
+        with
+        | MZ _ _ => @inr _ _
+        | MN _ m' => fun pf => inl m'
+        end eq_refl
+      | @MN _ _ l' ls' mx => fun b : member r (l' :: ls') =>
+                              match b in member _ (z :: ls)
+                                    return (member _ ls -> member _ (del_member mx) + (_ = r)) ->
+                                           member r (del_member (@MN _ _ _ _ mx)) + (_ = r)
+                              with
+                              | MZ _ _ => fun _ => inl (MZ _ _)
+                              | MN _ m' => fun f => match f m' with
+                                                | inl m => inl (MN _ m)
+                                                | inr pf => inr pf
+                                                end
+                              end (fun x => @member_heq _ _ _ mx x)
+      end.
+  Defined.
+*)
+
+  Lemma member_heq_refl : forall (l : T) (ls : list T) (m : member l ls),
+      member_heq m m = inr eq_refl.
+  Proof.
+    clear.
+    induction m; simpl; auto.
+    rewrite IHm. reflexivity.
+  Defined.
+
+  Variable UIP_T : forall (a : T) (pf : a = a), pf = eq_refl.
+
+  Lemma member_heq_eq : forall {l ls} (m1 m2 : member l ls),
+      member_heq m1 m2 = inr eq_refl ->
+      m1 = m2.
+  Proof.
+    induction m1; simpl.
+    { intro. destruct (member_case m2) as [ [ ? ? ] | [ ? ? ] ]; subst.
+      { intro XXX; clear XXX. rewrite (UIP_T x). reflexivity. }
+      { inversion 1. } }
+    { intro. destruct (member_case m2) as [ [ ? ? ] | [ ? ? ] ]; subst.
+      { inversion 1. }
+      { specialize (IHm1 x).
+        destruct (member_heq m1 x).
+        { inversion 1. }
+        { inversion 1. f_equal. eapply IHm1.
+          rewrite (UIP_T e). reflexivity. } } }
+  Defined.
+
+End member_heq.
+
+(** TODO(gmalecha): This could have more liberal universes *)
+Section hlist_traverse.
+  Polymorphic Universe u.
+  Polymorphic Variable m : Type@{u} -> Type@{u}.
+  Polymorphic Context {Applicative_m : ExtLib.Structures.Applicative.Applicative m}.
+
+  Polymorphic Variable T : Type.
+  Polymorphic Variable F : T -> Type.
+  Polymorphic Variable G : T -> Type.
+  Polymorphic Variable ff : forall t : T, F t -> m (G t).
+
+  Polymorphic Fixpoint hlist_traverse {ls} (h : hlist@{u u} F ls) : m (hlist G ls) :=
+    match h in hlist _ ls return m (hlist G ls) with
+    | Hnil => pure (@Hnil _ _)
+    | Hcons h hs => ap (T:=m) (ap (T:=m) (pure (T:=m) (@Hcons _ _ _ _)) (ff h)) (hlist_traverse hs)
+    end.
+End hlist_traverse.
+
+(** GENERIC **)
+Section hlist_zipWith.
+  Context {T : Type}.
+  Context {F G R : T -> Type}.
+
+  Variable f : forall t, F t -> G t -> R t.
+  Fixpoint hlist_zipWith {ls : list T} (h : hlist F ls) {struct h}
+    : hlist G ls -> hlist R ls :=
+    match h in hlist _ ls return hlist G ls -> hlist R ls with
+    | Hnil => fun _ => Hnil
+    | Hcons x xs => fun ys =>
+                     match ys in hlist _ (i :: is)
+                           return _ -> (hlist G is -> hlist R is) -> hlist R (i :: is)
+                     with
+                     | Hcons y ys => fun x xs => Hcons (x y) (xs ys)
+                     end (f x) (hlist_zipWith xs)
+    end.
+End hlist_zipWith.
+
+Require Import ExtLib.Structures.Monad.
+
+(** GENERIC **)
+Section hlist_foldM.
+  Context {m : Type -> Type}.
+  Context {App_m : Monad m}.
+  Context {T : Type}.
+  Context {A : list T -> Type}.
+  Context {F : T -> Type}.
+
+  Variable f : forall l, F l -> forall ls, A ls -> m (A (l :: ls)).
+
+  Fixpoint hlist_foldM {ls} (xs : hlist F ls) (a : A nil) {struct xs} : m (A ls).
+    refine
+      match xs in hlist _ ls return m (A ls) with
+      | Hnil => ret (m:=m) a
+      | Hcons x xs => bind (m:=m) (hlist_foldM _ xs a) (@f _ x _)
+      end.
+  Defined.
+End hlist_foldM.
+
+Require Import ExtLib.Data.Monads.OptionMonad.
+
+
+(** Generic definitions **)
+Section ForallT_hlist.
+  Polymorphic Context {T} {F : T -> Type} {G : forall x, F x -> Type}.
+  Polymorphic Inductive ForallT_hlist : forall ts : list T, hlist F ts -> Type :=
+  | ForallT_Hnil : ForallT_hlist Hnil
+  | ForallT_Hcons : forall t ts h hs,
+      G h ->
+      ForallT_hlist hs ->
+      @ForallT_hlist (t :: ts) (Hcons h hs).
+End ForallT_hlist.
+
+Section ForallT2_hlist.
+  Polymorphic Context {T} {F G : T -> Type}.
+  Polymorphic Variable P : forall x, F x -> G x -> Type.
+  Polymorphic Inductive ForallT2_hlist : forall ts : list T, hlist F ts -> hlist G ts -> Type :=
+  | ForallT2_Hnil : ForallT2_hlist Hnil Hnil
+  | ForallT2_Hcons : forall t ts x xs y ys,
+      P x y ->
+      ForallT2_hlist xs ys ->
+      @ForallT2_hlist (t :: ts) (Hcons x xs) (Hcons y ys).
+End ForallT2_hlist.
+Arguments ForallT2_hlist [_ _ _] _ [_] _ _.
+Arguments ForallT_hlist [_ _] _ [_] _.
+
+Section ForallT_hlist_lems.
+  Polymorphic Context {T} {F G : T -> Type} (f : forall x, F x -> G x)
+              (P : forall t, G t -> Type).
+
+  Polymorphic Lemma ForallT_hlist_map
+    : forall ls hs,
+      ForallT_hlist (ts:=ls) (fun t x => P (f x)) hs ->
+      ForallT_hlist (ts:=ls) P (hlist_map f hs).
+  Proof using. clear.
+               induction 1; constructor; eauto.
+  Defined.
+
+  Polymorphic Lemma ForallT_hlist_pure
+    : (forall t f, @P t f) -> forall ls hs,
+        ForallT_hlist (ts:=ls) P hs.
+  Proof using. clear.
+               induction hs; constructor; eauto.
+  Defined.
+
+  Polymorphic Definition ForallT_hlist_hd
+              {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
+    : P (hlist_hd hs) :=
+    match Fhs in @ForallT_hlist _ _ _ (_ :: _)  hs
+          return P (hlist_hd hs)
+    with
+    | ForallT_Hcons _ _ pf _ => pf
+    end.
+
+  Polymorphic Definition ForallT_hlist_tl
+              {l ls} {hs : hlist G (l :: ls)} (Fhs : ForallT_hlist P hs)
+    : ForallT_hlist P (hlist_tl hs) :=
+    match Fhs in @ForallT_hlist _ _ _ (_ :: _)  hs
+          return ForallT_hlist P (hlist_tl hs)
+    with
+    | ForallT_Hcons _ _ _ pf => pf
+    end.
+
+  Polymorphic Lemma ForallT_hlist_ap (Q : forall t, G t -> Type)
+    : forall ls hs,
+      ForallT_hlist (ts:=ls) (fun t x => P x -> Q t x) hs ->
+      ForallT_hlist (ts:=ls) P hs ->
+      ForallT_hlist (ts:=ls) Q hs.
+  Proof using. clear.
+               induction 1; constructor.
+               { apply g.
+                 eapply (ForallT_hlist_hd X0). }
+               { eapply IHX. eapply (ForallT_hlist_tl X0). }
+  Defined.
+
+  Polymorphic Lemma ForallT_hlist_get
+    : forall ls (hs : hlist G ls),
+      ForallT_hlist P hs ->
+      forall t m, @P t (hlist_get m hs).
+  Proof.
+    induction m.
+    { eapply ForallT_hlist_hd. assumption. }
+    { eapply IHm. eapply ForallT_hlist_tl. eassumption. }
+  Defined.
+
+  Polymorphic Lemma ForallT2_hlist_map_l
+    : forall E Q ls (hs : hlist _ ls) (hs' : hlist E ls),
+      ForallT2_hlist (fun t x y => @Q t (@f t x) y) hs hs' ->
+      ForallT2_hlist Q (hlist_map f hs) hs'.
+  Proof.
+    induction 1; constructor; auto.
+  Defined.
+
+  Polymorphic Lemma ForallT2_hlist_map_r
+    : forall E Q ls (hs : hlist E ls) (hs' : hlist _ ls),
+      ForallT2_hlist (fun t x y => @Q t x (@f t y)) hs hs' ->
+      ForallT2_hlist Q hs (hlist_map f hs').
+  Proof.
+    induction 1; constructor; auto.
+  Defined.
+
+  Polymorphic Lemma ForallT2_hlist_same
+    : forall Q ls (hs : hlist F ls),
+      ForallT_hlist (fun t x => Q t x x) hs ->
+      ForallT2_hlist Q hs hs.
+  Proof. induction 1; constructor; auto. Defined.
+End ForallT_hlist_lems.
+
+(** TODO: This is generic *)
+Fixpoint members {T} (ls : list T) : hlist (fun x => member x ls) ls :=
+  match ls as ls
+        return hlist (fun x => member x ls) ls
+  with
+  | nil => Hnil
+  | l :: ls => Hcons (MZ _ _) (hlist_map (fun t m => @MN _ _ _ _ m) (@members _ ls))
+  end.
+
+
+Polymorphic Lemma hlist_get_members {T} {ls : list T} t (m : member t ls)
+: hlist_get m (members ls) = m.
+Proof.
+  induction m; simpl.
+  { reflexivity. }
+  { rewrite hlist_get_hlist_map. f_equal. assumption. }
+Defined.
+
+
+
+Lemma hlist_traverse_hlist_map
+  : forall {T} {F G H : T -> Type} (m : Type -> Type) (Am : Applicative m)
+      (g : forall t, F t -> G t)
+      (f : forall t, G t -> m (H t))
+      {ls} (hs : hlist F ls),
+    @hlist_traverse m _ T G H f ls (hlist_map g hs) =
+    @hlist_traverse m _ T _ _ (fun u (t : F u) => f u (g u t)) ls hs.
+Proof.
+  induction hs.
+  { reflexivity. }
+  { simpl. f_equal. apply IHhs. }
+Defined.
+
+Lemma hlist_traverse_id_hlist_map
+  : forall {T} {F G : T -> Type}
+      (f : forall t, F t -> id (G t))
+      {ls} (hs : hlist F ls),
+    hlist_traverse _ f hs =
+    hlist_map f hs.
+Proof.
+  reflexivity.
+Defined.
 
 
 
