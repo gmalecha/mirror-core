@@ -269,23 +269,6 @@ Section simple_dep_types.
   { exact x. }
   Defined.
 
-  Record Tuvar kus (ks : list (kind U0)) : Type@{Urefl} :=
-  { Uctx  : list (type kus ks (Kstar U0))
-  ; Utype : type kus ks (Kstar U0)
-  }.
-
-  Definition Venv kus (ks : list (kind U0)) (tvs : list (type kus ks (Kstar U0)))
-             (Kus : Kuenv kus) (Ks : Kenv ks) : Type@{Uhuge} :=
-    hlist@{Urefl Uhuge} (fun t : type kus ks (Kstar U0) =>
-                           tsigT0 (@typeD _ _ U0 _ t Kus Ks)) tvs.
-
-
-  Definition Uenv kus (ks : list (kind U0)) (tus : list (Tuvar kus ks))
-             (Kus : Kuenv kus) (Ks : Kenv ks) : Type@{Uhuge} :=
-    hlist@{Urefl Uhuge} (fun t =>
-                           @Venv kus ks t.(Uctx) Kus Ks ->
-                           tsigT0 (@typeD _ _ U0 _ t.(Utype) Kus Ks)) tus.
-
   Unset Elimination Schemes.
 
   Fixpoint type_lift kus ks ks' ks'' u (k : kind u) (t : type kus (ks ++ ks'') k)
@@ -366,11 +349,18 @@ Section simple_dep_types.
                 (fun (k0 : kind U0) (x : member k0 ks) => TVar (member_post_weaken ks' x))
                 (members ks)) t.
 
-
   Variable Esymbol : forall u (t : type nil nil (Kstar u)), Type@{Urefl}.
 
-  Inductive wtexpr kus (ks : list (kind U0))
-            (tus : list (Tuvar kus ks))
+  Record Tuvar kus : Type@{Urefl} :=
+  { Ukctx : list (kind U0)
+  ; Uctx  : list (type kus Ukctx (Kstar U0))
+  ; Utype : type kus Ukctx (Kstar U0)
+  }.
+
+  Inductive wtexpr
+            (kus : list Kuvar)
+            (tus : list (Tuvar kus))
+            (ks : list (kind U0))
             (tvs : list (type kus ks (Kstar U0)))
   : forall u, type kus ks (Kstar u) -> Type@{Urefl} :=
   | wtVar : forall t, member t tvs -> wtexpr tus tvs t
@@ -382,21 +372,39 @@ Section simple_dep_types.
   | wtTApp : forall k u t,
       wtexpr tus tvs (@TPi kus ks k u t) ->
       forall w : type kus ks k,
-        @wtexpr kus ks tus tvs u
+        @wtexpr kus tus ks tvs u
                 (@type_subst kus kus _ _ (Umigrator_id _)
                              (Hcons w (tvars_id kus _)) _ _ t)
   | wtAbs : forall u d (r : type kus ks (Kstar u)),
       wtexpr tus (d :: tvs) r -> wtexpr tus tvs (TArr d r)
-  | wtUVar : forall tst, member tst tus ->
-                    hlist (@wtexpr kus ks tus tvs U0) tst.(Uctx) ->
-                    wtexpr tus tvs tst.(Utype).
+  | wtUVar
+    : forall tst, member tst tus ->
+             forall ks' : hlist (@type kus ks _) tst.(Ukctx),
+               hlist (fun t =>
+                        @wtexpr kus tus ks tvs U0
+                                (type_subst (Umigrator_id _) ks' t)) tst.(Uctx) ->
+               wtexpr tus tvs
+                      (type_subst (Umigrator_id _) ks' tst.(Utype)).
   Set Elimination Schemes.
   Arguments wtVar {_ _ _ _} [_] _.
   Arguments wtInj {_ _ _ _} [_ _] _.
   Arguments wtApp {_ _ _ _} [_ _ _] _ _.
   Arguments wtAbs {_ _ _ _} [_ _ _] _.
   Arguments wtTApp {_ _ _ _} [_ _ _] _ _.
-  Arguments wtUVar {_ _ _ _} [_] _ _.
+  Arguments wtUVar {_ _ _ _} [_] _ _ _.
+
+
+  Definition Venv kus (ks : list (kind U0)) (tvs : list (type kus ks (Kstar U0)))
+             (Kus : Kuenv kus) (Ks : Kenv ks) : Type@{Uhuge} :=
+    hlist@{Urefl Uhuge} (fun t : type kus ks (Kstar U0) =>
+                           tsigT0 (@typeD _ _ U0 _ t Kus Ks)) tvs.
+
+  Definition Uenv kus (tus : list (Tuvar kus))
+             (Kus : Kuenv kus) : Type@{Uhuge} :=
+    hlist@{Urefl Uhuge} (fun t =>
+                           forall Ks,
+                           @Venv kus t.(Ukctx) t.(Uctx) Kus Ks ->
+                           tsigT0 (@typeD _ _ U0 _ t.(Utype) Kus Ks)) tus.
 
   Definition tsigT_star (u : univ) : TSigT (Kstar u) -> Type@{Ularge} :=
     match u as u return TSigT (Kstar u) -> Type@{Ularge} with
@@ -760,29 +768,32 @@ Section simple_dep_types.
     destruct u; simpl in *; eapply mor.
   Defined.
 
-  Fixpoint wtexprD kus ks tus tvs u t (e : @wtexpr kus ks tus tvs u t)
-  : forall Tus Ts, Uenv tus Tus Ts -> Venv tvs Tus Ts -> tsigT_star (@typeD _ _ _ _ t Tus Ts).
+  Fixpoint wtexprD kus ks tus tvs u t (e : @wtexpr kus tus ks tvs u t)
+  : forall Tus, Uenv tus Tus -> forall Ts, Venv tvs Tus Ts -> tsigT_star (@typeD _ _ _ _ t Tus Ts).
   refine
     match e in @wtexpr _ _ _ _ u t
-          return forall Tus Ts, Uenv tus Tus Ts -> Venv tvs Tus Ts ->
-                           tsigT_star (@typeD _ _ _ _ t Tus Ts)
+          return forall Tus, Uenv tus Tus ->
+                        forall Ts, Venv tvs Tus Ts ->
+                        tsigT_star (@typeD _ _ _ _ t Tus Ts)
     with
     | wtVar v => fun _ _ _ Vs => hlist_get v Vs
     | wtInj s => fun _ _ _ _ => _
-    | wtAbs e => fun Tus Ts Us Vs =>
+    | wtAbs e => fun Tus Us Ts Vs =>
       (fun E => exprAbs (fun x => E (Hcons _ Vs)))
-        (@wtexprD _ _ _ _ _ _ e Tus Ts Us)
-    | wtApp f x => fun Tus Ts Us Vs =>
-      exprApp (@wtexprD _ _ _ _ _ _ f Tus Ts Us Vs)
-              (@wtexprD _ _ _ _ _ _ x Tus Ts Us Vs)
-    | wtTApp f t => fun Tus Ts Us Vs =>
+        (@wtexprD _ _ _ _ _ _ e Tus Us Ts)
+    | wtApp f x => fun Tus Us Ts Vs =>
+      exprApp (@wtexprD _ _ _ _ _ _ f Tus Us Ts Vs)
+              (@wtexprD _ _ _ _ _ _ x Tus Us Ts Vs)
+    | wtTApp f t => fun Tus Us Ts Vs =>
       let T := @typeD _ _ _ _ t Tus Ts in
-      _ (@wtexprD _ _ _ _ _ _ f Tus Ts Us Vs)
-    | wtUVar u xs => fun Tus Ts Us Vs =>
-      (hlist_get u Us)
-        (hlist_map
-           (fun t e => @wtexprD _ _ _ _ _ t e Tus Ts Us Vs)
-           xs)
+      _ (@wtexprD _ _ _ _ _ _ f Tus Us Ts Vs)
+    | wtUVar u ks xs => fun Tus Us Ts Vs =>
+      let Ks : Kenv _ := hlist_map@{Urefl Urefl Usmall}
+                       (fun (k : kind U0) t => @typeD _ _ U0 k t Tus Ts) ks in
+      _ (((hlist_get u Us) Ks) (_ (hlist_map@{Urefl Urefl Uhuge}
+           (fun (t : @type _ _ U0 (Kstar U0)) e =>
+              @wtexprD _ _ _ _ _ (type_subst _ _ t) e _ Us _ Vs)
+           xs)))
     end.
   { (* inj *)
     generalize (EsymbolD s).
@@ -825,6 +836,30 @@ Section simple_dep_types.
         eapply (@tmorphism_TSigT_refl U0). }
       eapply Umigrator_id_sound. } }
   { eapply x. }
+  { (* Final Uvar *)
+    simpl. subst Ks.
+    eapply (@type_subst_mor
+              _ _ _ _ (Utype t0) _ _ Tus Tus Ts (hlist_map@{Urefl Urefl Usmall}
+                                                          (fun (k : kind U0) (t1 : type kus ks0 k) => typeD t1 Tus Ts) ks) (Umigrator_id kus) ks).
+    { clear - ks.
+      eapply ForallT_hlist_pure.
+      intros. rewrite hlist_get_hlist_map.
+      eapply (@tmorphism_TSigT_refl U0). }
+    { eapply Umigrator_id_sound. } }
+  { (* Initial Uvar *)
+    subst Ks. unfold Venv.
+    eapply hlist_map.
+    simpl.
+    intro.
+    eapply (@type_subst_mor
+              kus _ _ (Kstar U0) x kus _ Tus Tus Ts
+              (hlist_map@{Urefl Urefl Usmall}
+                        (fun (k : kind U0) (t1 : type kus ks0 k) => typeD t1 Tus Ts) ks) (Umigrator_id _) ks).
+    { eapply ForallT_hlist_pure.
+      intros.
+      rewrite hlist_get_hlist_map.
+      eapply (@tmorphism_TSigT_refl U0). }
+    { eapply Umigrator_id_sound. } }
   Defined.
 
 End simple_dep_types.
@@ -833,4 +868,4 @@ End simple_dep_types.
  ** transparent.
  **)
 
-Print Opaque Dependencies hlist_eta.
+Print Opaque Dependencies wtexprD.
