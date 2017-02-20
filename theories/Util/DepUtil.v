@@ -340,6 +340,26 @@ Section del_val.
 
 End del_val.
 
+Definition inj_inr {T U a b} (pf : @inr T U a = inr b)
+: a = b :=
+  match pf in _ = X return match X with
+                           | inl _ => True
+                           | inr X => a = X
+                           end
+  with
+  | eq_refl => eq_refl
+  end.
+
+Definition inj_inl {T U a b} (pf : @inl T U a = inl b)
+: a = b :=
+  match pf in _ = X return match X with
+                           | inr _ => True
+                           | inl X => a = X
+                           end
+  with
+  | eq_refl => eq_refl
+  end.
+
 
 Section member_heq.
   Context {T : Type}.
@@ -414,23 +434,65 @@ Section member_heq.
     rewrite IHm. reflexivity.
   Defined.
 
-  Variable UIP_T : forall (a : T) (pf : a = a), pf = eq_refl.
+  Definition member_match {t t' : T} {ts}
+             (P : forall t t' ts, member t (t' :: ts) -> Type)
+             (Hz : P t' t' ts (MZ _ _))
+             (Hn : forall m : member t ts, P t t' ts (MN _ m))
+  : forall m, P t t' ts m :=
+    fun m =>
+      match m in member _ (x :: y)
+            return P x x y (MZ x y) -> (forall m0 : member t y, P t x y (MN _ _)) -> P t x y m
+      with
+      | MZ _ _ => fun X _ => X
+      | MN _ m => fun _ X => X m
+      end Hz Hn.
 
-  Lemma member_heq_eq : forall {l ls} (m1 m2 : member l ls),
-      member_heq m1 m2 = inr eq_refl ->
-      m1 = m2.
+  Lemma member_heq_eq : forall {l l' ls} (m1 : member l ls) (m2 : member l' ls) pf,
+      member_heq m1 m2 = inr pf ->
+      match pf in _ = X return member X ls with
+      | eq_refl => m1
+      end = m2.
   Proof.
-    induction m1; simpl.
-    { intro. destruct (member_case m2) as [ [ ? ? ] | [ ? ? ] ]; subst.
-      { intro XXX; clear XXX. rewrite (UIP_T x). reflexivity. }
-      { inversion 1. } }
-    { intro. destruct (member_case m2) as [ [ ? ? ] | [ ? ? ] ]; subst.
-      { inversion 1. }
-      { specialize (IHm1 x).
-        destruct (member_heq m1 x).
-        { inversion 1. }
-        { inversion 1. f_equal. eapply IHm1.
-          rewrite (UIP_T e). reflexivity. } } }
+    induction m1.
+    { refine (@member_match _ _ _ (fun l' a ls m2 => forall (pf : a = l'),
+                                       member_heq (MZ a ls) m2 = inr pf ->
+                                       match pf in (_ = X) return (member X (a :: ls)) with
+                                       | eq_refl => MZ a ls
+                                       end = m2) _ _).
+      { simpl. intros.
+        refine
+          match H in _ = X
+                return match X with
+                       | inl _ => True
+                       | inr X => match X in (_ = X)
+                                       return (member _ (l :: ls)) with
+                                 | eq_refl => MZ l ls
+                                 end = MZ l ls
+                       end
+          with
+          | eq_refl => eq_refl
+          end. }
+      { simpl. inversion 1. } }
+    { intro.
+      revert IHm1. revert m1. revert m2.
+      refine (@member_match _ _ _ (fun l' l0 ls m2 => forall m1 : member l ls,
+                                       (forall (m3 : member l' ls) (pf : l = l'),
+                                           member_heq m1 m3 = inr pf ->
+                                           match pf in (_ = X) return (member X ls) with
+                                           | eq_refl => m1
+                                           end = m3) ->
+                                       forall pf : l = l',
+                                         member_heq (MN l0 m1) m2 = inr pf ->
+                                         match pf in (_ = X) return (member X (l0 :: ls)) with
+                                         | eq_refl => MN l0 m1
+                                         end = m2) _ _).
+      { inversion 2. }
+      { intros.
+        specialize (H m pf). simpl in *.
+        destruct (member_heq m1 m).
+        { inversion H0. }
+        { specialize (H (f_equal _ (inj_inr H0))).
+          subst. reflexivity. } } }
   Defined.
 
 End member_heq.

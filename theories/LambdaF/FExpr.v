@@ -369,14 +369,19 @@ Section simple_dep_types.
   | wtApp : forall u d r,
       wtexpr tus tvs (TArr d r) ->
       wtexpr tus tvs d -> wtexpr tus tvs (u:=u) r
+  | wtAbs : forall u d (r : type kus ks (Kstar u)),
+      wtexpr tus (d :: tvs) r -> wtexpr tus tvs (TArr d r)
   | wtTApp : forall k u t,
       wtexpr tus tvs (@TPi kus ks k u t) ->
       forall w : type kus ks k,
         @wtexpr kus tus ks tvs u
                 (@type_subst kus kus _ _ (Umigrator_id _)
                              (Hcons w (tvars_id kus _)) _ _ t)
-  | wtAbs : forall u d (r : type kus ks (Kstar u)),
-      wtexpr tus (d :: tvs) r -> wtexpr tus tvs (TArr d r)
+(*
+  | wtTAbs : forall k tvs u t,
+      @wtexpr kus tus (k :: ks) (map (type_substV (@freeVmigrator id _ _ _ _ _ (@idVmigrator id _ _ _))) tvs) u t ->
+      @wtexpr kus tus ks tvs U1 (@TPi kus ks k u t)
+*)
   | wtUVar
     : forall tst, member tst tus ->
              forall ks' : hlist (@type kus ks _) tst.(Ukctx),
@@ -778,12 +783,12 @@ Section simple_dep_types.
     with
     | wtVar v => fun _ _ _ Vs => hlist_get v Vs
     | wtInj s => fun _ _ _ _ => _
-    | wtAbs e => fun Tus Us Ts Vs =>
-      (fun E => exprAbs (fun x => E (Hcons _ Vs)))
-        (@wtexprD _ _ _ _ _ _ e Tus Us Ts)
     | wtApp f x => fun Tus Us Ts Vs =>
       exprApp (@wtexprD _ _ _ _ _ _ f Tus Us Ts Vs)
               (@wtexprD _ _ _ _ _ _ x Tus Us Ts Vs)
+    | wtAbs e => fun Tus Us Ts Vs =>
+      (fun E => exprAbs (fun x => E (Hcons _ Vs)))
+        (@wtexprD _ _ _ _ _ _ e Tus Us Ts)
     | wtTApp f t => fun Tus Us Ts Vs =>
       let T := @typeD _ _ _ _ t Tus Ts in
       _ (@wtexprD _ _ _ _ _ _ f Tus Us Ts Vs)
@@ -804,6 +809,8 @@ Section simple_dep_types.
     eapply tmorphism_into.
     eapply tmorphism_TSigT_sym. eapply X.
     constructor. constructor. }
+  { (* Abs *)
+    eapply x. }
   { (* Pi *)
     simpl in *.
     unfold tpi. destruct u0; simpl; refine (fun f => _ (f T)).
@@ -835,7 +842,6 @@ Section simple_dep_types.
         rewrite hlist_get_tvars_id.
         eapply (@tmorphism_TSigT_refl U0). }
       eapply Umigrator_id_sound. } }
-  { eapply x. }
   { (* Final Uvar *)
     simpl. subst Ks.
     eapply (@type_subst_mor
