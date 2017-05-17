@@ -151,6 +151,11 @@ Polymorphic Definition Mbind@{X T T' U R L}
     fun e T good bad =>
       p e T (fun x => good (f x)) bad.
 
+  Polymorphic Definition pcheck@{U V R L}
+              {X : Type@{U}} (f : X -> bool) : ptrn@{U V R L} X X :=
+    fun e T good bad =>
+      if f e then good e else bad e.
+
   Polymorphic Definition get@{U R L} {X : Type@{U}} : ptrn@{U U R L} X X :=
     fun e _ good _ => good e.
 

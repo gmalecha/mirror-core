@@ -280,18 +280,47 @@ Section ReduceApplicative.
   Context {FV : PartialView func (ap_func typ)}.
 
   Definition red_ap_ptrn 
-             (f : typ -> expr typ func -> expr typ func) :
-    ptrn (expr typ func) (expr typ func) :=
+             (f : typ -> expr typ func -> typ * expr typ func) :
+    ptrn (expr typ func) (typ * expr typ func) :=
     applicative_cases
-      (fun _ p => p)
-      (fun t u p q => App (f (tyArr t u) p) (f u q)).
+      (fun t p => (t, p))
+      (fun t u p q => (u, App (snd (f (tyArr t u) p)) (snd (f t q)))).
 
-  Definition restore_ap_ptrn 
+  Fixpoint expr_eqb (e1 e2 : expr typ func) : option bool :=
+    match e1 , e2 with
+      | Var v1 , Var v2 => Some (EqNat.beq_nat v1 v2)
+      | UVar v1 , UVar v2 => Some (EqNat.beq_nat v1 v2)
+      | Inj f1 , Inj f2 =>
+        sym_eqb f1 f2
+      | App f1 e1 , App f2 e2 =>
+        match expr_eqb f1 f2 with
+        | Some true => expr_eqb e1 e2
+        | Some false => Some false
+        | None => None
+        end
+      | Abs t1 e1 , Abs t2 e2 =>
+        if ctyp_dec typ' _ t1 t2 then expr_eqb e1 e2
+        else Some false
+      | _ , _ => Some false
+    end.
+
+  Definition restore_ap_ptrn (tus tvs : tenv typ) (s : expr typ func)
     (f : expr typ func -> (typ * expr typ func)) :=
-      pmap (fun a_b => let '(a, b) := a_b in 
-                       let (t, ra) := f a in
-                       let (u, rb) := f b in
-                       mkAp t u ra rb)
+      pmap (fun a_b => 
+              let '(a, b) := a_b in 
+                if expr_eqb a s then
+                  match typeof_expr tus tvs a with
+                  | Some (tyArr _ v) => (v, a)
+                  | _ => (tyProp, a) (* should never happen *)
+                  end
+                else
+                  let (t, ra) := f a in
+                  match t with
+                  | tyArr u v => 
+                    let (_, rb) := f b in
+                      (v, mkAp u v ra rb)
+                  | _ => (t, ra) (* should never happen *)
+                  end)
            (app get get).
 
   Definition restore_pure_ptrn (tus tvs : tenv typ) : 
