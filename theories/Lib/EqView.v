@@ -10,6 +10,8 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Reify.ReifyClass.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -71,6 +73,19 @@ Section EqFuncInst.
   Qed.
 
 End EqFuncInst.
+
+Section EqUnify.
+  Context {typ' : nat -> Set}.
+  
+  Let typ := ctyp typ'.
+
+  Definition eq_func_unify (a b : eq_func typ) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match a, b with
+    | pEq t, pEq t' => ctype_unify_slow _ t t' s
+    end.
+
+End EqUnify.
 
 Section MakeEq.
   Context {typ func : Set} {FV : PartialView func (eq_func typ)}.

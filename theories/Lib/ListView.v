@@ -9,6 +9,9 @@ Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Reify.ReifyClass.
 
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
+
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
@@ -76,6 +79,21 @@ Section ListFuncInst.
   Qed.
 
 End ListFuncInst.
+
+Section ListUnify.
+  Context {typ' : nat -> Set}.
+  
+  Let typ := ctyp typ'.
+
+  Definition list_func_unify (a b : list_func typ) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match a, b with
+    | pNil t, pNil t'
+    | pCons t, pCons t' => ctype_unify_slow _ t t' s
+    | _, _ => None
+    end.
+
+End ListUnify.
 
 Section MakeList.
   Context {typ func : Set} {FV : PartialView func (list_func typ)}.

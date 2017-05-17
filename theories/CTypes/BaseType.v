@@ -9,6 +9,7 @@ Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.POption.
+Require Import ExtLib.Data.Vector.
 
 Require Import Coq.Strings.String.
 
@@ -60,6 +61,19 @@ Definition base_typD {n} (t : base_typ n) : type_for_arity n :=
   | tBool => bool
   | tProp => Prop
   end.
+
+Definition inhabited_base_typ {n : nat} 
+  : forall (t : base_typ n) (vs : vector Type@{Usmall} n),
+  inhabited (applyn (base_typD t) vs).
+Proof.
+  intros.
+  destruct n; [|inversion t].
+  destruct t; rewrite (vector_eta vs); simpl.
+  + apply (inhabits 0).
+  + apply (inhabits EmptyString).
+  + apply (inhabits true).
+  + apply (inhabits True).
+Defined.
 
 Section DepMatch_base_typ.
   Context {typ : Set}.

@@ -289,6 +289,43 @@ Section parametric.
   ; type_cast := ctyp_cast
   ; tyAcc := ctyp_acc }.
 
+  Program Fixpoint ctyp_noVar (c : ctyp) : Prop :=
+    match c with
+    | tyArr c1 c2 => ctyp_noVar c1 /\ ctyp_noVar c2
+    | tyBase0 _ => True
+    | tyBase1 _ c => ctyp_noVar c
+    | tyBase2 _ c1 c2 => ctyp_noVar c1 /\ ctyp_noVar c2
+    | tyApp _ vs => ForallV id (vector_map ctyp_noVar vs)
+    | tyProp => True
+    | tyVar _ => False
+    end.
+
+  Lemma inhabited_ctyp (c : ctyp) 
+        (NoVar : ctyp_noVar c) 
+        (H : forall (n : nat) (s : symbol n) (vs : vector Type@{Usmall} n), 
+            ForallV inhabited vs -> inhabited (applyn (symbolD s) vs)) : inhabited (typD c).
+  Proof.
+    induction c using ctyp_ind.
+    + destruct NoVar as [_ NoVar]. 
+      destruct (IHc2 NoVar). apply inhabits; intros _; apply X.
+    + simpl. specialize (H 0 s (Vnil _)); apply H; constructor.
+    + simpl; specialize (H 1 s (Vcons (ctypD c) (Vnil _))).
+      apply H; constructor; [apply IHc; apply NoVar | constructor].
+    + simpl; specialize (H 2 s (Vcons (ctypD c1) (Vcons (ctypD c2) (Vnil _)))).
+      destruct NoVar as [NoVar1 NoVar2].
+      apply H. constructor; [apply (IHc1 NoVar1) | 
+                             constructor; [apply (IHc2 NoVar2) | 
+                                           constructor]].
+    + simpl in *; apply H.
+      rewrite ForallV_map.
+      rewrite ForallV_map in NoVar; unfold id in NoVar.
+      repeat forallVE.
+      repeat (constructor; [tauto|]).
+      eapply ForallV_mp; [|eassumption]; assumption.
+    + apply (inhabits True).
+    + simpl in *. destruct NoVar.
+  Qed.
+
   Local Instance EqDec_symbol : forall n, EqDec (symbol n) (@eq (symbol n)).
   Proof.
     red. intros.

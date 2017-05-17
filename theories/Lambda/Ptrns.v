@@ -149,6 +149,8 @@ Section setoid.
       | _ , UVar a => bad (UVar a)
       end.
 
+  Definition expr_eqb a := run_ptrn (pmap (fun _ => true) (exact a)) false.
+
   Require Import ExtLib.Relations.TransitiveClosure.
 
   Theorem Succeeds_var : forall v e,

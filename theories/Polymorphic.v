@@ -81,6 +81,8 @@ Section fmap_polymorphic.
     end.
 End fmap_polymorphic.
 
+Arguments fmap_polymorphic {_ _ _} _ {_} _.
+
 Instance Functor_polymorphic Z n : Functor (polymorphic Z n) :=
 { fmap := fun T U f => @fmap_polymorphic Z T U f n }.
 

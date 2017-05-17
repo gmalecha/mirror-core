@@ -7,6 +7,7 @@ Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.Reify.ReifyClass.
 
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.Vector.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -31,6 +32,27 @@ Definition prod_typD {n} (t : prod_typ n) : type_for_arity n :=
   | tProd => prod
   end.
 
+Lemma inhabited_prod_typ {n : nat} (t : prod_typ n) (vs : vector Type@{Usmall} n) 
+  (H : ForallV inhabited vs) :
+  inhabited (applyn (prod_typD t) vs).
+Proof.
+  intros.
+  destruct n; [inversion t|].
+  destruct n; [inversion t|].
+  destruct n; [|inversion t].
+  destruct t.
+  rewrite (vector_eta vs).
+  rewrite (vector_eta (vector_tl vs)).
+  rewrite (vector_eta (vector_tl (vector_tl vs))).
+  simpl.
+  pose proof (ForallV_vector_hd H) as H1.
+  pose proof (ForallV_vector_tl H) as H2.
+  apply ForallV_vector_hd in H2.
+  destruct H1, H2.
+  apply inhabits.
+  apply pair; [apply X | apply X0].
+Qed.
+  
 Section FuncView_prod_type.
   Context {typ : Set}.
   Context {FV : PartialView typ (prod_typ 2 * (typ * typ))}.

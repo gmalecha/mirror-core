@@ -223,7 +223,7 @@ Proof. reflexivity. Qed.
 Definition lem_eq_refl' : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (expr typ func)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
     <:: @eq_refl' ::>.
-
+Print lem_eq_refl'.
 Require Import MirrorCore.PLemma.
 
 Definition plem_eq_refl' : PolyLemma typ (expr typ func) (expr typ func) :=
@@ -293,11 +293,12 @@ Definition lem_Proper_exists
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @Proper_exists ::>.
 
+Print lem_Proper_exists.
+
 Definition lem_Proper_forall
 : polymorphic typ 1 (Lemma.lemma typ (expr typ func) (Proper_concl typ func Rbase)) :=
   Eval unfold Lemma.add_var, Lemma.add_prem , Lemma.vars , Lemma.concl , Lemma.premises in
   <:: @Proper_forall ::>.
-
 (*
 Reify BuildPolyLemma 1 < reify_simple_typ reify_simple reify_proper_concl >
   lem_Proper_exists : @Proper_exists.
@@ -343,7 +344,8 @@ Ltac prove_prespectful :=
          | _ => red; simpl
          end.
 *)
-
+Locate ctyp.
+Check @ctyp.
 Theorem get_respectful_only_all_ex_sound
 : respectful_spec RbaseD get_respectful_only_all_ex.
 Proof.
@@ -468,7 +470,6 @@ Require Import MirrorCore.PLemma.
 Require Import MirrorCore.RTac.PApply.
 Require Import MirrorCore.Lambda.ExprUnify_simple.
 
-
 Definition PAPPLY (plem : PolyLemma typ (expr typ func) (expr typ func)) :=
   PAPPLY (RSym_func := RSym_func)
          (fun subst SS SU tus tvs n l r t s =>
@@ -509,8 +510,7 @@ Proof.
   apply Expr.ExprOk_expr.
   apply Expr.ExprOk_expr.
 Qed.
-
-
+Locate RewriteHintDb.
 Definition the_lemmas
 : RewriteHintDb Rbase :=
   @PRw _ _ _ 1 lem_pull_ex_and_left DO_REFL ::

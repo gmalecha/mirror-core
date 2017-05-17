@@ -13,6 +13,8 @@ Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Lib.NatView.
 Require Import MirrorCore.Lib.ProdView.
 Require Import MirrorCore.Lib.ListView.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -135,6 +137,29 @@ Section ListOpFuncInst.
   Qed.
 
 End ListOpFuncInst.
+
+Section ListOpUnify.
+  Context {typ' : nat -> Set}.
+  
+  Let typ := ctyp typ'.
+
+  Definition listOp_func_unify (a b : listOp_func typ) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match a, b with
+    | pLength t, pLength t'
+    | pNoDup t, pNoDup t'
+    | pIn t, pIn t' => ctype_unify_slow _ t t' s
+    | pMap t u, pMap t' u' 
+    | pFold t u, pFold t' u'
+    | pCombine t u, pCombine t' u' => 
+      match ctype_unify_slow _ t t' s with
+      | Some s' => ctype_unify_slow _ u u' s'
+      | None => None
+      end
+    | _, _ => None
+    end.
+
+End ListOpUnify.
 
 Section MakeListOp.
   Context {typ func : Set} {FV : PartialView func (listOp_func typ)}.

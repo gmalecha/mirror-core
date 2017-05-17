@@ -13,6 +13,8 @@ Require Import MirrorCore.SymI.
 Require Import MirrorCore.Views.FuncView.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Reify.ReifyClass.
+Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.CTypes.CTypeUnify.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -90,6 +92,25 @@ Section ApplicativeFuncInst.
   Qed.
 
 End ApplicativeFuncInst.
+
+Section ApplicativeUnify.
+  Context {typ' : nat -> Set}.
+  
+  Let typ := ctyp typ'.
+
+  Definition ap_func_unify (a b : ap_func typ) (s : FMapPositive.pmap typ) : 
+    option (FMapPositive.pmap typ) :=
+    match a, b with
+    | pPure t, pPure t' => ctype_unify_slow _ t t' s
+    | pAp t u, pAp t' u' => 
+      match ctype_unify_slow _ t t' s with
+      | Some s' => ctype_unify_slow _ u u' s'
+      | None => None
+      end
+    | _, _ => None
+    end.
+
+End ApplicativeUnify.
 
 Section MakeApplicative.
   Context {typ func : Set} {RType_typ : RType typ}.
@@ -239,12 +260,75 @@ Section ReifyApplicative.
 
   Definition reify_ap : Command (expr typ func) :=
     CPattern (ls := (typ:Type)::(typ:Type)::nil)
-             (RApp (RApp (RApp (RExact (@pure T)) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
+             (RApp (RApp (RApp (RExact (@ap T)) RIgnore) (RGet 0 RIgnore)) (RGet 1 RIgnore))
              (fun (x y : function (CCall (reify_scheme typ))) => Inj (fAp x y)).
 
   Definition reify_applicative : Command (expr typ func) :=
     CFirst (reify_pure :: reify_ap :: nil).
-
+  
 End ReifyApplicative.
 
 Arguments reify_applicative _ _ {_} _ {_}.
+
+Section ReduceApplicative.
+  Context {typ' : nat -> Set} {func : Set}.
+  Let typ := ctyp typ'.
+  Context {TSym_typ' : TSym typ'}.
+  Local Instance RType_typ : RType typ := (RType_ctyp typ' _).
+  Local Instance Typ2_typ : Typ2 _ RFun := Typ2_Fun.
+  Context {RSym_func : RSym (typ := typ) func}.
+  Context {FV : PartialView func (ap_func typ)}.
+
+  Definition red_ap_ptrn 
+             (f : typ -> expr typ func -> typ * expr typ func) :
+    ptrn (expr typ func) (typ * expr typ func) :=
+    applicative_cases
+      (fun t p => (t, p))
+      (fun t u p q => (u, App (snd (f (tyArr t u) p)) (snd (f t q)))).
+
+  Fixpoint expr_eqb (e1 e2 : expr typ func) : option bool :=
+    match e1 , e2 with
+      | Var v1 , Var v2 => Some (EqNat.beq_nat v1 v2)
+      | UVar v1 , UVar v2 => Some (EqNat.beq_nat v1 v2)
+      | Inj f1 , Inj f2 =>
+        sym_eqb f1 f2
+      | App f1 e1 , App f2 e2 =>
+        match expr_eqb f1 f2 with
+        | Some true => expr_eqb e1 e2
+        | Some false => Some false
+        | None => None
+        end
+      | Abs t1 e1 , Abs t2 e2 =>
+        if ctyp_dec typ' _ t1 t2 then expr_eqb e1 e2
+        else Some false
+      | _ , _ => Some false
+    end.
+
+  Definition restore_ap_ptrn (tus tvs : tenv typ) (s : expr typ func)
+    (f : expr typ func -> (typ * expr typ func)) :=
+      pmap (fun a_b => 
+              let '(a, b) := a_b in 
+                if expr_eqb a s then
+                  match typeof_expr tus tvs a with
+                  | Some (tyArr _ v) => (v, a)
+                  | _ => (tyProp, a) (* should never happen *)
+                  end
+                else
+                  let (t, ra) := f a in
+                  match t with
+                  | tyArr u v => 
+                    let (_, rb) := f b in
+                      (v, mkAp u v ra rb)
+                  | _ => (t, ra) (* should never happen *)
+                  end)
+           (app get get).
+
+  Definition restore_pure_ptrn (tus tvs : tenv typ) : 
+    ptrn (expr typ func) (typ * expr typ func) :=
+    fun e U good bad =>
+      match typeof_expr tus tvs e with
+      | Some t => good (t, mkPure t e)
+      | None => bad e
+      end.
+
+End ReduceApplicative.
