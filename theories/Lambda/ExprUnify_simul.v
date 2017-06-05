@@ -1113,13 +1113,12 @@ Section typed.
           { eapply handle_set in H4; eauto.
             forward_reason; split; auto; intros.
             clear H4 H5.
-            forward_reason.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H3; eauto. forward_reason.
-            autorewrite with exprD_rw in e0; simpl in e0.
-            change_rewrite H3 in e0.
+            autorewrite with exprD_rw in e1; simpl in e1.
+            change_rewrite H3 in e1.
             forwardy. inv_all; subst; destruct y.
-            specialize (H0 _ _ _ _ _ _ _ H4 e1 H6).
+            specialize (H0 _ _ _ _ _ _ _ H4 e0 H6).
             forward_reason.
             eexists; split; eauto. split; eauto.
             intros. eapply H9 in H10; forward_reason; split; eauto.
@@ -1132,10 +1131,10 @@ Section typed.
             do 2 eexists; split; [ eassumption | split; [ eassumption | ] ].
             eapply substD_lookup in H2; eauto. forward_reason.
             simpl in H2.
-            autorewrite with exprD_rw in e1; simpl in e1.
-            change_rewrite H2 in e1.
+            autorewrite with exprD_rw in e0; simpl in e0.
+            change_rewrite H2 in e0.
             forwardy; inv_all; subst. destruct y.
-            specialize (H0 _ _ _ _ _ _ _ H4 e0 H6).
+            specialize (H0 _ _ _ _ _ _ _ H4 e1 H6).
             forward_reason.
             eexists; split; eauto. split; eauto.
             intros. eapply H9 in H10.
@@ -1148,7 +1147,7 @@ Section typed.
               forward_reason; split; auto.
               intros. clear H4 H5.
               forward_reason.
-              specialize (lambda_exprD_lower nil tv' tv (UVar u0) t eq_refl e0).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u0) t eq_refl e).
               intros; forward_reason.
               simpl in *. eapply H0 in H6; eauto.
               forward_reason.
@@ -1166,7 +1165,7 @@ Section typed.
               forward_reason; split; auto.
               intros. clear H4 H5.
               forward_reason.
-              specialize (lambda_exprD_lower nil tv' tv (UVar u) t eq_refl e).
+              specialize (lambda_exprD_lower nil tv' tv (UVar u) t eq_refl e0).
               intros; forward_reason.
               simpl in *. eapply H0 in H6; eauto.
               forward_reason.

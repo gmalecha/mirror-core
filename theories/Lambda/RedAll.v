@@ -941,7 +941,7 @@ Section reducer.
 End reducer.
 
 Arguments full_reducer _ _ : clear implicits.
-Arguments full_reducer_ok {_ _ _ _ _} _: clear implicits.
+Arguments full_reducer_ok {_ _ _ _ _} _.
 
 Arguments partial_reducer _ _ : clear implicits.
-Arguments partial_reducer_ok {_ _ _ _ _} _: clear implicits.
+Arguments partial_reducer_ok {_ _ _ _ _} _.

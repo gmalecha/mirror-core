@@ -124,7 +124,7 @@ Section instantiate_thm.
       _mentionsU _mentionsV (@_subst typ func).
   Proof.
     (** lambda_exprD_ind does not seem powerful enough for this **)
-    red. intros. subst n. generalize dependent _tvs. revert e'. revert t.
+    red. intros. subst n. revert H_substV. generalize dependent _tvs. revert e'. revert t.
     induction e; simpl; intros.
     { clear H_substU.
       generalize (lt_rem_sound (length _tvs) v).
@@ -211,8 +211,8 @@ Section instantiate_thm.
       end.
       subst. autorewrite with exprD_rw in H1; simpl in H1.
       forward; inv_all; subst.
-      specialize (IHe2 _ _ _ _ H1 eq_refl); clear H1.
-      specialize (IHe1 _ _ _ _ H0 eq_refl); clear H0.
+      specialize (IHe2 _ _ _ eq_refl _ H1); clear H1.
+      specialize (IHe1 _ _ _ eq_refl _ H0); clear H0.
       match type of IHe2 with
       | ?X -> _ =>
         let HQ := fresh in

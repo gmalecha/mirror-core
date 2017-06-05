@@ -20,15 +20,15 @@ Section symbols_prod.
       | _, _ => None
       end.
 
-  Definition prodD (p : A * B) : match typeof_prod p with
+  Definition prodD (p : A * B) : match typeof_prod p return Type@{Urefl} with
                                  | Some t => typD t
-                                 | None => unit : Type
+                                 | None => unit
                                  end.
   Proof.
     refine (
-        let (a, b) as q return match typeof_prod q with
+        let (a, b) as q return match typeof_prod q return Type@{Urefl} with
                                | Some t => typD t
-                               | None => unit : Type
+                               | None => unit
                                end := p in
           (match typeof_sym a as x return
                 match x with

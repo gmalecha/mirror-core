@@ -2,6 +2,9 @@
 (*i camlp4use: "pa_extend.cmo" i*)
 
 open Plugin_utils
+open Feedback
+open Pcoq.Prim
+open Stdarg
 
 let contrib_name = "MirrorCore.Reify"
 
@@ -190,7 +193,7 @@ struct
   : 'a reifier =
     fun gl -> c { gl with
                   bindings = b :: gl.bindings
-                ; env = Environ.push_rel (Names.Anonymous, None, t) gl.env }
+                ; env = Environ.push_rel (LocalAssum (Names.Anonymous, t)) gl.env }
 
   let reifier_run (c : 'a reifier) (gl : reify_env) = c gl
 
@@ -517,7 +520,7 @@ struct
 		fun s x ->
 		  let nbindings = false :: x.bindings in
 		  let nenv =
-		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		    Environ.push_rel (LocalAssum (Names.Anonymous, Hashtbl.find s fresh))
 		      x.env
 		  in
 		  { x with bindings = nbindings ; env = nenv }
@@ -526,7 +529,7 @@ struct
 		let x = eft s x in
 		let nbindings = false :: x.bindings in
 		let nenv =
-		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		  Environ.push_rel (LocalAssum (Names.Anonymous, Hashtbl.find s fresh))
 		    x.env
 		in
 		{ x with bindings = nbindings ; env = nenv }
@@ -546,7 +549,7 @@ struct
 		fun s x ->
 		  let nbindings = true :: x.bindings in
 		  let nenv =
-		    Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		    Environ.push_rel (LocalAssum (Names.Anonymous, Hashtbl.find s fresh))
 		      x.env
 		  in
 		  { x with bindings = nbindings ; env = nenv }
@@ -555,7 +558,7 @@ struct
 		let x = eft s x in
 		let nbindings = true :: x.bindings in
 		let nenv =
-		  Environ.push_rel (Names.Anonymous, None, Hashtbl.find s fresh)
+		  Environ.push_rel (LocalAssum (Names.Anonymous, Hashtbl.find s fresh))
 		    x.env
 		in
 		{ x with bindings = nbindings ; env = nenv }
@@ -590,16 +593,16 @@ struct
           let (_, typ, body) = Term.destLambda tmp in
           match parse_action typ with
 	    None ->
-	    let _ = Pp.(msgerrnl (    (str "Failed to parse action:\n")
-			          ++ (Printer.pr_constr typ)))
+	    let _ = Pp.(msg_error (    (str "Failed to parse action:\n")
+			           ++ (Printer.pr_constr typ)))
             in raise Term_match.Match_failure
 	  | Some act ->
             let rst = parse_template (n-1) body in
             Bind (act, rst)
         with
         | Term.DestKO ->
-          let _ = Pp.(msgerrnl (   (str "Failed to parse template:\n")
-                                ++ Printer.pr_constr tmp)) in
+          let _ = Pp.(msg_error (   (str "Failed to parse template:\n")
+                                 ++ Printer.pr_constr tmp)) in
           raise Term_match.Match_failure
       else
         Return tmp
@@ -675,7 +678,7 @@ struct
     let add_empty_pattern name =
       if Cmap.mem name !pattern_table then
 	Pp.(
-	  msgnl (   (str "Pattern table '")
+	  msg_info (   (str "Pattern table '")
 		 ++ (Printer.pr_constr name)
 	         ++ (str "' already exists.")))
       else
@@ -860,7 +863,7 @@ struct
 		  let ty = reify_type (Term lhs) gl in
 		  let new_gl =
 		    { gl with
-		      env = Environ.push_rel (name, None, lhs) gl.env
+		      env = Environ.push_rel (LocalAssum (name, lhs)) gl.env
 		    ; bindings = true :: gl.bindings
 		    }
 		  in
@@ -1063,7 +1066,7 @@ struct
         | Term_match.Match_failure when Term.isConst cmd ->
           Call cmd
         | Term_match.Match_failure when not normalized ->
-          let reduced = Reductionops.whd_betadeltaiota env evm cmd in
+          let reduced = Reductionops.whd_betadeltazeta env evm cmd in (** TODO: Was betadeltaiota *)
           parse_command ~normalized:true reduced
         | Term_match.Match_failure ->
           Pp.(msg_error (str "Failed to parse command from " ++ Printer.pr_constr cmd)) ;
@@ -1073,7 +1076,7 @@ struct
     let compile_name (name : Term.constr) =
       let (evm,env) = Lemmas.get_current_context () in
       let typ = get_Command_type env evm name in
-      let reduced = Reductionops.whd_betadeltaiota env evm name in
+      let reduced = Reductionops.whd_betadeltazeta env evm name in (** TODO: Was betadeltaiota *)
       let program = parse_command env evm reduced in
       { result_type = typ
       ; reify = compile_command program }
@@ -1472,7 +1475,7 @@ struct
 
 end
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang CLASSIFIED AS SIDEFF
   | [ "Reify" "Declare" "Syntax" ident(name) ":=" lconstr(cmd) ] ->
     [ let (evm,cmd) = Reification.ic cmd in
       let env = snd (Lemmas.get_current_context ()) in
@@ -1480,14 +1483,14 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_add_lang
 END
 
 (** Patterns **)
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Pattern CLASSIFIED AS SIDEFF
   | [ "Reify" "Declare" "Patterns" ident(name) ":" lconstr(value) ] ->
     [ let (evd,value) = Reification.ic value in
       Reification.declare_pattern name evd value
     ]
 END
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Add_Pattern CLASSIFIED AS SIDEFF
   | [ "Reify" "Pattern" constr(rule) "+=" constr(pattern) "=>" lconstr(template) ] ->
     [ try
 	let (evm,env) = Lemmas.get_current_context () in
@@ -1513,7 +1516,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Print_Pattern CLASSIFIED AS QUERY
     ]
 END
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table CLASSIFIED AS SIDEFF
   | [ "Reify" "Declare" "Table" ident(name) ":" constr(key) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in
       let (evm,key) = Reification.ic ~env:env ~sigma:evm key in
@@ -1537,7 +1540,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Declare_Table
     ]
 END
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table CLASSIFIED AS SIDEFF
   | [ "Reify" "Seed" "Table" constr(tbl) "+=" integer(key) "=>" lconstr(value) ] ->
     [ (** TODO: Universes... **)
       let (evm,env) = Lemmas.get_current_context () in
@@ -1566,7 +1569,7 @@ VERNAC COMMAND EXTEND Reify_Lambda_Shell_Seed_Table
               ++ str " table.") ]
 END
 
-VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma
+VERNAC COMMAND EXTEND Reify_Lambda_Shell_Reify_Lemma CLASSIFIED AS SIDEFF
   | [ "Reify" "BuildLemma" "<" constr(typ) constr(term) constr(concl) ">"
         ident(name) ":" lconstr(lem) ] ->
     [ let (evm,env) = Lemmas.get_current_context () in

@@ -499,13 +499,13 @@ Module Make (ED : ExprDenote).
         eapply (H0 _ _ _ eq_refl) in H3.
         eapply (H1 _ _ _ eq_refl) in H4.
         forward_reason.
-        destruct (typ2_inj _ _ _ _ x1).
+        destruct (typ2_inj _ _ _ _ x0).
         exists H5. destruct H5. simpl.
         subst. clear - RTypeOk_typD.
         f_equal. generalize dependent (typ2 d r).
         (** NOTE(gmalecha): relying on [Rty = eq] **)
         unfold Rty. uip_all'. reflexivity.
-        red in x0. uip_all'. reflexivity. }
+        red in x1. uip_all'. reflexivity. }
       { intros; inv_all; subst.
         autorewrite with exprD_rw in *; simpl in *.
         forward; inv_all; subst.

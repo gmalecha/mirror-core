@@ -1883,6 +1883,8 @@ Section parameterized.
     eapply H1 in H. eapply orb_false_iff in H. tauto.
   Qed.
 
+  Definition hide (T : Prop) : Prop := T.
+
   Lemma ctx_substD_set_simple' ctx
   : forall (uv : nat) (Huv : uv < length (getUVars ctx)) (e : expr)
            (s : ctx_subst ctx),
@@ -2208,7 +2210,6 @@ Section parameterized.
           eapply WellFormed_entry_check_set in H; eauto. omega. }
         split; try eassumption.
         intros.
-        Definition hide (T : Prop) : Prop := T.
         change (WellFormed_ctx_subst (ExsSubst s a))
         with   (hide (WellFormed_ctx_subst (ExsSubst (ts:=ts) s a))) in SAVED_WF.
         Opaque hide.
@@ -2516,10 +2517,10 @@ Section parameterized.
     { destruct (eta_ctx_subst_all s'); subst.
       simpl in *. forward.
       inv_all; subst.
-      eapply drop_exact_sound in H3.
+      eapply drop_exact_sound in H2.
       forward_reason.
       generalize x1. intros; inv_all; subst.
-      specialize (@IHWellFormed_ctx_subst _ _ _ H0 H4).
+      specialize (@IHWellFormed_ctx_subst _ _ _ H0 H3).
       forward_reason.
       Cases.rewrite_all_goal.
       eexists; split; eauto.
@@ -2543,9 +2544,9 @@ Section parameterized.
       eapply Pure_pctxD; eauto. }
     { destruct (eta_ctx_subst_exs s'0) as [ ? [ ? ? ] ]; subst.
       simpl in *. forward; inv_all; subst.
-      eapply drop_exact_sound in H5.
-      destruct H5. generalize x2; intros; inv_all; subst.
-      eapply IHWellFormed_ctx_subst in H3; eauto.
+      eapply drop_exact_sound in H3.
+      destruct H3. generalize x2; intros; inv_all; subst.
+      eapply IHWellFormed_ctx_subst in H5; eauto.
       forward_reason.
       change_rewrite H3.
       eexists; split; eauto.
@@ -2553,7 +2554,7 @@ Section parameterized.
       intros. gather_facts.
       eapply Pure_pctxD; eauto.
       intros. eapply _forall_sem; intros.
-      split; auto. revert H4. revert H2. clear - RTypeOk_typ.
+      split; auto. revert H5. revert H2. clear - RTypeOk_typ.
       uip_all'.
       intro X; rewrite X. assumption. }
   Qed.

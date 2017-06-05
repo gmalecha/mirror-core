@@ -152,5 +152,5 @@ End with_Expr.
 
 Arguments ExprVar expr : rename.
 Arguments ExprUVar expr : rename.
-Arguments ExprVarOk {typ _ expr _} _ : rename.
-Arguments ExprUVarOk {typ _ expr _} _ : rename.
+Arguments ExprVarOk {typ expr _ _} _ : rename.
+Arguments ExprUVarOk {typ expr _ _} _ : rename.
