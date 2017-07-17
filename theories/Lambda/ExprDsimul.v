@@ -8,6 +8,7 @@ Require Import MirrorCore.ExprI.
 Require Import MirrorCore.AbsAppI.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.ExprDI.
+Require Import MirrorCore.Util.Compat.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -359,7 +360,6 @@ Module ExprDenote <: ExprDenote.
             rewrite H in *.
             specialize (IHe1 _ _ _ (or_intror H0)).
             red in x2. subst. simpl in *.
-            Require Import MirrorCore.Util.Compat.
             autorewrite_with_eq_rw_in H1.
             forward. inv_all; subst.
             specialize (IHe2 _ _ _ (or_introl _ H1)).

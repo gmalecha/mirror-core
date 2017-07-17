@@ -2042,7 +2042,7 @@ Section parameterized.
           rewrite H3 in H5; clear H3.
           inversion H5; clear H5.
           eexists; split; eauto.
-          subst x4. clear H12.
+          clear H3 x4 H12.
           intros.
           eapply H13 in H12; try reflexivity.
           apply Quant._exists_sem in H12.

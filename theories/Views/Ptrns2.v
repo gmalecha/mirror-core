@@ -38,7 +38,8 @@ Section setoid.
   { ptrn_ok_proof : forall x,
       (exists y, Succeeds x p y) \/
       (Fails x p) }.
-  Arguments ptrn_ok_proof {_ _} _ _ : clear implicits.
+  Arguments ptrn_ok_proof _ _ _ _ : clear implicits.
+  Arguments ptrn_ok_proof {_ _} _ _.
 
   Polymorphic Definition run_ptrn {t : Type@{U}}
               (p : ptrn t) (default : t) (x : X) : t :=

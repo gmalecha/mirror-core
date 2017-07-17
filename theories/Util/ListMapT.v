@@ -4,7 +4,7 @@ Require Import ExtLib.Data.Option.
 Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
-Set Strict Implict.
+Set Strict Implicit.
 
 Section mapT_equations.
   Variables T U : Type.

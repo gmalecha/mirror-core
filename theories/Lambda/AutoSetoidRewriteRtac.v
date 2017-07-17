@@ -1035,7 +1035,7 @@ Section setoid.
                   eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
                   gather_facts.
                   eapply Pure_pctxD; eauto.
-                  intros. eapply H12. eapply H11. } } }
+                  intros. eapply H12. eapply H10. } } }
 
             { eapply rw_orelse_case in H6. destruct H6.
               { eapply rwOk in H6.
@@ -1116,9 +1116,10 @@ Section setoid.
               split.
               { etransitivity; eauto. }
               { intros.
-                repeat (gather_facts; try (eapply pctxD_SubstMorphism; eauto; [ ])).
+                repeat (gather_facts;
+                        (eapply pctxD_SubstMorphism; [ | | eassumption | ]); [ solve [ eauto ] | eauto | ]).
                 eapply Pure_pctxD; eauto.
-                revert H8. clear.
+                clear.
                 intros. eapply H0. eapply H. } }
             { eapply rwOk in H6; eauto.
               specialize (H6 H2).
@@ -1945,50 +1946,55 @@ Section setoid.
         eapply pctxD_SubstMorphism; [ | | eauto | ]; eauto.
         gather_facts.
         eapply Pure_pctxD; eauto. intros.
-        specialize (H20 us0 vs0).
-        specialize (H6 us0 vs0).
+        rewrite Quant._forall_sem in H26.
+        repeat match goal with
+               | hl : hlist _ _ , H : _ |- _ => specialize (H hl)
+               | H : _ |- _ => specialize (H Hnil)
+               | H : ?T , H' : ?T -> _ |- _ => specialize (H' H)
+               end.
         generalize dependent (hlist_map
            (fun (t : typ) (x6 : exprT (getUVars ctx) (getVars ctx) (typD t)) =>
             x6 us0 vs0) x5); simpl; intros.
-        rewrite H20; clear H20.
-        generalize H6.
-        eapply H24 in H6; clear H24.
-        specialize (H29 us0 h).
-        clear - H19 H16 H14 H17 H25 H28 H21 H9 H18 H22 H23 H26 H6 H8 H29.
+        repeat match goal with
+               | hl : hlist _ _ , H : _ |- _ => specialize (H hl)
+               | hl : hlist _ _ , hl' : hlist _ _ H : _ |- _ => specialize (H (hlist_app hl hl'))
+               | H : _ |- _ => specialize (H Hnil)
+               | H : ?T , H' : ?T -> _ |- _ => specialize (H' H)
+               end.
+        apply H25 in H26; clear H25 x7.
         eapply H9 in H8; clear H9.
         rewrite foralls_sem in H8.
-        specialize (H8 h).
-        setoid_rewrite impls_sem in H8.
-        rewrite Quant._forall_sem in H26.
         repeat match goal with
-               | H : (forall x : hlist _ _ , _) , H' : hlist _ _ |- _ =>
-                 specialize (H H')
+               | hl : hlist _ _ , H : _ |- _ => specialize (H hl)
+               | hl : hlist _ _ , hl' : hlist _ _ H : _ |- _ => specialize (H (hlist_app hl hl'))
+               | H : _ |- _ => specialize (H Hnil)
+               | H : ?T , H' : ?T -> _ |- _ => specialize (H' H)
                end.
-        specialize (H16 (hlist_app us0 h) Hnil vs0).
-        specialize (H21 (hlist_app us0 h) vs0).
-        rewrite H19; clear H19.
-        rewrite H29 in *; clear H29.
-        destruct H21; auto.
-        specialize (H0 Hnil). simpl in H0.
-        rewrite <- H0; clear H0.
-        simpl in *.
-        rewrite <- H16; clear H16.
-        rewrite <- H14; clear H14.
-        simpl.
+        rewrite impls_sem in H8.
         revert H8.
-        instantiate (1:= us0).
+        simpl.
         autorewrite_with_eq_rw.
         rewrite hlist_app_nil_r.
         autorewrite_with_eq_rw.
-        intros. apply H8; clear H8.
-        eapply List.Forall_map.
-        eapply H26 in H0; clear H26.
-        eapply H25 in H0; clear H25.
-        revert H0.
-        eapply Forall_impl. clear.
+        destruct H20.
+        specialize (fun H' => H21 _ _ (conj H24 H')).
+        rewrite H29 in H21.
+        specialize (H21 H22).
+        destruct H21.
+        specialize (H9 Hnil).
+        specialize (fun H => H16 H Hnil).
+        simpl in *.
+        rewrite H14 in *; clear H14.
+        erewrite H16; clear H16.
+        rewrite H9; clear H9.
+        rewrite <- H19; clear H19.
+        refine (fun H => H _).
+        rewrite List.Forall_map.
+        revert H26.
+        eapply Forall_impl.
+        clear.
         intros.
-        rewrite <- hlist_app_nil_r.
-        assumption. }
+        rewrite <- hlist_app_nil_r. assumption. }
       { exfalso; clear - H2; inversion H2. }
     Time Qed.
 

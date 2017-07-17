@@ -2,6 +2,7 @@ Require Import ExtLib.Data.Positive.
 Require Import ExtLib.Data.PList.
 Require Import ExtLib.Tactics.
 
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.SymI.
 Require Import MirrorCore.TypesI.
 
@@ -20,14 +21,14 @@ Module OneOfType.
   Inductive _option : TypeS :=
   | _Some : TypeR -> _option
   | _None.
-  Arguments _None.
-  Arguments _Some _.
+  Arguments _None : assert.
+  Arguments _Some _ : clear implicits.
 
   Inductive pmap : TypeS :=
   | Empty : pmap
   | Branch : _option -> pmap -> pmap -> pmap.
-  Arguments Empty.
-  Arguments Branch _ _ _.
+  Arguments Empty : assert.
+  Arguments Branch _ _ _ : clear implicits.
 
   Definition pmap_here (p : pmap) : _option :=
     match p with
@@ -201,7 +202,6 @@ Module OneOfType.
   Proof using.
     unfold OutOf, Into.
     intros.
-    Require Import MirrorCore.Util.Compat.
     autorewrite_with_eq_rw.
     unfold asNth. simpl.
     rewrite asNth'_get_lookup.

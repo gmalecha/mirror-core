@@ -96,4 +96,5 @@ Section parameterized.
 End parameterized.
 
 Arguments reducer _ _ : clear implicits.
-Arguments reducer_sound {_ _ _ _ _ _ _} _ : clear implicits.
+Arguments reducer_sound _ _ _ _ _ _ _ _ : clear implicits.
+Arguments reducer_sound {_ _ _ _ _ _ _} _.
