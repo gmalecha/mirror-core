@@ -110,12 +110,12 @@ Section simple_dep_types.
     ; resultPrems    : list (wtexpr Esymbol resultUs tvs tyProp)
     ; resultSubst    : Inst resultUs
     ; resultMigrator : migrator Esymbol tus resultUs }.
-    Arguments mkResultA {_ _ _} _ _ _ _ : clear implicits.
+    Arguments mkResultA {_ _ _} _ _ _ _.
 
     Record resultC tus tvs : Type := mkResultC
     { resultUs       : _
     ; the_result     : resultA tus resultUs tvs }.
-    Arguments mkResultC {_ _ _} _ : clear implicits.
+    Arguments mkResultC {_ _ _} _.
 
     (** Statically known pre- and post-context
      ** - Things are problematic at this level because there is no way to
@@ -278,6 +278,26 @@ Section simple_dep_types.
       f_equal; eauto. }
     { destruct pf.
       { inversion H0; clear H0; subst.
+
+        Lemma wtexprD_UVar_InstD:
+          forall (tus : list (Tuvar Tsymbol)) (i : Inst tus) (tvs : list (type Tsymbol)) 
+            (t : type Tsymbol)
+            (ts : list (type Tsymbol)) (u : member (ts, t) tus)
+            (xs0 : hlist (wtexpr Esymbol tus tvs) ts) (e : wtexpr Esymbol tus ts t),
+            Inst_lookup i u = Some e ->
+            forall (xs : Uenv TsymbolD tus) (vs : Venv TsymbolD tvs),
+            InstD i xs ->
+            wtexprD EsymbolD (wtUVar u xs0) xs vs = wtexprD EsymbolD (subst xs0 e) xs vs.
+        Proof.
+          intros.
+          generalize (@Inst_lookup_ok).
+          Check Inst_lookup_ok.
+          SearchAbout Unifiable'.
+          inversion H. subst.
+About Instantiation.
+          
+          
+        Lemma 
         (** TODO(gmalecha): This should be provable *)
         admit. }
       { inversion H0; clear H0; subst.

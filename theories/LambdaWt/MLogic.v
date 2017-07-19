@@ -59,10 +59,10 @@ Section MLogic.
   Qed.
 
 End MLogic.
-Arguments FLogic _ {_} : clear implicits.
-Arguments MLogic _ {_ _ _} : clear implicits.
-Arguments MLogicZero _ {_ _ _} : clear implicits.
-Arguments MLogicPlus _ {_ _ _} : clear implicits.
+Arguments FLogic _ {_}.
+Arguments MLogic _ {_ _ _}.
+Arguments MLogicZero _ {_ _ _}.
+Arguments MLogicPlus _ {_ _ _}.
 
 Arguments fmodels_mzero {_ _ _ _ _ _} _.
 Arguments fmodels_conseq {_ _ _ _ _} _ _ _ _ _ _.

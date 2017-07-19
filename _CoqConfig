@@ -27,5 +27,5 @@ theories/LambdaWt/WtCtx.v
 theories/LambdaWt/WtTactic.v
 theories/LambdaWt/WtInContext.v
 
-theories/LambdaF/Paths.v
-theories/LambdaF/FExpr.v
+# theories/LambdaF/Paths.v
+# theories/LambdaF/FExpr.v

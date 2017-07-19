@@ -29,7 +29,6 @@ Section substI.
       @Inst_lookup _ _ u = Some e ->
       @Unifiable' tus Inst_lookup tvs t (wtUVar u xs) (subst xs e).
 
-
   Definition inst_evolves {tus tus'} (mig : migrator Esymbol tus tus')
              (i1 : forall {ts t}, member (ts,t) tus -> option (wtexpr Esymbol tus ts t))
              (i2 : forall {ts t}, member (ts,t) tus' -> option (wtexpr Esymbol tus' ts t))
@@ -39,6 +38,8 @@ Section substI.
       @Unifiable' _ (@i2) _ _ (migrate_expr mig e1) (migrate_expr mig e2).
 
   Variable (T : list (Tuvar Tsymbol) -> Type).
+
+  Check wtexprD.
 
   Class Instantiation : Type :=
   { Inst_lookup : forall {tus} (i : T tus) {ts t} (uv : member (ts,t) tus),
@@ -62,6 +63,17 @@ Section substI.
       Inst_lookup s u = None ->
       inst_evolves migrator_id (@Inst_lookup _ s) (@Inst_lookup _ s') /\
       forall xs, Unifiable s' (wtUVar u xs) (subst (tvs:=tvs) xs w)
+  ; Inst_lookup_ok : forall tus tvs ts t (u : member (ts,t) tus) w s,
+      Inst_lookup s u = Some w ->
+      forall xs, Unifiable s (wtUVar u xs) (subst (tvs:=tvs) xs w)
+  ; InstD_ok : forall tus tvs i ts t u (e : wtexpr Esymbol _ ts t),
+      @Inst_lookup tus i ts t u = Some e ->
+      forall xs vs us,
+        @InstD tus i us ->
+        (** QUESTION: Is it better to write this in terms of subst or this way? *)
+        @wtexprD _ _ _ EsymbolD tus tvs t (wtUVar u xs) us vs =
+        @wtexprD _ _ _ EsymbolD tus ts t e us
+                 (hlist_map (fun t e => @wtexprD _ _ _ EsymbolD tus tvs t e us vs) xs)
   }.
 
   Variable Inst : Instantiation.
@@ -244,13 +256,14 @@ Section subst.
       wtexpr_equiv (Unifiable i2) e1 e2.
 *)
 
+
   Theorem simple_inst_set_ok
   : forall tus tvs ts t (u : member (ts,t) tus) w s s',
       simple_inst_set u w s = s' ->
       simple_inst_lookup s u = None ->
       inst_evolves migrator_id (@simple_inst_lookup _ s) (@simple_inst_lookup _ s') /\
-      forall xs, @Unifiable' Tsymbol Esymbol _ (@simple_inst_lookup _ s')
-                            _ _ (wtUVar u xs) (subst (tvs:=tvs) xs w).
+      forall xs, Unifiable' (@simple_inst_lookup _ s')
+                       (wtUVar u xs) (subst (tvs:=tvs) xs w).
   Proof.
     intros. subst.
     split.
@@ -273,6 +286,20 @@ Section subst.
       eapply type_eq_dec; eapply Tsymbol_eq_dec.
   Defined.
 
+  Theorem simple_inst_lookup_ok
+  : forall (tus : list (list (WtType.type Tsymbol) * WtType.type Tsymbol))
+      (tvs ts : list (WtType.type Tsymbol)) (t : WtType.type Tsymbol)
+      (u : member (ts, t) tus) (w : WtExpr.wtexpr Esymbol tus ts t)
+      (s : simple_inst tus),
+      simple_inst_lookup s u = Some w ->
+      forall xs : hlist (WtExpr.wtexpr Esymbol tus tvs) ts,
+        Unifiable' (@simple_inst_lookup tus s) (wtUVar u xs) (subst xs w).
+  Proof.
+    unfold simple_inst_lookup.
+    destruct s. simpl.
+    intros. constructor. assumption.
+  Defined.
+
   Definition simple_inst_fresh
              (tst : WtExpr.Tuvar Tsymbol)
              {tus : list (WtExpr.Tuvar Tsymbol)}
@@ -292,7 +319,8 @@ Section subst.
   ; Inst_set    := @simple_inst_set
   ; Inst_fresh  := @simple_inst_fresh
   ; InstD       := @instD
-  ; Inst_set_ok := simple_inst_set_ok }.
+  ; Inst_set_ok := simple_inst_set_ok
+  ; Inst_lookup_ok := simple_inst_lookup_ok }.
 
 End subst.
 

@@ -73,7 +73,6 @@ Section unify.
   : Prop :=
     Inst_evolves migrator_id i i' /\ wtexpr_equiv (Unifiable_eq i') e1 e2.
 
-
   Lemma subst_lift'
   : forall (tus : list Tuvar) t tux
            (e : wtexpr tus tux t)

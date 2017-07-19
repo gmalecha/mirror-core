@@ -29,7 +29,7 @@ Section simple_dep_types.
       migrator c a := fun _ => @hlist_tl _ _.
 
   Section class.
-    Variable (T : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type).
+    Variable T : list (Tuvar Tsymbol) -> list (type Tsymbol) -> Type.
     Class Migrate : Type :=
     { migrate : forall {tus tus'}, migrator tus tus' ->
                                    forall tvs, T tus tvs -> T tus'  tvs }.
@@ -67,6 +67,27 @@ Section simple_dep_types.
   : migrator tus tus'' :=
     hlist_map (fun t e => migrate_expr mig' e) mig.
 
+
+
+  Lemma wtexpr_lift_migrate_expr'
+  : forall (tus' tus'' : list (Tuvar Tsymbol)) (mig' : migrator tus' tus'')
+           (d tvs0 d' : list (type Tsymbol))
+           (x : type Tsymbol) (e : wtexpr Esymbol tus' (d' ++ tvs0) x),
+      wtexpr_lift d d' (migrate_expr mig' e) =
+      migrate_expr mig' (wtexpr_lift d d' e).
+  Proof using.
+    do 5 intro.
+    eapply wtexpr_ind_app; simpl; intros; eauto.
+    { rewrite H. rewrite H0. reflexivity. }
+    { rewrite H. reflexivity. }
+    { generalize (hlist_get u mig'); simpl; intros.
+      rewrite hlist_map_hlist_map.
+
+      SearchAbout wtexpr_lift.
+      admit. }
+  Admitted.
+
+
   Lemma wtexpr_lift_migrate_expr
   : forall (tus' tus'' : list (Tuvar Tsymbol)) (mig' : migrator tus' tus'')
            (d tvs0 d' : list (type Tsymbol))
@@ -78,8 +99,97 @@ Section simple_dep_types.
     eapply wtexpr_ind_app; simpl; intros; eauto.
     { rewrite H. rewrite H0. reflexivity. }
     { rewrite H. reflexivity. }
-    { generalize (hlist_get u mig'); simpl; intros.
+    { (** TODO(gmalecha): Here I need to have some information about the result
+       ** of looking up any unification variable in mig'. In particular, I need
+       ** to know that subst commutes with wtexpr_lift.
+       ** If tus'' is smaller than tus', then i can do induction on the number
+       ** of unification variables, but if not, then I'm in trouble.
+       ** An alternative could be induction on the number of instantiations since
+       ** I know that these variables do not exist in the result, but I guess that
+       ** is not captured in the above types. In particular, I need a acyclic
+       ** property to justify structural recursion.
+       **)
+
+ generalize (hlist_get u mig'); simpl; intros.
       rewrite hlist_map_hlist_map.
+
+          Lemma member_lift_nil:
+            forall (T : Type) (tvs' tvs : list T) (t : T) (m : member t (tvs ++ tvs')),
+              member_lift tvs' nil tvs m = m.
+          Proof.
+            clear.
+            induction tvs; simpl.
+            { reflexivity. }
+            { intros. destruct (member_case m) as [ [ ? ? ] | [ ? ? ] ].
+              { subst. reflexivity. }
+              { subst. f_equal; auto. } }
+          Defined.
+          Lemma wtexpr_lift_nil:
+            forall (tus : list (Tuvar Tsymbol)) (tvs' ts : list (type Tsymbol))
+                   (x : type Tsymbol) (t : wtexpr Esymbol tus (ts ++ tvs') x),
+              @wtexpr_lift _ _ tus tvs' x nil ts t = t.
+          Proof.
+            do 2 intro.
+            refine (@wtexpr_ind_app _ _ _ _ _ _ _ _ _ _); simpl; intros; eauto.
+            { f_equal.
+              apply member_lift_nil. }
+            { f_equal; assumption. }
+            { f_equal; auto. }
+            { f_equal. clear - H.
+              induction H; simpl; auto.
+              f_equal; auto. }
+          Defined.
+
+
+      Check wtexpr_lift.
+      Lemma wtexpr_lift_subst:
+        forall (tus : list (Tuvar Tsymbol))
+          (tvs tvs' tvs'' ts : list (type Tsymbol)) (t : type Tsymbol)
+          (w : wtexpr Esymbol tus (ts ++ tvs) t)
+          (xs : hlist (wtexpr Esymbol tus (ts ++ tvs')) (ts ++ tvs)),
+          @wtexpr_lift _ _ tus _ t _ _ (subst xs w) =
+          subst
+            (hlist_map
+               (fun (t : type Tsymbol) (e : wtexpr Esymbol tus _ t) =>
+                  @wtexpr_lift _ _ tus _ t tvs'' _ e) xs) w.
+      Proof.
+        do 4 intro.
+        refine (@wtexpr_ind_app _ _ _ _ _ _ _ _ _ _); simpl; intros; eauto.
+        { rewrite hlist_get_hlist_map. reflexivity. }
+        { f_equal; eauto. }
+        { f_equal. rewrite hlist_map_hlist_map.
+          specialize (fun xs => H (Hcons (wtVar (MZ d (tvs0 ++ tvs'))) xs)).
+          simpl in H. rewrite H. f_equal. f_equal.
+          rewrite hlist_map_hlist_map. eapply hlist_map_ext. intros.
+          clear.
+          Check (wtexpr_lift (d :: nil) nil t).
+          Check (wtexpr_lift tvs'' tvs0 t).
+           Print subst.
+
+
+          revert t. revert x. revert tvs0.
+          refine (@wtexpr_ind_app _ _ _ _ _ _ _ _ _ _); simpl; intros; try f_equal; eauto.
+          { SearchAbout wtexpr_lift.
+
+
+          Lemma wtexpr_lift_wtexpr_lift:
+            forall (tus : list (Tuvar Tsymbol)) (tvs' tvs'' tvs0 : list (type Tsymbol))
+                   d (x : type Tsymbol) (t : wtexpr Esymbol tus (tvs0 ++ tvs') x),
+              wtexpr_lift tvs'' (d :: tvs0) (wtexpr_lift (d :: nil) nil t) =
+              wtexpr_lift (d :: nil) nil (wtexpr_lift tvs'' tvs0 t).
+          Proof.
+
+            intros.
+            Set Printing Implicit.
+            Print wtexpr_lift.
+            Check wtexpr_lift tvs'' (d :: tvs0) (wtexpr_lift (d :: nil) nil t).
+            Check wtexpr_lift (d :: nil) nil (wtexpr_lift tvs'' tvs0 t).
+
+
+
+
+      Print migrate_expr.
+      SearchAbout subst wtexpr_lift.
       admit. }
   Admitted.
 
@@ -114,6 +224,9 @@ Section simple_dep_types.
       f_equal.
       { repeat rewrite hlist_map_hlist_map.
         eapply hlist_map_ext. intros.
+        SearchAbout subst wtexpr_lift.
+
+
         admit. }
       admit. }
   Admitted.

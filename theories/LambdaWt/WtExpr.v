@@ -32,7 +32,7 @@ Section simple_dep_types.
                         wtexpr tus tvs d -> wtexpr tus tvs r
   | wtAbs : forall d r, wtexpr tus (d :: tvs) r -> wtexpr tus tvs (TArr d r)
   | wtUVar : forall ts t, member (ts, t) tus ->
-                          hlist (wtexpr tus tvs) ts -> wtexpr tus tvs t.
+                     hlist (wtexpr tus tvs) ts -> wtexpr tus tvs t.
   Set Elimination Schemes.
 
   Arguments wtInj {_ _ _} _.
@@ -257,48 +257,6 @@ Section simple_dep_types.
 
   Variable Esymbol_eq_dec : forall {t} (a b : Esymbol t), {a = b} + {a <> b}.
 
-
-(*
-  Fixpoint member_check_eq {tus} {ts ts' : list type} {t : type}
-           (m1 : member (ts,t) tus)
-  : forall m2 : member (ts',t) tus, {exists pf : ts' = ts,
-                                        m1 = match pf with
-                                             | eq_refl => m2
-                                             end} +
-                                    {ts' <> ts \/
-                                     exists pf : ts' = ts,
-                                       not (eq m1 match pf with
-                                                  | eq_refl => m2
-                                                  end)} :=
-      match m1 in member _ tus
-            return forall m2 : member (ts',t) tus,
-                     {exists pf : ts' = ts,
-                         m1 = match pf with
-                              | eq_refl => m2
-                              end} +
-                     {ts' <> ts \/
-                      exists pf : ts' = ts,
-                        not (eq m1 match pf with
-                                   | eq_refl => m2
-                                   end)}
-      with
-      | MZ _ _ => fun m2 =>
-        match m2 in member _ (x :: xs)
-              return (ts,t) = x -> option (ts = ts')
-        with
-        | MZ _ _ => fun pf => Some (f_equal fst pf)
-        | MN _ _ => fun _ => None
-        end eq_refl
-      | MN _ m1' => fun m2 =>
-        match m2 in member _ (x :: xs)
-              return _
-        with
-        | MZ _ _ => fun _ => None
-        | MN _ m2' => fun rec => rec m2'
-        end (fun m2' => @member_check_eq _ _ _ _ m1' m2')
-      end.
-*)
-
   Fixpoint member_check_eq {tus} {ts ts' : list (type Tsymbol)}
            {t : type Tsymbol}
            (m1 : member (ts,t) tus)
@@ -474,7 +432,6 @@ Section simple_dep_types.
   - intro. eapply wtInj_inj in H. auto.
   - intro. subst. eapply wtApp_inj in H. tauto.
   - intro; subst. eapply wtApp_inj in H. tauto.
-  - intro. inversion H. clear - n H1. congruence.
   - destruct t0; auto; clear. intro H; inversion H.
   - destruct t0; auto; clear. intro H; inversion H.
   - destruct t1; auto; clear. intro H; inversion H.
@@ -483,7 +440,6 @@ Section simple_dep_types.
   - eapply pair_eq_dec; try eapply List.list_eq_dec; eapply type_eq_dec; eapply Tsymbol_eq_dec.
   - subst. intro. apply wtUVar_inj in H. tauto.
   - subst. intro. apply wtUVar_inj in H; tauto.
-  - intro. inversion H. congruence.
   Defined.
 
 
