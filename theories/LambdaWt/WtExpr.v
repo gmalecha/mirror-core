@@ -444,7 +444,7 @@ Section simple_dep_types.
 
 
   (** Lifting **)
-  Fixpoint wtexpr_lift {tus tvs t} tvs' tvs'' (a : wtexpr tus (tvs'' ++ tvs) t)
+  Fixpoint wtexpr_lift {tus tvs} tvs' tvs'' {t} (a : wtexpr tus (tvs'' ++ tvs) t)
   : wtexpr tus (tvs'' ++ tvs' ++ tvs) t :=
     match a in wtexpr _ _ t return wtexpr _ _ t with
     | wtVar v => wtVar (member_lift _ _ _ v)
@@ -509,9 +509,9 @@ Section simple_dep_types.
     end.
 
   (** Full Subst **)
-  Fixpoint subst {tus} {tvs tvs'} {t}
+  Fixpoint subst {tus} {tvs tvs'}
            (xs : hlist (wtexpr tus tvs) tvs')
-           (e : wtexpr tus tvs' t)
+           {t} (e : wtexpr tus tvs' t)
   : wtexpr tus tvs t :=
     match e in wtexpr _ _ t return wtexpr tus tvs t
     with
@@ -521,7 +521,7 @@ Section simple_dep_types.
     | wtAbs e =>
       let xs' :=
           Hcons (wtVar (MZ _ _))
-                (hlist_map (fun t e => @wtexpr_lift _ _ t (_ :: nil) nil e) xs)
+                (hlist_map (@wtexpr_lift _ _ (_ :: nil) nil) xs)
       in wtAbs (subst xs' e)
     | wtUVar u ys => wtUVar u (hlist_map (fun t => subst xs) ys)
     end.
@@ -559,7 +559,7 @@ Section simple_dep_types.
            tvs'
            (hl : hlist (wtexpr tus tvs') tvs),
       forall us vs,
-        wtexprD (@subst tus tvs' tvs t hl e) us vs =
+        wtexprD (@subst tus tvs' tvs hl t e) us vs =
         (wtexprD e) us (hlist_map (fun _ e => wtexprD e us vs) hl).
   Proof.
     induction e; simpl; intros.

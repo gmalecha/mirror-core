@@ -1,4 +1,6 @@
 Require Import Coq.Lists.List.
+Require Import Coq.Classes.Morphisms.
+Require Import Coq.Classes.SetoidClass.
 Require Import ExtLib.Structures.Applicative.
 Require Import ExtLib.Data.Member.
 Require Import ExtLib.Data.HList.
@@ -10,8 +12,367 @@ Require Import MirrorCore.LambdaWt.WtExpr.
 Set Implicit Arguments.
 Set Strict Implicit.
 
+Section hlist.
+  Variables (T : Type) (F G : T -> Type) (P : forall (t : T), F t -> G t -> Prop).
+
+  Lemma hlist_Forall2_inj_impl
+    : forall  t ts
+         (Ts : hlist F (t :: ts)) (Us : hlist G (t :: ts)),
+      hlist_Forall2 P Ts Us ->
+      P (hlist_hd Ts) (hlist_hd Us) /\
+      hlist_Forall2 P (hlist_tl Ts) (hlist_tl Us).
+  Proof.
+    clear.
+    intros.
+    Print hlist_Forall2.
+    refine
+      match H in @hlist_Forall2 _ _ _ _ ts xs ys
+            return match ts as ts return hlist F ts -> hlist G ts -> Prop with
+                   | nil => fun _ _ => True
+                   | t :: ts => fun Ts Us => P (hlist_hd Ts) (hlist_hd Us) /\ hlist_Forall2 P (hlist_tl Ts) (hlist_tl Us)
+                   end xs ys
+      with
+      | hlist_Forall2_nil _ => I
+      | hlist_Forall2_cons _ _ _ _ _ => conj _ _
+      end.
+    assumption. assumption.
+  Defined.
+
+  Lemma hlist_Forall2_inj
+    : forall  t ts
+         (Ts : hlist F (t :: ts)) (Us : hlist G (t :: ts)),
+      hlist_Forall2 P Ts Us <->
+      P (hlist_hd Ts) (hlist_hd Us) /\
+      hlist_Forall2 P (hlist_tl Ts) (hlist_tl Us).
+  Proof.
+    split. eapply hlist_Forall2_inj_impl.
+    intro.
+    rewrite (hlist_eta Ts). rewrite (hlist_eta Us).
+    destruct H; constructor; auto.
+  Defined.
+
+End hlist.
+
+Section hlist'.
+  Variables (T : Type) (F G : T -> Type) (P : forall (t : T), F t -> G t -> Prop).
+
+  Lemma hlist_Forall2_hlist_map_l
+  : forall F' (f : forall t, F' t -> F t) ts (xs : hlist _ ts) ys,
+      hlist_Forall2 P (hlist_map f xs) ys <->
+      hlist_Forall2 (fun t x y => P (f _ x) y) xs ys.
+  Proof.
+    induction xs; intros.
+    { rewrite (hlist_eta ys). simpl. split; constructor. }
+    { rewrite hlist_Forall2_inj. rewrite IHxs.
+      rewrite hlist_Forall2_inj. reflexivity. }
+  Defined.
+
+  Lemma hlist_Forall2_hlist_map_swap
+  : forall ts (xs : hlist _ ts) ys,
+      hlist_Forall2 P xs ys <->
+      hlist_Forall2 (fun t x y => P y x) ys xs.
+  Proof.
+    induction xs; intros.
+    { rewrite (hlist_eta ys). simpl. split; constructor. }
+    { rewrite hlist_Forall2_inj. rewrite IHxs.
+      rewrite hlist_Forall2_inj. reflexivity. }
+  Defined.
+
+End hlist'.
+
+Section hlist'''.
+  Variables (T : Type) (F G : T -> Type) (P : forall (t : T), F t -> G t -> Prop).
+
+  Lemma hlist_Forall2_hlist_map_r
+  : forall G' (f : forall t, G' t -> G t) ts (xs : hlist _ ts) ys,
+      hlist_Forall2 P xs (hlist_map f ys) <->
+      hlist_Forall2 (fun t x y => P x (f _ y)) xs ys.
+  Proof.
+    intros. rewrite hlist_Forall2_hlist_map_swap.
+    rewrite hlist_Forall2_hlist_map_l.
+    rewrite hlist_Forall2_hlist_map_swap.
+    reflexivity.
+  Defined.
+
+End hlist'''.
+
+Section hlist''.
+
+  Variables (T : Type) (F : T -> Type) (P : forall (t : T), F t -> F t -> Prop).
+
+  Lemma hlist_Forall2_hlist_Forall
+  : forall ts (xs : hlist _ ts),
+      hlist_Forall (fun t x => P x x) xs <->
+      hlist_Forall2 P xs xs.
+  Proof.
+    split.
+    { induction 1; constructor; auto. }
+    { induction xs; intros.
+      - constructor.
+      - apply hlist_Forall2_inj_impl in H. destruct H; constructor; auto. }
+  Defined.
+
+End hlist''.
+
 (* This is the universe of the reified language *)
 Universe Urefl.
+
+Section SimpleCat.
+  Variable I : Type.
+  
+  (** Category *)
+  Class SCat (arr : I -> I -> Type) : Type :=
+  { rel : forall {i i'}, arr i i' -> arr i i' -> Prop
+  ; id : forall i, arr i i
+  ; compose : forall {i i' i''}, arr i' i'' -> arr i i' -> arr i i''
+  ; Reflexive_rel :> forall {i i'}, Reflexive (@rel i i')
+  ; Transitive_rel :> forall {i i'}, Transitive (@rel i i')
+  ; id_compose : forall i i' (m : arr i i'), rel (compose (@id _) m) m
+  ; compose_id : forall i i' (m : arr i i'), rel (compose m (@id _)) m
+  ; compose_compose : forall i i' i'' i''' (a : arr i i') (b : arr i' i'') (c : arr i'' i'''),
+      rel (compose c (compose b a)) (compose (compose c b) a)
+  }.
+
+  Arguments rel [_] {_ _} _.
+  Arguments id {_ _} {_}.
+  Arguments compose {_ _} {_ _ _} _ _.
+
+  (** Functor *)
+  Class SFunctor (arr1 arr2 : I -> I -> Type) (SC1 : SCat arr1) (SC2 : SCat arr2)
+  : Type :=
+  { apply : forall {i i'}, arr1 i i' -> arr2 i i'
+  ; apply_id : forall {i}, rel i (apply (@id _ SC1 i)) (@id _ _ _)
+  ; apply_compose : forall i i' i'' (a : arr1 i' i'') (b : arr1 i i'),
+      rel _ (apply (compose a b)) (compose (apply a) (apply b))
+  }.
+
+End SimpleCat.
+
+Section subst_is_cat.
+  Variable Tsymbol : Type.
+  Variable Esymbol : type Tsymbol -> Type.
+
+  Variable tus : list (Tuvar Tsymbol).
+
+  Definition Vmigrator (tvs tvs' : list (type Tsymbol)) : Type :=
+    hlist (wtexpr Esymbol tus tvs') tvs.
+
+  Definition Vmigrator_id {tvs} : Vmigrator tvs tvs :=
+    hlist_map (fun t m => wtVar m) (members tvs).
+
+  Definition Vmigrator_compose {tvs tvs' tvs''}
+             (g : Vmigrator tvs' tvs'')
+  : Vmigrator tvs tvs' -> Vmigrator tvs tvs'' :=
+    hlist_map (fun t e => subst g e).
+
+  Variable Rexpr : forall tvs t, wtexpr Esymbol tus tvs t -> wtexpr Esymbol tus tvs t -> Prop.
+
+  Definition RVmigrator (tvs tvs' : list (type Tsymbol))
+             : Vmigrator tvs tvs' -> Vmigrator tvs tvs' -> Prop :=
+    @hlist_Forall2 _ _ _ (fun _ e1 e2 => Rexpr e1 e2) _.
+
+  Variable Refl_Rexpr : forall tvs t, Reflexive (@Rexpr tvs t).
+  Variable Trans_Rexpr : forall tvs t, Transitive (@Rexpr tvs t).
+
+  Theorem Refl_RVmigrator : forall tvs tvs', Reflexive (@RVmigrator tvs tvs').
+  Proof.
+    red. red.
+    induction x; constructor.
+    - reflexivity.
+    - assumption.
+  Defined.
+
+  Theorem Trans_RVmigrator : forall tvs tvs', Transitive (@RVmigrator tvs tvs').
+  Proof.
+    red. red.
+    induction 1.
+    - rewrite (hlist_eta z). constructor.
+    - intro. eapply hlist_Forall2_inj in H1.
+      rewrite (hlist_eta z). destruct H1. constructor; auto. etransitivity; eassumption.
+  Defined.
+
+  Lemma subst_id : forall tvs ts t (e : wtexpr Esymbol tus (ts ++ tvs) t),
+      subst Vmigrator_id e = e.
+  Proof.
+    intro.
+    refine (@wtexpr_ind_app _ _ _ _ _ _ _ _ _ _); simpl; intros; eauto.
+    - unfold Vmigrator_id. rewrite hlist_get_hlist_map.
+      rewrite hlist_get_members. reflexivity.
+    - f_equal; eauto.
+    - f_equal.
+      etransitivity; [ | eapply H ].
+      f_equal. unfold Vmigrator_id. simpl.
+      repeat rewrite hlist_map_hlist_map.
+      reflexivity.
+    - f_equal. clear - H.
+      induction H; simpl; auto.
+      f_equal; eauto.
+  Defined.
+
+  Theorem Vmigrator_id_compose : forall i i' (m : Vmigrator i i'),
+      RVmigrator (Vmigrator_compose (@Vmigrator_id _) m) m.
+  Proof.
+    red.
+    unfold Vmigrator_compose; intros.
+    eapply hlist_Forall2_hlist_map_l.
+    eapply hlist_Forall2_hlist_Forall.
+    induction m; constructor; eauto.
+    generalize (@subst_id _ nil _ f). simpl.
+    intro H; rewrite H. reflexivity.
+  Defined.
+
+  Lemma hlist_Forall2_members_l:
+    forall (T : Type) (i : list T) (T0 : T -> Type) (m : hlist T0 i)
+      (P : forall t : T, member t i -> T0 t -> Prop) 
+      ,
+      hlist_Forall (fun (t : T) (mem : member t i) => P t mem (hlist_get mem m)) (members i) ->
+      hlist_Forall2 P (members i) m.
+  Proof.
+    clear. induction m; intros.
+    - constructor.
+    - simpl in *.
+      constructor; eauto.
+      Focus 2. rewrite hlist_Forall2_hlist_map_l.
+      eapply IHm.
+      admit.
+      admit.
+  Admitted.
+      
+
+  Theorem Vmigrator_compose_id : forall i i' (m : Vmigrator i i'),
+      RVmigrator (Vmigrator_compose m (@Vmigrator_id _)) m.
+  Proof.
+    red.
+    unfold Vmigrator_compose; intros.
+    eapply hlist_Forall2_hlist_map_l.
+    unfold Vmigrator_id.
+    eapply hlist_Forall2_hlist_map_l.
+    simpl.
+    eapply hlist_Forall2_members_l.
+    admit.
+  Admitted.
+
+  Lemma hlist_Forall_pure : forall T (F : T -> Type) (P : forall t, F t -> Prop) ls (hs : hlist F ls),
+      (forall t x, P t x) ->
+      hlist_Forall P hs.
+  Proof.
+    clear.
+    induction hs; constructor; eauto.
+  Defined.
+
+  Definition Vmigrator_weaken_pre i i' ts
+  : Vmigrator i i' -> Vmigrator i (ts ++ i') :=
+    hlist_map (fun t e => wtexpr_lift ts nil e).
+  Definition Vmigrator_weaken_post i i' ts
+  : Vmigrator i i' -> Vmigrator i (i' ++ ts) :=
+    let mig :=
+        match app_nil_r_trans i' in _ = X , app_nil_r_trans ts in _ = Y
+              return forall t, wtexpr _ _ X t -> wtexpr _ _ (_ ++ Y) t
+        with
+        | eq_refl , eq_refl => @wtexpr_lift _ _ _ _ ts i'
+        end
+    in hlist_map mig.
+
+  Definition Vmigrator_par a b d
+  : Vmigrator a d -> Vmigrator b d -> Vmigrator (a ++ b) d :=
+    @hlist_app _ _ _ _.
+
+  Theorem Vmigrator_par_compose : forall i i' i'' i''' a b d,
+      RVmigrator (Vmigrator_compose d (@Vmigrator_par i i' i'' a b))
+                 ((@Vmigrator_par i i' i''' (Vmigrator_compose d a) (Vmigrator_compose d b))).
+  Proof.
+    clear - Refl_Rexpr.
+    unfold Vmigrator_compose, Vmigrator_par, RVmigrator. simpl.
+    intros. rewrite <- hlist_app_hlist_map.
+    rewrite hlist_Forall2_hlist_map_l.
+    rewrite hlist_Forall2_hlist_map_r.
+    apply hlist_Forall2_hlist_Forall.
+    apply hlist_Forall_pure.
+    intros; reflexivity.
+  Defined.
+
+
+
+  Lemma subst_subst:
+    forall (i' : list (type Tsymbol))
+      ts (t : type Tsymbol) (x : wtexpr Esymbol tus (ts ++ i') t)
+      i'' i'''  (c : Vmigrator i'' i''') (b : Vmigrator (ts ++ i') i'') ,
+      subst c (subst b x) =
+      subst (hlist_map (fun (t0 : type Tsymbol) (e : wtexpr Esymbol tus i'' t0) => subst c e) b) x.
+  Proof.
+    clear. intro.
+    refine (@wtexpr_ind_app _ _ _ _ _ _ _ _ _ _); simpl; intros; eauto.
+    { rewrite hlist_get_hlist_map. reflexivity. }
+    { f_equal; eauto. }
+    { f_equal. rewrite hlist_map_hlist_map.
+      rewrite H; clear H. simpl.
+      rewrite hlist_map_hlist_map.
+      f_equal. f_equal.
+      eapply hlist_map_ext.
+      intros.
+      generalize (@subst_wtexpr_lift _ Esymbol tus nil _ _ t (d :: nil)
+                                     _ Hnil (Hcons (wtVar (MZ d i''')) Hnil)
+                                     (hlist_map (fun (t0 : type Tsymbol) (e : wtexpr Esymbol tus i''' t0) => wtexpr_lift (d :: nil) nil e)
+                                                c0)).
+      simpl. intro H.
+      change_rewrite H; clear H.
+      clear.
+      Check wtexpr_lift.
+      change (subst (@Vmigrator_lift _ _ (d :: nil) c0) t = wtexpr_lift (d :: nil) nil (subst c0 t)).
+
+      Lemma wtexpr_lift_subst:
+        forall (i'' : list (type Tsymbol))
+          ts (x : type Tsymbol) (t : wtexpr Esymbol tus (ts ++ i'') x)
+          i'''
+          (c0 : Vmigrator (ts ++ i'') i''') z,
+          subst (Vmigrator_lift z c0) t = wtexpr_lift z nil (subst c0 t).
+      Proof.
+        unfold Vmigrator_lift.
+        intro.
+        refine (@wtexpr_ind_app _ _ _ _ _ _ _ _ _ _); simpl; intros; eauto.
+        { rewrite hlist_get_hlist_map. reflexivity. }
+        { f_equal; eauto. }
+        { f_equal. rewrite hlist_map_hlist_map.
+
+
+  Theorem Vmigrator_compose_compose
+  : forall i i' i'' i''' (a : Vmigrator i i') (b : Vmigrator i' i'') (c : Vmigrator i'' i'''),
+      RVmigrator (Vmigrator_compose c (Vmigrator_compose b a))
+                 (Vmigrator_compose (Vmigrator_compose c b) a).
+  Proof.
+    unfold Vmigrator_compose. intros.
+    rewrite hlist_map_hlist_map.
+    red.
+    rewrite hlist_Forall2_hlist_map_l.
+    rewrite hlist_Forall2_hlist_map_r.
+    eapply hlist_Forall2_hlist_Forall.
+    eapply hlist_Forall_pure.
+    intros.
+
+      
+
+
+
+Section Migrator.
+  Variable I : Type.
+  Variable T : I -> Type.
+
+  Variable m : 
+
+  Class Migrator (m : I -> I -> Type)
+        (Rm : forall i i', m i i' -> m i i' -> Prop)
+        (Rt : forall i, T i -> T i -> Prop)
+  : Type :=
+  { migrate : forall i i', m i i' -> T i -> T i'
+  ; Proper_migrate : forall i i',
+      Proper (@Rm i i' ==> Rt i ==> Rt i') (@migrate i i')
+  }.
+
+
+
+  Context {SC : SCat m}.
+
+End Migrator.
 
 Section simple_dep_types.
   Variable Tsymbol : Type.
@@ -452,4 +813,4 @@ End simple_dep_types.
 
 Arguments migrator {_} _ _ _.
 Arguments migrator_id {_ _ tus}.
-Arguments migrator_fresh {_ _} _ _.
+Arguments migrator_fresh {_ _} _ _.q_eq

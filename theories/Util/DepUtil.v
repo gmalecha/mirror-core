@@ -120,9 +120,15 @@ Section member_eq_dec.
       with
       | nil => member_weaken ls'
       | l :: ls'' => fun m =>
-                       match m in member _ (x :: xs)
-                             return forall xs', (member t xs -> member t xs') ->
-                                                member t (x :: xs')
+                      match m in member _ X
+                            return forall xs', match X return Type with
+                                          | nil => unit
+                                          | x :: xs => member t xs -> member t xs'
+                                          end ->
+                                          match X return Type with
+                                          | nil => unit
+                                          | x :: xs => member t (x :: xs')
+                                          end
                        with
                        | MZ _ _ => fun _ _ => MZ _ _
                        | MN _ m => fun _ rec => MN _ (rec m)
