@@ -10,8 +10,8 @@ main components.
 
 The system is described at a mathematical level in two works:
 
-- [Extensible Proof Engineering in Intensional Type Theory](https://gmalecha.github.io/publications/extensible-proof-engineering-in-intensional-type-theory.html) by Gregory Malecha (PhD Dissertation)
-- [Extensible and Efficient Automation through Reflective Tactics](http://gmalecha.github.io/publication/2016/01/01/extensible-and-efficient-automation-through-reflective-tactics/) by Gregory Malecha & Jesper Bengtson (ESOP'16)
+- [Extensible Proof Engineering in Intensional Type Theory](https://gmalecha.github.io/publications/2015/extensible-proof-engineering-in-intensional-type-theory) by Gregory Malecha (PhD Dissertation)
+- [Extensible and Efficient Automation through Reflective Tactics](https://gmalecha.github.io/publications/2016/extensible-and-efficient-automation-through-reflective-tactics) by Gregory Malecha & Jesper Bengtson (ESOP'16)
 
 Bugs
 ----
