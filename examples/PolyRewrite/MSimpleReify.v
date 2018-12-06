@@ -1,6 +1,10 @@
 Require Import Coq.Lists.List.
 Require Import MirrorCore.Reify.Reify.
+<<<<<<< HEAD
+Require Import MirrorCore.Types.ModularTypes.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.PolyRewrite.MSimple.
 

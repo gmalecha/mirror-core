@@ -36,14 +36,18 @@ theories/Polymorphic.v
 theories/Subst/UVarMap.v
 theories/Subst/FMapSubst.v
 
-theories/CTypes/CoreTypes.v
-theories/CTypes/GenericTypes.v
-theories/CTypes/TSyms.v
-theories/CTypes/TSymOneOf.v
-theories/CTypes/ProdType.v
-theories/CTypes/ListType.v
-theories/CTypes/BaseType.v
-theories/CTypes/CTypeUnify.v
+theories/Types/TSyms.v
+theories/Types/TSymOneOf.v
+
+theories/Types/ModularTypesT.v
+theories/Types/FTypes.v
+theories/Types/HTypes.v
+
+theories/PLemmaT.v
+theories/Lambda/PolyInstT.v
+theories/PolymorphicF.v
+theories/Lambda/Rewrite/HintDbsT.v
+theories/Lambda/Rewrite/RespectfulT.v
 
 theories/Util/Approx.v
 theories/Util/Iteration.v
@@ -54,6 +58,8 @@ theories/Util/Nat.v
 theories/Util/HListBuild.v
 theories/Util/Compat.v
 theories/Util/SemiDec.v
+theories/Util/PositivePolyMap.v
+theories/Util/PolyAcc.v
 
 theories/syms/SymEnv.v
 theories/syms/SymPolyEnv.v
@@ -99,7 +105,6 @@ theories/Lambda/Rewrite/Repeat.v
 theories/Lambda/Rewrite/Reduce.v
 theories/Lambda/Rewrite/Respectful.v
 theories/Lambda/Rewrite/Rewrite.v
-theories/Lambda/Rewrite/HintDbs.v
 
 theories/Views/View.v
 theories/Views/TypeView.v
@@ -108,6 +113,10 @@ theories/Views/Ptrns.v
 theories/Views/Ptrns2.v
 theories/Views/ViewSum.v
 theories/Views/ViewSumN.v
+
+theories/Lib/ProdType.v
+theories/Lib/ListType.v
+theories/Lib/BaseType.v
 
 theories/Lib/ListView.v
 theories/Lib/NatView.v
@@ -123,7 +132,6 @@ theories/RTac/Ctx.v
 theories/RTac/Core.v
 theories/RTac/CoreK.v
 theories/RTac/IsSolved.v
-theories/RTac/PApply.v
 theories/RTac/SpecLemmas.v
 theories/RTac/RunOnGoals.v
 theories/RTac/RunOnGoals_list.v
@@ -152,18 +160,20 @@ theories/RTac/Interface.v
 theories/RTac/Auto.v
 theories/RTac/RTac.v
 
+theories/RTac/PApplyT.v
+
 theories/Reify/Patterns.v
 theories/Reify/Reify.v
 theories/Reify/ReifyClass.v
 theories/Reify/ReifyView.v
 
-examples/Tauto/MSimpleTyp.v
-examples/Tauto/ILogic.v
-examples/Tauto/ILogicFunc.v
-examples/Tauto/ILogicReify.v
-examples/Tauto/Tauto.v
-examples/Tauto/LtacDemo.v
-examples/Tauto/RtacDemo.v
+# examples/Tauto/MSimpleTyp.v
+# examples/Tauto/ILogic.v
+# examples/Tauto/ILogicFunc.v
+# examples/Tauto/ILogicReify.v
+# examples/Tauto/Tauto.v
+# examples/Tauto/LtacDemo.v
+# examples/Tauto/RtacDemo.v
 
 examples/Cancel/Monoid.v
 examples/Cancel/MonoidSyntaxSimple.v

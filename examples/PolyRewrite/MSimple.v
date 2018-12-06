@@ -9,14 +9,13 @@ Require Import ExtLib.Data.Map.FMapPositive.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
-Require Import MirrorCore.CTypes.CoreTypes.
-Require Import MirrorCore.CTypes.CTypeUnify.
-Require Import MirrorCore.CTypes.TSymOneOf.
+Require Import MirrorCore.Types.FTypes.
+Require Import MirrorCore.Types.TSymOneOf.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 
-Inductive typ' : nat -> Type :=
+Inductive typ' : kind -> Set :=
 | tyNat : typ' 0
 | tyBool : typ' 0.
 
@@ -36,7 +35,7 @@ refine
   end; try (intro H; inversion H).
 Defined.
 
-Instance TSym_typ' : TSym typ' :=
+Instance TSym_typ' : TSym kindD typ' :=
 { symbolD n s :=
     match s with
     | tyNat => nat
@@ -44,9 +43,9 @@ Instance TSym_typ' : TSym typ' :=
     end
 ; symbol_dec := typ'_dec }.
 
-Definition typ := ctyp typ'.
+Definition typ := ctype typ'.
 
-Global Instance RType_typ : RType typ := RType_ctyp _ _.
+Global Instance RType_typ : RType typ := RType_type _ _.
 Global Instance RTypeOk_typ : @RTypeOk _ RType_typ := RTypeOk_ctyp _ _.
 
 Inductive func :=

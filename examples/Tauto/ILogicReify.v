@@ -1,6 +1,6 @@
 Require Import Coq.Lists.List.
 Require Import MirrorCore.Reify.Reify.
-Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.Types.FTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import McExamples.Tauto.MSimpleTyp.
 Require Import McExamples.Tauto.ILogic.

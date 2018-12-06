@@ -10,12 +10,21 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+<<<<<<< HEAD
+Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.TSymOneOf.
+Require Import MirrorCore.Lambda.Ptrns.
+Require Import MirrorCore.Lib.ListType.
+Require Import MirrorCore.Lib.BaseType.
+Require Import MirrorCore.Lib.ProdType.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.CTypes.TSymOneOf.
 Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.CTypes.ListType.
 Require Import MirrorCore.CTypes.BaseType.
 Require Import MirrorCore.CTypes.ProdType.
+>>>>>>> master
 Require Import MirrorCore.Views.ViewSumN.
 Require Import MirrorCore.Reify.ReifyClass.
 Require Import MirrorCore.Reify.ReifyView.

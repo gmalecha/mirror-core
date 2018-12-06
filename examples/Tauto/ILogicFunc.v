@@ -23,13 +23,13 @@ Require Import McExamples.Tauto.ILogic.
 Require Import McExamples.Tauto.MSimpleTyp.
 
 Require Import Coq.Bool.Bool.
-Require Import MirrorCore.CTypes.CTypeUnify.
+Require Import MirrorCore.Types.FTypes.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Maximal Implicit Insertion.
 
-Inductive ilfunc : Type :=
+Inductive ilfunc : Set :=
 | ilf_entails (logic : typ)
 | ilf_true (logic : typ)
 | ilf_false (logic : typ)
@@ -39,9 +39,10 @@ Inductive ilfunc : Type :=
 | ilf_exists (arg logic : typ)
 | ilf_forall (arg logic : typ).
 
+Print typ.
 (* like ctype_unify, takes a number of variabes to find *)
-Definition ilfunc_unify (n : nat) (a b : ilfunc) (s : FMapPositive.pmap typ)
-  : option (FMapPositive.pmap typ) :=
+Definition ilfunc_unify (n : nat) (a b : ilfunc) (s : TSub typ')
+: option (TSub typ') :=
   match n with
   | 0 => None
   | S _ =>
@@ -52,19 +53,18 @@ Definition ilfunc_unify (n : nat) (a b : ilfunc) (s : FMapPositive.pmap typ)
     | ilf_and t , ilf_and t'
     | ilf_or t , ilf_or t'
     | ilf_impl t , ilf_impl t' =>
-      match ctype_unify _ n t t' s with
-      | Some (s', _) => Some s'
+      match ctype_unify t t' s with
+      | Some s' => Some s'
       | _ => None
       end
     | ilf_exists t l , ilf_exists t' l'
     | ilf_forall t l , ilf_forall t' l' =>
-      match ctype_unify _ n t t' s with
-      | Some (s', S k) =>
-        match ctype_unify _ (S k) l l' s' with
-        | Some (s'', _) => Some s''
+      match ctype_unify t t' s with
+      | Some s' =>
+        match ctype_unify l l' s' with
+        | Some s'' => Some s''
         | _ => None
         end
-      | Some (s', 0) => Some s'
       | None => None
       end
     | _ , _ => None
@@ -73,14 +73,14 @@ Definition ilfunc_unify (n : nat) (a b : ilfunc) (s : FMapPositive.pmap typ)
 
 Definition ilfunc_logic (x : ilfunc) : typ :=
   match x with
-    | ilf_entails t => t
-    | ilf_true t => t
-    | ilf_false t => t
-    | ilf_and t => t
-    | ilf_or t => t
-    | ilf_impl t => t
-    | ilf_exists _ t => t
-    | ilf_forall _ t => t
+  | ilf_entails t => t
+  | ilf_true t => t
+  | ilf_false t => t
+  | ilf_and t => t
+  | ilf_or t => t
+  | ilf_impl t => t
+  | ilf_exists _ t => t
+  | ilf_forall _ t => t
   end.
 
 Section ILogicFuncInst.
@@ -327,14 +327,14 @@ Section ILFunc_insts.
 
   Global Instance Expr_ok : @ExprI.ExprOk typ RType_typ (expr typ ilfunc) Expr_expr :=
     @ExprOk_expr typ ilfunc _ _ _ _ _ _.
-  
+
   Global Instance ExprVar_expr : ExprVar (expr typ ilfunc) := _.
-  
+
   Global Instance ExprVarOk_expr : ExprVarOk ExprVar_expr := _.
-  
+
   Global Instance ExprUVar_expr : ExprUVar (expr typ ilfunc) := _.
   Global Instance ExprUVarOk_expr : ExprUVarOk ExprUVar_expr := _.
-  
+
   Definition subst : Type :=
     FMapSubst.SUBST.raw (expr typ ilfunc).
   Global Instance SS : SubstI.Subst subst (expr typ ilfunc) :=

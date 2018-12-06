@@ -9,10 +9,15 @@ Require Import ExtLib.Tactics.
 Require Import MirrorCore.ExprI.
 Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
+<<<<<<< HEAD:examples/PolyRewrite/MSimpleMonads.v
+Require Import MirrorCore.Types.ModularTypes.
+Require Import MirrorCore.Types.TSymOneOf.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
 Require Import MirrorCore.CTypes.CTypeUnify.
 Require Import MirrorCore.CTypes.TSymOneOf.
 
+>>>>>>> master:examples/PolyRewrite/Monads/MSimpleMonads.v
 
 Set Implicit Arguments.
 Set Strict Implicit.

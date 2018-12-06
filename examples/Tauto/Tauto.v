@@ -4,7 +4,11 @@ Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
 
 Require Import MirrorCore.Lambda.Red.
+<<<<<<< HEAD
+Require Import MirrorCore.Types.ModularTypes.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.PLemma.
 Require Import MirrorCore.RTac.PApply.

@@ -16,7 +16,11 @@ Require Import MirrorCore.RTac.Intro.
 Require Import MirrorCore.RTac.Then.
 Require Import MirrorCore.RTac.RunOnGoals.
 Require Import MirrorCore.RTac.PApply.
+<<<<<<< HEAD
+Require Import MirrorCore.Types.ModularTypes.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master
 Require Import MirrorCore.Polymorphic.
 Require Import MirrorCore.PLemma.
 

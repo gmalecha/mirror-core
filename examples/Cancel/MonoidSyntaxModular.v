@@ -7,7 +7,7 @@ Require Import MirrorCore.TypesI.
 Require Import MirrorCore.SymI.
 Require MirrorCore.syms.SymEnv.
 Require MirrorCore.syms.SymSum.
-Require Import MirrorCore.CTypes.CoreTypes.
+Require Import MirrorCore.Types.FTypes.
 Require Import MirrorCore.Lambda.ExprCore.
 Require Import MirrorCore.Lambda.Expr.
 Require Import MirrorCore.Simple.
@@ -44,25 +44,25 @@ Module Syntax (M : Monoid).
     end; try solve [ clear - pf ; inversion pf ].
   Defined.
 
-  Definition typ'D {n} (t : typ' n) : type_for_arity n :=
+  Definition typ'D {n} (t : typ' n) : kindD n :=
     match t with
     | tyNat => nat
     | tyM => M.M
     end.
 
-  Instance TSym_typ' : TSym typ' :=
+  Instance TSym_typ' : TSym kindD typ' :=
   { symbolD := @typ'D
   ; symbol_dec := @typ'_dec }.
 
-  Definition typ : Set := ctyp typ'.
+  Definition typ : Set := ctype typ'.
 
   (* Instantiate the RType interface *)
-  Instance RType_typ : RType typ := RType_ctyp typ' _.
-  Instance RTypeOk_typ : RTypeOk := @RTypeOk_ctyp typ' _.
+  Instance RType_typ : RType typ := _.
+  Instance RTypeOk_typ : RTypeOk := _.
 
   (* Build instances for describing functions and Prop *)
-  Instance Typ2_tyArr : Typ2 RType_typ Fun := Typ2_Fun.
-  Instance Typ2Ok_tyArr : Typ2Ok Typ2_tyArr := Typ2Ok_Fun.
+  Instance Typ2_tyArr : Typ2 RType_typ Fun := _.
+  Instance Typ2Ok_tyArr : Typ2Ok Typ2_tyArr := _.
 
   Instance Typ0_tyProp : Typ0 RType_typ Prop := _.
   Instance Typ0Ok_tyProp : Typ0Ok Typ0_tyProp := _.
@@ -76,7 +76,8 @@ Module Syntax (M : Monoid).
 
   Definition func'_eq_dec : forall a b : func', {a = b} + {a <> b}.
   Proof.
-    decide equality; eauto using ctyp_dec, typ'_dec with typeclass_instances.
+    decide equality; eauto using EquivDec_typ with typeclass_instances.
+    all: eapply EquivDec_typ; eauto with typeclass_instances.
   Defined.
 
   Arguments tyArr {_} _ _.

@@ -111,7 +111,11 @@ Qed.
 Require Import MirrorCore.RTac.RTac.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.Lambda.Expr.
+<<<<<<< HEAD:examples/PolyRewrite/DemoPolyQuantPullRtac.v
+Require Import MirrorCore.Types.ModularTypes.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master:examples/PolyRewrite/QuantifierPuller/RtacDemo.v
 
 Instance Expr_expr : Expr typ (expr typ func) := Expr.Expr_expr.
 

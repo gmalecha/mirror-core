@@ -17,7 +17,11 @@ Require Import MirrorCore.Lambda.Ptrns.
 Require Import MirrorCore.Lambda.Rewrite.HintDbs.
 Require Import MirrorCore.Reify.Reify.
 Require Import MirrorCore.RTac.IdtacK.
+<<<<<<< HEAD:examples/PolyRewrite/PolyQuantPullRtac.v
+Require Import MirrorCore.Types.ModularTypes.
+=======
 Require Import MirrorCore.CTypes.CoreTypes.
+>>>>>>> master:examples/PolyRewrite/QuantifierPuller/PolyQuantPullRtac.v
 Require Import MirrorCore.Polymorphic.
 Require Import McExamples.PolyRewrite.MSimple.
 Require Import McExamples.PolyRewrite.MSimpleReify.
