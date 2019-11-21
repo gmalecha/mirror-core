@@ -28,8 +28,8 @@ Module UVar_ord <: OrderedType.OrderedType with Definition t := uvar
   Proof. eapply NPeano.Nat.lt_neq. Qed.
 
   Definition compare (x y : t) : OrderedType.Compare lt eq x y :=
-    match Compare_dec.nat_compare x y as r return
-      Compare_dec.nat_compare x y = r -> OrderedType.Compare lt eq x y
+    match PeanoNat.Nat.compare x y as r return
+      PeanoNat.Nat.compare x y = r -> OrderedType.Compare lt eq x y
       with
       | Lt => fun pf => OrderedType.LT (lt:=lt) (Compare_dec.nat_compare_Lt_lt _ _ pf)
       | Eq => fun pf => OrderedType.EQ (lt:=lt) (Compare_dec.nat_compare_eq _ _ pf)

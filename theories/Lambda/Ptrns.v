@@ -1,4 +1,7 @@
+Require Import Coq.Classes.Morphisms.
 Require Import ExtLib.Tactics.
+Require Import ExtLib.Relations.TransitiveClosure.
+Require Import MirrorCore.Util.Compat.
 Require Import MirrorCore.Views.Ptrns.
 Require Import MirrorCore.Views.FuncView. (* Ghost dependency *)
 Require Import MirrorCore.ExprI.
@@ -146,8 +149,6 @@ Section setoid.
       | _ , Var a => bad (Var a)
       | _ , UVar a => bad (UVar a)
       end.
-
-  Require Import ExtLib.Relations.TransitiveClosure.
 
   Theorem Succeeds_var : forall v e,
       Succeeds e var v ->
@@ -493,9 +494,6 @@ Section setoid.
   Global Existing Instance Typ1_App.
   Global Existing Instance Typ0_term.
   Global Existing Instance MirrorCore.ExprI.Applicative_exprT.
-
-  Require Import MirrorCore.Util.Compat.
-  Require Import Coq.Classes.Morphisms.
 
   Theorem exprT_App_castR tus tvs T U (T0 : Typ0 _ T) (U0 : Typ0 _ U)
           (e1 : exprT tus tvs (RFun T U))

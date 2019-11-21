@@ -1,6 +1,7 @@
 Require Import Coq.Classes.Morphisms.
 Require Import Coq.Bool.Bool.
 Require Import ExtLib.Core.RelDec.
+Require Import ExtLib.Data.Prop.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
@@ -288,7 +289,6 @@ Section env.
             - right. eauto. } }
     { rewrite IHe.
       eapply or_iff_compat_l.
-      Require Import ExtLib.Data.Prop.
       clear. split; intros; forward_reason.
       - forward. subst. eauto.
       - exists (S x). eauto. }

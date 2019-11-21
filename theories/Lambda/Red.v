@@ -30,7 +30,7 @@ Section substitute.
   : expr typ sym :=
     match e with
     | Var v' =>
-      match nat_compare v v' with
+      match Nat.compare v v' with
       | Eq => w
       | Lt => Var (v' - 1)
       | Gt => Var v'
@@ -49,7 +49,7 @@ Section substitute.
   Proof.
     induction e; simpl; intros;
     forward; inv_all; subst; Cases.rewrite_all_goal; auto.
-    { consider (nat_compare (length tvs) v).
+    { consider (Nat.compare (length tvs) v).
       { intros. apply nat_compare_eq in H1.
         subst. rewrite nth_error_app_R in H0.
         replace (length tvs - length tvs) with 0 in H0 by omega.
@@ -92,7 +92,7 @@ Section substitute.
   Proof.
     induction e; simpl; intros; autorewrite with exprD_rw; simpl;
     forward; inv_all; subst.
-    { simpl. consider (nat_compare (length tvs) v); intros.
+    { simpl. consider (Nat.compare (length tvs) v); intros.
       { apply nat_compare_eq in H. subst.
         eapply nth_error_get_hlist_nth_Some in H2.
         destruct H2. simpl in *.

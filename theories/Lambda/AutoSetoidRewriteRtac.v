@@ -28,6 +28,9 @@ Require Import MirrorCore.Lambda.ExprUnify.
 Require Import MirrorCore.Lambda.AppN.
 Require Import MirrorCore.Lambda.ExprSubstitute.
 Require Import MirrorCore.Lambda.RewriteRelations.
+Require Import MirrorCore.RTac.SolveK.
+Require Import MirrorCore.RTac.CoreK.
+Require Import MirrorCore.RTac.IdtacK.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -399,8 +402,8 @@ Section setoid.
           end
         | _ => respectfulness (Abs t e') es rg
         end
-      | Var v => respectfulness (Var v) es rg
-      | UVar u => respectfulness (UVar u) es rg
+      | ExprCore.Var v => respectfulness (Var v) es rg
+      | ExprCore.UVar u => respectfulness (UVar u) es rg
       | Inj i => respectfulness (Inj i) es rg
       end.
 
@@ -1469,8 +1472,6 @@ Section setoid.
         | existT _ ctx' cs' => @existT _ _ (CAll ctx' t) (AllSubst cs')
         end
       end.
-
-    Require Import MirrorCore.RTac.SolveK.
 
     (** TODO(gmalecha): This is not a nice interface because it is not
      ** a standard rewriter for two reasons:
@@ -3155,8 +3156,6 @@ Section setoid.
       simpl. rewrite IHr2. reflexivity.
     Qed.
 
-    Require Import MirrorCore.RTac.CoreK.
-
     Definition apply_respectful (lem : Proper_lemma)
                (tacK : rtacK typ (expr typ func))
     : respectful_dec :=
@@ -3316,7 +3315,6 @@ Section setoid.
       red. intros. inversion H.
     Qed.
 
-    Require Import MirrorCore.RTac.IdtacK.
 
     Fixpoint do_respectful (propers : list (expr typ func * R))
     : respectful_dec :=

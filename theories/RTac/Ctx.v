@@ -2231,8 +2231,8 @@ Section parameterized.
                   with (Subst_subst:=Subst_ctx_subst _)
                        (s:=ExsSubst (ts:=ts) s s') ].
         forward_reason.
-        Focus 4. simpl. rewrite H10. rewrite H11.
-        rewrite H12. reflexivity.
+        4:{ simpl. rewrite H10. rewrite H11.
+            rewrite H12. reflexivity. }
         3: constructor; eauto.
         forward_reason.
         unfold amap_check_set in H4.
@@ -2304,13 +2304,13 @@ Section parameterized.
         { rewrite Proper_mentionsAny. 2: eauto.
           4: reflexivity.
           3: instantiate (1 := fun x => (fun _ => false) x || (fun _ => false) x); reflexivity.
-          Focus 2.
+          2:{
           instantiate (1 := fun u =>
                               (fun u => if amap_lookup u s' then true else false) u
                            || (fun u => if ctx_lookup u c0 then true else false) u).
           clear. red; simpl; intros. subst.
           rewrite amap_lookup_amap_instantiate.
-          destruct (amap_lookup y s'); auto.
+          destruct (amap_lookup y s'); auto. }
           erewrite mentionsAny_factor; eauto.
           change_rewrite H5.
           rewrite orb_false_r.
@@ -2401,7 +2401,7 @@ Section parameterized.
           with (f := fun u' : nat => if uv ?[ eq ] u' then Some e' else None)
           in H13.
         2: eauto. 3: destruct H; eauto.
-        Focus 3.
+        3:{
         instantiate (1 := fun P =>
                             forall us vs,
                               x1 us = x2 us vs ->
@@ -2410,10 +2410,10 @@ Section parameterized.
         inv_all; subst.
         rewrite H10 in H17. inv_all; subst.
         eexists; split; eauto.
-        intros. rewrite H20. rewrite <- H4. assumption.
-        Focus 2.
+        intros. rewrite H20. rewrite <- H4. assumption. }
+        2:{
         clear. constructor. intros. eauto.
-        intros. eauto.
+        intros. eauto. }
 
         forward_reason.
         rewrite H3.

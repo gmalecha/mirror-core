@@ -71,9 +71,9 @@ Section ilogic.
 End ilogic.
 
 Arguments ILogicOps L : rename, clear implicits.
-Arguments ILogic _ {ILOps} : rename, clear implicits.
-Arguments lforallL {_ _ _ _ _ _ _} _ : rename, clear implicits.
-Arguments lexistsR {_ _ _ _} _ {_ _} _ : rename, clear implicits.
+Arguments ILogic _ {ILOps} : rename.
+Arguments lforallL {_ _ _ _ _ _ _} _ : rename.
+Arguments lexistsR {_ _ _ _} _ {_ _} _ : rename.
 
 Infix "|--"  := lentails (at level 80, no associativity).
 Infix "//\\"   := land (at level 75, right associativity).
@@ -131,7 +131,7 @@ Section ILogicEmbed.
 End ILogicEmbed.
 
 Arguments EmbedOp _ _ : clear implicits.
-Arguments Embed _ _ {_ _ _} : clear implicits.
+Arguments Embed _ _ {_ _ _}.
 
 (** Basic Instances **)
 

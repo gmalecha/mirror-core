@@ -1927,8 +1927,8 @@ Section parameterized.
                  with (u - length (getUVars c ++ tus))
                    in *
                    by (rewrite app_length; clear; omega).
-              Focus 2. rewrite app_length in H0. omega.
-              Focus 2. rewrite app_length in H0. omega.
+              2: rewrite app_length in H0; omega.
+              2: rewrite app_length in H0; omega.
               clear H.
               generalize dependent (u - length (getUVars c ++ tus)).
               clear H0. clear u.
