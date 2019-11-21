@@ -64,16 +64,16 @@ Section instantiate.
   Proof.
     red. unfold instantiate.
     intros. remember (expr_subst f (fun _ : var => None) (length tvs') e).
-    symmetry in Heqy.
+    symmetry in Heqe0.
     eapply expr_subst_sound_ho
       with (tus:=tus) (tvs:=tvs) (tus':=tus) (tvs':=tvs) (_tvs:=tvs') (t:=t)
-           (P:=fun Q => P (fun a b => Q a b a b)) (eD := eD) in Heqy;
+           (P:=fun Q => P (fun a b => Q a b a b)) (eD := eD) in Heqe0;
       eauto.
     { clear - EApp.
       constructor.
       { intros. eapply exprTPure. eauto. }
       { intros. revert H0. eapply exprTAp. eauto. } }
-    { clear Heqy H0. intros.
+    { clear Heqe0 H0. intros.
       specialize (H u).
       destruct (f u).
       { specialize (H _ _ _ eq_refl H1).

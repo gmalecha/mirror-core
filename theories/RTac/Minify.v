@@ -1799,7 +1799,7 @@ Section parameterized.
             destruct H3.
             { rewrite rel_dec_eq_true.
               2: eauto with typeclass_instances.
-              Focus 2. rewrite Hes_tus_len. subst base. rewrite <- app_length. assumption.
+              2:{ rewrite Hes_tus_len. subst base. rewrite <- app_length. assumption. }
               rewrite nth_error_get_hlist_nth_conv with (pf:=app_ass_trans _ _ _) in H1.
               autorewrite_with_eq_rw_in H1.
               forwardy.
@@ -1907,7 +1907,7 @@ Section parameterized.
 
             { rewrite rel_dec_neq_false.
               2: eauto with typeclass_instances.
-              Focus 2. rewrite Hes_tus_len. subst base. rewrite <- app_length. omega.
+              2:{ rewrite Hes_tus_len. subst base. rewrite <- app_length. omega. }
               subst base. rewrite Hes_tus_len.
               assert (length
                         (filter

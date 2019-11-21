@@ -208,7 +208,7 @@ Ltac arrow_case t :=
 
 Ltac arrow_case_any :=
   match goal with
-    | H : appcontext [ @typ2_match _ _ _ _ _ ?X ] |- _ =>
+    | H : context [ @typ2_match _ _ _ _ _ ?X ] |- _ =>
       arrow_case X
   end.
 

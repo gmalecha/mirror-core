@@ -829,7 +829,8 @@ Section typed.
                 generalize (@symD A B C D E)
             end.
             rewrite H2. rewrite type_cast_refl; eauto.
-            compute. congruence. } } } }
+            (* bug!: doing [compute] here makes [congruence] fail *)
+            congruence. } } } }
     { (** App **)
       simpl; split.
       { destruct e2; try solve [ congruence | eapply handle_uvar; eauto ].

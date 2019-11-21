@@ -261,7 +261,7 @@ Section substitute.
           eapply nth_error_get_hlist_nth_None in H7. congruence. } } }
     { autorewrite with exprD_rw in *; simpl in *.
       match goal with
-        | H : appcontext [ @typ2_match _ _ _ _ _ ?Y ] |- _ =>
+        | H : context [ @typ2_match _ _ _ _ _ ?Y ] |- _ =>
           let H := fresh in
           destruct (@typ2_match_case _ _ _ _ _ Y) as [ [ ? [ ? [ ? H ] ] ] | H ];
             ( try rewrite H in * )
@@ -387,8 +387,7 @@ Section substitute.
         match goal with
           | |- ?X = ?Y =>
             consider X; consider Y; auto; try solve [ intros; exfalso ; omega ]
-        end. intros.
-        rewrite NPeano.Nat.add_cancel_r in H1. exfalso; auto. } }
+        end.  } }
     { rewrite IHx1. rewrite IHx2. reflexivity. }
     { specialize (IHx (S z)). apply IHx. }
   Qed.

@@ -4,7 +4,7 @@ Require Import ExtLib.Core.RelDec.
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Relations.TransitiveClosure.
 Require Import ExtLib.Recur.Relation.
-Require Import ExtLib.Tactics.Consider.
+Require Import ExtLib.Tactics.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -195,7 +195,6 @@ Section env.
                   (fun v : var => fv v || fv' v) e =
       mentionsAny fu fv e || mentionsAny fu' fv' e.
   Proof.
-    Require Import ExtLib.Tactics.
     induction e; simpl; auto; intros; Cases.rewrite_all_goal.
     { forward. simpl. rewrite orb_true_r. reflexivity. }
     { rewrite <- IHe. eapply Proper_mentionsAny; eauto.
@@ -340,4 +339,3 @@ Arguments _mentionsV {typ func} _ _.
 Hint Constructors TransitiveClosure.leftTrans : acc_db.
 Hint Constructors TransitiveClosure.rightTrans : acc_db.
 Hint Constructors expr_acc : acc_db.
-

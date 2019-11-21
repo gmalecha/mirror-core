@@ -51,10 +51,7 @@ Section mentionsU.
         | |- ?X = ?Y =>
           consider X; consider Y; intros; try reflexivity;
           subst; try solve [ exfalso ; omega ]
-      end.
-      { rewrite NPeano.Nat.add_sub in H2. congruence. }
-      { assert (v_search - b + b = v_search) by omega.
-        congruence. } }
+      end. }
     { clear.
       consider (v_search ?[ lt ] a); try reflexivity.
       consider (v_search ?[ lt ] (a + b)); reflexivity. }

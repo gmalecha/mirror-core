@@ -1,8 +1,8 @@
 -Q theories MirrorCore
 -Q examples McExamples
 
--I src
--I $(COQLIB)/user-contrib/PluginUtils
+# -I src
+# -I $(COQLIB)/user-contrib/PluginUtils
 
 # src/reify_Lambda_shell.ml4
 # src/reify_Lambda_plugin.mllib

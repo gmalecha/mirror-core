@@ -491,7 +491,6 @@ Section parameterized.
     (rewrite SUBST.PROPS.fold_Equal with (eqA := @eq nat); try eassumption); eauto.
     compute; intros; subst; auto.
     compute; intros; subst; auto.
-    rewrite <- plus_n_O.
     rewrite SUBST.PROPS.fold_add. reflexivity.
     eauto.
     compute; intros; subst; auto.

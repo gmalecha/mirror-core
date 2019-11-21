@@ -825,8 +825,8 @@ Section reducer.
         clear H0; intros.
         forward_reason. simpl in *.
         eapply rec_sound in H0; eauto.
-        Focus 2. eapply var_termsP_nil.
-        intros. eapply H3.
+        2:{ eapply var_termsP_nil.
+            intros. eapply H3. }
         eapply H0 in H1; clear H0.
         forward_reason.
         eexists; split; eauto. intros.
