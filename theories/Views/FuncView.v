@@ -120,11 +120,11 @@ Section FuncView.
   Defined.
 
   Global Instance Injective_exprD'_f_insert (a : A) (t : typ) (v : typD t)
-  : Injective (symAs (f_insert a) t = Some v) :=
-  { result := symAs a t = Some v
-  ; injection := fun H => _
-  }.
+  : Injective (symAs (f_insert a) t = Some v).
   Proof.
+    refine {| result := symAs a t = Some v
+  ; injection := fun H => _
+  |}.
     rewrite fv_compat; assumption.
   Defined.
 

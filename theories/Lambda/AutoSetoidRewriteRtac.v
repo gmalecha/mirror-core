@@ -232,9 +232,9 @@ Section setoid.
   Qed.
 
   Instance Injective_mrw_equiv_rw_ret {T} (rT : T -> T -> Prop) (a b : T)
-  : Injective (mrw_equiv rT (rw_ret a) (rw_ret b)) :=
-  { result := rT a b }.
+  : Injective (mrw_equiv rT (rw_ret a) (rw_ret b)).
   Proof using.
+    refine {| result := rT a b |}.
     unfold rw_ret. intros. red in H.
     specialize (H nil nil nil 0 0 _ (@TopSubst _ _ nil nil)).
     inv_all. assumption.

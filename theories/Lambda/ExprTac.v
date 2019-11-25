@@ -53,16 +53,16 @@ Section some_lemmas.
 
   Global Instance Injective_typ2 {F : Type -> Type -> Type}
          {Typ2_F : Typ2 RType_typ F} {Typ2Ok_F : Typ2Ok Typ2_F} a b c d :
-    Injective (typ2 a b = typ2 c d) :=
-  { result := a = c /\ b = d }.
+    Injective (typ2 a b = typ2 c d).
+  refine {| result := a = c /\ b = d |}.
   abstract (
       eapply typ2_inj; eauto ).
   Defined.
 
   Global Instance Injective_typ1 {F : Type -> Type}
          {Typ1_F : Typ1 RType_typ F} {Typ2Ok_F : Typ1Ok Typ1_F} a b
-  : Injective (typ1 a = typ1 b) :=
-  { result := a = b }.
+  : Injective (typ1 a = typ1 b).
+  refine {| result := a = b |}.
   abstract (
       eapply typ1_inj; eauto ).
   Defined.
@@ -105,24 +105,26 @@ Section some_lemmas.
 
   Global Instance Injective_lambda_exprD_App tus tvs (e1 e2 : expr typ sym) (t : typ)
          (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v) := {
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v).
+  Proof.
+    refine {|
       result := exists u v1 v2, ExprDsimul.ExprDenote.lambda_exprD tus tvs (typ2 u t) e1 = Some v1 /\
                                 ExprDsimul.ExprDenote.lambda_exprD tus tvs u e2 = Some v2 /\
                                 v = exprT_App v1 v2;
       injection := fun H => _
-    }.
-  Proof.
+    |}.
     autorewrite with exprD_rw in H.
     simpl in H. forward; inv_all; subst.
     do 3 eexists; repeat split; eassumption.
   Defined.
 
   Global Instance Injective_lambda_exprD_Inj tus tvs (f : sym) (t : typ) (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v) := {
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v).
+  Proof.
+    refine {|
       result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
       injection := fun H => _
-    }.
-  Proof.
+    |}.
     autorewrite with exprD_rw in H.
     simpl in H. forward; inv_all; subst.
     eexists; repeat split.

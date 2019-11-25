@@ -8,9 +8,9 @@ Section sum.
 
   Variable TSym_T : TSym T.
   Variable TSym_U : TSym U.
- 
-  Instance TSym_sum : TSym tsym_sum :=
-  { symbolD := fun n x =>
+
+  Instance TSym_sum : TSym tsym_sum.
+  refine {| symbolD := fun n x =>
                  match x in tsym_sum _ return type_for_arity n with
                  | TSym_left _ x => symbolD _ x
                  | TSym_right _ x => symbolD _ x
@@ -34,7 +34,7 @@ Section sum.
                     | TSym_left _ x , TSym_right _ y =>
                       right (fun _ => _)
                     end
-  }.
+  |}.
   all: congruence.
   Defined.
 End sum.

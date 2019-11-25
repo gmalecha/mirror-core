@@ -286,9 +286,10 @@ Section parameterized.
     end.
 
   Global Instance Injective_HypSubst h c s s'
-  : Injective (@HypSubst h c s = @HypSubst h c s') :=
-    { result := s = s' }.
-  Proof. clear.
+  : Injective (@HypSubst h c s = @HypSubst h c s').
+  Proof.
+   refine {| result := s = s' |}.
+   clear.
    refine (fun pf =>
              match pf in _ = Z
                    return match Z in ctx_subst c return ctx_subst c -> Prop with
@@ -301,9 +302,9 @@ Section parameterized.
   Defined.
 
   Global Instance Injective_AllSubst h c s s'
-  : Injective (@AllSubst h c s = @AllSubst h c s') :=
-    { result := s = s' }.
+  : Injective (@AllSubst h c s = @AllSubst h c s').
   Proof using.
+   refine {| result := s = s' |}.
    refine (fun pf =>
              match pf in _ = Z
                    return match Z in ctx_subst c return ctx_subst c -> Prop with
@@ -678,9 +679,9 @@ Section parameterized.
   }.
 
   Global Instance Injective_ExsSubst ts ctx a b c d
-  : Injective (ExsSubst (ts:=ts)(c:=ctx) a b = ExsSubst c d) :=
-    { result := a = c /\ b = d }.
+  : Injective (ExsSubst (ts:=ts)(c:=ctx) a b = ExsSubst c d).
   Proof using.
+  refine {| result := a = c /\ b = d |}.
   intro pf.
   refine (match pf in _ = X return
                 match X with
@@ -694,9 +695,9 @@ Section parameterized.
 
 
   Global Instance Injective_WellFormed_ctx_subst_All c t s
-  : Injective (WellFormed_ctx_subst (AllSubst (c:=c) (t:=t) s)) :=
-  { result := WellFormed_ctx_subst s }.
+  : Injective (WellFormed_ctx_subst (AllSubst (c:=c) (t:=t) s)).
   Proof using.
+    refine {| result := WellFormed_ctx_subst s |}.
     refine (fun x =>
               match x in WellFormed_ctx_subst z
                     return match z return Prop with
@@ -710,9 +711,9 @@ Section parameterized.
   Defined.
 
   Global Instance Injective_WellFormed_ctx_subst_Hyp c t s
-  : Injective (WellFormed_ctx_subst (HypSubst (c:=c) (t:=t) s)) :=
-  { result := WellFormed_ctx_subst s }.
+  : Injective (WellFormed_ctx_subst (HypSubst (c:=c) (t:=t) s)).
   Proof using.
+    refine {| result := WellFormed_ctx_subst s |}.
     refine (fun x =>
               match x in WellFormed_ctx_subst z
                     return match z return Prop with
@@ -726,15 +727,14 @@ Section parameterized.
   Defined.
 
   Global Instance Injective_WellFormed_ctx_subst_Top tus tvs
-  : Injective (WellFormed_ctx_subst (TopSubst tus tvs)) :=
-  { result := True }.
-  Proof using. trivial. Defined.
+  : Injective (WellFormed_ctx_subst (TopSubst tus tvs)).
+  Proof using. refine {| result := True |}. trivial. Defined.
 
   Global Instance Injective_WellFormed_ctx_subst_ExsSubst ctx ts c s
-  : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)) :=
-  { result := WellFormed_ctx_subst c /\
-              WellFormed_entry c (length ts) s }.
+  : Injective (WellFormed_ctx_subst (c:=CExs ctx ts) (ExsSubst c s)).
   Proof using.
+  refine {| result := WellFormed_ctx_subst c /\
+              WellFormed_entry c (length ts) s |}.
   intro.
   refine match H in @WellFormed_ctx_subst C s
                return match C as C return ctx_subst C -> Prop with
@@ -960,10 +960,10 @@ Section parameterized.
   Qed.
 
   Global Instance SubstOk_ctx_subst ctx
-  : @SubstOk (ctx_subst ctx) typ expr _ _ _ :=
-  { WellFormed_subst := @WellFormed_ctx_subst ctx
+  : @SubstOk (ctx_subst ctx) typ expr _ _ _.
+  refine {| WellFormed_subst := @WellFormed_ctx_subst ctx
   ; substD := @ctx_substD ctx
-  }.
+  |}.
   { intros; eapply ctx_substD_lookup; eassumption. }
   { intros; eapply ctx_subst_domain; eassumption. }
   { intros; eapply ctx_lookup_normalized; eassumption. }
@@ -1307,9 +1307,9 @@ Section parameterized.
   Qed.
 
   Global Instance Injective_SubstMorphism_AllSubst t ctx s s'
-  : Injective (@SubstMorphism (CAll ctx t) (AllSubst s) s') :=
-  { result := exists s'', s' = AllSubst s'' /\ @SubstMorphism ctx s s'' }.
+  : Injective (@SubstMorphism (CAll ctx t) (AllSubst s) s').
   Proof using.
+  refine {| result := exists s'', s' = AllSubst s'' /\ @SubstMorphism ctx s s'' |}.
   intros.
   exists (fromAll s').
   refine
@@ -1328,8 +1328,8 @@ Section parameterized.
   Defined.
 
   Global Instance Injective_SubstMorphism_HypSubst t ctx s s'
-  : Injective (@SubstMorphism (CHyp ctx t) (HypSubst s) s') :=
-  { result := exists s'', s' = HypSubst s'' /\ @SubstMorphism ctx s s'' }.
+  : Injective (@SubstMorphism (CHyp ctx t) (HypSubst s) s').
+  refine {| result := exists s'', s' = HypSubst s'' /\ @SubstMorphism ctx s s'' |}.
   clear. intros.
   exists (fromHyp s').
   refine
@@ -1348,9 +1348,9 @@ Section parameterized.
   Defined.
 
   Global Instance Injective_SubstMorphism_TopSubst tus tvs s'
-  : Injective (@SubstMorphism (CTop tus tvs) (TopSubst _ _) s') :=
-  { result := s' = TopSubst tus tvs }.
+  : Injective (@SubstMorphism (CTop tus tvs) (TopSubst _ _) s').
   Proof using.
+  refine {| result := s' = TopSubst tus tvs |}.
     intros.
     refine
       (match H in @SubstMorphism C X Y
@@ -1365,8 +1365,9 @@ Section parameterized.
   Defined.
 
   Global Instance Injective_SubstMorphism_ExsSubst ctx tes s s' sub
-  : Injective (@SubstMorphism (CExs ctx tes) (ExsSubst sub s) s') :=
-  { result := exists s'' sub',
+  : Injective (@SubstMorphism (CExs ctx tes) (ExsSubst sub s) s').
+  Proof using.
+  refine {| result := exists s'' sub',
                 s' = ExsSubst sub' s''
                 /\ (match @pctxD ctx sub
                         , amap_substD ((getUVars ctx) ++ tes) (getVars ctx) s
@@ -1383,8 +1384,7 @@ Section parameterized.
                                                s2D (hlist_app us us') vs ->
                                                s1D (hlist_app us us') vs) us vs
                     end)
-                /\ SubstMorphism sub sub'}.
-  Proof using.
+                /\ SubstMorphism sub sub'|}.
   intros. exists (fst (fromExs s')). exists (snd (fromExs s')).
   refine
     (match H in @SubstMorphism C X Y
@@ -2109,7 +2109,7 @@ Section parameterized.
         split.
         { generalize H. intro SAVE_WF.
           eapply WellFormed_entry_check_set in H; eauto.
-          { 
+          {
             apply and_comm.
             eapply mentionsAny_conj_false. simpl.
             eapply mentionsAny_complete_false; eauto.
@@ -2255,7 +2255,7 @@ Section parameterized.
             eapply Pure_pctxD; eauto.
             intros. eapply H21 in H22. tauto. }
           { clear - H15 H17 H19 H7 H13.
-            split; intros. 
+            split; intros.
             { intuition. rewrite <- H19; auto.
               eapply H17 in H0.
               destruct H0. rewrite H0; clear H0.
@@ -2491,10 +2491,10 @@ Section parameterized.
   Qed.
 
   Global Instance SubstUpdateOk_ctx_subst ctx
-  : SubstUpdateOk (ctx_subst ctx) typ expr :=
-  { substR := fun _ _ a b => SubstMorphism a b
-  ; set_sound := _ }.
+  : SubstUpdateOk (ctx_subst ctx) typ expr.
   Proof.
+  refine {| substR := fun _ _ a b => SubstMorphism a b
+  ; set_sound := _ |}.
     intros. eapply ctx_substD_set; eauto.
   Defined.
 

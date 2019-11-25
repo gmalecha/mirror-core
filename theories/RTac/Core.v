@@ -90,18 +90,22 @@ Section parameterized.
 
 
   Global Instance Injective_WellFormed_Goal_GAll tus tvs t g
-  : Injective (WellFormed_Goal tus tvs (GAll t g)) :=
-    { result := WellFormed_Goal tus (tvs ++ t :: nil) g }.
-  Proof. inversion 1; auto. Defined.
-  Global Instance Injective_WellFormed_Goal_GHyp tus tvs t g
-  : Injective (WellFormed_Goal tus tvs (GHyp t g)) :=
-    { result := WellFormed_Goal tus tvs g }.
-  Proof. inversion 1; auto. Defined.
-  Global Instance Injective_WellFormed_Goal_GExs tus tvs l a g
-  : Injective (WellFormed_Goal tus tvs (GExs l a g)) :=
-    { result := WellFormed_Goal (tus ++ l) tvs g /\
-                WellFormed_bimap (length tus) (length l) (length tvs) a }.
+  : Injective (WellFormed_Goal tus tvs (GAll t g)).
   Proof.
+    refine {| result := WellFormed_Goal tus (tvs ++ t :: nil) g |}.
+    inversion 1; auto.
+  Defined.
+  Global Instance Injective_WellFormed_Goal_GHyp tus tvs t g
+  : Injective (WellFormed_Goal tus tvs (GHyp t g)).
+  Proof.
+    refine {| result := WellFormed_Goal tus tvs g |}.
+    inversion 1; auto.
+  Defined.
+  Global Instance Injective_WellFormed_Goal_GExs tus tvs l a g
+  : Injective (WellFormed_Goal tus tvs (GExs l a g)).
+  Proof.
+    refine {| result := WellFormed_Goal (tus ++ l) tvs g /\
+                WellFormed_bimap (length tus) (length l) (length tvs) a |}.
     refine (fun pf =>
               match pf in WellFormed_Goal _ _ G
                     return match G return Prop with
@@ -116,9 +120,11 @@ Section parameterized.
               end).
   Defined.
   Global Instance Injective_WellFormed_Goal_GConj tus tvs a b
-  : Injective (WellFormed_Goal tus tvs (GConj_ a b)) :=
-  { result := WellFormed_Goal tus tvs a /\ WellFormed_Goal tus tvs b }.
-  Proof. inversion 1. auto. Defined.
+  : Injective (WellFormed_Goal tus tvs (GConj_ a b)).
+  Proof.
+    refine {| result := WellFormed_Goal tus tvs a /\ WellFormed_Goal tus tvs b |}.
+    inversion 1. auto.
+  Defined.
 
 
   Definition GAlls (ts : list typ) (g : Goal) : Goal :=

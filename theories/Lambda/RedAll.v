@@ -67,15 +67,15 @@ Section reducer.
   Instance Injective_var_termsP t var_terms tus tvs tus' tvs' P
   : Injective (@var_termsP tus (t :: tvs) tus' (t :: tvs')
                            (@None (expr typ sym) :: var_terms)
-                           P) :=
-    {| result := exists P',
+                           P).
+  Proof.
+    refine {| result := exists P',
                    @var_termsP tus tvs tus' tvs' var_terms P' /\
                    (forall us (vs : HList.hlist typD (t :: tvs))
                            us' (vs' : HList.hlist typD (t :: tvs')),
                       P us vs us' vs' ->
                       hlist_hd vs = hlist_hd vs' /\
                       P' us (hlist_tl vs) us' (hlist_tl vs')) |}.
-  Proof.
     refine (fun H =>
               match H in @var_termsP a b c d X P
                     return match b as b , d as d , X
@@ -91,7 +91,7 @@ Section reducer.
                                              hlist_hd vs = match eq_sym pf in _ = t return typD t with
                                                              | eq_refl => hlist_hd vs'
                                                            end /\
-                                             P' us (hlist_tl vs) us' (hlist_tl vs')) 
+                                             P' us (hlist_tl vs) us' (hlist_tl vs'))
                              | _ , _ , _ => fun _ => True
                            end P
               with
