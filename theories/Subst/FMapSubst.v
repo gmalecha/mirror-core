@@ -1158,9 +1158,9 @@ Module Make (FM : WS with Definition E.t := uvar
     }.
 
     Instance SubstOpenOk_subst
-    : @SubstOpenOk raw typ expr _ _ _ _ SubstOpen_subst :=
-    { drop_sound := substD_drop' }.
+    : @SubstOpenOk raw typ expr _ _ _ _ SubstOpen_subst.
     Proof.
+      refine {| drop_sound := substD_drop' |}.
       unfold subst_weakenU; simpl.
       intros; subst.
       eapply substD_weaken with (tus' := tus') (tvs' := nil) in H1.

@@ -192,9 +192,10 @@ Section setoid.
   Qed.
 
   Global Instance SucceedsE_ptrnRinj {T} p x res
-  : ptrn_ok p -> SucceedsE x (@ptrnRinj T p) res :=
-  { s_result := exists y, Succeeds y p res /\ x = Rinj y }.
-  intros.  eauto using Succeeds_ptrnRinj.
+  : ptrn_ok p -> SucceedsE x (@ptrnRinj T p) res.
+  intros.
+  refine {| s_result := exists y, Succeeds y p res /\ x = Rinj y |}.
+  eauto using Succeeds_ptrnRinj.
   Defined.
 
   Definition ptrnRflip {T : Type} (p : ptrn R T)
@@ -233,9 +234,10 @@ Section setoid.
   Qed.
 
   Global Instance SucceedsE_ptrnRflip {T} p x res
-  : ptrn_ok p -> SucceedsE x (@ptrnRflip T p) res :=
-  { s_result := exists y, Succeeds y p res /\ x = Rflip y }.
-  intros.  eauto using Succeeds_ptrnRflip.
+  : ptrn_ok p -> SucceedsE x (@ptrnRflip T p) res.
+  intros.
+  refine {| s_result := exists y, Succeeds y p res /\ x = Rflip y |}.
+  eauto using Succeeds_ptrnRflip.
   Defined.
 
   Definition ptrnRrespectsL {T U : Type}
@@ -292,10 +294,11 @@ Section setoid.
   Qed.
 
   Global Instance SucceedsE_ptrnRrespectsL {T U} pl pr x res
-  : ptrn_ok pl -> ptrn_ok pr -> SucceedsE x (@ptrnRrespectsL T U pl pr) res :=
-  { s_result := exists y z resL resR, Succeeds y pl resL /\ Succeeds z pr resR /\
-                          x = Rrespects y z /\ res = resL resR }.
-  intros.  eauto using Succeeds_ptrnRrespectsL.
+  : ptrn_ok pl -> ptrn_ok pr -> SucceedsE x (@ptrnRrespectsL T U pl pr) res.
+  intros.
+  refine {| s_result := exists y z resL resR, Succeeds y pl resL /\ Succeeds z pr resR /\
+                          x = Rrespects y z /\ res = resL resR |}.
+  eauto using Succeeds_ptrnRrespectsL.
   Defined.
 
   Definition ptrnRpointwiseL {T U : Type}
@@ -352,10 +355,11 @@ Section setoid.
   Qed.
 
   Global Instance SucceedsE_ptrnRpointwiseL {T U} pl pr x res
-  : ptrn_ok pl -> ptrn_ok pr -> SucceedsE x (@ptrnRpointwiseL T U pl pr) res :=
-  { s_result := exists y z resL resR, Succeeds y pl resL /\ Succeeds z pr resR /\
-                          x = Rpointwise y z /\ res = resL resR }.
-  intros.  eauto using Succeeds_ptrnRpointwiseL.
+  : ptrn_ok pl -> ptrn_ok pr -> SucceedsE x (@ptrnRpointwiseL T U pl pr) res.
+  intros.
+  refine {| s_result := exists y z resL resR, Succeeds y pl resL /\ Succeeds z pr resR /\
+                          x = Rpointwise y z /\ res = resL resR |}.
+  eauto using Succeeds_ptrnRpointwiseL.
   Defined.
 
   Section refl_trans_types.

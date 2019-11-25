@@ -67,28 +67,28 @@ Section FuncView_base_type.
 
   Definition ptrn_tyNat : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
-      match f with
+      match f return _ with
       | tNat => good f
       | _ => bad f
       end.
 
   Definition ptrn_tyBool : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
-      match f with
+      match f return _ with
       | tBool => good f
       | _ => bad f
       end.
 
   Definition ptrn_tyString : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
-      match f with
+      match f return _ with
       | tString => good f
       | _ => bad f
       end.
 
   Definition ptrn_tyProp : ptrn (base_typ 0) (base_typ 0) :=
     fun f U good bad =>
-      match f with
+      match f return _ with
       | tProp => good f
       | _ => bad f
       end.
@@ -156,5 +156,5 @@ Section RelDec_base_type.
     remember (base_typ_dec x0 y).
     destruct s; subst; intuition.
   Qed.
-  
+
 End RelDec_base_type.

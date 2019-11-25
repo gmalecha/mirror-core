@@ -217,7 +217,7 @@ Module OneOfType.
     unfold asNth.
     destruct oe; simpl.
     revert value0. revert index0. revert ts.
-    induction p; destruct index0; simpl; intros; 
+    induction p; destruct index0; simpl; intros;
     try congruence; eapply IHp in H; inv_all; subst; reflexivity.
   Defined.
 
@@ -434,8 +434,8 @@ Section RSym_OneOf.
                                 | _None => Empty_set
                                 end)
            (H2 : forall p, RSymOk (H1 p))
-  : RSymOk (RSymOneOf m H1) :=
-  { sym_eqbOk f1 f2 :=
+  : RSymOk (RSymOneOf m H1).
+  refine {| sym_eqbOk f1 f2 :=
       match f1 as f1'
             return match sym_eqb f1' f2 return Prop with
                    | Some true => f1' = f2
@@ -455,7 +455,7 @@ Section RSym_OneOf.
           | mkOneOf _ x2 v2 => _
           end
       end
-  }.
+  |}.
   simpl. unfold sym_eqb_OneOf. simpl.
   destruct (Pos.eq_dec x1 x2).
   { destruct e.

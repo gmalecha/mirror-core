@@ -32,24 +32,26 @@ Section ExprDInject.
 
   Global Instance Injective_lambda_exprD_App tus tvs (e1 e2 : expr typ func) (t : typ)
          (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v) := {
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (App e1 e2) = Some v).
+  Proof.
+    refine {|
       result := exists u v1 v2, ExprDsimul.ExprDenote.lambda_exprD tus tvs (tyArr u t) e1 = Some v1 /\
                                 ExprDsimul.ExprDenote.lambda_exprD tus tvs u e2 = Some v2 /\
                                 v = AbsAppI.exprT_App v1 v2;
       injection := fun H => _
-    }.
-  Proof.
+    |}.
     autorewrite with exprD_rw in H.
     simpl in H. forward; inv_all; subst.
     do 3 eexists; repeat split; eassumption.
   Defined.
 
   Global Instance Injective_lambda_exprD_Inj tus tvs (f : func) (t : typ) (v : exprT tus tvs (typD t)):
-    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v) := {
+    Injective (ExprDsimul.ExprDenote.lambda_exprD tus tvs t (Inj f) = Some v).
+  Proof.
+    refine {|
       result := exists v', symAs f t = Some v' /\ v = fun _ _ => v';
       injection := fun H => _
-    }.
-  Proof.
+    |}.
     autorewrite with exprD_rw in H.
     simpl in H. forward; inv_all; subst.
     eexists; repeat split.

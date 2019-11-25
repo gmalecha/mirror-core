@@ -283,7 +283,7 @@ Section setoid.
   ; injection := @Succeeds_get _ _ }.
 *)
 
-  Global Polymorphic Class SucceedsE {T : Type} (f : X) (p : ptrn T) (v : T) :=
+  Polymorphic Class SucceedsE {T : Type} (f : X) (p : ptrn T) (v : T) :=
   { s_result : Prop
   ; s_elim : Succeeds f p v -> s_result
   }.

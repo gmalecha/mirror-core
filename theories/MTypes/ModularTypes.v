@@ -71,11 +71,11 @@ Section parametric.
 
   Section mtyp_ind.
     Variable P : mtyp -> Prop.
-    Hypotheses  (Harr : forall {a b}, P a -> P b -> P (tyArr a b))
+    Hypotheses  (Harr : forall a b, P a -> P b -> P (tyArr a b))
                 (Hbase0 : forall s, P (tyBase0 s))
-                (Hbase1 : forall s {a}, P a -> P (tyBase1 s a))
-                (Hbase2 : forall s {a b}, P a -> P b -> P (tyBase2 s a b))
-                (Happ : forall {n} s ms, ForallV P ms -> P (@tyApp n s ms)).
+                (Hbase1 : forall s a, P a -> P (tyBase1 s a))
+                (Hbase2 : forall s a b, P a -> P b -> P (tyBase2 s a b))
+                (Happ : forall n s ms, ForallV P ms -> P (@tyApp n s ms)).
     Fixpoint mtyp_ind (x : mtyp) : P x :=
       match x as x return P x with
       | tyArr a b => Harr _ _ (mtyp_ind a) (mtyp_ind b)
@@ -122,11 +122,11 @@ Section parametric.
   Defined.
 
   Instance Injective_tyApp {n n'} {s : symbol (3+n)} {s' : symbol (3+n')}
-           ms ms' : Injective (tyApp s ms = tyApp s' ms') :=
-  { result := forall pf : n' = n,
-      s = match pf with eq_refl => s' end /\
-      ms = match pf with eq_refl => ms' end }.
+           ms ms' : Injective (tyApp s ms = tyApp s' ms').
   Proof.
+    refine {| result := forall pf : n' = n,
+      s = match pf with eq_refl => s' end /\
+      ms = match pf with eq_refl => ms' end |}.
     intros.
     refine (match H in _ = (@tyApp n' l r)
                   return forall pf : n' = n,

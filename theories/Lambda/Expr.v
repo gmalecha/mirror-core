@@ -244,9 +244,9 @@ Section expr.
   ; mentionsV := _mentionsV
   }.
 
-  Instance ExprOk_expr : ExprOk Expr_expr :=
-  { exprD_weaken := _
-  }.
+  Instance ExprOk_expr : ExprOk Expr_expr.
+  refine {| exprD_weaken := _
+  |}.
   { intros. eapply (@ExprFacts.lambda_exprD_weaken _ _ _ _ _ _ _ _ _ _ _).
     eapply H. }
   { eapply lambda_exprD_strengthenU_single. }
